@@ -1,5 +1,6 @@
 // src/features/printer/transports/LanTransport.ts
 import TcpSocket from 'react-native-tcp-socket';
+import { Buffer } from 'buffer';
 import { AppErrorException } from '../../../types/AppError';
 
 /**
@@ -28,6 +29,31 @@ export class LanTransport {
       throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'LAN socket chưa được kết nối' });
     }
     this.socket.write(bytes);
+  }
+
+  /**
+   * Đọc 1 lần dữ liệu phản hồi từ socket trong `timeoutMs`, dùng cho
+   * `TsplDriver.identify()` — không dùng cho luồng in bình thường (chỉ ghi).
+   */
+  readOnce(timeoutMs: number): Promise<Uint8Array | null> {
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        resolve(null);
+        return;
+      }
+      const socket = this.socket;
+      const onData = (data: Buffer | string): void => {
+        clearTimeout(timer);
+        socket.removeListener('data', onData);
+        const buffer = typeof data === 'string' ? Buffer.from(data) : data;
+        resolve(new Uint8Array(buffer));
+      };
+      const timer = setTimeout(() => {
+        socket.removeListener('data', onData);
+        resolve(null);
+      }, timeoutMs);
+      socket.on('data', onData);
+    });
   }
 
   close(): void {
