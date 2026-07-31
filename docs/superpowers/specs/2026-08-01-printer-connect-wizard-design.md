@@ -69,7 +69,7 @@ export interface PrinterConfig {
 identify(printerId: string): Promise<PrinterDeviceInfo | null>;
 ```
 
-Gọi ngay sau `connect()` thành công trong bước dò tìm. Trả về `null` hoặc field rỗng nếu driver/SDK không cung cấp được thông tin — **không tự ý coi đó là xác nhận protocol**, chỉ coi là xác nhận khi có tối thiểu `vendor` hoặc `model` khớp bảng mapping (mục 4.3).
+Gọi ngay sau `connect()` thành công trong bước dò tìm. Trả về `null` hoặc field rỗng nếu driver/SDK không cung cấp được thông tin. **Xác nhận protocol tự thân từng driver** — `identify()` trả về thông tin thật (không `null`) nghĩa là driver đó xác nhận đúng protocol; bảng mapping (mục 4.3) **không** tham gia vào việc xác nhận, chỉ dùng để sắp thứ tự thử (mục 4.2).
 
 **EscPosDriver.identify()**: dùng lệnh đọc ID máy in nếu `react-native-esc-pos-printer` hỗ trợ (cần verify API thực tế khi implement — xem Rủi ro mục 8).
 
@@ -95,29 +95,39 @@ discoverProtocol(
 
 Thuật toán (event-driven, không polling — đúng Global Constraint Phase 1):
 
-1. Xác định thứ tự thử: nếu có hint từ OS (tên thiết bị Bluetooth, USB descriptor khớp regex trong bảng mapping mục 4.3) → thử protocol được hint trước; mặc định thứ tự `['escpos', 'tspl']`.
-2. Với từng protocol theo thứ tự: gọi `DriverRegistry[protocol].connect(config)`.
+1. **Lấy danh sách candidate protocol theo thứ tự ưu tiên**: tra `PrinterDetectionRules` (mục 4.3) theo vendor/model đã biết từ OS (USB descriptor, tên thiết bị Bluetooth) — luật khớp đầu tiên (ưu tiên khớp cả vendor+model, sau đó vendor-only, cuối cùng luật fallback bắt-tất-cả luôn khớp) cho ra `candidates: Protocol[]`. Lọc `candidates` chỉ giữ những protocol **đã có driver đăng ký** trong `DriverRegistry` (loại bỏ ví dụ `'zpl'` nếu chưa có `ZplDriver` — xem mục 8).
+2. Với từng protocol trong `candidates` theo đúng thứ tự: gọi `DriverRegistry[protocol].connect(config)`.
    - `connect()` thất bại → `disconnect` (best-effort) → thử protocol tiếp theo.
    - `connect()` thành công → gọi `identify(printerId)`.
-     - Kết quả khớp bảng mapping (mục 4.3) → emit `{ stage: 'identified', protocol, deviceInfo }`, **giữ nguyên connection đang mở**, dừng thuật toán.
-     - Kết quả rỗng/không khớp → `disconnect`, thử protocol tiếp theo.
-3. Hết danh sách mà không protocol nào được xác nhận → emit `{ stage: 'unknown_protocol' }`.
-4. Nếu `connect()` thất bại ở **mọi** protocol (không driver nào mở được kết nối vật lý) → emit `{ stage: 'error', error }` — đây là lỗi kết nối thật (sai IP, thiết bị tắt, mất pairing…), khác với `unknown_protocol` (kết nối được nhưng không rõ protocol).
+     - Trả về thông tin thật (khác `null`) → driver tự xác nhận đúng protocol: emit `{ stage: 'identified', protocol, deviceInfo }`, **giữ nguyên connection đang mở**, dừng thuật toán. Mapping/hint chỉ quyết định *thử ai trước*, không quyết định *ai đúng* — đúng driver phải tự `identify()` thành công.
+     - Trả `null`/rỗng → `disconnect`, thử protocol tiếp theo trong `candidates`.
+3. Hết `candidates` mà không protocol nào tự xác nhận được → emit `{ stage: 'unknown_protocol' }`.
+4. Nếu `connect()` thất bại ở **mọi** protocol trong `candidates` (không driver nào mở được kết nối vật lý) → emit `{ stage: 'error', error }` — lỗi kết nối thật (sai IP, thiết bị tắt, mất pairing…), khác với `unknown_protocol` (kết nối được nhưng không driver nào tự xác nhận).
 
-### 4.3 Bảng mapping (hardcode)
+### 4.3 Printer Detection Rules (hardcode)
 
 ```ts
-// src/features/printer/constants/protocolMapping.ts
-export const PROTOCOL_MAPPING: Array<{
+// src/features/printer/constants/printerDetectionRules.ts
+export interface PrinterDetectionRule {
   vendorMatch: RegExp;
   modelMatch?: RegExp;
-  protocol: Protocol;
-}> = [
-  // TODO: điền danh sách máy in thực tế sẽ dùng khi có thông tin từ người dùng
+  candidates: Protocol[];       // thứ tự ưu tiên thử, KHÔNG phải kết luận cuối cùng
+  confidence: 'high' | 'medium' | 'low';
+  note?: string;
+}
+
+export const PRINTER_DETECTION_RULES: PrinterDetectionRule[] = [
+  // TODO: điền danh sách máy in thực tế (vendor/model) khi có thông tin từ người dùng
+
+  // Luật fallback bắt-tất-cả — LUÔN đặt cuối danh sách, đảm bảo discoverProtocol()
+  // luôn có candidates để thử ngay cả khi không rule cụ thể nào khớp.
+  { vendorMatch: /.*/, candidates: ['escpos', 'tspl'], confidence: 'low' },
 ];
 ```
 
-Danh sách thực tế (tên máy in, vendor, model) cần người dùng cung cấp khi viết implementation plan — hiện chưa có nên để mảng rỗng + TODO tường minh, **không** bịa dữ liệu mapping giả.
+Tên gọi phản ánh đúng vai trò: đây là **luật nhận diện thiết bị** (cho ra candidate driver để thử), không phải bảng "kết luận protocol" — tránh nhầm lẫn khi đọc code sau này.
+
+Danh sách rule cụ thể (tên máy in, vendor, model thật) cần người dùng cung cấp khi viết implementation plan — hiện chưa có nên chỉ để luật fallback + TODO tường minh, **không** bịa dữ liệu.
 
 ---
 
@@ -188,14 +198,15 @@ Giữ nguyên nguyên tắc Phase 1: mọi lỗi driver/transport chuẩn hoá q
 
 ## 7. Kiểm Thử
 
-- Logic thuần không cần hardware: thuật toán thử tuần tự trong `discoverProtocol` (mock driver `connect`/`identify`), bảng mapping vendor/model → protocol, Zod schema wizard mới, reducer `printerSlice` (field mới `deviceInfo`/`protocolSource`).
+- Logic thuần không cần hardware: thuật toán thử tuần tự trong `discoverProtocol` (mock driver `connect`/`identify`), `PRINTER_DETECTION_RULES` (matching vendor/model → candidates, thứ tự ưu tiên, luật fallback), Zod schema wizard mới, reducer `printerSlice` (field mới `deviceInfo`/`protocolSource`).
 - Luồng cần hardware thật (kết nối, nhận diện, in thử qua USB/BT/LAN thật với máy in vật lý) đánh dấu rõ **"cần test trên thiết bị thật"** trong plan — không tự nhận đã hoạt động chỉ vì compile được, giữ nguyên nguyên tắc Phase 1 §7.
 
 ---
 
 ## 8. Rủi Ro & Giả Định Đã Biết
 
-- **API `identify()` của `react-native-esc-pos-printer`**: chưa xác nhận SDK có hỗ trợ lệnh đọc ID/model máy in hay không — cần verify khi implement; nếu không hỗ trợ, `EscPosDriver.identify()` sẽ luôn trả `null` và protocol ESC/POS chỉ có thể xác nhận qua hint OS (tên thiết bị) hoặc phải chọn thủ công.
+- **API `identify()` của `react-native-esc-pos-printer`**: chưa xác nhận SDK có hỗ trợ lệnh đọc ID/model máy in hay không — cần verify khi implement; nếu không hỗ trợ, `EscPosDriver.identify()` sẽ luôn trả `null` và protocol ESC/POS sẽ luôn rơi vào `unknown_protocol` (phải chọn thủ công) cho tới khi driver có cách xác nhận khác.
 - **TSPL không có lệnh nhận diện chuẩn hoá**: nhiều máy in tem giá rẻ không phản hồi lệnh trạng thái/nhận diện — `TsplDriver.identify()` khả năng cao trả `null` với phần lớn thiết bị thực tế; đây là hạn chế đã biết, không phải thiếu sót code. Trong trường hợp này hệ thống sẽ rơi vào `unknown_protocol` và yêu cầu người dùng chọn thủ công — đúng theo rule đã thống nhất, không đoán bừa.
-- **Bảng mapping vendor/model → protocol còn rỗng** (mục 4.3) — cần danh sách máy in thực tế từ người dùng trước khi implement đầy đủ; không bịa dữ liệu.
+- **`PRINTER_DETECTION_RULES` còn chỉ có luật fallback** (mục 4.3) — cần danh sách rule thật (vendor/model) từ người dùng trước khi implement đầy đủ; không bịa dữ liệu.
+- **`candidates` có thể liệt kê protocol chưa có driver** (vd. rule Godex ví dụ trong thảo luận thiết kế: `['tspl', 'zpl']` dù chưa có `ZplDriver` phase này) — `discoverProtocol` (mục 4.2 bước 1) lọc bỏ candidate không có driver đăng ký trước khi thử; viết rule với protocol chưa implement là hợp lệ (chuẩn bị sẵn cho tương lai), miễn không phá vỡ scope "chỉ ESC/POS + TSPL" của lần implement này (mục 2).
 - Kế thừa toàn bộ rủi ro/giả định đã ghi ở Phase 1 §8 (USB chưa hỗ trợ TSPL, `react-native-esc-pos-printer` giả định hỗ trợ đủ USB/BT/LAN, auto-reconnect chỉ theo thao tác người dùng/khởi động app).
