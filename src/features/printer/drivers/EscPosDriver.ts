@@ -2,7 +2,7 @@
 import { Printer, PrintersDiscovery, DiscoveryPortType } from 'react-native-esc-pos-printer';
 import type { DeviceInfo } from 'react-native-esc-pos-printer';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
-import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterStatus } from '../types/printer.types';
+import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
 import { AppErrorException } from '../../../types/AppError';
 
 /**
@@ -108,6 +108,23 @@ export class EscPosDriver implements IPrinterDriver {
 
   getStatus(printerId: string): PrinterStatus {
     return this.statuses.get(printerId) ?? 'idle';
+  }
+
+  /**
+   * Gọi `printer.getStatus()` — nếu SDK trả về (không throw), máy in đã phản
+   * hồi đúng lệnh ESC/POS status, coi là xác nhận protocol. SDK không có API
+   * đọc vendor/model (chỉ có paper/density/speed settings), nên chỉ trả về
+   * `deviceName` — xem spec §8 (rủi ro đã ghi nhận).
+   */
+  async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
+    const printer = this.printers.get(printerId);
+    if (!printer) return null;
+    try {
+      await printer.getStatus();
+      return { deviceName: printer.deviceName };
+    } catch {
+      return null;
+    }
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {

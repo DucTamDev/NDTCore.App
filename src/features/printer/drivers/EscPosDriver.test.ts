@@ -4,12 +4,14 @@ import type { PrinterConfig } from '../types/printer.types';
 
 jest.mock('react-native-esc-pos-printer', () => {
   const printerInstance = {
+    deviceName: '',
     connect: jest.fn().mockResolvedValue(undefined),
     disconnect: jest.fn().mockResolvedValue(undefined),
     addText: jest.fn().mockResolvedValue(undefined),
     addFeedLine: jest.fn().mockResolvedValue(undefined),
     addCut: jest.fn().mockResolvedValue(undefined),
     sendData: jest.fn().mockResolvedValue({}),
+    getStatus: jest.fn().mockResolvedValue({}),
   };
 
   const discoveryListeners: Array<(printers: unknown[]) => void> = [];
@@ -41,7 +43,10 @@ jest.mock('react-native-esc-pos-printer', () => {
   };
 
   return {
-    Printer: jest.fn().mockImplementation(() => printerInstance),
+    Printer: jest.fn().mockImplementation((params: { deviceName?: string }) => {
+      printerInstance.deviceName = params?.deviceName ?? '';
+      return printerInstance;
+    }),
     PrintersDiscovery,
     DiscoveryPortType: {
       PORTTYPE_ALL: 0,
@@ -56,8 +61,8 @@ jest.mock('react-native-esc-pos-printer', () => {
 const receiptConfig: PrinterConfig = {
   id: 'receipt-1',
   printerName: 'Máy in hóa đơn quầy 1',
-  printerType: 'receipt',
   protocol: 'escpos',
+  protocolSource: 'auto',
   connectionType: 'lan',
   paperSize: '80mm',
   autoReconnect: true,
@@ -94,5 +99,30 @@ describe('EscPosDriver', () => {
         done();
       }
     });
+  });
+
+  it('identify() returns null when not connected', async () => {
+    const driver = new EscPosDriver();
+    const result = await driver.identify('never-connected');
+    expect(result).toBeNull();
+  });
+
+  it('identify() returns the printer deviceName when getStatus() resolves', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect(receiptConfig);
+    const result = await driver.identify(receiptConfig.id);
+    expect(result).toEqual({ deviceName: receiptConfig.printerName });
+  });
+
+  it('identify() returns null when getStatus() rejects', async () => {
+    const { Printer } = jest.requireMock('react-native-esc-pos-printer') as { Printer: jest.Mock };
+    Printer.mockImplementationOnce(() => ({
+      connect: jest.fn().mockResolvedValue(undefined),
+      getStatus: jest.fn().mockRejectedValue(new Error('no response')),
+    }));
+    const driver = new EscPosDriver();
+    await driver.connect(receiptConfig);
+    const result = await driver.identify(receiptConfig.id);
+    expect(result).toBeNull();
   });
 });
