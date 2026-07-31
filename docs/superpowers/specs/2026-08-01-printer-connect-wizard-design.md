@@ -26,6 +26,7 @@ Thiết kế lại theo chuẩn app POS thương mại: người dùng chỉ c�
 - Mapping table động (lưu MMKV, có UI quản trị chỉnh sửa) — Phase này hardcode trong code, cập nhật bằng sửa code + release bản mới.
 - Auto-reconnect theo hardware event thật — không đổi so với Phase 1 (chỉ auto-reconnect lúc khởi động app / theo thao tác người dùng).
 - Các thao tác trên `PrinterListItem` đã có (Kết nối/Ngắt/Kết nối lại/Đặt mặc định/Xóa) — giữ nguyên, dùng thẳng `protocol` đã lưu, không qua wizard.
+- **Máy in built-in (Sunmi, iMin...)** — không thêm `connectionType: 'builtin'` hay driver riêng (`SunmiBuiltinDriver`/`IminBuiltinDriver`) lần này. Đây là known gap ghi nhận cho tương lai (mục 8), không phải thiếu sót — các dòng POS này in qua SDK/AIDL riêng của hãng, không qua USB/Bluetooth/LAN nên không đi qua `discoverProtocol()`/`PRINTER_DETECTION_RULES` của thiết kế này.
 
 ---
 
@@ -117,17 +118,110 @@ export interface PrinterDetectionRule {
 }
 
 export const PRINTER_DETECTION_RULES: PrinterDetectionRule[] = [
-  // TODO: điền danh sách máy in thực tế (vendor/model) khi có thông tin từ người dùng
+  // ===== ESC/POS — Receipt Printer (độ ưu tiên rất cao, ~90% cửa hàng) =====
+  {
+    vendorMatch: /epson/i,
+    modelMatch: /TM-?(T82III|T82|T20|M30)/i,
+    candidates: ['escpos'],
+    confidence: 'high',
+    note: 'Epson TM series — chuẩn ESC/POS gốc',
+  },
+  {
+    vendorMatch: /xprinter/i,
+    modelMatch: /XP-?(58|80|Q200|Q260)/i,
+    candidates: ['escpos'],
+    confidence: 'high',
+    note: 'Dòng receipt Xprinter — KHÁC dòng label bên dưới, bắt buộc match model để phân biệt',
+  },
+  {
+    vendorMatch: /goojprt/i,
+    modelMatch: /GP-?(58|80)/i,
+    candidates: ['escpos'],
+    confidence: 'high',
+  },
+  {
+    vendorMatch: /zjiang/i,
+    modelMatch: /ZJ-?(58|80|5890)/i,
+    candidates: ['escpos'],
+    confidence: 'high',
+  },
+  {
+    vendorMatch: /rongta/i,
+    modelMatch: /RP(80|58)/i,
+    candidates: ['escpos'],
+    confidence: 'high',
+  },
 
-  // Luật fallback bắt-tất-cả — LUÔN đặt cuối danh sách, đảm bảo discoverProtocol()
-  // luôn có candidates để thử ngay cả khi không rule cụ thể nào khớp.
+  // ===== TSPL — Label Printer (độ ưu tiên cao) =====
+  {
+    vendorMatch: /xprinter/i,
+    modelMatch: /XP-?(360B|370B|420B|450B)/i,
+    candidates: ['tspl'],
+    confidence: 'high',
+    note: 'Dòng label Xprinter — KHÔNG gồm 365B (xem rule dual bên dưới)',
+  },
+  {
+    vendorMatch: /gprinter/i,
+    modelMatch: /GP-?(1424D|2120TU|3120TU)/i,
+    candidates: ['tspl'],
+    confidence: 'high',
+  },
+  {
+    vendorMatch: /hprt/i,
+    modelMatch: /(HT300|HT330|N31|N41)/i,
+    candidates: ['tspl'],
+    confidence: 'medium',
+    note: 'Chưa verify riêng từng model HPRT với deviceInfo thật, tạm confidence=medium',
+  },
+  {
+    vendorMatch: /tsc/i,
+    modelMatch: /(TE200|TE210|TTP-?244|DA210)/i,
+    candidates: ['tspl'],
+    confidence: 'high',
+    note: 'TSC TTP-244 xác nhận dùng TSPL-EZ (đã verify). TE/DA series theo thông lệ hãng cũng TSPL',
+  },
+
+  // ===== DUAL-MODE — match được vendor/model nhưng KHÔNG được suy đoán 1 protocol =====
+  {
+    vendorMatch: /xprinter/i,
+    modelMatch: /365B/i,
+    candidates: ['tspl', 'escpos'],
+    confidence: 'low',
+    note:
+      'XP-365B hỗ trợ CẢ TSPL và ESC/POS emulation, có cả print mode Label lẫn Receipt trên cùng máy. ' +
+      'confidence=low bắt buộc để discoverProtocol() KHÔNG tự chọn — phải rơi vào unknown_protocol ' +
+      'và hỏi người dùng xác nhận Printer Language dù đã match được vendor/model.',
+  },
+
+  // ===== KHÔNG đưa Sunmi/iMin vào bảng regex vendor/model này =====
+  // Lý do: đây là POS tích hợp sẵn máy in (built-in), truy cập qua SDK/AIDL riêng của
+  // hãng (SunmiPrinterService, iMin SDK...), KHÔNG kết nối qua USB/Bluetooth/LAN nên
+  // không bao giờ đi qua discoverProtocol() dựa trên bảng regex này.
+  // Sunmi (V2, T2, D2 Mini, D2s) và iMin (D2, D3, Falcon) cần:
+  //   - connectionType riêng: 'builtin'
+  //   - driver riêng: SunmiBuiltinDriver / IminBuiltinDriver gọi thẳng SDK native
+  //   - xử lý ở tầng driver selection (Bước 1 của wizard), KHÔNG qua bảng vendor/model
+  //     regex ở đây.
+  // Việc "ESC/POS" ghi trong bảng gốc của người dùng cho Sunmi/iMin là ĐÚNG về mặt lệnh
+  // in (built-in printer của cả 2 hãng đều tương thích tập lệnh ESC/POS, có customize),
+  // nhưng SAI nếu đặt trong PRINTER_DETECTION_RULES vì bảng này chỉ áp dụng cho luồng
+  // kết nối vật lý USB/Bluetooth/LAN — Sunmi/iMin builtin không đi qua luồng đó.
+  // Ngoài phạm vi implementation này (mục 2) — connectionType 'builtin' và 2 driver
+  // trên KHÔNG được viết lần này, chỉ ghi nhận known gap cho tương lai (mục 8).
+
+  // TODO: bổ sung thêm rule khi có deviceInfo thật từ thiết bị test (đặc biệt cần xác
+  // nhận format vendor/model string mà identify() thực sự trả về).
+
+  // Luật fallback bắt-tất-cả — LUÔN đặt cuối danh sách.
   { vendorMatch: /.*/, candidates: ['escpos', 'tspl'], confidence: 'low' },
 ];
 ```
 
 Tên gọi phản ánh đúng vai trò: đây là **luật nhận diện thiết bị** (cho ra candidate driver để thử), không phải bảng "kết luận protocol" — tránh nhầm lẫn khi đọc code sau này.
 
-Danh sách rule cụ thể (tên máy in, vendor, model thật) cần người dùng cung cấp khi viết implementation plan — hiện chưa có nên chỉ để luật fallback + TODO tường minh, **không** bịa dữ liệu.
+Rule `XP-365B` minh hoạ đúng nguyên tắc mục 4.2: dù match được vendor/model rõ ràng, `confidence: 'low'` bắt buộc hệ thống vẫn coi là chưa xác nhận — không tự chọn 1 trong 2 candidate, để `discoverProtocol()` thử cả hai qua `identify()` thật, và nếu cả hai đều không tự xác nhận được thì hỏi người dùng.
+
+Danh sách trên là rule khởi tạo ban đầu; vẫn cần bổ sung/hiệu chỉnh khi có `deviceInfo` thật từ thiết bị test (đặc biệt để xác nhận format chuỗi vendor/model mà `identify()` các driver thực sự trả về — có thể khác cách viết trong USB/Bluetooth descriptor).
 
 ---
 
@@ -207,6 +301,7 @@ Giữ nguyên nguyên tắc Phase 1: mọi lỗi driver/transport chuẩn hoá q
 
 - **API `identify()` của `react-native-esc-pos-printer`**: chưa xác nhận SDK có hỗ trợ lệnh đọc ID/model máy in hay không — cần verify khi implement; nếu không hỗ trợ, `EscPosDriver.identify()` sẽ luôn trả `null` và protocol ESC/POS sẽ luôn rơi vào `unknown_protocol` (phải chọn thủ công) cho tới khi driver có cách xác nhận khác.
 - **TSPL không có lệnh nhận diện chuẩn hoá**: nhiều máy in tem giá rẻ không phản hồi lệnh trạng thái/nhận diện — `TsplDriver.identify()` khả năng cao trả `null` với phần lớn thiết bị thực tế; đây là hạn chế đã biết, không phải thiếu sót code. Trong trường hợp này hệ thống sẽ rơi vào `unknown_protocol` và yêu cầu người dùng chọn thủ công — đúng theo rule đã thống nhất, không đoán bừa.
-- **`PRINTER_DETECTION_RULES` còn chỉ có luật fallback** (mục 4.3) — cần danh sách rule thật (vendor/model) từ người dùng trước khi implement đầy đủ; không bịa dữ liệu.
-- **`candidates` có thể liệt kê protocol chưa có driver** (vd. rule Godex ví dụ trong thảo luận thiết kế: `['tspl', 'zpl']` dù chưa có `ZplDriver` phase này) — `discoverProtocol` (mục 4.2 bước 1) lọc bỏ candidate không có driver đăng ký trước khi thử; viết rule với protocol chưa implement là hợp lệ (chuẩn bị sẵn cho tương lai), miễn không phá vỡ scope "chỉ ESC/POS + TSPL" của lần implement này (mục 2).
+- **`PRINTER_DETECTION_RULES` đã có bộ rule khởi tạo** (mục 4.3, dựa trên các dòng máy phổ biến: Epson TM, Xprinter, GoojPrt, Zjiang, Rongta, Gprinter, HPRT, TSC) nhưng chưa verify với `deviceInfo` thật từ hardware — format chuỗi vendor/model thật mà `identify()` trả về có thể khác giả định trong rule, cần hiệu chỉnh khi có thiết bị test. Rule `HPRT` để `confidence: 'medium'` vì chưa verify riêng từng model.
+- **`candidates` có thể liệt kê protocol chưa có driver** (vd. rule tương lai kiểu Godex: `['tspl', 'zpl']` dù chưa có `ZplDriver` phase này) — `discoverProtocol` (mục 4.2 bước 1) lọc bỏ candidate không có driver đăng ký trước khi thử; viết rule với protocol chưa implement là hợp lệ (chuẩn bị sẵn cho tương lai), miễn không phá vỡ scope "chỉ ESC/POS + TSPL" của lần implement này (mục 2).
+- **Máy in built-in (Sunmi, iMin...)** — ngoài phạm vi lần này (mục 2). Cần `connectionType: 'builtin'` mới + driver riêng gọi thẳng SDK/AIDL của hãng (`SunmiPrinterService`, iMin SDK...), không đi qua `PRINTER_DETECTION_RULES`/`discoverProtocol()` vì không kết nối qua USB/Bluetooth/LAN. Ghi nhận là known gap cho một phase riêng sau này.
 - Kế thừa toàn bộ rủi ro/giả định đã ghi ở Phase 1 §8 (USB chưa hỗ trợ TSPL, `react-native-esc-pos-printer` giả định hỗ trợ đủ USB/BT/LAN, auto-reconnect chỉ theo thao tác người dùng/khởi động app).
