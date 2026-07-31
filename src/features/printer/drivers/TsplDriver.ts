@@ -1,7 +1,7 @@
 // src/features/printer/drivers/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
-import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterStatus } from '../types/printer.types';
+import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
 import { TsplEncoder } from '../protocols/TsplEncoder';
 import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
@@ -10,12 +10,22 @@ import { AppErrorException } from '../../../types/AppError';
 
 type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
+const IDENTIFY_TIMEOUT_MS = 1000;
+
 /**
- * Driver TSPL cho máy in tem (label), điều phối kết nối tới đúng transport
- * (LAN/Bluetooth/USB) và mã hoá lệnh in bằng `TsplEncoder`.
- * (TSPL driver for label printers — dispatches connections to the correct
- * transport (LAN/Bluetooth/USB) and encodes print commands via `TsplEncoder`.)
+ * Mã hoá 1 lệnh TSPL ASCII đơn giản thành byte thô — dùng riêng cho lệnh dò
+ * trạng thái trong `identify()`, không qua `TsplEncoder` (vốn dành cho nội
+ * dung in thật, không có API gửi lệnh raw).
  */
+const encodeAsciiCommand = (text: string): Uint8Array => {
+  const bytes = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i += 1) {
+    // eslint-disable-next-line no-bitwise -- intentional single-byte masking, same as TsplEncoder.encode()
+    bytes[i] = text.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+};
+
 export class TsplDriver implements IPrinterDriver {
   private connections = new Map<string, TsplTransport>();
   private statuses = new Map<string, PrinterStatus>();
@@ -117,6 +127,32 @@ export class TsplDriver implements IPrinterDriver {
       (transport as LanTransport).write(bytes);
     } else if (config.connectionType === 'bluetooth') {
       await (transport as BluetoothTransport).write(bytes);
+    }
+  }
+
+  /**
+   * Gửi lệnh trạng thái TSPL ("~!T") và chờ phản hồi trong `IDENTIFY_TIMEOUT_MS`.
+   * Nhiều máy in tem giá rẻ không phản hồi lệnh này — trả `null` là kết quả
+   * hợp lệ, không phải lỗi (spec §4.1, §8).
+   *
+   * Dùng `'readOnce' in transport` để thu hẹp kiểu thay vì `instanceof`:
+   * `identify()` chỉ nhận `printerId` (không có `config.connectionType` như
+   * `connect()`/`testPrint()`), và `instanceof` không đáng tin cậy với các
+   * lớp bị jest mock qua `mockImplementation(() => ({...}))` (object literal
+   * trả về không có `LanTransport.prototype` trong chuỗi prototype). USB
+   * không có `readOnce` (chỉ Lan/Bluetooth có, thêm ở Task 4–5) nên bị loại
+   * ngay mà không cần gọi `write()` (vốn luôn throw trên USB).
+   */
+  async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
+    const transport = this.connections.get(printerId);
+    if (!transport || !('readOnce' in transport)) return null;
+    try {
+      const query = encodeAsciiCommand('~!T\r\n');
+      await transport.write(query);
+      const response = await transport.readOnce(IDENTIFY_TIMEOUT_MS);
+      return response && response.length > 0 ? {} : null;
+    } catch {
+      return null;
     }
   }
 }

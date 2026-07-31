@@ -6,6 +6,7 @@ jest.mock('../transports/LanTransport', () => ({
   LanTransport: jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue(undefined),
     write: jest.fn(),
+    readOnce: jest.fn().mockResolvedValue(null),
     close: jest.fn(),
   })),
 }));
@@ -14,6 +15,7 @@ jest.mock('../transports/BluetoothTransport', () => ({
   BluetoothTransport: jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue(undefined),
     write: jest.fn().mockResolvedValue(undefined),
+    readOnce: jest.fn().mockResolvedValue(null),
     close: jest.fn().mockResolvedValue(undefined),
   })),
 }));
@@ -21,8 +23,8 @@ jest.mock('../transports/BluetoothTransport', () => ({
 const lanConfig: PrinterConfig = {
   id: 'label-1',
   printerName: 'Máy in tem',
-  printerType: 'label',
   protocol: 'tspl',
+  protocolSource: 'auto',
   connectionType: 'lan',
   paperSize: '58mm',
   autoReconnect: false,
@@ -68,5 +70,34 @@ describe('TsplDriver', () => {
     const events: string[] = [];
     driver.scan('usb', (event) => events.push(event.type));
     expect(events).toEqual(['error']);
+  });
+
+  it('identify() returns null when not connected', async () => {
+    const driver = new TsplDriver();
+    const result = await driver.identify('never-connected');
+    expect(result).toBeNull();
+  });
+
+  it('identify() returns null when the transport does not respond in time', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const result = await driver.identify(lanConfig.id);
+    expect(result).toBeNull();
+  });
+
+  it('identify() returns a non-null PrinterDeviceInfo when the transport responds', async () => {
+    const { LanTransport } = jest.requireMock('../transports/LanTransport') as {
+      LanTransport: jest.Mock;
+    };
+    LanTransport.mockImplementation(() => ({
+      connect: jest.fn().mockResolvedValue(undefined),
+      write: jest.fn(),
+      readOnce: jest.fn().mockResolvedValue(new Uint8Array([0x01])),
+      close: jest.fn(),
+    }));
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const result = await driver.identify(lanConfig.id);
+    expect(result).not.toBeNull();
   });
 });
