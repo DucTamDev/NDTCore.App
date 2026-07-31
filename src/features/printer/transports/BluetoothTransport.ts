@@ -17,6 +17,28 @@ export class BluetoothTransport {
     await this.device.write(Buffer.from(bytes).toString('base64'), 'base64');
   }
 
+  /**
+   * Đọc 1 lần dữ liệu phản hồi từ thiết bị trong `timeoutMs`, dùng cho
+   * `TsplDriver.identify()` — không dùng cho luồng in bình thường (chỉ ghi).
+   */
+  readOnce(timeoutMs: number): Promise<Uint8Array | null> {
+    return new Promise((resolve) => {
+      if (!this.device) {
+        resolve(null);
+        return;
+      }
+      const subscription = this.device.onDataReceived((event) => {
+        clearTimeout(timer);
+        subscription.remove();
+        resolve(new Uint8Array(Buffer.from(event.data, 'base64')));
+      });
+      const timer = setTimeout(() => {
+        subscription.remove();
+        resolve(null);
+      }, timeoutMs);
+    });
+  }
+
   async close(): Promise<void> {
     await this.device?.disconnect();
     this.device = null;
