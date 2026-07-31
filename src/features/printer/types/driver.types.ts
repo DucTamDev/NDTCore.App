@@ -1,4 +1,4 @@
-import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterStatus } from './printer.types';
+import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from './printer.types';
 
 export type Unsubscribe = () => void;
 
@@ -9,4 +9,5 @@ export interface IPrinterDriver {
   getStatus(printerId: string): PrinterStatus;
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe;
   testPrint(config: PrinterConfig): Promise<void>;
+  identify(printerId: string): Promise<PrinterDeviceInfo | null>;
 }
