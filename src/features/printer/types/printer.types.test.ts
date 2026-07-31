@@ -6,8 +6,8 @@ describe('printer domain types', () => {
     const config: PrinterConfig = {
       id: 'p1',
       printerName: 'Máy in tem quầy 1',
-      printerType: 'label',
       protocol: 'tspl',
+      protocolSource: 'auto',
       connectionType: 'lan',
       paperSize: '58mm',
       autoReconnect: true,
@@ -25,6 +25,7 @@ describe('printer domain types', () => {
       getStatus: () => 'idle',
       onStatusChange: () => () => undefined,
       testPrint: async () => undefined,
+      identify: async () => null,
     };
     expect(driver.getStatus('p1')).toBe('idle');
   });
