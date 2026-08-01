@@ -4,19 +4,21 @@ import { StorageService } from '../../../services/StorageService';
 import type { IPrinterDriver } from '../types/driver.types';
 import type { PrinterConfig } from '../types/printer.types';
 
-const makeMockDriver = (): jest.Mocked<IPrinterDriver> => ({
+const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
   getStatus: jest.fn().mockReturnValue('connected'),
   onStatusChange: jest.fn().mockReturnValue(() => undefined),
   testPrint: jest.fn().mockResolvedValue(undefined),
+  identify: jest.fn().mockResolvedValue(null),
+  ...overrides,
 });
 
 const baseConfig: PrinterConfig = {
   id: 'p1',
   printerName: 'Máy in hóa đơn quầy 1',
-  printerType: 'receipt',
+  protocolSource: 'auto',
   protocol: 'escpos',
   connectionType: 'lan',
   paperSize: '80mm',
@@ -82,5 +84,43 @@ describe('PrinterService', () => {
     await service.testPrint(baseConfig);
     expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig);
     expect(service.getPrinters()).toEqual([]);
+  });
+
+  it('scanForConnectionType(usb) forwards to the escpos driver scan', () => {
+    const escposDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    const onEvent = jest.fn();
+    service.scanForConnectionType('usb', onEvent);
+    expect(escposDriver.scan).toHaveBeenCalledWith('usb', onEvent);
+  });
+
+  it('scanForConnectionType(bluetooth) forwards to the tspl driver scan', () => {
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver });
+    const onEvent = jest.fn();
+    service.scanForConnectionType('bluetooth', onEvent);
+    expect(tsplDriver.scan).toHaveBeenCalledWith('bluetooth', onEvent);
+  });
+
+  it('connectDraft() connects via the driver matching the draft config protocol without touching storage', async () => {
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver });
+    const draft: PrinterConfig = { ...baseConfig, id: 'draft-1', protocol: 'tspl' };
+    await service.connectDraft(draft);
+    expect(tsplDriver.connect).toHaveBeenCalledWith(draft);
+    expect(service.getPrinters()).toEqual([]);
+  });
+
+  it('discoverProtocol() forwards to createDiscoverProtocol wired with the registry', async () => {
+    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      service.discoverProtocol({ printerId: 'p1', connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 } }, (event) => {
+        events.push(event.stage);
+        if (event.stage === 'identified') resolve();
+      });
+    });
+    expect(events).toEqual(['connecting', 'identifying', 'identified']);
   });
 });

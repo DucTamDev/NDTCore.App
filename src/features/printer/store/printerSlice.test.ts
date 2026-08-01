@@ -12,7 +12,7 @@ import type { PrinterConfig } from '../types/printer.types';
 const printer: PrinterConfig = {
   id: 'p1',
   printerName: 'Máy in hóa đơn quầy 1',
-  printerType: 'receipt',
+  protocolSource: 'auto',
   protocol: 'escpos',
   connectionType: 'lan',
   paperSize: '80mm',

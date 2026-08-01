@@ -9,12 +9,14 @@ import type {
   Protocol,
 } from '../types/printer.types';
 import { DriverRegistry } from './DriverRegistry';
+import { createDiscoverProtocol, type DiscoveryEvent, type DiscoveryInput } from './discoverProtocol';
 
 const PRINTER_LIST_KEY = 'printer.list';
 const PRINTER_DEFAULT_KEY = 'printer.defaultId';
 
 export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>) => {
   const getDriver = (protocol: Protocol): IPrinterDriver => registry[protocol];
+  const discoverProtocolFn = createDiscoverProtocol(registry);
 
   const getPrinters = (): PrinterConfig[] => StorageService.getItem<PrinterConfig[]>(PRINTER_LIST_KEY) ?? [];
 
@@ -74,6 +76,33 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     onEvent: (event: DeviceScanEvent) => void,
   ): Unsubscribe => getDriver(protocol).scan(connectionType, onEvent);
 
+  /**
+   * Scan thiết bị cho wizard TRƯỚC khi biết protocol (mục "Key Architecture
+   * Decision" đầu plan): Bluetooth dùng scan tổng quát của TsplDriver
+   * (RNBluetoothClassic trực tiếp, không phụ thuộc SDK hãng nào); USB chỉ
+   * EscPosDriver hỗ trợ scan (TsplDriver luôn báo lỗi UNSUPPORTED_CONNECTION
+   * cho USB — kiến trúc TSPL-qua-USB chưa được hỗ trợ, Phase 1 §4.3).
+   */
+  const scanForConnectionType = (
+    connectionType: ConnectionType,
+    onEvent: (event: DeviceScanEvent) => void,
+  ): Unsubscribe => {
+    if (connectionType === 'usb') return getDriver('escpos').scan('usb', onEvent);
+    if (connectionType === 'bluetooth') return getDriver('tspl').scan('bluetooth', onEvent);
+    return getDriver('tspl').scan('lan', onEvent);
+  };
+
+  /**
+   * Connect thẳng bằng driver ứng với `config.protocol`, KHÔNG đọc/ghi
+   * storage — dùng khi wizard đã biết protocol (do người dùng chọn thủ công
+   * sau khi discoverProtocol() trả `unknown_protocol`) nhưng máy in chưa
+   * được lưu (`addPrinter`/`updatePrinter`) nên `findOrThrow` sẽ không tìm
+   * thấy.
+   */
+  const connectDraft = async (config: PrinterConfig): Promise<void> => {
+    await getDriver(config.protocol).connect(config);
+  };
+
   const getStatus = (printerId: string): PrinterStatus => {
     const config = findOrThrow(printerId);
     return getDriver(config.protocol).getStatus(printerId);
@@ -83,6 +112,23 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     const config = findOrThrow(printerId);
     return getDriver(config.protocol).onStatusChange(printerId, callback);
   };
+
+  /**
+   * Biến thể của `getStatus`/`onStatusChange` dùng khi `printerId` chưa được
+   * lưu vào storage (trong lúc wizard đang chạy) nên không thể tra `protocol`
+   * qua `findOrThrow` — protocol đã biết trực tiếp từ `discoverProtocol()`.
+   */
+  const getStatusForProtocol = (protocol: Protocol, printerId: string): PrinterStatus =>
+    getDriver(protocol).getStatus(printerId);
+
+  const onStatusChangeForProtocol = (
+    protocol: Protocol,
+    printerId: string,
+    callback: (status: PrinterStatus) => void,
+  ): Unsubscribe => getDriver(protocol).onStatusChange(printerId, callback);
+
+  const discoverProtocol = (input: DiscoveryInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe =>
+    discoverProtocolFn(input, onEvent);
 
   return {
     getPrinters,
@@ -96,8 +142,13 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     reconnect,
     testPrint,
     scanDevices,
+    scanForConnectionType,
+    connectDraft,
     getStatus,
     onStatusChange,
+    getStatusForProtocol,
+    onStatusChangeForProtocol,
+    discoverProtocol,
   };
 };
 
