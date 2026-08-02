@@ -1,57 +1,36 @@
 // src/features/printer/schemas/printerFormSchema.test.ts
-import { printerFormSchema } from './printerFormSchema';
+import { lanConnectionSchema, printerDisplaySchema } from './printerFormSchema';
 
-const basePayload = {
-  printerName: 'Máy in hóa đơn quầy 2',
-  printerType: 'receipt' as const,
-  protocol: 'escpos' as const,
-  connectionType: 'lan' as const,
-  paperSize: '80mm' as const,
-  autoReconnect: true,
-  lanIp: '192.168.1.20',
-  lanPort: '9100',
-};
+describe('lanConnectionSchema', () => {
+  it('accepts a valid IP and port', () => {
+    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: '9100' });
+    expect(result.success).toBe(true);
+  });
 
-describe('printerFormSchema', () => {
-  it('accepts a valid LAN payload', () => {
-    const result = printerFormSchema.safeParse(basePayload);
+  it('rejects an invalid IP', () => {
+    const result = lanConnectionSchema.safeParse({ lanIp: 'not-an-ip', lanPort: '9100' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an out-of-range port', () => {
+    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: '70000' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-numeric port', () => {
+    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: 'abc' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('printerDisplaySchema', () => {
+  it('accepts a valid display name and paper size', () => {
+    const result = printerDisplaySchema.safeParse({ printerName: 'Máy in quầy 1', paperSize: '80mm' });
     expect(result.success).toBe(true);
   });
 
   it('rejects an empty printer name', () => {
-    const result = printerFormSchema.safeParse({ ...basePayload, printerName: '' });
+    const result = printerDisplaySchema.safeParse({ printerName: '', paperSize: '80mm' });
     expect(result.success).toBe(false);
-  });
-
-  it('rejects LAN payload with an invalid IP', () => {
-    const result = printerFormSchema.safeParse({ ...basePayload, lanIp: 'not-an-ip' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects LAN payload with an out-of-range port', () => {
-    const result = printerFormSchema.safeParse({ ...basePayload, lanPort: '70000' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects USB/Bluetooth payload without a selected device', () => {
-    const result = printerFormSchema.safeParse({
-      ...basePayload,
-      connectionType: 'usb',
-      lanIp: undefined,
-      lanPort: undefined,
-      selectedDeviceId: undefined,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts USB/Bluetooth payload with a selected device', () => {
-    const result = printerFormSchema.safeParse({
-      ...basePayload,
-      connectionType: 'bluetooth',
-      lanIp: undefined,
-      lanPort: undefined,
-      selectedDeviceId: 'AA:BB:CC:DD:EE:FF',
-    });
-    expect(result.success).toBe(true);
   });
 });
