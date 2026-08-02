@@ -57,7 +57,9 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [canTestPrint, setCanTestPrint] = useState(Boolean(initialValues));
   const [testPrintPending, setTestPrintPending] = useState(false);
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
+  const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
+  const savedRef = useRef(false);
 
   const [step, setStep] = useState<WizardStep>(
     initialValues
@@ -96,16 +98,20 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     if (!visible) {
       discoveryUnsubscribeRef.current?.();
       discoveryUnsubscribeRef.current = null;
+      if (step.name === 'identified' && !savedRef.current) {
+        PrinterService.disconnectForProtocol(step.protocol, printerId).catch(() => undefined);
+      }
     }
     return () => {
       discoveryUnsubscribeRef.current?.();
     };
-  }, [visible]);
+  }, [visible, step, printerId]);
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
   const startDiscovery = (lan?: { ip: string; port: number }): void => {
     setCanTestPrint(false);
+    setConnectionDirty(true);
     setStep({ name: 'connecting' });
     discoveryUnsubscribeRef.current = PrinterService.discoverProtocol(
       {
@@ -193,9 +199,13 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const onSave = displayForm.handleSubmit(() => {
     if (step.name !== 'identified' || !canTestPrint) return;
+    savedRef.current = true;
     const config = buildFinalConfig(step.protocol, step.protocolSource, step.deviceInfo);
     if (initialValues) PrinterService.updatePrinter(config);
     else PrinterService.addPrinter(config);
+    if (config.autoReconnect && liveStatus !== 'connected') {
+      PrinterService.connect(config.id).catch(() => undefined);
+    }
     onSaved();
   });
 
@@ -203,6 +213,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setStep({ name: 'selectConnection' });
     setSelectedDevice(undefined);
     setCanTestPrint(false);
+    setConnectionDirty(true);
   };
 
   return (
@@ -299,7 +310,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
               testPrintPending={testPrintPending}
               onTestPrint={onTestPrint}
               onSave={onSave}
-              saveDisabled={liveStatus !== 'connected'}
+              saveDisabled={connectionDirty && liveStatus !== 'connected'}
             />
             <AppButton label="Đổi kết nối" mode="outlined" onPress={onChangeConnection} />
           </View>

@@ -12,12 +12,14 @@ export const PrinterManagementPanel: React.FC = () => {
   const [printers, setPrinters] = useState<PrinterConfig[]>(() => PrinterService.getPrinters());
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<PrinterConfig | undefined>(undefined);
+  const [addSessionId, setAddSessionId] = useState(0);
 
   const refresh = useCallback(() => {
     setPrinters(PrinterService.getPrinters());
   }, []);
 
   const openAddModal = (): void => {
+    setAddSessionId((n) => n + 1);
     setEditingPrinter(undefined);
     setModalVisible(true);
   };
@@ -44,7 +46,7 @@ export const PrinterManagementPanel: React.FC = () => {
       <PrinterList printers={printers} onEdit={openEditModal} onChanged={refresh} />
 
       <AddPrinterModal
-        key={editingPrinter?.id ?? 'add'}
+        key={editingPrinter?.id ?? `add-${addSessionId}`}
         visible={modalVisible}
         initialValues={editingPrinter}
         onDismiss={closeModal}

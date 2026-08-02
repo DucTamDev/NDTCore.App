@@ -10,6 +10,7 @@ export const usePrinterConnection = (printerId: string): PrinterStatus => {
   const status = useSelector((state: RootState) => selectPrinterStatus(state, printerId));
 
   useEffect(() => {
+    dispatch(printerStatusChanged({ printerId, status: PrinterService.getStatus(printerId) }));
     const unsubscribe = PrinterService.onStatusChange(printerId, (nextStatus) => {
       dispatch(printerStatusChanged({ printerId, status: nextStatus }));
     });

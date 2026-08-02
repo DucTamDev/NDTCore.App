@@ -28,17 +28,28 @@ export interface DiscoveryInput {
 
 /**
  * Tra `rules` theo `hintText` (tên/model thiết bị đã biết trước khi connect —
- * `undefined` cho LAN vì không có scan), trả về candidate list của luật khớp
- * đầu tiên. Luật fallback bắt-tất-cả đảm bảo luôn có kết quả.
+ * `undefined` cho LAN vì không có scan), trả về nguyên luật khớp đầu tiên (cần
+ * cả `confidence`/`modelMatch` cho cổng dual-mode ở `run()`, không chỉ
+ * `candidates`). Luật fallback bắt-tất-cả đảm bảo luôn có kết quả.
  */
+export const resolveDetectionRule = (
+  hintText: string | undefined,
+  rules: PrinterDetectionRule[] = PRINTER_DETECTION_RULES,
+): PrinterDetectionRule => {
+  const text = hintText ?? '';
+  return (
+    rules.find((r) => r.vendorMatch.test(text) && (!r.modelMatch || r.modelMatch.test(text))) ?? {
+      vendorMatch: /.*/,
+      candidates: ['escpos', 'tspl'],
+      confidence: 'low',
+    }
+  );
+};
+
 export const resolveCandidates = (
   hintText: string | undefined,
   rules: PrinterDetectionRule[] = PRINTER_DETECTION_RULES,
-): Protocol[] => {
-  const text = hintText ?? '';
-  const rule = rules.find((r) => r.vendorMatch.test(text) && (!r.modelMatch || r.modelMatch.test(text)));
-  return rule?.candidates ?? ['escpos', 'tspl'];
-};
+): Protocol[] => resolveDetectionRule(hintText, rules).candidates;
 
 const buildDraftConfig = (input: DiscoveryInput, protocol: Protocol): PrinterConfig => ({
   id: input.printerId,
@@ -59,7 +70,12 @@ export const createDiscoverProtocol =
     let cancelled = false;
 
     const run = async (): Promise<void> => {
-      const candidates = resolveCandidates(input.device?.displayName).filter((protocol) => Boolean(registry[protocol]));
+      const rule = resolveDetectionRule(input.device?.displayName);
+      if (rule.modelMatch && rule.confidence === 'low' && rule.candidates.length > 1) {
+        onEvent({ stage: 'unknown_protocol' });
+        return;
+      }
+      const candidates = rule.candidates.filter((protocol) => Boolean(registry[protocol]));
       let connectFailures = 0;
 
       for (const protocol of candidates) {

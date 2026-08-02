@@ -103,6 +103,15 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     await getDriver(config.protocol).connect(config);
   };
 
+  /**
+   * Disconnect thẳng bằng driver ứng với `protocol`, KHÔNG đọc storage — dùng
+   * khi wizard hủy bỏ (dismiss) một kết nối nháp (`connectDraft`/`discoverProtocol`
+   * đã mở) mà chưa lưu, nên `disconnect(printerId)` (storage-backed) sẽ throw.
+   */
+  const disconnectForProtocol = async (protocol: Protocol, printerId: string): Promise<void> => {
+    await getDriver(protocol).disconnect(printerId);
+  };
+
   const getStatus = (printerId: string): PrinterStatus => {
     const config = findOrThrow(printerId);
     return getDriver(config.protocol).getStatus(printerId);
@@ -148,6 +157,7 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     onStatusChange,
     getStatusForProtocol,
     onStatusChangeForProtocol,
+    disconnectForProtocol,
     discoverProtocol,
   };
 };

@@ -116,7 +116,9 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async testPrint(config: PrinterConfig): Promise<void> {
-    await this.connect(config);
+    if (!this.connections.has(config.id)) {
+      await this.connect(config);
+    }
     const transport = this.connections.get(config.id);
     const bytes = new TsplEncoder()
       .initialize(config.paperSize)

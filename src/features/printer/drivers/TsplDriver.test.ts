@@ -72,6 +72,15 @@ describe('TsplDriver', () => {
     expect(events).toEqual(['error']);
   });
 
+  it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const { LanTransport } = jest.requireMock('../transports/LanTransport') as { LanTransport: jest.Mock };
+    const callsBeforeTestPrint = LanTransport.mock.calls.length;
+    await driver.testPrint(lanConfig);
+    expect(LanTransport.mock.calls.length).toBe(callsBeforeTestPrint);
+  });
+
   it('identify() returns null when not connected', async () => {
     const driver = new TsplDriver();
     const result = await driver.identify('never-connected');

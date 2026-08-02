@@ -90,6 +90,29 @@ describe('discoverProtocol', () => {
     expect(last.error?.code).toBe('CONNECTION_ERROR');
   });
 
+  it('emits unknown_protocol immediately for a low-confidence rule with an explicit model match, without trying any candidate', async () => {
+    const escposDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver();
+    const dualModeInput = {
+      printerId: 'p1',
+      connectionType: 'bluetooth' as const,
+      device: { deviceId: 'AA:BB', displayName: 'Xprinter XP-365B', rawDevice: {} },
+    };
+    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, dualModeInput);
+
+    expect(events).toEqual([{ stage: 'unknown_protocol' }]);
+    expect(escposDriver.connect).not.toHaveBeenCalled();
+    expect(tsplDriver.connect).not.toHaveBeenCalled();
+  });
+
+  it('does not short-circuit the catch-all fallback rule (no modelMatch) even though its confidence is also low', async () => {
+    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+    const tsplDriver = makeMockDriver();
+    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+
+    expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying', 'identified']);
+  });
+
   it('unsubscribing before completion stops further events from being emitted', async () => {
     let resolveConnect: () => void = () => undefined;
     const escposDriver = makeMockDriver({
