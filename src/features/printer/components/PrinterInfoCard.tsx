@@ -70,14 +70,14 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
     />
 
     {deviceInfo?.deviceName ? (
-      <Text variant="bodySmall">Device Name: {deviceInfo.deviceName}</Text>
+      <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text>
     ) : null}
-    {deviceInfo?.vendor ? <Text variant="bodySmall">Vendor: {deviceInfo.vendor}</Text> : null}
+    {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
     {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
-    <Text variant="bodySmall">Connection Type: {connectionLabel[connectionType]}</Text>
+    <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
 
     <View style={styles.row}>
-      <Chip>{`Protocol: ${protocolLabel[protocol]}`}</Chip>
+      <Chip>{`Giao thức: ${protocolLabel[protocol]}`}</Chip>
       <Chip>{protocolSource === 'auto' ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
       <PrinterStatusBadge status={status} />
     </View>
