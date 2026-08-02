@@ -60,6 +60,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
   const savedRef = useRef(false);
+  const stepRef = useRef<WizardStep>({ name: 'selectConnection' });
 
   const [step, setStep] = useState<WizardStep>(
     initialValues
@@ -89,6 +90,10 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   });
 
   useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
     if (step.name !== 'identified') return undefined;
     setLiveStatus(PrinterService.getStatusForProtocol(step.protocol, printerId));
     return PrinterService.onStatusChangeForProtocol(step.protocol, printerId, setLiveStatus);
@@ -98,14 +103,15 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     if (!visible) {
       discoveryUnsubscribeRef.current?.();
       discoveryUnsubscribeRef.current = null;
-      if (step.name === 'identified' && !savedRef.current) {
-        PrinterService.disconnectForProtocol(step.protocol, printerId).catch(() => undefined);
+      const currentStep = stepRef.current;
+      if (currentStep.name === 'identified' && !savedRef.current) {
+        PrinterService.disconnectForProtocol(currentStep.protocol, printerId).catch(() => undefined);
       }
     }
     return () => {
       discoveryUnsubscribeRef.current?.();
     };
-  }, [visible, step, printerId]);
+  }, [visible, printerId]);
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
