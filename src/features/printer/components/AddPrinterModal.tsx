@@ -1,5 +1,5 @@
 // src/features/printer/components/AddPrinterModal.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Modal, Portal, Text, SegmentedButtons } from 'react-native-paper';
 import { useForm } from 'react-hook-form';
@@ -57,6 +57,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [canTestPrint, setCanTestPrint] = useState(Boolean(initialValues));
   const [testPrintPending, setTestPrintPending] = useState(false);
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
+  const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
 
   const [step, setStep] = useState<WizardStep>(
     initialValues
@@ -91,12 +92,22 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     return PrinterService.onStatusChangeForProtocol(step.protocol, printerId, setLiveStatus);
   }, [step, printerId]);
 
+  useEffect(() => {
+    if (!visible) {
+      discoveryUnsubscribeRef.current?.();
+      discoveryUnsubscribeRef.current = null;
+    }
+    return () => {
+      discoveryUnsubscribeRef.current?.();
+    };
+  }, [visible]);
+
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
   const startDiscovery = (lan?: { ip: string; port: number }): void => {
     setCanTestPrint(false);
     setStep({ name: 'connecting' });
-    PrinterService.discoverProtocol(
+    discoveryUnsubscribeRef.current = PrinterService.discoverProtocol(
       {
         printerId,
         connectionType,
