@@ -5,17 +5,15 @@ import { List, IconButton, Text } from 'react-native-paper';
 import { PrinterService } from '../services/PrinterService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import type { ConnectionType, PrinterDevice, Protocol } from '../types/printer.types';
+import type { ConnectionType, PrinterDevice } from '../types/printer.types';
 
 export interface DeviceScanListProps {
-  protocol: Protocol;
   connectionType: ConnectionType;
   selectedDeviceId?: string;
   onSelect: (device: PrinterDevice) => void;
 }
 
 export const DeviceScanList: React.FC<DeviceScanListProps> = ({
-  protocol,
   connectionType,
   selectedDeviceId,
   onSelect,
@@ -28,7 +26,7 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
   useEffect(() => {
     setLoading(true);
     setErrorMessage(null);
-    const unsubscribe = PrinterService.scanDevices(protocol, connectionType, (event) => {
+    const unsubscribe = PrinterService.scanForConnectionType(connectionType, (event) => {
       if (event.type === 'loading') setLoading(true);
       if (event.type === 'found' || event.type === 'empty') {
         setLoading(false);
@@ -40,7 +38,7 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
       }
     });
     return unsubscribe;
-  }, [protocol, connectionType, scanTrigger]);
+  }, [connectionType, scanTrigger]);
 
   return (
     <View>
