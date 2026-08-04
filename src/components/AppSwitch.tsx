@@ -7,12 +7,13 @@ export interface AppSwitchProps {
   label: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  disabled?: boolean;
 }
 
-export const AppSwitch: React.FC<AppSwitchProps> = ({ label, value, onValueChange }) => (
+export const AppSwitch: React.FC<AppSwitchProps> = ({ label, value, onValueChange, disabled = false }) => (
   <View style={styles.row}>
     <Text style={styles.label}>{label}</Text>
-    <Switch value={value} onValueChange={onValueChange} />
+    <Switch value={value} onValueChange={onValueChange} disabled={disabled} />
   </View>
 );
 
