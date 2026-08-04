@@ -13,6 +13,8 @@ export interface DeviceScanListProps {
   onSelect: (device: PrinterDevice) => void;
 }
 
+const SCAN_TIMEOUT_MS = 30000;
+
 export const DeviceScanList: React.FC<DeviceScanListProps> = ({
   connectionType,
   selectedDeviceId,
@@ -26,18 +28,32 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
   useEffect(() => {
     setLoading(true);
     setErrorMessage(null);
+    setDevices([]);
+    let settled = false;
     const unsubscribe = PrinterService.scanForConnectionType(connectionType, (event) => {
+      if (settled) return;
       if (event.type === 'loading') setLoading(true);
       if (event.type === 'found' || event.type === 'empty') {
+        settled = true;
         setLoading(false);
         setDevices(event.devices ?? []);
       }
       if (event.type === 'error') {
+        settled = true;
         setLoading(false);
         setErrorMessage(event.error?.message ?? 'Không thể quét thiết bị');
       }
     });
-    return unsubscribe;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      setLoading(false);
+    }, SCAN_TIMEOUT_MS);
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [connectionType, scanTrigger]);
 
   return (
