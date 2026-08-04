@@ -12,9 +12,16 @@ export interface AppSelectProps<T extends string> {
   value: T | undefined;
   options: Array<AppSelectOption<T>>;
   onSelect: (value: T) => void;
+  disabled?: boolean;
 }
 
-export function AppSelect<T extends string>({ label, value, options, onSelect }: AppSelectProps<T>): React.JSX.Element {
+export function AppSelect<T extends string>({
+  label,
+  value,
+  options,
+  onSelect,
+  disabled = false,
+}: AppSelectProps<T>): React.JSX.Element {
   const [visible, setVisible] = useState(false);
   const selectedLabel = options.find((o) => o.value === value)?.label ?? '';
 
@@ -23,8 +30,8 @@ export function AppSelect<T extends string>({ label, value, options, onSelect }:
       visible={visible}
       onDismiss={() => setVisible(false)}
       anchor={
-        <TouchableRipple onPress={() => setVisible(true)}>
-          <TextInput label={label} value={selectedLabel} editable={false} mode="outlined" />
+        <TouchableRipple onPress={() => setVisible(true)} disabled={disabled}>
+          <TextInput label={label} value={selectedLabel} editable={false} mode="outlined" disabled={disabled} />
         </TouchableRipple>
       }
     >
