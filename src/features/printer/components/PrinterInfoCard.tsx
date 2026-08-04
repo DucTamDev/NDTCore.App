@@ -26,8 +26,8 @@ export interface PrinterInfoCardProps {
   control: Control<PrinterDisplayValues>;
   errors: FieldErrors<PrinterDisplayValues>;
   connectionType: ConnectionType;
-  protocol: Protocol;
-  protocolSource: ProtocolSource;
+  protocol?: Protocol;
+  protocolSource?: ProtocolSource;
   deviceInfo?: PrinterDeviceInfo;
   status: PrinterStatus;
   autoReconnect: boolean;
@@ -37,6 +37,7 @@ export interface PrinterInfoCardProps {
   onTestPrint: () => void;
   onSave: () => void;
   saveDisabled: boolean;
+  locked: boolean;
 }
 
 export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
@@ -54,6 +55,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   onTestPrint,
   onSave,
   saveDisabled,
+  locked,
 }) => (
   <View style={styles.container}>
     <Controller
@@ -65,20 +67,19 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
           value={field.value}
           onChangeText={field.onChange}
           errorMessage={errors.printerName?.message}
+          disabled={locked}
         />
       )}
     />
 
-    {deviceInfo?.deviceName ? (
-      <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text>
-    ) : null}
+    {deviceInfo?.deviceName ? <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text> : null}
     {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
     {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
     <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
 
     <View style={styles.row}>
-      <Chip>{`Giao thức: ${protocolLabel[protocol]}`}</Chip>
-      <Chip>{protocolSource === 'auto' ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
+      {protocol ? <Chip>{`Giao thức: ${protocolLabel[protocol]}`}</Chip> : null}
+      {protocolSource ? <Chip>{protocolSource === 'auto' ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip> : null}
       <PrinterStatusBadge status={status} />
     </View>
 
@@ -94,11 +95,12 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
             { label: '58mm', value: '58mm' },
             { label: '80mm', value: '80mm' },
           ]}
+          disabled={locked}
         />
       )}
     />
 
-    <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} />
+    <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
 
     <View style={styles.footer}>
       <AppButton
