@@ -10,6 +10,7 @@ export interface AppInputProps {
   errorMessage?: string;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const AppInput: React.FC<AppInputProps> = ({
@@ -19,6 +20,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   errorMessage,
   keyboardType = 'default',
   placeholder,
+  disabled = false,
 }) => (
   <View>
     <TextInput
@@ -29,6 +31,7 @@ export const AppInput: React.FC<AppInputProps> = ({
       placeholder={placeholder}
       error={Boolean(errorMessage)}
       mode="outlined"
+      disabled={disabled}
     />
     {errorMessage ? <HelperText type="error">{errorMessage}</HelperText> : null}
   </View>
