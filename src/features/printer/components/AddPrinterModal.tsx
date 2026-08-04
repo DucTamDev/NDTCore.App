@@ -178,6 +178,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const onChooseProtocol = (chosenProtocol: Protocol): void => {
     setConnectionState('connecting');
+    setProtocolState('detecting');
     const config: PrinterConfig = {
       id: printerId,
       printerName: 'Máy in mới',
@@ -208,22 +209,22 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const onConnectionTypeChange = (value: ConnectionType): void => {
     setConnectionType(value);
     setSelectedDevice(undefined);
-    if (connectionState !== 'idle') resetConnectionResult();
+    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
   };
 
   const onSelectDevice = (device: PrinterDevice): void => {
     setSelectedDevice(device);
-    if (connectionState !== 'idle') resetConnectionResult();
+    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
   };
 
   const onLanIpChange = (text: string): void => {
     lanForm.setValue('lanIp', text);
-    if (connectionState !== 'idle') resetConnectionResult();
+    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
   };
 
   const onLanPortChange = (text: string): void => {
     lanForm.setValue('lanPort', text);
-    if (connectionState !== 'idle') resetConnectionResult();
+    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
   };
 
   const buildFinalConfig = (): PrinterConfig | undefined => {
