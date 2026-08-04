@@ -1,12 +1,9 @@
 // src/features/printer/components/AddPrinterModal.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Modal, Portal, Text, SegmentedButtons } from 'react-native-paper';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Modal, Portal, Text } from 'react-native-paper';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AppInput } from '../../../components/AppInput';
-import { AppButton } from '../../../components/AppButton';
-import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { PrinterService } from '../services/PrinterService';
 import { generateId } from '../../../utils/id';
 import {
@@ -15,10 +12,10 @@ import {
   type LanConnectionValues,
   type PrinterDisplayValues,
 } from '../schemas/printerFormSchema';
-import { DeviceScanList } from './DeviceScanList';
+import { ConnectionSection } from './ConnectionSection';
+import { StatusPanel, type ConnectionState, type ProtocolState } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
 import type { DiscoveryEvent } from '../services/discoverProtocol';
-import type { AppError } from '../../../types/AppError';
 import type {
   ConnectionType,
   PrinterConfig,
@@ -36,19 +33,6 @@ export interface AddPrinterModalProps {
   onSaved: () => void;
 }
 
-type WizardStep =
-  | { name: 'selectConnection' }
-  | { name: 'selectDevice' }
-  | { name: 'connecting' }
-  | { name: 'chooseProtocol' }
-  | { name: 'identified'; protocol: Protocol; protocolSource: ProtocolSource; deviceInfo?: PrinterDeviceInfo }
-  | { name: 'error'; error: AppError };
-
-const protocolChoices: Array<{ value: Protocol; label: string }> = [
-  { value: 'escpos', label: 'ESC/POS' },
-  { value: 'tspl', label: 'TSPL' },
-];
-
 export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved }) => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? 'usb');
@@ -58,20 +42,25 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [testPrintPending, setTestPrintPending] = useState(false);
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
+
+  const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
+  const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
+  const [protocol, setProtocol] = useState<Protocol | undefined>(initialValues?.protocol);
+  const [protocolSource, setProtocolSource] = useState<ProtocolSource | undefined>(initialValues?.protocolSource);
+  const [deviceInfo, setDeviceInfo] = useState<PrinterDeviceInfo | undefined>(initialValues?.deviceInfo);
+  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
+
   const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
   const savedRef = useRef(false);
-  const stepRef = useRef<WizardStep>({ name: 'selectConnection' });
-
-  const [step, setStep] = useState<WizardStep>(
-    initialValues
-      ? {
-          name: 'identified',
-          protocol: initialValues.protocol,
-          protocolSource: initialValues.protocolSource,
-          deviceInfo: initialValues.deviceInfo,
-        }
-      : { name: 'selectConnection' },
-  );
+  // Đọc connectionState/protocol "mới nhất" trong effect huỷ-khi-đóng-modal mà
+  // KHÔNG đưa chúng vào dependency array của effect đó — bài học từ plan trước
+  // (xem Global Constraints): nếu để connectionState/protocol trong deps, React
+  // sẽ chạy lại cleanup của effect (vốn huỷ luôn discovery đang chạy) ngay tại
+  // thời điểm startDiscovery() vừa gán xong Unsubscribe mới, tự huỷ chính nó.
+  const connectionRef = useRef<{ connectionState: ConnectionState; protocol?: Protocol }>({
+    connectionState: initialValues ? 'connected' : 'idle',
+    protocol: initialValues?.protocol,
+  });
 
   const lanForm = useForm<LanConnectionValues>({
     resolver: zodResolver(lanConnectionSchema),
@@ -90,22 +79,30 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   });
 
   useEffect(() => {
-    stepRef.current = step;
-  }, [step]);
+    connectionRef.current = { connectionState, protocol };
+  }, [connectionState, protocol]);
 
   useEffect(() => {
-    if (step.name !== 'identified') return undefined;
-    setLiveStatus(PrinterService.getStatusForProtocol(step.protocol, printerId));
-    return PrinterService.onStatusChangeForProtocol(step.protocol, printerId, setLiveStatus);
-  }, [step, printerId]);
+    if (protocolState !== 'identified' || !protocol) {
+      setLiveStatus('idle');
+      return undefined;
+    }
+    setLiveStatus(PrinterService.getStatusForProtocol(protocol, printerId));
+    return PrinterService.onStatusChangeForProtocol(protocol, printerId, setLiveStatus);
+  }, [protocolState, protocol, printerId]);
 
+  // deps cố ý chỉ gồm [visible, printerId] — connectionState/protocol được đọc
+  // "mới nhất" qua connectionRef.current (xem comment ở khai báo connectionRef
+  // phía trên). Thêm connectionState/protocol vào đây sẽ khiến React chạy lại
+  // cleanup của chính effect này ngay khi startDiscovery() vừa bắt đầu, tự huỷ
+  // discovery vừa khởi tạo — đây chính là bug đã xảy ra ở wizard cũ.
   useEffect(() => {
     if (!visible) {
       discoveryUnsubscribeRef.current?.();
       discoveryUnsubscribeRef.current = null;
-      const currentStep = stepRef.current;
-      if (currentStep.name === 'identified' && !savedRef.current) {
-        PrinterService.disconnectForProtocol(currentStep.protocol, printerId).catch(() => undefined);
+      const current = connectionRef.current;
+      if (current.connectionState === 'connected' && current.protocol && !savedRef.current) {
+        PrinterService.disconnectForProtocol(current.protocol, printerId).catch(() => undefined);
       }
     }
     return () => {
@@ -115,10 +112,28 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
+  const resetConnectionResult = (): void => {
+    discoveryUnsubscribeRef.current?.();
+    discoveryUnsubscribeRef.current = null;
+    setConnectionState('idle');
+    setProtocolState('idle');
+    setProtocol(undefined);
+    setProtocolSource(undefined);
+    setDeviceInfo(undefined);
+    setConnectionErrorMessage(undefined);
+    setCanTestPrint(false);
+    setConnectionDirty(true);
+  };
+
   const startDiscovery = (lan?: { ip: string; port: number }): void => {
     setCanTestPrint(false);
     setConnectionDirty(true);
-    setStep({ name: 'connecting' });
+    setConnectionState('connecting');
+    setProtocolState('idle');
+    setProtocol(undefined);
+    setProtocolSource(undefined);
+    setDeviceInfo(undefined);
+    setConnectionErrorMessage(undefined);
     discoveryUnsubscribeRef.current = PrinterService.discoverProtocol(
       {
         printerId,
@@ -127,8 +142,14 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
         lan,
       },
       (event: DiscoveryEvent) => {
-        if (event.stage === 'identified' && event.protocol) {
-          setStep({ name: 'identified', protocol: event.protocol, protocolSource: 'auto', deviceInfo: event.deviceInfo });
+        if (event.stage === 'identifying') {
+          setProtocolState('detecting');
+        } else if (event.stage === 'identified' && event.protocol) {
+          setConnectionState('connected');
+          setProtocolState('identified');
+          setProtocol(event.protocol);
+          setProtocolSource('auto');
+          setDeviceInfo(event.deviceInfo);
           if (!displayForm.getValues('printerName')) {
             displayForm.setValue(
               'printerName',
@@ -136,9 +157,12 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             );
           }
         } else if (event.stage === 'unknown_protocol') {
-          setStep({ name: 'chooseProtocol' });
-        } else if (event.stage === 'error' && event.error) {
-          setStep({ name: 'error', error: event.error });
+          setConnectionState('idle');
+          setProtocolState('unknown');
+        } else if (event.stage === 'error') {
+          setConnectionState('error');
+          setProtocolState('idle');
+          setConnectionErrorMessage(event.error?.message);
         }
       },
     );
@@ -152,12 +176,12 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     }
   };
 
-  const onChooseProtocol = (protocol: Protocol): void => {
-    setStep({ name: 'connecting' });
+  const onChooseProtocol = (chosenProtocol: Protocol): void => {
+    setConnectionState('connecting');
     const config: PrinterConfig = {
       id: printerId,
       printerName: 'Máy in mới',
-      protocol,
+      protocol: chosenProtocol,
       protocolSource: 'manual',
       connectionType,
       paperSize: '80mm',
@@ -167,11 +191,43 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       lan: connectionType === 'lan' ? buildLan(lanForm.getValues()) : undefined,
     };
     PrinterService.connectDraft(config)
-      .then(() => setStep({ name: 'identified', protocol, protocolSource: 'manual', deviceInfo: undefined }))
-      .catch((error: AppError) => setStep({ name: 'error', error }));
+      .then(() => {
+        setConnectionState('connected');
+        setProtocolState('identified');
+        setProtocol(chosenProtocol);
+        setProtocolSource('manual');
+        setDeviceInfo(undefined);
+      })
+      .catch((error: { message: string }) => {
+        setConnectionState('error');
+        setProtocolState('idle');
+        setConnectionErrorMessage(error.message);
+      });
   };
 
-  const buildFinalConfig = (protocol: Protocol, protocolSource: ProtocolSource, deviceInfo?: PrinterDeviceInfo): PrinterConfig => {
+  const onConnectionTypeChange = (value: ConnectionType): void => {
+    setConnectionType(value);
+    setSelectedDevice(undefined);
+    if (connectionState !== 'idle') resetConnectionResult();
+  };
+
+  const onSelectDevice = (device: PrinterDevice): void => {
+    setSelectedDevice(device);
+    if (connectionState !== 'idle') resetConnectionResult();
+  };
+
+  const onLanIpChange = (text: string): void => {
+    lanForm.setValue('lanIp', text);
+    if (connectionState !== 'idle') resetConnectionResult();
+  };
+
+  const onLanPortChange = (text: string): void => {
+    lanForm.setValue('lanPort', text);
+    if (connectionState !== 'idle') resetConnectionResult();
+  };
+
+  const buildFinalConfig = (): PrinterConfig | undefined => {
+    if (!protocol || !protocolSource) return undefined;
     const display = displayForm.getValues();
     return {
       id: printerId,
@@ -189,12 +245,13 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const onTestPrint = async (): Promise<void> => {
-    if (step.name !== 'identified') return;
+    const config = buildFinalConfig();
+    if (!config) return;
     const valid = await displayForm.trigger();
     if (!valid) return;
     setTestPrintPending(true);
     try {
-      await PrinterService.testPrint(buildFinalConfig(step.protocol, step.protocolSource, step.deviceInfo));
+      await PrinterService.testPrint(config);
       setCanTestPrint(true);
     } catch {
       setCanTestPrint(false);
@@ -204,9 +261,9 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const onSave = displayForm.handleSubmit(() => {
-    if (step.name !== 'identified' || !canTestPrint) return;
+    const config = buildFinalConfig();
+    if (!config || !canTestPrint) return;
     savedRef.current = true;
-    const config = buildFinalConfig(step.protocol, step.protocolSource, step.deviceInfo);
     if (initialValues) PrinterService.updatePrinter(config);
     else PrinterService.addPrinter(config);
     if (config.autoReconnect && liveStatus !== 'connected') {
@@ -215,118 +272,65 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     onSaved();
   });
 
-  const onChangeConnection = (): void => {
-    setStep({ name: 'selectConnection' });
-    setSelectedDevice(undefined);
-    setCanTestPrint(false);
-    setConnectionDirty(true);
-  };
+  const connectLabel =
+    connectionState === 'connecting' ? 'Đang kết nối...' : connectionState === 'connected' ? 'Kết nối lại' : 'Kết nối';
+  const connectDisabled = connectionState === 'connecting' || (connectionType !== 'lan' && !selectedDevice);
 
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.container}>
-        <Text variant="titleMedium">{initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in'}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text variant="titleMedium">{initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in'}</Text>
 
-        {step.name === 'selectConnection' && (
-          <View style={styles.stepGap}>
-            <SegmentedButtons
-              value={connectionType}
-              onValueChange={(value) => setConnectionType(value as ConnectionType)}
-              buttons={[
-                { value: 'usb', label: 'USB' },
-                { value: 'bluetooth', label: 'Bluetooth' },
-                { value: 'lan', label: 'LAN' },
-              ]}
-            />
-            <AppButton label="Tiếp tục" onPress={() => setStep({ name: 'selectDevice' })} />
-          </View>
-        )}
+          <ConnectionSection
+            connectionType={connectionType}
+            onConnectionTypeChange={onConnectionTypeChange}
+            selectedDeviceId={selectedDevice?.deviceId}
+            onSelectDevice={onSelectDevice}
+            lanIp={lanForm.watch('lanIp')}
+            lanPort={lanForm.watch('lanPort')}
+            onLanIpChange={onLanIpChange}
+            onLanPortChange={onLanPortChange}
+            lanIpError={lanForm.formState.errors.lanIp?.message}
+            lanPortError={lanForm.formState.errors.lanPort?.message}
+            connectLabel={connectLabel}
+            connectDisabled={connectDisabled}
+            onConnectPress={onConnectPress}
+          />
 
-        {step.name === 'selectDevice' && (
-          <View style={styles.stepGap}>
-            {connectionType === 'lan' ? (
-              <>
-                <AppInput
-                  label="Địa chỉ IP"
-                  value={lanForm.watch('lanIp')}
-                  onChangeText={(text) => lanForm.setValue('lanIp', text)}
-                  errorMessage={lanForm.formState.errors.lanIp?.message}
-                />
-                <AppInput
-                  label="Cổng"
-                  value={lanForm.watch('lanPort')}
-                  onChangeText={(text) => lanForm.setValue('lanPort', text)}
-                  keyboardType="numeric"
-                  errorMessage={lanForm.formState.errors.lanPort?.message}
-                />
-              </>
-            ) : (
-              <DeviceScanList
-                connectionType={connectionType}
-                selectedDeviceId={selectedDevice?.deviceId}
-                onSelect={setSelectedDevice}
-              />
-            )}
-            <AppButton
-              label="Kết nối"
-              onPress={onConnectPress}
-              disabled={connectionType !== 'lan' && !selectedDevice}
-            />
-          </View>
-        )}
+          <StatusPanel
+            connectionState={connectionState}
+            protocolState={protocolState}
+            protocol={protocol}
+            deviceInfo={deviceInfo}
+            errorMessage={connectionErrorMessage}
+            onChooseProtocol={onChooseProtocol}
+          />
 
-        {step.name === 'connecting' && (
-          <View style={styles.stepGap}>
-            <LoadingOverlay />
-            <Text variant="bodyMedium">Đang kết nối và nhận diện máy in...</Text>
-          </View>
-        )}
-
-        {step.name === 'chooseProtocol' && (
-          <View style={styles.stepGap}>
-            <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
-            <SegmentedButtons
-              value=""
-              onValueChange={(value) => onChooseProtocol(value as Protocol)}
-              buttons={protocolChoices}
-            />
-          </View>
-        )}
-
-        {step.name === 'error' && (
-          <View style={styles.stepGap}>
-            <Text variant="bodyMedium">{step.error.message}</Text>
-            <AppButton label="Thử lại" onPress={() => setStep({ name: 'selectDevice' })} />
-          </View>
-        )}
-
-        {step.name === 'identified' && (
-          <View style={styles.stepGap}>
-            <PrinterInfoCard
-              control={displayForm.control}
-              errors={displayForm.formState.errors}
-              connectionType={connectionType}
-              protocol={step.protocol}
-              protocolSource={step.protocolSource}
-              deviceInfo={step.deviceInfo}
-              status={liveStatus}
-              autoReconnect={autoReconnect}
-              onAutoReconnectChange={setAutoReconnect}
-              canTestPrint={canTestPrint}
-              testPrintPending={testPrintPending}
-              onTestPrint={onTestPrint}
-              onSave={onSave}
-              saveDisabled={connectionDirty && liveStatus !== 'connected'}
-            />
-            <AppButton label="Đổi kết nối" mode="outlined" onPress={onChangeConnection} />
-          </View>
-        )}
+          <PrinterInfoCard
+            control={displayForm.control}
+            errors={displayForm.formState.errors}
+            connectionType={connectionType}
+            protocol={protocol}
+            protocolSource={protocolSource}
+            deviceInfo={deviceInfo}
+            status={liveStatus}
+            autoReconnect={autoReconnect}
+            onAutoReconnectChange={setAutoReconnect}
+            canTestPrint={canTestPrint}
+            testPrintPending={testPrintPending}
+            onTestPrint={onTestPrint}
+            onSave={onSave}
+            saveDisabled={connectionDirty && liveStatus !== 'connected'}
+            locked={!(connectionState === 'connected' && protocolState === 'identified')}
+          />
+        </ScrollView>
       </Modal>
     </Portal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: 'white', margin: 24, padding: 16, borderRadius: 16, gap: 12 },
-  stepGap: { gap: 12 },
+  container: { backgroundColor: 'white', margin: 24, padding: 16, borderRadius: 16, maxHeight: '85%' },
+  scrollContent: { gap: 12 },
 });
