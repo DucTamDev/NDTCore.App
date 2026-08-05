@@ -31,4 +31,20 @@ describe('PRINTER_DETECTION_RULES', () => {
     );
     expect(rule?.candidates).toEqual(['escpos']);
   });
+
+  it('matches iTP76 (receipt) to escpos with medium confidence', () => {
+    const rule = PRINTER_DETECTION_RULES.find(
+      (r) => r.vendorMatch.test('iTP76') && (!r.modelMatch || r.modelMatch.test('iTP76')),
+    );
+    expect(rule?.candidates).toEqual(['escpos']);
+    expect(rule?.confidence).toBe('medium');
+  });
+
+  it('matches iTP3300 (label) to tspl, not the receipt iTP rule', () => {
+    const rule = PRINTER_DETECTION_RULES.find(
+      (r) => r.vendorMatch.test('iTP3300') && (!r.modelMatch || r.modelMatch.test('iTP3300')),
+    );
+    expect(rule?.candidates).toEqual(['tspl']);
+    expect(rule?.confidence).toBe('medium');
+  });
 });

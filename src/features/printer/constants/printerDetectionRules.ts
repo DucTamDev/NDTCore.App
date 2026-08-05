@@ -48,6 +48,13 @@ export const PRINTER_DETECTION_RULES: PrinterDetectionRule[] = [
     candidates: ['escpos'],
     confidence: 'high',
   },
+  {
+    vendorMatch: /itp/i,
+    modelMatch: /iTP-?(76|80|85|86|9)\b/i,
+    candidates: ['escpos'],
+    confidence: 'medium',
+    note: 'Dòng máy in hóa đơn nhiệt iTP (iTP76/iTP80/iTP85/iTP86/iTP9) — chưa verify deviceInfo thật, tạm confidence=medium',
+  },
 
   // ===== TSPL — Label Printer (độ ưu tiên cao) =====
   {
@@ -76,6 +83,13 @@ export const PRINTER_DETECTION_RULES: PrinterDetectionRule[] = [
     candidates: ['tspl'],
     confidence: 'high',
     note: 'TSC TTP-244 xác nhận dùng TSPL-EZ (đã verify). TE/DA series theo thông lệ hãng cũng TSPL',
+  },
+  {
+    vendorMatch: /itp/i,
+    modelMatch: /iTP-?(3300|3350)\b/i,
+    candidates: ['tspl'],
+    confidence: 'medium',
+    note: 'Dòng máy in tem iTP (iTP3300/iTP3350), tương thích TSPL/TSC — chưa verify deviceInfo thật, tạm confidence=medium',
   },
 
   // ===== DUAL-MODE — match được vendor/model nhưng KHÔNG được suy đoán 1 protocol =====
