@@ -13,6 +13,14 @@ export type RootTabParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+const SalesTabIcon = ({ color, size }: { color: string; size: number }) => (
+  <Icon source="point-of-sale" color={color} size={size} />
+);
+
+const SettingsTabIcon = ({ color, size }: { color: string; size: number }) => (
+  <Icon source="cog" color={color} size={size} />
+);
+
 export const RootNavigator: React.FC = () => (
   <NavigationContainer>
     <Tab.Navigator initialRouteName="Sales" screenOptions={{ headerShown: false }}>
@@ -21,7 +29,7 @@ export const RootNavigator: React.FC = () => (
         component={SalesScreen}
         options={{
           title: 'Bán hàng',
-          tabBarIcon: ({ color, size }) => <Icon source="point-of-sale" color={color} size={size} />,
+          tabBarIcon: SalesTabIcon,
         }}
       />
       <Tab.Screen
@@ -29,7 +37,7 @@ export const RootNavigator: React.FC = () => (
         component={SettingsScreen}
         options={{
           title: 'Cài đặt',
-          tabBarIcon: ({ color, size }) => <Icon source="cog" color={color} size={size} />,
+          tabBarIcon: SettingsTabIcon,
         }}
       />
     </Tab.Navigator>
