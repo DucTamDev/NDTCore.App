@@ -37,6 +37,13 @@ module.exports = {
         test: /\.ttf$/,
         type: 'asset/resource',
       },
+      {
+        // react-native-paper import các asset .png (vd: back-chevron.png,
+        // avatar.png) trực tiếp trong source — cần rule asset/resource
+        // giống .ttf, nếu không Webpack sẽ cố parse binary PNG như JS module.
+        test: /\.(png|jpe?g|gif)$/,
+        type: 'asset/resource',
+      },
     ],
   },
   plugins: [
