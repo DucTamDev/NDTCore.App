@@ -15,13 +15,7 @@ const ORDER_TYPE_BUTTONS = [
 export const CartPanelPlaceholder: React.FC = () => (
   <View style={styles.container}>
     <SegmentedButtons value="dine-in" onValueChange={() => {}} buttons={ORDER_TYPE_BUTTONS} />
-    <AppInput
-      label="Ghi chú đơn hàng"
-      value=""
-      onChangeText={() => {}}
-      placeholder="Ghi chú đơn hàng"
-      disabled
-    />
+    <AppInput label="Ghi chú đơn hàng" value="" onChangeText={() => {}} disabled />
     <View style={styles.cartItems}>
       <EmptyState message="Giỏ hàng trống" />
     </View>

@@ -5,11 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon } from 'react-native-paper';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
 import { SalesScreen } from '../features/sales/screens/SalesScreen';
-
-export type RootTabParamList = {
-  Sales: undefined;
-  Settings: undefined;
-};
+import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 

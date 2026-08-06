@@ -1,11 +1,11 @@
 // src/features/sales/screens/SalesScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Modal, Portal, Text } from 'react-native-paper';
+import { Modal, Portal, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { RootTabParamList } from '../../../navigation/RootNavigator';
+import type { RootTabParamList } from '../../../navigation/types';
 import { TopAppBar } from '../components/TopAppBar';
 import { ProductAreaPlaceholder } from '../components/ProductAreaPlaceholder';
 import { CartPanelPlaceholder } from '../components/CartPanelPlaceholder';
@@ -15,6 +15,7 @@ type SalesScreenNavigationProp = BottomTabNavigationProp<RootTabParamList, 'Sale
 
 export const SalesScreen: React.FC = () => {
   const navigation = useNavigation<SalesScreenNavigationProp>();
+  const theme = useTheme();
   const layoutMode = useSalesLayoutMode();
   const [cartVisible, setCartVisible] = useState(false);
 
@@ -24,7 +25,10 @@ export const SalesScreen: React.FC = () => {
       {layoutMode === 'phone' ? (
         <View style={styles.phoneBody}>
           <ProductAreaPlaceholder />
-          <TouchableOpacity style={styles.cartSummaryBar} onPress={() => setCartVisible(true)}>
+          <TouchableOpacity
+            style={[styles.cartSummaryBar, { backgroundColor: theme.colors.primary }]}
+            onPress={() => setCartVisible(true)}
+          >
             <Text variant="titleSmall" style={styles.cartSummaryText}>
               0 sản phẩm · 0đ
             </Text>
@@ -56,18 +60,13 @@ export const SalesScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: 'white' },
   splitBody: { flex: 1, flexDirection: 'row' },
-  productArea: { flex: 0.68 },
-  productAreaPortrait: { flex: 0.55 },
-  cartPanel: { flex: 0.32, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
-  cartPanelPortrait: { flex: 0.45, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
+  productArea: { flex: 68 },
+  productAreaPortrait: { flex: 55 },
+  cartPanel: { flex: 32, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
+  cartPanelPortrait: { flex: 45, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
   phoneBody: { flex: 1 },
   cartSummaryBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     padding: 16,
-    backgroundColor: '#2563EB',
     alignItems: 'center',
   },
   cartSummaryText: { color: 'white' },

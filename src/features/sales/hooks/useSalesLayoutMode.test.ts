@@ -16,4 +16,8 @@ describe('getSalesLayoutMode', () => {
   it('returns phone for a landscape viewport below the tablet threshold', () => {
     expect(getSalesLayoutMode(800, 360)).toBe('phone');
   });
+
+  it('returns tablet-portrait for a square tablet-sized viewport (ties resolve to portrait)', () => {
+    expect(getSalesLayoutMode(600, 600)).toBe('tablet-portrait');
+  });
 });

@@ -29,7 +29,7 @@ Node: `>= 22.11.0`. Không có path alias (`@/...`) — toàn bộ import dùng 
 
 ### Tech Stack
 
-React Native CLI + TypeScript (strict). UI: **React Native Paper** (Material Design 3). Form: **React Hook Form + Zod**. State: **Redux Toolkit**. Navigation: **React Navigation** (native-stack). Storage: **react-native-mmkv**. Async server state: **@tanstack/react-query** (provider đã wire ở `App.tsx`, chưa có domain nào dùng).
+React Native CLI + TypeScript (strict). UI: **React Native Paper** (Material Design 3). Form: **React Hook Form + Zod**. State: **Redux Toolkit**. Navigation: **React Navigation** (bottom-tabs, `@react-navigation/bottom-tabs`) — 2 tab: Sales, Settings. Storage: **react-native-mmkv**. Async server state: **@tanstack/react-query** (provider đã wire ở `App.tsx`, chưa có domain nào dùng).
 
 ### Source Structure
 
@@ -40,8 +40,11 @@ src/
 │                        # EmptyState, LoadingOverlay, StatusDot)
 ├── features/
 │   ├── printer/         # Xem "Printer Module" bên dưới
+│   ├── sales/           # Sales screen shell — hooks/, components/, screens/. Static,
+│   │                    # responsive, chưa có product/cart data — xem
+│   │                    # docs/superpowers/specs/2026-08-06-sales-shell-navigation-design.md
 │   └── settings/        # Settings shell — sidebar + content theo activeMenuKey (Redux)
-├── navigation/           # RootNavigator (native-stack, hiện chỉ có màn "Settings")
+├── navigation/           # RootNavigator (bottom-tabs), 2 tab: Sales (initial route), Settings
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module
 ├── theme/                 # React Native Paper theme
