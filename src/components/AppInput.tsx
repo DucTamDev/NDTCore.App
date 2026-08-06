@@ -11,6 +11,7 @@ export interface AppInputProps {
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   placeholder?: string;
   disabled?: boolean;
+  secureTextEntry?: boolean;
 }
 
 export const AppInput: React.FC<AppInputProps> = ({
@@ -21,6 +22,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   keyboardType = 'default',
   placeholder,
   disabled = false,
+  secureTextEntry = false,
 }) => (
   <View>
     <TextInput
@@ -32,6 +34,7 @@ export const AppInput: React.FC<AppInputProps> = ({
       error={Boolean(errorMessage)}
       mode="outlined"
       disabled={disabled}
+      secureTextEntry={secureTextEntry}
     />
     {errorMessage ? <HelperText type="error">{errorMessage}</HelperText> : null}
   </View>
