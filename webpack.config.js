@@ -34,8 +34,34 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['module:@react-native/babel-preset'],
+            // disableImportExportTransform: @react-native/babel-preset chạy
+            // @babel/plugin-transform-modules-commonjs mặc định (dành cho Metro,
+            // không cần CJS thật vì Metro tự có module system riêng). Với Webpack,
+            // các gói @react-navigation/* build ESM (`lib/module/`) sau khi bị babel
+            // chuyển sang CommonJS vẫn giữ nguyên identifier "exports"/"require" —
+            // nhưng Webpack nhận diện marker `__esModule` do babel sinh ra và coi
+            // module là Harmony-compatible, đổi tên tham số exports/module của
+            // wrapper sang __webpack_exports__/__webpack_module__ nội bộ mà KHÔNG
+            // viết lại các dòng "exports"/"require" cứng trong thân module babel đã
+            // sinh ra từ trước → "ReferenceError: exports is not defined" khi chạy
+            // trong browser thật (không có global exports như Node).
+            // Tắt transform import/export của preset, để Webpack tự parse cú pháp
+            // ESM gốc (native harmony parsing) — toàn bộ code interop khi đó do
+            // chính Webpack sinh ra, nhất quán, không còn xung đột định danh.
+            presets: [
+              ['module:@react-native/babel-preset', { disableImportExportTransform: true }],
+            ],
           },
+        },
+        // Với import/export không bị babel chuyển sang CommonJS nữa, Webpack coi
+        // các file này là "strict ESM" và mặc định đòi hỏi extension đầy đủ trên
+        // mọi relative import (theo đúng spec ESM). Nhưng @react-navigation/*
+        // build ra các import kiểu `./useLinking` (thiếu ".js") — hợp lệ với
+        // Node/Metro resolver nhưng bị Webpack coi là lỗi ("fully specified").
+        // fullySpecified: false tắt yêu cầu đó, quay lại dùng resolve.extensions
+        // như các module khác.
+        resolve: {
+          fullySpecified: false,
         },
       },
       {
