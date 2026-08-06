@@ -48,8 +48,38 @@ module.exports = {
             // Tắt transform import/export của preset, để Webpack tự parse cú pháp
             // ESM gốc (native harmony parsing) — toàn bộ code interop khi đó do
             // chính Webpack sinh ra, nhất quán, không còn xung đột định danh.
+            //
+            // enableBabelRuntime: false — cùng một class bug với
+            // disableImportExportTransform ở trên, nhưng phát sinh từ hướng khác.
+            // Mặc định preset còn nạp @babel/plugin-transform-runtime để thay các
+            // cú pháp destructuring mảng/async bằng helper `@babel/runtime`. Từ
+            // Babel 7.13, plugin này tự phát hiện `caller.supportsStaticESM` —
+            // mà babel-loader LUÔN set `true` (node_modules/babel-loader/lib/
+            // injectCaller.js) — nên nó chèn `import ... from
+            // '@babel/runtime/helpers/esm/...'` (cú pháp ESM thật) vào ĐẦU các
+            // file, kể cả file vốn là CommonJS thuần (vd:
+            // @react-native-vector-icons/common/lib/commonjs/create-icon-set.js —
+            // không có import/export gốc, chỉ có require()/exports). File từ CJS
+            // thuần bỗng lẫn cú pháp ESM thật → Webpack coi cả file là Harmony
+            // module, đổi tên tham số exports/module của wrapper — nhưng phần
+            // thân CommonJS gốc (require/`Object.defineProperty(exports,
+            // "__esModule",...)`) không được viết lại vì disableImportExportTransform
+            // chặn @babel/plugin-transform-modules-commonjs xử lý file này (không
+            // có gì để nó "chuyển đổi" cả, vì phần thân vốn đã là CJS) → cùng lỗi
+            // "ReferenceError: exports is not defined" khi chạy trong browser thật.
+            // Phát hiện bằng cách log lỗi thật bị try/catch nuốt trong
+            // react-native-paper's loadIconModule() (MaterialCommunityIcon.js) —
+            // đây là nguyên nhân icon 'cog'/'point-of-sale' render ra ô vuông rỗng
+            // (FallbackIcon) thay vì icon thật.
+            // Tắt hẳn @babel/plugin-transform-runtime (không cần cho build web —
+            // trình duyệt hiện đại hỗ trợ sẵn destructuring/async/await, không cần
+            // regenerator/helper runtime như Hermes) để loại bỏ hoàn toàn nguồn
+            // chèn import ESM giả này.
             presets: [
-              ['module:@react-native/babel-preset', { disableImportExportTransform: true }],
+              [
+                'module:@react-native/babel-preset',
+                { disableImportExportTransform: true, enableBabelRuntime: false },
+              ],
             ],
           },
         },
