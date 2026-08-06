@@ -115,5 +115,13 @@ module.exports = {
   devServer: {
     historyApiFallback: true,
     port: 8082,
+    // 4 warnings are permanently benign (see comment above) — don't let them
+    // cover the whole page with a full-screen overlay on every reload.
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
   },
 };
