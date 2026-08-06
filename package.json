@@ -10,7 +10,7 @@
     "test": "jest",
     "type-check": "tsc --noEmit",
     "verify": "npm run type-check && npm run lint && npm test",
-    "web": "webpack serve --config webpack.config.js --mode development",
+    "web": "nodemon --watch webpack.config.js --exec \"webpack serve --config webpack.config.js --mode development\"",
     "build:web": "webpack --config webpack.config.js --mode production"
   },
   "dependencies": {
@@ -58,6 +58,7 @@
     "html-webpack-plugin": "^5.6.8",
     "jest": "^29.6.3",
     "jest-environment-jsdom": "^29.7.0",
+    "nodemon": "^3.1.14",
     "prettier": "2.8.8",
     "react-dom": "19.2.3",
     "react-native-web": "^0.21.2",
