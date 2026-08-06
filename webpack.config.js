@@ -2,11 +2,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-// npm run build:web emits 4 benign "Module not found" warnings for
-// 'expo-font' and '@react-native-vector-icons/get-image' — both are
-// wrapped in try/catch in their source packages as optional Expo-only
-// fallback paths this project doesn't use. Safe to ignore.
-
 module.exports = {
   entry: path.resolve(__dirname, 'index.web.tsx'),
   output: {
@@ -23,6 +18,17 @@ module.exports = {
       'react-native-esc-pos-printer': false,
       'react-native-tcp-socket': false,
       'react-native-nitro-modules': false,
+      // react-native-paper và @react-native-vector-icons/common thử require()
+      // các thư viện icon thay thế (Expo/react-native-vector-icons) bên trong
+      // try/catch — chỉ để tự phát hiện thư viện nào có sẵn lúc runtime, không
+      // bao giờ thực sự cần trên web vì @react-native-vector-icons/material-design-icons
+      // (thư viện app đang dùng) luôn resolve thành công trước các nhánh catch
+      // này. Alias sang `false` để Webpack không emit "Module not found" cho
+      // các require() không bao giờ được thực thi.
+      'expo-font': false,
+      '@react-native-vector-icons/get-image': false,
+      '@expo/vector-icons/MaterialCommunityIcons': false,
+      'react-native-vector-icons/MaterialCommunityIcons': false,
     },
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
   },
