@@ -1,5 +1,15 @@
 /* eslint-env jest */
 
+// react-native-config ships an ESM build ("export const Config = ...") that
+// the react-native preset's transformIgnorePatterns does not cover, so any
+// test that transitively imports a module referencing `Config` (e.g.
+// HttpClient.ts building its default axios instance at module scope) fails
+// to parse unless the module is mocked here.
+jest.mock('react-native-config', () => ({
+  __esModule: true,
+  default: { API_BASE_URL: 'https://api.soliteavn.com/api' },
+}));
+
 jest.mock('react-native-mmkv', () => {
   const store = new Map();
   return {
