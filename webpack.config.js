@@ -2,6 +2,11 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
+// npm run build:web emits 4 benign "Module not found" warnings for
+// 'expo-font' and '@react-native-vector-icons/get-image' — both are
+// wrapped in try/catch in their source packages as optional Expo-only
+// fallback paths this project doesn't use. Safe to ignore.
+
 module.exports = {
   entry: path.resolve(__dirname, 'index.web.tsx'),
   output: {
@@ -25,7 +30,7 @@ module.exports = {
     rules: [
       {
         test: /\.[jt]sx?$/,
-        exclude: /node_modules\/(?!(react-native|@react-native|@react-navigation)[\w-]*\/)/,
+        exclude: /node_modules[\\/](?!(react-native|@react-native|@react-navigation)[\w-]*[\\/])/,
         use: {
           loader: 'babel-loader',
           options: {
@@ -53,6 +58,6 @@ module.exports = {
   ],
   devServer: {
     historyApiFallback: true,
-    port: 8081,
+    port: 8082,
   },
 };
