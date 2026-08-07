@@ -83,7 +83,15 @@ describe('HttpClient', () => {
       callCount += 1;
       if (callCount === 1) {
         expect(config.headers?.Authorization).toBe('Bearer expired-access');
-        return [401];
+        return [
+          401,
+          {
+            IsSuccess: false,
+            Data: null,
+            Message: null,
+            Error: { ErrorCode: 'ACCESS_TOKEN_EXPIRED', Message: 'Access token expired' },
+          },
+        ];
       }
       expect(config.headers?.Authorization).toBe('Bearer fresh-access');
       return [200, { IsSuccess: true, Data: { ok: true }, Message: null, Error: null }];
@@ -91,7 +99,7 @@ describe('HttpClient', () => {
 
     const result = await client.get<{ ok: boolean }>('/secure');
     expect(result.Data).toEqual({ ok: true });
-    expect(refreshTokenRequest).toHaveBeenCalledWith('refresh-1');
+    expect(refreshTokenRequest).toHaveBeenCalledWith('expired-access', 'refresh-1');
     expect(getStoredTokens()).toMatchObject({ accessToken: 'fresh-access' });
   });
 
@@ -102,12 +110,71 @@ describe('HttpClient', () => {
     const listener = jest.fn();
     const unsubscribe = onSessionExpired(listener);
 
-    mock.onGet('/secure').reply(401);
+    mock.onGet('/secure').reply(401, {
+      IsSuccess: false,
+      Data: null,
+      Message: null,
+      Error: { ErrorCode: 'ACCESS_TOKEN_EXPIRED', Message: 'Access token expired' },
+    });
 
     await expect(client.get('/secure')).rejects.toBeDefined();
     expect(listener).toHaveBeenCalledTimes(1);
     expect(getStoredTokens()).toBeNull();
 
     unsubscribe();
+  });
+
+  it('does not retry a failing POST request (non-idempotent)', async () => {
+    let callCount = 0;
+    mock.onPost('/orders').reply(() => {
+      callCount += 1;
+      return [503];
+    });
+
+    await expect(client.post('/orders', { item: 'x' })).rejects.toBeDefined();
+    expect(callCount).toBe(1);
+  });
+
+  it('dedupes concurrent 401s into a single refresh call', async () => {
+    setStoredTokens('expired-access', 'refresh-1');
+    (refreshTokenRequest as jest.Mock).mockResolvedValue({
+      AccessToken: 'fresh-access',
+      RefreshToken: 'fresh-refresh',
+      AccessTokenExpiration: '2099-01-01T00:00:00Z',
+      RefreshTokenExpiration: '2099-01-01T00:00:00Z',
+    });
+
+    const tokenExpiredResponse: [number, unknown] = [
+      401,
+      {
+        IsSuccess: false,
+        Data: null,
+        Message: null,
+        Error: { ErrorCode: 'ACCESS_TOKEN_EXPIRED', Message: 'Access token expired' },
+      },
+    ];
+
+    let callsA = 0;
+    mock.onGet('/secure-a').reply(() => {
+      callsA += 1;
+      if (callsA === 1) return tokenExpiredResponse;
+      return [200, { IsSuccess: true, Data: { source: 'a' }, Message: null, Error: null }];
+    });
+
+    let callsB = 0;
+    mock.onGet('/secure-b').reply(() => {
+      callsB += 1;
+      if (callsB === 1) return tokenExpiredResponse;
+      return [200, { IsSuccess: true, Data: { source: 'b' }, Message: null, Error: null }];
+    });
+
+    const [resultA, resultB] = await Promise.all([
+      client.get<{ source: string }>('/secure-a'),
+      client.get<{ source: string }>('/secure-b'),
+    ]);
+
+    expect(resultA.Data).toEqual({ source: 'a' });
+    expect(resultB.Data).toEqual({ source: 'b' });
+    expect(refreshTokenRequest).toHaveBeenCalledTimes(1);
   });
 });

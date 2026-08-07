@@ -1,6 +1,6 @@
 // src/navigation/RootNavigator.tsx
-import React from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -8,8 +8,9 @@ import { Icon } from 'react-native-paper';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
 import { SalesScreen } from '../features/sales/screens/SalesScreen';
 import { LoginScreen } from '../features/auth/screens/LoginScreen';
-import { selectIsLoggedIn } from '../features/auth/store/authSlice';
-import type { RootState } from '../store';
+import { selectIsLoggedIn, loggedOut } from '../features/auth/store/authSlice';
+import { onSessionExpired } from '../services/http/sessionEvents';
+import type { AppDispatch, RootState } from '../store';
 import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -56,7 +57,10 @@ const AuthStack: React.FC = () => (
 );
 
 export const RootNavigator: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const isLoggedIn = useSelector((state: RootState) => selectIsLoggedIn(state));
+
+  useEffect(() => onSessionExpired(() => dispatch(loggedOut())), [dispatch]);
 
   return <NavigationContainer>{isLoggedIn ? <AppTabs /> : <AuthStack />}</NavigationContainer>;
 };

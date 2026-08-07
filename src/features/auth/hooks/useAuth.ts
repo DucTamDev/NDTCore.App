@@ -1,24 +1,13 @@
-import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { AuthService } from '../services/AuthService';
-import { onSessionExpired } from '../../../services/http/sessionEvents';
-import {
-  loginStarted,
-  loginSucceeded,
-  loginFailed,
-  loggedOut,
-  selectAuthLoading,
-  selectAuthError,
-} from '../store/authSlice';
+import { loginStarted, loginSucceeded, loginFailed, selectAuthLoading, selectAuthError } from '../store/authSlice';
 import type { LoginRequest } from '../types/auth.types';
 
 export const useAuth = () => {
   const dispatch = useDispatch<AppDispatch>();
   const isLoading = useSelector((state: RootState) => selectAuthLoading(state));
   const error = useSelector((state: RootState) => selectAuthError(state));
-
-  useEffect(() => onSessionExpired(() => dispatch(loggedOut())), [dispatch]);
 
   const login = async (payload: LoginRequest): Promise<void> => {
     dispatch(loginStarted());

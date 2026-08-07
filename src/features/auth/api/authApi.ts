@@ -4,9 +4,13 @@ import type { LoginRequest, LoginResponseDto } from '../types/auth.types';
 
 export const authApi = {
   loginAsync(payload: LoginRequest): Promise<ApiResponse<LoginResponseDto>> {
-    return HttpClient.post('/admin/auth/login', {
-      Email: payload.email,
-      Password: payload.password,
-    });
+    return HttpClient.post(
+      '/admin/auth/login',
+      {
+        Email: payload.email,
+        Password: payload.password,
+      },
+      { skipAuth: true, skipAuthRefresh: true },
+    );
   },
 };

@@ -5,7 +5,7 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import Config from 'react-native-config';
+import { appConfig } from '../../config/appConfig';
 import type { ApiResponse } from '../../types/ApiResponse';
 import { refreshTokenRequest } from './refreshTokenRequest';
 import { emitSessionExpired } from './sessionEvents';
@@ -22,6 +22,7 @@ const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const IDEMPOTENT_METHODS = new Set(['get', 'head', 'put', 'delete']);
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
+const ACCESS_TOKEN_EXPIRED_CODE = 'ACCESS_TOKEN_EXPIRED';
 
 const backoffDelay = (retryCount: number): number => {
   const base = 2 ** retryCount * RETRY_BASE_DELAY_MS;
@@ -31,8 +32,17 @@ const backoffDelay = (retryCount: number): number => {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getErrorCode = (error: AxiosError): string | undefined =>
+  (error.response?.data as ApiResponse<unknown> | undefined)?.Error?.ErrorCode;
+
+const toApiError = (error: AxiosError): Error => {
+  const message = (error.response?.data as ApiResponse<unknown> | undefined)?.Error?.Message;
+  return new Error(message ?? 'Yêu cầu thất bại');
+};
+
 export const createHttpClient = (instance: AxiosInstance) => {
   let sharedRefreshPromise: Promise<string> | null = null;
+  let sessionExpiredEmitted = false;
 
   const shouldRetry = (config: HttpRequestConfig, error: AxiosError): boolean => {
     const method = config.method?.toLowerCase() ?? '';
@@ -54,7 +64,7 @@ export const createHttpClient = (instance: AxiosInstance) => {
     const tokens = getStoredTokens();
     if (!tokens?.refreshToken) throw new Error('Không có refresh token');
 
-    const data = await refreshTokenRequest(tokens.refreshToken);
+    const data = await refreshTokenRequest(tokens.accessToken, tokens.refreshToken);
     const nextTokens: AuthTokenModel = {
       accessToken: data.AccessToken,
       refreshToken: data.RefreshToken,
@@ -62,10 +72,15 @@ export const createHttpClient = (instance: AxiosInstance) => {
       refreshTokenExpiration: data.RefreshTokenExpiration,
     };
     saveTokens(nextTokens);
+    // A successful refresh proves the session is alive again — allow a future
+    // genuine expiry to emit session-expired again.
+    sessionExpiredEmitted = false;
     return nextTokens.accessToken;
   };
 
   const expireSession = (): void => {
+    if (sessionExpiredEmitted) return;
+    sessionExpiredEmitted = true;
     clearTokens();
     emitSessionExpired();
   };
@@ -73,7 +88,7 @@ export const createHttpClient = (instance: AxiosInstance) => {
   const handleRefresh = async (error: AxiosError, config: HttpRequestConfig): Promise<AxiosResponse> => {
     if (config.isRetryAfterRefresh) {
       expireSession();
-      return Promise.reject(error);
+      return Promise.reject(toApiError(error));
     }
     config.isRetryAfterRefresh = true;
 
@@ -89,7 +104,7 @@ export const createHttpClient = (instance: AxiosInstance) => {
       return instance.request(config);
     } catch {
       expireSession();
-      return Promise.reject(error);
+      return Promise.reject(toApiError(error));
     }
   };
 
@@ -113,12 +128,15 @@ export const createHttpClient = (instance: AxiosInstance) => {
       if (!(error instanceof AxiosError) || !error.config) return Promise.reject(error);
       const config = error.config as HttpRequestConfig;
 
-      const isUnauthorized = error.response?.status === 401 && !config.skipAuthRefresh;
-      if (isUnauthorized) return handleRefresh(error, config);
+      const isTokenExpired =
+        error.response?.status === 401 &&
+        getErrorCode(error) === ACCESS_TOKEN_EXPIRED_CODE &&
+        !config.skipAuthRefresh;
+      if (isTokenExpired) return handleRefresh(error, config);
 
       if (shouldRetry(config, error)) return scheduleRetry(config);
 
-      return Promise.reject(error);
+      return Promise.reject(toApiError(error));
     },
   );
 
@@ -139,9 +157,9 @@ export const createHttpClient = (instance: AxiosInstance) => {
 };
 
 const defaultInstance = axios.create({
-  baseURL: Config.API_BASE_URL,
+  baseURL: appConfig.apiBaseUrl,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Tenant-Id': appConfig.tenantId },
 });
 
 export const HttpClient = createHttpClient(defaultInstance);

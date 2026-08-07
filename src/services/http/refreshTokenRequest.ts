@@ -1,5 +1,5 @@
 import axios from 'axios';
-import Config from 'react-native-config';
+import { appConfig } from '../../config/appConfig';
 import type { ApiResponse } from '../../types/ApiResponse';
 
 export interface RefreshTokenResponseDto {
@@ -9,14 +9,22 @@ export interface RefreshTokenResponseDto {
   RefreshTokenExpiration: string;
 }
 
-export const refreshTokenRequest = async (refreshToken: string): Promise<RefreshTokenResponseDto> => {
+export const refreshTokenRequest = async (
+  accessToken: string,
+  refreshToken: string,
+): Promise<RefreshTokenResponseDto> => {
   const response = await axios.post<ApiResponse<RefreshTokenResponseDto>>(
-    `${Config.API_BASE_URL}/admin/auth/refresh`,
-    { RefreshToken: refreshToken },
+    `${appConfig.apiBaseUrl}/admin/auth/refresh`,
+    { AccessToken: accessToken, RefreshToken: refreshToken },
+    { timeout: 30000, headers: { 'Tenant-Id': appConfig.tenantId } },
   );
 
   if (!response.data.IsSuccess || !response.data.Data) {
     throw new Error(response.data.Error?.Message ?? 'Không thể làm mới phiên đăng nhập');
+  }
+
+  if (!response.data.Data.AccessToken || !response.data.Data.RefreshToken) {
+    throw new Error('Không thể làm mới phiên đăng nhập');
   }
 
   return response.data.Data;

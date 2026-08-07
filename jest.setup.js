@@ -3,11 +3,13 @@
 // react-native-config ships an ESM build ("export const Config = ...") that
 // the react-native preset's transformIgnorePatterns does not cover, so any
 // test that transitively imports a module referencing `Config` (e.g.
-// HttpClient.ts building its default axios instance at module scope) fails
-// to parse unless the module is mocked here.
+// src/config/appConfig.ts, which HttpClient.ts and refreshTokenRequest.ts
+// both import) fails to parse unless the module is mocked here. Jest's
+// module resolution (unlike Webpack's) does not prioritize `.web.ts`, so
+// `appConfig.ts` (not `appConfig.web.ts`) is the file under test.
 jest.mock('react-native-config', () => ({
   __esModule: true,
-  default: { API_BASE_URL: 'https://api.soliteavn.com/api' },
+  default: { API_BASE_URL: 'https://api.soliteavn.com/api', TENANT_ID: '00000000-0000-0000-0000-000000000001' },
 }));
 
 jest.mock('react-native-mmkv', () => {
