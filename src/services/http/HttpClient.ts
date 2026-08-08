@@ -79,9 +79,9 @@ export const createHttpClient = (instance: AxiosInstance) => {
   };
 
   const expireSession = (): void => {
+    clearTokens();
     if (sessionExpiredEmitted) return;
     sessionExpiredEmitted = true;
-    clearTokens();
     emitSessionExpired();
   };
 
@@ -152,6 +152,11 @@ export const createHttpClient = (instance: AxiosInstance) => {
     ): Promise<ApiResponse<T>> => {
       const response = await instance.post<ApiResponse<T>>(url, data, config);
       return response.data;
+    },
+    // Allows a fresh login to re-arm the emit-once guard so a session that
+    // expires again later (in the same app process) still triggers a logout.
+    resetSessionExpiredFlag: (): void => {
+      sessionExpiredEmitted = false;
     },
   };
 };

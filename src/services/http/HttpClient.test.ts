@@ -124,6 +124,37 @@ describe('HttpClient', () => {
     unsubscribe();
   });
 
+  it('clears tokens and emits again after resetSessionExpiredFlag following a second expiry', async () => {
+    setStoredTokens('expired-access', 'dead-refresh');
+    (refreshTokenRequest as jest.Mock).mockRejectedValue(new Error('refresh token expired'));
+
+    const listener = jest.fn();
+    const unsubscribe = onSessionExpired(listener);
+
+    mock.onGet('/secure').reply(401, {
+      IsSuccess: false,
+      Data: null,
+      Message: null,
+      Error: { ErrorCode: 'ACCESS_TOKEN_EXPIRED', Message: 'Access token expired' },
+    });
+
+    // First expiry: tokens cleared, event fired once.
+    await expect(client.get('/secure')).rejects.toBeDefined();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(getStoredTokens()).toBeNull();
+
+    // Simulate a fresh login re-arming the guard.
+    setStoredTokens('expired-access-2', 'dead-refresh-2');
+    client.resetSessionExpiredFlag();
+
+    // Second expiry in the same process must clear tokens and emit again, not no-op.
+    await expect(client.get('/secure')).rejects.toBeDefined();
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(getStoredTokens()).toBeNull();
+
+    unsubscribe();
+  });
+
   it('does not retry a failing POST request (non-idempotent)', async () => {
     let callCount = 0;
     mock.onPost('/orders').reply(() => {
