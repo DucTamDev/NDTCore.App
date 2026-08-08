@@ -1,6 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { AuthService } from '../services/AuthService';
+import { StoreService } from '../../store/services/StoreService';
 import {
   loginStarted,
   loginSucceeded,
@@ -28,6 +29,7 @@ export const useAuth = () => {
 
   const logout = (): void => {
     AuthService.logout();
+    StoreService.clearStoreId();
     dispatch(loggedOut());
   };
 

@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { StoreService } from '../services/StoreService';
+import { loggedOut } from '../../auth/store/authSlice';
 import type { StoreViewModel } from '../types/store.types';
 
 interface StoreSliceState {
@@ -38,7 +39,15 @@ const storeSlice = createSlice({
     storeCleared(state) {
       state.storeId = null;
       state.availableStores = [];
+      state.error = null;
     },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(loggedOut, (state) => {
+      state.storeId = null;
+      state.availableStores = [];
+      state.error = null;
+    });
   },
 });
 

@@ -11,6 +11,7 @@ import { LoginScreen } from '../features/auth/screens/LoginScreen';
 import { StoreSelectScreen } from '../features/store/screens/StoreSelectScreen';
 import { selectIsLoggedIn, loggedOut } from '../features/auth/store/authSlice';
 import { selectCurrentStoreId } from '../features/store/store/storeSlice';
+import { StoreService } from '../features/store/services/StoreService';
 import { onSessionExpired } from '../services/http/sessionEvents';
 import type { AppDispatch, RootState } from '../store';
 import type { RootTabParamList } from './types';
@@ -75,7 +76,14 @@ export const RootNavigator: React.FC = () => {
   const isLoggedIn = useSelector((state: RootState) => selectIsLoggedIn(state));
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
 
-  useEffect(() => onSessionExpired(() => dispatch(loggedOut())), [dispatch]);
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        StoreService.clearStoreId();
+        dispatch(loggedOut());
+      }),
+    [dispatch],
+  );
 
   let content: React.ReactElement;
   if (!isLoggedIn) {

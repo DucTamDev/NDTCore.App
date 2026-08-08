@@ -9,6 +9,7 @@ import reducer, {
   selectStoresLoading,
   selectStoresError,
 } from './storeSlice';
+import { loggedOut } from '../../auth/store/authSlice';
 import type { StoreViewModel } from '../types/store.types';
 
 const sampleStore: StoreViewModel = {
@@ -49,10 +50,24 @@ describe('storeSlice', () => {
     expect(state.storeId).toBe(7);
   });
 
-  it('storeCleared resets storeId and availableStores', () => {
-    const state = reducer({ ...initialState, storeId: 7, availableStores: [sampleStore] }, storeCleared());
+  it('storeCleared resets storeId, availableStores, and error', () => {
+    const state = reducer(
+      { ...initialState, storeId: 7, availableStores: [sampleStore], error: 'previous error' },
+      storeCleared(),
+    );
     expect(state.storeId).toBeNull();
     expect(state.availableStores).toEqual([]);
+    expect(state.error).toBeNull();
+  });
+
+  it('loggedOut (dispatched by authSlice) resets storeId, availableStores, and error', () => {
+    const state = reducer(
+      { ...initialState, storeId: 7, availableStores: [sampleStore], error: 'previous error' },
+      loggedOut(),
+    );
+    expect(state.storeId).toBeNull();
+    expect(state.availableStores).toEqual([]);
+    expect(state.error).toBeNull();
   });
 
   it('selectors read the currentStore slice from RootState-shaped object', () => {
