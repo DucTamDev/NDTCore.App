@@ -208,4 +208,25 @@ describe('HttpClient', () => {
     expect(resultB.Data).toEqual({ source: 'b' });
     expect(refreshTokenRequest).toHaveBeenCalledTimes(1);
   });
+
+  it('getPaged returns the full paged envelope, not just Data', async () => {
+    setStoredTokens('access-1', 'refresh-1');
+    mock.onGet('/items').reply(200, {
+      IsSuccess: true,
+      Data: [{ id: 1 }, { id: 2 }],
+      Message: null,
+      Error: null,
+      PageNumber: 1,
+      PageSize: 20,
+      TotalCount: 2,
+      TotalPages: 1,
+      HasPreviousPage: false,
+      HasNextPage: false,
+    });
+
+    const result = await client.getPaged<{ id: number }>('/items');
+    expect(result.Data).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(result.TotalCount).toBe(2);
+    expect(result.PageNumber).toBe(1);
+  });
 });

@@ -10,3 +10,12 @@ export interface ApiResponse<T> {
   Message: string | null;
   Error: ApiResponseError | null;
 }
+
+export interface PagedApiResponse<T> extends ApiResponse<T[]> {
+  PageNumber: number;
+  PageSize: number;
+  TotalCount: number;
+  TotalPages: number;
+  HasPreviousPage: boolean;
+  HasNextPage: boolean;
+}

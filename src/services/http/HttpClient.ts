@@ -6,7 +6,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 import { appConfig } from '../../config/appConfig';
-import type { ApiResponse } from '../../types/ApiResponse';
+import type { ApiResponse, PagedApiResponse } from '../../types/ApiResponse';
 import { refreshTokenRequest } from './refreshTokenRequest';
 import { emitSessionExpired } from './sessionEvents';
 import { getStoredTokens, saveTokens, clearTokens, type AuthTokenModel } from './authTokenStorage';
@@ -143,6 +143,10 @@ export const createHttpClient = (instance: AxiosInstance) => {
   return {
     get: async <T>(url: string, config?: Partial<HttpRequestConfig>): Promise<ApiResponse<T>> => {
       const response = await instance.get<ApiResponse<T>>(url, config);
+      return response.data;
+    },
+    getPaged: async <T>(url: string, config?: Partial<HttpRequestConfig>): Promise<PagedApiResponse<T>> => {
+      const response = await instance.get<PagedApiResponse<T>>(url, config);
       return response.data;
     },
     post: async <T, D = unknown>(
