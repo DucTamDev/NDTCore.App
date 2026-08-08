@@ -52,7 +52,7 @@ const Tab: React.FC<TabProps> = ({ label, active, activeColor, onPress }) => (
     <Text
       variant="labelLarge"
       numberOfLines={1}
-      style={[styles.tabLabel, active ? { color: activeColor, fontWeight: '700' } : null]}
+      style={[styles.tabLabel, active ? { color: activeColor } : null]}
     >
       {label}
     </Text>

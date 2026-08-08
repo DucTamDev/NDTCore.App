@@ -66,9 +66,8 @@ const styles = StyleSheet.create({
   cartSummaryText: { color: 'white' },
   phoneCartModal: {
     backgroundColor: 'white',
-    margin: 16,
+    margin: 0,
     padding: 16,
-    borderRadius: 8,
-    maxHeight: '80%',
+    height: '100%',
   },
 });
