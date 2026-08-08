@@ -51,7 +51,7 @@ const Tab: React.FC<TabProps> = ({ label, active, activeColor, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  tab: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  container: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: 'center' },
+  tab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
   tabLabel: { color: '#6B7280' },
 });

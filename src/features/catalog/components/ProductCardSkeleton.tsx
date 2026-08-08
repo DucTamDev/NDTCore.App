@@ -11,7 +11,7 @@ export const ProductCardSkeleton: React.FC = () => (
 );
 
 const styles = StyleSheet.create({
-  card: { flex: 1, height: 220, borderRadius: 12, padding: 12, backgroundColor: '#F3F4F6' },
+  card: { flex: 1, height: 260, borderRadius: 12, padding: 12, backgroundColor: '#F3F4F6' },
   image: { flex: 1, borderRadius: 8, backgroundColor: '#E5E7EB' },
   line: { height: 12, borderRadius: 4, backgroundColor: '#E5E7EB', marginTop: 8 },
   lineShort: { width: '50%' },
