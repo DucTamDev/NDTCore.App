@@ -4,7 +4,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Modal, Portal, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TopAppBar } from '../components/TopAppBar';
-import { ProductAreaPlaceholder } from '../components/ProductAreaPlaceholder';
+import { ProductArea } from '../components/ProductArea';
 import { CartPanelPlaceholder } from '../components/CartPanelPlaceholder';
 import { useSalesLayoutMode } from '../hooks/useSalesLayoutMode';
 
@@ -18,7 +18,7 @@ export const SalesScreen: React.FC = () => {
       <TopAppBar />
       {layoutMode === 'phone' ? (
         <View style={styles.phoneBody}>
-          <ProductAreaPlaceholder />
+          <ProductArea />
           <TouchableOpacity
             style={[styles.cartSummaryBar, { backgroundColor: theme.colors.primary }]}
             onPress={() => setCartVisible(true)}
@@ -40,7 +40,7 @@ export const SalesScreen: React.FC = () => {
       ) : (
         <View style={styles.splitBody}>
           <View style={layoutMode === 'tablet-portrait' ? styles.productAreaPortrait : styles.productArea}>
-            <ProductAreaPlaceholder />
+            <ProductArea />
           </View>
           <View style={layoutMode === 'tablet-portrait' ? styles.cartPanelPortrait : styles.cartPanel}>
             <CartPanelPlaceholder />
