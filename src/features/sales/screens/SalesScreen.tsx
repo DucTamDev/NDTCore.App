@@ -3,25 +3,19 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Modal, Portal, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { RootTabParamList } from '../../../navigation/types';
 import { TopAppBar } from '../components/TopAppBar';
 import { ProductAreaPlaceholder } from '../components/ProductAreaPlaceholder';
 import { CartPanelPlaceholder } from '../components/CartPanelPlaceholder';
 import { useSalesLayoutMode } from '../hooks/useSalesLayoutMode';
 
-type SalesScreenNavigationProp = BottomTabNavigationProp<RootTabParamList, 'Sales'>;
-
 export const SalesScreen: React.FC = () => {
-  const navigation = useNavigation<SalesScreenNavigationProp>();
   const theme = useTheme();
   const layoutMode = useSalesLayoutMode();
   const [cartVisible, setCartVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <TopAppBar onSettingsPress={() => navigation.navigate('Settings')} />
+      <TopAppBar />
       {layoutMode === 'phone' ? (
         <View style={styles.phoneBody}>
           <ProductAreaPlaceholder />

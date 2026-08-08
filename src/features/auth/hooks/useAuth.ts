@@ -1,7 +1,14 @@
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { AuthService } from '../services/AuthService';
-import { loginStarted, loginSucceeded, loginFailed, selectAuthLoading, selectAuthError } from '../store/authSlice';
+import {
+  loginStarted,
+  loginSucceeded,
+  loginFailed,
+  loggedOut,
+  selectAuthLoading,
+  selectAuthError,
+} from '../store/authSlice';
 import type { LoginRequest } from '../types/auth.types';
 
 export const useAuth = () => {
@@ -19,5 +26,10 @@ export const useAuth = () => {
     }
   };
 
-  return { login, isLoading, error };
+  const logout = (): void => {
+    AuthService.logout();
+    dispatch(loggedOut());
+  };
+
+  return { login, logout, isLoading, error };
 };

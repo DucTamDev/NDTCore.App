@@ -1,12 +1,14 @@
 // src/features/settings/components/SettingsSidebar.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, TouchableRipple, Icon } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
 import { StatusDot } from '../../../components/StatusDot';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { selectPrinters } from '../../printer/store/printerSlice';
 import { PrinterService } from '../../printer/services/PrinterService';
+import { useAuth } from '../../auth/hooks/useAuth';
 
 const placeholderItems: Array<{ icon: string; label: string; group: 'device' | 'app' }> = [
   { icon: 'barcode-scan', label: 'Máy quét mã vạch', group: 'device' },
@@ -19,6 +21,13 @@ const placeholderItems: Array<{ icon: string; label: string; group: 'device' | '
 export const SettingsSidebar: React.FC = () => {
   const printers = useSelector((state: RootState) => selectPrinters(state));
   const hasConnectedPrinter = printers.some((p) => PrinterService.getStatus(p.id) === 'connected');
+  const { logout } = useAuth();
+  const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
+
+  const confirmLogout = (): void => {
+    setConfirmLogoutVisible(false);
+    logout();
+  };
 
   return (
     <View style={styles.container}>
@@ -54,12 +63,21 @@ export const SettingsSidebar: React.FC = () => {
         ))}
 
       <View style={styles.spacer} />
-      <View style={styles.item}>
+      <TouchableRipple style={styles.item} onPress={() => setConfirmLogoutVisible(true)}>
         <View style={styles.itemRow}>
           <Icon source="logout" size={16} />
-          <Text style={styles.itemLabelDisabled}>Đăng xuất</Text>
+          <Text style={styles.itemLabelActive}>Đăng xuất</Text>
         </View>
-      </View>
+      </TouchableRipple>
+
+      <ConfirmDialog
+        visible={confirmLogoutVisible}
+        title="Đăng xuất"
+        message="Bạn có chắc muốn đăng xuất không?"
+        confirmLabel="Đăng xuất"
+        onConfirm={confirmLogout}
+        onCancel={() => setConfirmLogoutVisible(false)}
+      />
     </View>
   );
 };
