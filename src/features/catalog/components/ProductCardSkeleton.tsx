@@ -13,14 +13,14 @@ export const ProductCardSkeleton: React.FC = () => (
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    height: 280,
+    height: 220,
     borderRadius: 12,
     padding: 12,
     backgroundColor: '#F3F4F6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#E5E7EB',
   },
-  image: { flex: 1, borderRadius: 8, backgroundColor: '#E5E7EB' },
+  image: { height: 144, borderRadius: 8, backgroundColor: '#E5E7EB' },
   line: { height: 12, borderRadius: 4, backgroundColor: '#E5E7EB', marginTop: 8 },
   lineShort: { width: '50%' },
 });

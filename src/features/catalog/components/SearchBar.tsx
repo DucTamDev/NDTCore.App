@@ -1,5 +1,6 @@
 // src/features/catalog/components/SearchBar.tsx
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { Searchbar } from 'react-native-paper';
 
 export interface SearchBarProps {
@@ -8,5 +9,14 @@ export interface SearchBarProps {
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ value, onChangeText }) => (
-  <Searchbar placeholder="Tìm món, mã món..." value={value} onChangeText={onChangeText} />
+  <Searchbar
+    placeholder="Tìm món, mã món..."
+    value={value}
+    onChangeText={onChangeText}
+    style={styles.searchbar}
+  />
 );
+
+const styles = StyleSheet.create({
+  searchbar: { height: 40, marginHorizontal: 16 },
+});
