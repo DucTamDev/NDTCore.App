@@ -1,7 +1,7 @@
 // src/features/sales/screens/SalesScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Modal, Portal, Text, useTheme } from 'react-native-paper';
+import { IconButton, Modal, Portal, Text, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TopAppBar } from '../components/TopAppBar';
 import { ProductArea } from '../components/ProductArea';
@@ -33,6 +33,14 @@ export const SalesScreen: React.FC = () => {
               onDismiss={() => setCartVisible(false)}
               contentContainerStyle={styles.phoneCartModal}
             >
+              <View style={styles.phoneCartHeader}>
+                <IconButton
+                  icon="arrow-left"
+                  onPress={() => setCartVisible(false)}
+                  accessibilityLabel="Quay lại"
+                />
+                <Text variant="titleMedium">Giỏ hàng</Text>
+              </View>
               <CartPanelPlaceholder />
             </Modal>
           </Portal>
@@ -69,5 +77,11 @@ const styles = StyleSheet.create({
     margin: 0,
     padding: 16,
     height: '100%',
+  },
+  phoneCartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
   },
 });
