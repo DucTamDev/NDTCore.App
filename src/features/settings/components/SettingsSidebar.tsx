@@ -2,13 +2,15 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, TouchableRipple, Icon } from 'react-native-paper';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../../store';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../../../store';
 import { StatusDot } from '../../../components/StatusDot';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { selectPrinters } from '../../printer/store/printerSlice';
 import { PrinterService } from '../../printer/services/PrinterService';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { StoreService } from '../../store/services/StoreService';
+import { storeCleared } from '../../store/store/storeSlice';
 
 const placeholderItems: Array<{ icon: string; label: string; group: 'device' | 'app' }> = [
   { icon: 'barcode-scan', label: 'Máy quét mã vạch', group: 'device' },
@@ -19,14 +21,22 @@ const placeholderItems: Array<{ icon: string; label: string; group: 'device' | '
 ];
 
 export const SettingsSidebar: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const printers = useSelector((state: RootState) => selectPrinters(state));
   const hasConnectedPrinter = printers.some((p) => PrinterService.getStatus(p.id) === 'connected');
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
+  const [confirmChangeStoreVisible, setConfirmChangeStoreVisible] = useState(false);
 
   const confirmLogout = (): void => {
     setConfirmLogoutVisible(false);
     logout();
+  };
+
+  const confirmChangeStore = (): void => {
+    setConfirmChangeStoreVisible(false);
+    StoreService.clearStoreId();
+    dispatch(storeCleared());
   };
 
   return (
@@ -63,6 +73,12 @@ export const SettingsSidebar: React.FC = () => {
         ))}
 
       <View style={styles.spacer} />
+      <TouchableRipple style={styles.item} onPress={() => setConfirmChangeStoreVisible(true)}>
+        <View style={styles.itemRow}>
+          <Icon source="store-outline" size={16} />
+          <Text style={styles.itemLabelActive}>Đổi cửa hàng</Text>
+        </View>
+      </TouchableRipple>
       <TouchableRipple style={styles.item} onPress={() => setConfirmLogoutVisible(true)}>
         <View style={styles.itemRow}>
           <Icon source="logout" size={16} />
@@ -70,6 +86,14 @@ export const SettingsSidebar: React.FC = () => {
         </View>
       </TouchableRipple>
 
+      <ConfirmDialog
+        visible={confirmChangeStoreVisible}
+        title="Đổi cửa hàng"
+        message="Quay lại màn chọn cửa hàng?"
+        confirmLabel="Đổi cửa hàng"
+        onConfirm={confirmChangeStore}
+        onCancel={() => setConfirmChangeStoreVisible(false)}
+      />
       <ConfirmDialog
         visible={confirmLogoutVisible}
         title="Đăng xuất"

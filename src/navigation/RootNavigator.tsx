@@ -8,7 +8,9 @@ import { Icon } from 'react-native-paper';
 import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
 import { SalesScreen } from '../features/sales/screens/SalesScreen';
 import { LoginScreen } from '../features/auth/screens/LoginScreen';
+import { StoreSelectScreen } from '../features/store/screens/StoreSelectScreen';
 import { selectIsLoggedIn, loggedOut } from '../features/auth/store/authSlice';
+import { selectCurrentStoreId } from '../features/store/store/storeSlice';
 import { onSessionExpired } from '../services/http/sessionEvents';
 import type { AppDispatch, RootState } from '../store';
 import type { RootTabParamList } from './types';
@@ -56,11 +58,33 @@ const AuthStack: React.FC = () => (
   </AuthNativeStack.Navigator>
 );
 
+type StoreSelectStackParamList = {
+  StoreSelect: undefined;
+};
+
+const StoreSelectNativeStack = createNativeStackNavigator<StoreSelectStackParamList>();
+
+const StoreSelectStack: React.FC = () => (
+  <StoreSelectNativeStack.Navigator screenOptions={{ headerShown: false }}>
+    <StoreSelectNativeStack.Screen name="StoreSelect" component={StoreSelectScreen} />
+  </StoreSelectNativeStack.Navigator>
+);
+
 export const RootNavigator: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const isLoggedIn = useSelector((state: RootState) => selectIsLoggedIn(state));
+  const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
 
   useEffect(() => onSessionExpired(() => dispatch(loggedOut())), [dispatch]);
 
-  return <NavigationContainer>{isLoggedIn ? <AppTabs /> : <AuthStack />}</NavigationContainer>;
+  let content: React.ReactElement;
+  if (!isLoggedIn) {
+    content = <AuthStack />;
+  } else if (!storeId) {
+    content = <StoreSelectStack />;
+  } else {
+    content = <AppTabs />;
+  }
+
+  return <NavigationContainer>{content}</NavigationContainer>;
 };
