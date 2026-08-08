@@ -15,7 +15,12 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({ categories, selected
   const theme = useTheme();
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.container}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+    >
       <Tab
         label="Tất cả"
         active={selectedCategoryId === ALL_CATEGORY_ID}
@@ -44,14 +49,22 @@ interface TabProps {
 
 const Tab: React.FC<TabProps> = ({ label, active, activeColor, onPress }) => (
   <TouchableRipple style={styles.tab} onPress={onPress}>
-    <Text variant="labelLarge" style={active ? { color: activeColor, fontWeight: '700' } : styles.tabLabel}>
+    <Text
+      variant="labelLarge"
+      numberOfLines={1}
+      style={[styles.tabLabel, active ? { color: activeColor, fontWeight: '700' } : null]}
+    >
       {label}
     </Text>
   </TouchableRipple>
 );
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: 'center' },
-  tab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8 },
-  tabLabel: { color: '#6B7280' },
+  // height cố định trên cả ScrollView và tab — nếu chỉ dùng paddingVertical,
+  // trên web hàng tab đổi chiều cao tuỳ tab nào đang bold (fontWeight khác nhau
+  // ra line-height khác nhau), gây giật khi đổi tab.
+  scroll: { height: 48, flexGrow: 0 },
+  container: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  tab: { height: 36, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center' },
+  tabLabel: { color: '#6B7280', lineHeight: 18 },
 });

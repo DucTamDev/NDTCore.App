@@ -50,7 +50,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => (
 );
 
 const styles = StyleSheet.create({
-  card: { flex: 1, height: 260, borderRadius: 12, padding: 12, backgroundColor: 'white' },
+  card: {
+    flex: 1,
+    height: 280,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: 'white',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E7EB',
+  },
   inner: { flex: 1 },
   unavailable: { opacity: 0.5 },
   image: { flex: 1, borderRadius: 8 },
