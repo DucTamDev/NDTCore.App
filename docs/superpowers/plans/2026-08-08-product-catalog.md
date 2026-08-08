@@ -1359,15 +1359,22 @@ Expected: lưới chỉ còn sản phẩm thuộc danh mục đó (và danh mụ
 Gõ 1 từ khoá khớp tên hoặc SKU 1 sản phẩm.
 Expected: lưới lọc real-time không cần Enter, xoá bằng nút ✕ trên Search Bar quay lại danh mục đang chọn.
 
-- [ ] **Step 4: Sản phẩm hết hàng (nếu cửa hàng test có)**
+- [ ] **Step 4: Sản phẩm hết hàng — KHÔNG kiểm chứng được, bỏ qua**
 
-Expected: card mờ, có nhãn "HẾT HÀNG", không bấm được (dù bấm cũng không có hành động — đúng phạm vi đã chốt).
+> Cập nhật sau final review (2026-08-08): backend hiện luôn trả `IsAvailable: true` cho mọi sản phẩm trả về từ `GetPosCatalogQuery` (sản phẩm bị ẩn theo store bị loại thẳng khỏi kết quả, không đánh dấu hết hàng) — `ProductStore.IsAvailable=false` là model đã có nhưng chưa được set qua UI/API nào (theo `NDTCore.BE/docs/srs/SRS-Product.md`, repo backend). Card "HẾT HÀNG" đã viết đúng theo DTO nhưng không có dữ liệu thật nào để kích hoạt nhánh này — không phải lỗi FE. Bỏ qua bước này cho tới khi backend có sản phẩm hết hàng thật.
 
 - [ ] **Step 5: Lỗi/rỗng**
 
 Nếu có thể, thử với cửa hàng chưa có sản phẩm hoặc ngắt mạng khi vào Sales.
 Expected: `EmptyState` phù hợp + nút "Thử lại" khi lỗi fetch, không crash.
 
-- [ ] **Step 6: Xác nhận và báo cáo**
+- [ ] **Step 6: Đổi cửa hàng — không còn thấy catalog cũ**
+
+> Thêm sau final review (2026-08-08): xác nhận fix cho lỗi catalog cũ còn sót lại khi đổi cửa hàng/đăng xuất (xem `.superpowers/sdd/2026-08-08-product-catalog/progress.md`).
+
+Vào Sales với cửa hàng A (ghi nhớ vài sản phẩm), vào Cài đặt → "Đổi cửa hàng" → chọn cửa hàng B.
+Expected: màn hình chọn cửa hàng hiện ra bình thường; sau khi chọn cửa hàng B và vào lại Sales, KHÔNG thấy sản phẩm/danh mục của cửa hàng A dù chỉ trong 1 khung hình — chỉ thấy skeleton rồi tới catalog thật của cửa hàng B. Lặp lại tương tự với Đăng xuất → đăng nhập lại (tài khoản khác nếu có).
+
+- [ ] **Step 7: Xác nhận và báo cáo**
 
 Nếu các bước trên đạt, sub-project Product catalog hoàn tất.
