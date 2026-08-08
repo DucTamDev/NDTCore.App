@@ -1,4 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { loggedOut } from '../../auth/store/authSlice';
+import { storeCleared } from '../../store/store/storeSlice';
 import type { CategoryViewModel, ProductViewModel } from '../types/catalog.types';
 
 interface CatalogSliceState {
@@ -15,9 +17,6 @@ const initialState: CatalogSliceState = {
   error: null,
 };
 
-// Không cần reset khi đăng xuất/đổi cửa hàng: catalog không đọc lại state cũ lúc
-// khởi động (khác storeId) — mỗi lần ProductArea mount đều fetch mới và ghi đè
-// toàn bộ qua catalogLoaded trước khi render, nên state cũ không có hệ quả.
 const catalogSlice = createSlice({
   name: 'catalog',
   initialState,
@@ -35,6 +34,14 @@ const catalogSlice = createSlice({
       state.isLoading = false;
       state.error = action.payload;
     },
+  },
+  extraReducers: (builder) => {
+    // useCatalog's fetch effect runs after mount commit, not before — ProductArea's
+    // first render after a store change/logout would otherwise show a stale frame
+    // of the previous store's catalog (or its stale error state) until the effect's
+    // dispatch lands. Reset on both action types that lead to a fresh store context.
+    builder.addCase(loggedOut, () => initialState);
+    builder.addCase(storeCleared, () => initialState);
   },
 });
 

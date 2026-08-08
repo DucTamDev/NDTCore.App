@@ -14,7 +14,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => (
   // xem docs/superpowers/specs/2026-08-08-product-catalog-design.md. Sub-project
   // "Cart & modifier" kế tiếp sẽ nối logic thật vào đây.
   <TouchableRipple style={styles.card} onPress={() => {}} disabled={!product.isAvailable}>
-    <View style={!product.isAvailable ? styles.unavailable : undefined}>
+    <View style={product.isAvailable ? styles.inner : [styles.inner, styles.unavailable]}>
       {product.badgeLabel ? (
         <View style={[styles.badge, { backgroundColor: product.badgeColorHex ?? '#EF4444' }]}>
           <Text
@@ -51,6 +51,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => (
 
 const styles = StyleSheet.create({
   card: { flex: 1, height: 220, borderRadius: 12, padding: 12, backgroundColor: 'white' },
+  inner: { flex: 1 },
   unavailable: { opacity: 0.5 },
   image: { flex: 1, borderRadius: 8 },
   imagePlaceholder: {

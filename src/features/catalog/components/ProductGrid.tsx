@@ -1,6 +1,6 @@
 // src/features/catalog/components/ProductGrid.tsx
 import React from 'react';
-import { FlatList, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet, View, type ViewStyle } from 'react-native';
 import { EmptyState } from '../../../components/EmptyState';
 import { ProductCard } from './ProductCard';
 import { ProductCardSkeleton } from './ProductCardSkeleton';
@@ -16,6 +16,8 @@ export interface ProductGridProps {
 const SKELETON_COUNT = 6;
 
 export const ProductGrid: React.FC<ProductGridProps> = ({ products, numColumns, isLoading, emptyMessage }) => {
+  const itemWrapperStyle: ViewStyle = { flex: 1, maxWidth: `${100 / numColumns}%` };
+
   if (isLoading) {
     return (
       <FlatList
@@ -23,7 +25,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({ products, numColumns, 
         keyExtractor={(item) => `skeleton-${item}`}
         numColumns={numColumns}
         key={`skeleton-${numColumns}`}
-        renderItem={() => <ProductCardSkeleton />}
+        renderItem={() => (
+          <View style={itemWrapperStyle}>
+            <ProductCardSkeleton />
+          </View>
+        )}
         columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
         contentContainerStyle={styles.content}
       />
@@ -40,7 +46,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({ products, numColumns, 
       keyExtractor={(item) => String(item.id)}
       numColumns={numColumns}
       key={`grid-${numColumns}`}
-      renderItem={({ item }) => <ProductCard product={item} />}
+      renderItem={({ item }) => (
+        <View style={itemWrapperStyle}>
+          <ProductCard product={item} />
+        </View>
+      )}
       columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
       contentContainerStyle={styles.content}
     />

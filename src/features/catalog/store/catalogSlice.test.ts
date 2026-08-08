@@ -7,6 +7,8 @@ import reducer, {
   selectCatalogLoading,
   selectCatalogError,
 } from './catalogSlice';
+import { loggedOut } from '../../auth/store/authSlice';
+import { storeCleared } from '../../store/store/storeSlice';
 import type { CategoryViewModel, ProductViewModel } from '../types/catalog.types';
 
 const sampleCategory: CategoryViewModel = { id: 1, parentId: null, name: 'Trà sữa', productCount: 1, children: [] };
@@ -49,6 +51,24 @@ describe('catalogSlice', () => {
     );
     expect(state.isLoading).toBe(false);
     expect(state.error).toBe('Không thể tải danh sách sản phẩm');
+  });
+
+  it('loggedOut resets categories, products, isLoading, and error to initial state', () => {
+    const loadedState = reducer(
+      initialState,
+      catalogLoaded({ categories: [sampleCategory], products: [sampleProduct] }),
+    );
+    const state = reducer(loadedState, loggedOut());
+    expect(state).toEqual(initialState);
+  });
+
+  it('storeCleared resets categories, products, isLoading, and error to initial state', () => {
+    const loadedState = reducer(
+      initialState,
+      catalogLoaded({ categories: [sampleCategory], products: [sampleProduct] }),
+    );
+    const state = reducer(loadedState, storeCleared());
+    expect(state).toEqual(initialState);
   });
 
   it('selectors read the catalog slice from RootState-shaped object', () => {
