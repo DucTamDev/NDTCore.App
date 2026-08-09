@@ -1,29 +1,60 @@
-import { getSalesLayoutMode } from './useSalesLayoutMode';
+import {
+  getSalesLayoutMode,
+  TABLET_MIN_DP,
+} from './useSalesLayoutMode';
 
 describe('getSalesLayoutMode', () => {
-  it('returns tablet-landscape for a wide tablet-sized viewport', () => {
-    expect(getSalesLayoutMode(1280, 800)).toBe('tablet-landscape');
+  describe('tablet layout', () => {
+    it('returns tablet-landscape for a wide tablet viewport', () => {
+      expect(getSalesLayoutMode(1280, 800)).toBe('tablet-landscape');
+    });
+
+    it('returns tablet-portrait for a tall tablet viewport', () => {
+      expect(getSalesLayoutMode(800, 1280)).toBe('tablet-portrait');
+    });
+
+    it('returns tablet-portrait for a square tablet viewport', () => {
+      expect(getSalesLayoutMode(600, 600)).toBe('tablet-portrait');
+    });
+
+    it('returns tablet-landscape when the shortest side equals the tablet threshold', () => {
+      expect(getSalesLayoutMode(800, TABLET_MIN_DP)).toBe(
+        'tablet-landscape',
+      );
+    });
+
+    it('returns tablet-landscape when the shortest side is above the tablet threshold', () => {
+      expect(getSalesLayoutMode(960, TABLET_MIN_DP + 1)).toBe(
+        'tablet-landscape',
+      );
+    });
   });
 
-  it('returns tablet-portrait for a tall tablet-sized viewport', () => {
-    expect(getSalesLayoutMode(800, 1280)).toBe('tablet-portrait');
+  describe('phone layout', () => {
+    it('returns phone when the shortest side is below the tablet threshold', () => {
+      expect(getSalesLayoutMode(TABLET_MIN_DP - 1, 800)).toBe('phone');
+    });
+
+    it('returns phone for a portrait phone viewport', () => {
+      expect(getSalesLayoutMode(360, 800)).toBe('phone');
+    });
+
+    it('returns phone for a landscape phone viewport', () => {
+      expect(getSalesLayoutMode(800, 360)).toBe('phone');
+    });
   });
 
-  it('returns phone for a portrait viewport below the tablet threshold', () => {
-    expect(getSalesLayoutMode(360, 800)).toBe('phone');
-  });
+  describe('tablet boundary', () => {
+    it('treats the exact tablet threshold as a tablet', () => {
+      expect(
+        getSalesLayoutMode(TABLET_MIN_DP, TABLET_MIN_DP),
+      ).toBe('tablet-portrait');
+    });
 
-  it('returns phone for a landscape viewport below the tablet threshold', () => {
-    expect(getSalesLayoutMode(800, 360)).toBe('phone');
-  });
-
-  it('returns tablet-portrait for a square tablet-sized viewport (ties resolve to portrait)', () => {
-    expect(getSalesLayoutMode(600, 600)).toBe('tablet-portrait');
-  });
-
-  it('returns tablet-landscape for a small physical tablet whose usable window drops below 600dp after system bars', () => {
-    // Ví dụ thật: AVD "Small Tablet" 960x600dp vật lý, sau khi Android trừ
-    // status bar + nav bar, useWindowDimensions() thực nhận 960x568dp.
-    expect(getSalesLayoutMode(960, 568)).toBe('tablet-landscape');
+    it('treats one dp below the threshold as a phone', () => {
+      expect(
+        getSalesLayoutMode(TABLET_MIN_DP - 1, TABLET_MIN_DP),
+      ).toBe('phone');
+    });
   });
 });
