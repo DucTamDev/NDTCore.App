@@ -53,6 +53,24 @@ export interface PosCatalogDto {
   Products: PosProductDto[];
 }
 
+export interface OptionViewModel {
+  id: number;
+  name: string;
+  price: number;
+  isDefault: boolean;
+  isAvailable: boolean;
+}
+
+export interface OptionGroupViewModel {
+  groupId: number;
+  groupName: string;
+  uiType: 'SingleSelect' | 'MultiSelect';
+  isRequired: boolean;
+  minSelect: number;
+  maxSelect: number;
+  options: OptionViewModel[];
+}
+
 export const ALL_CATEGORY_ID = 'all' as const;
 export type CategorySelection = typeof ALL_CATEGORY_ID | number;
 
@@ -75,4 +93,5 @@ export interface ProductViewModel {
   badgeLabel: string | null;
   badgeColorHex: string | null;
   badgeTextColorHex: string | null;
+  optionGroups: OptionGroupViewModel[];
 }

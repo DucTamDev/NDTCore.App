@@ -19,6 +19,7 @@ function makeProduct(overrides: Partial<ProductViewModel>): ProductViewModel {
     badgeLabel: null,
     badgeColorHex: null,
     badgeTextColorHex: null,
+    optionGroups: [],
     ...overrides,
   };
 }
@@ -56,7 +57,21 @@ describe('CatalogService.fetchCatalog', () => {
               { Id: 1, Name: 'HOT', ColorHex: '#EF4444', TextColor: '#FFFFFF', DisplayOrder: 1 },
               { Id: 2, Name: 'NEW', ColorHex: '#10B981', TextColor: '#FFFFFF', DisplayOrder: 2 },
             ],
-            OptionGroups: [],
+            OptionGroups: [
+              {
+                GroupId: 1,
+                GroupName: 'Size',
+                UiType: 'SingleSelect',
+                IsRequired: true,
+                MinSelect: 1,
+                MaxSelect: 1,
+                DisplayOrder: 1,
+                Options: [
+                  { Id: 1, Name: 'M', ResolvedPrice: 0, IsDefault: true, IsAvailable: true, DisplayOrder: 1 },
+                  { Id: 2, Name: 'L', ResolvedPrice: 5000, IsDefault: false, IsAvailable: true, DisplayOrder: 2 },
+                ],
+              },
+            ],
           },
         ],
       },
@@ -87,6 +102,20 @@ describe('CatalogService.fetchCatalog', () => {
         badgeLabel: 'HOT',
         badgeColorHex: '#EF4444',
         badgeTextColorHex: '#FFFFFF',
+        optionGroups: [
+          {
+            groupId: 1,
+            groupName: 'Size',
+            uiType: 'SingleSelect',
+            isRequired: true,
+            minSelect: 1,
+            maxSelect: 1,
+            options: [
+              { id: 1, name: 'M', price: 0, isDefault: true, isAvailable: true },
+              { id: 2, name: 'L', price: 5000, isDefault: false, isAvailable: true },
+            ],
+          },
+        ],
       },
     ]);
     expect(catalogApi.getCatalogAsync).toHaveBeenCalledWith(7);

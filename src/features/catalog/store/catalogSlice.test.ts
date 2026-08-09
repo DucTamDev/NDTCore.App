@@ -23,6 +23,7 @@ const sampleProduct: ProductViewModel = {
   badgeLabel: null,
   badgeColorHex: null,
   badgeTextColorHex: null,
+  optionGroups: [],
 };
 
 describe('catalogSlice', () => {

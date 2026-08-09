@@ -3,7 +3,11 @@ import { ALL_CATEGORY_ID } from '../types/catalog.types';
 import type {
   CategorySelection,
   CategoryViewModel,
+  OptionGroupViewModel,
+  OptionViewModel,
   PosCategoryDto,
+  PosOptionDto,
+  PosOptionGroupDto,
   PosProductDto,
   PosTagDto,
   ProductViewModel,
@@ -22,6 +26,24 @@ const toBadge = (
     : { badgeLabel: null, badgeColorHex: null, badgeTextColorHex: null };
 };
 
+const toOptionViewModel = (dto: PosOptionDto): OptionViewModel => ({
+  id: dto.Id,
+  name: dto.Name,
+  price: dto.ResolvedPrice,
+  isDefault: dto.IsDefault,
+  isAvailable: dto.IsAvailable,
+});
+
+const toOptionGroupViewModel = (dto: PosOptionGroupDto): OptionGroupViewModel => ({
+  groupId: dto.GroupId,
+  groupName: dto.GroupName,
+  uiType: dto.UiType === 'MultiSelect' ? 'MultiSelect' : 'SingleSelect',
+  isRequired: dto.IsRequired,
+  minSelect: dto.MinSelect,
+  maxSelect: dto.MaxSelect,
+  options: dto.Options.map(toOptionViewModel),
+});
+
 const toProductViewModel = (dto: PosProductDto): ProductViewModel => ({
   id: dto.Id,
   categoryId: dto.CategoryId ?? null,
@@ -30,6 +52,7 @@ const toProductViewModel = (dto: PosProductDto): ProductViewModel => ({
   imageUrl: dto.ImageUrl ?? null,
   isAvailable: dto.IsAvailable,
   sku: dto.Sku,
+  optionGroups: dto.OptionGroups.map(toOptionGroupViewModel),
   ...toBadge(dto.Tags),
 });
 
