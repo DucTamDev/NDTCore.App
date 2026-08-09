@@ -7,13 +7,11 @@ import type { ProductViewModel } from '../types/catalog.types';
 
 export interface ProductCardProps {
   product: ProductViewModel;
+  onPress: () => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => (
-  // onPress chưa gắn thêm-vào-giỏ — nằm ngoài phạm vi sub-project Product catalog,
-  // xem docs/superpowers/specs/2026-08-08-product-catalog-design.md. Sub-project
-  // "Cart & modifier" kế tiếp sẽ nối logic thật vào đây.
-  <TouchableRipple style={styles.card} onPress={() => {}} disabled={!product.isAvailable}>
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => (
+  <TouchableRipple style={styles.card} onPress={onPress} disabled={!product.isAvailable}>
     <View style={product.isAvailable ? styles.inner : [styles.inner, styles.unavailable]}>
       {product.badgeLabel ? (
         <View style={[styles.badge, { backgroundColor: product.badgeColorHex ?? '#EF4444' }]}>

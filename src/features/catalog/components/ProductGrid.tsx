@@ -11,11 +11,18 @@ export interface ProductGridProps {
   numColumns: number;
   isLoading: boolean;
   emptyMessage: string;
+  onProductPress: (product: ProductViewModel) => void;
 }
 
 const SKELETON_COUNT = 6;
 
-export const ProductGrid: React.FC<ProductGridProps> = ({ products, numColumns, isLoading, emptyMessage }) => {
+export const ProductGrid: React.FC<ProductGridProps> = ({
+  products,
+  numColumns,
+  isLoading,
+  emptyMessage,
+  onProductPress,
+}) => {
   const itemWrapperStyle: ViewStyle = { flex: 1, maxWidth: `${100 / numColumns}%` };
 
   if (isLoading) {
@@ -48,7 +55,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({ products, numColumns, 
       key={`grid-${numColumns}`}
       renderItem={({ item }) => (
         <View style={itemWrapperStyle}>
-          <ProductCard product={item} />
+          <ProductCard product={item} onPress={() => onProductPress(item)} />
         </View>
       )}
       columnWrapperStyle={numColumns > 1 ? styles.row : undefined}

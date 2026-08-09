@@ -2,16 +2,22 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconButton, Modal, Portal, Text, useTheme } from 'react-native-paper';
+import { useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { RootState } from '../../../store';
+import { formatCurrency } from '../../../utils/formatCurrency';
 import { TopAppBar } from '../components/TopAppBar';
 import { ProductArea } from '../components/ProductArea';
-import { CartPanelPlaceholder } from '../components/CartPanelPlaceholder';
+import { CartPanel } from '../../cart/components/CartPanel';
+import { selectCartItemCount, selectCartTotal } from '../../cart/store/cartSlice';
 import { useSalesLayoutMode } from '../hooks/useSalesLayoutMode';
 
 export const SalesScreen: React.FC = () => {
   const theme = useTheme();
   const layoutMode = useSalesLayoutMode();
   const [cartVisible, setCartVisible] = useState(false);
+  const itemCount = useSelector((state: RootState) => selectCartItemCount(state));
+  const cartTotal = useSelector((state: RootState) => selectCartTotal(state));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -24,7 +30,7 @@ export const SalesScreen: React.FC = () => {
             onPress={() => setCartVisible(true)}
           >
             <Text variant="titleSmall" style={styles.cartSummaryText}>
-              0 sản phẩm · 0đ
+              {itemCount} sản phẩm · {formatCurrency(cartTotal)}
             </Text>
           </TouchableOpacity>
           <Portal>
@@ -41,7 +47,7 @@ export const SalesScreen: React.FC = () => {
                 />
                 <Text variant="titleMedium">Giỏ hàng</Text>
               </View>
-              <CartPanelPlaceholder />
+              <CartPanel onOrderCreated={() => setCartVisible(false)} />
             </Modal>
           </Portal>
         </View>
@@ -51,7 +57,7 @@ export const SalesScreen: React.FC = () => {
             <ProductArea />
           </View>
           <View style={layoutMode === 'tablet-portrait' ? styles.cartPanelPortrait : styles.cartPanel}>
-            <CartPanelPlaceholder />
+            <CartPanel />
           </View>
         </View>
       )}
