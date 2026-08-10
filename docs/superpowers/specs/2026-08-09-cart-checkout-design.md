@@ -40,7 +40,7 @@ CreateOrderRequest {
   string? DeliveryAddress;      // luôn null
   string? PaymentMethod;        // luôn null → backend mặc định Cash
   string? PaymentStatus;        // luôn "Paid"
-  decimal? AmountReceived;      // luôn null
+  decimal? AmountReceived;      // luôn = tổng tiền giỏ hàng (trả đủ, không thối — backend từ chối null/thiếu khi Cash+Paid)
   string? ServiceType;          // "DineIn" | "TakeAway" (hằng số NDTCore.Order.Domain.Constants.ServiceType)
   List<CreateOrderItemRequest> Items;   // phải có ít nhất 1
 }

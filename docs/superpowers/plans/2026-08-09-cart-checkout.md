@@ -16,7 +16,7 @@
 - File logic thuần (service, slice) có test riêng. Component UI thuần trình bày / hook orchestration không có test riêng — verify qua type-check + lint + chạy thử.
 - Chạy `npm run verify` (type-check + lint + test) trước mỗi commit.
 - Endpoint tạo đơn đã có sẵn ở backend, KHÔNG cần sửa backend: `POST /api/pos/orders` (role Cashier/StoreManager/OrderStaff/FranchiseeOwner/OrgAdmin/SuperAdmin — token hiện tại của app đã đủ quyền vì cùng role dùng cho `GET /api/pos/store/{storeId}/catalog`).
-- Mọi đơn tạo ra trong plan này: `PaymentStatus = "Paid"`, `PaymentMethod = null` (backend mặc định `Cash`), `AmountReceived = null`, `DiscountAmount = 0`, `TaxAmount = 0`, `DeliveryFee = 0`, `DeliveryAddress = null`, `CustomerName = null`, `CustomerPhone = null`, `Channel = null` (backend mặc định `Pos`).
+- Mọi đơn tạo ra trong plan này: `PaymentStatus = "Paid"`, `PaymentMethod = null` (backend mặc định `Cash`), `AmountReceived = <tổng tiền giỏ hàng>` (Cash + Paid bắt buộc `AmountReceived >= TotalAmount`, xem `CreateOrderCommandHandler.cs:141-147` — gửi đúng tổng tiền nghĩa là khách trả đủ, không có tiền thối), `DiscountAmount = 0`, `TaxAmount = 0`, `DeliveryFee = 0`, `DeliveryAddress = null`, `CustomerName = null`, `CustomerPhone = null`, `Channel = null` (backend mặc định `Pos`).
 - `ServiceType` chỉ có 2 giá trị trong plan này: `"DineIn"` (Tại quầy), `"TakeAway"` (Mang đi) — KHÔNG có Giao hàng.
 - Giỏ hàng (`cartSlice`) chỉ giữ trong Redux (in-memory) — không persist qua MMKV, reset khi `loggedOut`/`storeCleared` (mirror `catalogSlice`/`storeSlice`).
 - Ngoài phạm vi: chọn phương thức thanh toán, nhập tiền khách đưa/tính tiền thối, giảm giá, thuế, giao hàng, ghi chú theo từng dòng sản phẩm, lịch sử đơn hàng, in bill, sửa giỏ hàng sau khi đã tạo đơn. Xem chi tiết `docs/superpowers/specs/2026-08-09-cart-checkout-design.md`.
@@ -514,7 +514,7 @@ describe('CartService.toCreateOrderRequest', () => {
       DeliveryAddress: null,
       PaymentMethod: null,
       PaymentStatus: 'Paid',
-      AmountReceived: null,
+      AmountReceived: 100000,
       ServiceType: 'TakeAway',
       Items: [
         {
@@ -595,7 +595,7 @@ const toCreateOrderRequest = (
   DeliveryAddress: null,
   PaymentMethod: null,
   PaymentStatus: 'Paid',
-  AmountReceived: null,
+  AmountReceived: calculateCartTotal(items),
   ServiceType: serviceType,
   Items: items.map((item) => ({
     ProductId: item.productId,
