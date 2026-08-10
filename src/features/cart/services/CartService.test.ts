@@ -1,6 +1,6 @@
 import { CartService } from './CartService';
 import type { CartItem } from '../types/cart.types';
-import type { ProductViewModel } from '../../catalog/types/catalog.types';
+import type { OptionGroupViewModel, ProductViewModel } from '../../catalog/types/catalog.types';
 
 function makeProduct(overrides: Partial<ProductViewModel> = {}): ProductViewModel {
   return {
@@ -32,15 +32,18 @@ describe('CartService.buildCartKey', () => {
 
 describe('CartService.buildCartItem', () => {
   it('builds an item with no options, unitPrice equal to product price', () => {
-    const item = CartService.buildCartItem(makeProduct(), [], 2);
+    const item = CartService.buildCartItem(makeProduct(), [], 2, '');
     expect(item).toEqual({
       key: CartService.buildCartKey(10, []),
       productId: 10,
       productCode: 'TS001',
       productName: 'Trà sữa Olong',
+      imageUrl: null,
       regularPrice: 45000,
       unitPrice: 45000,
       quantity: 2,
+      note: '',
+      optionGroups: [],
       options: [],
     });
   });
@@ -50,10 +53,37 @@ describe('CartService.buildCartItem', () => {
       makeProduct(),
       [{ optionId: 2, groupName: 'Size', optionName: 'L', price: 5000 }],
       1,
+      '',
     );
     expect(item.unitPrice).toBe(50000);
     expect(item.regularPrice).toBe(45000);
     expect(item.key).toBe(CartService.buildCartKey(10, [2]));
+  });
+
+  it('snapshots the note and the product image/option groups at add time', () => {
+    const optionGroups: OptionGroupViewModel[] = [
+      {
+        groupId: 1,
+        groupName: 'Size',
+        uiType: 'SingleSelect',
+        isRequired: true,
+        minSelect: 1,
+        maxSelect: 1,
+        options: [{ id: 2, name: 'L', price: 5000, isDefault: false, isAvailable: true }],
+      },
+    ];
+    const product = makeProduct({ imageUrl: 'https://cdn.example.com/a.png', optionGroups });
+
+    const item = CartService.buildCartItem(
+      product,
+      [{ optionId: 2, groupName: 'Size', optionName: 'L', price: 5000 }],
+      1,
+      'Ít đá',
+    );
+
+    expect(item.imageUrl).toBe('https://cdn.example.com/a.png');
+    expect(item.note).toBe('Ít đá');
+    expect(item.optionGroups).toBe(optionGroups);
   });
 });
 
@@ -64,9 +94,12 @@ describe('CartService.calculateItemTotal / calculateCartTotal / calculateCartIte
       productId: 1,
       productCode: 'A',
       productName: 'A',
+      imageUrl: null,
       regularPrice: 10000,
       unitPrice: 10000,
       quantity: 2,
+      note: '',
+      optionGroups: [],
       options: [],
     },
     {
@@ -74,9 +107,12 @@ describe('CartService.calculateItemTotal / calculateCartTotal / calculateCartIte
       productId: 2,
       productCode: 'B',
       productName: 'B',
+      imageUrl: null,
       regularPrice: 20000,
       unitPrice: 25000,
       quantity: 1,
+      note: '',
+      optionGroups: [],
       options: [],
     },
   ];
@@ -102,9 +138,12 @@ describe('CartService.toCreateOrderRequest', () => {
         productId: 10,
         productCode: 'TS001',
         productName: 'Trà sữa Olong',
+        imageUrl: null,
         regularPrice: 45000,
         unitPrice: 50000,
         quantity: 2,
+        note: '',
+        optionGroups: [],
         options: [{ optionId: 2, groupName: 'Size', optionName: 'L', price: 5000 }],
       },
     ];
@@ -152,9 +191,12 @@ describe('CartService.toCreateOrderRequest', () => {
         productId: 1,
         productCode: 'A',
         productName: 'A',
+        imageUrl: null,
         regularPrice: 10000,
         unitPrice: 10000,
         quantity: 3,
+        note: '',
+        optionGroups: [],
         options: [],
       },
     ];
@@ -163,5 +205,41 @@ describe('CartService.toCreateOrderRequest', () => {
 
     expect(request.AmountReceived).toBe(CartService.calculateCartTotal(items));
     expect(request.AmountReceived).toBe(30000);
+  });
+
+  it('sends the per-item note as CreateOrderItemRequest.Note, trimmed, per line', () => {
+    const items: CartItem[] = [
+      {
+        key: 'k1',
+        productId: 1,
+        productCode: 'A',
+        productName: 'A',
+        imageUrl: null,
+        regularPrice: 10000,
+        unitPrice: 10000,
+        quantity: 1,
+        note: '  Không đường  ',
+        optionGroups: [],
+        options: [],
+      },
+      {
+        key: 'k2',
+        productId: 2,
+        productCode: 'B',
+        productName: 'B',
+        imageUrl: null,
+        regularPrice: 10000,
+        unitPrice: 10000,
+        quantity: 1,
+        note: '',
+        optionGroups: [],
+        options: [],
+      },
+    ];
+
+    const request = CartService.toCreateOrderRequest(7, items, 'DineIn', '');
+
+    expect(request.Items[0].Note).toBe('Không đường');
+    expect(request.Items[1].Note).toBeNull();
   });
 });

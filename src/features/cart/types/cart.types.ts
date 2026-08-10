@@ -1,3 +1,5 @@
+import type { OptionGroupViewModel } from '../../catalog/types/catalog.types';
+
 export interface CartItemOption {
   optionId: number;
   groupName: string;
@@ -10,9 +12,12 @@ export interface CartItem {
   productId: number;
   productCode: string;
   productName: string;
+  imageUrl: string | null;
   regularPrice: number;
   unitPrice: number;
   quantity: number;
+  note: string;
+  optionGroups: OptionGroupViewModel[];
   options: CartItemOption[];
 }
 

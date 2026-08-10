@@ -1,10 +1,17 @@
 import type { CartItem, CartItemOption, CreateOrderRequest, ServiceType } from '../types/cart.types';
 import type { ProductViewModel } from '../../catalog/types/catalog.types';
 
+type CartSourceProduct = Pick<ProductViewModel, 'id' | 'sku' | 'name' | 'imageUrl' | 'price' | 'optionGroups'>;
+
 const buildCartKey = (productId: number, optionIds: number[]): string =>
   `${productId}:${[...optionIds].sort((a, b) => a - b).join(',')}`;
 
-const buildCartItem = (product: ProductViewModel, selectedOptions: CartItemOption[], quantity: number): CartItem => {
+const buildCartItem = (
+  product: CartSourceProduct,
+  selectedOptions: CartItemOption[],
+  quantity: number,
+  note: string,
+): CartItem => {
   const optionsTotal = selectedOptions.reduce((sum, option) => sum + option.price, 0);
 
   return {
@@ -15,9 +22,12 @@ const buildCartItem = (product: ProductViewModel, selectedOptions: CartItemOptio
     productId: product.id,
     productCode: product.sku,
     productName: product.name,
+    imageUrl: product.imageUrl,
     regularPrice: product.price,
     unitPrice: product.price + optionsTotal,
     quantity,
+    note,
+    optionGroups: product.optionGroups,
     options: selectedOptions,
   };
 };
@@ -55,7 +65,7 @@ const toCreateOrderRequest = (
     RegularPrice: item.regularPrice,
     Quantity: item.quantity,
     DiscountAmount: 0,
-    Note: null,
+    Note: item.note.trim() || null,
     Options: item.options.map((option) => ({
       OptionId: option.optionId,
       GroupName: option.groupName,

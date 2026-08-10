@@ -20,9 +20,12 @@ const itemA: CartItem = {
   productId: 1,
   productCode: 'A',
   productName: 'Trà sữa A',
+  imageUrl: null,
   regularPrice: 10000,
   unitPrice: 10000,
   quantity: 1,
+  note: '',
+  optionGroups: [],
   options: [],
 };
 
