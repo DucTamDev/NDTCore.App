@@ -123,7 +123,7 @@ describe('CartService.toCreateOrderRequest', () => {
       DeliveryAddress: null,
       PaymentMethod: null,
       PaymentStatus: 'Paid',
-      AmountReceived: null,
+      AmountReceived: 100000,
       ServiceType: 'TakeAway',
       Items: [
         {
@@ -143,5 +143,25 @@ describe('CartService.toCreateOrderRequest', () => {
   it('sends null Note when the note is empty or blank', () => {
     const request = CartService.toCreateOrderRequest(7, [], 'DineIn', '   ');
     expect(request.Note).toBeNull();
+  });
+
+  it('sets AmountReceived to the cart total so Cash+Paid orders clear backend validation', () => {
+    const items: CartItem[] = [
+      {
+        key: 'k',
+        productId: 1,
+        productCode: 'A',
+        productName: 'A',
+        regularPrice: 10000,
+        unitPrice: 10000,
+        quantity: 3,
+        options: [],
+      },
+    ];
+
+    const request = CartService.toCreateOrderRequest(7, items, 'DineIn', '');
+
+    expect(request.AmountReceived).toBe(CartService.calculateCartTotal(items));
+    expect(request.AmountReceived).toBe(30000);
   });
 });

@@ -46,7 +46,7 @@ const toCreateOrderRequest = (
   DeliveryAddress: null,
   PaymentMethod: null,
   PaymentStatus: 'Paid',
-  AmountReceived: null,
+  AmountReceived: calculateCartTotal(items),
   ServiceType: serviceType,
   Items: items.map((item) => ({
     ProductId: item.productId,
