@@ -9,8 +9,10 @@ import { AppInput } from '../../../components/AppInput';
 import { EmptyState } from '../../../components/EmptyState';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { CartItemRow } from './CartItemRow';
+import { CartItemEditModal } from './CartItemEditModal';
 import { useCheckout } from '../hooks/useCheckout';
 import {
+  itemEdited,
   itemQuantityChanged,
   itemRemoved,
   noteChanged,
@@ -20,7 +22,7 @@ import {
   selectServiceType,
   serviceTypeChanged,
 } from '../store/cartSlice';
-import type { ServiceType } from '../types/cart.types';
+import type { CartItem, ServiceType } from '../types/cart.types';
 
 const SERVICE_TYPE_BUTTONS = [
   { value: 'DineIn', label: 'Tại quầy' },
@@ -39,6 +41,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
   const total = useSelector((state: RootState) => selectCartTotal(state));
   const { submit, isSubmitting, error, dismissError } = useCheckout();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   const handleCheckout = async (): Promise<void> => {
     const order = await submit();
@@ -46,6 +49,12 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
       setSuccessMessage(`Đã tạo đơn ${order.OrderNumber}`);
       onOrderCreated?.();
     }
+  };
+
+  const handleEditConfirm = (updated: CartItem): void => {
+    if (!editingItem) return;
+    dispatch(itemEdited({ previousKey: editingItem.key, item: updated }));
+    setEditingItem(null);
   };
 
   return (
@@ -66,6 +75,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
               item={item}
               onQuantityChange={(key, quantity) => dispatch(itemQuantityChanged({ key, quantity }))}
               onRemove={(key) => dispatch(itemRemoved({ key }))}
+              onEdit={(key) => setEditingItem(items.find((i) => i.key === key) ?? null)}
             />
           ))
         )}
@@ -79,6 +89,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
           loading={isSubmitting}
         />
       </View>
+      <CartItemEditModal item={editingItem} onDismiss={() => setEditingItem(null)} onConfirm={handleEditConfirm} />
       <Portal>
         <Snackbar visible={error !== null} onDismiss={dismissError} duration={4000}>
           {error}
