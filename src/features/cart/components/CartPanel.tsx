@@ -1,7 +1,7 @@
 // src/features/cart/components/CartPanel.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
+import { Portal, SegmentedButtons, Snackbar, Text } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { AppButton } from '../../../components/AppButton';
@@ -79,12 +79,14 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
           loading={isSubmitting}
         />
       </View>
-      <Snackbar visible={error !== null} onDismiss={dismissError} duration={4000}>
-        {error}
-      </Snackbar>
-      <Snackbar visible={successMessage !== null} onDismiss={() => setSuccessMessage(null)} duration={3000}>
-        {successMessage}
-      </Snackbar>
+      <Portal>
+        <Snackbar visible={error !== null} onDismiss={dismissError} duration={4000}>
+          {error}
+        </Snackbar>
+        <Snackbar visible={successMessage !== null} onDismiss={() => setSuccessMessage(null)} duration={3000}>
+          {successMessage}
+        </Snackbar>
+      </Portal>
     </View>
   );
 };
