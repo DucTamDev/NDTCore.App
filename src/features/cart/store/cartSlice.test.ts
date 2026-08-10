@@ -1,5 +1,6 @@
 import reducer, {
   itemAdded,
+  itemEdited,
   itemQuantityChanged,
   itemRemoved,
   serviceTypeChanged,
@@ -23,6 +24,20 @@ const itemA: CartItem = {
   imageUrl: null,
   regularPrice: 10000,
   unitPrice: 10000,
+  quantity: 1,
+  note: '',
+  optionGroups: [],
+  options: [],
+};
+
+const itemB: CartItem = {
+  key: 'b',
+  productId: 2,
+  productCode: 'B',
+  productName: 'Trà sữa B',
+  imageUrl: null,
+  regularPrice: 20000,
+  unitPrice: 20000,
   quantity: 1,
   note: '',
   optionGroups: [],
@@ -94,5 +109,42 @@ describe('cartSlice', () => {
     expect(selectCartNote(rootState)).toBe('x');
     expect(selectCartItemCount(rootState)).toBe(1);
     expect(selectCartTotal(rootState)).toBe(10000);
+  });
+});
+
+describe('cartSlice itemEdited', () => {
+  const initialState = reducer(undefined, { type: '@@INIT' });
+
+  it('replaces the item at its new key when the new key does not collide with another line', () => {
+    const updated: CartItem = { ...itemA, key: 'a-size-l', note: 'Ít đá', unitPrice: 15000 };
+
+    const state = reducer(
+      { ...initialState, items: [itemA, itemB] },
+      itemEdited({ previousKey: 'a', item: updated }),
+    );
+
+    expect(state.items).toEqual([itemB, updated]);
+  });
+
+  it('merges quantity into an existing line when the edited key collides with a different line, keeping that line\'s own note/options', () => {
+    const editedToMatchB: CartItem = { ...itemA, key: 'b', quantity: 2, note: 'ghi chú không nên xuất hiện' };
+
+    const state = reducer(
+      { ...initialState, items: [itemA, itemB] },
+      itemEdited({ previousKey: 'a', item: editedToMatchB }),
+    );
+
+    expect(state.items).toEqual([{ ...itemB, quantity: 3 }]);
+  });
+
+  it('replaces the item in place when only note/quantity changed and the key stayed the same', () => {
+    const updated: CartItem = { ...itemA, quantity: 5, note: 'Không đường' };
+
+    const state = reducer(
+      { ...initialState, items: [itemA, itemB] },
+      itemEdited({ previousKey: 'a', item: updated }),
+    );
+
+    expect(state.items).toEqual([itemB, updated]);
   });
 });

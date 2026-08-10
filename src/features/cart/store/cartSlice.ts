@@ -41,6 +41,15 @@ const cartSlice = createSlice({
     itemRemoved(state, action: PayloadAction<{ key: string }>) {
       state.items = state.items.filter((item) => item.key !== action.payload.key);
     },
+    itemEdited(state, action: PayloadAction<{ previousKey: string; item: CartItem }>) {
+      state.items = state.items.filter((item) => item.key !== action.payload.previousKey);
+      const collision = state.items.find((item) => item.key === action.payload.item.key);
+      if (collision) {
+        collision.quantity += action.payload.item.quantity;
+      } else {
+        state.items.push(action.payload.item);
+      }
+    },
     serviceTypeChanged(state, action: PayloadAction<ServiceType>) {
       state.serviceType = action.payload;
     },
@@ -58,8 +67,15 @@ const cartSlice = createSlice({
   },
 });
 
-export const { itemAdded, itemQuantityChanged, itemRemoved, serviceTypeChanged, noteChanged, cartCleared } =
-  cartSlice.actions;
+export const {
+  itemAdded,
+  itemEdited,
+  itemQuantityChanged,
+  itemRemoved,
+  serviceTypeChanged,
+  noteChanged,
+  cartCleared,
+} = cartSlice.actions;
 
 interface StateWithCart {
   cart: CartSliceState;
