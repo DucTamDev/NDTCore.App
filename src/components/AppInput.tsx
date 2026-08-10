@@ -12,6 +12,8 @@ export interface AppInputProps {
   placeholder?: string;
   disabled?: boolean;
   secureTextEntry?: boolean;
+  multiline?: boolean;
+  maxLength?: number;
 }
 
 export const AppInput: React.FC<AppInputProps> = ({
@@ -23,6 +25,8 @@ export const AppInput: React.FC<AppInputProps> = ({
   placeholder,
   disabled = false,
   secureTextEntry = false,
+  multiline = false,
+  maxLength,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -38,6 +42,8 @@ export const AppInput: React.FC<AppInputProps> = ({
         mode="outlined"
         disabled={disabled}
         secureTextEntry={secureTextEntry && !isRevealed}
+        multiline={multiline}
+        maxLength={maxLength}
         right={
           secureTextEntry ? (
             <TextInput.Icon icon={isRevealed ? 'eye-off' : 'eye'} onPress={() => setIsRevealed((prev) => !prev)} />
