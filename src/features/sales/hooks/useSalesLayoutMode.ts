@@ -5,35 +5,32 @@ export type SalesLayoutMode =
   | 'tablet-portrait'
   | 'phone';
 
-/**
- * Minimum shortest-side window size in dp to treat the device as a tablet.
- *
- * Android reports window dimensions in dp (logical pixels), not physical pixels.
- * For example, a 1280×800 physical screen with density 2 can be reported as
- * approximately 640×400 dp.
- *
- * 430dp allows smaller 7–8 inch POS/tablet devices to be recognized as tablets
- * while staying above the shortest-side dp of large phones (e.g. Pixel 6/7/8
- * report ~412dp), which would otherwise be misclassified as tablets.
- */
-export const TABLET_MIN_DP = 430;
+/** Minimum shortest-side size in dp to classify the device as a tablet. */
+export const TABLET_MIN_DP = 500;
 
+/**
+ * Determines the sales layout mode from the current window dimensions.
+ * The shortest side is recalculated whenever the window size changes.
+ */
 export function getSalesLayoutMode(
   width: number,
   height: number,
 ): SalesLayoutMode {
   const shortestSide = Math.min(width, height);
-  const isTablet = shortestSide >= TABLET_MIN_DP;
 
-  if (!isTablet) {
+  if (shortestSide < TABLET_MIN_DP) {
     return 'phone';
   }
 
-  return width > height
+  return width >= height
     ? 'tablet-landscape'
     : 'tablet-portrait';
 }
 
+/**
+ * Returns the current sales layout mode based on the window dimensions.
+ * Recalculates when the window size changes.
+ */
 export function useSalesLayoutMode(): SalesLayoutMode {
   const { width, height } = useWindowDimensions();
 
