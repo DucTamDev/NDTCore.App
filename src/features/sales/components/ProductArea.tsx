@@ -43,12 +43,12 @@ export const ProductArea: React.FC = () => {
       setProductForOptions(product);
       return;
     }
-    dispatch(itemAdded(CartService.buildCartItem(product, [], 1)));
+    dispatch(itemAdded(CartService.buildCartItem(product, [], 1, '')));
   };
 
-  const handleOptionsConfirm = (options: CartItemOption[], quantity: number): void => {
+  const handleOptionsConfirm = (options: CartItemOption[], quantity: number, note: string): void => {
     if (!productForOptions) return;
-    dispatch(itemAdded(CartService.buildCartItem(productForOptions, options, quantity)));
+    dispatch(itemAdded(CartService.buildCartItem(productForOptions, options, quantity, note)));
     setProductForOptions(null);
   };
 
