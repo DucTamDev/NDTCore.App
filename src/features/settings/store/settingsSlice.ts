@@ -1,13 +1,20 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type SettingsMenuKey = 'printer';
+export type SettingsMenuKey =
+  | 'printer'
+  | 'scanner'
+  | 'account'
+  | 'language'
+  | 'sync'
+  | 'info'
+  | null;
 
 interface SettingsState {
   activeMenuKey: SettingsMenuKey;
 }
 
 const initialState: SettingsState = {
-  activeMenuKey: 'printer',
+  activeMenuKey: null,
 };
 
 const settingsSlice = createSlice({
