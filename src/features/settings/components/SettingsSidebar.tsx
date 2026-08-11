@@ -1,32 +1,36 @@
-// src/features/settings/components/SettingsSidebar.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, TouchableRipple, Icon } from 'react-native-paper';
+import { Text, TouchableRipple, Icon, useTheme } from 'react-native-paper';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
-import { StatusDot } from '../../../components/StatusDot';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { selectPrinters } from '../../printer/store/printerSlice';
 import { PrinterService } from '../../printer/services/PrinterService';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';
 import { storeCleared } from '../../store/store/storeSlice';
+import { settingsMenuItems, type SettingsMenuItem } from '../config/settingsConfig';
+import type { SettingsMenuKey } from '../store/settingsSlice';
+import { SettingsSidebarItem } from './SettingsSidebarItem';
 
-const placeholderItems: Array<{ icon: string; label: string; group: 'device' | 'app' }> = [
-  { icon: 'barcode-scan', label: 'Máy quét mã vạch', group: 'device' },
-  { icon: 'account', label: 'Tài khoản', group: 'app' },
-  { icon: 'translate', label: 'Ngôn ngữ', group: 'app' },
-  { icon: 'cloud-outline', label: 'Đồng bộ dữ liệu', group: 'app' },
-  { icon: 'information-outline', label: 'Về ứng dụng', group: 'app' },
-];
+interface SettingsSidebarProps {
+  activeSection: SettingsMenuKey;
+  onSelectSection: (section: SettingsMenuKey) => void;
+  isTablet: boolean;
+}
 
-export const SettingsSidebar: React.FC = () => {
+export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
+  activeSection,
+  onSelectSection,
+  isTablet,
+}) => {
   const dispatch = useDispatch<AppDispatch>();
   const printers = useSelector((state: RootState) => selectPrinters(state));
   const hasConnectedPrinter = printers.some((p) => PrinterService.getStatus(p.id) === 'connected');
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
   const [confirmChangeStoreVisible, setConfirmChangeStoreVisible] = useState(false);
+  const theme = useTheme();
 
   const confirmLogout = (): void => {
     setConfirmLogoutVisible(false);
@@ -39,50 +43,43 @@ export const SettingsSidebar: React.FC = () => {
     dispatch(storeCleared());
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.groupLabel}>Thiết bị</Text>
-      <TouchableRipple style={[styles.item, styles.itemActive]}>
-        <View style={styles.itemRow}>
-          <Icon source="printer" size={16} />
-          <Text style={styles.itemLabelActive}>Quản lý máy in</Text>
-          {hasConnectedPrinter ? <StatusDot status="connected" /> : null}
-        </View>
-      </TouchableRipple>
-      {placeholderItems
-        .filter((item) => item.group === 'device')
-        .map((item) => (
-          <View key={item.label} style={styles.item}>
-            <View style={styles.itemRow}>
-              <Icon source={item.icon} size={16} />
-              <Text style={styles.itemLabelDisabled}>{item.label}</Text>
-            </View>
-          </View>
-        ))}
+  const renderItem = (item: SettingsMenuItem) => (
+    <SettingsSidebarItem
+      key={item.label}
+      item={item}
+      isActive={activeSection === item.key}
+      isTablet={isTablet}
+      hasConnectedPrinter={hasConnectedPrinter}
+      onPress={() => onSelectSection(item.key)}
+    />
+  );
 
-      <Text style={styles.groupLabel}>Ứng dụng</Text>
-      {placeholderItems
-        .filter((item) => item.group === 'app')
-        .map((item) => (
-          <View key={item.label} style={styles.item}>
-            <View style={styles.itemRow}>
-              <Icon source={item.icon} size={16} />
-              <Text style={styles.itemLabelDisabled}>{item.label}</Text>
-            </View>
-          </View>
-        ))}
+  return (
+    <View
+      style={[
+        styles.container,
+        isTablet
+          ? [styles.sidebarTablet, { borderRightColor: theme.colors.outlineVariant }]
+          : styles.sidebarPhone,
+      ]}
+    >
+      <Text style={[styles.groupLabel, { color: theme.colors.outline }]}>Thiết bị</Text>
+      {settingsMenuItems.filter((item) => item.group === 'device').map(renderItem)}
+
+      <Text style={[styles.groupLabel, { color: theme.colors.outline }]}>Ứng dụng</Text>
+      {settingsMenuItems.filter((item) => item.group === 'app').map(renderItem)}
 
       <View style={styles.spacer} />
       <TouchableRipple style={styles.item} onPress={() => setConfirmChangeStoreVisible(true)}>
         <View style={styles.itemRow}>
-          <Icon source="store-outline" size={16} />
-          <Text style={styles.itemLabelActive}>Đổi cửa hàng</Text>
+          <Icon source="store-outline" size={16} color={theme.colors.onSurface} />
+          <Text style={[styles.itemLabel, { color: theme.colors.onSurface }]}>Đổi cửa hàng</Text>
         </View>
       </TouchableRipple>
       <TouchableRipple style={styles.item} onPress={() => setConfirmLogoutVisible(true)}>
         <View style={styles.itemRow}>
-          <Icon source="logout" size={16} />
-          <Text style={styles.itemLabelActive}>Đăng xuất</Text>
+          <Icon source="logout" size={16} color={theme.colors.onSurface} />
+          <Text style={[styles.itemLabel, { color: theme.colors.onSurface }]}>Đăng xuất</Text>
         </View>
       </TouchableRipple>
 
@@ -107,12 +104,12 @@ export const SettingsSidebar: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { width: 220, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#E5E7EB', padding: 8 },
-  groupLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 8, marginBottom: 4, marginLeft: 6 },
+  container: { padding: 8 },
+  sidebarTablet: { width: 220, borderRightWidth: StyleSheet.hairlineWidth },
+  sidebarPhone: { flex: 1 },
+  groupLabel: { fontSize: 11, marginTop: 8, marginBottom: 4, marginLeft: 6 },
   item: { paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8 },
-  itemActive: { backgroundColor: '#EFF6FF' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  itemLabelActive: { fontSize: 13, color: '#2563EB', flex: 1 },
-  itemLabelDisabled: { fontSize: 13, color: '#9CA3AF', flex: 1 },
+  itemLabel: { fontSize: 13, flex: 1 },
   spacer: { flex: 1 },
 });
