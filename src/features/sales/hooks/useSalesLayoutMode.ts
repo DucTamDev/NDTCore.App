@@ -22,7 +22,7 @@ export function getSalesLayoutMode(
     return 'phone';
   }
 
-  return width >= height
+  return width > height
     ? 'tablet-landscape'
     : 'tablet-portrait';
 }
