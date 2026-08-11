@@ -14,7 +14,7 @@ import type { SettingsMenuKey } from '../store/settingsSlice';
 import { SettingsSidebarItem } from './SettingsSidebarItem';
 
 interface SettingsSidebarProps {
-  activeSection: SettingsMenuKey;
+  activeSection: SettingsMenuKey | null;
   onSelectSection: (section: SettingsMenuKey) => void;
   isTablet: boolean;
 }
@@ -45,7 +45,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
 
   const renderItem = (item: SettingsMenuItem) => (
     <SettingsSidebarItem
-      key={item.label}
+      key={item.key}
       item={item}
       isActive={activeSection === item.key}
       isTablet={isTablet}

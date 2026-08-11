@@ -6,11 +6,10 @@ export type SettingsMenuKey =
   | 'account'
   | 'language'
   | 'sync'
-  | 'info'
-  | null;
+  | 'info';
 
 interface SettingsState {
-  activeMenuKey: SettingsMenuKey;
+  activeMenuKey: SettingsMenuKey | null;
 }
 
 const initialState: SettingsState = {
@@ -21,7 +20,7 @@ const settingsSlice = createSlice({
   name: 'settings',
   initialState,
   reducers: {
-    activeMenuKeyChanged(state, action: PayloadAction<SettingsMenuKey>) {
+    activeMenuKeyChanged(state, action: PayloadAction<SettingsMenuKey | null>) {
       state.activeMenuKey = action.payload;
     },
   },
@@ -33,6 +32,6 @@ interface StateWithSettings {
   settings: SettingsState;
 }
 
-export const selectActiveMenuKey = (state: StateWithSettings): SettingsMenuKey => state.settings.activeMenuKey;
+export const selectActiveMenuKey = (state: StateWithSettings): SettingsMenuKey | null => state.settings.activeMenuKey;
 
 export default settingsSlice.reducer;

@@ -4,7 +4,7 @@ import { PrinterManagementPanel } from '../../printer/components/PrinterManageme
 import type { SettingsMenuKey } from '../store/settingsSlice';
 
 interface SettingsContentProps {
-  activeSection: SettingsMenuKey;
+  activeSection: SettingsMenuKey | null;
 }
 
 export const SettingsContent: React.FC<SettingsContentProps> = ({ activeSection }) => (

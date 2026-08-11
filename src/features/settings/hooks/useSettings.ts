@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '../../../store';
 import { useLayoutMode, type LayoutMode } from '../../../hooks/useLayoutMode';
@@ -6,13 +7,13 @@ import { settingsMenuItems, DEFAULT_TABLET_MENU_KEY } from '../config/settingsCo
 
 export interface SettingsView {
   isTablet: boolean;
-  activeSection: SettingsMenuKey;
+  activeSection: SettingsMenuKey | null;
   headerTitle: string;
 }
 
 export function getSettingsView(
   layoutMode: LayoutMode,
-  activeMenuKey: SettingsMenuKey,
+  activeMenuKey: SettingsMenuKey | null,
 ): SettingsView {
   const isTablet = layoutMode !== 'phone';
   const activeSection = isTablet ? (activeMenuKey ?? DEFAULT_TABLET_MENU_KEY) : activeMenuKey;
@@ -32,9 +33,9 @@ export function useSettings() {
     dispatch(activeMenuKeyChanged(section));
   };
 
-  const clearSection = (): void => {
+  const clearSection = useCallback((): void => {
     dispatch(activeMenuKeyChanged(null));
-  };
+  }, [dispatch]);
 
   return {
     isTablet,
