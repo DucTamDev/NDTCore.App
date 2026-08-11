@@ -1,6 +1,6 @@
 import { useWindowDimensions } from 'react-native';
 
-export type SalesLayoutMode =
+export type LayoutMode =
   | 'tablet-landscape'
   | 'tablet-portrait'
   | 'phone';
@@ -9,13 +9,13 @@ export type SalesLayoutMode =
 export const TABLET_MIN_DP = 500;
 
 /**
- * Determines the sales layout mode from the current window dimensions.
+ * Determines the layout mode from the current window dimensions.
  * The shortest side is recalculated whenever the window size changes.
  */
-export function getSalesLayoutMode(
+export function getLayoutMode(
   width: number,
   height: number,
-): SalesLayoutMode {
+): LayoutMode {
   const shortestSide = Math.min(width, height);
 
   if (shortestSide < TABLET_MIN_DP) {
@@ -28,11 +28,11 @@ export function getSalesLayoutMode(
 }
 
 /**
- * Returns the current sales layout mode based on the window dimensions.
+ * Returns the current layout mode based on the window dimensions.
  * Recalculates when the window size changes.
  */
-export function useSalesLayoutMode(): SalesLayoutMode {
+export function useLayoutMode(): LayoutMode {
   const { width, height } = useWindowDimensions();
 
-  return getSalesLayoutMode(width, height);
+  return getLayoutMode(width, height);
 }

@@ -14,12 +14,11 @@ import { ALL_CATEGORY_ID } from '../../catalog/types/catalog.types';
 import { OptionSelectionModal } from '../../cart/components/OptionSelectionModal';
 import { CartService } from '../../cart/services/CartService';
 import { itemAdded } from '../../cart/store/cartSlice';
-import { useSalesLayoutMode } from '../hooks/useSalesLayoutMode';
+import { useLayoutMode, type LayoutMode } from '../../../hooks/useLayoutMode';
 import type { CategorySelection, ProductViewModel } from '../../catalog/types/catalog.types';
 import type { CartItemOption } from '../../cart/types/cart.types';
-import type { SalesLayoutMode } from '../hooks/useSalesLayoutMode';
 
-const NUM_COLUMNS_BY_LAYOUT: Record<SalesLayoutMode, number> = {
+const NUM_COLUMNS_BY_LAYOUT: Record<LayoutMode, number> = {
   'tablet-landscape': 3,
   'tablet-portrait': 2,
   phone: 2,
@@ -27,7 +26,7 @@ const NUM_COLUMNS_BY_LAYOUT: Record<SalesLayoutMode, number> = {
 
 export const ProductArea: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const layoutMode = useSalesLayoutMode();
+  const layoutMode = useLayoutMode();
   const { categories, products, isLoading, error, retry } = useCatalog();
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategorySelection>(ALL_CATEGORY_ID);
   const [searchKeyword, setSearchKeyword] = useState('');

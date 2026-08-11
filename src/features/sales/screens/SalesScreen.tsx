@@ -10,11 +10,11 @@ import { TopAppBar } from '../components/TopAppBar';
 import { ProductArea } from '../components/ProductArea';
 import { CartPanel } from '../../cart/components/CartPanel';
 import { selectCartItemCount, selectCartTotal } from '../../cart/store/cartSlice';
-import { useSalesLayoutMode } from '../hooks/useSalesLayoutMode';
+import { useLayoutMode } from '../../../hooks/useLayoutMode';
 
 export const SalesScreen: React.FC = () => {
   const theme = useTheme();
-  const layoutMode = useSalesLayoutMode();
+  const layoutMode = useLayoutMode();
   const [cartVisible, setCartVisible] = useState(false);
   const itemCount = useSelector((state: RootState) => selectCartItemCount(state));
   const cartTotal = useSelector((state: RootState) => selectCartTotal(state));
