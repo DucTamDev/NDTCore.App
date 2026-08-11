@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { BackHandler, View, StyleSheet } from 'react-native';
+import { BackHandler, Platform, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,7 +14,7 @@ export const SettingsScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (isTablet || activeSection === null) {
+      if (Platform.OS === 'web' || isTablet || activeSection === null) {
         return undefined;
       }
 
