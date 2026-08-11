@@ -77,14 +77,7 @@ export const CartItemEditModal: React.FC<CartItemEditModalProps> = ({ item, onDi
   const handleConfirm = (): void => {
     if (!item) return;
     const updated = CartService.buildCartItem(
-      {
-        id: item.productId,
-        sku: item.productCode,
-        name: item.productName,
-        imageUrl: item.imageUrl,
-        price: item.regularPrice,
-        optionGroups: item.optionGroups,
-      },
+      CartService.cartItemToSourceProduct(item),
       selectedOptions,
       quantity,
       note,

@@ -42,12 +42,14 @@ const cartSlice = createSlice({
       state.items = state.items.filter((item) => item.key !== action.payload.key);
     },
     itemEdited(state, action: PayloadAction<{ previousKey: string; item: CartItem }>) {
-      state.items = state.items.filter((item) => item.key !== action.payload.previousKey);
+      const previousIndex = state.items.findIndex((item) => item.key === action.payload.previousKey);
+      if (previousIndex === -1) return;
+      state.items.splice(previousIndex, 1);
       const collision = state.items.find((item) => item.key === action.payload.item.key);
       if (collision) {
         collision.quantity += action.payload.item.quantity;
       } else {
-        state.items.push(action.payload.item);
+        state.items.splice(previousIndex, 0, action.payload.item);
       }
     },
     serviceTypeChanged(state, action: PayloadAction<ServiceType>) {

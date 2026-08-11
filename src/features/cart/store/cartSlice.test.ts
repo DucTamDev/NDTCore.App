@@ -123,7 +123,7 @@ describe('cartSlice itemEdited', () => {
       itemEdited({ previousKey: 'a', item: updated }),
     );
 
-    expect(state.items).toEqual([itemB, updated]);
+    expect(state.items).toEqual([updated, itemB]);
   });
 
   it('merges quantity into an existing line when the edited key collides with a different line, keeping that line\'s own note/options', () => {
@@ -145,6 +145,18 @@ describe('cartSlice itemEdited', () => {
       itemEdited({ previousKey: 'a', item: updated }),
     );
 
-    expect(state.items).toEqual([itemB, updated]);
+    expect(state.items).toEqual([updated, itemB]);
+  });
+
+  it('keeps the edited item at its original index, not just at index 0, when there is no collision', () => {
+    const itemC: CartItem = { ...itemB, key: 'c', productId: 3, productCode: 'C', productName: 'Trà sữa C' };
+    const updatedB: CartItem = { ...itemB, key: 'b-edited', note: 'edited' };
+
+    const state = reducer(
+      { ...initialState, items: [itemA, itemB, itemC] },
+      itemEdited({ previousKey: 'b', item: updatedB }),
+    );
+
+    expect(state.items).toEqual([itemA, updatedB, itemC]);
   });
 });

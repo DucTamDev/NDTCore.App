@@ -64,7 +64,12 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
         onValueChange={(value) => dispatch(serviceTypeChanged(value as ServiceType))}
         buttons={SERVICE_TYPE_BUTTONS}
       />
-      <AppInput label="Ghi chú đơn hàng" value={note} onChangeText={(text) => dispatch(noteChanged(text))} />
+      <AppInput
+        label="Ghi chú đơn hàng"
+        value={note}
+        onChangeText={(text) => dispatch(noteChanged(text))}
+        maxLength={500}
+      />
       <ScrollView style={styles.items}>
         {items.length === 0 ? (
           <EmptyState message="Giỏ hàng trống" />

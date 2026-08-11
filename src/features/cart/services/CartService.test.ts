@@ -85,6 +85,49 @@ describe('CartService.buildCartItem', () => {
     expect(item.note).toBe('Ít đá');
     expect(item.optionGroups).toBe(optionGroups);
   });
+
+  it('stores the note trimmed, and folds it into the key so different notes on the same product/options do not silently merge', () => {
+    const itemA = CartService.buildCartItem(makeProduct(), [], 1, '  ít đá  ');
+    const itemB = CartService.buildCartItem(makeProduct(), [], 1, 'không đường');
+    expect(itemA.note).toBe('ít đá');
+    expect(itemA.key).not.toBe(itemB.key);
+  });
+
+  it('trims a whitespace-only note down to an empty string', () => {
+    const item = CartService.buildCartItem(makeProduct(), [], 1, '   ');
+    expect(item.note).toBe('');
+  });
+});
+
+describe('CartService.cartItemToSourceProduct', () => {
+  it('round-trips through buildCartItem as a fixed point (guards against regularPrice/unitPrice mix-ups)', () => {
+    const optionGroups: OptionGroupViewModel[] = [
+      {
+        groupId: 1,
+        groupName: 'Size',
+        uiType: 'SingleSelect',
+        isRequired: true,
+        minSelect: 1,
+        maxSelect: 1,
+        options: [{ id: 2, name: 'L', price: 5000, isDefault: false, isAvailable: true }],
+      },
+    ];
+    const item = CartService.buildCartItem(
+      makeProduct({ imageUrl: 'https://cdn.example.com/a.png', optionGroups }),
+      [{ optionId: 2, groupName: 'Size', optionName: 'L', price: 5000 }],
+      2,
+      'Ít đá',
+    );
+
+    const rebuilt = CartService.buildCartItem(
+      CartService.cartItemToSourceProduct(item),
+      item.options,
+      item.quantity,
+      item.note,
+    );
+
+    expect(rebuilt).toEqual(item);
+  });
 });
 
 describe('CartService.calculateItemTotal / calculateCartTotal / calculateCartItemCount', () => {

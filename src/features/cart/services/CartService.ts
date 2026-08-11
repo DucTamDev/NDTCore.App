@@ -3,8 +3,8 @@ import type { ProductViewModel } from '../../catalog/types/catalog.types';
 
 type CartSourceProduct = Pick<ProductViewModel, 'id' | 'sku' | 'name' | 'imageUrl' | 'price' | 'optionGroups'>;
 
-const buildCartKey = (productId: number, optionIds: number[]): string =>
-  `${productId}:${[...optionIds].sort((a, b) => a - b).join(',')}`;
+const buildCartKey = (productId: number, optionIds: number[], note = ''): string =>
+  `${productId}:${[...optionIds].sort((a, b) => a - b).join(',')}:${note.trim()}`;
 
 const buildCartItem = (
   product: CartSourceProduct,
@@ -13,11 +13,13 @@ const buildCartItem = (
   note: string,
 ): CartItem => {
   const optionsTotal = selectedOptions.reduce((sum, option) => sum + option.price, 0);
+  const trimmedNote = note.trim();
 
   return {
     key: buildCartKey(
       product.id,
       selectedOptions.map((option) => option.optionId),
+      trimmedNote,
     ),
     productId: product.id,
     productCode: product.sku,
@@ -26,11 +28,20 @@ const buildCartItem = (
     regularPrice: product.price,
     unitPrice: product.price + optionsTotal,
     quantity,
-    note,
+    note: trimmedNote,
     optionGroups: product.optionGroups,
     options: selectedOptions,
   };
 };
+
+const cartItemToSourceProduct = (item: CartItem): CartSourceProduct => ({
+  id: item.productId,
+  sku: item.productCode,
+  name: item.productName,
+  imageUrl: item.imageUrl,
+  price: item.regularPrice,
+  optionGroups: item.optionGroups,
+});
 
 const calculateItemTotal = (item: CartItem): number => item.unitPrice * item.quantity;
 
@@ -78,6 +89,7 @@ const toCreateOrderRequest = (
 export const CartService = {
   buildCartKey,
   buildCartItem,
+  cartItemToSourceProduct,
   calculateItemTotal,
   calculateCartTotal,
   calculateCartItemCount,
