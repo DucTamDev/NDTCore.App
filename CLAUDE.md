@@ -43,7 +43,8 @@ src/
 │   ├── sales/           # Sales screen shell — hooks/, components/, screens/. Static,
 │   │                    # responsive, chưa có product/cart data — xem
 │   │                    # docs/superpowers/specs/2026-08-06-sales-shell-navigation-design.md
-│   └── settings/        # Settings shell — sidebar + content theo activeMenuKey (Redux)
+│   └── settings/        # Settings shell — sidebar + content theo LayoutMode/activeMenuKey (Redux)
+├── hooks/                # Hook dùng chung nhiều feature (vd: useLayoutMode — phone/tablet-portrait/tablet-landscape)
 ├── navigation/           # RootNavigator (bottom-tabs), 2 tab: Sales (initial route), Settings
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module

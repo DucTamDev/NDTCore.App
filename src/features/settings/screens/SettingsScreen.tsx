@@ -1,31 +1,40 @@
-// src/features/settings/screens/SettingsScreen.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from 'react-native-paper';
 import { SettingsSidebar } from '../components/SettingsSidebar';
 import { SettingsContent } from '../components/SettingsContent';
+import { SettingsHeader } from '../components/SettingsHeader';
+import { useSettings } from '../hooks/useSettings';
 
-export const SettingsScreen: React.FC = () => (
-  <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    <View style={styles.header}>
-      <Text variant="titleMedium">Cài đặt</Text>
-    </View>
-    <View style={styles.body}>
-      <SettingsSidebar />
-      <SettingsContent />
-    </View>
-  </SafeAreaView>
-);
+export const SettingsScreen: React.FC = () => {
+  const { isTablet, activeSection, selectSection, clearSection, headerTitle } = useSettings();
+  const theme = useTheme();
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
+      <SettingsHeader
+        title={headerTitle}
+        showBackButton={!isTablet && activeSection !== null}
+        onBackPress={clearSection}
+      />
+      <View style={styles.body}>
+        {(isTablet || activeSection === null) && (
+          <SettingsSidebar
+            activeSection={activeSection}
+            onSelectSection={selectSection}
+            isTablet={isTablet}
+          />
+        )}
+        {(isTablet || activeSection !== null) && (
+          <SettingsContent activeSection={activeSection} />
+        )}
+      </View>
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: 'white' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
-  },
+  safeArea: { flex: 1 },
   body: { flex: 1, flexDirection: 'row' },
 });
