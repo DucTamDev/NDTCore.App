@@ -50,7 +50,7 @@ describe('ensureBluetoothPermission', () => {
     jest.spyOn(PermissionsAndroid, 'requestMultiple').mockResolvedValue({
       [PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN]: PermissionsAndroid.RESULTS.GRANTED,
       [PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT]: PermissionsAndroid.RESULTS.GRANTED,
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof PermissionsAndroid.requestMultiple>>);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(true);
     expect(PermissionsAndroid.requestMultiple).toHaveBeenCalledWith([
@@ -65,7 +65,7 @@ describe('ensureBluetoothPermission', () => {
     jest.spyOn(PermissionsAndroid, 'requestMultiple').mockResolvedValue({
       [PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN]: PermissionsAndroid.RESULTS.GRANTED,
       [PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT]: PermissionsAndroid.RESULTS.DENIED,
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof PermissionsAndroid.requestMultiple>>);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(false);
   });
