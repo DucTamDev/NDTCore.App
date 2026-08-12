@@ -7,6 +7,7 @@ import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
 import { UsbTransport } from '../transports/UsbTransport';
 import { AppErrorException } from '../../../types/AppError';
+import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 
 type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
@@ -55,21 +56,35 @@ export class TsplDriver implements IPrinterDriver {
       return () => undefined;
     }
     onEvent({ type: 'loading' });
-    RNBluetoothClassic.startDiscovery()
-      .then((devices) => {
-        onEvent({
-          type: devices.length > 0 ? 'found' : 'empty',
-          devices: devices.map((d) => ({
-            deviceId: d.address,
-            displayName: d.name ?? d.address,
-            rawDevice: d as unknown as Record<string, unknown>,
-          })),
-        });
+    let cancelled = false;
+    ensureBluetoothPermission()
+      .then((granted) => {
+        if (cancelled) return;
+        if (!granted) {
+          onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' } });
+          return;
+        }
+        RNBluetoothClassic.startDiscovery()
+          .then((devices) => {
+            if (cancelled) return;
+            onEvent({
+              type: devices.length > 0 ? 'found' : 'empty',
+              devices: devices.map((d) => ({
+                deviceId: d.address,
+                displayName: d.name ?? d.address,
+                rawDevice: d as unknown as Record<string, unknown>,
+              })),
+            });
+          })
+          .catch((error: unknown) => {
+            if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+          });
       })
       .catch((error: unknown) => {
-        onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+        if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
       });
     return () => {
+      cancelled = true;
       RNBluetoothClassic.cancelDiscovery().catch(() => undefined);
     };
   }
@@ -84,6 +99,10 @@ export class TsplDriver implements IPrinterDriver {
       } else if (config.connectionType === 'bluetooth') {
         if (!config.device) {
           throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị Bluetooth' });
+        }
+        const granted = await ensureBluetoothPermission();
+        if (!granted) {
+          throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' });
         }
         await (transport as BluetoothTransport).connect(config.device.deviceId);
       } else {

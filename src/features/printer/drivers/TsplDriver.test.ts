@@ -20,6 +20,10 @@ jest.mock('../transports/BluetoothTransport', () => ({
   })),
 }));
 
+jest.mock('../services/PrinterPermissionService', () => ({
+  ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
+}));
+
 const lanConfig: PrinterConfig = {
   id: 'label-1',
   printerName: 'Máy in tem',
@@ -108,5 +112,52 @@ describe('TsplDriver', () => {
     await driver.connect(lanConfig);
     const result = await driver.identify(lanConfig.id);
     expect(result).not.toBeNull();
+  });
+
+  it('scan() on bluetooth checks Bluetooth permission before starting discovery', () => {
+    const driver = new TsplDriver();
+    driver.scan('bluetooth', () => undefined);
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    expect(ensureBluetoothPermission).toHaveBeenCalled();
+  });
+
+  it('scan() on bluetooth reports error and does not discover when permission is denied', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockResolvedValueOnce(false);
+    const driver = new TsplDriver();
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      driver.scan('bluetooth', (event) => {
+        events.push(event.type);
+        if (event.type === 'error') resolve();
+      });
+    });
+    expect(events).toEqual(['loading', 'error']);
+  });
+
+  it('connect() over bluetooth checks permission before delegating to BluetoothTransport', async () => {
+    const btConfig: PrinterConfig = { ...lanConfig, id: 'label-bt', connectionType: 'bluetooth', lan: undefined, device: { deviceId: '00:11:22', displayName: 'Máy in tem BT', rawDevice: {} } };
+    const driver = new TsplDriver();
+    await driver.connect(btConfig);
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    expect(ensureBluetoothPermission).toHaveBeenCalled();
+    expect(driver.getStatus(btConfig.id)).toBe('connected');
+  });
+
+  it('connect() over bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockResolvedValueOnce(false);
+    const btConfig: PrinterConfig = { ...lanConfig, id: 'label-bt-2', connectionType: 'bluetooth', lan: undefined, device: { deviceId: '00:11:22', displayName: 'Máy in tem BT', rawDevice: {} } };
+    const driver = new TsplDriver();
+    await expect(driver.connect(btConfig)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    expect(driver.getStatus(btConfig.id)).toBe('error');
   });
 });
