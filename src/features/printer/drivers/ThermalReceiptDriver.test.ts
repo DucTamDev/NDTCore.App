@@ -11,21 +11,21 @@ jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => ({
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'USB', vendor_id: '1155', product_id: '22222' }),
-    printText: jest.fn((_text: string, _opts: unknown, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
+    printText: jest.fn((_text: string, _opts: { keepConnection?: boolean; cut?: boolean; tailingLine?: boolean }, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
   },
   BLEPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'BLE', inner_mac_address: '00:11:22:33:44:55' }),
-    printText: jest.fn((_text: string, _opts: unknown, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
+    printText: jest.fn((_text: string, _opts: { keepConnection?: boolean; cut?: boolean; tailingLine?: boolean }, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
   },
   NetPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'Net', host: '192.168.1.50', port: 9100 }),
-    printText: jest.fn((_text: string, _opts: unknown, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
+    printText: jest.fn((_text: string, _opts: { keepConnection?: boolean; cut?: boolean; tailingLine?: boolean }, cbSuccess?: (msg: string) => void) => cbSuccess?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
   },
 }));
@@ -100,13 +100,16 @@ describe('ThermalReceiptDriver', () => {
     expect(driver.getStatus(bleConfig.id)).toBe('error');
   });
 
-  it('connect() over USB reads vendor_id/product_id from the scanned rawDevice', async () => {
+  it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers', async () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(usbConfig);
     const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
-    expect(USBPrinter.connectPrinter).toHaveBeenCalledWith('1155', '22222');
+    // Native RNUSBPrinterModule.connectPrinter(Integer vendorId, Integer productId, ...)
+    // requires numbers, not strings — the package's `.d.ts` types this as
+    // string but the JS layer passes the args through to native unconverted.
+    expect(USBPrinter.connectPrinter).toHaveBeenCalledWith(1155, 22222);
   });
 
   it('disconnect() closes the connection and sets status disconnected', async () => {
@@ -147,6 +150,25 @@ describe('ThermalReceiptDriver', () => {
     expect(BLEPrinter.getDeviceList).toHaveBeenCalled();
   });
 
+  it('scan("bluetooth") emits empty (not error) when getDeviceList rejects with "No Device Found"', async () => {
+    const { BLEPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      BLEPrinter: { getDeviceList: jest.Mock };
+    };
+    // On Android, RNBLEPrinterModule/RNUSBPrinterModule invoke the *error*
+    // callback with "No Device Found" (not the success callback with an
+    // empty array) when no devices are found — the JS promise rejects.
+    BLEPrinter.getDeviceList.mockRejectedValueOnce('No Device Found');
+    const driver = new ThermalReceiptDriver();
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      driver.scan('bluetooth', (event) => {
+        events.push(event.type);
+        if (event.type !== 'loading') resolve();
+      });
+    });
+    expect(events).toEqual(['loading', 'empty']);
+  });
+
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
@@ -156,7 +178,17 @@ describe('ThermalReceiptDriver', () => {
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
     await driver.testPrint(lanConfig);
     expect(NetPrinter.connectPrinter.mock.calls.length).toBe(callsBeforeTestPrint);
-    expect(NetPrinter.printText).toHaveBeenCalled();
+    // Passing `undefined` as the opts arg makes `keepConnection` cross the
+    // bridge as null, which NPEs the native Android print thread after the
+    // bytes are flushed but before the success callback fires (Promise never
+    // settles). It also skips the feed+cut byte sequence. Must pass a real
+    // options object with `cut`/`tailingLine: true`.
+    expect(NetPrinter.printText).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ keepConnection: true, cut: true, tailingLine: true }),
+      expect.any(Function),
+      expect.any(Function),
+    );
   });
 
   it('identify() returns null when not connected', async () => {

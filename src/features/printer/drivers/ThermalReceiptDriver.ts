@@ -7,8 +7,8 @@ import { AppErrorException } from '../../../types/AppError';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 
 interface UsbRawDevice {
-  vendor_id: string | number;
-  product_id: string | number;
+  vendor_id: number;
+  product_id: number;
 }
 
 const namespaceByConnectionType = {
@@ -52,12 +52,22 @@ export class ThermalReceiptDriver implements IPrinterDriver {
    * `printText()` của thư viện là API kiểu callback (`cbSuccess`/`cbErr`),
    * không trả `Promise` như plan ban đầu giả định — bọc lại thành `Promise`
    * để `testPrint()` có thể `await` như các driver khác.
+   *
+   * Bắt buộc phải truyền object `opts` thật (không phải `undefined`): JS
+   * layer của thư viện default `opts` thành `{}` khi thiếu, khiến
+   * `keepConnection` là `undefined` — giá trị này băng qua bridge thành
+   * `Boolean keepConnection` null, và các adapter Android (LAN/BLE) unbox nó
+   * mà không kiểm tra null (`Boolean.toString(keepConnection)` /
+   * `if (!keepConnection)`), NPE ngay trên native print thread *sau khi* đã
+   * flush byte in nhưng *trước khi* gọi success callback — Promise treo mãi
+   * mãi, không `resolve`/`reject`. `cut`/`tailingLine: true` còn đảm bảo máy
+   * in feed + cắt giấy sau khi in (mặc định của thư viện là `false`).
    */
   private printTextAsync(connectionType: ConnectionType, text: string): Promise<void> {
     return new Promise((resolve, reject) => {
       namespaceByConnectionType[connectionType].printText(
         text,
-        undefined,
+        { keepConnection: true, cut: true, tailingLine: true },
         () => resolve(),
         (error: Error) => reject(error),
       );
@@ -117,7 +127,19 @@ export class ThermalReceiptDriver implements IPrinterDriver {
           });
         }
       } catch (error) {
-        if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+        if (cancelled) return;
+        // Trên Android, khi không tìm thấy thiết bị nào, native module gọi
+        // error callback với message "No Device Found" thay vì success
+        // callback với mảng rỗng (RNBLEPrinterModule.java /
+        // RNUSBPrinterModule.java) — Promise từ getDeviceList() reject, nên
+        // phải phân biệt trường hợp này với lỗi kết nối thật để báo `empty`
+        // thay vì `CONNECTION_ERROR`.
+        const message = error instanceof Error ? error.message : String(error);
+        if (/no device found/i.test(message)) {
+          onEvent({ type: 'empty' });
+          return;
+        }
+        onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message } });
       }
     };
 
@@ -150,7 +172,17 @@ export class ThermalReceiptDriver implements IPrinterDriver {
       } else {
         const raw = config.device?.rawDevice as unknown as UsbRawDevice | undefined;
         if (!raw) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu thông tin thiết bị USB' });
-        await USBPrinter.connectPrinter(String(raw.vendor_id), String(raw.product_id));
+        // `.d.ts` của thư viện khai `connectPrinter(vendorId: string, productId: string)`
+        // nhưng native Android (`RNUSBPrinterModule.connectPrinter`) nhận
+        // `Integer vendorId, Integer productId` — JS layer truyền thẳng
+        // không convert. Dưới New Architecture bridge, truyền string vào
+        // tham số native Integer throw `JavaTurboModuleArgumentConversionException`
+        // ngay lập tức. Cast `as unknown as string` chỉ để thoả mãn type sai
+        // của `.d.ts`; giá trị runtime thật sự đi qua bridge vẫn là number.
+        await USBPrinter.connectPrinter(
+          Number(raw.vendor_id) as unknown as string,
+          Number(raw.product_id) as unknown as string,
+        );
       }
 
       this.connectedTypes.set(config.id, config.connectionType);
