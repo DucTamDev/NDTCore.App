@@ -52,39 +52,44 @@ jest.mock('react-native-tcp-socket', () => ({
 
 // @poriyaalar/react-native-thermal-receipt-printer ships an ESM build that Jest
 // cannot transform, so ThermalReceiptDriver imports (which are transitively
-// imported via DriverRegistry in tests) would fail unless mocked here.
+// imported via DriverRegistry in tests) would fail unless mocked here. Individual
+// test files can override this global mock with their own jest.mock() — local
+// mocks take precedence over global ones.
 jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => ({
   USBPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
+    getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue(undefined),
-    disconnectPrinter: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockImplementation((text, cbSuccess, cbErr) => {
+    printText: jest.fn().mockImplementation((text, opts, cbSuccess, cbErr) => {
       if (cbSuccess) cbSuccess();
     }),
     printTextAsync: jest.fn().mockResolvedValue(undefined),
     printRawData: jest.fn().mockResolvedValue(undefined),
     lineWrap: jest.fn().mockResolvedValue(undefined),
+    closeConn: jest.fn().mockResolvedValue(undefined),
   },
   BLEPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
+    getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue(undefined),
-    disconnectPrinter: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockImplementation((text, cbSuccess, cbErr) => {
+    printText: jest.fn().mockImplementation((text, opts, cbSuccess, cbErr) => {
       if (cbSuccess) cbSuccess();
     }),
     printTextAsync: jest.fn().mockResolvedValue(undefined),
     printRawData: jest.fn().mockResolvedValue(undefined),
     lineWrap: jest.fn().mockResolvedValue(undefined),
+    closeConn: jest.fn().mockResolvedValue(undefined),
   },
   NetPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
+    getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue(undefined),
-    disconnectPrinter: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockImplementation((text, cbSuccess, cbErr) => {
+    printText: jest.fn().mockImplementation((text, opts, cbSuccess, cbErr) => {
       if (cbSuccess) cbSuccess();
     }),
     printTextAsync: jest.fn().mockResolvedValue(undefined),
     printRawData: jest.fn().mockResolvedValue(undefined),
     lineWrap: jest.fn().mockResolvedValue(undefined),
+    closeConn: jest.fn().mockResolvedValue(undefined),
   },
 }));
