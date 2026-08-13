@@ -112,8 +112,11 @@ describe('PrinterService', () => {
   });
 
   it('discoverProtocol() forwards to createDiscoverProtocol wired with the registry', async () => {
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
-    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    // Catch-all detection rule (no device hint, connectionType lan) thử
+    // `tspl` trước `escpos` (xem printerDetectionRules.ts) — mock identify()
+    // thành công ở `tsplDriver` để chỉ có 1 candidate được thử.
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver });
     const events: string[] = [];
     await new Promise<void>((resolve) => {
       service.discoverProtocol({ printerId: 'p1', connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 } }, (event) => {

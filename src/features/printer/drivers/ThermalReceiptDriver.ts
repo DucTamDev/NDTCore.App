@@ -36,6 +36,19 @@ export class ThermalReceiptDriver implements IPrinterDriver {
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private initialized = new Set<ConnectionType>();
+  /** `PrinterDeviceInfo` thật lấy từ resolved value của `connectPrinter()` — dùng cho `identify()`. */
+  private deviceInfos = new Map<string, PrinterDeviceInfo>();
+  /**
+   * Thư viện giữ ĐÚNG 1 kết nối native / namespace (USBPrinter/BLEPrinter/
+   * NetPrinter là singleton) — connect printer thứ 2 cùng `connectionType` sẽ
+   * âm thầm ngắt printer đầu ở tầng native. Map này track printer nào đang
+   * thật sự sở hữu kết nối native của từng `connectionType`, để `testPrint()`/
+   * `disconnect()` không thao tác nhầm lên 1 printer đã bị ngắt ngầm — đây là
+   * giới hạn của thư viện, driver chỉ có thể làm cho status/behaviour phản
+   * ánh đúng thực tế chứ không giải quyết được tận gốc (không thể giữ 2 kết
+   * nối cùng namespace cùng lúc).
+   */
+  private activeByType = new Map<ConnectionType, string>();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
@@ -161,14 +174,26 @@ export class ThermalReceiptDriver implements IPrinterDriver {
       }
       await this.ensureInitialized(config.connectionType);
 
+      // Namespace này chỉ giữ được 1 kết nối native — printer đang connect sắp
+      // thay thế printer cũ (nếu có) của cùng connectionType. Ngắt JS-side
+      // status của printer cũ trước, cho khớp với những gì native layer sắp
+      // làm (xem comment ở khai báo `activeByType`).
+      const previousOwner = this.activeByType.get(config.connectionType);
+      if (previousOwner && previousOwner !== config.id) {
+        this.setStatus(previousOwner, 'disconnected');
+      }
+
+      let deviceName: string | undefined;
       if (config.connectionType === 'lan') {
         if (!config.lan) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu cấu hình IP/Port' });
-        await NetPrinter.connectPrinter(config.lan.ip, config.lan.port);
+        const result = await NetPrinter.connectPrinter(config.lan.ip, config.lan.port);
+        deviceName = result?.device_name;
       } else if (config.connectionType === 'bluetooth') {
         if (!config.device) {
           throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị Bluetooth' });
         }
-        await BLEPrinter.connectPrinter(config.device.deviceId);
+        const result = await BLEPrinter.connectPrinter(config.device.deviceId);
+        deviceName = result?.device_name;
       } else {
         const raw = config.device?.rawDevice as unknown as UsbRawDevice | undefined;
         if (!raw) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu thông tin thiết bị USB' });
@@ -179,13 +204,16 @@ export class ThermalReceiptDriver implements IPrinterDriver {
         // tham số native Integer throw `JavaTurboModuleArgumentConversionException`
         // ngay lập tức. Cast `as unknown as string` chỉ để thoả mãn type sai
         // của `.d.ts`; giá trị runtime thật sự đi qua bridge vẫn là number.
-        await USBPrinter.connectPrinter(
+        const result = await USBPrinter.connectPrinter(
           Number(raw.vendor_id) as unknown as string,
           Number(raw.product_id) as unknown as string,
         );
+        deviceName = result?.device_name;
       }
 
+      if (deviceName) this.deviceInfos.set(config.id, { deviceName });
       this.connectedTypes.set(config.id, config.connectionType);
+      this.activeByType.set(config.connectionType, config.id);
       this.setStatus(config.id, 'connected');
     } catch (error) {
       this.setStatus(config.id, 'error');
@@ -197,9 +225,18 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     this.setStatus(printerId, 'disconnecting');
     const connectionType = this.connectedTypes.get(printerId);
     if (connectionType) {
-      await namespaceByConnectionType[connectionType].closeConn();
+      // Chỉ gọi closeConn() native nếu printer này thật sự đang sở hữu kết nối
+      // của connectionType đó — nếu không, kết nối native đã thuộc về 1
+      // printer khác (bị "cướp" theo cách được mô tả ở `activeByType`), gọi
+      // closeConn() lúc này sẽ ngắt nhầm printer đang sống, không phải printer
+      // này.
+      if (this.activeByType.get(connectionType) === printerId) {
+        await namespaceByConnectionType[connectionType].closeConn();
+        this.activeByType.delete(connectionType);
+      }
     }
     this.connectedTypes.delete(printerId);
+    this.deviceInfos.delete(printerId);
     this.setStatus(printerId, 'disconnected');
   }
 
@@ -214,7 +251,12 @@ export class ThermalReceiptDriver implements IPrinterDriver {
   }
 
   async testPrint(config: PrinterConfig): Promise<void> {
-    if (!this.connectedTypes.has(config.id)) {
+    // Reconnect không chỉ khi chưa từng connect, mà cả khi printer này đã
+    // từng connect nhưng không còn là chủ sở hữu hiện tại của kết nối native
+    // cùng connectionType (đã bị 1 printer khác "cướp" kết nối ngầm) — nếu
+    // không, sẽ in nhầm lên printer đang thực sự chiếm kết nối.
+    const isStaleOwner = this.activeByType.get(config.connectionType) !== config.id;
+    if (!this.connectedTypes.has(config.id) || isStaleOwner) {
       await this.connect(config);
     }
     const connectionType = this.connectedTypes.get(config.id);
@@ -223,6 +265,7 @@ export class ThermalReceiptDriver implements IPrinterDriver {
   }
 
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
-    return this.connectedTypes.has(printerId) ? {} : null;
+    if (!this.connectedTypes.has(printerId)) return null;
+    return this.deviceInfos.get(printerId) ?? {};
   }
 }

@@ -50,26 +50,30 @@ describe('resolveCandidates', () => {
 describe('discoverProtocol', () => {
   const baseInput = { printerId: 'p1', connectionType: 'lan' as const, lan: { ip: '192.168.1.10', port: 9100 } };
 
+  // Luật catch-all (không có device hint, connectionType lan) thử `tspl`
+  // trước `escpos` (xem printerDetectionRules.ts) — driver thắng ở các test
+  // dưới đây là driver được thử TRƯỚC theo thứ tự candidate đó, không phải
+  // theo thứ tự khai báo trong object registry.
   it('emits identified when the first candidate connects and identifies successfully', async () => {
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TM-T82' }) });
-    const tsplDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE200' }) });
+    const escposDriver = makeMockDriver();
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
 
     expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying', 'identified']);
-    expect(events[2].protocol).toBe('escpos');
-    expect(events[2].deviceInfo).toEqual({ deviceName: 'TM-T82' });
-    expect(escposDriver.disconnect).not.toHaveBeenCalled();
-    expect(tsplDriver.connect).not.toHaveBeenCalled();
+    expect(events[2].protocol).toBe('tspl');
+    expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE200' });
+    expect(tsplDriver.disconnect).not.toHaveBeenCalled();
+    expect(escposDriver.connect).not.toHaveBeenCalled();
   });
 
   it('falls through to the next candidate when the first identify() returns null', async () => {
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({}) });
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TM-T82' }) });
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
 
     const identified = events.find((e) => e.stage === 'identified');
-    expect(identified?.protocol).toBe('tspl');
-    expect(escposDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(identified?.protocol).toBe('escpos');
+    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('emits unknown_protocol when every candidate connects but none identifies', async () => {
@@ -106,8 +110,8 @@ describe('discoverProtocol', () => {
   });
 
   it('does not short-circuit the catch-all fallback rule (no modelMatch) even though its confidence is also low', async () => {
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
-    const tsplDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+    const escposDriver = makeMockDriver();
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
 
     expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying', 'identified']);

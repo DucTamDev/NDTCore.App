@@ -201,6 +201,71 @@ describe('ThermalReceiptDriver', () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
     const result = await driver.identify(lanConfig.id);
-    expect(result).not.toBeNull();
+    // `NetPrinter.connectPrinter` mock resolves with `device_name: 'Net'`
+    // (see mock above) — `identify()` must surface that real captured name,
+    // not a bare `{}` (a bare `{}` would make discoverProtocol's escpos
+    // branch an unconditional "yes" for any LAN device that answers a TCP
+    // connect, including a TSPL label printer).
+    expect(result).toEqual({ deviceName: 'Net' });
+  });
+
+  it('connecting printer B on the same connectionType as already-connected printer A flips A to disconnected', async () => {
+    const driver = new ThermalReceiptDriver();
+    const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
+    const printerB: PrinterConfig = { ...lanConfig, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+
+    await driver.connect(printerA);
+    expect(driver.getStatus(printerA.id)).toBe('connected');
+
+    await driver.connect(printerB);
+    // Thư viện chỉ giữ 1 kết nối native / namespace (NetPrinter singleton) —
+    // connect printer B (cùng connectionType 'lan') âm thầm ngắt printer A ở
+    // tầng native. Driver phải phản ánh đúng: A không còn 'connected'.
+    expect(driver.getStatus(printerA.id)).toBe('disconnected');
+    expect(driver.getStatus(printerB.id)).toBe('connected');
+  });
+
+  it('testPrint() reconnects instead of taking the stale fast path when another printer has taken over the shared connection', async () => {
+    const driver = new ThermalReceiptDriver();
+    const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
+    const printerB: PrinterConfig = { ...lanConfig, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+
+    await driver.connect(printerA);
+    await driver.connect(printerB);
+
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { connectPrinter: jest.Mock };
+    };
+    const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
+    await driver.testPrint(printerA);
+    // printerA is no longer the owner of the 'lan' connection (printerB took
+    // it over) — testPrint() must reconnect rather than reuse the stale fast
+    // path, otherwise it would silently print to whatever printer B is.
+    expect(NetPrinter.connectPrinter.mock.calls.length).toBe(callsBeforeTestPrint + 1);
+    expect(driver.getStatus(printerA.id)).toBe('connected');
+  });
+
+  it('disconnect() does not call the native closeConn() for a printer that no longer owns the shared connection', async () => {
+    const driver = new ThermalReceiptDriver();
+    const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
+    const printerB: PrinterConfig = { ...lanConfig, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+
+    await driver.connect(printerA);
+    await driver.connect(printerB);
+
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { closeConn: jest.Mock };
+    };
+    NetPrinter.closeConn.mockClear();
+
+    // printerA no longer owns the native connection (printerB does) —
+    // disconnecting A must not tear down B's live connection.
+    await driver.disconnect(printerA.id);
+    expect(NetPrinter.closeConn).not.toHaveBeenCalled();
+    expect(driver.getStatus(printerA.id)).toBe('disconnected');
+
+    await driver.disconnect(printerB.id);
+    expect(NetPrinter.closeConn).toHaveBeenCalledTimes(1);
+    expect(driver.getStatus(printerB.id)).toBe('disconnected');
   });
 });
