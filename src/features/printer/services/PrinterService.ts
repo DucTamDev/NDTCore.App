@@ -8,6 +8,7 @@ import type {
   PrinterStatus,
   Protocol,
 } from '../types/printer.types';
+import type { PrintDocument } from '../types/printDocument.types';
 import { DriverRegistry } from './DriverRegistry';
 import { createDiscoverProtocol, type DiscoveryEvent, type DiscoveryInput } from './discoverProtocol';
 
@@ -76,6 +77,11 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
 
   const testPrint = async (config: PrinterConfig): Promise<void> => {
     await getDriver(config.protocol).testPrint(config);
+  };
+
+  const print = async (printerId: string, document: PrintDocument): Promise<void> => {
+    const config = findOrThrow(printerId);
+    await getDriver(config.protocol).print(printerId, document);
   };
 
   const scanDevices = (
@@ -159,6 +165,7 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     disconnect,
     reconnect,
     testPrint,
+    print,
     scanDevices,
     scanForConnectionType,
     connectDraft,

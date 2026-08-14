@@ -143,4 +143,13 @@ describe('PrinterService', () => {
     StorageService.setItem('printer.list', [legacyRecord]);
     expect(service.getPrinters()[0].enabled).toBe(true);
   });
+
+  it('print() forwards to the driver matching the printer protocol', async () => {
+    const escposDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    service.addPrinter(baseConfig);
+    const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
+    await service.print(baseConfig.id, document);
+    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document);
+  });
 });
