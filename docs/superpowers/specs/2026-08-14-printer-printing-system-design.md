@@ -5,7 +5,7 @@
 The printer module today (`src/features/printer/`) only covers Printer
 Management: `PrinterConfig` storage, `PrinterService` (hardware
 connect/disconnect/status), `DriverRegistry`, and per-driver `testPrint()`
-with fixed content (`ThermalReceiptDriver`, `TsplDriver`). There is no way to
+with fixed content (`EscPosDriver`, `TsplDriver`). There is no way to
 route arbitrary content to one or more printers, no queueing, no
 retry/failover, and no concept of a printer being administratively disabled.
 
@@ -105,29 +105,61 @@ one-file-per-concern split (`printer.types.ts`, `driver.types.ts`):
 print(printerId: string, document: PrintDocument): Promise<void>;
 ```
 
+**Correction from this spec's earlier draft:** the ESC/POS driver was
+initially described as `ThermalReceiptDriver.ts` using
+`@poriyaalar/react-native-thermal-receipt-printer`, with no image/barcode
+API. That was wrong for this branch: `ThermalReceiptDriver` only exists on
+the separate, not-yet-merged branch `feat/thermal-receipt-printer-driver`
+(12 commits ahead of `main` at time of writing). `feat/printer-printing-system`
+branched from `main`, where the real ESC/POS driver is still
+`src/features/printer/drivers/EscPosDriver.ts`, backed by
+`react-native-esc-pos-printer` v4.5.0 (the Epson ePOS2 SDK wrapper this
+package.json pins) — confirmed against that library's own docs
+(github.com/tr3v3r/react-native-esc-pos-printer), not assumed. **If
+`feat/thermal-receipt-printer-driver` merges to `main` before this branch
+does, `EscPosDriver.ts` will be deleted and Task implementing this section
+must be re-targeted at `ThermalReceiptDriver.ts` instead** — flag this to
+the user at execution time if it happens; this spec does not attempt to
+predict or avoid that merge-order risk.
+
 The two drivers encode `PrintDocument` differently, because their
 underlying libraries are shaped differently — this is not a design choice,
 it is a constraint already visible in the existing code:
 
-- **`TsplDriver`**: already writes raw bytes over a `Transport`
+- **`TsplDriver`**: writes raw bytes over a `Transport`
   (`protocols/TsplEncoder.ts` → `Uint8Array` → `UsbTransport`/
   `BluetoothTransport`/`LanTransport`). `TsplEncoder` gains an `image(x, y, data)`
   method (TSPL `BITMAP` command); `table` and `line` elements map to
   repeated `text()` calls — no new TSPL primitive needed.
-- **`ThermalReceiptDriver`**: has no raw-byte access. Its library
-  (`@poriyaalar/react-native-thermal-receipt-printer`) exposes only
-  `printText(taggedString)` per namespace (`<C>`, `<B>`, `<D>`/`<M>` tags) —
-  confirmed while writing this spec by re-reading
-  `ThermalReceiptDriver.ts`. A new `protocols/EscPosTextComposer.ts` converts
-  `PrintElement[]` into that tagged string (`text` → tag-wrapped content,
-  `line` → a dashed-rule string, `table` → column-padded plain text rows).
-  `image`/`barcode`/`qrCode` elements are **not supported** by this driver in
-  this iteration — the library exposes no image/barcode API. `print()` does
-  not fail the job over this: `EscPosTextComposer` skips those element types
-  entirely (they contribute nothing to the composed string) so the rest of
-  the document (text/line/table) still reaches the printer. This is a silent
-  drop, not an error — logged via `PrinterLogger` at `warn` level so it is
-  visible in diagnostics without surfacing as a job failure.
+- **`EscPosDriver`**: has no raw-byte access either, but unlike the
+  thermal-receipt library, `react-native-esc-pos-printer`'s `Printer` class
+  is already a full builder covering every `PrintElement` kind this spec
+  needs: `addText`, `addImage(params: AddImageParams)`,
+  `addBarcode(params: AddBarcodeParams)`, `addSymbol(params: AddSymbolParams)`
+  (2D/QR), `addFeedLine`, `addCut`, `sendData` — all `Promise<void>`,
+  buffered until `sendData()` flushes. So **all six `PrintElement` kinds are
+  supported** on this driver, reversing this spec's earlier "image/barcode/
+  qrCode unsupported, skip silently" decision — that decision was made
+  against the wrong library and does not hold once grounded in the real one.
+  `print()` iterates `document.elements` in order, dispatching each to the
+  matching `add*` call (`line` → `addText` with a fixed-width dashed rule;
+  `table` → one `addText` per row, columns joined with padding), then
+  `addFeedLine()` + `addCut()` + `sendData()` once at the end. No new
+  `protocols/*.ts` file for ESC/POS — the SDK's `Printer` class already is
+  the composition layer, the same way `testPrint()` already builds directly
+  on it today.
+
+Exact `AddImageParams`/`AddBarcodeParams`/`AddSymbolParams` field names are
+not fully confirmed here — `react-native-esc-pos-printer` is not installed
+in this checkout (`node_modules/react-native-esc-pos-printer` is absent) so
+its shipped `.d.ts` could not be read directly; only the library's public
+docs site was checked, which documents each method's existence and return
+type but not every field. **Task implementing this must read
+`node_modules/react-native-esc-pos-printer/lib/typescript/*.d.ts` (after
+`npm install`) for the real field names before writing the `addImage`/
+`addBarcode`/`addSymbol` call sites** — this is a verification step, not an
+open design question; the method choice itself (use the SDK's builder
+directly, no custom encoder) is decided.
 
 This confirms the design doc's own reasoning for keeping Generic/vendor
 encoding separate (design doc §16) applies even within "Generic" drivers
@@ -334,9 +366,10 @@ this spec needs finer granularity than that.
 - `.test.ts` for: `PrintService`, `PrintScheduler`, `evaluatePrintRules`,
   `OrderPrintPlanner` (including the unrouted-items case and multi-item
   same-destination grouping), `destinationSlice`, `printRuleSlice`,
-  `EscPosTextComposer`, `TsplEncoder`'s new `image()` method,
-  `PrinterService.print`/`setEnabled` additions, `printerSlice`'s new
-  reducer.
+  `EscPosDriver.print()`'s per-`PrintElement`-kind dispatch (mock the SDK's
+  `Printer` methods, assert each element type calls the right `add*`),
+  `TsplEncoder`'s new `image()` method, `PrinterService.print`/`setEnabled`
+  additions, `printerSlice`'s new reducer.
 - `useCheckout.test.ts` (existing file, if present, otherwise new) gains a
   case: successful checkout calls `PrintService.print()` for each planned
   destination and `checkout()` still resolves even if `PrintService.print()`
@@ -359,9 +392,9 @@ this spec needs finer granularity than that.
   correction.
 - ZPL protocol/encoder — no ZPL device exists to validate against; adding it
   speculatively was already rejected when the design doc was corrected.
-- `image`/`barcode`/`qrCode` printing on `ThermalReceiptDriver` — the
-  underlying library exposes no API for them; adding that would mean
-  switching libraries, which is unrelated to this spec.
+- Verifying `AddImageParams`/`AddBarcodeParams`/`AddSymbolParams`' exact
+  field shapes ahead of time — deferred to the implementing task reading the
+  installed package's `.d.ts` directly (§3), not guessed here.
 - Transport-scope or global-scope print locking — no evidence yet that
   per-printer serialization is insufficient; `PrintScheduler`'s public
   interface (`enqueue(job)`) does not preclude adding this later.
