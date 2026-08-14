@@ -970,9 +970,23 @@ export const selectDestinations = (state: StateWithDestination): PrintDestinatio
 export default destinationSlice.reducer;
 ```
 
-Register the reducer in the root store (find where `printerSlice` is
-combined — likely `src/store/store.ts` — and add `destination:
-destinationReducer` alongside it).
+Register the reducer in `src/store/index.ts`:
+
+```ts
+import destinationReducer from '../features/printer/store/destinationSlice';
+// ...
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    cart: cartReducer,
+    catalog: catalogReducer,
+    currentStore: currentStoreReducer,
+    destination: destinationReducer,
+    printer: printerReducer,
+    settings: settingsReducer,
+  },
+});
+```
 
 - [ ] **Step 9: Run test to verify it passes**
 
@@ -982,7 +996,7 @@ Expected: PASS
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src/features/printer/types/destination.types.ts src/features/printer/services/DestinationService.ts src/features/printer/services/DestinationService.test.ts src/features/printer/store/destinationSlice.ts src/features/printer/store/destinationSlice.test.ts src/store/store.ts
+git add src/features/printer/types/destination.types.ts src/features/printer/services/DestinationService.ts src/features/printer/services/DestinationService.test.ts src/features/printer/store/destinationSlice.ts src/features/printer/store/destinationSlice.test.ts src/store/index.ts
 git commit -m "feat: add PrintDestination type, DestinationService, destinationSlice"
 ```
 
@@ -1159,8 +1173,8 @@ export const selectDefaultDestinationId = (state: StateWithPrintRule) => state.p
 export default printRuleSlice.reducer;
 ```
 
-Register `printRule: printRuleReducer` in the root store next to
-`destination`.
+Register `printRule: printRuleReducer` in `src/store/index.ts`'s
+`configureStore({ reducer: {...} })`, same as Task 6's `destination` entry.
 
 - [ ] **Step 9: Run test to verify it passes**
 
@@ -1170,7 +1184,7 @@ Expected: PASS
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src/features/printer/types/printRule.types.ts src/features/printer/services/PrintRuleService.ts src/features/printer/services/PrintRuleService.test.ts src/features/printer/store/printRuleSlice.ts src/features/printer/store/printRuleSlice.test.ts src/store/store.ts
+git add src/features/printer/types/printRule.types.ts src/features/printer/services/PrintRuleService.ts src/features/printer/services/PrintRuleService.test.ts src/features/printer/store/printRuleSlice.ts src/features/printer/store/printRuleSlice.test.ts src/store/index.ts
 git commit -m "feat: add PrintRule types, PrintRuleService, printRuleSlice"
 ```
 
@@ -1886,7 +1900,7 @@ import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import { OrderPrintPlanner } from '../../printer/services/OrderPrintPlanner';
 import { PrintService } from '../../printer/services/PrintService';
-import { PrinterLogger } from '../../printer/services/PrinterLogger';
+import { LoggerService } from '../../../services/LoggerService';
 import type { CreateOrderResponse } from '../types/cart.types';
 import type { Order } from '../../printer/types/order.types';
 
@@ -1919,12 +1933,12 @@ export const useCheckout = () => {
         .then(({ plans, unrouted }) => {
           if (unrouted.length > 0) {
             setUnroutedCount(unrouted.length);
-            PrinterLogger.warn(`Đơn ${order.orderNumber}: ${unrouted.length} món chưa có cấu hình in`);
+            LoggerService.warning(`Đơn ${order.orderNumber}: ${unrouted.length} món chưa có cấu hình in`);
           }
           return Promise.all(plans.map((plan) => PrintService.print(plan)));
         })
         .catch((err: unknown) => {
-          PrinterLogger.warn(`Đơn ${order.orderNumber}: in thất bại — ${String(err)}`);
+          LoggerService.warning(`Đơn ${order.orderNumber}: in thất bại — ${String(err)}`);
         });
     },
     [items, serviceType, products],
@@ -2174,9 +2188,9 @@ const styles = StyleSheet.create({
 });
 ```
 
-Check `AppInput`'s actual prop names (`src/components/AppInput.tsx`) before
-this step is done — the `label`/`value`/`onChangeText` names above are
-inferred from `AppSwitch`'s pattern, not confirmed against that file.
+`AppInput`'s props (`src/components/AppInput.tsx`) were read and confirmed
+to match — `label`/`value`/`onChangeText` above are the real prop names, not
+inferred.
 
 - [ ] **Step 3: Wire into `SettingsContent`**
 
