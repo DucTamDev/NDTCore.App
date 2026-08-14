@@ -24,6 +24,7 @@ const baseConfig: PrinterConfig = {
   paperSize: '80mm',
   autoReconnect: false,
   isDefault: false,
+  enabled: true,
   lan: { ip: '192.168.1.10', port: 9100 },
 };
 
@@ -122,5 +123,23 @@ describe('PrinterService', () => {
       });
     });
     expect(events).toEqual(['connecting', 'identifying', 'identified']);
+  });
+
+  it('setEnabled() updates enabled for that printer only', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() });
+    const second: PrinterConfig = { ...baseConfig, id: 'p2' };
+    service.addPrinter(baseConfig);
+    service.addPrinter(second);
+    service.setEnabled('p1', false);
+    expect(service.getPrinters().find((p) => p.id === 'p1')?.enabled).toBe(false);
+    expect(service.getPrinters().find((p) => p.id === 'p2')?.enabled).toBe(true);
+  });
+
+  it('getPrinters() normalizes a stored printer with no enabled field to true', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() });
+    const legacyRecord = { ...baseConfig } as Partial<PrinterConfig>;
+    delete legacyRecord.enabled;
+    StorageService.setItem('printer.list', [legacyRecord]);
+    expect(service.getPrinters()[0].enabled).toBe(true);
   });
 });

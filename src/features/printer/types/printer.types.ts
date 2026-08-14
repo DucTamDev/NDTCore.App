@@ -40,6 +40,7 @@ export interface PrinterConfig {
   paperSize: PaperSize;
   autoReconnect: boolean;
   isDefault: boolean;
+  enabled: boolean;
   device?: PrinterDevice;
   lan?: PrinterLanConfig;
   deviceInfo?: PrinterDeviceInfo;

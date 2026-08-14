@@ -34,6 +34,10 @@ const printerSlice = createSlice({
     printerStatusChanged(state, action: PayloadAction<{ printerId: string; status: PrinterStatus }>) {
       state.statusById[action.payload.printerId] = action.payload.status;
     },
+    printerEnabledChanged(state, action: PayloadAction<{ printerId: string; enabled: boolean }>) {
+      const printer = state.printers.find((p) => p.id === action.payload.printerId);
+      if (printer) printer.enabled = action.payload.enabled;
+    },
   },
 });
 
@@ -43,6 +47,7 @@ export const {
   printerRemoved,
   defaultPrinterSet,
   printerStatusChanged,
+  printerEnabledChanged,
 } = printerSlice.actions;
 
 interface StateWithPrinter {

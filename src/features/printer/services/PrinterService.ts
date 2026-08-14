@@ -18,7 +18,11 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
   const getDriver = (protocol: Protocol): IPrinterDriver => registry[protocol];
   const discoverProtocolFn = createDiscoverProtocol(registry);
 
-  const getPrinters = (): PrinterConfig[] => StorageService.getItem<PrinterConfig[]>(PRINTER_LIST_KEY) ?? [];
+  const getPrinters = (): PrinterConfig[] =>
+    (StorageService.getItem<PrinterConfig[]>(PRINTER_LIST_KEY) ?? []).map((p) => ({
+      ...p,
+      enabled: p.enabled ?? true,
+    }));
 
   const savePrinters = (printers: PrinterConfig[]): void => {
     StorageService.setItem(PRINTER_LIST_KEY, printers);
@@ -49,6 +53,10 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
   const setDefault = (printerId: string): void => {
     savePrinters(getPrinters().map((p) => ({ ...p, isDefault: p.id === printerId })));
     StorageService.setItem(PRINTER_DEFAULT_KEY, printerId);
+  };
+
+  const setEnabled = (printerId: string, enabled: boolean): void => {
+    savePrinters(getPrinters().map((p) => (p.id === printerId ? { ...p, enabled } : p)));
   };
 
   const connect = async (printerId: string): Promise<void> => {
@@ -146,6 +154,7 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     updatePrinter,
     removePrinter,
     setDefault,
+    setEnabled,
     connect,
     disconnect,
     reconnect,

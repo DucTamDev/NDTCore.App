@@ -4,6 +4,7 @@ import printerReducer, {
   printerRemoved,
   defaultPrinterSet,
   printerStatusChanged,
+  printerEnabledChanged,
   selectPrinters,
   selectPrinterStatus,
 } from './printerSlice';
@@ -18,6 +19,7 @@ const printer: PrinterConfig = {
   paperSize: '80mm',
   autoReconnect: false,
   isDefault: false,
+  enabled: true,
   lan: { ip: '192.168.1.10', port: 9100 },
 };
 
@@ -50,5 +52,13 @@ describe('printerSlice', () => {
     const state = printerReducer(undefined, printerStatusChanged({ printerId: 'p1', status: 'connected' }));
     expect(selectPrinterStatus({ printer: state }, 'p1')).toBe('connected');
     expect(selectPrinterStatus({ printer: state }, 'p2')).toBe('idle');
+  });
+
+  it('printerEnabledChanged updates enabled for that printer only', () => {
+    const other = { ...printer, id: 'p2', enabled: true };
+    let state = printerReducer(undefined, printersLoaded([printer, other]));
+    state = printerReducer(state, printerEnabledChanged({ printerId: 'p1', enabled: false }));
+    expect(selectPrinters({ printer: state }).find((p) => p.id === 'p1')?.enabled).toBe(false);
+    expect(selectPrinters({ printer: state }).find((p) => p.id === 'p2')?.enabled).toBe(true);
   });
 });
