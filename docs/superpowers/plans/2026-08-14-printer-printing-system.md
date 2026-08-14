@@ -51,7 +51,7 @@ non-blockingly into `useCheckout.ts`.
 - Modify: `src/features/printer/services/PrinterService.test.ts`
 
 **Interfaces:**
-- Produces: `PrinterConfig.enabled: boolean`; `printerEnabledChanged({printerId, enabled})` action + `selectPrinterEnabled(state, printerId): boolean` selector; `PrinterService.setEnabled(printerId: string, enabled: boolean): void`; `PrinterService.getPrinters()` now normalizes missing `enabled` to `true`.
+- Produces: `PrinterConfig.enabled: boolean`; `printerEnabledChanged({printerId, enabled})` action; `PrinterService.setEnabled(printerId: string, enabled: boolean): void`; `PrinterService.getPrinters()` now normalizes missing `enabled` to `true`. No dedicated `selectPrinterEnabled` selector — every consumer in this plan (Task 10, Task 13) reads `PrinterConfig.enabled` directly off objects from `PrinterService.getPrinters()`, not through a per-id Redux selector, matching how this feature's list UI already works (`PrinterManagementPanel.tsx` keeps its own local state instead of subscribing to `selectPrinters`).
 
 - [ ] **Step 1: Add the field to the type**
 
