@@ -5,6 +5,7 @@ import { Text, IconButton, Menu } from 'react-native-paper';
 import { usePrinterConnection } from '../hooks/usePrinterConnection';
 import { PrinterService } from '../services/PrinterService';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { AppSwitch } from '../../../components/AppSwitch';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import type { PrinterConfig } from '../types/printer.types';
 
@@ -52,6 +53,14 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdi
         </Text>
       </View>
       <PrinterStatusBadge status={status} />
+      <AppSwitch
+        label=""
+        value={printer.enabled ?? true}
+        onValueChange={(enabled) => {
+          PrinterService.setEnabled(printer.id, enabled);
+          onChanged();
+        }}
+      />
       <Menu visible={menuVisible} onDismiss={closeMenu} anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}>
         <Menu.Item title="Kết nối" onPress={() => { closeMenu(); PrinterService.connect(printer.id).catch(() => undefined); }} />
         <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); PrinterService.disconnect(printer.id).catch(() => undefined); }} />
