@@ -4,6 +4,7 @@ export type AppErrorCode =
   | 'UNSUPPORTED_CONNECTION'
   | 'PRINT_ERROR'
   | 'ENCODING_FAILED'
+  | 'NO_AVAILABLE_PRINTER'
   | 'UNKNOWN_ERROR';
 
 export interface AppError {
