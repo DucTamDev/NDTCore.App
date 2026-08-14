@@ -95,7 +95,7 @@ one-file-per-concern split (`printer.types.ts`, `driver.types.ts`):
   Priority for failover is expressed as `printerIds` array order (index = priority), not a separate `{printerId, priority}` object — simpler, and this repo has no other precedent for a parallel priority field.
 - `printRule.types.ts` — `PrintRule { id, conditions: PrintCondition[], destinationId, priority: number, enabled: boolean }`, `PrintRoutingConfiguration { rules: PrintRule[], defaultDestinationId?: string }`. `PrintCondition` is a discriminated union tied to the two fields actually available on an order item at print-planning time (§6), not a generic `{field: string, value: string}` bag: `{ field: 'categoryId'; value: number } | { field: 'serviceType'; value: ServiceType }` (`ServiceType` reused from `src/features/cart/types/cart.types.ts`). Conditions within one rule are AND-combined (design doc §47-48).
 - `printDocument.types.ts` — `PrintDocument { elements: PrintElement[] }`, `PrintElement` discriminated union: `{type:'text', content, x, y}` / `{type:'image', data, x, y}` / `{type:'barcode', content, x, y}` / `{type:'qrCode', content, x, y}` / `{type:'line', x, y}` / `{type:'table', rows: string[][], x, y}`. No `width`/`height`/`template` fields on `PrintDocument` (the design doc's sketch had them) — nothing in this repo derives paper geometry from the document; `PrinterConfig.paperSize` already owns that.
-- `printJob.types.ts` — `PrintPlan { id, destinationId, document: PrintDocument, copies: number }`, `PrintJob { id, planId, printerId, document: PrintDocument, status: 'pending'|'printing'|'success'|'failed'|'cancelled', retryCount, error?: AppError, createdAt, startedAt?, completedAt? }`, `PrintResult`.
+- `printJob.types.ts` — `PrintPlan { id, destinationId, document: PrintDocument, copies: number }`, `PrintJob { id, planId, printerId, document: PrintDocument, status: 'pending'|'printing'|'success'|'failed'|'cancelled', retryCount, error?: AppError, createdAt, startedAt?, completedAt? }`, `PrintResult { status: 'success' | 'partial-failure' | 'failed' | 'no-available-printer'; jobs: PrintJob[] }` — `jobs` is empty only when `status === 'no-available-printer'` (§4), since that is the one outcome with no job ever created.
 
 ## 3. `IPrinterDriver.print()` and per-driver encoding
 
@@ -151,11 +151,17 @@ print(plan: PrintPlan): Promise<PrintResult>
 Flow: resolve `plan.destinationId` → filter `printerIds` to "effective
 printers" (`Destination.enabled && Printer.enabled`, per §5) → fanout:
 
-- `failover`: try effective printers in array order; stop at first success;
-  if all fail, result is `NO_AVAILABLE_PRINTER`. No available effective
-  printer at all (empty list) also resolves directly to
+- Empty effective-printer list (before any job is created): result is
   `NO_AVAILABLE_PRINTER` — never silently returns success with nothing sent
-  (design doc §44).
+  (design doc §44). This is the only case that produces
+  `NO_AVAILABLE_PRINTER`, matching §7's definition exactly (no job was ever
+  attempted).
+- `failover`: try effective printers in array order; stop at first success.
+  If every effective printer is tried and fails, result is `failed` (a
+  `PrintJob` was created and attempted for each one) — **not**
+  `NO_AVAILABLE_PRINTER`, since printers were available and jobs did run;
+  the failure is a print failure, not a routing/config failure, and the UI
+  message must say so (§7).
 - `broadcast`: send to every effective printer; aggregate result is
   `success`, `partial-failure`, or `failed` (design doc §63).
 
