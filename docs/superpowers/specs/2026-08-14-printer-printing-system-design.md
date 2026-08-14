@@ -95,7 +95,7 @@ one-file-per-concern split (`printer.types.ts`, `driver.types.ts`):
   Priority for failover is expressed as `printerIds` array order (index = priority), not a separate `{printerId, priority}` object — simpler, and this repo has no other precedent for a parallel priority field.
 - `printRule.types.ts` — `PrintRule { id, conditions: PrintCondition[], destinationId, priority: number, enabled: boolean }`, `PrintRoutingConfiguration { rules: PrintRule[], defaultDestinationId?: string }`. `PrintCondition` is a discriminated union tied to the two fields actually available on an order item at print-planning time (§6), not a generic `{field: string, value: string}` bag: `{ field: 'categoryId'; value: number } | { field: 'serviceType'; value: ServiceType }` (`ServiceType` reused from `src/features/cart/types/cart.types.ts`). Conditions within one rule are AND-combined (design doc §47-48).
 - `printDocument.types.ts` — `PrintDocument { elements: PrintElement[] }`, `PrintElement` discriminated union: `{type:'text', content, x, y}` / `{type:'image', data, x, y}` / `{type:'barcode', content, x, y}` / `{type:'qrCode', content, x, y}` / `{type:'line', x, y}` / `{type:'table', rows: string[][], x, y}`. No `width`/`height`/`template` fields on `PrintDocument` (the design doc's sketch had them) — nothing in this repo derives paper geometry from the document; `PrinterConfig.paperSize` already owns that.
-- `printJob.types.ts` — `PrintPlan { id, destinationId, document: PrintDocument, copies: number }`, `PrintJob { id, planId, printerId, document: PrintDocument, status: 'pending'|'printing'|'success'|'failed'|'cancelled', retryCount, error?: AppError, createdAt, startedAt?, completedAt? }`, `PrintResult { status: 'success' | 'partial-failure' | 'failed' | 'no-available-printer'; jobs: PrintJob[] }` — `jobs` is empty only when `status === 'no-available-printer'` (§4), since that is the one outcome with no job ever created.
+- `printJob.types.ts` — `PrintPlan { id, destinationId, document: PrintDocument, copies: number }`, `PrintJob { id, planId, printerId, document: PrintDocument, status: 'pending'|'printing'|'success'|'failed'|'cancelled', retryCount, error?: AppError, createdAt, startedAt?, completedAt? }`, `PrintResult { status: 'success' | 'partial-failure' | 'failed' | 'no-available-printer'; jobs: PrintJob[]; error?: AppError }` — `jobs` is empty only when `status === 'no-available-printer'` (§4), since that is the one outcome with no job ever created; `error` is set (to `{code: 'NO_AVAILABLE_PRINTER', ...}`, §7) **only** in that case — every other status carries its per-printer errors inside `jobs[].error` instead, so `error` and a non-empty `jobs` never both carry meaningful data at once. Found in user review: without this field, §7's `NO_AVAILABLE_PRINTER` `AppErrorCode` had no runtime location to actually appear in — a caller reading the UI-facing error the same way it reads `job.error.code` for every other case would find nothing.
 
 ## 3. `IPrinterDriver.print()` and per-driver encoding
 
@@ -184,10 +184,10 @@ Flow: resolve `plan.destinationId` → filter `printerIds` to "effective
 printers" (`Destination.enabled && Printer.enabled`, per §5) → fanout:
 
 - Empty effective-printer list (before any job is created): result is
-  `NO_AVAILABLE_PRINTER` — never silently returns success with nothing sent
-  (design doc §44). This is the only case that produces
-  `NO_AVAILABLE_PRINTER`, matching §7's definition exactly (no job was ever
-  attempted).
+  `{ status: 'no-available-printer', jobs: [], error: { code: 'NO_AVAILABLE_PRINTER', message: '...' } }`
+  — never silently returns success with nothing sent (design doc §44). This
+  is the only case that produces this status, matching §7's definition
+  exactly (no job was ever attempted).
 - `failover`: try effective printers in array order; stop at first success.
   If every effective printer is tried and fails, result is `failed` (a
   `PrintJob` was created and attempted for each one) — **not**
@@ -359,8 +359,17 @@ this spec needs finer granularity than that.
   destination, default destination picker). The condition builder is not a
   free-text field/value form: category picks from `selectCategories`
   (catalog store, already loaded for the Sales screen) and stores
-  `categoryId`; service type is a `DineIn`/`TakeAway` radio reusing
-  `ServiceType` — matching `PrintCondition`'s concrete shape (§2).
+  `categoryId`; service type is a radio reusing `ServiceType` — matching
+  `PrintCondition`'s concrete shape (§2). **Found in user review:**
+  `ServiceType` (`src/features/cart/types/cart.types.ts`) is `'DineIn' |
+  'TakeAway'` only — no `Delivery` — confirmed by reading the file directly,
+  not assumed. Per user decision, this spec now includes adding `'Delivery'`
+  to `ServiceType` itself (plus `CartPanel.tsx`'s `SERVICE_TYPE_BUTTONS`
+  list gaining a matching entry) as a prerequisite, so the radio here is
+  genuinely 3-way (`DineIn`/`TakeAway`/`Delivery`) and a `PrintRule` can
+  route Delivery orders (e.g. to a packing station) — this was a real gap,
+  not a UI-only oversight: without it, `PrintCondition`'s `serviceType`
+  field could never carry `'Delivery'` at all, at the type level.
 - Neither screen gets a `.test.ts` file (pure presentational + form
   screens), per this repo's existing convention — only the services/slices/
   encoders above do.
