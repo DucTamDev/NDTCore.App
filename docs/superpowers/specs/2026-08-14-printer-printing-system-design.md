@@ -291,7 +291,11 @@ Items that resolve to `null` (no matching rule, no default destination) are
 consistent with §3's element-level degrade precedent: they are collected
 into the return value's companion `unrouted: OrderItem[]` (`createPlans`
 returns `{ plans: PrintPlan[]; unrouted: OrderItem[] }`, not a bare array),
-logged via `PrinterLogger` at `warn`, and surfaced by the caller (§below) via
+logged via `LoggerService.warning()` (`src/services/LoggerService.ts` — the
+real shared logger on this branch; an earlier draft of this spec referenced
+a `PrinterLogger` that only exists on the unmerged
+`feat/thermal-receipt-printer-driver` branch, same root cause as §3's
+`ThermalReceiptDriver` correction), and surfaced by the caller (§below) via
 a `Snackbar` (`react-native-paper`, same pattern `CartPanel.tsx` already uses
 for its `error`/`successMessage` state) — "N món chưa có cấu hình in" — so a
 misconfigured category doesn't silently vanish from the kitchen's view. If
