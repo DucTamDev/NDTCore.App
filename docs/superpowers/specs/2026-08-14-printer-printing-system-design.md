@@ -116,9 +116,12 @@ it is a constraint already visible in the existing code:
   `PrintElement[]` into that tagged string (`text` → tag-wrapped content,
   `line` → a dashed-rule string, `table` → column-padded plain text rows).
   `image`/`barcode`/`qrCode` elements are **not supported** by this driver in
-  this iteration — the library exposes no image/barcode API — and `print()`
-  throws `AppErrorException({code: 'PRINT_ERROR', ...})` synchronously for
-  those element types rather than silently skipping them.
+  this iteration — the library exposes no image/barcode API. `print()` does
+  not fail the job over this: `EscPosTextComposer` skips those element types
+  entirely (they contribute nothing to the composed string) so the rest of
+  the document (text/line/table) still reaches the printer. This is a silent
+  drop, not an error — logged via `PrinterLogger` at `warn` level so it is
+  visible in diagnostics without surfacing as a job failure.
 
 This confirms the design doc's own reasoning for keeping Generic/vendor
 encoding separate (design doc §16) applies even within "Generic" drivers
