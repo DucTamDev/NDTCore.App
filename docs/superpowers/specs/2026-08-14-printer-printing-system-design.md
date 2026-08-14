@@ -305,9 +305,9 @@ destination that then turns out to have no effective printer).
 `dispatch(cartCleared())`, call `OrderPrintPlanner.createPlans(order)` (built
 from the `items`/`serviceType` already in the hook's closure plus
 `response.Data`) then `PrintService.print(plan)` for each plan —
-**fire-and-forget**, not awaited by `checkout()`'s return. `checkout()`
+**fire-and-forget**, not awaited by `submit()`'s return. `submit()`
 still resolves as soon as the order is created; print failures never change
-`checkout()`'s success/error result. Category resolution
+`submit()`'s success/error result. Category resolution
 (`item.productId` → `categoryId`) reads `selectProducts` from the catalog
 store at the call site in `useCheckout.ts` (a `useSelector`/`store.getState()`
 read, whichever this hook already uses for other cross-feature reads) —
@@ -372,7 +372,7 @@ this spec needs finer granularity than that.
   additions, `printerSlice`'s new reducer.
 - `useCheckout.test.ts` (existing file, if present, otherwise new) gains a
   case: successful checkout calls `PrintService.print()` for each planned
-  destination and `checkout()` still resolves even if `PrintService.print()`
+  destination and `submit()` still resolves even if `PrintService.print()`
   rejects — asserting the fire-and-forget/non-blocking contract from §6, not
   just that the call happens.
 - No test files for the two new UI screens (pure presentational/form).
