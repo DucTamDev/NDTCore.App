@@ -36,8 +36,17 @@ export const PrintRoutingPanel: React.FC = () => {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [serviceType, setServiceType] = useState<ServiceType>('DineIn');
   const [destinationId, setDestinationId] = useState<string | null>(null);
+  const [defaultDestinationId, setDefaultDestinationId] = useState<string | null>(
+    () => PrintRuleService.getRoutingConfiguration().defaultDestinationId ?? null,
+  );
 
   const refresh = useCallback(() => setRouting(PrintRuleService.getRoutingConfiguration()), []);
+
+  const saveDefaultDestination = (): void => {
+    const next = { ...routing, defaultDestinationId: defaultDestinationId ?? undefined };
+    PrintRuleService.saveRoutingConfiguration(next);
+    refresh();
+  };
 
   const addRule = (): void => {
     if (destinationId === null) return;
@@ -68,6 +77,20 @@ export const PrintRoutingPanel: React.FC = () => {
           {destinations.find((d) => d.id === rule.destinationId)?.name ?? 'Không xác định'}
         </Text>
       ))}
+
+      <View style={styles.form}>
+        <Text variant="labelLarge">Điểm in mặc định</Text>
+        <Text style={styles.hint}>Áp dụng khi không có quy tắc nào khớp với đơn hàng</Text>
+        <RadioButton.Group
+          onValueChange={(v) => setDefaultDestinationId(v)}
+          value={defaultDestinationId ?? ''}
+        >
+          {destinations.map((destination) => (
+            <RadioButton.Item key={destination.id} label={destination.name} value={destination.id} />
+          ))}
+        </RadioButton.Group>
+        <AppButton label="Lưu mặc định" onPress={saveDefaultDestination} />
+      </View>
 
       <View style={styles.form}>
         <Text variant="labelLarge">Điều kiện áp dụng</Text>
@@ -119,4 +142,5 @@ const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
   ruleRow: { fontSize: 13, padding: 8 },
   form: { gap: 8, marginTop: 16 },
+  hint: { fontSize: 12, color: '#6B7280' },
 });

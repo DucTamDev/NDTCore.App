@@ -152,4 +152,23 @@ describe('PrinterService', () => {
     await service.print(baseConfig.id, document);
     expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document);
   });
+
+  it('print() connects first when the driver reports the printer is not connected', async () => {
+    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('idle') });
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    service.addPrinter(baseConfig);
+    const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
+    await service.print(baseConfig.id, document);
+    expect(escposDriver.connect).toHaveBeenCalledWith(baseConfig);
+    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document);
+  });
+
+  it('print() does not reconnect when the driver reports the printer is already connected', async () => {
+    const escposDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() });
+    service.addPrinter(baseConfig);
+    const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
+    await service.print(baseConfig.id, document);
+    expect(escposDriver.connect).not.toHaveBeenCalled();
+  });
 });

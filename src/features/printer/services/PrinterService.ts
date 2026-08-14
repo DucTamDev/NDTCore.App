@@ -79,9 +79,21 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     await getDriver(config.protocol).testPrint(config);
   };
 
+  /**
+   * In tài liệu tuỳ ý — tự động kết nối trước nếu máy in chưa kết nối (cùng
+   * cách tiếp cận "connect-if-needed" như `TsplDriver.testPrint()`), vì các
+   * driver `print()` (khác với `testPrint()`) đều throw `CONNECTION_ERROR`
+   * nếu chưa có kết nối được theo dõi cho `printerId` — nếu không, việc in
+   * sẽ luôn thất bại ở phiên làm việc mới cho tới khi người dùng bấm "Kết
+   * nối" thủ công từ danh sách máy in.
+   */
   const print = async (printerId: string, document: PrintDocument): Promise<void> => {
     const config = findOrThrow(printerId);
-    await getDriver(config.protocol).print(printerId, document);
+    const driver = getDriver(config.protocol);
+    if (driver.getStatus(printerId) !== 'connected') {
+      await driver.connect(config);
+    }
+    await driver.print(printerId, document);
   };
 
   const scanDevices = (

@@ -40,7 +40,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
   const serviceType = useSelector((state: RootState) => selectServiceType(state));
   const note = useSelector((state: RootState) => selectCartNote(state));
   const total = useSelector((state: RootState) => selectCartTotal(state));
-  const { submit, isSubmitting, error, dismissError } = useCheckout();
+  const { submit, isSubmitting, error, dismissError, unroutedCount, dismissUnroutedCount } = useCheckout();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
@@ -102,6 +102,9 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
         </Snackbar>
         <Snackbar visible={successMessage !== null} onDismiss={() => setSuccessMessage(null)} duration={3000}>
           {successMessage}
+        </Snackbar>
+        <Snackbar visible={unroutedCount > 0} onDismiss={dismissUnroutedCount} duration={4000}>
+          {`${unroutedCount} món chưa có cấu hình in`}
         </Snackbar>
       </Portal>
     </View>

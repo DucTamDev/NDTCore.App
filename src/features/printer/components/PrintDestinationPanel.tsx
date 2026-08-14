@@ -49,7 +49,7 @@ export const PrintDestinationPanel: React.FC = () => {
     void PrintService.print({
       id: generateId(),
       destinationId: destination.id,
-      document: { elements: [{ type: 'text', content: 'NDTCore POS - Test Print điểm in', x: 0, y: 0 }] },
+      document: { elements: [{ type: 'text', content: 'NDTCore POS - In thử điểm in', x: 0, y: 0 }] },
       copies: 1,
     });
   };

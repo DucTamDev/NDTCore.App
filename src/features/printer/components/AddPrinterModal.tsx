@@ -239,6 +239,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       paperSize: display.paperSize,
       autoReconnect,
       isDefault: initialValues?.isDefault ?? false,
+      enabled: initialValues?.enabled ?? true,
       device: connectionType === 'lan' ? undefined : selectedDevice,
       lan: connectionType === 'lan' ? buildLan(lanForm.getValues()) : undefined,
       deviceInfo,
