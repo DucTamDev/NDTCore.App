@@ -308,11 +308,13 @@ describe('print job types', () => {
   });
 
   it('accepts every PrintResult status', () => {
+    // 'PRINT_ERROR' here is just an existing AppErrorCode to satisfy the shape —
+    // 'NO_AVAILABLE_PRINTER' isn't added until Task 10, which runs after this one.
     const results: PrintResult[] = [
       { status: 'success', jobs: [] },
       { status: 'partial-failure', jobs: [] },
       { status: 'failed', jobs: [] },
-      { status: 'no-available-printer', jobs: [] },
+      { status: 'no-available-printer', jobs: [], error: { code: 'PRINT_ERROR', message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });
@@ -359,6 +361,7 @@ export type PrintResultStatus = 'success' | 'partial-failure' | 'failed' | 'no-a
 export interface PrintResult {
   status: PrintResultStatus;
   jobs: PrintJob[];
+  error?: AppError;
 }
 ```
 
@@ -1529,12 +1532,14 @@ const makeDeps = (destination: PrintDestination, printers: PrinterConfig[], sche
 });
 
 describe('PrintService', () => {
-  it('returns no-available-printer with no jobs when the effective printer list is empty', async () => {
+  it('returns no-available-printer with no jobs and a NO_AVAILABLE_PRINTER error when the effective printer list is empty', async () => {
     const destination: PrintDestination = { id: 'd1', name: 'Bar', printerIds: [], fanoutMode: 'failover', enabled: true };
     const deps = makeDeps(destination, [], () => { throw new Error('should not be called'); });
     const service = createPrintService(deps);
     const result = await service.print(plan);
-    expect(result).toEqual({ status: 'no-available-printer', jobs: [] });
+    expect(result.status).toBe('no-available-printer');
+    expect(result.jobs).toEqual([]);
+    expect(result.error?.code).toBe('NO_AVAILABLE_PRINTER');
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
 
@@ -1626,7 +1631,13 @@ export const createPrintService = (deps: PrintServiceDeps) => {
   const print = async (plan: PrintPlan): Promise<PrintResult> => {
     const destination = deps.getDestinations().find((d) => d.id === plan.destinationId);
     const printerIds = effectivePrinterIds(plan.destinationId);
-    if (printerIds.length === 0) return { status: 'no-available-printer', jobs: [] };
+    if (printerIds.length === 0) {
+      return {
+        status: 'no-available-printer',
+        jobs: [],
+        error: { code: 'NO_AVAILABLE_PRINTER', message: `Không có máy in khả dụng cho điểm in ${plan.destinationId}` },
+      };
+    }
 
     if (destination?.fanoutMode === 'broadcast') {
       const jobs = await Promise.all(printerIds.map((printerId) => deps.scheduler.enqueue(makeJob(plan, printerId))));
@@ -2217,7 +2228,66 @@ git commit -m "feat: add Print Destination panel, wired into Settings"
 
 ---
 
-### Task 15: `PrintRoutingPanel` + Settings wiring
+### Task 15: Add `'Delivery'` to `ServiceType`
+
+**Files:**
+- Modify: `src/features/cart/types/cart.types.ts`
+- Modify: `src/features/cart/components/CartPanel.tsx`
+
+**Interfaces:**
+- Produces: `ServiceType = 'DineIn' | 'TakeAway' | 'Delivery'`.
+
+Found in user review: `ServiceType` was `'DineIn' | 'TakeAway'` only
+(confirmed by reading `cart.types.ts` directly — not assumed), so a
+`PrintRule` could never route on `serviceType === 'Delivery'` at the type
+level, even though the real-world need (route Delivery orders to a packing
+station, say) is exactly the kind of thing this whole routing system exists
+for. No dedicated `.test.ts` — a type widen plus a static UI list entry, no
+new behavior to unit test, same as Task 13.
+
+- [ ] **Step 1: Widen the type**
+
+In `src/features/cart/types/cart.types.ts`:
+
+```ts
+export type ServiceType = 'DineIn' | 'TakeAway' | 'Delivery';
+```
+
+- [ ] **Step 2: Add the UI option**
+
+In `src/features/cart/components/CartPanel.tsx`:
+
+```ts
+const SERVICE_TYPE_BUTTONS = [
+  { value: 'DineIn', label: 'Tại quầy' },
+  { value: 'TakeAway', label: 'Mang đi' },
+  { value: 'Delivery', label: 'Giao hàng' },
+];
+```
+
+`CreateOrderRequest.DeliveryFee`/`DeliveryAddress` already exist as fields
+(currently hardcoded to `0`/`null` in `CartService.toCreateOrderRequest`) —
+this task does **not** build delivery-fee/address collection UI. A
+`PrintRule` only needs `order.serviceType === 'Delivery'` to route; it does
+not need an address. Collecting a real delivery address/fee is a separate,
+unrelated task — do not expand into it here.
+
+- [ ] **Step 3: Verify with type-check and lint**
+
+Run: `npm run type-check`
+Run: `npm run lint`
+Expected: both pass with no new errors.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/features/cart/types/cart.types.ts src/features/cart/components/CartPanel.tsx
+git commit -m "feat: add Delivery as a ServiceType, for PrintRule routing support"
+```
+
+---
+
+### Task 16: `PrintRoutingPanel` + Settings wiring
 
 **Files:**
 - Create: `src/features/printer/components/PrintRoutingPanel.tsx`
@@ -2226,7 +2296,7 @@ git commit -m "feat: add Print Destination panel, wired into Settings"
 - Modify: `src/features/settings/components/SettingsContent.tsx`
 
 **Interfaces:**
-- Consumes: `PrintRuleService` (Task 7), `DestinationService.getDestinations()` (Task 6), `selectCategories` (existing, `src/features/catalog/store/catalogSlice.ts`).
+- Consumes: `PrintRuleService` (Task 7), `DestinationService.getDestinations()` (Task 6), `selectCategories` (existing, `src/features/catalog/store/catalogSlice.ts`), `ServiceType` with `'Delivery'` (Task 15).
 
 No dedicated `.test.ts` (pure presentational + form screen).
 
@@ -2256,8 +2326,10 @@ In `settingsConfig.ts`:
 
 Create `src/features/printer/components/PrintRoutingPanel.tsx`. Condition
 builder picks a real category from `selectCategories` (catalog store) and
-stores `categoryId`, or a `DineIn`/`TakeAway` `serviceType` radio — matching
-`PrintCondition`'s concrete shape (spec §2), not a free-text field:
+stores `categoryId`, or a `DineIn`/`TakeAway`/`Delivery` `serviceType` radio
+— matching `PrintCondition`'s concrete shape (spec §2) and `ServiceType`'s
+real 3 values (Task 15), not a free-text field and not hardcoded to one
+value:
 
 ```tsx
 // src/features/printer/components/PrintRoutingPanel.tsx
@@ -2272,6 +2344,13 @@ import { PrintRuleService } from '../services/PrintRuleService';
 import { DestinationService } from '../services/DestinationService';
 import { generateId } from '../../../utils/id';
 import type { PrintCondition, PrintRule } from '../types/printRule.types';
+import type { ServiceType } from '../../cart/types/cart.types';
+
+const SERVICE_TYPE_OPTIONS: { value: ServiceType; label: string }[] = [
+  { value: 'DineIn', label: 'Tại quầy' },
+  { value: 'TakeAway', label: 'Mang đi' },
+  { value: 'Delivery', label: 'Giao hàng' },
+];
 
 export const PrintRoutingPanel: React.FC = () => {
   const categories = useSelector((state: RootState) => selectCategories(state));
@@ -2279,6 +2358,7 @@ export const PrintRoutingPanel: React.FC = () => {
   const [routing, setRouting] = useState(() => PrintRuleService.getRoutingConfiguration());
   const [conditionType, setConditionType] = useState<'categoryId' | 'serviceType'>('categoryId');
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [serviceType, setServiceType] = useState<ServiceType>('DineIn');
   const [destinationId, setDestinationId] = useState<string | null>(null);
 
   const refresh = useCallback(() => setRouting(PrintRuleService.getRoutingConfiguration()), []);
@@ -2288,7 +2368,7 @@ export const PrintRoutingPanel: React.FC = () => {
     const condition: PrintCondition =
       conditionType === 'categoryId' && categoryId !== null
         ? { field: 'categoryId', value: categoryId }
-        : { field: 'serviceType', value: 'DineIn' };
+        : { field: 'serviceType', value: serviceType };
     const rule: PrintRule = {
       id: generateId(),
       conditions: [condition],
@@ -2325,6 +2405,17 @@ export const PrintRoutingPanel: React.FC = () => {
               value={String(category.id)}
               status={categoryId === category.id ? 'checked' : 'unchecked'}
               onPress={() => setCategoryId(category.id)}
+            />
+          ))}
+
+        {conditionType === 'serviceType' &&
+          SERVICE_TYPE_OPTIONS.map((option) => (
+            <RadioButton.Item
+              key={option.value}
+              label={option.label}
+              value={option.value}
+              status={serviceType === option.value ? 'checked' : 'unchecked'}
+              onPress={() => setServiceType(option.value)}
             />
           ))}
 
@@ -2382,7 +2473,7 @@ git commit -m "feat: add Print Routing panel, wired into Settings"
 
 ## Post-plan verification
 
-After all 15 tasks:
+After all 16 tasks:
 
 ```bash
 npm run verify   # type-check + lint + test
