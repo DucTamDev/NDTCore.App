@@ -27,6 +27,7 @@ import type { CartItem, ServiceType } from '../types/cart.types';
 const SERVICE_TYPE_BUTTONS = [
   { value: 'DineIn', label: 'Tại quầy' },
   { value: 'TakeAway', label: 'Mang đi' },
+  { value: 'Delivery', label: 'Giao hàng' },
 ];
 
 export interface CartPanelProps {

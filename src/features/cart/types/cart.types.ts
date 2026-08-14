@@ -21,7 +21,7 @@ export interface CartItem {
   options: CartItemOption[];
 }
 
-export type ServiceType = 'DineIn' | 'TakeAway';
+export type ServiceType = 'DineIn' | 'TakeAway' | 'Delivery';
 
 export interface CreateOrderItemOptionRequest {
   OptionId: number;
