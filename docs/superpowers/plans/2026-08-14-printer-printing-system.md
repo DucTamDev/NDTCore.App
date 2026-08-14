@@ -2167,7 +2167,7 @@ export const PrintDestinationPanel: React.FC = () => {
         <View key={destination.id} style={styles.row}>
           <Text style={styles.name}>{destination.name}</Text>
           <AppSwitch label="" value={destination.enabled} onValueChange={(enabled) => toggleEnabled(destination, enabled)} />
-          <AppButton label="Test Print" onPress={() => testPrint(destination)} />
+          <AppButton label="In thử" onPress={() => testPrint(destination)} />
         </View>
       ))}
 
@@ -2182,8 +2182,8 @@ export const PrintDestinationPanel: React.FC = () => {
           />
         ))}
         <RadioButton.Group onValueChange={(v) => setFanoutMode(v as PrintFanoutMode)} value={fanoutMode}>
-          <RadioButton.Item label="Failover" value="failover" />
-          <RadioButton.Item label="Broadcast" value="broadcast" />
+          <RadioButton.Item label="Chuyển máy khác khi lỗi" value="failover" />
+          <RadioButton.Item label="In đồng thời tất cả" value="broadcast" />
         </RadioButton.Group>
         <AppButton label="Thêm điểm in" onPress={addDestination} />
       </View>
