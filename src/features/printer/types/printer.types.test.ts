@@ -25,6 +25,7 @@ describe('printer domain types', () => {
       getStatus: () => 'idle',
       onStatusChange: () => () => undefined,
       testPrint: async () => undefined,
+      print: async () => undefined,
       identify: async () => null,
     };
     expect(driver.getStatus('p1')).toBe('idle');

@@ -2,6 +2,7 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
+import type { PrintDocument } from '../types/printDocument.types';
 import { TsplEncoder } from '../protocols/TsplEncoder';
 import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
@@ -28,6 +29,7 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
 
 export class TsplDriver implements IPrinterDriver {
   private connections = new Map<string, TsplTransport>();
+  private configs = new Map<string, PrinterConfig>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
 
@@ -90,6 +92,7 @@ export class TsplDriver implements IPrinterDriver {
         await (transport as UsbTransport).connect();
       }
       this.connections.set(config.id, transport);
+      this.configs.set(config.id, config);
       this.setStatus(config.id, 'connected');
     } catch (error) {
       this.setStatus(config.id, 'error');
@@ -129,6 +132,48 @@ export class TsplDriver implements IPrinterDriver {
       (transport as LanTransport).write(bytes);
     } else if (config.connectionType === 'bluetooth') {
       await (transport as BluetoothTransport).write(bytes);
+    }
+  }
+
+  /**
+   * Mã hoá `PrintDocument` thành lệnh TSPL theo từng loại phần tử rồi gửi
+   * qua transport đang kết nối. Ném `ENCODING_FAILED` cho loại phần tử không
+   * được hỗ trợ, `CONNECTION_ERROR` nếu máy in chưa kết nối.
+   */
+  async print(printerId: string, document: PrintDocument): Promise<void> {
+    const config = this.configs.get(printerId);
+    const transport = this.connections.get(printerId);
+    if (!config || !transport) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+    const encoder = new TsplEncoder().initialize(config.paperSize);
+    for (const element of document.elements) {
+      if (element.type === 'text') {
+        encoder.text(element.x, element.y, element.content);
+      } else if (element.type === 'line') {
+        encoder.text(element.x, element.y, '--------------------------------');
+      } else if (element.type === 'table') {
+        element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  ')));
+      } else if (element.type === 'image') {
+        encoder.image(element.x, element.y, element.data);
+      } else if (element.type === 'barcode') {
+        encoder.barcode(element.x, element.y, element.content);
+      } else if (element.type === 'qrCode') {
+        encoder.qrcode(element.x, element.y, element.content);
+      } else {
+        throw new AppErrorException({
+          code: 'ENCODING_FAILED',
+          message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}`,
+        });
+      }
+    }
+    const bytes = encoder.cut().encode();
+    if (config.connectionType === 'lan') {
+      (transport as LanTransport).write(bytes);
+    } else if (config.connectionType === 'bluetooth') {
+      await (transport as BluetoothTransport).write(bytes);
+    } else {
+      throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'USB chưa được hỗ trợ cho in nội dung tuỳ ý' });
     }
   }
 

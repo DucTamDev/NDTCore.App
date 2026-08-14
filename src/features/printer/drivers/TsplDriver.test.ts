@@ -1,6 +1,7 @@
 // src/features/printer/drivers/TsplDriver.test.ts
 import { TsplDriver } from './TsplDriver';
 import type { PrinterConfig } from '../types/printer.types';
+import type { PrintDocument, PrintElement } from '../types/printDocument.types';
 
 jest.mock('../transports/LanTransport', () => ({
   LanTransport: jest.fn().mockImplementation(() => ({
@@ -92,6 +93,31 @@ describe('TsplDriver', () => {
     await driver.connect(lanConfig);
     const result = await driver.identify(lanConfig.id);
     expect(result).toBeNull();
+  });
+
+  it('print() encodes every element kind and writes once', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const document: PrintDocument = {
+      elements: [
+        { type: 'text', content: 'Trà sữa', x: 0, y: 0 },
+        { type: 'line', x: 0, y: 10 },
+        { type: 'table', rows: [['Trà sữa', '2']], x: 0, y: 20 },
+        { type: 'image', data: 'AAAA', x: 0, y: 40 },
+        { type: 'barcode', content: '123', x: 0, y: 60 },
+        { type: 'qrCode', content: 'https://x', x: 0, y: 80 },
+      ],
+    };
+    await expect(driver.print(lanConfig.id, document)).resolves.toBeUndefined();
+  });
+
+  it('print() rejects with ENCODING_FAILED for an unsupported element', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const badElement = { type: 'unknown-kind', x: 0, y: 0 } as unknown as PrintElement;
+    await expect(driver.print(lanConfig.id, { elements: [badElement] })).rejects.toMatchObject({
+      code: 'ENCODING_FAILED',
+    });
   });
 
   it('identify() returns a non-null PrinterDeviceInfo when the transport responds', async () => {

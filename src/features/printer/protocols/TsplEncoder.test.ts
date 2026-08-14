@@ -31,6 +31,12 @@ describe('TsplEncoder', () => {
     expect(output).toContain('QRCODE 0,0,H,4,A,0,"https://ndtcore.local"');
   });
 
+  it('image() adds a BITMAP command', () => {
+    const bytes = new TsplEncoder().initialize('58mm').image(10, 20, 'AAAA').encode();
+    const text = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(text).toContain('BITMAP 10,20');
+  });
+
   it('cut() emits PRINT 1,1 and chains fluently with the other builders', () => {
     const output = decode(
       new TsplEncoder().initialize('58mm').text(0, 0, 'A').cut().encode(),

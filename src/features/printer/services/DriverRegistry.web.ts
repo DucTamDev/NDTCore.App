@@ -33,6 +33,13 @@ class WebUnsupportedDriver implements IPrinterDriver {
     });
   }
 
+  async print(): Promise<void> {
+    throw new AppErrorException({
+      code: 'UNSUPPORTED_CONNECTION',
+      message: 'Chức năng máy in không khả dụng trên trình duyệt web',
+    });
+  }
+
   async identify(): Promise<null> {
     return null;
   }

@@ -3,6 +3,7 @@ export type AppErrorCode =
   | 'CONNECTION_ERROR'
   | 'UNSUPPORTED_CONNECTION'
   | 'PRINT_ERROR'
+  | 'ENCODING_FAILED'
   | 'UNKNOWN_ERROR';
 
 export interface AppError {

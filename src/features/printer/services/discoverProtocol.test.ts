@@ -10,6 +10,7 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   getStatus: jest.fn().mockReturnValue('connected'),
   onStatusChange: jest.fn().mockReturnValue(() => undefined),
   testPrint: jest.fn().mockResolvedValue(undefined),
+  print: jest.fn().mockResolvedValue(undefined),
   identify: jest.fn().mockResolvedValue(null),
   ...overrides,
 });
