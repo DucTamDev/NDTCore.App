@@ -22,15 +22,19 @@ spec for this repo, using the entity shapes already agreed there, and adds
 one dependency identified during review: `Printer.enabled`, required by the
 Destination "effective printer" rule.
 
-`sales` has no cart/order data yet — it is a static shell (see
-`docs/superpowers/specs/2026-08-06-sales-shell-navigation-design.md`). This
-spec cannot design real order → print-plan grouping logic against a model
-that does not exist. `OrderPrintPlanner` is included only as a stub
-interface, so the rest of the pipeline (Destination → Job → Scheduler →
-Driver) has a complete, testable path via manual "Print Test" against a
-`PrintDestination`, without needing an order flow to exist first. Real
-order-driven printing is deferred to a follow-up spec once `sales` has a
-cart/order model.
+Correction from this spec's first draft: `sales`/`cart` was assumed to have
+no order data yet (based on this repo's `CLAUDE.md`, which turned out to be
+stale — it was not updated after cart-checkout was merged to `main`).
+`src/features/cart/` actually exists with a real checkout flow:
+`useCheckout.ts` builds a `CreateOrderRequest` from `CartItem[]` and calls
+`orderApi.createOrderAsync`; on success it dispatches `cartCleared()` and
+returns `CreateOrderResponse` (`Id`, `OrderNumber`, ...) to the caller.
+Neither `CartItem` nor `CreateOrderItemRequest` carries `categoryId` — only
+`ProductViewModel`/`PosProductDto` in `src/features/catalog/` do, keyed by
+`productId`. So `OrderPrintPlanner` is implemented for real in this spec
+(§6), and category-based routing conditions are resolved by joining checked-
+out items against the catalog's `selectProducts` at the point printing is
+triggered — not stored redundantly on the cart item itself.
 
 ## Goals
 
@@ -44,7 +48,9 @@ cart/order model.
 - `IPrinterDriver.print(printerId, document)` — extends the existing driver
   contract so drivers can print arbitrary `PrintDocument` content, not just
   the fixed `testPrint()` string.
-- `OrderPrintPlanner` — stub interface only, not implemented.
+- `OrderPrintPlanner` — real implementation: groups a checked-out order's
+  items by resolved `PrintRule` destination, wired into `useCheckout.ts` so
+  a successful checkout triggers printing non-blockingly.
 
 ## Approach: `PrintService` stays separate from `PrinterService`
 
@@ -87,7 +93,7 @@ one-file-per-concern split (`printer.types.ts`, `driver.types.ts`):
 
 - `destination.types.ts` — `PrintDestination { id, name, printerIds: string[], fanoutMode: 'failover' | 'broadcast', enabled: boolean }`.
   Priority for failover is expressed as `printerIds` array order (index = priority), not a separate `{printerId, priority}` object — simpler, and this repo has no other precedent for a parallel priority field.
-- `printRule.types.ts` — `PrintRule { id, conditions: PrintCondition[], destinationId, priority: number, enabled: boolean }`, `PrintCondition { field: string, value: string }` (AND-combined, per design doc §47-48), `PrintRoutingConfiguration { rules: PrintRule[], defaultDestinationId?: string }`.
+- `printRule.types.ts` — `PrintRule { id, conditions: PrintCondition[], destinationId, priority: number, enabled: boolean }`, `PrintRoutingConfiguration { rules: PrintRule[], defaultDestinationId?: string }`. `PrintCondition` is a discriminated union tied to the two fields actually available on an order item at print-planning time (§6), not a generic `{field: string, value: string}` bag: `{ field: 'categoryId'; value: number } | { field: 'serviceType'; value: ServiceType }` (`ServiceType` reused from `src/features/cart/types/cart.types.ts`). Conditions within one rule are AND-combined (design doc §47-48).
 - `printDocument.types.ts` — `PrintDocument { elements: PrintElement[] }`, `PrintElement` discriminated union: `{type:'text', content, x, y}` / `{type:'image', data, x, y}` / `{type:'barcode', content, x, y}` / `{type:'qrCode', content, x, y}` / `{type:'line', x, y}` / `{type:'table', rows: string[][], x, y}`. No `width`/`height`/`template` fields on `PrintDocument` (the design doc's sketch had them) — nothing in this repo derives paper geometry from the document; `PrinterConfig.paperSize` already owns that.
 - `printJob.types.ts` — `PrintPlan { id, destinationId, document: PrintDocument, copies: number }`, `PrintJob { id, planId, printerId, document: PrintDocument, status: 'pending'|'printing'|'success'|'failed'|'cancelled', retryCount, error?: AppError, createdAt, startedAt?, completedAt? }`, `PrintResult`.
 
@@ -187,34 +193,89 @@ Effective-printer resolution (`Destination.enabled && Printer.enabled`) is a
 plain selector/helper, not a new service method — it composes
 `selectDestinations`/`selectPrinters` from the two slices directly.
 
-Rule evaluation (`services/evaluatePrintRules.ts`): given ordered
-`PrintRule[]` and a subject to test conditions against, conditions within
-one rule are AND-combined; rules are evaluated in `priority` order; two
-enabled rules with equal priority whose conditions both match the same
-subject is rejected as invalid configuration at save time (validated in the
-Rule form, not at evaluation time) — evaluation itself assumes the saved
-configuration is already unambiguous, per design doc §49. No match falls
-through to `PrintRoutingConfiguration.defaultDestinationId`; no default
-configured is a routing error surfaced to the caller.
+Rule evaluation (`services/evaluatePrintRules.ts`):
 
-## 6. `OrderPrintPlanner` (stub)
+```ts
+evaluatePrintRules(
+  subject: { categoryId: number | null; serviceType: ServiceType },
+  routing: PrintRoutingConfiguration,
+): string | null // destinationId, or null if nothing matched and no default
+```
+
+Rules are evaluated in `priority` order; two enabled rules with equal
+priority whose conditions both match the same subject is rejected as
+invalid configuration at save time (validated in the Rule form, not at
+evaluation time) — evaluation itself assumes the saved configuration is
+already unambiguous, per design doc §49. No match falls through to
+`routing.defaultDestinationId`; returning `null` (no default configured
+either) is a routing error the caller (`OrderPrintPlanner`, §6) surfaces per
+item, not a thrown exception — matching §6's per-item degrade rather than
+failing the whole order.
+
+## 6. `OrderPrintPlanner`
+
+`types/order.types.ts` (real, built from the actual checkout data, not a
+placeholder):
+
+```ts
+interface Order {
+  id: number;
+  orderNumber: string;
+  serviceType: ServiceType;
+  items: OrderItem[];
+}
+
+interface OrderItem {
+  productId: number;
+  productName: string;
+  categoryId: number | null;
+  quantity: number;
+  note: string;
+}
+```
 
 `services/OrderPrintPlanner.ts`:
 
 ```ts
-export interface OrderPrintPlanner {
-  createPlans(order: Order): Promise<PrintPlan[]>;
-}
+createPlans(order: Order): Promise<PrintPlan[]>
 ```
 
-`types/order.types.ts` (placeholder, minimal): `Order { items: OrderItem[] }`,
-`OrderItem { name: string; category: string; qty: number }` — just enough
-shape for the interface to compile and for a later spec to extend once
-`sales` has a real cart model. No implementation of `createPlans` — it is
-not called from any UI in this iteration. This interface, and the
-`order.types.ts` placeholder, are expected to be replaced (not just filled
-in) once a real Order/cart type exists; nothing else in this spec depends on
-their internals.
+Algorithm (design doc §51-52): for each `order.items[i]`, call
+`evaluatePrintRules({categoryId: item.categoryId, serviceType: order.serviceType}, routing)`
+(`routing` loaded via `PrintRuleService`, §5) to get a `destinationId`. Group
+items by resolved `destinationId` into one `PrintDocument` per destination —
+a header line (`order.orderNumber`, `order.serviceType`) followed by one
+`table` element row per item (`productName`, `quantity`, `note` if set).
+Each group becomes one `PrintPlan { destinationId, document, copies: 1 }`.
+
+Items that resolve to `null` (no matching rule, no default destination) are
+**not** dropped silently and do not fail the whole order's printing either —
+consistent with §3's element-level degrade precedent: they are collected
+into the return value's companion `unrouted: OrderItem[]` (`createPlans`
+returns `{ plans: PrintPlan[]; unrouted: OrderItem[] }`, not a bare array),
+logged via `PrinterLogger` at `warn`, and surfaced by the caller (§below) via
+a `Snackbar` (`react-native-paper`, same pattern `CartPanel.tsx` already uses
+for its `error`/`successMessage` state) — "N món chưa có cấu hình in" — so a
+misconfigured category doesn't silently vanish from the kitchen's view. If
+every item is unrouted, `plans` is simply empty; the caller's Snackbar is the
+only signal, there is no separate
+`NO_AVAILABLE_PRINTER`-style hard failure at the planner level (that error
+belongs to `PrintService.print()`, §4, once a plan is already routed to a
+destination that then turns out to have no effective printer).
+
+**Checkout integration** (`src/features/cart/hooks/useCheckout.ts`): after
+`dispatch(cartCleared())`, call `OrderPrintPlanner.createPlans(order)` (built
+from the `items`/`serviceType` already in the hook's closure plus
+`response.Data`) then `PrintService.print(plan)` for each plan —
+**fire-and-forget**, not awaited by `checkout()`'s return. `checkout()`
+still resolves as soon as the order is created; print failures never change
+`checkout()`'s success/error result. Category resolution
+(`item.productId` → `categoryId`) reads `selectProducts` from the catalog
+store at the call site in `useCheckout.ts` (a `useSelector`/`store.getState()`
+read, whichever this hook already uses for other cross-feature reads) —
+`OrderPrintPlanner` itself takes `Order` with `categoryId` already resolved
+and never touches the catalog store, keeping it a pure planning function
+like `evaluatePrintRules`.
 
 ## 7. Error codes
 
@@ -249,10 +310,15 @@ this spec needs finer granularity than that.
   (printer picklist ordered = priority, fanout mode radio). "Test Print"
   here sends a fixed sample `PrintDocument` through the real
   `PrintService.print()` path (design doc §35 — test print must go through
-  production pipeline, not a separate code path), so it is verifiable
-  end-to-end without `sales` having any cart data.
+  production pipeline, not a separate code path), so Destination/Job/
+  Scheduler are verifiable end-to-end independently of a real checkout,
+  useful while §6's checkout wiring is still being built or tested.
 - New `PrintRoutingScreen` — rule list (condition builder, priority,
-  destination, default destination picker).
+  destination, default destination picker). The condition builder is not a
+  free-text field/value form: category picks from `selectCategories`
+  (catalog store, already loaded for the Sales screen) and stores
+  `categoryId`; service type is a `DineIn`/`TakeAway` radio reusing
+  `ServiceType` — matching `PrintCondition`'s concrete shape (§2).
 - Neither screen gets a `.test.ts` file (pure presentational + form
   screens), per this repo's existing convention — only the services/slices/
   encoders above do.
@@ -260,20 +326,31 @@ this spec needs finer granularity than that.
 ## Testing
 
 - `.test.ts` for: `PrintService`, `PrintScheduler`, `evaluatePrintRules`,
-  `destinationSlice`, `printRuleSlice`, `EscPosTextComposer`, `TsplEncoder`'s
-  new `image()` method, `PrinterService.print`/`setEnabled` additions,
-  `printerSlice`'s new reducer.
-- No test files for the two new UI screens or for `OrderPrintPlanner`'s
-  empty stub.
+  `OrderPrintPlanner` (including the unrouted-items case and multi-item
+  same-destination grouping), `destinationSlice`, `printRuleSlice`,
+  `EscPosTextComposer`, `TsplEncoder`'s new `image()` method,
+  `PrinterService.print`/`setEnabled` additions, `printerSlice`'s new
+  reducer.
+- `useCheckout.test.ts` (existing file, if present, otherwise new) gains a
+  case: successful checkout calls `PrintService.print()` for each planned
+  destination and `checkout()` still resolves even if `PrintService.print()`
+  rejects — asserting the fire-and-forget/non-blocking contract from §6, not
+  just that the call happens.
+- No test files for the two new UI screens (pure presentational/form).
 
 ## Out of scope
 
 - Vendor SDK / built-in printer drivers (Sunmi, iMin) — confirmed out of
   scope this session; already removed from
   `docs/design/features/printer-management.md`.
-- Real Order/cart integration and `OrderPrintPlanner`'s actual grouping
-  logic — `sales` has no cart model yet; this is explicitly deferred to a
-  follow-up spec, not attempted here even partially.
+- Reprint / print-history UI beyond the Destination screen's "Test Print"
+  (§8) and the unrouted-items Snackbar (§6) — a dedicated screen listing past
+  `PrintJob`s for manual reprint is a real future need but not designed here;
+  §4's reprint semantics (new job id, same plan) are ready for one to be
+  built on top of later.
+- Editing `note`/quantity retroactively from a print failure Snackbar — the
+  Snackbar in §6 is informational only, it does not open the order or cart for
+  correction.
 - ZPL protocol/encoder — no ZPL device exists to validate against; adding it
   speculatively was already rejected when the design doc was corrected.
 - `image`/`barcode`/`qrCode` printing on `ThermalReceiptDriver` — the
