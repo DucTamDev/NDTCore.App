@@ -56,6 +56,7 @@ describe('PrintService', () => {
     const service = createPrintService(deps);
     const result = await service.print(plan);
     expect(result.status).toBe('failed');
+    expect(result.error).toBeUndefined();
     expect(deps.scheduler.enqueue).toHaveBeenCalledTimes(2);
   });
 
