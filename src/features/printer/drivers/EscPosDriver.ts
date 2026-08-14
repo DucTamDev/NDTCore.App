@@ -1,9 +1,32 @@
 // src/features/printer/drivers/EscPosDriver.ts
-import { Printer, PrintersDiscovery, DiscoveryPortType } from 'react-native-esc-pos-printer';
+import { Printer, PrintersDiscovery, DiscoveryPortType, BarcodeType, SymbolType } from 'react-native-esc-pos-printer';
 import type { DeviceInfo } from 'react-native-esc-pos-printer';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
+import type { PrintDocument } from '../types/printDocument.types';
 import { AppErrorException } from '../../../types/AppError';
+
+/**
+ * Chiều rộng ảnh mặc định (đơn vị: dot) khi in phần tử `image` — `PrintImageElement`
+ * (Task 2) không mang theo `width`, và SDK Epson yêu cầu tham số này là bắt buộc.
+ * 384 dot tương ứng khổ giấy nhiệt 58mm/80mm phổ biến; đây là giá trị cố định
+ * tạm thời, CHƯA phải kích thước "đúng" theo khổ giấy thực tế của từng máy in
+ * (xem `PrinterConfig.paperSize`) — cần điều chỉnh ở task sau nếu cần chính xác hơn.
+ * (Default image width (in dots) for the `image` element — `PrintImageElement`
+ * (Task 2) carries no `width`, and the Epson SDK requires this param. 384 dots
+ * matches common 58mm/80mm thermal paper; this is a fixed placeholder, NOT a
+ * value derived from the printer's actual `paperSize` — revisit in a later task
+ * if per-paper-size accuracy is needed.)
+ */
+const DEFAULT_IMAGE_WIDTH_DOTS = 384;
+
+/**
+ * Kích cỡ QR code mặc định khi in phần tử `qrCode` — `PrintQrCodeElement`
+ * (Task 2) không mang theo `size`, và SDK Epson yêu cầu tham số này là bắt buộc.
+ * (Default QR code size for the `qrCode` element — `PrintQrCodeElement`
+ * (Task 2) carries no `size`, and the Epson SDK requires this param.)
+ */
+const DEFAULT_QR_SYMBOL_SIZE = 4;
 
 /**
  * Cổng phát hiện thiết bị của `react-native-esc-pos-printer` (Epson ePOS2 SDK)
@@ -138,6 +161,49 @@ export class EscPosDriver implements IPrinterDriver {
     const printer = this.printers.get(config.id);
     if (!printer) return;
     await printer.addText('NDTCore POS - In thu\n');
+    await printer.addFeedLine();
+    await printer.addCut();
+    await printer.sendData();
+  }
+
+  /**
+   * Mã hoá `PrintDocument` bằng cách gọi trực tiếp các hàm dựng lệnh của SDK
+   * Epson (`addText`/`addImage`/`addBarcode`/`addSymbol`) trên `Printer` đang
+   * kết nối, rồi feed/cut/gửi dữ liệu 1 lần. Khác với `TsplDriver` (tự mã hoá
+   * byte thô), driver này không có bước "encode" riêng — SDK tự quản lý buffer
+   * lệnh nội bộ của `Printer` instance.
+   * Ném `CONNECTION_ERROR` nếu máy in chưa kết nối, `ENCODING_FAILED` cho loại
+   * phần tử không được hỗ trợ.
+   */
+  async print(printerId: string, document: PrintDocument): Promise<void> {
+    const printer = this.printers.get(printerId);
+    if (!printer) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+    for (const element of document.elements) {
+      if (element.type === 'text') {
+        await printer.addText(`${element.content}\n`);
+      } else if (element.type === 'line') {
+        await printer.addText('--------------------------------\n');
+      } else if (element.type === 'table') {
+        for (const row of element.rows) await printer.addText(`${row.join('  ')}\n`);
+      } else if (element.type === 'image') {
+        await printer.addImage({ source: { uri: element.data }, width: DEFAULT_IMAGE_WIDTH_DOTS });
+      } else if (element.type === 'barcode') {
+        await printer.addBarcode({ data: element.content, type: BarcodeType.BARCODE_CODE128 });
+      } else if (element.type === 'qrCode') {
+        await printer.addSymbol({
+          data: element.content,
+          type: SymbolType.SYMBOL_QRCODE_MODEL_2,
+          size: DEFAULT_QR_SYMBOL_SIZE,
+        });
+      } else {
+        throw new AppErrorException({
+          code: 'ENCODING_FAILED',
+          message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}`,
+        });
+      }
+    }
     await printer.addFeedLine();
     await printer.addCut();
     await printer.sendData();
