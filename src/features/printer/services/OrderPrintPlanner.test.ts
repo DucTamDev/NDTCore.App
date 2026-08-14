@@ -36,4 +36,24 @@ describe('OrderPrintPlanner', () => {
     expect(plans).toEqual([]);
     expect(unrouted).toEqual(order.items);
   });
+
+  it('merges multiple items sharing the same resolved destination into one plan', async () => {
+    const sameDestinationOrder: Order = {
+      id: 2,
+      orderNumber: 'ORD-002',
+      serviceType: 'DineIn',
+      items: [
+        { productId: 1, productName: 'Trà sữa', categoryId: 10, quantity: 2, note: 'ít đường' },
+        { productId: 4, productName: 'Cà phê', categoryId: 10, quantity: 1, note: 'đá riêng' },
+      ],
+    };
+    const planner = createOrderPrintPlanner({ getRoutingConfiguration: () => routing });
+    const { plans, unrouted } = await planner.createPlans(sameDestinationOrder);
+    expect(plans).toHaveLength(1);
+    expect(unrouted).toEqual([]);
+    const barPlan = plans[0];
+    expect(barPlan.destinationId).toBe('bar');
+    const table = barPlan.document.elements.find((el) => el.type === 'table');
+    expect(table?.type === 'table' && table.rows).toHaveLength(2);
+  });
 });
