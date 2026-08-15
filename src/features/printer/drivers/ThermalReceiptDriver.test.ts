@@ -222,6 +222,20 @@ describe('ThermalReceiptDriver', () => {
     expect(driver.getStatus(printerB.id)).toBe('connected');
   });
 
+  it('does not flip printer A to disconnected when connecting printer B on the same connectionType fails validation', async () => {
+    const driver = new ThermalReceiptDriver();
+    const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
+    const printerBInvalid: PrinterConfig = { ...lanConfig, id: 'receipt-lan-b', lan: undefined };
+
+    await driver.connect(printerA);
+    expect(driver.getStatus(printerA.id)).toBe('connected');
+
+    await expect(driver.connect(printerBInvalid)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    // printer A must still be reported as connected — the failed attempt on B
+    // never touched the native connection, so A's real state is unchanged.
+    expect(driver.getStatus(printerA.id)).toBe('connected');
+  });
+
   it('testPrint() reconnects instead of taking the stale fast path when another printer has taken over the shared connection', async () => {
     const driver = new ThermalReceiptDriver();
     const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };

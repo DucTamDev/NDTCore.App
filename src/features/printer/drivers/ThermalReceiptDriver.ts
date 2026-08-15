@@ -184,15 +184,6 @@ export class ThermalReceiptDriver implements IPrinterDriver {
       }
       await this.ensureInitialized(config.connectionType);
 
-      // Namespace này chỉ giữ được 1 kết nối native — printer đang connect sắp
-      // thay thế printer cũ (nếu có) của cùng connectionType. Ngắt JS-side
-      // status của printer cũ trước, cho khớp với những gì native layer sắp
-      // làm (xem comment ở khai báo `activeByType`).
-      const previousOwner = this.activeByType.get(config.connectionType);
-      if (previousOwner && previousOwner !== config.id) {
-        this.setStatus(previousOwner, 'disconnected');
-      }
-
       let deviceName: string | undefined;
       if (config.connectionType === 'lan') {
         if (!config.lan) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu cấu hình IP/Port' });
@@ -223,6 +214,17 @@ export class ThermalReceiptDriver implements IPrinterDriver {
 
       if (deviceName) this.deviceInfos.set(config.id, { deviceName });
       this.connectedTypes.set(config.id, config.connectionType);
+
+      // Namespace này chỉ giữ được 1 kết nối native — printer đang connect vừa
+      // thay thế printer cũ (nếu có) của cùng connectionType. Chỉ ngắt
+      // JS-side status của printer cũ SAU KHI kết nối mới đã thật sự thành
+      // công (validate + gọi native connectPrinter() xong ở trên) — nếu ngắt
+      // sớm hơn và attempt này fail giữa chừng, printer cũ sẽ bị báo sai là
+      // đã ngắt kết nối trong khi nó vẫn đang sống bình thường ở tầng native.
+      const previousOwner = this.activeByType.get(config.connectionType);
+      if (previousOwner && previousOwner !== config.id) {
+        this.setStatus(previousOwner, 'disconnected');
+      }
       this.activeByType.set(config.connectionType, config.id);
       this.setStatus(config.id, 'connected');
       PrinterLogger.connectSucceeded({
