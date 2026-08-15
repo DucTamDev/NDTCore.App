@@ -15,7 +15,7 @@ module.exports = {
       // không import chúng, nhưng alias sang `false` để Webpack không bao giờ
       // cố resolve chúng nếu có đường import gián tiếp nào khác chạm tới.
       'react-native-bluetooth-classic': false,
-      'react-native-esc-pos-printer': false,
+      '@poriyaalar/react-native-thermal-receipt-printer': false,
       'react-native-tcp-socket': false,
       'react-native-nitro-modules': false,
       // react-native-paper và @react-native-vector-icons/common thử require()

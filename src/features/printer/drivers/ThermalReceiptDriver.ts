@@ -110,15 +110,15 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     const run = async (): Promise<void> => {
-      if (connectionType === 'bluetooth') {
-        const granted = await ensureBluetoothPermission();
-        if (cancelled) return;
-        if (!granted) {
-          onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' } });
-          return;
-        }
-      }
       try {
+        if (connectionType === 'bluetooth') {
+          const granted = await ensureBluetoothPermission();
+          if (cancelled) return;
+          if (!granted) {
+            onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' } });
+            return;
+          }
+        }
         await this.ensureInitialized(connectionType);
         if (cancelled) return;
 

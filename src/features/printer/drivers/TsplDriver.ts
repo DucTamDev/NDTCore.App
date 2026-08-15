@@ -85,12 +85,14 @@ export class TsplDriver implements IPrinterDriver {
             PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
           })
           .catch((error: unknown) => {
-            if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+            if (cancelled) return;
+            onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
             PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
           });
       })
       .catch((error: unknown) => {
-        if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+        if (cancelled) return;
+        onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
         PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
       });
     return () => {

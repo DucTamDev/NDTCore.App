@@ -63,8 +63,8 @@ Kiến trúc theo hướng driver, UI **không bao giờ** gọi thẳng SDK/nat
 UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrinterDriver impl → Transport → native SDK
 ```
 
-- **`types/driver.types.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `identify`. Mọi driver mới phải implement đủ interface này.
-- **`drivers/`** — `EscPosDriver` (Epson ePOS2 SDK, `react-native-esc-pos-printer`), `TsplDriver` (TSPL qua `LanTransport`/`BluetoothTransport`/`UsbTransport`, dùng `react-native-bluetooth-classic` + `react-native-tcp-socket`). TSPL qua USB **chưa hỗ trợ**.
+- **`types/driver.types.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `print`, `identify`. Mọi driver mới phải implement đủ interface này.
+- **`drivers/`** — `ThermalReceiptDriver` (ESC/POS qua `@poriyaalar/react-native-thermal-receipt-printer` — thư viện export 3 namespace kết nối độc lập USB/BLE/Net thay vì 1 class dùng chung), `TsplDriver` (TSPL qua `LanTransport`/`BluetoothTransport`/`UsbTransport`, dùng `react-native-bluetooth-classic` + `react-native-tcp-socket`). TSPL qua USB **chưa hỗ trợ**.
 - **`services/DriverRegistry.ts`** — `Record<Protocol, IPrinterDriver>`, khởi tạo 1 lần.
 - **`services/PrinterService.ts`** — facade duy nhất UI được gọi. Tách biệt các thao tác trên máy in đã lưu (storage-backed: `connect`, `disconnect`, `getStatus`...) và thao tác trên draft chưa lưu (`connectDraft`, `disconnectForProtocol`, `getStatusForProtocol` — dùng trong lúc modal "Thêm máy in" đang chạy, trước khi có `printerId` trong storage).
 - **`services/discoverProtocol.ts`** — orchestration tự nhận diện protocol: tra `PRINTER_DETECTION_RULES` (`constants/printerDetectionRules.ts`) ra danh sách **candidate** protocol theo độ ưu tiên → thử `connect()` + `identify()` thật từng candidate → emit `DiscoveryEvent` (`connecting`/`identifying`/`identified`/`unknown_protocol`/`error`). **Rule table không bao giờ tự quyết định protocol cuối cùng** — chỉ `identify()` thật từ driver mới xác nhận.

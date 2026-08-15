@@ -166,6 +166,22 @@ describe('ThermalReceiptDriver', () => {
     expect(BLEPrinter.getDeviceList).toHaveBeenCalled();
   });
 
+  it('scan("bluetooth") emits an error event when ensureBluetoothPermission itself rejects', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockRejectedValueOnce(new Error('permission check failed'));
+    const driver = new ThermalReceiptDriver();
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      driver.scan('bluetooth', (event) => {
+        events.push(event.type);
+        if (event.type !== 'loading') resolve();
+      });
+    });
+    expect(events).toEqual(['loading', 'error']);
+  });
+
   it('scan("bluetooth") emits empty (not error) when getDeviceList rejects with "No Device Found"', async () => {
     const { BLEPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       BLEPrinter: { getDeviceList: jest.Mock };
