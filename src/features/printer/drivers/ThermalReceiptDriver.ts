@@ -4,6 +4,7 @@ import { USBPrinter, BLEPrinter, NetPrinter } from '@poriyaalar/react-native-the
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
 import { AppErrorException, type AppErrorCode } from '../../../types/AppError';
+import type { PrintDocument } from '../types/printDocument.types';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 import { PrinterLogger } from '../services/PrinterLogger';
 
@@ -267,6 +268,52 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     // định 'escpos' -> ThermalReceiptDriver) nên không cần lưu thêm map
     // printerId -> protocol.
     PrinterLogger.disconnectSucceeded({ printerId, protocol: 'escpos' });
+  }
+
+  /**
+   * Dịch `PrintDocument` sang chuỗi cho `printText()` — thư viện không có
+   * API mã vạch/QR/ảnh dùng được (chỉ `printImageBase64` cần base64 thật,
+   * trong khi `PrintImageElement.data` hiện là URI) nên `image`/`barcode`/
+   * `qrCode` ném `ENCODING_FAILED`, giống cách `EscPosDriver` xử lý loại
+   * phần tử không hỗ trợ. Validate toàn bộ elements TRƯỚC khi gọi
+   * `printTextAsync` — không có buffer nội bộ như SDK Epson (chỉ flush 1 lần
+   * lúc `sendData()`), nên phải tự đảm bảo không gửi in dở dang.
+   */
+  async print(printerId: string, document: PrintDocument): Promise<void> {
+    const connectionType = this.connectedTypes.get(printerId);
+    if (!connectionType || this.activeByType.get(connectionType) !== printerId) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+
+    const lines: string[] = [];
+    for (const element of document.elements) {
+      if (element.type === 'text') {
+        lines.push(element.content);
+      } else if (element.type === 'line') {
+        lines.push('--------------------------------');
+      } else if (element.type === 'table') {
+        for (const row of element.rows) lines.push(row.join('  '));
+      } else {
+        throw new AppErrorException({
+          code: 'ENCODING_FAILED',
+          message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}`,
+        });
+      }
+    }
+
+    const startedAt = Date.now();
+    try {
+      await this.printTextAsync(connectionType, `${lines.join('\n')}\n`);
+      PrinterLogger.printSucceeded({ printerId, protocol: 'escpos', durationMs: Date.now() - startedAt });
+    } catch (error) {
+      PrinterLogger.printFailed({
+        printerId,
+        protocol: 'escpos',
+        errorCode: errorCodeOf(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
   }
 
   getStatus(printerId: string): PrinterStatus {

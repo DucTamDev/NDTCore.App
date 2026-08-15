@@ -1,5 +1,6 @@
 import { ThermalReceiptDriver } from './ThermalReceiptDriver';
 import type { PrinterConfig } from '../types/printer.types';
+import type { PrintDocument } from '../types/printDocument.types';
 
 // The library's real dist/index.d.ts (inspected after `npm install`) differs
 // from README-only assumptions: `connectPrinter()` takes positional args
@@ -43,6 +44,8 @@ jest.mock('../services/PrinterLogger', () => ({
     disconnectSucceeded: jest.fn(),
     testPrintSucceeded: jest.fn(),
     testPrintFailed: jest.fn(),
+    printSucceeded: jest.fn(),
+    printFailed: jest.fn(),
   },
 }));
 
@@ -379,5 +382,119 @@ describe('ThermalReceiptDriver', () => {
     await driver.disconnect(printerB.id);
     expect(NetPrinter.closeConn).toHaveBeenCalledTimes(1);
     expect(driver.getStatus(printerB.id)).toBe('disconnected');
+  });
+
+  it('print() joins text/line/table elements into a single printText call', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { printText: jest.Mock };
+    };
+    const document: PrintDocument = {
+      elements: [
+        { type: 'text', content: 'Trà sữa', x: 0, y: 0 },
+        { type: 'line', x: 0, y: 10 },
+        { type: 'table', rows: [['Trà sữa', '2']], x: 0, y: 20 },
+      ],
+    };
+    await driver.print(lanConfig.id, document);
+    expect(NetPrinter.printText).toHaveBeenCalledWith(
+      'Trà sữa\n--------------------------------\nTrà sữa  2\n',
+      expect.objectContaining({ keepConnection: true, cut: true, tailingLine: true }),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('print() throws ENCODING_FAILED for a barcode element without calling printText', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { printText: jest.Mock };
+    };
+    const callsBefore = NetPrinter.printText.mock.calls.length;
+    const document: PrintDocument = { elements: [{ type: 'barcode', content: '123', x: 0, y: 0 }] };
+    await expect(driver.print(lanConfig.id, document)).rejects.toMatchObject({ code: 'ENCODING_FAILED' });
+    expect(NetPrinter.printText.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('print() throws ENCODING_FAILED for a qrCode element', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const document: PrintDocument = { elements: [{ type: 'qrCode', content: 'https://x', x: 0, y: 0 }] };
+    await expect(driver.print(lanConfig.id, document)).rejects.toMatchObject({ code: 'ENCODING_FAILED' });
+  });
+
+  it('print() throws ENCODING_FAILED for an image element', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const document: PrintDocument = { elements: [{ type: 'image', data: 'AAAA', x: 0, y: 0 }] };
+    await expect(driver.print(lanConfig.id, document)).rejects.toMatchObject({ code: 'ENCODING_FAILED' });
+  });
+
+  it('print() validates all elements before sending anything — an unsupported element after valid ones still sends nothing', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { printText: jest.Mock };
+    };
+    const callsBefore = NetPrinter.printText.mock.calls.length;
+    const document: PrintDocument = {
+      elements: [
+        { type: 'text', content: 'Trà sữa', x: 0, y: 0 },
+        { type: 'barcode', content: '123', x: 0, y: 10 },
+      ],
+    };
+    await expect(driver.print(lanConfig.id, document)).rejects.toMatchObject({ code: 'ENCODING_FAILED' });
+    expect(NetPrinter.printText.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('print() throws CONNECTION_ERROR when not connected', async () => {
+    const driver = new ThermalReceiptDriver();
+    const document: PrintDocument = { elements: [] };
+    await expect(driver.print('never-connected', document)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+  });
+
+  it('print() throws CONNECTION_ERROR when the printer is no longer the active owner of the shared connection', async () => {
+    const driver = new ThermalReceiptDriver();
+    const printerA: PrinterConfig = { ...lanConfig, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
+    const printerB: PrinterConfig = { ...lanConfig, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+    await driver.connect(printerA);
+    await driver.connect(printerB);
+    const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
+    await expect(driver.print(printerA.id, document)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+  });
+
+  it('print() logs printSucceeded on success', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    await driver.print(lanConfig.id, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] });
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { printSucceeded: jest.Mock };
+    };
+    expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanConfig.id, protocol: 'escpos' }),
+    );
+  });
+
+  it('print() logs printFailed when printText fails', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { printText: jest.Mock };
+    };
+    NetPrinter.printText.mockImplementationOnce(
+      (_text: string, _opts: unknown, _cbSuccess?: (msg: string) => void, cbErr?: (error: Error) => void) =>
+        cbErr?.(new Error('print failed')),
+    );
+    await expect(
+      driver.print(lanConfig.id, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] }),
+    ).rejects.toThrow('print failed');
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { printFailed: jest.Mock };
+    };
+    expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanConfig.id, protocol: 'escpos', errorCode: 'UNKNOWN_ERROR' }),
+    );
   });
 });
