@@ -50,32 +50,25 @@ jest.mock('react-native-tcp-socket', () => ({
   },
 }));
 
-// react-native-esc-pos-printer ships an ESM build that the `react-native` Jest
-// preset does not transform (it lives outside the default transformIgnorePatterns
-// whitelist), so any test that transitively imports EscPosDriver.ts — even
-// without exercising it — fails to parse unless the module is mocked here.
-// Test files that need finer control (e.g. EscPosDriver.test.ts) can still
-// override this with their own local jest.mock(), which takes precedence.
-jest.mock('react-native-esc-pos-printer', () => ({
-  Printer: jest.fn().mockImplementation(() => ({
-    connect: jest.fn().mockResolvedValue(undefined),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-    addText: jest.fn().mockResolvedValue(undefined),
-    addFeedLine: jest.fn().mockResolvedValue(undefined),
-    addCut: jest.fn().mockResolvedValue(undefined),
-    sendData: jest.fn().mockResolvedValue({}),
-  })),
-  PrintersDiscovery: {
-    start: jest.fn().mockResolvedValue(undefined),
-    stop: jest.fn().mockResolvedValue(undefined),
-    onDiscovery: jest.fn().mockImplementation(() => () => undefined),
-    onError: jest.fn().mockImplementation(() => () => undefined),
-  },
-  DiscoveryPortType: {
-    PORTTYPE_ALL: 0,
-    PORTTYPE_TCP: 1,
-    PORTTYPE_BLUETOOTH: 2,
-    PORTTYPE_USB: 3,
-    PORTTYPE_BLUETOOTH_LE: 4,
-  },
-}));
+// @poriyaalar/react-native-thermal-receipt-printer ships an ESM build that the
+// `react-native` Jest preset does not transform, so any test that transitively
+// imports ThermalReceiptDriver.ts — even without exercising it — fails to
+// parse unless the module is mocked here. Test files that need finer control
+// (e.g. ThermalReceiptDriver.test.ts) override this with their own local
+// jest.mock(), which takes precedence.
+jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => {
+  const namespace = () => ({
+    init: jest.fn().mockResolvedValue(undefined),
+    getDeviceList: jest.fn().mockResolvedValue([]),
+    connectPrinter: jest.fn().mockResolvedValue(undefined),
+    closeConn: jest.fn().mockResolvedValue(undefined),
+    printText: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
+    printBill: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
+    printImageBase64: jest.fn().mockImplementation((_data, _opts, cbSuccess) => cbSuccess?.('ok')),
+  });
+  return {
+    USBPrinter: namespace(),
+    BLEPrinter: namespace(),
+    NetPrinter: namespace(),
+  };
+});

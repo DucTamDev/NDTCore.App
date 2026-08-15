@@ -6,7 +6,7 @@ describe('PRINTER_DETECTION_RULES', () => {
     const last = PRINTER_DETECTION_RULES[PRINTER_DETECTION_RULES.length - 1];
     expect(last.vendorMatch.test('anything at all')).toBe(true);
     expect(last.confidence).toBe('low');
-    expect(last.candidates).toEqual(['escpos', 'tspl']);
+    expect(last.candidates).toEqual(['tspl', 'escpos']);
   });
 
   it('matches Epson TM-T82III to escpos with high confidence', () => {

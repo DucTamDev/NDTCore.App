@@ -9,6 +9,7 @@ import type {
 } from '../types/printer.types';
 import type { AppError } from '../../../types/AppError';
 import { PRINTER_DETECTION_RULES, type PrinterDetectionRule } from '../constants/printerDetectionRules';
+import { PrinterLogger } from './PrinterLogger';
 
 export type DiscoveryStage = 'connecting' | 'identifying' | 'identified' | 'unknown_protocol' | 'error';
 
@@ -40,7 +41,7 @@ export const resolveDetectionRule = (
   return (
     rules.find((r) => r.vendorMatch.test(text) && (!r.modelMatch || r.modelMatch.test(text))) ?? {
       vendorMatch: /.*/,
-      candidates: ['escpos', 'tspl'],
+      candidates: ['tspl', 'escpos'],
       confidence: 'low',
     }
   );
@@ -73,6 +74,7 @@ export const createDiscoverProtocol =
       const rule = resolveDetectionRule(input.device?.displayName);
       if (rule.modelMatch && rule.confidence === 'low' && rule.candidates.length > 1) {
         onEvent({ stage: 'unknown_protocol' });
+        PrinterLogger.protocolUnknown({ printerId: input.printerId, connectionType: input.connectionType });
         return;
       }
       const candidates = rule.candidates.filter((protocol) => Boolean(registry[protocol]));
@@ -95,6 +97,7 @@ export const createDiscoverProtocol =
         if (cancelled) return;
         if (deviceInfo) {
           onEvent({ stage: 'identified', protocol, deviceInfo });
+          PrinterLogger.protocolDetected({ printerId: input.printerId, protocol, connectionType: input.connectionType });
           return;
         }
         await driver.disconnect(input.printerId).catch(() => undefined);
@@ -106,6 +109,7 @@ export const createDiscoverProtocol =
         return;
       }
       onEvent({ stage: 'unknown_protocol' });
+      PrinterLogger.protocolUnknown({ printerId: input.printerId, connectionType: input.connectionType });
     };
 
     run();

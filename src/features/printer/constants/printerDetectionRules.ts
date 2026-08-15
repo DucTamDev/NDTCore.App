@@ -4,7 +4,17 @@ import type { Protocol } from '../types/printer.types';
 /**
  * Luật nhận diện thiết bị: cho ra danh sách candidate driver theo thứ tự ưu
  * tiên để `discoverProtocol()` thử — KHÔNG phải kết luận protocol cuối cùng.
- * Xác nhận thật luôn phải qua `IPrinterDriver.identify()` của driver tương ứng.
+ * Xác nhận thật đi qua `IPrinterDriver.identify()` của driver tương ứng —
+ * nhưng độ tin cậy của `identify()` khác nhau giữa protocol: `TsplDriver`
+ * gửi lệnh dò trạng thái TSPL thật (`~!T`) và chờ phản hồi, nên máy in
+ * ESC/POS thật sẽ không trả lời đúng — đây là 1 discriminator thật.
+ * `ThermalReceiptDriver` (escpos) thì chỉ có thể xác nhận "đã connect được và
+ * (với USB/BLE) nhận được `device_name` thật từ thiết bị", KHÔNG phải bằng
+ * chứng thiết bị nói đúng ngôn ngữ ESC/POS — với LAN, `connectPrinter()` chỉ
+ * cần mở được TCP socket tới cổng đó (thành công với bất kỳ thiết bị nào đang
+ * lắng nghe, kể cả máy in tem TSPL), và `device_name` trả về cho LAN chỉ là
+ * chuỗi `host:port` tự thư viện ghép lại, không phải tên thiết bị thật. Vì
+ * vậy luật catch-all bên dưới thử `tspl` trước `escpos`.
  */
 export interface PrinterDetectionRule {
   vendorMatch: RegExp;
@@ -113,6 +123,10 @@ export const PRINTER_DETECTION_RULES: PrinterDetectionRule[] = [
   // TODO: bổ sung thêm rule khi có deviceInfo thật từ thiết bị test (đặc biệt cần
   // xác nhận format vendor/model string mà identify() thực sự trả về).
 
-  // Luật fallback bắt-tất-cả — LUÔN đặt cuối danh sách.
-  { vendorMatch: /.*/, candidates: ['escpos', 'tspl'], confidence: 'low' },
+  // Luật fallback bắt-tất-cả — LUÔN đặt cuối danh sách. Thử `tspl` trước
+  // `escpos`: `TsplDriver.identify()` là 1 discriminator thật (gửi lệnh dò
+  // trạng thái `~!T` và chờ phản hồi), trong khi `escpos`'s `identify()` (sau
+  // khi trả `device_name` thật) vẫn chỉ chứng minh được "đã connect thành
+  // công", không phải "đúng là máy in ESC/POS" — xem doc comment đầu file.
+  { vendorMatch: /.*/, candidates: ['tspl', 'escpos'], confidence: 'low' },
 ];

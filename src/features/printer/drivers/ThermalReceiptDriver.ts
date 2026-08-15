@@ -274,8 +274,8 @@ export class ThermalReceiptDriver implements IPrinterDriver {
    * Dịch `PrintDocument` sang chuỗi cho `printText()` — thư viện không có
    * API mã vạch/QR/ảnh dùng được (chỉ `printImageBase64` cần base64 thật,
    * trong khi `PrintImageElement.data` hiện là URI) nên `image`/`barcode`/
-   * `qrCode` ném `ENCODING_FAILED`, giống cách `EscPosDriver` xử lý loại
-   * phần tử không hỗ trợ. Validate toàn bộ elements TRƯỚC khi gọi
+   * `qrCode` ném `ENCODING_FAILED` cho loại phần tử không hỗ trợ. Validate
+   * toàn bộ elements TRƯỚC khi gọi
    * `printTextAsync` — không có buffer nội bộ như SDK Epson (chỉ flush 1 lần
    * lúc `sendData()`), nên phải tự đảm bảo không gửi in dở dang.
    */

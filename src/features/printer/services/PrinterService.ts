@@ -106,7 +106,7 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
    * Scan thiết bị cho wizard TRƯỚC khi biết protocol (mục "Key Architecture
    * Decision" đầu plan): Bluetooth dùng scan tổng quát của TsplDriver
    * (RNBluetoothClassic trực tiếp, không phụ thuộc SDK hãng nào); USB chỉ
-   * EscPosDriver hỗ trợ scan (TsplDriver luôn báo lỗi UNSUPPORTED_CONNECTION
+   * ThermalReceiptDriver hỗ trợ scan (TsplDriver luôn báo lỗi UNSUPPORTED_CONNECTION
    * cho USB — kiến trúc TSPL-qua-USB chưa được hỗ trợ, Phase 1 §4.3).
    */
   const scanForConnectionType = (
