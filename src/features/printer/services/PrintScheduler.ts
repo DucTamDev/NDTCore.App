@@ -7,7 +7,7 @@ interface QueueEntry {
   resolve: (job: PrintJob) => void;
 }
 
-type PrinterServiceLike = Pick<typeof PrinterService, 'print'>;
+type PrinterServiceLike = Pick<typeof PrinterService, 'print' | 'getPrinters'>;
 
 export const createPrintScheduler = (printerService: PrinterServiceLike) => {
   const queues = new Map<string, QueueEntry[]>();
@@ -18,11 +18,25 @@ export const createPrintScheduler = (printerService: PrinterServiceLike) => {
       ? { code: error.code, message: error.message }
       : { code: 'PRINT_ERROR', message: String(error) };
 
-  const processQueue = async (printerId: string): Promise<void> => {
-    if (processing.has(printerId)) return;
-    processing.add(printerId);
+  /**
+   * Khoá tài nguyên dùng để tuần tự hoá job — theo `protocol`+`connectionType`
+   * chứ không phải `printerId`, vì một số driver (vd `ThermalReceiptDriver`)
+   * chỉ giữ được 1 kết nối native cho mỗi `connectionType` (giới hạn của thư
+   * viện, không phải lỗi driver): 2 máy in cùng loại kết nối in song song có
+   * thể khiến máy in sau "cướp" kết nối của máy in trước giữa chừng, làm mất
+   * đơn in mà không có cảnh báo gì. Rơi về `printerId` nếu không tìm thấy
+   * cấu hình máy in (không nên xảy ra trong thực tế).
+   */
+  const resourceKeyFor = (printerId: string): string => {
+    const config = printerService.getPrinters().find((p) => p.id === printerId);
+    return config ? `${config.protocol}:${config.connectionType}` : printerId;
+  };
+
+  const processQueue = async (resourceKey: string): Promise<void> => {
+    if (processing.has(resourceKey)) return;
+    processing.add(resourceKey);
     try {
-      const queue = queues.get(printerId);
+      const queue = queues.get(resourceKey);
       while (queue && queue.length > 0) {
         const entry = queue[0];
         const { job } = entry;
@@ -40,15 +54,16 @@ export const createPrintScheduler = (printerService: PrinterServiceLike) => {
         entry.resolve(job);
       }
     } finally {
-      processing.delete(printerId);
+      processing.delete(resourceKey);
     }
   };
 
   const enqueue = (job: PrintJob): Promise<PrintJob> =>
     new Promise<PrintJob>((resolve) => {
-      if (!queues.has(job.printerId)) queues.set(job.printerId, []);
-      queues.get(job.printerId)?.push({ job, resolve });
-      void processQueue(job.printerId);
+      const resourceKey = resourceKeyFor(job.printerId);
+      if (!queues.has(resourceKey)) queues.set(resourceKey, []);
+      queues.get(resourceKey)?.push({ job, resolve });
+      void processQueue(resourceKey);
     });
 
   const retry = (job: PrintJob): Promise<PrintJob> => {
