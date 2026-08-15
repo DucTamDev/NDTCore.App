@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 export type SettingsMenuKey =
   | 'printer'
+  | 'printConfiguration'
   | 'scanner'
   | 'account'
   | 'language'
