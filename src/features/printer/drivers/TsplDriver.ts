@@ -7,11 +7,16 @@ import { TsplEncoder } from '../protocols/TsplEncoder';
 import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
 import { UsbTransport } from '../transports/UsbTransport';
-import { AppErrorException } from '../../../types/AppError';
+import { AppErrorException, type AppErrorCode } from '../../../types/AppError';
+import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
+import { PrinterLogger } from '../services/PrinterLogger';
 
 type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
 const IDENTIFY_TIMEOUT_MS = 1000;
+
+const errorCodeOf = (error: unknown): AppErrorCode =>
+  error instanceof AppErrorException ? error.code : 'UNKNOWN_ERROR';
 
 /**
  * Mã hoá 1 lệnh TSPL ASCII đơn giản thành byte thô — dùng riêng cho lệnh dò
@@ -57,27 +62,46 @@ export class TsplDriver implements IPrinterDriver {
       return () => undefined;
     }
     onEvent({ type: 'loading' });
-    RNBluetoothClassic.startDiscovery()
-      .then((devices) => {
-        onEvent({
-          type: devices.length > 0 ? 'found' : 'empty',
-          devices: devices.map((d) => ({
-            deviceId: d.address,
-            displayName: d.name ?? d.address,
-            rawDevice: d as unknown as Record<string, unknown>,
-          })),
-        });
+    let cancelled = false;
+    const startedAt = Date.now();
+    ensureBluetoothPermission()
+      .then((granted) => {
+        if (cancelled) return;
+        if (!granted) {
+          onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' } });
+          return;
+        }
+        RNBluetoothClassic.startDiscovery()
+          .then((devices) => {
+            if (cancelled) return;
+            onEvent({
+              type: devices.length > 0 ? 'found' : 'empty',
+              devices: devices.map((d) => ({
+                deviceId: d.address,
+                displayName: d.name ?? d.address,
+                rawDevice: d as unknown as Record<string, unknown>,
+              })),
+            });
+            PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
+          })
+          .catch((error: unknown) => {
+            if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+            PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
+          });
       })
       .catch((error: unknown) => {
-        onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+        if (!cancelled) onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
+        PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
       });
     return () => {
+      cancelled = true;
       RNBluetoothClassic.cancelDiscovery().catch(() => undefined);
     };
   }
 
   async connect(config: PrinterConfig): Promise<void> {
     this.setStatus(config.id, 'connecting');
+    const startedAt = Date.now();
     try {
       const transport = this.createTransport(config.connectionType);
       if (config.connectionType === 'lan') {
@@ -87,6 +111,10 @@ export class TsplDriver implements IPrinterDriver {
         if (!config.device) {
           throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị Bluetooth' });
         }
+        const granted = await ensureBluetoothPermission();
+        if (!granted) {
+          throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' });
+        }
         await (transport as BluetoothTransport).connect(config.device.deviceId);
       } else {
         await (transport as UsbTransport).connect();
@@ -94,8 +122,21 @@ export class TsplDriver implements IPrinterDriver {
       this.connections.set(config.id, transport);
       this.configs.set(config.id, config);
       this.setStatus(config.id, 'connected');
+      PrinterLogger.connectSucceeded({
+        printerId: config.id,
+        protocol: config.protocol,
+        connectionType: config.connectionType,
+        durationMs: Date.now() - startedAt,
+      });
     } catch (error) {
       this.setStatus(config.id, 'error');
+      PrinterLogger.connectFailed({
+        printerId: config.id,
+        protocol: config.protocol,
+        connectionType: config.connectionType,
+        errorCode: errorCodeOf(error),
+        durationMs: Date.now() - startedAt,
+      });
       throw error;
     }
   }
@@ -106,6 +147,7 @@ export class TsplDriver implements IPrinterDriver {
     await transport?.close();
     this.connections.delete(printerId);
     this.setStatus(printerId, 'disconnected');
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: 'tspl' });
   }
 
   getStatus(printerId: string): PrinterStatus {
@@ -122,16 +164,28 @@ export class TsplDriver implements IPrinterDriver {
     if (!this.connections.has(config.id)) {
       await this.connect(config);
     }
-    const transport = this.connections.get(config.id);
-    const bytes = new TsplEncoder()
-      .initialize(config.paperSize)
-      .text(10, 10, 'NDTCore POS - In thu')
-      .cut()
-      .encode();
-    if (config.connectionType === 'lan') {
-      (transport as LanTransport).write(bytes);
-    } else if (config.connectionType === 'bluetooth') {
-      await (transport as BluetoothTransport).write(bytes);
+    const startedAt = Date.now();
+    try {
+      const transport = this.connections.get(config.id);
+      const bytes = new TsplEncoder()
+        .initialize(config.paperSize)
+        .text(10, 10, 'NDTCore POS - In thu')
+        .cut()
+        .encode();
+      if (config.connectionType === 'lan') {
+        (transport as LanTransport).write(bytes);
+      } else if (config.connectionType === 'bluetooth') {
+        await (transport as BluetoothTransport).write(bytes);
+      }
+      PrinterLogger.testPrintSucceeded({ printerId: config.id, protocol: config.protocol, durationMs: Date.now() - startedAt });
+    } catch (error) {
+      PrinterLogger.testPrintFailed({
+        printerId: config.id,
+        protocol: config.protocol,
+        errorCode: errorCodeOf(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
     }
   }
 

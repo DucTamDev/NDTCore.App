@@ -21,6 +21,22 @@ jest.mock('../transports/BluetoothTransport', () => ({
   })),
 }));
 
+jest.mock('../services/PrinterPermissionService', () => ({
+  ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('../services/PrinterLogger', () => ({
+  PrinterLogger: {
+    scanCompleted: jest.fn(),
+    scanFailed: jest.fn(),
+    connectSucceeded: jest.fn(),
+    connectFailed: jest.fn(),
+    disconnectSucceeded: jest.fn(),
+    testPrintSucceeded: jest.fn(),
+    testPrintFailed: jest.fn(),
+  },
+}));
+
 const lanConfig: PrinterConfig = {
   id: 'label-1',
   printerName: 'Máy in tem',
@@ -34,6 +50,13 @@ const lanConfig: PrinterConfig = {
 };
 
 const usbConfig: PrinterConfig = { ...lanConfig, id: 'label-usb', connectionType: 'usb', device: undefined };
+
+const bluetoothConfig: PrinterConfig = {
+  ...lanConfig,
+  id: 'label-bt',
+  connectionType: 'bluetooth',
+  device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} },
+};
 
 describe('TsplDriver', () => {
   it('connect() over LAN transitions status idle -> connecting -> connected', async () => {
@@ -134,5 +157,106 @@ describe('TsplDriver', () => {
     await driver.connect(lanConfig);
     const result = await driver.identify(lanConfig.id);
     expect(result).not.toBeNull();
+  });
+
+  it('connect() over Bluetooth checks permission before connecting', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(bluetoothConfig);
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    expect(ensureBluetoothPermission).toHaveBeenCalled();
+    expect(driver.getStatus(bluetoothConfig.id)).toBe('connected');
+  });
+
+  it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockResolvedValueOnce(false);
+    const driver = new TsplDriver();
+    await expect(driver.connect(bluetoothConfig)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    expect(driver.getStatus(bluetoothConfig.id)).toBe('error');
+  });
+
+  it('connect() logs connectSucceeded on success', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { connectSucceeded: jest.Mock };
+    };
+    expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanConfig.id, protocol: 'tspl', connectionType: 'lan' }),
+    );
+  });
+
+  it('connect() logs connectFailed on failure', async () => {
+    const driver = new TsplDriver();
+    await expect(driver.connect(usbConfig)).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { connectFailed: jest.Mock };
+    };
+    expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: usbConfig.id, protocol: 'tspl', connectionType: 'usb' }),
+    );
+  });
+
+  it('disconnect() logs disconnectSucceeded', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    await driver.disconnect(lanConfig.id);
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { disconnectSucceeded: jest.Mock };
+    };
+    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanConfig.id, protocol: 'tspl' });
+  });
+
+  it('testPrint() logs testPrintSucceeded', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanConfig);
+    await driver.testPrint(lanConfig);
+    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+      PrinterLogger: { testPrintSucceeded: jest.Mock };
+    };
+    expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanConfig.id, protocol: 'tspl' }),
+    );
+  });
+
+  it('scan("bluetooth") checks permission before calling RNBluetoothClassic.startDiscovery()', async () => {
+    const driver = new TsplDriver();
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      driver.scan('bluetooth', (event) => {
+        events.push(event.type);
+        if (event.type !== 'loading') resolve();
+      });
+    });
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    expect(ensureBluetoothPermission).toHaveBeenCalled();
+    expect(events).toEqual(['loading', 'empty']);
+  });
+
+  it('scan("bluetooth") emits an error and skips startDiscovery when permission is denied', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockResolvedValueOnce(false);
+    const RNBluetoothClassic = jest.requireMock('react-native-bluetooth-classic') as {
+      default: { startDiscovery: jest.Mock };
+    };
+    const callsBefore = RNBluetoothClassic.default.startDiscovery.mock.calls.length;
+    const driver = new TsplDriver();
+    const events: string[] = [];
+    await new Promise<void>((resolve) => {
+      driver.scan('bluetooth', (event) => {
+        events.push(event.type);
+        if (event.type !== 'loading') resolve();
+      });
+    });
+    expect(events).toEqual(['loading', 'error']);
+    expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
   });
 });
