@@ -3,9 +3,7 @@ import authReducer from '../features/auth/store/authSlice';
 import cartReducer from '../features/cart/store/cartSlice';
 import catalogReducer from '../features/catalog/store/catalogSlice';
 import currentStoreReducer from '../features/store/store/storeSlice';
-import destinationReducer from '../features/printer/store/destinationSlice';
 import printerReducer from '../features/printer/store/printerSlice';
-import printRuleReducer from '../features/printer/store/printRuleSlice';
 import settingsReducer from '../features/settings/store/settingsSlice';
 
 export const store = configureStore({
@@ -14,9 +12,7 @@ export const store = configureStore({
     cart: cartReducer,
     catalog: catalogReducer,
     currentStore: currentStoreReducer,
-    destination: destinationReducer,
     printer: printerReducer,
-    printRule: printRuleReducer,
     settings: settingsReducer,
   },
 });

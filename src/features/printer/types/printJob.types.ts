@@ -1,13 +1,6 @@
 import type { AppError } from '../../../types/AppError';
 import type { PrintDocument } from './printDocument.types';
 
-export interface PrintPlan {
-  id: string;
-  destinationId: string;
-  document: PrintDocument;
-  copies: number;
-}
-
 export type PrintJobStatus = 'pending' | 'printing' | 'success' | 'failed' | 'cancelled';
 
 export interface PrintJob {

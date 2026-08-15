@@ -1,14 +1,9 @@
 import type { PrintDocument } from './printDocument.types';
-import type { PrintPlan, PrintJob, PrintResult } from './printJob.types';
+import type { PrintJob, PrintResult } from './printJob.types';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 
 describe('print job types', () => {
-  it('accepts a full PrintPlan', () => {
-    const plan: PrintPlan = { id: 'plan1', destinationId: 'dest1', document, copies: 1 };
-    expect(plan.copies).toBe(1);
-  });
-
   it('accepts a pending PrintJob', () => {
     const job: PrintJob = {
       id: 'job1',
