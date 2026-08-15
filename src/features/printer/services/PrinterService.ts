@@ -11,11 +11,17 @@ import type {
 import type { PrintDocument } from '../types/printDocument.types';
 import { DriverRegistry } from './DriverRegistry';
 import { createDiscoverProtocol, type DiscoveryEvent, type DiscoveryInput } from './discoverProtocol';
+import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 
 const PRINTER_LIST_KEY = 'printer.list';
 const PRINTER_DEFAULT_KEY = 'printer.defaultId';
 
-export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>) => {
+type ResourceLockLike = ReturnType<typeof createResourceLock>;
+
+export const createPrinterService = (
+  registry: Record<Protocol, IPrinterDriver>,
+  lock: ResourceLockLike = PrinterConnectionLock,
+) => {
   const getDriver = (protocol: Protocol): IPrinterDriver => registry[protocol];
   const discoverProtocolFn = createDiscoverProtocol(registry);
 
@@ -75,8 +81,17 @@ export const createPrinterService = (registry: Record<Protocol, IPrinterDriver>)
     await connect(printerId);
   };
 
+  /**
+   * In thử qua khoá tài nguyên dùng chung với `PrintScheduler` (theo
+   * `protocol`+`connectionType`), không gọi driver trực tiếp — nếu không,
+   * bấm "In thử" thủ công đúng lúc có đơn đang in trên máy in khác dùng
+   * chung kết nối native (vd 2 máy in escpos cùng LAN) có thể khiến 1 trong
+   * 2 bị ngắt kết nối giữa chừng.
+   */
   const testPrint = async (config: PrinterConfig): Promise<void> => {
-    await getDriver(config.protocol).testPrint(config);
+    await lock.runExclusive(connectionResourceKey(config.protocol, config.connectionType), () =>
+      getDriver(config.protocol).testPrint(config),
+    );
   };
 
   /**
