@@ -2,6 +2,7 @@ import { PrintConfigurationService } from './PrintConfigurationService';
 import { PrinterService } from './PrinterService';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
+import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import type { PrintJob, PrintResult } from '../types/printJob.types';
@@ -11,8 +12,6 @@ interface PrintServiceDeps {
   getPrinters: typeof PrinterService.getPrinters;
   scheduler: Pick<typeof PrintScheduler, 'enqueue'>;
 }
-
-const printTypeLabel = (printType: PrintType): string => (printType === 'Receipt' ? 'Hoá đơn' : 'Tem');
 
 export const createPrintService = (deps: PrintServiceDeps) => {
   const effectivePrinterIds = (printType: PrintType): string[] => {
@@ -28,7 +27,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
       return {
         status: 'no-available-printer',
         jobs: [],
-        error: { code: 'NO_AVAILABLE_PRINTER', message: `Chưa thiết lập máy in cho ${printTypeLabel(printType)}` },
+        error: { code: 'NO_AVAILABLE_PRINTER', message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
       };
     }
 

@@ -22,13 +22,10 @@ import {
   selectServiceType,
   serviceTypeChanged,
 } from '../store/cartSlice';
+import { SERVICE_TYPE_LABELS } from '../types/cart.types';
 import type { CartItem, ServiceType } from '../types/cart.types';
 
-const SERVICE_TYPE_BUTTONS = [
-  { value: 'DineIn', label: 'Tại quầy' },
-  { value: 'TakeAway', label: 'Mang đi' },
-  { value: 'Delivery', label: 'Giao hàng' },
-];
+const SERVICE_TYPE_BUTTONS = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
 export interface CartPanelProps {
   onOrderCreated?: () => void;

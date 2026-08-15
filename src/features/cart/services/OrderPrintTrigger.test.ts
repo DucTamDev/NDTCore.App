@@ -1,8 +1,10 @@
 import { buildReceiptDocument, printReceipt } from './OrderPrintTrigger';
 import { PrintService } from '../../printer/services/PrintService';
+import { LoggerService } from '../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse } from '../types/cart.types';
 
 jest.mock('../../printer/services/PrintService');
+jest.mock('../../../services/LoggerService');
 
 const item: CartItem = {
   key: 'k1', productId: 1, productCode: 'SKU1', productName: 'Trà sữa', imageUrl: null,
@@ -14,7 +16,7 @@ const orderResponse: CreateOrderResponse = { Id: 1, OrderNumber: 'ORD-001', Stat
 describe('buildReceiptDocument', () => {
   it('builds one document with a header line and one table row per item', () => {
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn');
-    expect(document.elements[0]).toEqual({ type: 'text', content: 'Đơn ORD-001 · DineIn', x: 0, y: 0 });
+    expect(document.elements[0]).toEqual({ type: 'text', content: 'Đơn ORD-001 · Tại quầy', x: 0, y: 0 });
     const table = document.elements.find((el) => el.type === 'table');
     expect(table).toMatchObject({ rows: [['Trà sữa', '2', 'ít đường']] });
   });
@@ -37,5 +39,12 @@ describe('printReceipt', () => {
     (PrintService.print as jest.Mock).mockResolvedValue({ status: 'success', jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn');
     await expect(printReceipt(document)).resolves.toBe(false);
+  });
+
+  it('logs a warning when PrintService reports failed', async () => {
+    (PrintService.print as jest.Mock).mockResolvedValue({ status: 'failed', jobs: [] });
+    const document = buildReceiptDocument(orderResponse, [item], 'DineIn');
+    await printReceipt(document);
+    expect(LoggerService.warning).toHaveBeenCalled();
   });
 });

@@ -5,11 +5,12 @@ import { AppSwitch } from '../../../components/AppSwitch';
 import { PrinterService } from '../services/PrinterService';
 import { PrintConfigurationService } from '../services/PrintConfigurationService';
 import { generateId } from '../../../utils/id';
+import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
 import type { PrintConfiguration, PrintType } from '../types/printConfiguration.types';
 
 const PRINT_TYPE_SECTIONS: { printType: PrintType; label: string }[] = [
-  { printType: 'Receipt', label: 'Hoá đơn' },
-  { printType: 'Label', label: 'Tem' },
+  { printType: 'Receipt', label: PRINT_TYPE_LABELS.Receipt },
+  { printType: 'Label', label: PRINT_TYPE_LABELS.Label },
 ];
 
 export const PrintConfigurationPanel: React.FC = () => {
@@ -19,7 +20,7 @@ export const PrintConfigurationPanel: React.FC = () => {
   const refresh = useCallback(() => setConfigurations(PrintConfigurationService.getAll()), []);
 
   const toggle = (printType: PrintType, printerId: string, checked: boolean): void => {
-    const existing = configurations.find((c) => c.printType === printType && c.printerId === printerId);
+    const existing = PrintConfigurationService.getAll().find((c) => c.printType === printType && c.printerId === printerId);
     if (checked) {
       PrintConfigurationService.upsert({
         id: existing?.id ?? generateId(),
@@ -47,8 +48,9 @@ export const PrintConfigurationPanel: React.FC = () => {
             return (
               <AppSwitch
                 key={printer.id}
-                label={printer.printerName}
+                label={printer.enabled ? printer.printerName : `${printer.printerName} (đã tắt)`}
                 value={checked}
+                disabled={!printer.enabled}
                 onValueChange={(value) => toggle(section.printType, printer.id, value)}
               />
             );

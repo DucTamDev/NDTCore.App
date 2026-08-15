@@ -23,6 +23,12 @@ export interface CartItem {
 
 export type ServiceType = 'DineIn' | 'TakeAway' | 'Delivery';
 
+export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
+  DineIn: 'Tại quầy',
+  TakeAway: 'Mang đi',
+  Delivery: 'Giao hàng',
+};
+
 export interface CreateOrderItemOptionRequest {
   OptionId: number;
   GroupName: string | null;
