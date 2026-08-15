@@ -1,8 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { PrinterManagementPanel } from '../../printer/components/PrinterManagementPanel';
-import { PrintDestinationPanel } from '../../printer/components/PrintDestinationPanel';
-import { PrintRoutingPanel } from '../../printer/components/PrintRoutingPanel';
 import type { SettingsMenuKey } from '../store/settingsSlice';
 
 interface SettingsContentProps {
@@ -12,8 +10,6 @@ interface SettingsContentProps {
 export const SettingsContent: React.FC<SettingsContentProps> = ({ activeSection }) => (
   <View style={styles.container}>
     {activeSection === 'printer' && <PrinterManagementPanel />}
-    {activeSection === 'printDestination' && <PrintDestinationPanel />}
-    {activeSection === 'printRouting' && <PrintRoutingPanel />}
   </View>
 );
 
