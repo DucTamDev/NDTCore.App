@@ -3,9 +3,8 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { selectCurrentStoreId } from '../../store/store/storeSlice';
-import { selectProducts } from '../../catalog/store/catalogSlice';
 import { CartService } from '../services/CartService';
-import { buildOrderFromCart, triggerPrinting } from '../services/OrderPrintTrigger';
+import { buildReceiptDocument, printReceipt } from '../services/OrderPrintTrigger';
 import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import type { CreateOrderResponse } from '../types/cart.types';
@@ -16,10 +15,9 @@ export const useCheckout = () => {
   const items = useSelector((state: RootState) => selectCartItems(state));
   const serviceType = useSelector((state: RootState) => selectServiceType(state));
   const note = useSelector((state: RootState) => selectCartNote(state));
-  const products = useSelector((state: RootState) => selectProducts(state));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unroutedCount, setUnroutedCount] = useState(0);
+  const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
 
   const submit = useCallback(async (): Promise<CreateOrderResponse | null> => {
     if (storeId === null || items.length === 0) return null;
@@ -34,9 +32,9 @@ export const useCheckout = () => {
       }
       dispatch(cartCleared());
       // Không await: submit() phải trả về ngay khi đơn hàng được tạo thành
-      // công, không chờ việc in ấn (fire-and-forget theo spec §6).
-      const order = buildOrderFromCart(response.Data, items, serviceType, products);
-      triggerPrinting(order).then(setUnroutedCount);
+      // công, không chờ việc in ấn (fire-and-forget theo spec §5).
+      const document = buildReceiptDocument(response.Data, items, serviceType);
+      printReceipt(document).then(setNoReceiptPrinterConfigured);
       return response.Data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tạo đơn hàng');
@@ -44,10 +42,10 @@ export const useCheckout = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [dispatch, storeId, items, serviceType, note, products]);
+  }, [dispatch, storeId, items, serviceType, note]);
 
   const dismissError = useCallback(() => setError(null), []);
-  const dismissUnroutedCount = useCallback(() => setUnroutedCount(0), []);
+  const dismissReceiptPrinterWarning = useCallback(() => setNoReceiptPrinterConfigured(false), []);
 
-  return { submit, isSubmitting, error, dismissError, unroutedCount, dismissUnroutedCount };
+  return { submit, isSubmitting, error, dismissError, noReceiptPrinterConfigured, dismissReceiptPrinterWarning };
 };

@@ -1,53 +1,37 @@
-import { OrderPrintPlanner } from '../../printer/services/OrderPrintPlanner';
 import { PrintService } from '../../printer/services/PrintService';
 import { LoggerService } from '../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, ServiceType } from '../types/cart.types';
-import type { ProductViewModel } from '../../catalog/types/catalog.types';
-import type { Order } from '../../printer/types/order.types';
+import type { PrintDocument } from '../../printer/types/printDocument.types';
 
-export const buildOrderFromCart = (
+export const buildReceiptDocument = (
   orderResponse: CreateOrderResponse,
   items: CartItem[],
   serviceType: ServiceType,
-  products: ProductViewModel[],
-): Order => ({
-  id: orderResponse.Id,
-  orderNumber: orderResponse.OrderNumber,
-  serviceType,
-  items: items.map((item) => ({
-    productId: item.productId,
-    productName: item.productName,
-    categoryId: products.find((product) => product.id === item.productId)?.categoryId ?? null,
-    quantity: item.quantity,
-    note: item.note,
-  })),
+): PrintDocument => ({
+  elements: [
+    { type: 'text', content: `Đơn ${orderResponse.OrderNumber} · ${serviceType}`, x: 0, y: 0 },
+    { type: 'line', x: 0, y: 20 },
+    { type: 'table', rows: items.map((item) => [item.productName, String(item.quantity), item.note]), x: 0, y: 30 },
+  ],
 });
 
 /**
- * Kích hoạt việc in đơn hàng theo kiểu "fire-and-forget": lập kế hoạch in
- * (routing theo destination) rồi gửi từng plan tới `PrintService`. Hàm này
- * không bao giờ reject — mọi lỗi (lập kế hoạch thất bại hoặc in thất bại)
- * đều được nuốt và ghi log cảnh báo, để lời gọi `submit()` phía trên không
- * bị ảnh hưởng bởi kết quả in ấn.
+ * Kích hoạt in hoá đơn theo kiểu "fire-and-forget": gửi thẳng 1 document cho
+ * toàn bộ đơn tới PrintService. Không bao giờ reject — mọi lỗi đều bị nuốt
+ * và ghi log cảnh báo, để submit() phía trên không bị ảnh hưởng.
  *
- * Triggers order printing "fire-and-forget": builds print plans (routed by
- * destination) then sends each plan to `PrintService`. This never rejects —
- * every failure (planning or printing) is swallowed and logged as a warning,
- * so the calling `submit()` is unaffected by the printing outcome.
+ * Triggers receipt printing "fire-and-forget": sends one document for the
+ * whole order straight to PrintService. Never rejects — every error is
+ * swallowed and logged as a warning, so the calling submit() is unaffected.
  *
- * @returns Số lượng món không xác định được điểm in (unrouted items count).
+ * @returns true nếu chưa thiết lập máy in cho Hoá đơn (no-available-printer).
  */
-export const triggerPrinting = async (order: Order): Promise<number> => {
-  let unroutedCount = 0;
+export const printReceipt = async (document: PrintDocument): Promise<boolean> => {
   try {
-    const { plans, unrouted } = await OrderPrintPlanner.createPlans(order);
-    unroutedCount = unrouted.length;
-    if (unroutedCount > 0) {
-      LoggerService.warning(`Đơn ${order.orderNumber}: ${unroutedCount} món chưa có cấu hình in`);
-    }
-    await Promise.all(plans.map((plan) => PrintService.print(plan)));
+    const result = await PrintService.print('Receipt', document);
+    return result.status === 'no-available-printer';
   } catch (err) {
-    LoggerService.warning(`Đơn ${order.orderNumber}: in thất bại — ${String(err)}`);
+    LoggerService.warning(`In hoá đơn thất bại: ${String(err)}`);
+    return false;
   }
-  return unroutedCount;
 };

@@ -12,7 +12,7 @@ describe('print job types', () => {
   it('accepts a pending PrintJob', () => {
     const job: PrintJob = {
       id: 'job1',
-      planId: 'plan1',
+      requestId: 'req1',
       printerId: 'p1',
       document,
       status: 'pending',

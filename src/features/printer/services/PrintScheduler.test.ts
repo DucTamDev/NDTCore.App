@@ -4,7 +4,7 @@ import type { PrintJob } from '../types/printJob.types';
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1',
-  planId: 'plan1',
+  requestId: 'req1',
   printerId: 'p1',
   document: { elements: [] },
   status: 'pending',

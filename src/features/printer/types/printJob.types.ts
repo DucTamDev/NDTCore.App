@@ -12,7 +12,7 @@ export type PrintJobStatus = 'pending' | 'printing' | 'success' | 'failed' | 'ca
 
 export interface PrintJob {
   id: string;
-  planId: string;
+  requestId: string;
   printerId: string;
   document: PrintDocument;
   status: PrintJobStatus;
