@@ -101,7 +101,7 @@ getDefaultPrinterIdsForType(printType: PrintType): string[]
 
 `getDefaultPrinterIdsForType` is the one method `PrintService` actually needs: filters to `printType` match + `isDefault && isEnabled`, returns `printerId[]`. It does **not** cross-reference `Printer.enabled` — that's `PrintService`'s job (§4), same separation-of-concerns the old branch already established (`PrintConfigurationService` doesn't know about `PrinterService`).
 
-New `src/features/printer/store/printConfigurationSlice.ts`, mirroring `printerSlice`'s shape (`configurationsLoaded`/`configurationUpserted`/`configurationRemoved`, `selectPrintConfigurations`). Registered in `src/store/index.ts` as `printConfiguration: printConfigurationReducer`.
+**No Redux slice.** The old branch's final review flagged `destinationSlice`/`printRuleSlice` as dead code — nothing ever dispatched into them, because `PrinterManagementPanel.tsx` (the established pattern this feature's panel follows, §6) keeps its own list in local `useState` and re-reads from the service after every mutation, not from Redux. Adding `printConfigurationSlice` here would repeat that exact, already-identified mistake. `PrintConfigurationService.getAll()` is the only read path; the panel and `PrintService` both call it directly.
 
 ## 4. `PrintService` (rewritten)
 
@@ -202,7 +202,7 @@ Wire into Settings: `SettingsMenuKey` gains `'printConfiguration'` (replacing th
 
 ## Testing
 
-- `.test.ts` for: `PrintConfigurationService`, `printConfigurationSlice`, `PrintService` (empty-list/no-available-printer, all-succeed, partial-failure, all-fail — same shape of cases the old branch's `PrintService.test.ts` already had, minus the failover-specific cases which no longer apply), `buildReceiptDocument`, `printReceipt` (fire-and-forget contract, mirroring the old branch's `OrderPrintTrigger.test.ts` coverage).
+- `.test.ts` for: `PrintConfigurationService`, `PrintService` (empty-list/no-available-printer, all-succeed, partial-failure, all-fail — same shape of cases the old branch's `PrintService.test.ts` already had, minus the failover-specific cases which no longer apply), `buildReceiptDocument`, `printReceipt` (fire-and-forget contract, mirroring the old branch's `OrderPrintTrigger.test.ts` coverage).
 - No `.test.ts` for `PrintConfigurationPanel.tsx` (pure presentational + form panel, per this repo's convention) or `useCheckout.ts` itself (same hook-testing-infrastructure gap noted in the prior spec — unchanged, still out of this repo's reach without a new dependency).
 
 ## Out of scope
