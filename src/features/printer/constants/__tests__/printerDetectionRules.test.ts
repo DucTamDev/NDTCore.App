@@ -1,5 +1,5 @@
 // src/features/printer/constants/printerDetectionRules.test.ts
-import { PRINTER_DETECTION_RULES } from './printerDetectionRules';
+import { PRINTER_DETECTION_RULES } from '../printerDetectionRules';
 
 describe('PRINTER_DETECTION_RULES', () => {
   it('ends with a catch-all fallback rule with low confidence', () => {

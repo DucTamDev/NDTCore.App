@@ -1,5 +1,5 @@
 // src/features/printer/schemas/printerFormSchema.test.ts
-import { lanConnectionSchema, printerDisplaySchema } from './printerFormSchema';
+import { lanConnectionSchema, printerDisplaySchema } from '../printerFormSchema';
 
 describe('lanConnectionSchema', () => {
   it('accepts a valid IP and port', () => {

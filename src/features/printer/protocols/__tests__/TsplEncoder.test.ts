@@ -1,5 +1,5 @@
 // src/features/printer/protocols/TsplEncoder.test.ts
-import { TsplEncoder } from './TsplEncoder';
+import { TsplEncoder } from '../TsplEncoder';
 
 describe('TsplEncoder', () => {
   const decode = (bytes: Uint8Array): string => String.fromCharCode(...Array.from(bytes));
