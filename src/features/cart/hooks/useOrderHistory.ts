@@ -12,12 +12,25 @@ export const getTodayRange = (now: Date): { fromDate: string; toDate: string } =
   return { fromDate: startOfDay.toISOString(), toDate: now.toISOString() };
 };
 
+/**
+ * Đánh dấu 1 đơn bắt đầu in lại — dùng Set thay vì 1 id đơn lẻ vì cashier có
+ * thể bấm "In lại" ở nhiều đơn gần nhau trước khi đơn trước đó in xong; mỗi
+ * đơn phải giữ trạng thái loading độc lập, không được đơn sau ghi đè đơn trước.
+ */
+export const startReprint = (ids: ReadonlySet<number>, orderId: number): Set<number> => new Set(ids).add(orderId);
+
+export const finishReprint = (ids: ReadonlySet<number>, orderId: number): Set<number> => {
+  const next = new Set(ids);
+  next.delete(orderId);
+  return next;
+};
+
 export const useOrderHistory = () => {
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reprintingId, setReprintingId] = useState<number | null>(null);
+  const [reprintingIds, setReprintingIds] = useState<Set<number>>(new Set());
   const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -44,7 +57,8 @@ export const useOrderHistory = () => {
   }, [refresh]);
 
   const reprint = useCallback(async (orderId: number): Promise<void> => {
-    setReprintingId(orderId);
+    setReprintingIds((prev) => startReprint(prev, orderId));
+    setError(null);
     try {
       const response = await orderApi.getOrderByIdAsync(orderId);
       if (!response.IsSuccess || !response.Data) {
@@ -55,7 +69,7 @@ export const useOrderHistory = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'In lại thất bại');
     } finally {
-      setReprintingId(null);
+      setReprintingIds((prev) => finishReprint(prev, orderId));
     }
   }, []);
 
@@ -68,7 +82,7 @@ export const useOrderHistory = () => {
     error,
     dismissError,
     reprint,
-    reprintingId,
+    reprintingIds,
     noReceiptPrinterConfigured,
     dismissReceiptPrinterWarning,
     refresh,

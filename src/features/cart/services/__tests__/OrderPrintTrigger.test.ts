@@ -42,6 +42,11 @@ describe('buildReprintDocument', () => {
     const table = document.elements.find((el) => el.type === 'table');
     expect(table).toMatchObject({ rows: [['Trà sữa', '2', '']] });
   });
+
+  it('falls back to the raw ServiceType string instead of printing "undefined" when the value is not a known service type', () => {
+    const document = buildReprintDocument({ ...orderDetail, ServiceType: 'PhoneOrder' });
+    expect(document.elements[0]).toEqual({ type: 'text', content: 'Đơn ORD-001 · PhoneOrder (In lại)', x: 0, y: 0 });
+  });
 });
 
 describe('printReceipt', () => {

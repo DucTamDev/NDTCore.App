@@ -16,18 +16,27 @@ export const buildReceiptDocument = (
   ],
 });
 
+const isServiceType = (value: string): value is ServiceType => value in SERVICE_TYPE_LABELS;
+
 /**
  * Dựng lại document in từ một đơn đã đặt trước đó (ví dụ: xem lịch sử đơn
  * hôm nay rồi bấm in lại) — cùng khuôn dạng với buildReceiptDocument, thêm
  * nhãn "(In lại)" để phân biệt với bill gốc lúc thanh toán.
+ *
+ * order.ServiceType đến thẳng từ API, không được validate — nếu gặp giá trị
+ * lạ (dữ liệu cũ, kênh mới chưa có nhãn), in nguyên chuỗi gốc thay vì
+ * "undefined" ra giấy thật.
  */
-export const buildReprintDocument = (order: OrderDetail): PrintDocument => ({
-  elements: [
-    { type: 'text', content: `Đơn ${order.OrderNumber} · ${SERVICE_TYPE_LABELS[order.ServiceType]} (In lại)`, x: 0, y: 0 },
-    { type: 'line', x: 0, y: 20 },
-    { type: 'table', rows: order.Items.map((item) => [item.ProductName, String(item.Quantity), item.Note ?? '']), x: 0, y: 30 },
-  ],
-});
+export const buildReprintDocument = (order: OrderDetail): PrintDocument => {
+  const serviceTypeLabel = isServiceType(order.ServiceType) ? SERVICE_TYPE_LABELS[order.ServiceType] : order.ServiceType;
+  return {
+    elements: [
+      { type: 'text', content: `Đơn ${order.OrderNumber} · ${serviceTypeLabel} (In lại)`, x: 0, y: 0 },
+      { type: 'line', x: 0, y: 20 },
+      { type: 'table', rows: order.Items.map((item) => [item.ProductName, String(item.Quantity), item.Note ?? '']), x: 0, y: 30 },
+    ],
+  };
+};
 
 /**
  * Kích hoạt in hoá đơn theo kiểu "fire-and-forget": gửi thẳng 1 document cho

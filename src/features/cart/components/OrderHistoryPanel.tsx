@@ -14,7 +14,7 @@ export const OrderHistoryPanel: React.FC = () => {
     error,
     dismissError,
     reprint,
-    reprintingId,
+    reprintingIds,
     noReceiptPrinterConfigured,
     dismissReceiptPrinterWarning,
     refresh,
@@ -30,7 +30,7 @@ export const OrderHistoryPanel: React.FC = () => {
         keyExtractor={(item: OrderHistoryItem) => String(item.Id)}
         contentContainerStyle={orders.length === 0 ? styles.emptyContent : styles.listContent}
         renderItem={({ item }) => (
-          <OrderHistoryListItem order={item} isReprinting={reprintingId === item.Id} onReprint={reprint} />
+          <OrderHistoryListItem order={item} isReprinting={reprintingIds.has(item.Id)} onReprint={reprint} />
         )}
         ListEmptyComponent={!isLoading ? <EmptyState message="Chưa có đơn hàng nào hôm nay" /> : null}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refresh} />}

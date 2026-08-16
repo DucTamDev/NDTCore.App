@@ -20,7 +20,11 @@ export const useCheckout = () => {
   const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
 
   const submit = useCallback(async (): Promise<CreateOrderResponse | null> => {
-    if (storeId === null || items.length === 0) return null;
+    if (items.length === 0) return null;
+    if (storeId === null) {
+      setError('Chưa chọn cửa hàng, không thể tạo đơn hàng');
+      return null;
+    }
 
     setIsSubmitting(true);
     setError(null);

@@ -98,6 +98,8 @@ export interface OrderDetailItem {
 export interface OrderDetail {
   Id: number;
   OrderNumber: string;
-  ServiceType: ServiceType;
+  // Chuỗi thô từ API, chưa chắc khớp union ServiceType (dữ liệu cũ, kênh
+  // mới) — nơi dùng phải tự kiểm tra, không ép kiểu.
+  ServiceType: string;
   Items: OrderDetailItem[];
 }
