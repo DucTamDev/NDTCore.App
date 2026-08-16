@@ -1,4 +1,4 @@
-import type { AppError } from '../../../types/AppError';
+import type { AppError } from './AppError';
 import type { PrintDocument } from './printDocument.types';
 
 export type PrintJobStatus = 'pending' | 'printing' | 'success' | 'failed' | 'cancelled';

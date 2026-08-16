@@ -40,7 +40,7 @@ export const SettingsSidebarItem: React.FC<SettingsSidebarItemProps> = ({
         {item.label}
       </Text>
       {!item.disabled && item.key === 'printer' && hasConnectedPrinter && (
-        <StatusDot status="connected" />
+        <StatusDot color="#16A34A" />
       )}
       {!item.disabled && !isTablet && (
         <Icon source="chevron-right" size={16} color={theme.colors.outline} />

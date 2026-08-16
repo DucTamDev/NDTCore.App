@@ -19,7 +19,9 @@ interface HttpRequestConfig extends InternalAxiosRequestConfig {
 }
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
-const IDEMPOTENT_METHODS = new Set(['get', 'head', 'put', 'delete']);
+// Chỉ liệt kê method thực sự được client export (get/getPaged) — client chưa
+// có put/delete/head nên không đưa vào đây, tránh cấu hình chết gây hiểu nhầm.
+const IDEMPOTENT_METHODS = new Set(['get']);
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 const ACCESS_TOKEN_EXPIRED_CODE = 'ACCESS_TOKEN_EXPIRED';
@@ -35,9 +37,17 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 const getErrorCode = (error: AxiosError): string | undefined =>
   (error.response?.data as ApiResponse<unknown> | undefined)?.Error?.ErrorCode;
 
-const toApiError = (error: AxiosError): Error => {
+export interface HttpApiError extends Error {
+  code?: string;
+  status?: number;
+}
+
+const toApiError = (error: AxiosError): HttpApiError => {
   const message = (error.response?.data as ApiResponse<unknown> | undefined)?.Error?.Message;
-  return new Error(message ?? 'Yêu cầu thất bại');
+  const apiError = new Error(message ?? 'Yêu cầu thất bại', { cause: error }) as HttpApiError;
+  apiError.code = getErrorCode(error);
+  apiError.status = error.response?.status;
+  return apiError;
 };
 
 export const createHttpClient = (instance: AxiosInstance) => {

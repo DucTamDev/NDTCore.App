@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { USBPrinter, BLEPrinter, NetPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
-import { AppErrorException, type AppErrorCode } from '../../../types/AppError';
+import { AppErrorException, type AppErrorCode } from '../types/AppError';
 import type { PrintDocument } from '../types/printDocument.types';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 import { PrinterLogger } from '../services/PrinterLogger';

@@ -1,7 +1,7 @@
 // src/features/printer/transports/BluetoothTransport.ts
 import RNBluetoothClassic, { type BluetoothDevice } from 'react-native-bluetooth-classic';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../../../types/AppError';
+import { AppErrorException } from '../types/AppError';
 
 export class BluetoothTransport {
   private device: BluetoothDevice | null = null;

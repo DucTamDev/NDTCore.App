@@ -1,5 +1,5 @@
 // src/features/printer/transports/UsbTransport.ts
-import { AppErrorException } from '../../../types/AppError';
+import { AppErrorException } from '../types/AppError';
 
 const UNSUPPORTED_MESSAGE = 'Kết nối USB cho máy in tem (TSPL) chưa được hỗ trợ trong Phase 1';
 

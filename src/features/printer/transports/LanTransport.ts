@@ -1,7 +1,7 @@
 // src/features/printer/transports/LanTransport.ts
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../../../types/AppError';
+import { AppErrorException } from '../types/AppError';
 
 /**
  * `react-native-tcp-socket` không export type `Socket` ở top-level (chỉ export

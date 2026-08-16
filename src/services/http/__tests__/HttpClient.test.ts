@@ -155,6 +155,21 @@ describe('HttpClient', () => {
     unsubscribe();
   });
 
+  it('preserves the status, ErrorCode, and original AxiosError on a rejected request', async () => {
+    mock.onPost('/orders').reply(400, {
+      IsSuccess: false,
+      Data: null,
+      Message: null,
+      Error: { ErrorCode: 'VALIDATION_ERROR', Message: 'Số lượng không hợp lệ' },
+    });
+
+    await expect(client.post('/orders', { item: 'x' })).rejects.toMatchObject({
+      message: 'Số lượng không hợp lệ',
+      code: 'VALIDATION_ERROR',
+      status: 400,
+    });
+  });
+
   it('does not retry a failing POST request (non-idempotent)', async () => {
     let callCount = 0;
     mock.onPost('/orders').reply(() => {

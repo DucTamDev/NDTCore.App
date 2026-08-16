@@ -1,6 +1,6 @@
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { Protocol, PrinterStatus } from '../types/printer.types';
-import { AppErrorException } from '../../../types/AppError';
+import { AppErrorException } from '../types/AppError';
 
 class WebUnsupportedDriver implements IPrinterDriver {
   scan(): Unsubscribe {

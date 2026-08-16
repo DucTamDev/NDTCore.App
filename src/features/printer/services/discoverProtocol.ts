@@ -7,7 +7,7 @@ import type {
   PrinterLanConfig,
   Protocol,
 } from '../types/printer.types';
-import type { AppError } from '../../../types/AppError';
+import type { AppError } from '../types/AppError';
 import { PRINTER_DETECTION_RULES, type PrinterDetectionRule } from '../constants/printerDetectionRules';
 import { PrinterLogger } from './PrinterLogger';
 

@@ -2,6 +2,9 @@
  * @jest-environment jsdom
  */
 import { StorageService } from '../StorageService.web';
+import { LoggerService } from '../LoggerService';
+
+jest.mock('../LoggerService', () => ({ LoggerService: { warning: jest.fn() } }));
 
 describe('StorageService (web)', () => {
   const key = 'test.key';
@@ -29,5 +32,16 @@ describe('StorageService (web)', () => {
   it('persists through window.localStorage directly', () => {
     StorageService.setItem(key, 'raw-value');
     expect(window.localStorage.getItem(key)).toBe(JSON.stringify('raw-value'));
+  });
+
+  it('does not throw when window.localStorage.setItem throws (private mode / quota exceeded)', () => {
+    const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    expect(() => StorageService.setItem(key, 'raw-value')).not.toThrow();
+    expect(LoggerService.warning).toHaveBeenCalled();
+
+    spy.mockRestore();
   });
 });

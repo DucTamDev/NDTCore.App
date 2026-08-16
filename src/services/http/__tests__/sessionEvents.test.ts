@@ -28,4 +28,17 @@ describe('sessionEvents', () => {
     unsubscribeFirst();
     unsubscribeSecond();
   });
+
+  it('still notifies later listeners when an earlier one throws', () => {
+    const throwing = jest.fn(() => {
+      throw new Error('lỗi trong listener');
+    });
+    const second = jest.fn();
+    const unsubscribeThrowing = onSessionExpired(throwing);
+    const unsubscribeSecond = onSessionExpired(second);
+    emitSessionExpired();
+    expect(second).toHaveBeenCalledTimes(1);
+    unsubscribeThrowing();
+    unsubscribeSecond();
+  });
 });

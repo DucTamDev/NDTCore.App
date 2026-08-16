@@ -14,7 +14,7 @@ import { selectCurrentStoreId } from '../features/store/store/storeSlice';
 import { StoreService } from '../features/store/services/StoreService';
 import { onSessionExpired } from '../services/http/sessionEvents';
 import type { AppDispatch, RootState } from '../store';
-import type { RootTabParamList } from './types';
+import type { AuthStackParamList, RootTabParamList, StoreSelectStackParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -47,10 +47,6 @@ const AppTabs: React.FC = () => (
   </Tab.Navigator>
 );
 
-type AuthStackParamList = {
-  Login: undefined;
-};
-
 const AuthNativeStack = createNativeStackNavigator<AuthStackParamList>();
 
 const AuthStack: React.FC = () => (
@@ -58,10 +54,6 @@ const AuthStack: React.FC = () => (
     <AuthNativeStack.Screen name="Login" component={LoginScreen} />
   </AuthNativeStack.Navigator>
 );
-
-type StoreSelectStackParamList = {
-  StoreSelect: undefined;
-};
 
 const StoreSelectNativeStack = createNativeStackNavigator<StoreSelectStackParamList>();
 

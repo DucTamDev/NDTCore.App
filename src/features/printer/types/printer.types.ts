@@ -1,4 +1,4 @@
-import type { AppError } from '../../../types/AppError';
+import type { AppError } from './AppError';
 
 export type Protocol = 'escpos' | 'tspl';
 export type ConnectionType = 'usb' | 'bluetooth' | 'lan';

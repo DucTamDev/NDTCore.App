@@ -1,5 +1,5 @@
 import { LoggerService } from '../../../services/LoggerService';
-import type { AppErrorCode } from '../../../types/AppError';
+import type { AppErrorCode } from '../types/AppError';
 import type { ConnectionType, Protocol } from '../types/printer.types';
 
 /**

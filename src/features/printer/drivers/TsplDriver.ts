@@ -7,7 +7,7 @@ import { TsplEncoder } from '../protocols/TsplEncoder';
 import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
 import { UsbTransport } from '../transports/UsbTransport';
-import { AppErrorException, type AppErrorCode } from '../../../types/AppError';
+import { AppErrorException, type AppErrorCode } from '../types/AppError';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 import { PrinterLogger } from '../services/PrinterLogger';
 

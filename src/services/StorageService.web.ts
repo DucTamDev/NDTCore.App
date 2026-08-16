@@ -1,3 +1,5 @@
+import { LoggerService } from './LoggerService';
+
 class StorageServiceImpl {
   getItem<T>(key: string): T | null {
     const raw = window.localStorage.getItem(key);
@@ -10,7 +12,14 @@ class StorageServiceImpl {
   }
 
   setItem<T>(key: string, value: T): void {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    // localStorage.setItem có thể throw (Safari private mode, vượt quota) —
+    // không có tương ứng ở bản native (StorageService.ts dùng MMKV), nên
+    // bọc riêng ở đây thay vì để lỗi văng lên tận UI.
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+      LoggerService.warning(`Không thể lưu vào localStorage: ${String(err)}`);
+    }
   }
 
   removeItem(key: string): void {

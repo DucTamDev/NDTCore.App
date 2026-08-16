@@ -1,4 +1,4 @@
-import { AppErrorException, type AppError } from '../../../types/AppError';
+import { AppErrorException, type AppError } from '../types/AppError';
 import { PrinterService } from './PrinterService';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import type { PrintJob } from '../types/printJob.types';
