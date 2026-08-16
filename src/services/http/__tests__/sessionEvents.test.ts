@@ -1,4 +1,4 @@
-import { onSessionExpired, emitSessionExpired } from './sessionEvents';
+import { onSessionExpired, emitSessionExpired } from '../sessionEvents';
 
 describe('sessionEvents', () => {
   it('calls registered listeners when session expires', () => {

@@ -1,7 +1,7 @@
 import {
   getLayoutMode,
   TABLET_MIN_DP,
-} from './useLayoutMode';
+} from '../useLayoutMode';
 
 describe('getLayoutMode', () => {
   describe('tablet layout', () => {

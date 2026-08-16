@@ -1,14 +1,14 @@
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { createHttpClient } from './HttpClient';
-import { getStoredTokens, saveTokens, clearTokens } from './authTokenStorage';
-import { onSessionExpired } from './sessionEvents';
+import { createHttpClient } from '../HttpClient';
+import { getStoredTokens, saveTokens, clearTokens } from '../authTokenStorage';
+import { onSessionExpired } from '../sessionEvents';
 
-jest.mock('./refreshTokenRequest', () => ({
+jest.mock('../refreshTokenRequest', () => ({
   refreshTokenRequest: jest.fn(),
 }));
 
-import { refreshTokenRequest } from './refreshTokenRequest';
+import { refreshTokenRequest } from '../refreshTokenRequest';
 
 const setStoredTokens = (accessToken: string, refreshToken: string): void => {
   saveTokens({

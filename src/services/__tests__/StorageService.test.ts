@@ -1,4 +1,4 @@
-import { StorageService } from './StorageService';
+import { StorageService } from '../StorageService';
 
 describe('StorageService', () => {
   const key = 'test.key';

@@ -1,4 +1,4 @@
-import { getStoredTokens, saveTokens, clearTokens } from './authTokenStorage';
+import { getStoredTokens, saveTokens, clearTokens } from '../authTokenStorage';
 
 const sampleTokens = {
   accessToken: 'access-1',

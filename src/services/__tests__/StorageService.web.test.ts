@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { StorageService } from './StorageService.web';
+import { StorageService } from '../StorageService.web';
 
 describe('StorageService (web)', () => {
   const key = 'test.key';
