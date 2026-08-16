@@ -11,10 +11,10 @@ import reducer, {
   selectCartNote,
   selectCartItemCount,
   selectCartTotal,
-} from './cartSlice';
-import { loggedOut } from '../../auth/store/authSlice';
-import { storeCleared } from '../../store/store/storeSlice';
-import type { CartItem } from '../types/cart.types';
+} from '../cartSlice';
+import { loggedOut } from '../../../auth/store/authSlice';
+import { storeCleared } from '../../../store/store/storeSlice';
+import type { CartItem } from '../../types/cart.types';
 
 const itemA: CartItem = {
   key: 'a',

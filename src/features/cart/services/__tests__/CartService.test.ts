@@ -1,6 +1,6 @@
-import { CartService } from './CartService';
-import type { CartItem } from '../types/cart.types';
-import type { OptionGroupViewModel, ProductViewModel } from '../../catalog/types/catalog.types';
+import { CartService } from '../CartService';
+import type { CartItem } from '../../types/cart.types';
+import type { OptionGroupViewModel, ProductViewModel } from '../../../catalog/types/catalog.types';
 
 function makeProduct(overrides: Partial<ProductViewModel> = {}): ProductViewModel {
   return {

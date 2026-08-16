@@ -1,10 +1,10 @@
-import { buildReceiptDocument, printReceipt } from './OrderPrintTrigger';
-import { PrintService } from '../../printer/services/PrintService';
-import { LoggerService } from '../../../services/LoggerService';
-import type { CartItem, CreateOrderResponse } from '../types/cart.types';
+import { buildReceiptDocument, printReceipt } from '../OrderPrintTrigger';
+import { PrintService } from '../../../printer/services/PrintService';
+import { LoggerService } from '../../../../services/LoggerService';
+import type { CartItem, CreateOrderResponse } from '../../types/cart.types';
 
-jest.mock('../../printer/services/PrintService');
-jest.mock('../../../services/LoggerService');
+jest.mock('../../../printer/services/PrintService');
+jest.mock('../../../../services/LoggerService');
 
 const item: CartItem = {
   key: 'k1', productId: 1, productCode: 'SKU1', productName: 'Trà sữa', imageUrl: null,
