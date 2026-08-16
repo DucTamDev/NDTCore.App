@@ -112,10 +112,11 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
-  const resetConnectionResult = (): void => {
-    discoveryUnsubscribeRef.current?.();
-    discoveryUnsubscribeRef.current = null;
-    setConnectionState('idle');
+  // Dùng chung bởi resetConnectionResult (huỷ kết quả, quay về 'idle') và
+  // startDiscovery (chuẩn bị bắt đầu 1 lượt dò mới, quay về 'connecting') —
+  // 2 nơi reset cùng 1 tập field, chỉ khác giá trị connectionState đích.
+  const resetDiscoveryFields = (nextConnectionState: ConnectionState): void => {
+    setConnectionState(nextConnectionState);
     setProtocolState('idle');
     setProtocol(undefined);
     setProtocolSource(undefined);
@@ -125,15 +126,14 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setConnectionDirty(true);
   };
 
+  const resetConnectionResult = (): void => {
+    discoveryUnsubscribeRef.current?.();
+    discoveryUnsubscribeRef.current = null;
+    resetDiscoveryFields('idle');
+  };
+
   const startDiscovery = (lan?: { ip: string; port: number }): void => {
-    setCanTestPrint(false);
-    setConnectionDirty(true);
-    setConnectionState('connecting');
-    setProtocolState('idle');
-    setProtocol(undefined);
-    setProtocolSource(undefined);
-    setDeviceInfo(undefined);
-    setConnectionErrorMessage(undefined);
+    resetDiscoveryFields('connecting');
     discoveryUnsubscribeRef.current = PrinterService.discoverProtocol(
       {
         printerId,

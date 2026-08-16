@@ -35,6 +35,9 @@ export const createResourceLock = () => {
         queue.shift();
       }
     } finally {
+      // Dọn entry rỗng — số key thực tế bị giới hạn (protocol × connectionType)
+      // nên không phải rò rỉ thực sự, chỉ để map không tích luỹ entry chết.
+      queues.delete(key);
       processing.delete(key);
     }
   };

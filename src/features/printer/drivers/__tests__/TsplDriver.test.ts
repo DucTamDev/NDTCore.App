@@ -223,6 +223,17 @@ describe('TsplDriver', () => {
     );
   });
 
+  it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
+    const driver = new TsplDriver();
+    await expect(driver.testPrint(usbConfig)).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
+      PrinterLogger: { testPrintFailed: jest.Mock };
+    };
+    expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: usbConfig.id, protocol: 'tspl', errorCode: 'UNSUPPORTED_CONNECTION' }),
+    );
+  });
+
   it('scan("bluetooth") checks permission before calling RNBluetoothClassic.startDiscovery()', async () => {
     const driver = new TsplDriver();
     const events: string[] = [];

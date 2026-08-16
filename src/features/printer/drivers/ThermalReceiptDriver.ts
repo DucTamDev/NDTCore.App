@@ -327,16 +327,18 @@ export class ThermalReceiptDriver implements IPrinterDriver {
   }
 
   async testPrint(config: PrinterConfig): Promise<void> {
-    // Reconnect không chỉ khi chưa từng connect, mà cả khi printer này đã
-    // từng connect nhưng không còn là chủ sở hữu hiện tại của kết nối native
-    // cùng connectionType (đã bị 1 printer khác "cướp" kết nối ngầm) — nếu
-    // không, sẽ in nhầm lên printer đang thực sự chiếm kết nối.
-    const isStaleOwner = this.activeByType.get(config.connectionType) !== config.id;
-    if (!this.connectedTypes.has(config.id) || isStaleOwner) {
-      await this.connect(config);
-    }
     const startedAt = Date.now();
     try {
+      // Reconnect không chỉ khi chưa từng connect, mà cả khi printer này đã
+      // từng connect nhưng không còn là chủ sở hữu hiện tại của kết nối native
+      // cùng connectionType (đã bị 1 printer khác "cướp" kết nối ngầm) — nếu
+      // không, sẽ in nhầm lên printer đang thực sự chiếm kết nối. Nằm trong
+      // try/catch để lỗi reconnect cũng được ghi testPrintFailed, không phải
+      // chỉ mỗi connectFailed nội bộ của connect().
+      const isStaleOwner = this.activeByType.get(config.connectionType) !== config.id;
+      if (!this.connectedTypes.has(config.id) || isStaleOwner) {
+        await this.connect(config);
+      }
       const connectionType = this.connectedTypes.get(config.id);
       if (!connectionType) return;
       await this.printTextAsync(connectionType, '<C>NDTCore POS - In thu\n</C>');

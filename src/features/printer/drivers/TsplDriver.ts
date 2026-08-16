@@ -163,11 +163,13 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async testPrint(config: PrinterConfig): Promise<void> {
-    if (!this.connections.has(config.id)) {
-      await this.connect(config);
-    }
     const startedAt = Date.now();
     try {
+      // Nằm trong try/catch để lỗi reconnect cũng được ghi testPrintFailed,
+      // không phải chỉ mỗi connectFailed nội bộ của connect().
+      if (!this.connections.has(config.id)) {
+        await this.connect(config);
+      }
       const transport = this.connections.get(config.id);
       const bytes = new TsplEncoder()
         .initialize(config.paperSize)

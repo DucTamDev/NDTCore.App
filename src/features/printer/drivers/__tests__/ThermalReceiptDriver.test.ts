@@ -359,6 +359,21 @@ describe('ThermalReceiptDriver', () => {
     );
   });
 
+  it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
+    const { ensureBluetoothPermission } = jest.requireMock('../../services/PrinterPermissionService') as {
+      ensureBluetoothPermission: jest.Mock;
+    };
+    ensureBluetoothPermission.mockResolvedValueOnce(false);
+    const driver = new ThermalReceiptDriver();
+    await expect(driver.testPrint(bleConfig)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
+      PrinterLogger: { testPrintFailed: jest.Mock };
+    };
+    expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: bleConfig.id, protocol: 'escpos', errorCode: 'CONNECTION_ERROR' }),
+    );
+  });
+
   it('testPrint() logs testPrintFailed when printText fails', async () => {
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       NetPrinter: { printText: jest.Mock };
