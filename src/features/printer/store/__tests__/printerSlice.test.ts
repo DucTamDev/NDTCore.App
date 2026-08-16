@@ -7,8 +7,8 @@ import printerReducer, {
   printerEnabledChanged,
   selectPrinters,
   selectPrinterStatus,
-} from './printerSlice';
-import type { PrinterConfig } from '../types/printer.types';
+} from '../printerSlice';
+import type { PrinterConfig } from '../../types/printer.types';
 
 const printer: PrinterConfig = {
   id: 'p1',
