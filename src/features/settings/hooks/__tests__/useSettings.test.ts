@@ -1,4 +1,4 @@
-import { getSettingsView } from './useSettings';
+import { getSettingsView } from '../useSettings';
 
 describe('getSettingsView', () => {
   describe('phone', () => {

@@ -1,4 +1,4 @@
-import reducer, { activeMenuKeyChanged, selectActiveMenuKey } from './settingsSlice';
+import reducer, { activeMenuKeyChanged, selectActiveMenuKey } from '../settingsSlice';
 
 describe('settingsSlice', () => {
   const initialState = reducer(undefined, { type: '@@INIT' });
