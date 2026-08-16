@@ -55,7 +55,7 @@ Move each `.test.ts` file into a `__tests__/` subfolder in its current directory
 | `src/services/http/authTokenStorage.test.ts` | `src/services/http/__tests__/authTokenStorage.test.ts` |
 | `src/services/http/sessionEvents.test.ts` | `src/services/http/__tests__/sessionEvents.test.ts` |
 
-Each move: `git mv` the file (preserves history), then adjust every relative `import`/`jest.mock(...)` path inside it by prepending one `../`. No other content in any moved file changes. The source file being tested is never touched.
+Each move: `git mv` the file (preserves history), then adjust every **relative** `import`/`jest.mock(...)` path inside it (i.e. anything starting with `./` or `../`) by prepending one `../`. Bare-specifier `jest.mock('package-name')` calls (mocking an installed package, e.g. `jest.mock('react-native-mmkv')`) are npm-resolved, not relative — they need no change. No other content in any moved file changes. The source file being tested is never touched.
 
 ## 2. `StoreCard` extraction
 
