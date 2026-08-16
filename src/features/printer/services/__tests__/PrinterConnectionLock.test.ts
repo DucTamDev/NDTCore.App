@@ -1,4 +1,4 @@
-import { connectionResourceKey, createResourceLock } from './PrinterConnectionLock';
+import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
 
 describe('connectionResourceKey', () => {
   it('joins protocol and connectionType with a colon', () => {

@@ -1,6 +1,6 @@
-import { createPrintConfigurationService } from './PrintConfigurationService';
-import { StorageService } from '../../../services/StorageService';
-import type { PrintConfiguration } from '../types/printConfiguration.types';
+import { createPrintConfigurationService } from '../PrintConfigurationService';
+import { StorageService } from '../../../../services/StorageService';
+import type { PrintConfiguration } from '../../types/printConfiguration.types';
 
 const receiptConfig: PrintConfiguration = { id: 'c1', printType: 'Receipt', printerId: 'p1', isDefault: true, isEnabled: true };
 const labelConfig: PrintConfiguration = { id: 'c2', printType: 'Label', printerId: 'p2', isDefault: true, isEnabled: true };

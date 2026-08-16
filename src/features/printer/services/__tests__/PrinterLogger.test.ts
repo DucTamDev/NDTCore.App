@@ -1,7 +1,7 @@
-import { LoggerService } from '../../../services/LoggerService';
-import { PrinterLogger } from './PrinterLogger';
+import { LoggerService } from '../../../../services/LoggerService';
+import { PrinterLogger } from '../PrinterLogger';
 
-jest.mock('../../../services/LoggerService', () => ({
+jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: {
     info: jest.fn(),
     warning: jest.fn(),

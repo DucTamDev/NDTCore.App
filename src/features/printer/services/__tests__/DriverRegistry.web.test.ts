@@ -1,5 +1,5 @@
-import { DriverRegistry } from './DriverRegistry.web';
-import type { PrinterConfig } from '../types/printer.types';
+import { DriverRegistry } from '../DriverRegistry.web';
+import type { PrinterConfig } from '../../types/printer.types';
 
 const tsplConfig: PrinterConfig = {
   id: 'p1',
