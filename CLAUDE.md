@@ -55,6 +55,10 @@ src/
 
 Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `services/`, `store/`, `types/`, `schemas/`, `hooks/`. Không tạo layer rỗng — `settings` chỉ có `components/`, `screens/`, `store/` vì chưa cần các layer khác.
 
+**2 kiểu feature module:**
+- **Feature sở hữu data** (`auth`, `cart`, `catalog`, `store`, `printer`) — có `store/` slice và/hoặc `services/` riêng, giữ state dùng ở nhiều màn hình.
+- **Feature shell/ghép** (`sales`, `settings`) — không có `store/`/`services/`/`types/` riêng, đúng chủ đích: ghép screen/hook của các feature sở hữu data lại thành 1 màn hình. Riêng `settings` có 1 slice Redux nhỏ cho state UI của chính nó (`activeMenuKey` — mục sidebar đang chọn).
+
 ### Printer Module (`src/features/printer/`)
 
 Kiến trúc theo hướng driver, UI **không bao giờ** gọi thẳng SDK/native module — luôn qua `PrinterService`:
@@ -80,7 +84,7 @@ UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrint
 - UI component không bao giờ gọi native module/SDK máy in trực tiếp — luôn qua `PrinterService`
 - Trạng thái kết nối máy in là **event-driven** (`onStatusChange`/`DiscoveryEvent`) — không polling
 - **Disable, không Hide** — component điều kiện theo trạng thái (chưa kết nối, đang xử lý...) dùng prop `disabled`, không unmount/remount (`{condition && <X/>}` là anti-pattern trong các form nhiều bước phụ thuộc trạng thái)
-- Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, drivers, schemas, reducers, transports) mới có `.test.ts`
+- Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, drivers, schemas, reducers, transports) mới có `.test.ts`, đặt trong thư mục con `__tests__/` cùng cấp với file logic nó test (vd `services/__tests__/XService.test.ts`) — không nằm chung thư mục với file logic. Jest tự nhận diện `__tests__/` mặc định, không cần cấu hình thêm.
 - Không thêm feature/abstraction/error-handling vượt quá yêu cầu — xem `usePrinterConnection.ts` làm ví dụ: 1 hook, 1 trách nhiệm
 
 ---
