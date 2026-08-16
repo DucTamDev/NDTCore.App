@@ -1,5 +1,5 @@
 // src/features/cart/hooks/useCheckout.ts
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { selectCurrentStoreId } from '../../store/store/storeSlice';
@@ -18,14 +18,19 @@ export const useCheckout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
+  // Ref, không chỉ state isSubmitting — 2 lần bấm "Thanh toán" lọt vào cùng 1
+  // tick đồng bộ đều có thể qua được guard nếu chỉ dựa vào state (cập nhật
+  // bất đồng bộ), gây tạo đơn trùng.
+  const isSubmittingRef = useRef(false);
 
   const submit = useCallback(async (): Promise<CreateOrderResponse | null> => {
-    if (items.length === 0) return null;
+    if (items.length === 0 || isSubmittingRef.current) return null;
     if (storeId === null) {
       setError('Chưa chọn cửa hàng, không thể tạo đơn hàng');
       return null;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setError(null);
     try {
@@ -44,6 +49,7 @@ export const useCheckout = () => {
       setError(err instanceof Error ? err.message : 'Không thể tạo đơn hàng');
       return null;
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }, [dispatch, storeId, items, serviceType, note]);

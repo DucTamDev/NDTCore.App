@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { loggedOut } from '../../auth/store/authSlice';
 import { storeCleared } from '../../store/store/storeSlice';
 import { CartService } from '../services/CartService';
@@ -86,8 +86,11 @@ interface StateWithCart {
 export const selectCartItems = (state: StateWithCart): CartItem[] => state.cart.items;
 export const selectServiceType = (state: StateWithCart): ServiceType => state.cart.serviceType;
 export const selectCartNote = (state: StateWithCart): string => state.cart.note;
-export const selectCartItemCount = (state: StateWithCart): number =>
-  CartService.calculateCartItemCount(state.cart.items);
-export const selectCartTotal = (state: StateWithCart): number => CartService.calculateCartTotal(state.cart.items);
+// Memo hoá theo tham chiếu items — SalesScreen/CartSummaryBar re-render mỗi
+// lần thêm/bớt sản phẩm, không cần tính lại 2 giá trị này nếu items không đổi.
+export const selectCartItemCount = createSelector(selectCartItems, (items) =>
+  CartService.calculateCartItemCount(items),
+);
+export const selectCartTotal = createSelector(selectCartItems, (items) => CartService.calculateCartTotal(items));
 
 export default cartSlice.reducer;

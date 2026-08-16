@@ -1,5 +1,5 @@
 // src/features/cart/hooks/useOrderHistory.ts
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
 import { selectCurrentStoreId } from '../../store/store/storeSlice';
@@ -32,10 +32,16 @@ export const useOrderHistory = () => {
   const [error, setError] = useState<string | null>(null);
   const [reprintingIds, setReprintingIds] = useState<Set<number>>(new Set());
   const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
+  // Ref (không phải state) để guard chặn fetch chồng lấp mà không đổi identity
+  // của refresh() — pull-to-refresh và useEffect lúc mount có thể cùng gọi
+  // refresh() gần nhau; nếu đưa isLoading vào deps của useCallback, mỗi lần
+  // isLoading đổi sẽ đổi identity refresh(), kéo effect [refresh] chạy lại.
+  const isLoadingRef = useRef(false);
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (storeId === null) return;
+    if (storeId === null || isLoadingRef.current) return;
 
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
@@ -48,6 +54,7 @@ export const useOrderHistory = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tải danh sách đơn hàng');
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   }, [storeId]);
