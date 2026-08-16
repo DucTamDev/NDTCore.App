@@ -8,7 +8,8 @@ export interface AppInputProps {
   value: string;
   onChangeText: (text: string) => void;
   errorMessage?: string;
-  keyboardType?: 'default' | 'numeric' | 'decimal-pad';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'email-address';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   placeholder?: string;
   disabled?: boolean;
   secureTextEntry?: boolean;
@@ -22,6 +23,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   onChangeText,
   errorMessage,
   keyboardType = 'default',
+  autoCapitalize,
   placeholder,
   disabled = false,
   secureTextEntry = false,
@@ -37,6 +39,7 @@ export const AppInput: React.FC<AppInputProps> = ({
         value={value}
         onChangeText={onChangeText}
         keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
         placeholder={placeholder}
         error={Boolean(errorMessage)}
         mode="outlined"

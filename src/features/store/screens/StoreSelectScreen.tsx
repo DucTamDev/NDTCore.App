@@ -1,4 +1,3 @@
-// src/features/store/screens/StoreSelectScreen.tsx
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from 'react-native-paper';

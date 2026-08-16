@@ -53,6 +53,40 @@ describe('AuthService', () => {
     expect(AuthService.getStoredToken()).toBeNull();
   });
 
+  it('login throws and stores nothing when the response is success but missing AccessTokenExpiration', async () => {
+    (authApi.loginAsync as jest.Mock).mockResolvedValue({
+      IsSuccess: true,
+      Data: {
+        AccessToken: 'access-1',
+        RefreshToken: 'refresh-1',
+        AccessTokenExpiration: null,
+        RefreshTokenExpiration: '2099-01-01T00:00:00Z',
+      },
+      Message: null,
+      Error: null,
+    });
+
+    await expect(AuthService.login({ email: 'a@b.com', password: '123456' })).rejects.toThrow();
+    expect(AuthService.getStoredToken()).toBeNull();
+  });
+
+  it('login throws and stores nothing when the response is success but missing RefreshTokenExpiration', async () => {
+    (authApi.loginAsync as jest.Mock).mockResolvedValue({
+      IsSuccess: true,
+      Data: {
+        AccessToken: 'access-1',
+        RefreshToken: 'refresh-1',
+        AccessTokenExpiration: '2099-01-01T00:00:00Z',
+        RefreshTokenExpiration: null,
+      },
+      Message: null,
+      Error: null,
+    });
+
+    await expect(AuthService.login({ email: 'a@b.com', password: '123456' })).rejects.toThrow();
+    expect(AuthService.getStoredToken()).toBeNull();
+  });
+
   it('logout clears the stored token', async () => {
     (authApi.loginAsync as jest.Mock).mockResolvedValue({
       IsSuccess: true,

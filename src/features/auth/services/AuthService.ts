@@ -11,15 +11,21 @@ import type { LoginRequest } from '../types/auth.types';
 const login = async (payload: LoginRequest): Promise<void> => {
   const response = await authApi.loginAsync(payload);
 
-  if (!response.IsSuccess || !response.Data?.AccessToken || !response.Data.RefreshToken) {
+  if (
+    !response.IsSuccess ||
+    !response.Data?.AccessToken ||
+    !response.Data.RefreshToken ||
+    !response.Data.AccessTokenExpiration ||
+    !response.Data.RefreshTokenExpiration
+  ) {
     throw new Error(response.Error?.Message ?? 'Đăng nhập thất bại');
   }
 
   const token: AuthTokenModel = {
     accessToken: response.Data.AccessToken,
     refreshToken: response.Data.RefreshToken,
-    accessTokenExpiration: response.Data.AccessTokenExpiration ?? '',
-    refreshTokenExpiration: response.Data.RefreshTokenExpiration ?? '',
+    accessTokenExpiration: response.Data.AccessTokenExpiration,
+    refreshTokenExpiration: response.Data.RefreshTokenExpiration,
   };
   saveTokens(token);
   // A fresh login proves the session is alive — re-arm the emit-once guard so

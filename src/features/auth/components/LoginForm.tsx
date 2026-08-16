@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
-import { loginFormSchema } from '../schemas/loginFormSchema';
+import { loginFormSchema, type LoginFormValues } from '../schemas/loginFormSchema';
 import type { LoginRequest } from '../types/auth.types';
 
 export interface LoginFormProps {
@@ -11,40 +13,29 @@ export interface LoginFormProps {
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ isLoading, onSubmit }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-  const handleSubmit = (): void => {
-    const result = loginFormSchema.safeParse({ email, password });
-    if (!result.success) {
-      const errors: { email?: string; password?: string } = {};
-      for (const issue of result.error.issues) {
-        if (issue.path[0] === 'email') errors.email = issue.message;
-        if (issue.path[0] === 'password') errors.password = issue.message;
-      }
-      setFieldErrors(errors);
-      return;
-    }
-    setFieldErrors({});
-    onSubmit(result.data);
-  };
+  const handleSubmit = form.handleSubmit((values) => onSubmit(values));
 
   return (
     <View style={styles.container}>
       <AppInput
         label="Email"
-        value={email}
-        onChangeText={setEmail}
-        errorMessage={fieldErrors.email}
-        keyboardType="default"
+        value={form.watch('email')}
+        onChangeText={(text) => form.setValue('email', text)}
+        errorMessage={form.formState.errors.email?.message}
+        keyboardType="email-address"
+        autoCapitalize="none"
         disabled={isLoading}
       />
       <AppInput
         label="Mật khẩu"
-        value={password}
-        onChangeText={setPassword}
-        errorMessage={fieldErrors.password}
+        value={form.watch('password')}
+        onChangeText={(text) => form.setValue('password', text)}
+        errorMessage={form.formState.errors.password?.message}
         secureTextEntry
         disabled={isLoading}
       />
