@@ -1,4 +1,4 @@
-import type { PrintConfiguration, PrintType } from './printConfiguration.types';
+import type { PrintConfiguration, PrintType } from '../printConfiguration.types';
 
 describe('print configuration types', () => {
   it('accepts a full PrintConfiguration for each PrintType', () => {

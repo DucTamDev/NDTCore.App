@@ -1,5 +1,5 @@
-import type { PrintDocument } from './printDocument.types';
-import type { PrintJob, PrintResult } from './printJob.types';
+import type { PrintDocument } from '../printDocument.types';
+import type { PrintJob, PrintResult } from '../printJob.types';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 

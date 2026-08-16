@@ -1,5 +1,5 @@
-import type { IPrinterDriver } from './driver.types';
-import type { PrinterConfig } from './printer.types';
+import type { IPrinterDriver } from '../driver.types';
+import type { PrinterConfig } from '../printer.types';
 
 describe('printer domain types', () => {
   it('accepts a fully-formed PrinterConfig for a LAN TSPL label printer', () => {

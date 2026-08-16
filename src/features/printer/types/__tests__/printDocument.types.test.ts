@@ -1,4 +1,4 @@
-import type { PrintDocument, PrintElement } from './printDocument.types';
+import type { PrintDocument, PrintElement } from '../printDocument.types';
 
 describe('print document types', () => {
   it('accepts a document mixing every element kind', () => {
