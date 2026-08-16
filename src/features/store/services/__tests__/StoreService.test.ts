@@ -1,8 +1,8 @@
-import { StoreService } from './StoreService';
-import { storeApi } from '../api/storeApi';
-import { StorageService } from '../../../services/StorageService';
+import { StoreService } from '../StoreService';
+import { storeApi } from '../../api/storeApi';
+import { StorageService } from '../../../../services/StorageService';
 
-jest.mock('../api/storeApi', () => ({
+jest.mock('../../api/storeApi', () => ({
   storeApi: { getPagedAsync: jest.fn() },
 }));
 

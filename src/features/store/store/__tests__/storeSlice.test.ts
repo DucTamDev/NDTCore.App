@@ -8,9 +8,9 @@ import reducer, {
   selectAvailableStores,
   selectStoresLoading,
   selectStoresError,
-} from './storeSlice';
-import { loggedOut } from '../../auth/store/authSlice';
-import type { StoreViewModel } from '../types/store.types';
+} from '../storeSlice';
+import { loggedOut } from '../../../auth/store/authSlice';
+import type { StoreViewModel } from '../../types/store.types';
 
 const sampleStore: StoreViewModel = {
   id: 1,
