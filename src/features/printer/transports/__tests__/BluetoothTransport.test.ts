@@ -1,5 +1,5 @@
 // src/features/printer/transports/BluetoothTransport.test.ts
-import { BluetoothTransport } from './BluetoothTransport';
+import { BluetoothTransport } from '../BluetoothTransport';
 import { Buffer } from 'buffer';
 
 type ReceivedListener = (event: { data: string }) => void;

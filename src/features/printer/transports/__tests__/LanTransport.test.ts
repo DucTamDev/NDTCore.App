@@ -1,6 +1,6 @@
 // src/features/printer/transports/LanTransport.test.ts
 import { Buffer } from 'buffer';
-import { LanTransport } from './LanTransport';
+import { LanTransport } from '../LanTransport';
 
 type DataListener = (data: Buffer | string) => void;
 

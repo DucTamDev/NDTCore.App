@@ -1,6 +1,6 @@
 // src/features/printer/transports/UsbTransport.test.ts
-import { UsbTransport } from './UsbTransport';
-import { AppErrorException } from '../../../types/AppError';
+import { UsbTransport } from '../UsbTransport';
+import { AppErrorException } from '../../../../types/AppError';
 
 describe('UsbTransport', () => {
   it('connect() rejects with UNSUPPORTED_CONNECTION', async () => {
