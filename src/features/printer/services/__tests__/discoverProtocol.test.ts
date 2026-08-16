@@ -141,6 +141,50 @@ describe('discoverProtocol', () => {
     expect(events.map((e) => e.stage)).toEqual(['connecting']);
   });
 
+  it('disconnects the driver when cancelled right after connect() succeeds (wizard closed mid-connect)', async () => {
+    let resolveConnect: () => void = () => undefined;
+    const tsplDriver = makeMockDriver({
+      connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; })),
+    });
+    const escposDriver = makeMockDriver();
+    const events: DiscoveryEvent[] = [];
+    const unsubscribe = createDiscoverProtocol({ escpos: escposDriver, tspl: tsplDriver })(baseInput, (event) => {
+      events.push(event);
+    });
+
+    unsubscribe();
+    resolveConnect();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(events.map((e) => e.stage)).toEqual(['connecting']);
+  });
+
+  it('disconnects the driver when cancelled right after identify() resolves (wizard closed mid-identify)', async () => {
+    let resolveIdentify: (value: null) => void = () => undefined;
+    const tsplDriver = makeMockDriver({
+      identify: jest.fn().mockImplementation(() => new Promise((resolve) => { resolveIdentify = resolve; })),
+    });
+    const escposDriver = makeMockDriver();
+    const events: DiscoveryEvent[] = [];
+    const unsubscribe = createDiscoverProtocol({ escpos: escposDriver, tspl: tsplDriver })(baseInput, (event) => {
+      events.push(event);
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    unsubscribe();
+    resolveIdentify(null);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying']);
+  });
+
   it('logs protocolDetected when identify() succeeds', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TM-T82' }) });
     const tsplDriver = makeMockDriver();

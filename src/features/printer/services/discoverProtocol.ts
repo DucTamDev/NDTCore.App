@@ -84,6 +84,7 @@ export const createDiscoverProtocol =
         if (cancelled) return;
         const driver = registry[protocol];
         const config = buildDraftConfig(input, protocol);
+        const disconnectQuietly = (): Promise<void> => driver.disconnect(input.printerId).catch(() => undefined);
         onEvent({ stage: 'connecting', protocol });
         try {
           await driver.connect(config);
@@ -91,16 +92,25 @@ export const createDiscoverProtocol =
           connectFailures += 1;
           continue;
         }
-        if (cancelled) return;
+        // Wizard có thể bị đóng (unsubscribe) trong lúc connect()/identify()
+        // đang chạy — connect() ở trên đã thành công nên phải disconnect()
+        // trước khi return, nếu không kết nối native sẽ rò vĩnh viễn.
+        if (cancelled) {
+          await disconnectQuietly();
+          return;
+        }
         onEvent({ stage: 'identifying', protocol });
         const deviceInfo = await driver.identify(input.printerId).catch(() => null);
-        if (cancelled) return;
+        if (cancelled) {
+          await disconnectQuietly();
+          return;
+        }
         if (deviceInfo) {
           onEvent({ stage: 'identified', protocol, deviceInfo });
           PrinterLogger.protocolDetected({ printerId: input.printerId, protocol, connectionType: input.connectionType });
           return;
         }
-        await driver.disconnect(input.printerId).catch(() => undefined);
+        await disconnectQuietly();
       }
 
       if (cancelled) return;
