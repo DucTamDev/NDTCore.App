@@ -1,6 +1,6 @@
-import { ThermalReceiptDriver } from './ThermalReceiptDriver';
-import type { PrinterConfig } from '../types/printer.types';
-import type { PrintDocument } from '../types/printDocument.types';
+import { ThermalReceiptDriver } from '../ThermalReceiptDriver';
+import type { PrinterConfig } from '../../types/printer.types';
+import type { PrintDocument } from '../../types/printDocument.types';
 
 // The library's real dist/index.d.ts (inspected after `npm install`) differs
 // from README-only assumptions: `connectPrinter()` takes positional args
@@ -31,11 +31,11 @@ jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => ({
   },
 }));
 
-jest.mock('../services/PrinterPermissionService', () => ({
+jest.mock('../../services/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
 
-jest.mock('../services/PrinterLogger', () => ({
+jest.mock('../../services/PrinterLogger', () => ({
   PrinterLogger: {
     scanCompleted: jest.fn(),
     scanFailed: jest.fn(),
@@ -98,7 +98,7 @@ describe('ThermalReceiptDriver', () => {
   it('connect() over Bluetooth checks permission and connects with the device MAC address', async () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(bleConfig);
-    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     const { BLEPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
@@ -110,7 +110,7 @@ describe('ThermalReceiptDriver', () => {
   });
 
   it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
@@ -167,7 +167,7 @@ describe('ThermalReceiptDriver', () => {
   });
 
   it('scan("bluetooth") emits an error event when ensureBluetoothPermission itself rejects', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockRejectedValueOnce(new Error('permission check failed'));
@@ -275,7 +275,7 @@ describe('ThermalReceiptDriver', () => {
   it('connect() logs connectSucceeded on success', async () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
@@ -287,7 +287,7 @@ describe('ThermalReceiptDriver', () => {
     const driver = new ThermalReceiptDriver();
     const badConfig: PrinterConfig = { ...lanConfig, id: 'receipt-bad', lan: undefined };
     await expect(driver.connect(badConfig)).rejects.toThrow();
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
@@ -304,7 +304,7 @@ describe('ThermalReceiptDriver', () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
     await driver.disconnect(lanConfig.id);
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanConfig.id, protocol: 'escpos' });
@@ -317,7 +317,7 @@ describe('ThermalReceiptDriver', () => {
         if (event.type !== 'loading') resolve();
       });
     });
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { scanCompleted: jest.Mock };
     };
     expect(PrinterLogger.scanCompleted).toHaveBeenCalledWith(
@@ -339,7 +339,7 @@ describe('ThermalReceiptDriver', () => {
       });
     });
     expect(events).toEqual(['loading', 'error']);
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { scanFailed: jest.Mock };
     };
     expect(PrinterLogger.scanFailed).toHaveBeenCalledWith(
@@ -351,7 +351,7 @@ describe('ThermalReceiptDriver', () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
     await driver.testPrint(lanConfig);
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
@@ -370,7 +370,7 @@ describe('ThermalReceiptDriver', () => {
         cbErr?.(new Error('print failed')),
     );
     await expect(driver.testPrint(lanConfig)).rejects.toThrow('print failed');
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
@@ -485,7 +485,7 @@ describe('ThermalReceiptDriver', () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
     await driver.print(lanConfig.id, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] });
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
@@ -506,7 +506,7 @@ describe('ThermalReceiptDriver', () => {
     await expect(
       driver.print(lanConfig.id, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] }),
     ).rejects.toThrow('print failed');
-    const { PrinterLogger } = jest.requireMock('../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
