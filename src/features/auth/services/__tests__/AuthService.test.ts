@@ -1,8 +1,8 @@
-import { AuthService } from './AuthService';
-import { authApi } from '../api/authApi';
-import { clearTokens } from '../../../services/http/authTokenStorage';
+import { AuthService } from '../AuthService';
+import { authApi } from '../../api/authApi';
+import { clearTokens } from '../../../../services/http/authTokenStorage';
 
-jest.mock('../api/authApi', () => ({
+jest.mock('../../api/authApi', () => ({
   authApi: { loginAsync: jest.fn() },
 }));
 

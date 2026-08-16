@@ -6,7 +6,7 @@ import reducer, {
   selectIsLoggedIn,
   selectAuthLoading,
   selectAuthError,
-} from './authSlice';
+} from '../authSlice';
 
 describe('authSlice', () => {
   const initialState = reducer(undefined, { type: '@@INIT' });
