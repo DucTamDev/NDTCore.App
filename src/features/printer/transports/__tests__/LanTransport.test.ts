@@ -35,6 +35,8 @@ jest.mock('react-native-tcp-socket', () => {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const tcpSocketMock = jest.requireMock('react-native-tcp-socket') as {
   __emit: (event: string, ...args: unknown[]) => void;
+  __mockSocket: { destroy: jest.Mock };
+  default: { createConnection: jest.Mock };
 };
 
 describe('LanTransport.readOnce', () => {
@@ -62,5 +64,28 @@ describe('LanTransport.readOnce', () => {
     const transport = new LanTransport();
     const result = await transport.readOnce(500);
     expect(result).toBeNull();
+  });
+});
+
+describe('LanTransport.connect', () => {
+  afterEach(() => {
+    tcpSocketMock.default.createConnection.mockImplementation((_opts: unknown, onConnect: () => void) => {
+      onConnect();
+      return tcpSocketMock.__mockSocket;
+    });
+    jest.useRealTimers();
+  });
+
+  it('rejects and destroys the socket when the server never accepts the connection within timeoutMs', async () => {
+    tcpSocketMock.default.createConnection.mockImplementation(() => tcpSocketMock.__mockSocket);
+    jest.useFakeTimers();
+
+    const transport = new LanTransport();
+    const connectPromise = transport.connect('192.168.1.60', 9100, 5000);
+    connectPromise.catch(() => undefined);
+    jest.advanceTimersByTime(5000);
+
+    await expect(connectPromise).rejects.toThrow();
+    expect(tcpSocketMock.__mockSocket.destroy).toHaveBeenCalled();
   });
 });

@@ -66,14 +66,25 @@ export const createPrinterService = (
     savePrinters(getPrinters().map((p) => (p.id === printerId ? { ...p, enabled } : p)));
   };
 
+  /**
+   * Kết nối qua khoá tài nguyên dùng chung với `testPrint`/`PrintScheduler`
+   * (theo `protocol`+`connectionType`) — nếu gọi driver trực tiếp, bấm "Kết
+   * nối"/"Kết nối lại" thủ công từ danh sách máy in đúng lúc có đơn đang in
+   * trên máy in khác dùng chung kết nối native (vd 2 máy in escpos cùng LAN)
+   * có thể đua y hệt lỗi multi-printer đã fix cho testPrint/PrintScheduler.
+   */
   const connect = async (printerId: string): Promise<void> => {
     const config = findOrThrow(printerId);
-    await getDriver(config.protocol).connect(config);
+    await lock.runExclusive(connectionResourceKey(config.protocol, config.connectionType), () =>
+      getDriver(config.protocol).connect(config),
+    );
   };
 
   const disconnect = async (printerId: string): Promise<void> => {
     const config = findOrThrow(printerId);
-    await getDriver(config.protocol).disconnect(printerId);
+    await lock.runExclusive(connectionResourceKey(config.protocol, config.connectionType), () =>
+      getDriver(config.protocol).disconnect(printerId),
+    );
   };
 
   const reconnect = async (printerId: string): Promise<void> => {

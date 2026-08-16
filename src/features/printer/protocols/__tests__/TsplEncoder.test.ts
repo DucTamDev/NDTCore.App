@@ -26,9 +26,19 @@ describe('TsplEncoder', () => {
     expect(output).toContain('BARCODE 0,0,"128",50,1,0,2,2,"12345"');
   });
 
+  it('barcode() escapes embedded double quotes so they cannot break the TSPL command syntax', () => {
+    const output = decode(new TsplEncoder().barcode(0, 0, 'A"B').encode());
+    expect(output).toContain('BARCODE 0,0,"128",50,1,0,2,2,"A\\"B"');
+  });
+
   it('qrcode() emits a QRCODE command', () => {
     const output = decode(new TsplEncoder().qrcode(0, 0, 'https://ndtcore.local').encode());
     expect(output).toContain('QRCODE 0,0,H,4,A,0,"https://ndtcore.local"');
+  });
+
+  it('qrcode() escapes embedded double quotes (e.g. a URL query string) so they cannot break the TSPL command syntax', () => {
+    const output = decode(new TsplEncoder().qrcode(0, 0, 'https://ndtcore.local?q="x"').encode());
+    expect(output).toContain('QRCODE 0,0,H,4,A,0,"https://ndtcore.local?q=\\"x\\""');
   });
 
   it('image() adds a BITMAP command', () => {

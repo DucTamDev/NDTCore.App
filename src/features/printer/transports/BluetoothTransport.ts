@@ -3,11 +3,39 @@ import RNBluetoothClassic, { type BluetoothDevice } from 'react-native-bluetooth
 import { Buffer } from 'buffer';
 import { AppErrorException } from '../types/AppError';
 
+const CONNECT_TIMEOUT_MS = 10000;
+
 export class BluetoothTransport {
   private device: BluetoothDevice | null = null;
 
-  async connect(deviceId: string): Promise<void> {
-    this.device = await RNBluetoothClassic.connectToDevice(deviceId);
+  /**
+   * `RNBluetoothClassic.connectToDevice` không có timeout riêng — 1 thiết bị
+   * mất kết nối/ngoài tầm có thể khiến promise treo vô thời hạn, kẹt luôn
+   * spinner "Đang kết nối..." của wizard. Đua với `timeoutMs`; nếu kết nối
+   * thật vẫn thành công sau khi đã timeout, disconnect() ngay để không bỏ
+   * lại 1 kết nối không ai theo dõi.
+   */
+  async connect(deviceId: string, timeoutMs: number = CONNECT_TIMEOUT_MS): Promise<void> {
+    const connectPromise = RNBluetoothClassic.connectToDevice(deviceId);
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        timedOut = true;
+        reject(new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Kết nối Bluetooth quá thời gian chờ' }));
+      }, timeoutMs);
+    });
+
+    try {
+      this.device = await Promise.race([connectPromise, timeoutPromise]);
+      clearTimeout(timer!);
+    } catch (err) {
+      clearTimeout(timer!);
+      if (timedOut) {
+        connectPromise.then((device) => device.disconnect().catch(() => undefined)).catch(() => undefined);
+      }
+      throw err;
+    }
   }
 
   async write(bytes: Uint8Array): Promise<void> {

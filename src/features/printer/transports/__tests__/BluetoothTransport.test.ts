@@ -26,6 +26,7 @@ jest.mock('react-native-bluetooth-classic', () => {
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const bluetoothMock = jest.requireMock('react-native-bluetooth-classic') as {
   __emitData: (base64: string) => void;
+  default: { connectToDevice: jest.Mock };
 };
 
 describe('BluetoothTransport.readOnce', () => {
@@ -53,5 +54,60 @@ describe('BluetoothTransport.readOnce', () => {
     const transport = new BluetoothTransport();
     const result = await transport.readOnce(500);
     expect(result).toBeNull();
+  });
+});
+
+describe('BluetoothTransport.connect', () => {
+  afterEach(() => {
+    bluetoothMock.default.connectToDevice.mockResolvedValue({
+      write: jest.fn().mockResolvedValue(true),
+      disconnect: jest.fn().mockResolvedValue(true),
+      onDataReceived: jest.fn(() => ({ remove: jest.fn() })),
+    });
+    jest.useRealTimers();
+  });
+
+  it('rejects when the device never responds within timeoutMs (a hung connect no longer hangs the wizard forever)', async () => {
+    let resolveConnect: (device: unknown) => void = () => undefined;
+    bluetoothMock.default.connectToDevice.mockImplementation(
+      () => new Promise((resolve) => { resolveConnect = resolve; }),
+    );
+    jest.useFakeTimers();
+
+    const transport = new BluetoothTransport();
+    const connectPromise = transport.connect('AA:BB:CC:DD:EE:FF', 5000);
+    connectPromise.catch(() => undefined);
+    jest.advanceTimersByTime(5000);
+
+    await expect(connectPromise).rejects.toThrow();
+
+    // Dọn promise connectToDevice() gốc để không treo tay cầm bất đồng bộ
+    // sau khi test kết thúc.
+    jest.useRealTimers();
+    resolveConnect({ disconnect: jest.fn().mockResolvedValue(true), write: jest.fn(), onDataReceived: jest.fn() });
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it('disconnects a late-resolving connection that arrives after the timeout already rejected', async () => {
+    const disconnect = jest.fn().mockResolvedValue(true);
+    let resolveConnect: (device: unknown) => void = () => undefined;
+    bluetoothMock.default.connectToDevice.mockImplementation(
+      () => new Promise((resolve) => { resolveConnect = resolve; }),
+    );
+    jest.useFakeTimers();
+
+    const transport = new BluetoothTransport();
+    const connectPromise = transport.connect('AA:BB:CC:DD:EE:FF', 5000);
+    connectPromise.catch(() => undefined);
+    jest.advanceTimersByTime(5000);
+    await expect(connectPromise).rejects.toThrow();
+
+    jest.useRealTimers();
+    resolveConnect({ disconnect, write: jest.fn(), onDataReceived: jest.fn() });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(disconnect).toHaveBeenCalled();
   });
 });

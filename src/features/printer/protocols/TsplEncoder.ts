@@ -18,12 +18,14 @@ export class TsplEncoder {
   }
 
   barcode(x: number, y: number, content: string): this {
-    this.commands.push(`BARCODE ${x},${y},"128",50,1,0,2,2,"${content}"`);
+    const escaped = content.replace(/"/g, '\\"');
+    this.commands.push(`BARCODE ${x},${y},"128",50,1,0,2,2,"${escaped}"`);
     return this;
   }
 
   qrcode(x: number, y: number, content: string): this {
-    this.commands.push(`QRCODE ${x},${y},H,4,A,0,"${content}"`);
+    const escaped = content.replace(/"/g, '\\"');
+    this.commands.push(`QRCODE ${x},${y},H,4,A,0,"${escaped}"`);
     return this;
   }
 

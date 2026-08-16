@@ -182,4 +182,47 @@ describe('PrinterService', () => {
     expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
     expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig);
   });
+
+  it('connect() runs the driver call through the connection lock, keyed by protocol+connectionType', async () => {
+    const escposDriver = makeMockDriver();
+    const lock = createResourceLock();
+    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, lock);
+    service.addPrinter(baseConfig);
+    await service.connect(baseConfig.id);
+    expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
+    expect(escposDriver.connect).toHaveBeenCalledWith(baseConfig);
+  });
+
+  it('disconnect() runs the driver call through the connection lock, keyed by protocol+connectionType', async () => {
+    const escposDriver = makeMockDriver();
+    const lock = createResourceLock();
+    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, lock);
+    service.addPrinter(baseConfig);
+    await service.disconnect(baseConfig.id);
+    expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
+    expect(escposDriver.disconnect).toHaveBeenCalledWith(baseConfig.id);
+  });
+
+  it('two printers sharing protocol+connectionType never connect concurrently (manual "Kết nối" from the list)', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const escposDriver = makeMockDriver({
+      connect: jest.fn().mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }),
+    });
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
+    const second: PrinterConfig = { ...baseConfig, id: 'p2' };
+    service.addPrinter(baseConfig);
+    service.addPrinter(second);
+
+    await Promise.all([service.connect(baseConfig.id), service.connect(second.id)]);
+
+    expect(maxInFlight).toBe(1);
+  });
 });

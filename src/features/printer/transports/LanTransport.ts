@@ -13,13 +13,44 @@ import { AppErrorException } from '../types/AppError';
  */
 type LanSocket = ReturnType<typeof TcpSocket.createConnection>;
 
+const CONNECT_TIMEOUT_MS = 10000;
+
 export class LanTransport {
   private socket: LanSocket | null = null;
 
-  connect(ip: string, port: number): Promise<void> {
+  /**
+   * Máy in LAN mất kết nối/tắt nguồn có thể khiến `createConnection` treo vô
+   * thời hạn — chưa từng gọi `onConnect` cũng chưa emit `error`. Đua với
+   * `timeoutMs`; nếu hết giờ, huỷ socket đang treo (`destroy()`) trước khi
+   * reject, không để lại kết nối không ai theo dõi.
+   */
+  connect(ip: string, port: number, timeoutMs: number = CONNECT_TIMEOUT_MS): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = TcpSocket.createConnection({ host: ip, port }, () => resolve());
-      socket.on('error', (error: Error) => reject(error));
+      let settled = false;
+      // Tạo timer TRƯỚC khi gọi createConnection — 1 số trường hợp (kể cả
+      // trong test lẫn kết nối thật cực nhanh) callback connect có thể chạy
+      // đồng bộ, nếu timer khai báo sau thì clearTimeout(timer) bên trong
+      // callback đó chạy trước khi `timer` được gán, để lại 1 timer mồ côi
+      // không bao giờ bị huỷ.
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        socket.destroy();
+        this.socket = null;
+        reject(new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Kết nối LAN quá thời gian chờ' }));
+      }, timeoutMs);
+      const socket = TcpSocket.createConnection({ host: ip, port }, () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      });
+      socket.on('error', (error: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
       this.socket = socket;
     });
   }
