@@ -40,7 +40,7 @@ const AppTabs: React.FC = () => (
       name="Settings"
       component={SettingsScreen}
       options={{
-        title: 'Cài đặt',
+        title: 'Ứng dụng',
         tabBarIcon: SettingsTabIcon,
       }}
     />
