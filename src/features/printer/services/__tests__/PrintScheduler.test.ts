@@ -1,10 +1,10 @@
-import { createPrintScheduler } from './PrintScheduler';
-import { createPrinterService } from './PrinterService';
-import { createResourceLock } from './PrinterConnectionLock';
-import { AppErrorException } from '../../../types/AppError';
-import type { IPrinterDriver } from '../types/driver.types';
-import type { PrintJob } from '../types/printJob.types';
-import type { PrinterConfig } from '../types/printer.types';
+import { createPrintScheduler } from '../PrintScheduler';
+import { createPrinterService } from '../PrinterService';
+import { createResourceLock } from '../PrinterConnectionLock';
+import { AppErrorException } from '../../../../types/AppError';
+import type { IPrinterDriver } from '../../types/driver.types';
+import type { PrintJob } from '../../types/printJob.types';
+import type { PrinterConfig } from '../../types/printer.types';
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1',

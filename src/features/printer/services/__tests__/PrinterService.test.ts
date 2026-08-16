@@ -1,9 +1,9 @@
 // src/features/printer/services/PrinterService.test.ts
-import { createPrinterService } from './PrinterService';
-import { createResourceLock } from './PrinterConnectionLock';
-import { StorageService } from '../../../services/StorageService';
-import type { IPrinterDriver } from '../types/driver.types';
-import type { PrinterConfig } from '../types/printer.types';
+import { createPrinterService } from '../PrinterService';
+import { createResourceLock } from '../PrinterConnectionLock';
+import { StorageService } from '../../../../services/StorageService';
+import type { IPrinterDriver } from '../../types/driver.types';
+import type { PrinterConfig } from '../../types/printer.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),

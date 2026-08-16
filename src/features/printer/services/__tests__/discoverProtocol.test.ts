@@ -1,10 +1,10 @@
-import { createDiscoverProtocol, resolveCandidates, type DiscoveryEvent } from './discoverProtocol';
-import type { IPrinterDriver } from '../types/driver.types';
-import type { PrinterDetectionRule } from '../constants/printerDetectionRules';
-import type { Protocol } from '../types/printer.types';
-import { PrinterLogger } from './PrinterLogger';
+import { createDiscoverProtocol, resolveCandidates, type DiscoveryEvent } from '../discoverProtocol';
+import type { IPrinterDriver } from '../../types/driver.types';
+import type { PrinterDetectionRule } from '../../constants/printerDetectionRules';
+import type { Protocol } from '../../types/printer.types';
+import { PrinterLogger } from '../PrinterLogger';
 
-jest.mock('./PrinterLogger', () => ({
+jest.mock('../PrinterLogger', () => ({
   PrinterLogger: {
     protocolDetected: jest.fn(),
     protocolUnknown: jest.fn(),

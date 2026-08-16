@@ -1,6 +1,6 @@
-import { createPrintService } from './PrintService';
-import type { PrinterConfig } from '../types/printer.types';
-import type { PrintJob } from '../types/printJob.types';
+import { createPrintService } from '../PrintService';
+import type { PrinterConfig } from '../../types/printer.types';
+import type { PrintJob } from '../../types/printJob.types';
 
 const document = { elements: [] };
 
