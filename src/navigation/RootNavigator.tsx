@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Icon } from 'react-native-paper';
-import { SettingsScreen } from '../features/settings/screens/SettingsScreen';
+import { ApplicationScreen } from '../features/application/screens/ApplicationScreen';
 import { SalesScreen } from '../features/sales/screens/SalesScreen';
 import { LoginScreen } from '../features/auth/screens/LoginScreen';
 import { StoreSelectScreen } from '../features/store/screens/StoreSelectScreen';
@@ -22,7 +22,7 @@ const SalesTabIcon = ({ color, size }: { color: string; size: number }) => (
   <Icon source="point-of-sale" color={color} size={size} />
 );
 
-const SettingsTabIcon = ({ color, size }: { color: string; size: number }) => (
+const ApplicationTabIcon = ({ color, size }: { color: string; size: number }) => (
   <Icon source="cog" color={color} size={size} />
 );
 
@@ -37,11 +37,11 @@ const AppTabs: React.FC = () => (
       }}
     />
     <Tab.Screen
-      name="Settings"
-      component={SettingsScreen}
+      name="Application"
+      component={ApplicationScreen}
       options={{
         title: 'Ứng dụng',
-        tabBarIcon: SettingsTabIcon,
+        tabBarIcon: ApplicationTabIcon,
       }}
     />
   </Tab.Navigator>

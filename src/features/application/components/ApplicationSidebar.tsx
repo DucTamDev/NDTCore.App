@@ -9,17 +9,17 @@ import { PrinterService } from '../../printer/services/PrinterService';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';
 import { storeCleared } from '../../store/store/storeSlice';
-import { settingsMenuItems, type SettingsMenuItem } from '../config/settingsConfig';
-import type { SettingsMenuKey } from '../store/settingsSlice';
-import { SettingsSidebarItem } from './SettingsSidebarItem';
+import { applicationMenuItems, type ApplicationMenuItem } from '../config/applicationConfig';
+import type { ApplicationMenuKey } from '../store/applicationSlice';
+import { ApplicationSidebarItem } from './ApplicationSidebarItem';
 
-interface SettingsSidebarProps {
-  activeSection: SettingsMenuKey | null;
-  onSelectSection: (section: SettingsMenuKey) => void;
+interface ApplicationSidebarProps {
+  activeSection: ApplicationMenuKey | null;
+  onSelectSection: (section: ApplicationMenuKey) => void;
   isTablet: boolean;
 }
 
-export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
+export const ApplicationSidebar: React.FC<ApplicationSidebarProps> = ({
   activeSection,
   onSelectSection,
   isTablet,
@@ -43,8 +43,8 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
     dispatch(storeCleared());
   };
 
-  const renderItem = (item: SettingsMenuItem) => (
-    <SettingsSidebarItem
+  const renderItem = (item: ApplicationMenuItem) => (
+    <ApplicationSidebarItem
       key={item.key}
       item={item}
       isActive={activeSection === item.key}
@@ -64,10 +64,10 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
       ]}
     >
       <Text style={[styles.groupLabel, { color: theme.colors.outline }]}>Thiết bị</Text>
-      {settingsMenuItems.filter((item) => item.group === 'device').map(renderItem)}
+      {applicationMenuItems.filter((item) => item.group === 'device').map(renderItem)}
 
       <Text style={[styles.groupLabel, { color: theme.colors.outline }]}>Ứng dụng</Text>
-      {settingsMenuItems.filter((item) => item.group === 'app').map(renderItem)}
+      {applicationMenuItems.filter((item) => item.group === 'app').map(renderItem)}
 
       <View style={styles.spacer} />
       <TouchableRipple style={styles.item} onPress={() => setConfirmChangeStoreVisible(true)}>

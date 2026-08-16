@@ -4,7 +4,7 @@ import cartReducer from '../features/cart/store/cartSlice';
 import catalogReducer from '../features/catalog/store/catalogSlice';
 import currentStoreReducer from '../features/store/store/storeSlice';
 import printerReducer from '../features/printer/store/printerSlice';
-import settingsReducer from '../features/settings/store/settingsSlice';
+import applicationReducer from '../features/application/store/applicationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -13,7 +13,7 @@ export const store = configureStore({
     catalog: catalogReducer,
     currentStore: currentStoreReducer,
     printer: printerReducer,
-    settings: settingsReducer,
+    application: applicationReducer,
   },
 });
 

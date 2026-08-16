@@ -1,6 +1,6 @@
-import reducer, { activeMenuKeyChanged, selectActiveMenuKey } from '../settingsSlice';
+import reducer, { activeMenuKeyChanged, selectActiveMenuKey } from '../applicationSlice';
 
-describe('settingsSlice', () => {
+describe('applicationSlice', () => {
   const initialState = reducer(undefined, { type: '@@INIT' });
 
   it('starts with no active menu key selected', () => {
@@ -17,8 +17,8 @@ describe('settingsSlice', () => {
     expect(state.activeMenuKey).toBeNull();
   });
 
-  it('selectActiveMenuKey reads the settings slice from RootState-shaped object', () => {
-    const rootState = { settings: { activeMenuKey: 'printer' as const } };
+  it('selectActiveMenuKey reads the application slice from RootState-shaped object', () => {
+    const rootState = { application: { activeMenuKey: 'printer' as const } };
     expect(selectActiveMenuKey(rootState)).toBe('printer');
   });
 });

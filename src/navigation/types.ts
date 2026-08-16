@@ -1,6 +1,6 @@
 export type RootTabParamList = {
   Sales: undefined;
-  Settings: undefined;
+  Application: undefined;
 };
 
 export type AuthStackParamList = {

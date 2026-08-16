@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   scroll: { height: 48, flexGrow: 0, flexShrink: 0 },
   container: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
   tab: { height: 36, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center' },
-  // Nền tint nhạt cho tab đang chọn — cùng convention với SettingsSidebar's
+  // Nền tint nhạt cho tab đang chọn — cùng convention với ApplicationSidebar's
   // itemActive. fontWeight một mình không đủ tin cậy để phân biệt trạng thái
   // trên web (tuỳ font đã tải), nên cần thêm tín hiệu nền làm chính.
   tabActive: { backgroundColor: '#EFF6FF' },

@@ -2,17 +2,17 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, TouchableRipple, Icon, useTheme } from 'react-native-paper';
 import { StatusDot } from '../../../components/StatusDot';
-import { type SettingsMenuItem } from '../config/settingsConfig';
+import { type ApplicationMenuItem } from '../config/applicationConfig';
 
-interface SettingsSidebarItemProps {
-  item: SettingsMenuItem;
+interface ApplicationSidebarItemProps {
+  item: ApplicationMenuItem;
   isActive: boolean;
   isTablet: boolean;
   hasConnectedPrinter: boolean;
   onPress: () => void;
 }
 
-export const SettingsSidebarItem: React.FC<SettingsSidebarItemProps> = ({
+export const ApplicationSidebarItem: React.FC<ApplicationSidebarItemProps> = ({
   item,
   isActive,
   isTablet,

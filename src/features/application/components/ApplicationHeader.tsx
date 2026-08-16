@@ -2,13 +2,13 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, useTheme } from 'react-native-paper';
 
-interface SettingsHeaderProps {
+interface ApplicationHeaderProps {
   title: string;
   showBackButton: boolean;
   onBackPress: () => void;
 }
 
-export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
+export const ApplicationHeader: React.FC<ApplicationHeaderProps> = ({
   title,
   showBackButton,
   onBackPress,

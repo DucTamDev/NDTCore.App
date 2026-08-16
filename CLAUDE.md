@@ -29,7 +29,7 @@ Node: `>= 22.11.0`. Không có path alias (`@/...`) — toàn bộ import dùng 
 
 ### Tech Stack
 
-React Native CLI + TypeScript (strict). UI: **React Native Paper** (Material Design 3). Form: **React Hook Form + Zod**. State: **Redux Toolkit**. Navigation: **React Navigation** (bottom-tabs, `@react-navigation/bottom-tabs`) — 2 tab: Sales, Settings. Storage: **react-native-mmkv**. Async server state: **@tanstack/react-query** (provider đã wire ở `App.tsx`, chưa có domain nào dùng).
+React Native CLI + TypeScript (strict). UI: **React Native Paper** (Material Design 3). Form: **React Hook Form + Zod**. State: **Redux Toolkit**. Navigation: **React Navigation** (bottom-tabs, `@react-navigation/bottom-tabs`) — 2 tab: Sales, Application. Storage: **react-native-mmkv**. Async server state: **@tanstack/react-query** (provider đã wire ở `App.tsx`, chưa có domain nào dùng).
 
 ### Source Structure
 
@@ -43,21 +43,22 @@ src/
 │   ├── sales/           # Sales screen shell — hooks/, components/, screens/. Static,
 │   │                    # responsive, chưa có product/cart data — xem
 │   │                    # docs/superpowers/specs/2026-08-06-sales-shell-navigation-design.md
-│   └── settings/        # Settings shell — sidebar + content theo LayoutMode/activeMenuKey (Redux)
+│   └── application/     # Application shell (tab "Ứng dụng") — sidebar + content theo
+│                        # LayoutMode/activeMenuKey (Redux)
 ├── hooks/                # Hook dùng chung nhiều feature (vd: useLayoutMode — phone/tablet-portrait/tablet-landscape)
-├── navigation/           # RootNavigator (bottom-tabs), 2 tab: Sales (initial route), Settings
+├── navigation/           # RootNavigator (bottom-tabs), 2 tab: Sales (initial route), Application
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module
 ├── theme/                 # React Native Paper theme
-├── types/                 # AppError dùng chung toàn app
+├── types/                 # ApiResponse dùng chung toàn app (AppError chuyển vào features/printer/types/ — chỉ printer dùng)
 └── utils/
 ```
 
-Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `services/`, `store/`, `types/`, `schemas/`, `hooks/`. Không tạo layer rỗng — `settings` chỉ có `components/`, `screens/`, `store/` vì chưa cần các layer khác.
+Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `services/`, `store/`, `types/`, `schemas/`, `hooks/`. Không tạo layer rỗng — `application` chỉ có `components/`, `screens/`, `store/` vì chưa cần các layer khác.
 
 **2 kiểu feature module:**
 - **Feature sở hữu data** (`auth`, `cart`, `catalog`, `store`, `printer`) — có `store/` slice và/hoặc `services/` riêng, giữ state dùng ở nhiều màn hình.
-- **Feature shell/ghép** (`sales`, `settings`) — không có `store/`/`services/`/`types/` riêng, đúng chủ đích: ghép screen/hook của các feature sở hữu data lại thành 1 màn hình. Riêng `settings` có 1 slice Redux nhỏ cho state UI của chính nó (`activeMenuKey` — mục sidebar đang chọn).
+- **Feature shell/ghép** (`sales`, `application`) — không có `store/`/`services/`/`types/` riêng, đúng chủ đích: ghép screen/hook của các feature sở hữu data lại thành 1 màn hình. Riêng `application` có 1 slice Redux nhỏ cho state UI của chính nó (`activeMenuKey` — mục sidebar đang chọn).
 
 ### Printer Module (`src/features/printer/`)
 

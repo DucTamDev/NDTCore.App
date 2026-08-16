@@ -3,13 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { PrinterManagementPanel } from '../../printer/components/PrinterManagementPanel';
 import { PrintConfigurationPanel } from '../../printer/components/PrintConfigurationPanel';
 import { OrderHistoryPanel } from '../../cart/components/OrderHistoryPanel';
-import type { SettingsMenuKey } from '../store/settingsSlice';
+import type { ApplicationMenuKey } from '../store/applicationSlice';
 
-interface SettingsContentProps {
-  activeSection: SettingsMenuKey | null;
+interface ApplicationContentProps {
+  activeSection: ApplicationMenuKey | null;
 }
 
-export const SettingsContent: React.FC<SettingsContentProps> = ({ activeSection }) => (
+export const ApplicationContent: React.FC<ApplicationContentProps> = ({ activeSection }) => (
   <View style={styles.container}>
     {activeSection === 'printer' && <PrinterManagementPanel />}
     {activeSection === 'printConfiguration' && <PrintConfigurationPanel />}

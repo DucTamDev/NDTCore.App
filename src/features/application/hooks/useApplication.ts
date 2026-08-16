@@ -2,35 +2,35 @@ import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '../../../store';
 import { useLayoutMode, type LayoutMode } from '../../../hooks/useLayoutMode';
-import { selectActiveMenuKey, activeMenuKeyChanged, type SettingsMenuKey } from '../store/settingsSlice';
-import { settingsMenuItems, DEFAULT_TABLET_MENU_KEY } from '../config/settingsConfig';
+import { selectActiveMenuKey, activeMenuKeyChanged, type ApplicationMenuKey } from '../store/applicationSlice';
+import { applicationMenuItems, DEFAULT_TABLET_MENU_KEY } from '../config/applicationConfig';
 
-export interface SettingsView {
+export interface ApplicationView {
   isTablet: boolean;
-  activeSection: SettingsMenuKey | null;
+  activeSection: ApplicationMenuKey | null;
   headerTitle: string;
 }
 
-export function getSettingsView(
+export function getApplicationView(
   layoutMode: LayoutMode,
-  activeMenuKey: SettingsMenuKey | null,
-): SettingsView {
+  activeMenuKey: ApplicationMenuKey | null,
+): ApplicationView {
   const isTablet = layoutMode !== 'phone';
   const activeSection = isTablet ? (activeMenuKey ?? DEFAULT_TABLET_MENU_KEY) : activeMenuKey;
-  const activeItem = settingsMenuItems.find((item) => item.key === activeSection);
+  const activeItem = applicationMenuItems.find((item) => item.key === activeSection);
   const headerTitle = !isTablet && activeItem ? activeItem.label : 'Ứng dụng';
 
   return { isTablet, activeSection, headerTitle };
 }
 
-export function useSettings() {
+export function useApplication() {
   const dispatch = useDispatch<AppDispatch>();
   const layoutMode = useLayoutMode();
   const activeMenuKey = useSelector(selectActiveMenuKey);
-  const { isTablet, activeSection, headerTitle } = getSettingsView(layoutMode, activeMenuKey);
+  const { isTablet, activeSection, headerTitle } = getApplicationView(layoutMode, activeMenuKey);
 
   const selectSection = useCallback(
-    (section: SettingsMenuKey): void => {
+    (section: ApplicationMenuKey): void => {
       dispatch(activeMenuKeyChanged(section));
     },
     [dispatch],

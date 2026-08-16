@@ -3,13 +3,13 @@ import { BackHandler, Platform, View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
-import { SettingsSidebar } from '../components/SettingsSidebar';
-import { SettingsContent } from '../components/SettingsContent';
-import { SettingsHeader } from '../components/SettingsHeader';
-import { useSettings } from '../hooks/useSettings';
+import { ApplicationSidebar } from '../components/ApplicationSidebar';
+import { ApplicationContent } from '../components/ApplicationContent';
+import { ApplicationHeader } from '../components/ApplicationHeader';
+import { useApplication } from '../hooks/useApplication';
 
-export const SettingsScreen: React.FC = () => {
-  const { isTablet, activeSection, selectSection, clearSection, headerTitle } = useSettings();
+export const ApplicationScreen: React.FC = () => {
+  const { isTablet, activeSection, selectSection, clearSection, headerTitle } = useApplication();
   const theme = useTheme();
 
   useFocusEffect(
@@ -29,21 +29,21 @@ export const SettingsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top', 'bottom']}>
-      <SettingsHeader
+      <ApplicationHeader
         title={headerTitle}
         showBackButton={!isTablet && activeSection !== null}
         onBackPress={clearSection}
       />
       <View style={styles.body}>
         {(isTablet || activeSection === null) && (
-          <SettingsSidebar
+          <ApplicationSidebar
             activeSection={activeSection}
             onSelectSection={selectSection}
             isTablet={isTablet}
           />
         )}
         {(isTablet || activeSection !== null) && (
-          <SettingsContent activeSection={activeSection} />
+          <ApplicationContent activeSection={activeSection} />
         )}
       </View>
     </SafeAreaView>

@@ -1,16 +1,16 @@
-import type { SettingsMenuKey } from '../store/settingsSlice';
+import type { ApplicationMenuKey } from '../store/applicationSlice';
 
-export interface SettingsMenuItem {
-  key: SettingsMenuKey;
+export interface ApplicationMenuItem {
+  key: ApplicationMenuKey;
   icon: string;
   label: string;
   group: 'device' | 'app';
   disabled?: boolean;
 }
 
-export const DEFAULT_TABLET_MENU_KEY: SettingsMenuKey = 'printer';
+export const DEFAULT_TABLET_MENU_KEY: ApplicationMenuKey = 'printer';
 
-export const settingsMenuItems: SettingsMenuItem[] = [
+export const applicationMenuItems: ApplicationMenuItem[] = [
   { key: 'printer', icon: 'printer', label: 'Quản lý máy in', group: 'device' },
   { key: 'printConfiguration', icon: 'printer-settings', label: 'Thiết lập in', group: 'device' },
   { key: 'scanner', icon: 'barcode-scan', label: 'Máy quét mã vạch', group: 'device', disabled: true },

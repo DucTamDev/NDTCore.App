@@ -1,14 +1,14 @@
-import { getSettingsView } from '../useSettings';
+import { getApplicationView } from '../useApplication';
 
-describe('getSettingsView', () => {
+describe('getApplicationView', () => {
   describe('phone', () => {
     it('shows the sidebar (no active section) when nothing is selected yet', () => {
-      const view = getSettingsView('phone', null);
+      const view = getApplicationView('phone', null);
       expect(view).toEqual({ isTablet: false, activeSection: null, headerTitle: 'Ứng dụng' });
     });
 
     it('shows the selected section with its label as the header title', () => {
-      const view = getSettingsView('phone', 'printer');
+      const view = getApplicationView('phone', 'printer');
       expect(view).toEqual({ isTablet: false, activeSection: 'printer', headerTitle: 'Quản lý máy in' });
     });
   });
@@ -17,13 +17,13 @@ describe('getSettingsView', () => {
     it.each(['tablet-portrait', 'tablet-landscape'] as const)(
       'falls back to the default menu key on %s when nothing is selected yet',
       (layoutMode) => {
-        const view = getSettingsView(layoutMode, null);
+        const view = getApplicationView(layoutMode, null);
         expect(view).toEqual({ isTablet: true, activeSection: 'printer', headerTitle: 'Ứng dụng' });
       },
     );
 
     it('keeps the selected section but always shows the generic header title', () => {
-      const view = getSettingsView('tablet-landscape', 'account');
+      const view = getApplicationView('tablet-landscape', 'account');
       expect(view).toEqual({ isTablet: true, activeSection: 'account', headerTitle: 'Ứng dụng' });
     });
   });
