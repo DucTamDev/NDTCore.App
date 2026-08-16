@@ -4,7 +4,7 @@ describe('getSettingsView', () => {
   describe('phone', () => {
     it('shows the sidebar (no active section) when nothing is selected yet', () => {
       const view = getSettingsView('phone', null);
-      expect(view).toEqual({ isTablet: false, activeSection: null, headerTitle: 'Cài đặt' });
+      expect(view).toEqual({ isTablet: false, activeSection: null, headerTitle: 'Ứng dụng' });
     });
 
     it('shows the selected section with its label as the header title', () => {
@@ -18,13 +18,13 @@ describe('getSettingsView', () => {
       'falls back to the default menu key on %s when nothing is selected yet',
       (layoutMode) => {
         const view = getSettingsView(layoutMode, null);
-        expect(view).toEqual({ isTablet: true, activeSection: 'printer', headerTitle: 'Cài đặt' });
+        expect(view).toEqual({ isTablet: true, activeSection: 'printer', headerTitle: 'Ứng dụng' });
       },
     );
 
     it('keeps the selected section but always shows the generic header title', () => {
       const view = getSettingsView('tablet-landscape', 'account');
-      expect(view).toEqual({ isTablet: true, activeSection: 'account', headerTitle: 'Cài đặt' });
+      expect(view).toEqual({ isTablet: true, activeSection: 'account', headerTitle: 'Ứng dụng' });
     });
   });
 });

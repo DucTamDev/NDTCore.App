@@ -18,7 +18,7 @@ export function getSettingsView(
   const isTablet = layoutMode !== 'phone';
   const activeSection = isTablet ? (activeMenuKey ?? DEFAULT_TABLET_MENU_KEY) : activeMenuKey;
   const activeItem = settingsMenuItems.find((item) => item.key === activeSection);
-  const headerTitle = !isTablet && activeItem ? activeItem.label : 'Cài đặt';
+  const headerTitle = !isTablet && activeItem ? activeItem.label : 'Ứng dụng';
 
   return { isTablet, activeSection, headerTitle };
 }
