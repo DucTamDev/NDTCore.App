@@ -29,9 +29,12 @@ export function useSettings() {
   const activeMenuKey = useSelector(selectActiveMenuKey);
   const { isTablet, activeSection, headerTitle } = getSettingsView(layoutMode, activeMenuKey);
 
-  const selectSection = (section: SettingsMenuKey): void => {
-    dispatch(activeMenuKeyChanged(section));
-  };
+  const selectSection = useCallback(
+    (section: SettingsMenuKey): void => {
+      dispatch(activeMenuKeyChanged(section));
+    },
+    [dispatch],
+  );
 
   const clearSection = useCallback((): void => {
     dispatch(activeMenuKeyChanged(null));
