@@ -1,9 +1,9 @@
-import { CatalogService } from './CatalogService';
-import { catalogApi } from '../api/catalogApi';
-import { ALL_CATEGORY_ID } from '../types/catalog.types';
-import type { CategoryViewModel, ProductViewModel } from '../types/catalog.types';
+import { CatalogService } from '../CatalogService';
+import { catalogApi } from '../../api/catalogApi';
+import { ALL_CATEGORY_ID } from '../../types/catalog.types';
+import type { CategoryViewModel, ProductViewModel } from '../../types/catalog.types';
 
-jest.mock('../api/catalogApi', () => ({
+jest.mock('../../api/catalogApi', () => ({
   catalogApi: { getCatalogAsync: jest.fn() },
 }));
 

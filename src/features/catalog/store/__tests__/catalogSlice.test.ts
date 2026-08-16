@@ -6,10 +6,10 @@ import reducer, {
   selectProducts,
   selectCatalogLoading,
   selectCatalogError,
-} from './catalogSlice';
-import { loggedOut } from '../../auth/store/authSlice';
-import { storeCleared } from '../../store/store/storeSlice';
-import type { CategoryViewModel, ProductViewModel } from '../types/catalog.types';
+} from '../catalogSlice';
+import { loggedOut } from '../../../auth/store/authSlice';
+import { storeCleared } from '../../../store/store/storeSlice';
+import type { CategoryViewModel, ProductViewModel } from '../../types/catalog.types';
 
 const sampleCategory: CategoryViewModel = { id: 1, parentId: null, name: 'Trà sữa', productCount: 1, children: [] };
 const sampleProduct: ProductViewModel = {
