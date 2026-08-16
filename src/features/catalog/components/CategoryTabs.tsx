@@ -25,6 +25,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({ categories, selected
         label="Tất cả"
         active={selectedCategoryId === ALL_CATEGORY_ID}
         activeColor={theme.colors.primary}
+        mutedColor={theme.colors.onSurfaceVariant}
         onPress={() => onSelect(ALL_CATEGORY_ID)}
       />
       {categories.map((category) => (
@@ -33,6 +34,7 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({ categories, selected
           label={category.name}
           active={selectedCategoryId === category.id}
           activeColor={theme.colors.primary}
+          mutedColor={theme.colors.onSurfaceVariant}
           onPress={() => onSelect(category.id)}
         />
       ))}
@@ -44,15 +46,16 @@ interface TabProps {
   label: string;
   active: boolean;
   activeColor: string;
+  mutedColor: string;
   onPress: () => void;
 }
 
-const Tab: React.FC<TabProps> = ({ label, active, activeColor, onPress }) => (
+const Tab: React.FC<TabProps> = ({ label, active, activeColor, mutedColor, onPress }) => (
   <TouchableRipple style={[styles.tab, active ? styles.tabActive : null]} onPress={onPress}>
     <Text
       variant="labelLarge"
       numberOfLines={1}
-      style={[styles.tabLabel, active ? { color: activeColor } : null]}
+      style={[styles.tabLabel, { color: active ? activeColor : mutedColor }]}
     >
       {label}
     </Text>
@@ -71,5 +74,5 @@ const styles = StyleSheet.create({
   // itemActive. fontWeight một mình không đủ tin cậy để phân biệt trạng thái
   // trên web (tuỳ font đã tải), nên cần thêm tín hiệu nền làm chính.
   tabActive: { backgroundColor: '#EFF6FF' },
-  tabLabel: { color: '#6B7280', lineHeight: 18 },
+  tabLabel: { lineHeight: 18 },
 });

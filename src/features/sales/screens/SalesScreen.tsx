@@ -1,23 +1,25 @@
 // src/features/sales/screens/SalesScreen.tsx
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { IconButton, Modal, Portal, Text, useTheme } from 'react-native-paper';
-import { useSelector } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootState } from '../../../store';
-import { formatCurrency } from '../../../utils/formatCurrency';
 import { TopAppBar } from '../components/TopAppBar';
 import { ProductArea } from '../components/ProductArea';
+import { CartSummaryBar } from '../components/CartSummaryBar';
 import { CartPanel } from '../../cart/components/CartPanel';
-import { selectCartItemCount, selectCartTotal } from '../../cart/store/cartSlice';
 import { useLayoutMode } from '../../../hooks/useLayoutMode';
 
 export const SalesScreen: React.FC = () => {
   const theme = useTheme();
   const layoutMode = useLayoutMode();
   const [cartVisible, setCartVisible] = useState(false);
-  const itemCount = useSelector((state: RootState) => selectCartItemCount(state));
-  const cartTotal = useSelector((state: RootState) => selectCartTotal(state));
+
+  useEffect(() => {
+    // layoutMode có thể đổi runtime (xoay máy, foldable) — nếu giỏ hàng đang
+    // mở ở phone rồi layout chuyển sang tablet rồi quay lại phone, không để
+    // modal tự mở lại khi người dùng chưa bấm gì.
+    if (layoutMode !== 'phone') setCartVisible(false);
+  }, [layoutMode]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -25,14 +27,7 @@ export const SalesScreen: React.FC = () => {
       {layoutMode === 'phone' ? (
         <View style={styles.phoneBody}>
           <ProductArea />
-          <TouchableOpacity
-            style={[styles.cartSummaryBar, { backgroundColor: theme.colors.primary }]}
-            onPress={() => setCartVisible(true)}
-          >
-            <Text variant="titleSmall" style={styles.cartSummaryText}>
-              {itemCount} sản phẩm · {formatCurrency(cartTotal)}
-            </Text>
-          </TouchableOpacity>
+          <CartSummaryBar onPress={() => setCartVisible(true)} />
           <Portal>
             <Modal
               visible={cartVisible}
@@ -56,7 +51,12 @@ export const SalesScreen: React.FC = () => {
           <View style={layoutMode === 'tablet-portrait' ? styles.productAreaPortrait : styles.productArea}>
             <ProductArea />
           </View>
-          <View style={layoutMode === 'tablet-portrait' ? styles.cartPanelPortrait : styles.cartPanel}>
+          <View
+            style={[
+              layoutMode === 'tablet-portrait' ? styles.cartPanelPortrait : styles.cartPanel,
+              { borderLeftColor: theme.colors.outlineVariant },
+            ]}
+          >
             <CartPanel />
           </View>
         </View>
@@ -70,14 +70,9 @@ const styles = StyleSheet.create({
   splitBody: { flex: 1, flexDirection: 'row' },
   productArea: { flex: 68 },
   productAreaPortrait: { flex: 55 },
-  cartPanel: { flex: 32, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
-  cartPanelPortrait: { flex: 45, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E5E7EB' },
+  cartPanel: { flex: 32, borderLeftWidth: StyleSheet.hairlineWidth },
+  cartPanelPortrait: { flex: 45, borderLeftWidth: StyleSheet.hairlineWidth },
   phoneBody: { flex: 1 },
-  cartSummaryBar: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  cartSummaryText: { color: 'white' },
   phoneCartModal: {
     backgroundColor: 'white',
     margin: 0,

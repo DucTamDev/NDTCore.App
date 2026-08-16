@@ -63,6 +63,11 @@ export const ProductArea: React.FC = () => {
   }
 
   const trimmedKeyword = searchKeyword.trim();
+  const emptyMessage = trimmedKeyword
+    ? `Không tìm thấy sản phẩm "${trimmedKeyword}"`
+    : selectedCategoryId !== ALL_CATEGORY_ID
+      ? 'Danh mục này chưa có sản phẩm'
+      : 'Không có sản phẩm';
 
   return (
     <View style={styles.container}>
@@ -76,7 +81,7 @@ export const ProductArea: React.FC = () => {
         products={filteredProducts}
         numColumns={NUM_COLUMNS_BY_LAYOUT[layoutMode]}
         isLoading={isLoading}
-        emptyMessage={trimmedKeyword ? `Không tìm thấy sản phẩm "${trimmedKeyword}"` : 'Không có sản phẩm'}
+        emptyMessage={emptyMessage}
         onProductPress={handleProductPress}
       />
       <OptionSelectionModal
