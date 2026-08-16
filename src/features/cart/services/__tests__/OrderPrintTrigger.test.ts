@@ -1,7 +1,7 @@
-import { buildReceiptDocument, printReceipt } from '../OrderPrintTrigger';
+import { buildReceiptDocument, buildReprintDocument, printReceipt } from '../OrderPrintTrigger';
 import { PrintService } from '../../../printer/services/PrintService';
 import { LoggerService } from '../../../../services/LoggerService';
-import type { CartItem, CreateOrderResponse } from '../../types/cart.types';
+import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 
 jest.mock('../../../printer/services/PrintService');
 jest.mock('../../../../services/LoggerService');
@@ -19,6 +19,28 @@ describe('buildReceiptDocument', () => {
     expect(document.elements[0]).toEqual({ type: 'text', content: 'Đơn ORD-001 · Tại quầy', x: 0, y: 0 });
     const table = document.elements.find((el) => el.type === 'table');
     expect(table).toMatchObject({ rows: [['Trà sữa', '2', 'ít đường']] });
+  });
+});
+
+const orderDetail: OrderDetail = {
+  Id: 1,
+  OrderNumber: 'ORD-001',
+  ServiceType: 'DineIn',
+  Items: [{ ProductName: 'Trà sữa', Quantity: 2, Note: 'ít đường', Options: [] }],
+};
+
+describe('buildReprintDocument', () => {
+  it('builds one document with a header line and one table row per item, marked as a reprint', () => {
+    const document = buildReprintDocument(orderDetail);
+    expect(document.elements[0]).toEqual({ type: 'text', content: 'Đơn ORD-001 · Tại quầy (In lại)', x: 0, y: 0 });
+    const table = document.elements.find((el) => el.type === 'table');
+    expect(table).toMatchObject({ rows: [['Trà sữa', '2', 'ít đường']] });
+  });
+
+  it('prints an empty note when the order item has no note', () => {
+    const document = buildReprintDocument({ ...orderDetail, Items: [{ ...orderDetail.Items[0], Note: null }] });
+    const table = document.elements.find((el) => el.type === 'table');
+    expect(table).toMatchObject({ rows: [['Trà sữa', '2', '']] });
   });
 });
 

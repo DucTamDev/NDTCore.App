@@ -4,6 +4,7 @@ export type SettingsMenuKey =
   | 'printer'
   | 'printConfiguration'
   | 'scanner'
+  | 'orderHistory'
   | 'account'
   | 'language'
   | 'sync'

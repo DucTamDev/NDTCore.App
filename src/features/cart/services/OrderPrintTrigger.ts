@@ -1,7 +1,7 @@
 import { PrintService } from '../../printer/services/PrintService';
 import { LoggerService } from '../../../services/LoggerService';
 import { SERVICE_TYPE_LABELS } from '../types/cart.types';
-import type { CartItem, CreateOrderResponse, ServiceType } from '../types/cart.types';
+import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
 import type { PrintDocument } from '../../printer/types/printDocument.types';
 
 export const buildReceiptDocument = (
@@ -13,6 +13,19 @@ export const buildReceiptDocument = (
     { type: 'text', content: `Đơn ${orderResponse.OrderNumber} · ${SERVICE_TYPE_LABELS[serviceType]}`, x: 0, y: 0 },
     { type: 'line', x: 0, y: 20 },
     { type: 'table', rows: items.map((item) => [item.productName, String(item.quantity), item.note]), x: 0, y: 30 },
+  ],
+});
+
+/**
+ * Dựng lại document in từ một đơn đã đặt trước đó (ví dụ: xem lịch sử đơn
+ * hôm nay rồi bấm in lại) — cùng khuôn dạng với buildReceiptDocument, thêm
+ * nhãn "(In lại)" để phân biệt với bill gốc lúc thanh toán.
+ */
+export const buildReprintDocument = (order: OrderDetail): PrintDocument => ({
+  elements: [
+    { type: 'text', content: `Đơn ${order.OrderNumber} · ${SERVICE_TYPE_LABELS[order.ServiceType]} (In lại)`, x: 0, y: 0 },
+    { type: 'line', x: 0, y: 20 },
+    { type: 'table', rows: order.Items.map((item) => [item.ProductName, String(item.Quantity), item.Note ?? '']), x: 0, y: 30 },
   ],
 });
 

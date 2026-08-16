@@ -71,3 +71,33 @@ export interface CreateOrderResponse {
   TotalAmount: number;
   CreatedAt: string | null;
 }
+
+export interface OrderHistoryItem {
+  Id: number;
+  OrderNumber: string;
+  Status: string;
+  TotalAmount: number;
+  ItemSummary: string;
+  CreatedAt: string | null;
+}
+
+export interface OrderDetailItemOption {
+  OptionId: number;
+  GroupName: string | null;
+  OptionName: string;
+  Price: number;
+}
+
+export interface OrderDetailItem {
+  ProductName: string;
+  Quantity: number;
+  Note: string | null;
+  Options: OrderDetailItemOption[];
+}
+
+export interface OrderDetail {
+  Id: number;
+  OrderNumber: string;
+  ServiceType: ServiceType;
+  Items: OrderDetailItem[];
+}
