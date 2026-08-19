@@ -1,7 +1,7 @@
 // src/features/printer/components/ConnectionSection.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { SegmentedButtons } from 'react-native-paper';
+import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DeviceScanList } from './DeviceScanList';
@@ -18,6 +18,10 @@ export interface ConnectionSectionProps {
   onLanPortChange: (value: string) => void;
   lanIpError?: string;
   lanPortError?: string;
+  detectedLanIp?: string | null;
+  lanIpFetchError?: string;
+  onFetchLanIp: () => void;
+  onAutoFillLanIp: () => void;
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
@@ -34,6 +38,10 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   onLanPortChange,
   lanIpError,
   lanPortError,
+  detectedLanIp,
+  lanIpFetchError,
+  onFetchLanIp,
+  onAutoFillLanIp,
   connectLabel,
   connectDisabled,
   onConnectPress,
@@ -51,6 +59,11 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
     {connectionType === 'lan' ? (
       <>
         <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} />
+        <View style={styles.lanIpActions}>
+          <AppButton label="Lấy IP mạng" mode="outlined" onPress={onFetchLanIp} />
+          {detectedLanIp ? <AppButton label="Điền IP" mode="outlined" onPress={onAutoFillLanIp} /> : null}
+        </View>
+        {lanIpFetchError ? <HelperText type="error">{lanIpFetchError}</HelperText> : null}
         <AppInput
           label="Cổng"
           value={lanPort}
@@ -68,4 +81,5 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: { gap: 12 },
+  lanIpActions: { flexDirection: 'row', gap: 8 },
 });

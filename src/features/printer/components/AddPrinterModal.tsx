@@ -5,6 +5,7 @@ import { Modal, Portal, Text } from 'react-native-paper';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterService } from '../services/PrinterService';
+import { getCurrentWifiIp } from '../services/NetworkInfoService';
 import { generateId } from '../../../utils/id';
 import {
   lanConnectionSchema,
@@ -49,6 +50,8 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [protocolSource, setProtocolSource] = useState<ProtocolSource | undefined>(initialValues?.protocolSource);
   const [deviceInfo, setDeviceInfo] = useState<PrinterDeviceInfo | undefined>(initialValues?.deviceInfo);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
+  const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
+  const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
 
   const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
   const savedRef = useRef(false);
@@ -227,6 +230,22 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
   };
 
+  const onFetchLanIp = async (): Promise<void> => {
+    setLanIpFetchError(undefined);
+    const ip = await getCurrentWifiIp();
+    if (!ip) {
+      setDetectedLanIp(null);
+      setLanIpFetchError('Không lấy được IP — kiểm tra đã kết nối WiFi chưa');
+      return;
+    }
+    setDetectedLanIp(ip);
+  };
+
+  const onAutoFillLanIp = (): void => {
+    if (!detectedLanIp) return;
+    onLanIpChange(detectedLanIp);
+  };
+
   const buildFinalConfig = (): PrinterConfig | undefined => {
     if (!protocol || !protocolSource) return undefined;
     const display = displayForm.getValues();
@@ -293,6 +312,10 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             lanPort={lanForm.watch('lanPort')}
             onLanIpChange={onLanIpChange}
             onLanPortChange={onLanPortChange}
+            detectedLanIp={detectedLanIp}
+            lanIpFetchError={lanIpFetchError}
+            onFetchLanIp={onFetchLanIp}
+            onAutoFillLanIp={onAutoFillLanIp}
             lanIpError={lanForm.formState.errors.lanIp?.message}
             lanPortError={lanForm.formState.errors.lanPort?.message}
             connectLabel={connectLabel}
