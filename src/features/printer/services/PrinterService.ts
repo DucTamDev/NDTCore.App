@@ -9,6 +9,7 @@ import type {
   Protocol,
 } from '../types/printer.types';
 import type { PrintDocument } from '../types/printDocument.types';
+import type { PrintType } from '../types/printConfiguration.types';
 import { DriverRegistry } from './DriverRegistry';
 import { createDiscoverProtocol, type DiscoveryEvent, type DiscoveryInput } from './discoverProtocol';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
@@ -93,15 +94,32 @@ export const createPrinterService = (
   };
 
   /**
+   * Kết nối lại mọi máy in đã bật "Tự động kết nối lại" — gọi 1 lần lúc app
+   * khởi động (`App.tsx`). Trạng thái kết nối chỉ sống trong bộ nhớ JS của
+   * driver (không persist), nên mỗi lần app khởi động lại, mọi máy in đều về
+   * `idle` cho tới khi có bước này — thiếu nó, `autoReconnect` chỉ có tác
+   * dụng đúng 1 lần lúc vừa lưu máy in ở `AddPrinterModal`, không đúng như
+   * tên field/label UI ("Tự động kết nối lại") ngụ ý. Lỗi từng máy bị nuốt —
+   * 1 máy in offline không được chặn các máy còn lại kết nối.
+   */
+  const reconnectAutoPrinters = (): void => {
+    getPrinters()
+      .filter((p) => p.enabled && p.autoReconnect)
+      .forEach((p) => {
+        connect(p.id).catch(() => undefined);
+      });
+  };
+
+  /**
    * In thử qua khoá tài nguyên dùng chung với `PrintScheduler` (theo
    * `protocol`+`connectionType`), không gọi driver trực tiếp — nếu không,
    * bấm "In thử" thủ công đúng lúc có đơn đang in trên máy in khác dùng
    * chung kết nối native (vd 2 máy in escpos cùng LAN) có thể khiến 1 trong
    * 2 bị ngắt kết nối giữa chừng.
    */
-  const testPrint = async (config: PrinterConfig): Promise<void> => {
+  const testPrint = async (config: PrinterConfig, document: PrintDocument, printType?: PrintType): Promise<void> => {
     await lock.runExclusive(connectionResourceKey(config.protocol, config.connectionType), () =>
-      getDriver(config.protocol).testPrint(config),
+      getDriver(config.protocol).testPrint(config, document, printType),
     );
   };
 
@@ -113,13 +131,13 @@ export const createPrinterService = (
    * sẽ luôn thất bại ở phiên làm việc mới cho tới khi người dùng bấm "Kết
    * nối" thủ công từ danh sách máy in.
    */
-  const print = async (printerId: string, document: PrintDocument): Promise<void> => {
+  const print = async (printerId: string, document: PrintDocument, printType?: PrintType): Promise<void> => {
     const config = findOrThrow(printerId);
     const driver = getDriver(config.protocol);
     if (driver.getStatus(printerId) !== 'connected') {
       await driver.connect(config);
     }
-    await driver.print(printerId, document);
+    await driver.print(printerId, document, printType);
   };
 
   const scanDevices = (
@@ -131,9 +149,12 @@ export const createPrinterService = (
   /**
    * Scan thiết bị cho wizard TRƯỚC khi biết protocol (mục "Key Architecture
    * Decision" đầu plan): Bluetooth dùng scan tổng quát của TsplDriver
-   * (RNBluetoothClassic trực tiếp, không phụ thuộc SDK hãng nào); USB chỉ
-   * ThermalReceiptDriver hỗ trợ scan (TsplDriver luôn báo lỗi UNSUPPORTED_CONNECTION
-   * cho USB — kiến trúc TSPL-qua-USB chưa được hỗ trợ, Phase 1 §4.3).
+   * (RNBluetoothClassic trực tiếp, không phụ thuộc SDK hãng nào); USB luôn
+   * dùng scan của ThermalReceiptDriver dù protocol cuối cùng là gì — quét USB
+   * chỉ liệt kê thiết bị vật lý (vendor_id/product_id), không phân biệt được
+   * escpos/tspl ở bước này; protocol thật được xác nhận sau qua
+   * `discoverProtocol()`/`identify()`. `TsplDriver` (từ khi hỗ trợ kết nối
+   * TSPL-qua-USB) dùng lại đúng `rawDevice` này khi `connect()`.
    */
   const scanForConnectionType = (
     connectionType: ConnectionType,
@@ -202,6 +223,7 @@ export const createPrinterService = (
     connect,
     disconnect,
     reconnect,
+    reconnectAutoPrinters,
     testPrint,
     print,
     scanDevices,

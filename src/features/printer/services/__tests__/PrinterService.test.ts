@@ -81,11 +81,40 @@ describe('PrinterService', () => {
     expect(escposDriver.connect).toHaveBeenCalledWith(baseConfig);
   });
 
-  it('testPrint() forwards the given config straight to the driver, without persisting it', async () => {
+  it('reconnectAutoPrinters() connects only enabled printers with autoReconnect on', () => {
+    const escposDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: tsplDriver }, createResourceLock());
+    const auto: PrinterConfig = { ...baseConfig, id: 'p-auto', autoReconnect: true, enabled: true };
+    const manual: PrinterConfig = { ...baseConfig, id: 'p-manual', autoReconnect: false, enabled: true };
+    const disabled: PrinterConfig = { ...baseConfig, id: 'p-disabled', protocol: 'tspl', autoReconnect: true, enabled: false };
+    service.addPrinter(auto);
+    service.addPrinter(manual);
+    service.addPrinter(disabled);
+
+    service.reconnectAutoPrinters();
+
+    expect(escposDriver.connect).toHaveBeenCalledTimes(1);
+    expect(escposDriver.connect).toHaveBeenCalledWith(auto);
+    expect(tsplDriver.connect).not.toHaveBeenCalled();
+  });
+
+  it('reconnectAutoPrinters() swallows a connect failure for one printer without throwing', async () => {
+    const escposDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('offline')) });
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
+    service.addPrinter({ ...baseConfig, autoReconnect: true, enabled: true });
+
+    expect(() => service.reconnectAutoPrinters()).not.toThrow();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it('testPrint() forwards the given config and document straight to the driver, without persisting it', async () => {
     const escposDriver = makeMockDriver();
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
-    await service.testPrint(baseConfig);
-    expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig);
+    const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
+    await service.testPrint(baseConfig, document);
+    expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig, document, undefined);
     expect(service.getPrinters()).toEqual([]);
   });
 
@@ -151,7 +180,7 @@ describe('PrinterService', () => {
     service.addPrinter(baseConfig);
     const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
     await service.print(baseConfig.id, document);
-    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document);
+    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document, undefined);
   });
 
   it('print() connects first when the driver reports the printer is not connected', async () => {
@@ -161,7 +190,7 @@ describe('PrinterService', () => {
     const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
     await service.print(baseConfig.id, document);
     expect(escposDriver.connect).toHaveBeenCalledWith(baseConfig);
-    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document);
+    expect(escposDriver.print).toHaveBeenCalledWith(baseConfig.id, document, undefined);
   });
 
   it('print() does not reconnect when the driver reports the printer is already connected', async () => {
@@ -178,9 +207,10 @@ describe('PrinterService', () => {
     const lock = createResourceLock();
     const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, lock);
-    await service.testPrint(baseConfig);
+    const document = { elements: [{ type: 'text' as const, content: 'x', x: 0, y: 0 }] };
+    await service.testPrint(baseConfig, document);
     expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
-    expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig);
+    expect(escposDriver.testPrint).toHaveBeenCalledWith(baseConfig, document, undefined);
   });
 
   it('connect() runs the driver call through the connection lock, keyed by protocol+connectionType', async () => {
