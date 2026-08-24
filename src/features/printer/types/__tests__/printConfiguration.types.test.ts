@@ -1,15 +1,16 @@
-import type { PrintConfiguration, PrintType } from '../printConfiguration.types';
+import { PRINT_TYPE_LABELS } from '../printConfiguration.types';
+import type { PrintType } from '../printConfiguration.types';
 
-describe('print configuration types', () => {
-  it('accepts a full PrintConfiguration for each PrintType', () => {
+describe('PRINT_TYPE_LABELS', () => {
+  it('has a Vietnamese label for every PrintType', () => {
     const types: PrintType[] = ['Receipt', 'Label'];
-    const configs: PrintConfiguration[] = types.map((printType) => ({
-      id: `c-${printType}`,
-      printType,
-      printerId: 'p1',
-      isDefault: true,
-      isEnabled: true,
-    }));
-    expect(configs).toHaveLength(2);
+    for (const type of types) {
+      expect(PRINT_TYPE_LABELS[type]).toEqual(expect.any(String));
+    }
+  });
+
+  it('labels Receipt as "Hoá đơn" and Label as "Tem"', () => {
+    expect(PRINT_TYPE_LABELS.Receipt).toBe('Hoá đơn');
+    expect(PRINT_TYPE_LABELS.Label).toBe('Tem');
   });
 });

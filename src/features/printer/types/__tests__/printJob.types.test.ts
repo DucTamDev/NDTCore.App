@@ -9,6 +9,7 @@ describe('print job types', () => {
       id: 'job1',
       requestId: 'req1',
       printerId: 'p1',
+      printType: 'Receipt',
       document,
       status: 'pending',
       retryCount: 0,

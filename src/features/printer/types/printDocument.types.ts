@@ -32,13 +32,21 @@ export interface PrintTableElement extends PrintElementBase {
   rows: string[][];
 }
 
+/** Layout 2 cột canh trái/phải trên cùng 1 dòng (vd "Mã đơn" .... "#001") — khác `table` (nhiều cột đều nhau, dùng cho danh sách món). */
+export interface PrintRowElement extends PrintElementBase {
+  type: 'row';
+  left: string;
+  right: string;
+}
+
 export type PrintElement =
   | PrintTextElement
   | PrintImageElement
   | PrintBarcodeElement
   | PrintQrCodeElement
   | PrintLineElement
-  | PrintTableElement;
+  | PrintTableElement
+  | PrintRowElement;
 
 export interface PrintDocument {
   elements: PrintElement[];
