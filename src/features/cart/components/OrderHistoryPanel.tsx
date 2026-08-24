@@ -4,10 +4,12 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { Portal, Snackbar, Text } from 'react-native-paper';
 import { EmptyState } from '../../../components/EmptyState';
 import { useOrderHistory } from '../hooks/useOrderHistory';
+import { useBillImageCapture } from '../../printer/hooks/useBillImageCapture';
 import { OrderHistoryListItem } from './OrderHistoryListItem';
 import type { OrderHistoryItem } from '../types/cart.types';
 
 export const OrderHistoryPanel: React.FC = () => {
+  const { captureNode, captureBillImage } = useBillImageCapture();
   const {
     orders,
     isLoading,
@@ -15,10 +17,10 @@ export const OrderHistoryPanel: React.FC = () => {
     dismissError,
     reprint,
     reprintingIds,
-    noReceiptPrinterConfigured,
-    dismissReceiptPrinterWarning,
+    receiptPrintWarning,
+    dismissReceiptPrintWarning,
     refresh,
-  } = useOrderHistory();
+  } = useOrderHistory(captureBillImage);
 
   return (
     <View style={styles.container}>
@@ -39,10 +41,11 @@ export const OrderHistoryPanel: React.FC = () => {
         <Snackbar visible={error !== null} onDismiss={dismissError} duration={4000}>
           {error}
         </Snackbar>
-        <Snackbar visible={noReceiptPrinterConfigured} onDismiss={dismissReceiptPrinterWarning} duration={4000}>
-          Chưa thiết lập máy in cho Hoá đơn
+        <Snackbar visible={receiptPrintWarning !== null} onDismiss={dismissReceiptPrintWarning} duration={4000}>
+          {receiptPrintWarning === 'no-printer' ? 'Chưa thiết lập máy in cho Hoá đơn' : 'In hoá đơn không thành công'}
         </Snackbar>
       </Portal>
+      {captureNode}
     </View>
   );
 };

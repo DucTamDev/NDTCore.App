@@ -2,9 +2,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
-import { selectCurrentStoreId } from '../../store/store/storeSlice';
+import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { orderApi } from '../api/orderApi';
-import { buildReprintDocument, printReceipt } from '../services/OrderPrintTrigger';
+import { buildReprintDocument, printReceipt, type CaptureBillImage, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
 import type { OrderHistoryItem } from '../types/cart.types';
 
 export const getTodayRange = (now: Date): { fromDate: string; toDate: string } => {
@@ -25,13 +25,14 @@ export const finishReprint = (ids: ReadonlySet<number>, orderId: number): Set<nu
   return next;
 };
 
-export const useOrderHistory = () => {
+export const useOrderHistory = (captureBillImage: CaptureBillImage) => {
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
+  const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reprintingIds, setReprintingIds] = useState<Set<number>>(new Set());
-  const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
+  const [receiptPrintWarning, setReceiptPrintWarning] = useState<Exclude<PrintReceiptOutcome, 'ok'> | null>(null);
   // Ref (không phải state) để guard chặn fetch chồng lấp mà không đổi identity
   // của refresh() — pull-to-refresh và useEffect lúc mount có thể cùng gọi
   // refresh() gần nhau; nếu đưa isLoading vào deps của useCallback, mỗi lần
@@ -71,17 +72,18 @@ export const useOrderHistory = () => {
       if (!response.IsSuccess || !response.Data) {
         throw new Error(response.Error?.Message ?? 'Không thể tải chi tiết đơn hàng');
       }
-      const document = buildReprintDocument(response.Data);
-      setNoReceiptPrinterConfigured(await printReceipt(document));
+      const document = buildReprintDocument(response.Data, currentStore);
+      const outcome = await printReceipt(document, captureBillImage);
+      if (outcome !== 'ok') setReceiptPrintWarning(outcome);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'In lại thất bại');
     } finally {
       setReprintingIds((prev) => finishReprint(prev, orderId));
     }
-  }, []);
+  }, [currentStore, captureBillImage]);
 
   const dismissError = useCallback(() => setError(null), []);
-  const dismissReceiptPrinterWarning = useCallback(() => setNoReceiptPrinterConfigured(false), []);
+  const dismissReceiptPrintWarning = useCallback(() => setReceiptPrintWarning(null), []);
 
   return {
     orders,
@@ -90,8 +92,8 @@ export const useOrderHistory = () => {
     dismissError,
     reprint,
     reprintingIds,
-    noReceiptPrinterConfigured,
-    dismissReceiptPrinterWarning,
+    receiptPrintWarning,
+    dismissReceiptPrintWarning,
     refresh,
   };
 };

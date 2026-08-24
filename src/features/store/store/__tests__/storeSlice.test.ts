@@ -6,6 +6,7 @@ import reducer, {
   storeCleared,
   selectCurrentStoreId,
   selectAvailableStores,
+  selectCurrentStore,
   selectStoresLoading,
   selectStoresError,
 } from '../storeSlice';
@@ -78,5 +79,26 @@ describe('storeSlice', () => {
     expect(selectAvailableStores(rootState)).toEqual([sampleStore]);
     expect(selectStoresLoading(rootState)).toBe(false);
     expect(selectStoresError(rootState)).toBe('x');
+  });
+
+  it('selectCurrentStore finds the store matching storeId in availableStores', () => {
+    const rootState = {
+      currentStore: { storeId: 1, availableStores: [sampleStore], isLoading: false, error: null },
+    };
+    expect(selectCurrentStore(rootState)).toEqual(sampleStore);
+  });
+
+  it('selectCurrentStore returns null when storeId does not match any available store', () => {
+    const rootState = {
+      currentStore: { storeId: 99, availableStores: [sampleStore], isLoading: false, error: null },
+    };
+    expect(selectCurrentStore(rootState)).toBeNull();
+  });
+
+  it('selectCurrentStore returns null when no store is selected', () => {
+    const rootState = {
+      currentStore: { storeId: null, availableStores: [sampleStore], isLoading: false, error: null },
+    };
+    expect(selectCurrentStore(rootState)).toBeNull();
   });
 });

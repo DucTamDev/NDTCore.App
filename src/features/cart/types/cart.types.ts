@@ -92,6 +92,8 @@ export interface OrderDetailItem {
   ProductName: string;
   Quantity: number;
   Note: string | null;
+  /** Đơn giá đã gồm option (khớp `CartItem.unitPrice`) — cần BE trả kèm để in lại bill có giá. */
+  UnitPrice: number;
   Options: OrderDetailItemOption[];
 }
 
@@ -101,5 +103,13 @@ export interface OrderDetail {
   // Chuỗi thô từ API, chưa chắc khớp union ServiceType (dữ liệu cũ, kênh
   // mới) — nơi dùng phải tự kiểm tra, không ép kiểu.
   ServiceType: string;
+  CreatedAt: string | null;
+  Subtotal: number;
+  DiscountAmount: number;
+  DeliveryFee: number;
+  TotalAmount: number;
+  PaymentMethod: string | null;
+  AmountReceived: number | null;
+  ChangeAmount: number | null;
   Items: OrderDetailItem[];
 }

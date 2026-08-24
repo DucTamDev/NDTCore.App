@@ -11,6 +11,7 @@ import { formatCurrency } from '../../../utils/formatCurrency';
 import { CartItemRow } from './CartItemRow';
 import { CartItemEditModal } from './CartItemEditModal';
 import { useCheckout } from '../hooks/useCheckout';
+import { useBillImageCapture } from '../../printer/hooks/useBillImageCapture';
 import {
   itemEdited,
   itemQuantityChanged,
@@ -37,7 +38,8 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
   const serviceType = useSelector((state: RootState) => selectServiceType(state));
   const note = useSelector((state: RootState) => selectCartNote(state));
   const total = useSelector((state: RootState) => selectCartTotal(state));
-  const { submit, isSubmitting, error, dismissError, noReceiptPrinterConfigured, dismissReceiptPrinterWarning } = useCheckout();
+  const { captureNode, captureBillImage } = useBillImageCapture();
+  const { submit, isSubmitting, error, dismissError, receiptPrintWarning, dismissReceiptPrintWarning } = useCheckout(captureBillImage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
@@ -100,10 +102,11 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
         <Snackbar visible={successMessage !== null} onDismiss={() => setSuccessMessage(null)} duration={3000}>
           {successMessage}
         </Snackbar>
-        <Snackbar visible={noReceiptPrinterConfigured} onDismiss={dismissReceiptPrinterWarning} duration={4000}>
-          Chưa thiết lập máy in cho Hoá đơn
+        <Snackbar visible={receiptPrintWarning !== null} onDismiss={dismissReceiptPrintWarning} duration={4000}>
+          {receiptPrintWarning === 'no-printer' ? 'Chưa thiết lập máy in cho Hoá đơn' : 'In hoá đơn không thành công'}
         </Snackbar>
       </Portal>
+      {captureNode}
     </View>
   );
 };

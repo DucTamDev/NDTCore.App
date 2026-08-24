@@ -61,6 +61,8 @@ interface StateWithCurrentStore {
 export const selectCurrentStoreId = (state: StateWithCurrentStore): number | null => state.currentStore.storeId;
 export const selectAvailableStores = (state: StateWithCurrentStore): StoreViewModel[] =>
   state.currentStore.availableStores;
+export const selectCurrentStore = (state: StateWithCurrentStore): StoreViewModel | null =>
+  state.currentStore.availableStores.find((s) => s.id === state.currentStore.storeId) ?? null;
 export const selectStoresLoading = (state: StateWithCurrentStore): boolean => state.currentStore.isLoading;
 export const selectStoresError = (state: StateWithCurrentStore): string | null => state.currentStore.error;
 

@@ -2,22 +2,23 @@
 import { useCallback, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
-import { selectCurrentStoreId } from '../../store/store/storeSlice';
+import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { CartService } from '../services/CartService';
-import { buildReceiptDocument, printReceipt } from '../services/OrderPrintTrigger';
+import { buildReceiptDocument, printReceipt, type CaptureBillImage, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
 import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import type { CreateOrderResponse } from '../types/cart.types';
 
-export const useCheckout = () => {
+export const useCheckout = (captureBillImage: CaptureBillImage) => {
   const dispatch = useDispatch<AppDispatch>();
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
+  const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
   const items = useSelector((state: RootState) => selectCartItems(state));
   const serviceType = useSelector((state: RootState) => selectServiceType(state));
   const note = useSelector((state: RootState) => selectCartNote(state));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [noReceiptPrinterConfigured, setNoReceiptPrinterConfigured] = useState(false);
+  const [receiptPrintWarning, setReceiptPrintWarning] = useState<Exclude<PrintReceiptOutcome, 'ok'> | null>(null);
   // Ref, không chỉ state isSubmitting — 2 lần bấm "Thanh toán" lọt vào cùng 1
   // tick đồng bộ đều có thể qua được guard nếu chỉ dựa vào state (cập nhật
   // bất đồng bộ), gây tạo đơn trùng.
@@ -42,8 +43,10 @@ export const useCheckout = () => {
       dispatch(cartCleared());
       // Không await: submit() phải trả về ngay khi đơn hàng được tạo thành
       // công, không chờ việc in ấn (fire-and-forget theo spec §5).
-      const document = buildReceiptDocument(response.Data, items, serviceType);
-      printReceipt(document).then(setNoReceiptPrinterConfigured);
+      const document = buildReceiptDocument(response.Data, items, serviceType, currentStore);
+      printReceipt(document, captureBillImage).then((outcome) => {
+        if (outcome !== 'ok') setReceiptPrintWarning(outcome);
+      });
       return response.Data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tạo đơn hàng');
@@ -52,10 +55,10 @@ export const useCheckout = () => {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [dispatch, storeId, items, serviceType, note]);
+  }, [dispatch, storeId, items, serviceType, note, currentStore, captureBillImage]);
 
   const dismissError = useCallback(() => setError(null), []);
-  const dismissReceiptPrinterWarning = useCallback(() => setNoReceiptPrinterConfigured(false), []);
+  const dismissReceiptPrintWarning = useCallback(() => setReceiptPrintWarning(null), []);
 
-  return { submit, isSubmitting, error, dismissError, noReceiptPrinterConfigured, dismissReceiptPrinterWarning };
+  return { submit, isSubmitting, error, dismissError, receiptPrintWarning, dismissReceiptPrintWarning };
 };
