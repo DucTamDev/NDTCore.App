@@ -1,18 +1,42 @@
 // src/features/printer/transports/UsbTransport.ts
+import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
+import { Buffer } from 'buffer';
 import { AppErrorException } from '../types/AppError';
+import { ensureUsbInitialized, printRawDataUsb } from '../services/UsbPrinterNative';
 
-const UNSUPPORTED_MESSAGE = 'Kết nối USB cho máy in tem (TSPL) chưa được hỗ trợ trong Phase 1';
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
+/**
+ * Transport TSPL-qua-USB, dùng chung native module `RNUSBPrinter` với
+ * `ThermalReceiptDriver` (escpos) — xem `UsbPrinterNative.ts` cho lý do cần
+ * memoize `init()` dùng chung. Không có khả năng đọc phản hồi (chỉ có
+ * bulk-OUT endpoint ở tầng native), nên không có `readOnce()` như
+ * `LanTransport`/`BluetoothTransport` — `TsplDriver.identify()` đã tự loại
+ * USB khỏi việc dò `~!T` bằng cách kiểm tra `'readOnce' in transport`.
+ */
 export class UsbTransport {
-  connect(): Promise<never> {
-    return Promise.reject(new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: UNSUPPORTED_MESSAGE }));
+  async connect(vendorId: number, productId: number): Promise<void> {
+    await ensureUsbInitialized();
+    try {
+      await USBPrinter.connectPrinter(vendorId as unknown as string, productId as unknown as string);
+    } catch (error) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: errorMessage(error) });
+    }
   }
 
-  write(): never {
-    throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: UNSUPPORTED_MESSAGE });
+  async write(bytes: Uint8Array): Promise<void> {
+    try {
+      await printRawDataUsb(Buffer.from(bytes).toString('base64'), true);
+    } catch (error) {
+      throw new AppErrorException({ code: 'PRINT_ERROR', message: errorMessage(error) });
+    }
   }
 
-  close(): void {
-    // không có kết nối để đóng
+  async close(): Promise<void> {
+    try {
+      await USBPrinter.closeConn();
+    } catch (error) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: errorMessage(error) });
+    }
   }
 }
