@@ -23,6 +23,18 @@ Node: `>= 22.11.0`. Không có path alias (`@/...`) — toàn bộ import dùng 
 - `$env:ANDROID_HOME\platform-tools` và `...\emulator` phải có trong `PATH`
 - Nếu `NoDefaultCurrentDirectoryInExePath=1` (registry/env user-level), gọi `.\gradlew.bat` chứ không gọi `gradlew.bat` trần
 
+**Chạy `adb` khi PowerShell báo "not recognized":**
+```powershell
+# Tạm thời — chỉ áp dụng cho cửa sổ PowerShell đang mở
+$env:Path = "$env:LOCALAPPDATA\Android\Sdk\platform-tools;$env:Path"
+
+# Cố định — set 1 lần, cần mở cửa sổ terminal mới để có hiệu lực
+[System.Environment]::SetEnvironmentVariable("Path", "$env:LOCALAPPDATA\Android\Sdk\platform-tools;" + [System.Environment]::GetEnvironmentVariable("Path","User"), "User")
+```
+Kiểm tra thiết bị đã kết nối chưa: `adb devices` (trạng thái phải là `device`, không phải trống/`unauthorized`/`offline`).
+
+Sau khi có `adb` trong `PATH`, nếu app bị màn hình đỏ do mất kết nối Metro: `adb reverse tcp:8081 tcp:8081` rồi chạy `npm start` (hoặc `npm run start:reverse` gộp cả 2 bước), sau đó reload app trên thiết bị.
+
 ---
 
 ## Architecture
@@ -69,10 +81,10 @@ UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrint
 ```
 
 - **`types/driver.types.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `print`, `identify`. Mọi driver mới phải implement đủ interface này.
-- **`drivers/`** — `ThermalReceiptDriver` (ESC/POS qua `@poriyaalar/react-native-thermal-receipt-printer` — thư viện export 3 namespace kết nối độc lập USB/BLE/Net thay vì 1 class dùng chung), `TsplDriver` (TSPL qua `LanTransport`/`BluetoothTransport`/`UsbTransport`, dùng `react-native-bluetooth-classic` + `react-native-tcp-socket`). TSPL qua USB **chưa hỗ trợ**.
+- **`drivers/`** — `ThermalReceiptDriver` (ESC/POS qua `@poriyaalar/react-native-thermal-receipt-printer` — thư viện export 3 namespace kết nối độc lập USB/BLE/Net thay vì 1 class dùng chung), `TsplDriver` (TSPL qua `LanTransport`/`BluetoothTransport`/`UsbTransport`, dùng `react-native-bluetooth-classic` + `react-native-tcp-socket`). `UsbTransport` của TSPL gọi thẳng native module `RNUSBPrinter.printRawData` (byte thô, không qua tầng JS `printText` của package) — xem `services/UsbPrinterNative.ts`. Native module này là singleton dùng chung giữa `ThermalReceiptDriver` và `TsplDriver` nên **không thể** kết nối 1 máy in ESC/POS và 1 máy in TSPL qua USB đồng thời (kết nối sau ngắt kết nối trước). Qua USB, `identify()` của **cả 2 driver** luôn trả `null` (native module không đọc được phản hồi — chỉ có bulk-OUT endpoint) — `device_name` từ USB descriptor không phải bằng chứng protocol thật, máy in tem cắm USB cũng có tên y hệt máy in hoá đơn. Nghĩa là `discoverProtocol()` **không bao giờ tự xác nhận được protocol qua USB** trừ khi rule table match đúng model với chỉ 1 candidate — mọi máy in USB không có rule riêng đều rơi vào `unknown_protocol`, bắt buộc chọn "Printer Language" thủ công khi thêm máy.
 - **`services/DriverRegistry.ts`** — `Record<Protocol, IPrinterDriver>`, khởi tạo 1 lần.
 - **`services/PrinterService.ts`** — facade duy nhất UI được gọi. Tách biệt các thao tác trên máy in đã lưu (storage-backed: `connect`, `disconnect`, `getStatus`...) và thao tác trên draft chưa lưu (`connectDraft`, `disconnectForProtocol`, `getStatusForProtocol` — dùng trong lúc modal "Thêm máy in" đang chạy, trước khi có `printerId` trong storage).
-- **`services/discoverProtocol.ts`** — orchestration tự nhận diện protocol: tra `PRINTER_DETECTION_RULES` (`constants/printerDetectionRules.ts`) ra danh sách **candidate** protocol theo độ ưu tiên → thử `connect()` + `identify()` thật từng candidate → emit `DiscoveryEvent` (`connecting`/`identifying`/`identified`/`unknown_protocol`/`error`). **Rule table không bao giờ tự quyết định protocol cuối cùng** — chỉ `identify()` thật từ driver mới xác nhận.
+- **`services/discoverProtocol.ts`** — orchestration tự nhận diện protocol: thử lần lượt `CANDIDATE_ORDER` cố định (`['tspl', 'escpos']`) — `connect()` + `identify()` thật từng candidate → emit `DiscoveryEvent` (`connecting`/`identifying`/`identified`/`unknown_protocol`/`error`). Không còn rule table theo vendor/model — chỉ `identify()` thật từ driver mới xác nhận protocol.
 - **`components/AddPrinterModal.tsx`** — modal cuộn 1 màn hình (không phải wizard nhiều bước). Xem chi tiết state machine ở `docs/superpowers/specs/2026-08-01-printer-modal-single-screen-design.md`.
 - **`hooks/usePrinterConnection.ts`** — subscribe `PrinterService.onStatusChange` vào Redux, dùng trong danh sách máy in đã lưu.
 
