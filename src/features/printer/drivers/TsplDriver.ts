@@ -3,17 +3,26 @@ import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import type { ConnectionType, DeviceScanEvent, PrinterConfig, PrinterDeviceInfo, PrinterStatus } from '../types/printer.types';
 import type { PrintDocument } from '../types/printDocument.types';
-import { TsplEncoder } from '../protocols/TsplEncoder';
+import type { PrintType } from '../types/printConfiguration.types';
+import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from '../protocols/TsplEncoder';
 import { LanTransport } from '../transports/LanTransport';
 import { BluetoothTransport } from '../transports/BluetoothTransport';
 import { UsbTransport } from '../transports/UsbTransport';
 import { AppErrorException, type AppErrorCode } from '../types/AppError';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 import { PrinterLogger } from '../services/PrinterLogger';
+import { PAPER_WIDTH_CHARS, PAPER_IMAGE_WIDTH_PX, formatRow } from '../utils/paperWidth';
+import { decodePngBase64ToMonochrome } from '../utils/pngToMonochrome';
 
 type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
 const IDENTIFY_TIMEOUT_MS = 1000;
+
+/** Shape thật của `PrinterDevice.rawDevice` cho thiết bị USB — giống hệt cách `ThermalReceiptDriver` đọc. */
+interface UsbRawDevice {
+  vendor_id: number;
+  product_id: number;
+}
 
 const errorCodeOf = (error: unknown): AppErrorCode =>
   error instanceof AppErrorException ? error.code : 'UNKNOWN_ERROR';
@@ -55,9 +64,14 @@ export class TsplDriver implements IPrinterDriver {
       return () => undefined;
     }
     if (connectionType === 'usb') {
+      // TsplDriver không tự quét USB — PrinterService.scanForConnectionType()
+      // luôn uỷ quyền quét USB cho ThermalReceiptDriver (thiết bị USB là chung,
+      // không phân biệt được escpos/tspl ở bước quét), rồi mới xác nhận
+      // protocol thật qua discoverProtocol()/identify(). Nhánh này chỉ tồn tại
+      // để scan() không treo nếu có nơi khác gọi trực tiếp.
       onEvent({
         type: 'error',
-        error: { code: 'UNSUPPORTED_CONNECTION', message: 'USB chưa được hỗ trợ cho máy in tem' },
+        error: { code: 'UNSUPPORTED_CONNECTION', message: 'TsplDriver không tự quét USB' },
       });
       return () => undefined;
     }
@@ -119,7 +133,12 @@ export class TsplDriver implements IPrinterDriver {
         }
         await (transport as BluetoothTransport).connect(config.device.deviceId);
       } else {
-        await (transport as UsbTransport).connect();
+        if (!config.device) {
+          throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị USB' });
+        }
+        const raw = config.device.rawDevice as unknown as UsbRawDevice | undefined;
+        if (!raw) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu thông tin thiết bị USB' });
+        await (transport as UsbTransport).connect(Number(raw.vendor_id), Number(raw.product_id));
       }
       this.connections.set(config.id, transport);
       this.configs.set(config.id, config);
@@ -143,11 +162,25 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
+  /**
+   * `transport.close()` có thể reject (thiết bị đã mất kết nối trước khi kịp
+   * đóng chủ động) — `this.connections.delete()` vẫn PHẢI chạy dù close thất
+   * bại, nằm trong `finally`, nếu không driver kẹt mãi ở status
+   * `disconnecting` và `print()`/`identify()` sau đó vẫn tưởng còn transport
+   * để dùng (dù nó đã hỏng).
+   */
   async disconnect(printerId: string): Promise<void> {
     this.setStatus(printerId, 'disconnecting');
     const transport = this.connections.get(printerId);
-    await transport?.close();
-    this.connections.delete(printerId);
+    try {
+      await transport?.close();
+    } catch (error) {
+      this.setStatus(printerId, 'error');
+      PrinterLogger.disconnectFailed({ printerId, protocol: 'tspl', errorCode: errorCodeOf(error) });
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      this.connections.delete(printerId);
+    }
     this.setStatus(printerId, 'disconnected');
     PrinterLogger.disconnectSucceeded({ printerId, protocol: 'tspl' });
   }
@@ -162,7 +195,7 @@ export class TsplDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  async testPrint(config: PrinterConfig): Promise<void> {
+  async testPrint(config: PrinterConfig, document: PrintDocument, printType?: PrintType): Promise<void> {
     const startedAt = Date.now();
     try {
       // Nằm trong try/catch để lỗi reconnect cũng được ghi testPrintFailed,
@@ -171,16 +204,11 @@ export class TsplDriver implements IPrinterDriver {
         await this.connect(config);
       }
       const transport = this.connections.get(config.id);
-      const bytes = new TsplEncoder()
-        .initialize(config.paperSize)
-        .text(10, 10, 'NDTCore POS - In thu')
-        .cut()
-        .encode();
-      if (config.connectionType === 'lan') {
-        (transport as LanTransport).write(bytes);
-      } else if (config.connectionType === 'bluetooth') {
-        await (transport as BluetoothTransport).write(bytes);
-      }
+      const heightMm = this.resolveHeightMm(config, printType);
+      const encoder = new TsplEncoder().initialize(config.paperSize, printType, heightMm);
+      this.encodeElements(encoder, document, config.paperSize, heightMm);
+      const bytes = encoder.cut().encode();
+      await this.writeBytes(config, transport, bytes);
       PrinterLogger.testPrintSucceeded({ printerId: config.id, protocol: config.protocol, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.testPrintFailed({
@@ -194,26 +222,62 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   /**
-   * Mã hoá `PrintDocument` thành lệnh TSPL theo từng loại phần tử rồi gửi
-   * qua transport đang kết nối. Ném `ENCODING_FAILED` cho loại phần tử không
-   * được hỗ trợ, `CONNECTION_ERROR` nếu máy in chưa kết nối.
+   * `printType === 'Label'` → khổ giấy tem vật lý thật (`config.labelHeightMm`
+   * hoặc mặc định). Ngược lại (Receipt/không truyền) → `CONTINUOUS_HEIGHT_MM`
+   * (giấy cuộn liên tục, không có khổ vật lý thật cần khớp) — xem
+   * `TsplEncoder.initialize()`.
    */
-  async print(printerId: string, document: PrintDocument): Promise<void> {
-    const config = this.configs.get(printerId);
-    const transport = this.connections.get(printerId);
-    if (!config || !transport) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
-    }
-    const encoder = new TsplEncoder().initialize(config.paperSize);
+  private resolveHeightMm(config: PrinterConfig, printType?: PrintType): number {
+    return printType === 'Label' ? (config.labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
+  }
+
+  /**
+   * Mã hoá từng `PrintElement` thành lệnh TSPL trên `encoder` đã có sẵn.
+   * Ném `ENCODING_FAILED` cho loại phần tử không được hỗ trợ. Dùng chung cho
+   * cả `print()` (đơn thật) và `testPrint()` (bill/tem mẫu) — cùng 1 cách
+   * dịch layout để "In thử" phản ánh đúng nội dung sẽ in thật. Nhận
+   * `paperSize` (không phải số đo sẵn) vì cần suy ra 2 đơn vị khác nhau:
+   * `PAPER_WIDTH_CHARS` cho `line`/`row` (text), `PAPER_IMAGE_WIDTH_PX` cho
+   * `image` (chuẩn hoá kích thước ảnh chụp — xem `decodePngBase64ToMonochrome`).
+   * `heightMm` là ngưỡng chiều cao đã được `testPrint()`/`print()` chọn qua
+   * `resolveHeightMm()` (khổ tem vật lý thật cho Label, hoặc ngưỡng an toàn
+   * rộng cho Receipt) — dùng để chặn ảnh cao hơn ngưỡng đó.
+   */
+  private encodeElements(
+    encoder: TsplEncoder,
+    document: PrintDocument,
+    paperSize: PrinterConfig['paperSize'],
+    heightMm: number,
+  ): void {
+    const paperWidth = PAPER_WIDTH_CHARS[paperSize];
     for (const element of document.elements) {
       if (element.type === 'text') {
         encoder.text(element.x, element.y, element.content);
       } else if (element.type === 'line') {
-        encoder.text(element.x, element.y, '--------------------------------');
+        encoder.text(element.x, element.y, '-'.repeat(paperWidth));
       } else if (element.type === 'table') {
         element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  ')));
+      } else if (element.type === 'row') {
+        encoder.text(element.x, element.y, formatRow(element.left, element.right, paperWidth));
       } else if (element.type === 'image') {
-        encoder.image(element.x, element.y, element.data);
+        // `element.data` là 1 ảnh PNG base64 (không tiền tố `data:...`) — vd
+        // ảnh bill được `react-native-view-shot` chụp lại từ 1 View RN, dùng
+        // để in đúng nội dung có dấu tiếng Việt bất kể font máy in TSPL có
+        // hỗ trợ Unicode hay không (xem ghi chú ở `TsplEncoder.text()`).
+        const bitmap = decodePngBase64ToMonochrome(element.data, PAPER_IMAGE_WIDTH_PX[paperSize]);
+        // Với Tem (giấy rời có khe thật), `heightMm` phải khớp chiều dài tem
+        // VẬT LÝ để cảm biến dò khe hoạt động đúng, không thể nới theo nội
+        // dung — nội dung cao hơn sẽ tràn qua khe kế tiếp và in lệch/hỏng ở
+        // phần dư (đã gặp thực tế). Với Hoá đơn, đây chỉ là ngưỡng an toàn
+        // rộng (`CONTINUOUS_HEIGHT_MM`), không phải khổ giấy thật.
+        const maxHeightPx = heightMm * DOTS_PER_MM;
+        if (bitmap.heightPx > maxHeightPx) {
+          throw new AppErrorException({
+            code: 'ENCODING_FAILED',
+            message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
+          });
+        }
+        encoder.image(element.x, element.y, bitmap);
       } else if (element.type === 'barcode') {
         encoder.barcode(element.x, element.y, element.content);
       } else if (element.type === 'qrCode') {
@@ -225,14 +289,35 @@ export class TsplDriver implements IPrinterDriver {
         });
       }
     }
-    const bytes = encoder.cut().encode();
+  }
+
+  /** Gửi byte đã mã hoá qua transport đang kết nối, theo đúng API của từng `connectionType`. */
+  private async writeBytes(config: PrinterConfig, transport: TsplTransport | undefined, bytes: Uint8Array): Promise<void> {
     if (config.connectionType === 'lan') {
       (transport as LanTransport).write(bytes);
     } else if (config.connectionType === 'bluetooth') {
       await (transport as BluetoothTransport).write(bytes);
     } else {
-      throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'USB chưa được hỗ trợ cho in nội dung tuỳ ý' });
+      await (transport as UsbTransport).write(bytes);
     }
+  }
+
+  /**
+   * Mã hoá `PrintDocument` thành lệnh TSPL theo từng loại phần tử rồi gửi
+   * qua transport đang kết nối. Ném `ENCODING_FAILED` cho loại phần tử không
+   * được hỗ trợ, `CONNECTION_ERROR` nếu máy in chưa kết nối.
+   */
+  async print(printerId: string, document: PrintDocument, printType?: PrintType): Promise<void> {
+    const config = this.configs.get(printerId);
+    const transport = this.connections.get(printerId);
+    if (!config || !transport) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+    const heightMm = this.resolveHeightMm(config, printType);
+    const encoder = new TsplEncoder().initialize(config.paperSize, printType, heightMm);
+    this.encodeElements(encoder, document, config.paperSize, heightMm);
+    const bytes = encoder.cut().encode();
+    await this.writeBytes(config, transport, bytes);
   }
 
   /**

@@ -7,6 +7,8 @@ import { AppErrorException, type AppErrorCode } from '../types/AppError';
 import type { PrintDocument } from '../types/printDocument.types';
 import { ensureBluetoothPermission } from '../services/PrinterPermissionService';
 import { PrinterLogger } from '../services/PrinterLogger';
+import { ensureUsbInitialized } from '../services/UsbPrinterNative';
+import { PAPER_WIDTH_CHARS, formatRow } from '../utils/paperWidth';
 
 const errorCodeOf = (error: unknown): AppErrorCode =>
   error instanceof AppErrorException ? error.code : 'UNKNOWN_ERROR';
@@ -43,6 +45,8 @@ export class ThermalReceiptDriver implements IPrinterDriver {
   private initialized = new Set<ConnectionType>();
   /** `PrinterDeviceInfo` thật lấy từ resolved value của `connectPrinter()` — dùng cho `identify()`. */
   private deviceInfos = new Map<string, PrinterDeviceInfo>();
+  /** `PrinterConfig` lúc connect — dùng để đọc `paperSize` khi format layout 2 cột trong `print()`. */
+  private configs = new Map<string, PrinterConfig>();
   /**
    * Thư viện giữ ĐÚNG 1 kết nối native / namespace (USBPrinter/BLEPrinter/
    * NetPrinter là singleton) — connect printer thứ 2 cùng `connectionType` sẽ
@@ -60,9 +64,19 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
   }
 
+  /**
+   * Nhánh `usb` uỷ quyền qua `ensureUsbInitialized()` thay vì gọi thẳng
+   * `USBPrinter.init()` — native module `RNUSBPrinter` là singleton dùng
+   * chung với `TsplDriver` (qua `UsbTransport`), gọi `init()` độc lập từ 2
+   * driver sẽ đăng ký trùng `BroadcastReceiver` ở tầng native.
+   */
   private async ensureInitialized(connectionType: ConnectionType): Promise<void> {
     if (this.initialized.has(connectionType)) return;
-    await namespaceByConnectionType[connectionType].init();
+    if (connectionType === 'usb') {
+      await ensureUsbInitialized();
+    } else {
+      await namespaceByConnectionType[connectionType].init();
+    }
     this.initialized.add(connectionType);
   }
 
@@ -80,12 +94,20 @@ export class ThermalReceiptDriver implements IPrinterDriver {
    * flush byte in nhưng *trước khi* gọi success callback — Promise treo mãi
    * mãi, không `resolve`/`reject`. `cut`/`tailingLine: true` còn đảm bảo máy
    * in feed + cắt giấy sau khi in (mặc định của thư viện là `false`).
+   *
+   * `encoding: 'UTF8'` truyền tường minh (không dựa vào default ngầm của thư
+   * viện) — đây là điều kiện bắt buộc để in đúng tiếng Việt có dấu: thư viện
+   * mã hoá text bằng `iconv-lite` theo giá trị `encoding` này, đồng thời gửi
+   * lệnh chuyển máy in ESC/POS sang chế độ nhận byte UTF-8 (`FS & FS C 0xFF`)
+   * — chế độ mở rộng của nhà sản xuất, hầu hết máy in ESC/POS đời mới bán ở
+   * thị trường Việt Nam (Xprinter, Gprinter...) hỗ trợ, nhưng không phải máy
+   * ESC/POS gốc nào cũng có.
    */
   private printTextAsync(connectionType: ConnectionType, text: string): Promise<void> {
     return new Promise((resolve, reject) => {
       namespaceByConnectionType[connectionType].printText(
         text,
-        { keepConnection: true, cut: true, tailingLine: true },
+        { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' },
         () => resolve(),
         (error: Error) => reject(error),
       );
@@ -215,6 +237,7 @@ export class ThermalReceiptDriver implements IPrinterDriver {
 
       if (deviceName) this.deviceInfos.set(config.id, { deviceName });
       this.connectedTypes.set(config.id, config.connectionType);
+      this.configs.set(config.id, config);
 
       // Namespace này chỉ giữ được 1 kết nối native — printer đang connect vừa
       // thay thế printer cũ (nếu có) của cùng connectionType. Chỉ ngắt
@@ -247,26 +270,45 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     }
   }
 
+  /**
+   * `closeConn()` native có thể reject (thiết bị đã rút/mất kết nối trước khi
+   * kịp đóng chủ động) — bookkeeping nội bộ (`connectedTypes`/`activeByType`/
+   * `deviceInfos`) vẫn PHẢI được dọn dù native close thất bại, nằm trong
+   * `finally`, nếu không driver sẽ kẹt mãi ở status `disconnecting` và tiếp
+   * tục tưởng mình đang sở hữu kết nối của `connectionType` đó — chặn luôn
+   * printer khác kết nối cùng connectionType sau này (`activeByType` không
+   * bao giờ được giải phóng).
+   */
   async disconnect(printerId: string): Promise<void> {
     this.setStatus(printerId, 'disconnecting');
     const connectionType = this.connectedTypes.get(printerId);
-    if (connectionType) {
-      // Chỉ gọi closeConn() native nếu printer này thật sự đang sở hữu kết nối
-      // của connectionType đó — nếu không, kết nối native đã thuộc về 1
-      // printer khác (bị "cướp" theo cách được mô tả ở `activeByType`), gọi
-      // closeConn() lúc này sẽ ngắt nhầm printer đang sống, không phải printer
-      // này.
-      if (this.activeByType.get(connectionType) === printerId) {
-        await namespaceByConnectionType[connectionType].closeConn();
+    try {
+      if (connectionType) {
+        // Chỉ gọi closeConn() native nếu printer này thật sự đang sở hữu kết
+        // nối của connectionType đó — nếu không, kết nối native đã thuộc về 1
+        // printer khác (bị "cướp" theo cách được mô tả ở `activeByType`), gọi
+        // closeConn() lúc này sẽ ngắt nhầm printer đang sống, không phải
+        // printer này.
+        if (this.activeByType.get(connectionType) === printerId) {
+          await namespaceByConnectionType[connectionType].closeConn();
+        }
+      }
+    } catch (error) {
+      this.setStatus(printerId, 'error');
+      // Driver này chỉ bao giờ xử lý protocol 'escpos' (DriverRegistry map cố
+      // định 'escpos' -> ThermalReceiptDriver) nên không cần lưu thêm map
+      // printerId -> protocol.
+      PrinterLogger.disconnectFailed({ printerId, protocol: 'escpos', errorCode: errorCodeOf(error) });
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      if (connectionType && this.activeByType.get(connectionType) === printerId) {
         this.activeByType.delete(connectionType);
       }
+      this.connectedTypes.delete(printerId);
+      this.deviceInfos.delete(printerId);
+      this.configs.delete(printerId);
     }
-    this.connectedTypes.delete(printerId);
-    this.deviceInfos.delete(printerId);
     this.setStatus(printerId, 'disconnected');
-    // Driver này chỉ bao giờ xử lý protocol 'escpos' (DriverRegistry map cố
-    // định 'escpos' -> ThermalReceiptDriver) nên không cần lưu thêm map
-    // printerId -> protocol.
     PrinterLogger.disconnectSucceeded({ printerId, protocol: 'escpos' });
   }
 
@@ -277,22 +319,21 @@ export class ThermalReceiptDriver implements IPrinterDriver {
    * `qrCode` ném `ENCODING_FAILED` cho loại phần tử không hỗ trợ. Validate
    * toàn bộ elements TRƯỚC khi gọi
    * `printTextAsync` — không có buffer nội bộ như SDK Epson (chỉ flush 1 lần
-   * lúc `sendData()`), nên phải tự đảm bảo không gửi in dở dang.
+   * lúc `sendData()`), nên phải tự đảm bảo không gửi in dở dang. Dùng chung
+   * cho cả `print()` (đơn thật) và `testPrint()` (bill/tem mẫu) — cùng 1 cách
+   * dịch layout để "In thử" phản ánh đúng nội dung sẽ in thật.
    */
-  async print(printerId: string, document: PrintDocument): Promise<void> {
-    const connectionType = this.connectedTypes.get(printerId);
-    if (!connectionType || this.activeByType.get(connectionType) !== printerId) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
-    }
-
+  private encodeDocument(document: PrintDocument, paperWidth: number): string {
     const lines: string[] = [];
     for (const element of document.elements) {
       if (element.type === 'text') {
         lines.push(element.content);
       } else if (element.type === 'line') {
-        lines.push('--------------------------------');
+        lines.push('-'.repeat(paperWidth));
       } else if (element.type === 'table') {
         for (const row of element.rows) lines.push(row.join('  '));
+      } else if (element.type === 'row') {
+        lines.push(formatRow(element.left, element.right, paperWidth));
       } else {
         throw new AppErrorException({
           code: 'ENCODING_FAILED',
@@ -300,10 +341,26 @@ export class ThermalReceiptDriver implements IPrinterDriver {
         });
       }
     }
+    return `${lines.join('\n')}\n`;
+  }
+
+  /**
+   * `line`/`row` được canh theo `PAPER_WIDTH_CHARS[paperSize]` (đọc từ
+   * `configs` lưu lúc `connect()`) — mặc định `80mm` nếu vì lý do gì đó chưa
+   * có config (không nên xảy ra vì `print()` đã throw sớm nếu chưa connect).
+   */
+  async print(printerId: string, document: PrintDocument): Promise<void> {
+    const connectionType = this.connectedTypes.get(printerId);
+    if (!connectionType || this.activeByType.get(connectionType) !== printerId) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+
+    const paperWidth = PAPER_WIDTH_CHARS[this.configs.get(printerId)?.paperSize ?? '80mm'];
+    const text = this.encodeDocument(document, paperWidth);
 
     const startedAt = Date.now();
     try {
-      await this.printTextAsync(connectionType, `${lines.join('\n')}\n`);
+      await this.printTextAsync(connectionType, text);
       PrinterLogger.printSucceeded({ printerId, protocol: 'escpos', durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.printFailed({
@@ -326,7 +383,7 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  async testPrint(config: PrinterConfig): Promise<void> {
+  async testPrint(config: PrinterConfig, document: PrintDocument): Promise<void> {
     const startedAt = Date.now();
     try {
       // Reconnect không chỉ khi chưa từng connect, mà cả khi printer này đã
@@ -341,7 +398,7 @@ export class ThermalReceiptDriver implements IPrinterDriver {
       }
       const connectionType = this.connectedTypes.get(config.id);
       if (!connectionType) return;
-      await this.printTextAsync(connectionType, '<C>NDTCore POS - In thu\n</C>');
+      await this.printTextAsync(connectionType, this.encodeDocument(document, PAPER_WIDTH_CHARS[config.paperSize]));
       PrinterLogger.testPrintSucceeded({
         printerId: config.id,
         protocol: config.protocol,
@@ -358,8 +415,26 @@ export class ThermalReceiptDriver implements IPrinterDriver {
     }
   }
 
+  /**
+   * Qua USB, native module (`USBPrinterAdapter`) chỉ tìm bulk-OUT endpoint —
+   * KHÔNG có khả năng đọc phản hồi. `device_name` mà `connectPrinter()` trả về
+   * chỉ là chuỗi mô tả từ USB descriptor (mọi thiết bị USB đều có), không
+   * phải bằng chứng thiết bị nói được ESC/POS — 1 máy in tem TSPL cắm USB
+   * cũng có `device_name` y hệt. Vì vậy qua USB luôn trả `null`, đối xứng với
+   * `TsplDriver.identify()` (cũng luôn `null` qua USB, cùng lý do) — không
+   * driver nào được phép tự xác nhận qua USB bằng thư viện này, để
+   * `discoverProtocol()` trung thực rơi vào `unknown_protocol` thay vì đoán
+   * theo thứ tự candidate. Qua LAN/Bluetooth, `device_name` vẫn được coi là
+   * xác nhận hợp lệ (yếu hơn nhưng là tín hiệu tốt nhất có được).
+   *
+   * Trả `null` (không phải `{}`) khi không có `device_name` thật — `{}` là
+   * object TRUTHY trong JS, nếu trả về đây `discoverProtocol()` sẽ coi "đã
+   * connect được" là "đã xác nhận protocol" dù không có bằng chứng gì.
+   */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
-    if (!this.connectedTypes.has(printerId)) return null;
-    return this.deviceInfos.get(printerId) ?? {};
+    const connectionType = this.connectedTypes.get(printerId);
+    if (!connectionType) return null;
+    if (connectionType === 'usb') return null;
+    return this.deviceInfos.get(printerId) ?? null;
   }
 }

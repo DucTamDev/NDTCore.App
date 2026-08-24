@@ -10,6 +10,7 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1',
   requestId: 'req1',
   printerId: 'p1',
+  printType: 'Receipt',
   document: { elements: [] },
   status: 'pending',
   retryCount: 0,
@@ -166,7 +167,7 @@ describe('PrintScheduler', () => {
         // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
         // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(config);
+        await printerService.testPrint(config, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] });
       })(),
     ]);
 

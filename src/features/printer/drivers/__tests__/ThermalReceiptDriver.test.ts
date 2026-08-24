@@ -42,6 +42,7 @@ jest.mock('../../services/PrinterLogger', () => ({
     connectSucceeded: jest.fn(),
     connectFailed: jest.fn(),
     disconnectSucceeded: jest.fn(),
+    disconnectFailed: jest.fn(),
     testPrintSucceeded: jest.fn(),
     testPrintFailed: jest.fn(),
     printSucceeded: jest.fn(),
@@ -76,6 +77,8 @@ const usbConfig: PrinterConfig = {
   lan: undefined,
   device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
 };
+
+const sampleDocument: PrintDocument = { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] };
 
 describe('ThermalReceiptDriver', () => {
   afterEach(() => {
@@ -137,6 +140,39 @@ describe('ThermalReceiptDriver', () => {
       NetPrinter: { closeConn: jest.Mock };
     };
     expect(NetPrinter.closeConn).toHaveBeenCalled();
+  });
+
+  it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows CONNECTION_ERROR when native closeConn() rejects', async () => {
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { closeConn: jest.Mock };
+    };
+    NetPrinter.closeConn.mockRejectedValueOnce(new Error('socket already closed'));
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+
+    await expect(driver.disconnect(lanConfig.id)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    expect(driver.getStatus(lanConfig.id)).toBe('error');
+
+    const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
+      PrinterLogger: { disconnectFailed: jest.Mock };
+    };
+    expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanConfig.id, protocol: 'escpos' }),
+    );
+  });
+
+  it('disconnect() clears activeByType bookkeeping despite the native failure — a second printer on the same connectionType is not blocked forever', async () => {
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { closeConn: jest.Mock };
+    };
+    NetPrinter.closeConn.mockRejectedValueOnce(new Error('socket already closed'));
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(lanConfig);
+    await driver.disconnect(lanConfig.id).catch(() => undefined);
+
+    const secondPrinter = { ...lanConfig, id: 'receipt-lan-2' };
+    await driver.connect(secondPrinter);
+    expect(driver.getStatus(secondPrinter.id)).toBe('connected');
   });
 
   it('scan("lan") reports empty immediately without calling the library', () => {
@@ -205,7 +241,7 @@ describe('ThermalReceiptDriver', () => {
       NetPrinter: { connectPrinter: jest.Mock; printText: jest.Mock };
     };
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
-    await driver.testPrint(lanConfig);
+    await driver.testPrint(lanConfig, sampleDocument);
     expect(NetPrinter.connectPrinter.mock.calls.length).toBe(callsBeforeTestPrint);
     expect(NetPrinter.printText).toHaveBeenCalledWith(
       expect.any(String),
@@ -226,6 +262,28 @@ describe('ThermalReceiptDriver', () => {
     await driver.connect(lanConfig);
     const result = await driver.identify(lanConfig.id);
     expect(result).toEqual({ deviceName: 'Net' });
+  });
+
+  it('identify() returns null (not {}) when connectPrinter() resolves without a real device_name — a device that merely accepted the connection is not proof it speaks ESC/POS', async () => {
+    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      USBPrinter: { connectPrinter: jest.Mock };
+    };
+    USBPrinter.connectPrinter.mockResolvedValueOnce({ vendor_id: '1155', product_id: '22222' });
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(usbConfig);
+    const result = await driver.identify(usbConfig.id);
+    expect(result).toBeNull();
+  });
+
+  it('identify() over USB always returns null, even with a real device_name — USB has no way to read a response, so a name alone is not proof of ESC/POS (a TSPL printer reports one too)', async () => {
+    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      USBPrinter: { connectPrinter: jest.Mock };
+    };
+    USBPrinter.connectPrinter.mockResolvedValueOnce({ device_name: 'Some USB Printer', vendor_id: '1155', product_id: '22222' });
+    const driver = new ThermalReceiptDriver();
+    await driver.connect(usbConfig);
+    const result = await driver.identify(usbConfig.id);
+    expect(result).toBeNull();
   });
 
   it('connecting printer B on the same connectionType as already-connected printer A flips A to disconnected', async () => {
@@ -267,7 +325,7 @@ describe('ThermalReceiptDriver', () => {
       NetPrinter: { connectPrinter: jest.Mock };
     };
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
-    await driver.testPrint(printerA);
+    await driver.testPrint(printerA, sampleDocument);
     expect(NetPrinter.connectPrinter.mock.calls.length).toBe(callsBeforeTestPrint + 1);
     expect(driver.getStatus(printerA.id)).toBe('connected');
   });
@@ -350,7 +408,7 @@ describe('ThermalReceiptDriver', () => {
   it('testPrint() logs testPrintSucceeded', async () => {
     const driver = new ThermalReceiptDriver();
     await driver.connect(lanConfig);
-    await driver.testPrint(lanConfig);
+    await driver.testPrint(lanConfig, sampleDocument);
     const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
@@ -365,7 +423,7 @@ describe('ThermalReceiptDriver', () => {
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new ThermalReceiptDriver();
-    await expect(driver.testPrint(bleConfig)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(driver.testPrint(bleConfig, sampleDocument)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
     const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
@@ -384,7 +442,7 @@ describe('ThermalReceiptDriver', () => {
       (_text: string, _opts: unknown, _cbSuccess?: (msg: string) => void, cbErr?: (error: Error) => void) =>
         cbErr?.(new Error('print failed')),
     );
-    await expect(driver.testPrint(lanConfig)).rejects.toThrow('print failed');
+    await expect(driver.testPrint(lanConfig, sampleDocument)).rejects.toThrow('print failed');
     const { PrinterLogger } = jest.requireMock('../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
@@ -430,7 +488,23 @@ describe('ThermalReceiptDriver', () => {
     };
     await driver.print(lanConfig.id, document);
     expect(NetPrinter.printText).toHaveBeenCalledWith(
-      'Trà sữa\n--------------------------------\nTrà sữa  2\n',
+      `Trà sữa\n${'-'.repeat(48)}\nTrà sữa  2\n`,
+      expect.objectContaining({ keepConnection: true, cut: true, tailingLine: true }),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('print() renders a row element as a left/right-aligned line sized to the printer paperSize', async () => {
+    const driver = new ThermalReceiptDriver();
+    await driver.connect({ ...lanConfig, paperSize: '58mm' });
+    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+      NetPrinter: { printText: jest.Mock };
+    };
+    const document: PrintDocument = { elements: [{ type: 'row', left: 'Mã đơn', right: '#001', x: 0, y: 0 }] };
+    await driver.print(lanConfig.id, document);
+    expect(NetPrinter.printText).toHaveBeenCalledWith(
+      `Mã đơn${' '.repeat(22)}#001\n`,
       expect.objectContaining({ keepConnection: true, cut: true, tailingLine: true }),
       expect.any(Function),
       expect.any(Function),

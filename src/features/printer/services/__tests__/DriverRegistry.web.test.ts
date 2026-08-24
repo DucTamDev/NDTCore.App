@@ -43,9 +43,9 @@ describe('DriverRegistry (web)', () => {
   });
 
   it('testPrint rejects with UNSUPPORTED_CONNECTION', async () => {
-    await expect(DriverRegistry.escpos.testPrint(escposConfig)).rejects.toMatchObject({
-      code: 'UNSUPPORTED_CONNECTION',
-    });
+    await expect(
+      DriverRegistry.escpos.testPrint(escposConfig, { elements: [] }),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
   });
 
   it('disconnect resolves without throwing', async () => {
