@@ -67,8 +67,20 @@ export class BluetoothTransport {
     });
   }
 
+  /**
+   * `device.disconnect()` có thể reject (Bluetooth mất kết nối/ngoài tầm
+   * trước khi kịp đóng chủ động) — luôn xoá `this.device` trong `finally` dù
+   * native disconnect thành công hay không, nếu không transport sẽ giữ mãi
+   * 1 device reference chết, khiến `write()`/`identify()` sau đó tưởng vẫn
+   * còn kết nối.
+   */
   async close(): Promise<void> {
-    await this.device?.disconnect();
-    this.device = null;
+    try {
+      await this.device?.disconnect();
+    } catch (error) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      this.device = null;
+    }
   }
 }
