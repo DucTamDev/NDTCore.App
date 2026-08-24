@@ -1,11 +1,13 @@
 // src/features/printer/components/AddPrinterModal.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { Modal, Portal, Text } from 'react-native-paper';
+import { Modal, Portal, Snackbar, Text } from 'react-native-paper';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterService } from '../services/PrinterService';
 import { getCurrentWifiIp } from '../services/NetworkInfoService';
+import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../utils/sampleDocuments';
+import { useBillImageCapture } from '../hooks/useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import {
   lanConnectionSchema,
@@ -17,6 +19,9 @@ import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel, type ConnectionState, type ProtocolState } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
 import type { DiscoveryEvent } from '../services/discoverProtocol';
+import { AppErrorException } from '../types/AppError';
+import type { PrintDocument } from '../types/printDocument.types';
+import type { PrintType } from '../types/printConfiguration.types';
 import type {
   ConnectionType,
   PrinterConfig,
@@ -39,8 +44,13 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? 'usb');
   const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.device);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
-  const [canTestPrint, setCanTestPrint] = useState(Boolean(initialValues));
-  const [testPrintPending, setTestPrintPending] = useState(false);
+  const [printsReceipt, setPrintsReceipt] = useState(initialValues?.printsReceipt ?? false);
+  const [printsLabel, setPrintsLabel] = useState(initialValues?.printsLabel ?? false);
+  const [tsplRenderAsImage, setTsplRenderAsImage] = useState(initialValues?.tsplRenderAsImage ?? true);
+  const [testPrintReceiptPending, setTestPrintReceiptPending] = useState(false);
+  const [testPrintLabelPending, setTestPrintLabelPending] = useState(false);
+  const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
+  const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
 
@@ -125,7 +135,6 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setProtocolSource(undefined);
     setDeviceInfo(undefined);
     setConnectionErrorMessage(undefined);
-    setCanTestPrint(false);
     setConnectionDirty(true);
   };
 
@@ -259,31 +268,82 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       autoReconnect,
       isDefault: initialValues?.isDefault ?? false,
       enabled: initialValues?.enabled ?? true,
+      printsReceipt,
+      printsLabel,
+      // Chỉ có ý nghĩa với TSPL (xem `PrinterConfig.tsplRenderAsImage`) — để
+      // `undefined` cho ESC/POS thay vì lưu giá trị toggle không dùng tới.
+      tsplRenderAsImage: protocol === 'tspl' ? tsplRenderAsImage : undefined,
       device: connectionType === 'lan' ? undefined : selectedDevice,
       lan: connectionType === 'lan' ? buildLan(lanForm.getValues()) : undefined,
       deviceInfo,
     };
   };
 
-  const onTestPrint = async (): Promise<void> => {
+  /**
+   * Khi bật `tsplRenderAsImage` (chỉ có ý nghĩa với TSPL), gửi thẳng `document`
+   * dạng text sẽ đi qua `TsplEncoder.text()` — font built-in `"3"` không có
+   * dấu tiếng Việt trên nhiều dòng máy, đồng thời `y` tính theo dot (không
+   * phải chiều cao dòng thật của font) nên các dòng dễ đè lên nhau/lệch vị
+   * trí. Né cả 2 vấn đề bằng cách chụp lại `document` thành ảnh qua
+   * `useBillImageCapture` (cùng cơ chế `OrderPrintTrigger.printReceipt()`
+   * dùng cho bill thật) rồi gửi ảnh đó thay vì lệnh `TEXT` — layout/font đều
+   * do React Native `Text` đo đạc và render thật, không phụ thuộc font
+   * resident của máy in. Tắt `tsplRenderAsImage` (máy TSPL có font Unicode
+   * resident sẵn) hoặc ESC/POS (driver không hỗ trợ phần tử `image` —
+   * `ThermalReceiptDriver.encodeDocument` ném `ENCODING_FAILED`) vẫn đi text
+   * như cũ. Capture thất bại (`null`, vd offscreen View chưa kịp layout) rơi
+   * về `document` gốc thay vì chặn "In thử" hẳn — chấp nhận rủi ro lỗi font
+   * còn hơn không in được gì.
+   */
+  const resolveTestPrintDocument = async (config: PrinterConfig, document: PrintDocument): Promise<PrintDocument> => {
+    if (config.protocol !== 'tspl' || !config.tsplRenderAsImage) return document;
+    const base64 = await captureBillImage(document, config.paperSize);
+    if (!base64) return document;
+    return { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] };
+  };
+
+  /**
+   * Dùng chung cho cả 2 nút "In bill thử"/"In tem thử" — mỗi nút truyền vào
+   * `document` mẫu riêng (`buildSampleReceiptDocument`/`buildSampleLabelDocument`,
+   * cùng cấu trúc `PrintElement` với bill/tem thật, chỉ khác data ví dụ), qua
+   * `resolveTestPrintDocument` để đổi sang ảnh nếu là máy TSPL, rồi mới gửi
+   * xuống driver. 2 nút tách riêng ở đây chỉ để khớp với toggle
+   * `printsReceipt`/`printsLabel` — bấm nhầm nút chưa bật sẽ bị disable.
+   */
+  const runTestPrint = async (
+    setPending: (pending: boolean) => void,
+    document: PrintDocument,
+    printType: PrintType,
+  ): Promise<void> => {
     const config = buildFinalConfig();
     if (!config) return;
     const valid = await displayForm.trigger();
     if (!valid) return;
-    setTestPrintPending(true);
+    setPending(true);
+    setTestPrintErrorMessage(null);
     try {
-      await PrinterService.testPrint(config);
-      setCanTestPrint(true);
-    } catch {
-      setCanTestPrint(false);
+      const printedDocument = await resolveTestPrintDocument(config, document);
+      await PrinterService.testPrint(config, printedDocument, printType);
+    } catch (error) {
+      // Lỗi đã được PrinterLogger ghi lại trong driver (testPrintFailed) —
+      // không chặn Save vì "In thử" chỉ là bước xác nhận tuỳ chọn, không bắt
+      // buộc để thêm máy in (xem `saveDisabled` — chỉ cần đã kết nối/nhận
+      // diện protocol thành công). Vẫn hiện message cho user thấy lý do thất
+      // bại (vd nội dung vượt khổ giấy) thay vì chỉ nằm trong log không ai
+      // xem — xem `ENCODING_FAILED` ở `TsplDriver.encodeElements()`.
+      setTestPrintErrorMessage(error instanceof AppErrorException ? error.message : 'In thử thất bại');
     } finally {
-      setTestPrintPending(false);
+      setPending(false);
     }
   };
 
+  const onTestPrintReceipt = (): Promise<void> =>
+    runTestPrint(setTestPrintReceiptPending, buildSampleReceiptDocument(), 'Receipt');
+  const onTestPrintLabel = (): Promise<void> => runTestPrint(setTestPrintLabelPending, buildSampleLabelDocument(), 'Label');
+
   const onSave = displayForm.handleSubmit(() => {
     const config = buildFinalConfig();
-    if (!config || !canTestPrint) return;
+    if (!config) return;
     savedRef.current = true;
     if (initialValues) PrinterService.updatePrinter(config);
     else PrinterService.addPrinter(config);
@@ -342,14 +402,25 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             status={liveStatus}
             autoReconnect={autoReconnect}
             onAutoReconnectChange={setAutoReconnect}
-            canTestPrint={canTestPrint}
-            testPrintPending={testPrintPending}
-            onTestPrint={onTestPrint}
+            printsReceipt={printsReceipt}
+            onPrintsReceiptChange={setPrintsReceipt}
+            printsLabel={printsLabel}
+            onPrintsLabelChange={setPrintsLabel}
+            tsplRenderAsImage={tsplRenderAsImage}
+            onTsplRenderAsImageChange={setTsplRenderAsImage}
+            testPrintReceiptPending={testPrintReceiptPending}
+            onTestPrintReceipt={onTestPrintReceipt}
+            testPrintLabelPending={testPrintLabelPending}
+            onTestPrintLabel={onTestPrintLabel}
             onSave={onSave}
             saveDisabled={connectionDirty && liveStatus !== 'connected'}
             locked={!(connectionState === 'connected' && protocolState === 'identified')}
           />
+          {captureNode}
         </ScrollView>
+        <Snackbar visible={testPrintErrorMessage !== null} onDismiss={() => setTestPrintErrorMessage(null)} duration={5000}>
+          {testPrintErrorMessage}
+        </Snackbar>
       </Modal>
     </Portal>
   );

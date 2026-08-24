@@ -32,9 +32,16 @@ export interface PrinterInfoCardProps {
   status: PrinterStatus;
   autoReconnect: boolean;
   onAutoReconnectChange: (value: boolean) => void;
-  canTestPrint: boolean;
-  testPrintPending: boolean;
-  onTestPrint: () => void;
+  printsReceipt: boolean;
+  onPrintsReceiptChange: (value: boolean) => void;
+  printsLabel: boolean;
+  onPrintsLabelChange: (value: boolean) => void;
+  tsplRenderAsImage: boolean;
+  onTsplRenderAsImageChange: (value: boolean) => void;
+  testPrintReceiptPending: boolean;
+  onTestPrintReceipt: () => void;
+  testPrintLabelPending: boolean;
+  onTestPrintLabel: () => void;
   onSave: () => void;
   saveDisabled: boolean;
   locked: boolean;
@@ -50,9 +57,16 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   status,
   autoReconnect,
   onAutoReconnectChange,
-  canTestPrint,
-  testPrintPending,
-  onTestPrint,
+  printsReceipt,
+  onPrintsReceiptChange,
+  printsLabel,
+  onPrintsLabelChange,
+  tsplRenderAsImage,
+  onTsplRenderAsImageChange,
+  testPrintReceiptPending,
+  onTestPrintReceipt,
+  testPrintLabelPending,
+  onTestPrintLabel,
   onSave,
   saveDisabled,
   locked,
@@ -101,22 +115,42 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
     />
 
     <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
-
-    <View style={styles.footer}>
-      <AppButton
-        label="In thử"
-        mode="outlined"
-        disabled={status !== 'connected' || testPrintPending}
-        loading={testPrintPending}
-        onPress={onTestPrint}
+    <AppSwitch label="In Hoá đơn" value={printsReceipt} onValueChange={onPrintsReceiptChange} disabled={locked} />
+    <AppSwitch label="In Tem" value={printsLabel} onValueChange={onPrintsLabelChange} disabled={locked} />
+    {protocol === 'tspl' ? (
+      <AppSwitch
+        label="In bằng ảnh (khắc phục lỗi font tiếng Việt)"
+        value={tsplRenderAsImage}
+        onValueChange={onTsplRenderAsImageChange}
+        disabled={locked}
       />
-      <AppButton label="Lưu máy in" disabled={saveDisabled || !canTestPrint} onPress={onSave} />
+    ) : null}
+
+    <View style={styles.testPrintRow}>
+      <AppButton
+        label="In bill thử"
+        mode="outlined"
+        style={styles.testPrintButton}
+        disabled={status !== 'connected' || !printsReceipt || testPrintReceiptPending}
+        loading={testPrintReceiptPending}
+        onPress={onTestPrintReceipt}
+      />
+      <AppButton
+        label="In tem thử"
+        mode="outlined"
+        style={styles.testPrintButton}
+        disabled={status !== 'connected' || !printsLabel || testPrintLabelPending}
+        loading={testPrintLabelPending}
+        onPress={onTestPrintLabel}
+      />
     </View>
+    <AppButton label="Lưu máy in" disabled={saveDisabled} onPress={onSave} />
   </View>
 );
 
 const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  footer: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  testPrintRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  testPrintButton: { flex: 1 },
 });
