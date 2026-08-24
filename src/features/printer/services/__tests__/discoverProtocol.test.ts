@@ -1,11 +1,13 @@
-import { createDiscoverProtocol, resolveCandidates, type DiscoveryEvent } from '../discoverProtocol';
+import { createDiscoverProtocol, type DiscoveryEvent } from '../discoverProtocol';
 import type { IPrinterDriver } from '../../types/driver.types';
-import type { PrinterDetectionRule } from '../../constants/printerDetectionRules';
 import type { Protocol } from '../../types/printer.types';
 import { PrinterLogger } from '../PrinterLogger';
 
 jest.mock('../PrinterLogger', () => ({
   PrinterLogger: {
+    discoveryStarted: jest.fn(),
+    discoveryCandidateRejected: jest.fn(),
+    discoveryFailed: jest.fn(),
     protocolDetected: jest.fn(),
     protocolUnknown: jest.fn(),
   },
@@ -36,25 +38,6 @@ const collectEvents = (
       }
     });
   });
-
-describe('resolveCandidates', () => {
-  const rules: PrinterDetectionRule[] = [
-    { vendorMatch: /epson/i, candidates: ['escpos'], confidence: 'high' },
-    { vendorMatch: /.*/, candidates: ['escpos', 'tspl'], confidence: 'low' },
-  ];
-
-  it('returns the matching rule candidates when the hint matches', () => {
-    expect(resolveCandidates('Epson TM-T82', rules)).toEqual(['escpos']);
-  });
-
-  it('falls back to the catch-all rule when nothing else matches', () => {
-    expect(resolveCandidates('Unknown Device', rules)).toEqual(['escpos', 'tspl']);
-  });
-
-  it('falls back to the catch-all rule when there is no hint at all (LAN)', () => {
-    expect(resolveCandidates(undefined, rules)).toEqual(['escpos', 'tspl']);
-  });
-});
 
 describe('discoverProtocol', () => {
   const baseInput = { printerId: 'p1', connectionType: 'lan' as const, lan: { ip: '192.168.1.10', port: 9100 } };
@@ -99,29 +82,27 @@ describe('discoverProtocol', () => {
     const last = events[events.length - 1];
     expect(last.stage).toBe('error');
     expect(last.error?.code).toBe('CONNECTION_ERROR');
+    expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: 'p1', connectionType: 'lan', candidatesTried: ['tspl', 'escpos'] }),
+    );
   });
 
-  it('emits unknown_protocol immediately for a low-confidence rule with an explicit model match, without trying any candidate', async () => {
-    const escposDriver = makeMockDriver();
-    const tsplDriver = makeMockDriver();
-    const dualModeInput = {
+  it('logs discoveryStarted and discoveryCandidateRejected for the full trace of a multi-candidate attempt', async () => {
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+
+    expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith({
       printerId: 'p1',
-      connectionType: 'bluetooth' as const,
-      device: { deviceId: 'AA:BB', displayName: 'Xprinter XP-365B', rawDevice: {} },
-    };
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, dualModeInput);
-
-    expect(events).toEqual([{ stage: 'unknown_protocol' }]);
-    expect(escposDriver.connect).not.toHaveBeenCalled();
-    expect(tsplDriver.connect).not.toHaveBeenCalled();
-  });
-
-  it('does not short-circuit the catch-all fallback rule (no modelMatch) even though its confidence is also low', async () => {
-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
-    const escposDriver = makeMockDriver();
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-
-    expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying', 'identified']);
+      connectionType: 'lan',
+      candidates: ['tspl', 'escpos'],
+    });
+    expect(PrinterLogger.discoveryCandidateRejected).toHaveBeenCalledWith({
+      printerId: 'p1',
+      protocol: 'tspl',
+      connectionType: 'lan',
+      reason: 'not_confirmed',
+    });
   });
 
   it('unsubscribing before completion stops further events from being emitted', async () => {
@@ -200,20 +181,6 @@ describe('discoverProtocol', () => {
     await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(PrinterLogger.protocolUnknown).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: 'p1', connectionType: 'lan' }),
-    );
-  });
-
-  it('logs protocolUnknown immediately for a low-confidence dual-mode rule', async () => {
-    const escposDriver = makeMockDriver();
-    const tsplDriver = makeMockDriver();
-    const dualModeInput = {
-      printerId: 'p1',
-      connectionType: 'bluetooth' as const,
-      device: { deviceId: 'AA:BB', displayName: 'Xprinter XP-365B', rawDevice: {} },
-    };
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, dualModeInput);
-    expect(PrinterLogger.protocolUnknown).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', connectionType: 'bluetooth' }),
     );
   });
 });

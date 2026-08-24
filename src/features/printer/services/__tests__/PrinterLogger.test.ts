@@ -3,6 +3,7 @@ import { PrinterLogger } from '../PrinterLogger';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: {
+    debug: jest.fn(),
     info: jest.fn(),
     warning: jest.fn(),
     error: jest.fn(),
@@ -67,6 +68,15 @@ describe('PrinterLogger', () => {
     });
   });
 
+  it('disconnectFailed logs a warning event with printerId/protocol/errorCode', () => {
+    PrinterLogger.disconnectFailed({ printerId: 'p1', protocol: 'tspl', errorCode: 'CONNECTION_ERROR' });
+    expect(LoggerService.warning).toHaveBeenCalledWith('printer.disconnect.failed', {
+      printerId: 'p1',
+      protocol: 'tspl',
+      errorCode: 'CONNECTION_ERROR',
+    });
+  });
+
   it('testPrintSucceeded logs an info event with printerId/protocol/durationMs', () => {
     PrinterLogger.testPrintSucceeded({ printerId: 'p1', protocol: 'escpos', durationMs: 400 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.test-print.succeeded', {
@@ -91,20 +101,74 @@ describe('PrinterLogger', () => {
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.permission.denied', { connectionType: 'bluetooth' });
   });
 
-  it('protocolDetected logs an info event with printerId/protocol/connectionType', () => {
-    PrinterLogger.protocolDetected({ printerId: 'p1', protocol: 'escpos', connectionType: 'lan' });
+  it('discoveryStarted logs a debug event with printerId/connectionType/candidates', () => {
+    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: 'lan', candidates: ['tspl', 'escpos'] });
+    expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.started', {
+      printerId: 'p1',
+      connectionType: 'lan',
+      candidates: ['tspl', 'escpos'],
+    });
+  });
+
+  it('discoveryCandidateRejected logs a debug event with printerId/protocol/connectionType/reason', () => {
+    PrinterLogger.discoveryCandidateRejected({
+      printerId: 'p1',
+      protocol: 'tspl',
+      connectionType: 'usb',
+      reason: 'not_confirmed',
+    });
+    expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.candidate-rejected', {
+      printerId: 'p1',
+      protocol: 'tspl',
+      connectionType: 'usb',
+      reason: 'not_confirmed',
+    });
+  });
+
+  it('discoveryFailed logs a warning event with printerId/connectionType/candidatesTried/durationMs', () => {
+    PrinterLogger.discoveryFailed({
+      printerId: 'p1',
+      connectionType: 'lan',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 600,
+    });
+    expect(LoggerService.warning).toHaveBeenCalledWith('printer.discovery.failed', {
+      printerId: 'p1',
+      connectionType: 'lan',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 600,
+    });
+  });
+
+  it('protocolDetected logs an info event with printerId/protocol/connectionType/candidatesTried/durationMs', () => {
+    PrinterLogger.protocolDetected({
+      printerId: 'p1',
+      protocol: 'escpos',
+      connectionType: 'lan',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 700,
+    });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.protocol.detected', {
       printerId: 'p1',
       protocol: 'escpos',
       connectionType: 'lan',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 700,
     });
   });
 
-  it('protocolUnknown logs a warning event with printerId/connectionType', () => {
-    PrinterLogger.protocolUnknown({ printerId: 'p1', connectionType: 'usb' });
+  it('protocolUnknown logs a warning event with printerId/connectionType/candidatesTried/durationMs', () => {
+    PrinterLogger.protocolUnknown({
+      printerId: 'p1',
+      connectionType: 'usb',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 800,
+    });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.protocol.unknown', {
       printerId: 'p1',
       connectionType: 'usb',
+      candidatesTried: ['tspl', 'escpos'],
+      durationMs: 800,
     });
   });
 
