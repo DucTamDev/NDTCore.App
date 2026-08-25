@@ -56,12 +56,14 @@ export const BillImagePreview: React.FC<BillImagePreviewProps> = ({ document, wi
 );
 
 const styles = StyleSheet.create({
-  // Nền để trong suốt (không set `backgroundColor`) thay vì '#ffffff' đặc —
-  // `rgbaToMonochromeBitmap` đã coi pixel alpha=0 là trắng (không in), nên
-  // vùng nền không cần vẽ pixel trắng đặc mà vẫn ra kết quả đúng; đồng thời
-  // né trường hợp nền trắng đặc bị chụp/convert sai màu trên 1 số thiết bị
-  // (từng gặp: nền in ra đen dù style là trắng).
-  container: { padding: 16 },
+  // Nền trắng đặc thay vì để trong suốt — nền trong suốt (alpha=0) từng bị
+  // nghi là nguyên nhân "nền in ra đen dù style là trắng", nhưng root cause
+  // thật là TsplEncoder.image() gửi bit ngược chuẩn TSPL2 cho firmware clone
+  // (xem comment ở đó) — đã sửa tận gốc ở tầng encode, không cần né bằng
+  // cách để nền trong suốt nữa. Nền trắng đặc tường minh giúp `captureRef()`
+  // luôn chụp ra đúng pixel trắng thật, không phụ thuộc việc 1 số thiết bị
+  // có xử lý đúng alpha=0 hay không.
+  container: { padding: 16, backgroundColor: '#ffffff' },
   text: { fontFamily: 'monospace', fontSize: 16, color: '#000000' },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   divider: { borderTopWidth: 1, borderTopColor: '#000000', marginVertical: 8 },
