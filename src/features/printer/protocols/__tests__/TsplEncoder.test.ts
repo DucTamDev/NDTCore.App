@@ -97,12 +97,13 @@ describe('TsplEncoder', () => {
       expect(headerBytes).toBe(header);
     });
 
-    it('appends the raw bitmap bytes unchanged — not re-encoded as UTF-8, which would corrupt bytes ≥ 0x80', () => {
+    it('appends the raw bitmap bytes bitwise-inverted — not re-encoded as UTF-8, which would corrupt bytes ≥ 0x80', () => {
       const bytes = new TsplEncoder().image(0, 0, bitmap).encode();
       // "BITMAP 0,0,2,3,0," is pure ASCII, so its byte length equals its char length.
       const bitmapStart = 'BITMAP 0,0,2,3,0,'.length;
       expect(Array.from(bytes.slice(bitmapStart, bitmapStart + bitmap.bits.length))).toEqual(
-        Array.from(bitmap.bits),
+        // eslint-disable-next-line no-bitwise -- mirrors the inversion under test in TsplEncoder.image()
+        Array.from(bitmap.bits).map((byte) => byte ^ 0xff),
       );
     });
 

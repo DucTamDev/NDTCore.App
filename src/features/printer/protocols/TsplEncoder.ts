@@ -132,6 +132,14 @@ export class TsplEncoder {
    * `widthBytes * heightPx` byte nhị phân thô rồi mới tới CRLF kế tiếp,
    * không phải text UTF-8. `mode=0` (OVERWRITE) — đè thẳng lên vùng in,
    * không cần OR/XOR với nội dung cũ vì mỗi bill là 1 lượt in mới.
+   *
+   * Đảo bit (`^ 0xff`) trước khi gửi: `MonochromeBitmap.bits` theo đúng chuẩn
+   * TSPL2 (bit 1 = đen/in ra, xem `monochromeBitmap.ts`), nhưng firmware TSPL
+   * clone trên phần cứng thực tế đã kiểm chứng (Xprinter XP-420B) lại đọc bit
+   * này ngược — bit 1 = không in, khiến nền (bit=0) bị in đen và chữ (bit=1)
+   * lại thành khoảng trắng. Đảo ở đây, ngay sát lúc build lệnh `BITMAP`, để
+   * `MonochromeBitmap`/`rgbaToMonochromeBitmap()` vẫn giữ đúng nghĩa chuẩn,
+   * không lan quirk riêng của 1 dòng máy in ra các phần dùng chung khác.
    */
   image(x: number, y: number, bitmap: MonochromeBitmap): this {
     this.bytes.push(...encodeUtf8(`BITMAP ${x},${y},${bitmap.widthBytes},${bitmap.heightPx},0,`));
@@ -139,7 +147,8 @@ export class TsplEncoder {
     // byte, spread từng đó phần tử làm argument cho `push()` vừa chậm vừa có
     // thể vượt giới hạn số argument của JS engine (Hermes). Vòng lặp thường
     // luôn an toàn và tuyến tính bất kể kích thước mảng.
-    for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i]);
+    // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
+    for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i] ^ 0xff);
     this.bytes.push(...encodeUtf8('\r\n'));
     return this;
   }
