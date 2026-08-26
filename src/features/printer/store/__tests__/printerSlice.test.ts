@@ -2,25 +2,34 @@ import printerReducer, {
   printersLoaded,
   printerUpserted,
   printerRemoved,
-  defaultPrinterSet,
   printerStatusChanged,
   printerEnabledChanged,
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import type { PrinterConfig } from '../../types/printer.types';
+import type { Printer, PrinterDriver } from '../../types/printer.types';
 
-const printer: PrinterConfig = {
+const drivers: PrinterDriver[] = [
+  {
+    type: 'escpos',
+    source: 'auto',
+    contentTypes: ['Receipt'],
+    config: { type: 'escpos' },
+  },
+];
+
+const printer: Printer = {
   id: 'p1',
-  printerName: 'Máy in hóa đơn quầy 1',
-  protocolSource: 'auto',
-  protocol: 'escpos',
+  name: 'Máy in hóa đơn quầy 1',
+  drivers,
   connectionType: 'lan',
-  paperSize: '80mm',
-  autoReconnect: false,
-  isDefault: false,
-  enabled: true,
   lan: { ip: '192.168.1.10', port: 9100 },
+  identityKey: 'lan:192.168.1.10:9100',
+  paperSize: 80,
+  autoReconnect: false,
+  enabled: true,
+  createdAt: '2026-08-26T00:00:00.000Z',
+  updatedAt: '2026-08-26T00:00:00.000Z',
 };
 
 describe('printerSlice', () => {
@@ -32,7 +41,7 @@ describe('printerSlice', () => {
   it('printerUpserted adds a new printer, updates an existing one', () => {
     let state = printerReducer(undefined, printerUpserted(printer));
     expect(selectPrinters({ printer: state })).toHaveLength(1);
-    const renamed = { ...printer, printerName: 'Đổi tên' };
+    const renamed = { ...printer, name: 'Đổi tên' };
     state = printerReducer(state, printerUpserted(renamed));
     expect(selectPrinters({ printer: state })).toEqual([renamed]);
   });
@@ -41,11 +50,6 @@ describe('printerSlice', () => {
     let state = printerReducer(undefined, printerUpserted(printer));
     state = printerReducer(state, printerRemoved(printer.id));
     expect(selectPrinters({ printer: state })).toEqual([]);
-  });
-
-  it('defaultPrinterSet updates defaultPrinterId', () => {
-    const state = printerReducer(undefined, defaultPrinterSet('p1'));
-    expect(state.defaultPrinterId).toBe('p1');
   });
 
   it('printerStatusChanged updates statusById for that printer only', () => {
