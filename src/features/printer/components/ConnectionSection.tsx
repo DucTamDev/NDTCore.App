@@ -79,7 +79,7 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
     ) : (
       <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={disabled ? () => undefined : onSelectDevice} />
     )}
-    <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled || disabled} />
+    <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
   </View>
 );
 

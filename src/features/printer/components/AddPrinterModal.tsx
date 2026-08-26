@@ -152,7 +152,10 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setProtocolState('idle');
     setDeviceInfo(undefined);
     setConnectionErrorMessage(undefined);
-    setConnectionDirty(true);
+    // Chỉ khoá Save khi ĐÂY LÀ driver đầu tiên (chưa có driver nào saveable) —
+    // 1 lượt dò driver thứ 2 thất bại không được lùi lại trạng thái saveable
+    // đã có từ driver đầu tiên (spec §5.1, coordinator review round 1).
+    if (drivers.length === 0) setConnectionDirty(true);
   };
 
   const resetConnectionResult = (): void => {
