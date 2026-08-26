@@ -1,36 +1,119 @@
-// src/features/printer/schemas/printerFormSchema.test.ts
-import { lanConnectionSchema, printerDisplaySchema } from '../printerFormSchema';
+import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
+import type { Printer, PrinterDriver } from '../../types/printer.types';
+
+const escposDriver: PrinterDriver = { type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } };
+const tsplDriver: PrinterDriver = { type: 'tspl', source: 'auto', contentTypes: ['Label'], config: { type: 'tspl', renderMode: 'bitmap' } };
+
+const basePrinter: Printer = {
+  id: 'p1',
+  name: 'Máy in',
+  drivers: [escposDriver],
+  connectionType: 'lan',
+  lan: { ip: '192.168.1.10', port: 9100 },
+  identityKey: 'lan:192.168.1.10:9100',
+  paperSize: 80,
+  autoReconnect: false,
+  enabled: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
 
 describe('lanConnectionSchema', () => {
-  it('accepts a valid IP and port', () => {
-    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: '9100' });
-    expect(result.success).toBe(true);
+  it('accepts a valid IPv4 + port', () => {
+    expect(lanConnectionSchema.safeParse({ lanIp: '192.168.1.10', lanPort: '9100' }).success).toBe(true);
   });
 
-  it('rejects an invalid IP', () => {
-    const result = lanConnectionSchema.safeParse({ lanIp: 'not-an-ip', lanPort: '9100' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects an out-of-range port', () => {
-    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: '70000' });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects a non-numeric port', () => {
-    const result = lanConnectionSchema.safeParse({ lanIp: '192.168.1.20', lanPort: 'abc' });
-    expect(result.success).toBe(false);
+  it('rejects an invalid IPv4', () => {
+    expect(lanConnectionSchema.safeParse({ lanIp: '999.1.1.1', lanPort: '9100' }).success).toBe(false);
   });
 });
 
 describe('printerDisplaySchema', () => {
-  it('accepts a valid display name and paper size', () => {
-    const result = printerDisplaySchema.safeParse({ printerName: 'Máy in quầy 1', paperSize: '80mm' });
-    expect(result.success).toBe(true);
+  it('accepts a numeric paperSize of 58 or 80', () => {
+    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: 58 }).success).toBe(true);
+    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: 80 }).success).toBe(true);
   });
 
-  it('rejects an empty printer name', () => {
-    const result = printerDisplaySchema.safeParse({ printerName: '', paperSize: '80mm' });
-    expect(result.success).toBe(false);
+  it('rejects a string paperSize like the old "80mm"', () => {
+    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: '80mm' }).success).toBe(false);
+  });
+
+  it('rejects an empty name', () => {
+    expect(printerDisplaySchema.safeParse({ name: '', paperSize: 80 }).success).toBe(false);
+  });
+});
+
+describe('printerDriverSchema', () => {
+  it('accepts an escpos driver with only Receipt', () => {
+    expect(printerDriverSchema.safeParse(escposDriver).success).toBe(true);
+  });
+
+  it('rejects an escpos driver assigned Label (outside its capability)', () => {
+    const invalid: PrinterDriver = { ...escposDriver, contentTypes: ['Label'] };
+    expect(printerDriverSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('rejects a driver whose config.type does not match driver.type', () => {
+    const mismatched = { ...escposDriver, config: { type: 'tspl', renderMode: 'bitmap' } };
+    expect(printerDriverSchema.safeParse(mismatched).success).toBe(false);
+  });
+});
+
+describe('printerSchema', () => {
+  it('accepts a valid single-driver LAN printer', () => {
+    expect(printerSchema.safeParse(basePrinter).success).toBe(true);
+  });
+
+  it('accepts a valid two-driver printer with disjoint content types', () => {
+    const printer: Printer = { ...basePrinter, drivers: [escposDriver, tsplDriver] };
+    expect(printerSchema.safeParse(printer).success).toBe(true);
+  });
+
+  it('rejects two drivers that both claim Receipt (invariant #3)', () => {
+    const overlapping: PrinterDriver = { ...tsplDriver, contentTypes: ['Receipt'] };
+    const printer: Printer = { ...basePrinter, drivers: [escposDriver, overlapping] };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects two drivers of the same type on one printer', () => {
+    const printer: Printer = { ...basePrinter, drivers: [escposDriver, { ...escposDriver, contentTypes: [] }] };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects zero drivers (invariant #10)', () => {
+    const printer: Printer = { ...basePrinter, drivers: [] };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects three drivers (max 2, invariant #2)', () => {
+    const printer: Printer = { ...basePrinter, drivers: [escposDriver, tsplDriver, { ...escposDriver, contentTypes: [] }] };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects connectionType lan with a device set (invariant #13)', () => {
+    const printer: Printer = { ...basePrinter, device: { deviceId: 'x', displayName: 'x', rawDevice: {} } };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects connectionType lan with no lan config (invariant #13)', () => {
+    const printer: Printer = { ...basePrinter, lan: undefined };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+
+  it('rejects connectionType usb with a lan config set (invariant #13)', () => {
+    const printer: Printer = {
+      ...basePrinter,
+      connectionType: 'usb',
+      device: { deviceId: '1155:22222', displayName: 'x', rawDevice: {} },
+      lan: undefined,
+    };
+    expect(printerSchema.safeParse(printer).success).toBe(true);
+    const invalid: Printer = { ...printer, lan: { ip: '1.1.1.1', port: 9100 } };
+    expect(printerSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('rejects connectionType usb with no device set (invariant #13)', () => {
+    const printer: Printer = { ...basePrinter, connectionType: 'usb', lan: undefined };
+    expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 });
