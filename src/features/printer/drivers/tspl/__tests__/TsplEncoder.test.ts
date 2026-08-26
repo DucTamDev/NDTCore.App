@@ -1,6 +1,6 @@
-// src/features/printer/protocols/TsplEncoder.test.ts
+// src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
 import { TsplEncoder } from '../TsplEncoder';
-import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
+import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
 /** Decode UTF-8 bytes back to a JS string — project has no `@types/node`/DOM lib, so no `Buffer`/`TextDecoder` global to reach for here. */
 const decode = (bytes: Uint8Array): string => {
@@ -35,7 +35,7 @@ const decode = (bytes: Uint8Array): string => {
 describe('TsplEncoder', () => {
 
   it('initialize() defaults to continuous mode (Receipt) — GAP 0,0, no real gap to sense', () => {
-    const output = decode(new TsplEncoder().initialize('58mm').encode());
+    const output = decode(new TsplEncoder().initialize(58).encode());
     expect(output).toContain('SIZE 50 mm, 200 mm');
     expect(output).toContain('GAP 0 mm, 0 mm');
     expect(output).toContain('CODEPAGE UTF-8');
@@ -43,13 +43,13 @@ describe('TsplEncoder', () => {
   });
 
   it('initialize() emits gap-sensing SIZE/GAP for Label, sized for 58mm paper', () => {
-    const output = decode(new TsplEncoder().initialize('58mm', 'Label').encode());
+    const output = decode(new TsplEncoder().initialize(58, 'Label').encode());
     expect(output).toContain('SIZE 50 mm, 30 mm');
     expect(output).toContain('GAP 2 mm, 0 mm');
   });
 
   it('initialize() emits Label SIZE sized for 80mm paper, with a custom labelHeightMm', () => {
-    const output = decode(new TsplEncoder().initialize('80mm', 'Label', 40).encode());
+    const output = decode(new TsplEncoder().initialize(80, 'Label', 40).encode());
     expect(output).toContain('SIZE 72 mm, 40 mm');
   });
 
@@ -116,7 +116,7 @@ describe('TsplEncoder', () => {
 
   it('cut() emits PRINT 1,1 and chains fluently with the other builders', () => {
     const output = decode(
-      new TsplEncoder().initialize('58mm').text(0, 0, 'A').cut().encode(),
+      new TsplEncoder().initialize(58).text(0, 0, 'A').cut().encode(),
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });

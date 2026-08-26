@@ -1,6 +1,6 @@
-import type { PaperSize } from '../types/printer.types';
-import type { PrintType } from '../types/printConfiguration.types';
-import type { MonochromeBitmap } from '../utils/monochromeBitmap';
+import type { PaperSize } from '../../types/printer.types';
+import type { PrintType } from '../../types/printConfiguration.types';
+import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -86,7 +86,7 @@ export class TsplEncoder {
    * thật cần khớp).
    */
   initialize(paperSize: PaperSize, printType: PrintType = 'Receipt', labelHeightMm: number = DEFAULT_LABEL_HEIGHT_MM): this {
-    const widthMm = paperSize === '58mm' ? 50 : 72;
+    const widthMm = paperSize === 58 ? 50 : 72;
     if (printType === 'Label') {
       this.pushLine(`SIZE ${widthMm} mm, ${labelHeightMm} mm`);
       this.pushLine('GAP 2 mm, 0 mm');
@@ -146,7 +146,7 @@ export class TsplEncoder {
     // Không dùng `push(...bitmap.bits)` — bill dài có thể tạo hàng chục nghìn
     // byte, spread từng đó phần tử làm argument cho `push()` vừa chậm vừa có
     // thể vượt giới hạn số argument của JS engine (Hermes). Vòng lặp thường
-    // luôn an toàn và tuyến tính bất kể kích thước mảng.
+    // luôn an toàn và tuyến tính bất kể kích thước mảy.
     // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
     for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i] ^ 0xff);
     this.bytes.push(...encodeUtf8('\r\n'));
