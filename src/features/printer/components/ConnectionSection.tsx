@@ -25,6 +25,8 @@ export interface ConnectionSectionProps {
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
+  /** Khoá toàn bộ section (segmented buttons/inputs/device list/nút Kết nối) khi đã có >= 1 driver — điểm kết nối vật lý cố định sau khi driver đầu tiên được xác nhận. */
+  disabled: boolean;
 }
 
 export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
@@ -45,6 +47,7 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectLabel,
   connectDisabled,
   onConnectPress,
+  disabled,
 }) => (
   <View style={styles.container}>
     <SegmentedButtons
@@ -58,10 +61,10 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
     />
     {connectionType === 'lan' ? (
       <>
-        <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} />
+        <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} disabled={disabled} />
         <View style={styles.lanIpActions}>
-          <AppButton label="Lấy IP mạng" mode="outlined" onPress={onFetchLanIp} />
-          {detectedLanIp ? <AppButton label="Điền IP" mode="outlined" onPress={onAutoFillLanIp} /> : null}
+          <AppButton label="Lấy IP mạng" mode="outlined" onPress={onFetchLanIp} disabled={disabled} />
+          {detectedLanIp ? <AppButton label="Điền IP" mode="outlined" onPress={onAutoFillLanIp} disabled={disabled} /> : null}
         </View>
         {lanIpFetchError ? <HelperText type="error">{lanIpFetchError}</HelperText> : null}
         <AppInput
@@ -70,12 +73,13 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
           onChangeText={onLanPortChange}
           keyboardType="numeric"
           errorMessage={lanPortError}
+          disabled={disabled}
         />
       </>
     ) : (
-      <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={onSelectDevice} />
+      <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={disabled ? () => undefined : onSelectDevice} />
     )}
-    <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
+    <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled || disabled} />
   </View>
 );
 
