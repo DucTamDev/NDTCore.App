@@ -1,30 +1,7 @@
 import { DriverRegistry } from '../DriverRegistry.web';
-import type { PrinterConfig } from '../../types/printer.types';
-
-const tsplConfig: PrinterConfig = {
-  id: 'p1',
-  printerName: 'Test TSPL',
-  protocol: 'tspl',
-  protocolSource: 'manual',
-  connectionType: 'lan',
-  paperSize: '58mm',
-  autoReconnect: false,
-  isDefault: false,
-};
-
-const escposConfig: PrinterConfig = {
-  id: 'p2',
-  printerName: 'Test ESC/POS',
-  protocol: 'escpos',
-  protocolSource: 'manual',
-  connectionType: 'usb',
-  paperSize: '80mm',
-  autoReconnect: false,
-  isDefault: false,
-};
 
 describe('DriverRegistry (web)', () => {
-  it('registers both protocols', () => {
+  it('registers both driver types', () => {
     expect(DriverRegistry.escpos).toBeDefined();
     expect(DriverRegistry.tspl).toBeDefined();
   });
@@ -37,15 +14,13 @@ describe('DriverRegistry (web)', () => {
   });
 
   it('connect rejects with UNSUPPORTED_CONNECTION', async () => {
-    await expect(DriverRegistry.tspl.connect(tsplConfig)).rejects.toMatchObject({
-      code: 'UNSUPPORTED_CONNECTION',
-    });
+    // @ts-expect-error -- web stub ignores its arguments entirely
+    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
   });
 
   it('testPrint rejects with UNSUPPORTED_CONNECTION', async () => {
-    await expect(
-      DriverRegistry.escpos.testPrint(escposConfig, { elements: [] }),
-    ).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
+    // @ts-expect-error -- web stub ignores its arguments entirely
+    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
   });
 
   it('disconnect resolves without throwing', async () => {
@@ -65,5 +40,10 @@ describe('DriverRegistry (web)', () => {
 
   it('identify resolves null', async () => {
     await expect(DriverRegistry.tspl.identify('p1')).resolves.toBeNull();
+  });
+
+  it('encode returns an empty Uint8Array', () => {
+    // @ts-expect-error -- web stub ignores its arguments entirely
+    expect(DriverRegistry.escpos.encode()).toEqual(new Uint8Array());
   });
 });

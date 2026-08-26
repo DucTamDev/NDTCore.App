@@ -1,0 +1,48 @@
+import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
+import type { PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { AppErrorException } from '../types/AppError';
+
+class WebUnsupportedDriver implements IPrinterDriver {
+  scan(): Unsubscribe {
+    return () => {};
+  }
+
+  async connect(): Promise<void> {
+    throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+  }
+
+  async disconnect(): Promise<void> {
+    // no-op — không có kết nối thật để ngắt trên web
+  }
+
+  getStatus(): PrinterStatus {
+    return 'error';
+  }
+
+  onStatusChange(): Unsubscribe {
+    return () => {};
+  }
+
+  async testPrint(): Promise<void> {
+    throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+  }
+
+  async print(): Promise<void> {
+    throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+  }
+
+  async identify(): Promise<null> {
+    return null;
+  }
+
+  encode(): Uint8Array {
+    return new Uint8Array();
+  }
+}
+
+const webUnsupportedDriver = new WebUnsupportedDriver();
+
+export const DriverRegistry: Record<PrinterDriverType, IPrinterDriver> = {
+  escpos: webUnsupportedDriver,
+  tspl: webUnsupportedDriver,
+};
