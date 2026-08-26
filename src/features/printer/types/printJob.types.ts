@@ -1,5 +1,5 @@
 import type { AppError } from './AppError';
-import type { PrintDocument } from './printDocument.types';
+import type { PrintDocumentVariants } from './driver.types';
 import type { PrintType } from './printConfiguration.types';
 
 export type PrintJobStatus = 'pending' | 'printing' | 'success' | 'failed' | 'cancelled';
@@ -10,7 +10,8 @@ export interface PrintJob {
   printerId: string;
   /** Loại nội dung (Hoá đơn/Tem) — TSPL driver dùng để chọn chế độ giấy liên tục (Receipt) hay dò khe (Label), xem `TsplDriver`. */
   printType: PrintType;
-  document: PrintDocument;
+  /** Cả 2 variant (text/image) đi hết tới driver — driver tự chọn dùng cái nào (spec §7.2), KHÔNG resolve trước ở PrintService/PrintScheduler. */
+  documentVariants: PrintDocumentVariants;
   status: PrintJobStatus;
   retryCount: number;
   error?: AppError;

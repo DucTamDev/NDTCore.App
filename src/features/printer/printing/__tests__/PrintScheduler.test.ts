@@ -3,30 +3,21 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { AppErrorException } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
+import type { Printer, PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
-import type { PrinterConfig } from '../../types/printer.types';
+
+const escposDriver: PrinterDriver = { type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } };
+const tsplDriver: PrinterDriver = { type: 'tspl', source: 'auto', contentTypes: ['Label'], config: { type: 'tspl', renderMode: 'bitmap' } };
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
-  id: 'job1',
-  requestId: 'req1',
-  printerId: 'p1',
-  printType: 'Receipt',
-  document: { elements: [] },
-  status: 'pending',
-  retryCount: 0,
-  createdAt: new Date().toISOString(),
+  id: 'job1', requestId: 'req1', printerId: 'p1', printType: 'Receipt',
+  documentVariants: { text: { elements: [] } }, status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
-const makePrinterConfig = (overrides: Partial<PrinterConfig> = {}): PrinterConfig => ({
-  id: 'p1',
-  printerName: 'Máy in',
-  protocol: 'escpos',
-  protocolSource: 'auto',
-  connectionType: 'lan',
-  paperSize: '80mm',
-  autoReconnect: false,
-  isDefault: false,
+const makePrinter = (overrides: Partial<Printer> = {}): Printer => ({
+  id: 'p1', name: 'Máy in', drivers: [escposDriver], connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 },
+  identityKey: 'lan:1.1.1.1:9100', paperSize: 80, autoReconnect: false, enabled: true, createdAt: 'x', updatedAt: 'x',
   ...overrides,
 });
 
@@ -50,7 +41,15 @@ describe('PrintScheduler', () => {
     expect(result.error).toEqual({ code: 'PRINT_ERROR', message: 'hết giấy' });
   });
 
-  it('never runs two jobs for the same printerId concurrently', async () => {
+  it('retry() increments retryCount and re-enqueues the same job id', async () => {
+    const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
+    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const result = await scheduler.retry(makeJob({ status: 'failed', retryCount: 0 }));
+    expect(result.retryCount).toBe(1);
+    expect(result.status).toBe('success');
+  });
+
+  it('never runs two jobs for the same printerId concurrently when the printer is not found in getPrinters (resourceKeyFor falls back to printerId)', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printerService = {
@@ -71,23 +70,10 @@ describe('PrintScheduler', () => {
     expect(maxInFlight).toBe(1);
   });
 
-  it('retry() increments retryCount and re-enqueues the same job id', async () => {
-    const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
-    const failed = makeJob({ status: 'failed', retryCount: 0 });
-    const result = await scheduler.retry(failed);
-    expect(result.id).toBe(failed.id);
-    expect(result.retryCount).toBe(1);
-    expect(result.status).toBe('success');
-  });
-
-  it('serializes jobs for different printerIds that share the same protocol+connectionType', async () => {
+  it('serializes jobs for different printers that share the same resource key (escpos:lan, vendor library singleton)', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
-    const printers = [
-      makePrinterConfig({ id: 'receipt-1', protocol: 'escpos', connectionType: 'lan' }),
-      makePrinterConfig({ id: 'receipt-2', protocol: 'escpos', connectionType: 'lan' }),
-    ];
+    const printers = [makePrinter({ id: 'receipt-1' }), makePrinter({ id: 'receipt-2' })];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
         inFlight += 1;
@@ -98,9 +84,6 @@ describe('PrintScheduler', () => {
       getPrinters: jest.fn().mockReturnValue(printers),
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
-    // Hai printerId khác nhau nhưng cùng protocol+connectionType — mô phỏng 2
-    // máy in escpos dùng chung 1 kết nối native (giới hạn của thư viện
-    // ThermalReceiptDriver). Phải in tuần tự, không được chạy song song.
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-1' })),
       scheduler.enqueue(makeJob({ id: 'b', printerId: 'receipt-2' })),
@@ -108,12 +91,12 @@ describe('PrintScheduler', () => {
     expect(maxInFlight).toBe(1);
   });
 
-  it('still runs jobs in parallel for different protocol+connectionType combos', async () => {
+  it('runs jobs in parallel for tspl printers on different LAN hosts (per-connection resource key)', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinterConfig({ id: 'receipt-lan', protocol: 'escpos', connectionType: 'lan' }),
-      makePrinterConfig({ id: 'label-bt', protocol: 'tspl', connectionType: 'bluetooth' }),
+      makePrinter({ id: 'label-1', drivers: [tsplDriver], lan: { ip: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'label-2', drivers: [tsplDriver], lan: { ip: '1.1.1.2', port: 9100 } }),
     ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
@@ -126,16 +109,42 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan' })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt' })),
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', printType: 'Label' })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', printType: 'Label' })),
     ]);
-    // Không dùng chung tài nguyên kết nối — không có lý do gì để tuần tự hoá.
+    expect(maxInFlight).toBe(2);
+  });
+
+  it('runs jobs in parallel for different driver+connectionType combos (escpos:lan vs tspl:bluetooth)', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const printers = [
+      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 } }),
+      makePrinter({
+        id: 'label-bt', drivers: [tsplDriver], connectionType: 'bluetooth', lan: undefined,
+        device: { deviceId: 'd1', displayName: 'Label BT', rawDevice: {} },
+      }),
+    ];
+    const printerService = {
+      print: jest.fn().mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }),
+      getPrinters: jest.fn().mockReturnValue(printers),
+    };
+    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    await Promise.all([
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', printType: 'Receipt' })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', printType: 'Label' })),
+    ]);
     expect(maxInFlight).toBe(2);
   });
 
   it('serializes a scheduled print() job against a manual PrinterService.testPrint() call sharing the same lock', async () => {
     const order: string[] = [];
-    const escposDriver: IPrinterDriver = {
+    const escposIPrinterDriver: IPrinterDriver = {
       scan: jest.fn().mockReturnValue(() => undefined),
       connect: jest.fn().mockResolvedValue(undefined),
       disconnect: jest.fn().mockResolvedValue(undefined),
@@ -151,23 +160,24 @@ describe('PrintScheduler', () => {
         order.push('print-end');
       }),
       identify: jest.fn().mockResolvedValue(null),
+      encode: jest.fn().mockReturnValue(new Uint8Array()),
     };
     // Chung 1 lock — đây chính là cầu nối giữa PrintScheduler (đơn hàng thật)
     // và PrinterService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
     // multi-printer race lần trước không đủ (chỉ khoá được PrintScheduler).
     const lock = createResourceLock();
-    const printerService = createPrinterService({ escpos: escposDriver, tspl: escposDriver }, lock);
-    const config: PrinterConfig = makePrinterConfig({ id: 'receipt-1', protocol: 'escpos', connectionType: 'lan' });
-    printerService.addPrinter(config);
+    const printerService = createPrinterService({ escpos: escposIPrinterDriver, tspl: escposIPrinterDriver }, lock);
+    const printer: Printer = makePrinter({ id: 'receipt-1' });
+    printerService.addPrinter(printer);
     const scheduler = createPrintScheduler(printerService, lock);
 
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'order-job', printerId: config.id })),
+      scheduler.enqueue(makeJob({ id: 'order-job', printerId: printer.id })),
       (async () => {
         // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
         // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(config, { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] });
+        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } });
       })(),
     ]);
 

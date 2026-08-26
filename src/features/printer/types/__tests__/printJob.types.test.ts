@@ -10,7 +10,7 @@ describe('print job types', () => {
       requestId: 'req1',
       printerId: 'p1',
       printType: 'Receipt',
-      document,
+      documentVariants: { text: document },
       status: 'pending',
       retryCount: 0,
       createdAt: new Date().toISOString(),
