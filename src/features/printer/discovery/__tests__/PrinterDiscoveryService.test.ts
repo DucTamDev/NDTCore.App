@@ -46,6 +46,9 @@ describe('PrinterDiscoveryService', () => {
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(events.map((e) => e.stage)).toEqual(['connecting', 'identifying', 'identified']);
     expect(events[2].protocol).toBe('tspl');
+    expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
+    expect(tsplDriver.disconnect).not.toHaveBeenCalled();
+    expect(escposDriver.connect).not.toHaveBeenCalled();
   });
 
   it('excludedDrivers removes a driver type from the candidate list even if it would have identified', async () => {
@@ -70,6 +73,7 @@ describe('PrinterDiscoveryService', () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({}) });
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(events.find((e) => e.stage === 'identified')?.protocol).toBe('escpos');
+    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('emits unknown_protocol when every remaining candidate connects but none identifies', async () => {
@@ -83,7 +87,12 @@ describe('PrinterDiscoveryService', () => {
     const escposDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
     const tsplDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-    expect(events[events.length - 1].stage).toBe('error');
+    const last = events[events.length - 1];
+    expect(last.stage).toBe('error');
+    expect(last.error?.code).toBe('CONNECTION_ERROR');
+    expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: 'p1', connectionType: 'lan', candidatesTried: ['tspl', 'escpos'] }),
+    );
   });
 
   // --- Ported from services/__tests__/discoverProtocol.test.ts (pre-existing cases) ---
