@@ -146,7 +146,7 @@ export class TsplEncoder {
     // Không dùng `push(...bitmap.bits)` — bill dài có thể tạo hàng chục nghìn
     // byte, spread từng đó phần tử làm argument cho `push()` vừa chậm vừa có
     // thể vượt giới hạn số argument của JS engine (Hermes). Vòng lặp thường
-    // luôn an toàn và tuyến tính bất kể kích thước mảy.
+    // luôn an toàn và tuyến tính bất kể kích thước mảng.
     // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
     for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i] ^ 0xff);
     this.bytes.push(...encodeUtf8('\r\n'));
