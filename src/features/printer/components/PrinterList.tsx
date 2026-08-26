@@ -3,11 +3,11 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { EmptyState } from '../../../components/EmptyState';
 import { PrinterListItem } from './PrinterListItem';
-import type { PrinterConfig } from '../types/printer.types';
+import type { Printer } from '../types/printer.types';
 
 export interface PrinterListProps {
-  printers: PrinterConfig[];
-  onEdit: (printer: PrinterConfig) => void;
+  printers: Printer[];
+  onEdit: (printer: Printer) => void;
   onChanged: () => void;
 }
 

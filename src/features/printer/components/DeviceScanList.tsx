@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';
-import { PrinterService } from '../services/PrinterService';
+import { PrinterService } from '../printing/PrinterService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import type { ConnectionType, PrinterDevice } from '../types/printer.types';

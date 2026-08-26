@@ -3,15 +3,15 @@ import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterService } from '../services/PrinterService';
+import { PrinterService } from '../printing/PrinterService';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
-import type { PrinterConfig } from '../types/printer.types';
+import type { Printer } from '../types/printer.types';
 
 export const PrinterManagementPanel: React.FC = () => {
-  const [printers, setPrinters] = useState<PrinterConfig[]>(() => PrinterService.getPrinters());
+  const [printers, setPrinters] = useState<Printer[]>(() => PrinterService.getPrinters());
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingPrinter, setEditingPrinter] = useState<PrinterConfig | undefined>(undefined);
+  const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
   const [addSessionId, setAddSessionId] = useState(0);
 
   const refresh = useCallback(() => {
@@ -24,7 +24,7 @@ export const PrinterManagementPanel: React.FC = () => {
     setModalVisible(true);
   };
 
-  const openEditModal = (printer: PrinterConfig): void => {
+  const openEditModal = (printer: Printer): void => {
     setEditingPrinter(printer);
     setModalVisible(true);
   };

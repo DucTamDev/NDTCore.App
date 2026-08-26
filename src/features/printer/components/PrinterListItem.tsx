@@ -3,19 +3,19 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, Menu } from 'react-native-paper';
 import { usePrinterConnection } from '../hooks/usePrinterConnection';
-import { PrinterService } from '../services/PrinterService';
+import { PrinterService } from '../printing/PrinterService';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import type { PrinterConfig } from '../types/printer.types';
+import type { Printer } from '../types/printer.types';
 
 export interface PrinterListItemProps {
-  printer: PrinterConfig;
-  onEdit: (printer: PrinterConfig) => void;
+  printer: Printer;
+  onEdit: (printer: Printer) => void;
   onChanged: () => void;
 }
 
-const connectionLabel: Record<PrinterConfig['connectionType'], string> = {
+const connectionLabel: Record<Printer['connectionType'], string> = {
   usb: 'USB',
   bluetooth: 'Bluetooth',
   lan: 'LAN',
@@ -47,9 +47,9 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdi
   return (
     <View style={styles.row}>
       <View style={styles.info}>
-        <Text style={styles.name}>{printer.printerName}</Text>
+        <Text style={styles.name}>{printer.name}</Text>
         <Text style={styles.subtitle}>
-          {connectionLabel[printer.connectionType]} · Khổ {printer.paperSize}
+          {connectionLabel[printer.connectionType]} · Khổ {printer.paperSize}mm
         </Text>
       </View>
       <PrinterStatusBadge status={status} />
@@ -65,14 +65,13 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdi
         <Menu.Item title="Kết nối" onPress={() => { closeMenu(); PrinterService.connect(printer.id).catch(() => undefined); }} />
         <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); PrinterService.disconnect(printer.id).catch(() => undefined); }} />
         <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); PrinterService.reconnect(printer.id).catch(() => undefined); }} />
-        <Menu.Item title="Đặt mặc định" onPress={() => { closeMenu(); PrinterService.setDefault(printer.id); onChanged(); }} />
         <Menu.Item title="Chỉnh sửa" onPress={() => { closeMenu(); onEdit(printer); }} />
         <Menu.Item title="Xóa" onPress={() => { closeMenu(); handleDelete(); }} />
       </Menu>
       <ConfirmDialog
         visible={confirmDeleteVisible}
         title="Xóa máy in"
-        message={`Máy in "${printer.printerName}" đang kết nối. Bạn có chắc muốn ngắt kết nối và xóa?`}
+        message={`Máy in "${printer.name}" đang kết nối. Bạn có chắc muốn ngắt kết nối và xóa?`}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteVisible(false)}
       />
