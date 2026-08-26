@@ -1,9 +1,16 @@
 import type { AppError } from './AppError';
+import type { PrintType } from './printConfiguration.types';
 
-export type Protocol = 'escpos' | 'tspl';
+export type PrinterDriverType = 'escpos' | 'tspl';
 export type ConnectionType = 'usb' | 'bluetooth' | 'lan';
-export type PaperSize = '58mm' | '80mm';
-export type ProtocolSource = 'auto' | 'manual';
+export type PaperSize = 58 | 80;
+export type DriverSource = 'auto' | 'manual';
+/**
+ * Chỉ 1 giá trị khả dụng hiện tại — TrueType font cho TSPL ngoài phạm vi lần
+ * refactor này (xem spec §1, §4.1). KHÔNG thêm `'truetype'` vào union này cho
+ * tới khi có spike riêng xác nhận khả thi trên phần cứng thật.
+ */
+export type TsplRenderMode = 'bitmap';
 
 export type PrinterStatus =
   | 'idle'
@@ -31,50 +38,51 @@ export interface PrinterDeviceInfo {
   model?: string;
 }
 
-export interface PrinterConfig {
-  id: string;
-  printerName: string;
-  protocol: Protocol;
-  protocolSource: ProtocolSource;
-  connectionType: ConnectionType;
-  paperSize: PaperSize;
-  autoReconnect: boolean;
-  isDefault: boolean;
-  enabled?: boolean;
-  /** Máy in này có được dùng để in Hoá đơn không — thay thế `PrintConfiguration` (đã bỏ), gán ngay lúc thêm/sửa máy in thay vì màn hình "Thiết lập in" riêng. */
-  printsReceipt?: boolean;
-  /** Máy in này có được dùng để in Tem không — xem `printsReceipt`. */
-  printsLabel?: boolean;
+export interface TsplDriverConfig {
+  type: 'tspl';
+  /** Luôn `'bitmap'` — không có UI chọn ở phase này (xem spec §4.2, §7.2). */
+  renderMode: TsplRenderMode;
   /**
-   * Chỉ có ý nghĩa với máy `protocol === 'tspl'` — in bằng ảnh (chụp lại
-   * bill render qua `useBillImageCapture`) thay vì gửi lệnh `TEXT` trực
-   * tiếp, né vấn đề font built-in TSPL thiếu dấu tiếng Việt + layout lệch
-   * dòng khi canh theo dot thay vì chiều cao dòng thật (xem `TsplEncoder.text()`).
-   * Tên field cố ý không dùng tiền tố `prints` như `printsReceipt`/`printsLabel`
-   * — 2 field đó chọn LOẠI NỘI DUNG được in trên máy này, còn field này chọn
-   * CÁCH RENDER nội dung trước khi gửi xuống máy TSPL, khác trục hoàn toàn,
-   * dùng chung tiền tố sẽ gây hiểu nhầm 2 field cùng ý nghĩa.
-   * Đã verify trên phần cứng thật (2026-08-23): text mode lỗi font + lệch
-   * dòng thật trên ít nhất 1 model — nhưng không phải mọi máy TSPL đều thiếu
-   * font Unicode (tuỳ dòng máy, xem `TsplEncoder.text()`), nên KHÔNG ép cứng
-   * `true` cho mọi máy TSPL. `AppSwitch` trong `PrinterInfoCard` (chỉ hiện khi
-   * `protocol === 'tspl'`) cho người dùng tự bật/tắt theo máy thật đang dùng,
-   * mặc định `true` lúc thêm máy mới (`AddPrinterModal`) vì đây là trường hợp
-   * phổ biến hơn theo kết quả verify.
-   */
-  tsplRenderAsImage?: boolean;
-  /**
-   * Chỉ có ý nghĩa với `protocol === 'tspl'` — chiều cao khổ giấy VẬT LÝ
-   * (mm) khai báo trong lệnh `SIZE`/`GAP` (xem `TsplEncoder.initialize()`).
-   * Giấy tem rời có khe thật khác nhau tuỳ máy/tuỳ nơi (30mm, 40mm, giấy
-   * cuộn dài hơn...) — không thể hardcode 1 giá trị chung cho mọi máy in.
-   * `undefined` (máy in lưu từ trước khi field này tồn tại) dùng
-   * `DEFAULT_LABEL_HEIGHT_MM` (30) làm giá trị mặc định.
+   * Chỉ có ý nghĩa khi in Tem (`PrintType.Label`) — chiều cao khổ giấy VẬT LÝ
+   * (mm) khai báo trong lệnh `SIZE`/`GAP` của TSPL. `undefined` dùng
+   * `DEFAULT_LABEL_HEIGHT_MM` (xem `drivers/tspl/TsplEncoder.ts`).
    */
   labelHeightMm?: number;
+}
+
+export interface EscPosDriverConfig {
+  type: 'escpos';
+}
+
+export type PrinterDriverConfig = TsplDriverConfig | EscPosDriverConfig;
+
+export interface PrinterDriver {
+  type: PrinterDriverType;
+  source: DriverSource;
+  /** Phải là tập con của `PrinterDriverDefinitions[type].contentTypes` (xem `definitions/PrinterDriverDefinitions.ts`), và không được giao với `contentTypes` của driver khác trên cùng `Printer` (invariant #3, enforce ở `schemas/printerFormSchema.ts`). */
+  contentTypes: PrintType[];
+  config: PrinterDriverConfig;
+}
+
+export interface Printer {
+  id: string;
+  name: string;
+  vendor?: string;
+  model?: string;
+  /** `>= 1, <= 2` (escpos + tspl) — enforce ở schema, không chỉ document (invariant #2, #10). */
+  drivers: PrinterDriver[];
+  connectionType: ConnectionType;
   device?: PrinterDevice;
   lan?: PrinterLanConfig;
-  deviceInfo?: PrinterDeviceInfo;
+  /** Xem `discovery/PrinterResolver.ts` — chỉ phụ thuộc connectionType+device/lan, không phụ thuộc driver nào. */
+  identityKey: string;
+  paperSize: PaperSize;
+  autoReconnect: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // KHÔNG có isDefault — không dùng cho routing thực tế (xem spec §4.4).
+  // KHÔNG có field trạng thái kết nối runtime nào (invariant #11).
 }
 
 export type DeviceScanEventType = 'loading' | 'found' | 'empty' | 'error';
