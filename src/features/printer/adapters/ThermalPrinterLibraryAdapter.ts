@@ -16,9 +16,24 @@ export interface ThermalPrinterPrintTextOptions {
  * này chỉ re-export namespace + chuẩn hoá `printText()` (callback-based)
  * thành Promise — không chứa business logic về máy in.
  */
+interface ThermalPrinterNamespaceMap {
+  usb: typeof USBPrinter;
+  bluetooth: typeof BLEPrinter;
+  lan: typeof NetPrinter;
+}
+
+const namespaces: ThermalPrinterNamespaceMap = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
+
 export const ThermalPrinterLibraryAdapter = {
-  namespaceFor: (connectionType: ConnectionType) =>
-    ({ usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter })[connectionType],
+  /**
+   * Generic theo `T extends ConnectionType` (thay vì trả union) để caller
+   * gọi `namespaceFor('lan').connectPrinter(ip, port)` được TypeScript suy
+   * luận đúng overload của từng namespace — 3 namespace có `connectPrinter`
+   * khác chữ ký hẳn nhau (LAN: `(host, port)`, BLE: `(mac)`, USB:
+   * `(vendorId, productId)`), trả union sẽ làm TS giao (intersect) tham số
+   * của cả 3 chữ ký lại thành `never`.
+   */
+  namespaceFor: <T extends ConnectionType>(connectionType: T): ThermalPrinterNamespaceMap[T] => namespaces[connectionType],
 
   printTextAsync(connectionType: ConnectionType, text: string, options: ThermalPrinterPrintTextOptions): Promise<void> {
     return new Promise((resolve, reject) => {
