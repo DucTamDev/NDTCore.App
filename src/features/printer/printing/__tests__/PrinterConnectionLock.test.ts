@@ -74,4 +74,44 @@ describe('createResourceLock', () => {
     await Promise.all([task('a'), task('b')]);
     expect(maxInFlight).toBe(2);
   });
+
+  it('runs queued tasks in the order they were submitted', async () => {
+    const order: string[] = [];
+    const lock = createResourceLock();
+    await Promise.all([
+      lock.runExclusive('k', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        order.push('a');
+      }),
+      lock.runExclusive('k', async () => {
+        order.push('b');
+      }),
+    ]);
+    expect(order).toEqual(['a', 'b']);
+  });
+
+  it('resolves with the task result and does not swallow the task error', async () => {
+    const lock = createResourceLock();
+    await expect(lock.runExclusive('k', async () => undefined)).resolves.toBeUndefined();
+    await expect(
+      lock.runExclusive('k', async () => {
+        throw new Error('driver lỗi');
+      }),
+    ).rejects.toThrow('driver lỗi');
+  });
+
+  it('a rejecting task does not block the next queued task for the same key', async () => {
+    const lock = createResourceLock();
+    const order: string[] = [];
+    const first = lock
+      .runExclusive('k', async () => {
+        throw new Error('driver lỗi');
+      })
+      .catch(() => order.push('first-rejected'));
+    const second = lock.runExclusive('k', async () => {
+      order.push('second-ran');
+    });
+    await Promise.all([first, second]);
+    expect(order).toEqual(['first-rejected', 'second-ran']);
+  });
 });
