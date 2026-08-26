@@ -1,11 +1,11 @@
 import { buildReceiptDocument, buildReprintDocument, printReceipt } from '../OrderPrintTrigger';
-import { PrintService } from '../../../printer/services/PrintService';
+import { PrintService } from '../../../printer/printing/PrintService';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { PrintRowElement, PrintTextElement } from '../../../printer/types/printDocument.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
 
-jest.mock('../../../printer/services/PrintService');
+jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
 
 const item: CartItem = {

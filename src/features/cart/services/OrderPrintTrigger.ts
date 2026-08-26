@@ -1,4 +1,4 @@
-import { PrintService, type PrintDocumentVariants } from '../../printer/services/PrintService';
+import { PrintService, type PrintDocumentVariants } from '../../printer/printing/PrintService';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { formatDateTime, PAYMENT_METHOD_LABEL } from '../utils/billFormat';

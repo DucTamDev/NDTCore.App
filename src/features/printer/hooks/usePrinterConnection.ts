@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
-import { PrinterService } from '../services/PrinterService';
+import { PrinterService } from '../printing/PrinterService';
 import { printerStatusChanged, selectPrinterStatus } from '../store/printerSlice';
 import type { PrinterStatus } from '../types/printer.types';
 

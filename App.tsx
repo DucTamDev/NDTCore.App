@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { store } from './src/store';
 import { theme } from './src/theme/theme';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { PrinterService } from './src/features/printer/services/PrinterService';
+import { PrinterService } from './src/features/printer/printing/PrinterService';
 
 const queryClient = new QueryClient();
 
