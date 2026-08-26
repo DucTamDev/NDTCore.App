@@ -1,0 +1,37 @@
+import { resolveIdentityKey } from '../PrinterResolver';
+import type { PrinterDevice } from '../../types/printer.types';
+
+const usbDevice: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} };
+const btDevice: PrinterDevice = { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BT', rawDevice: {} };
+
+describe('resolveIdentityKey', () => {
+  it('builds a lan:<ip>:<port> key for LAN', () => {
+    expect(resolveIdentityKey({ connectionType: 'lan', lan: { ip: '192.168.1.50', port: 9100 } })).toBe(
+      'lan:192.168.1.50:9100',
+    );
+  });
+
+  it('throws when LAN is missing the lan config', () => {
+    expect(() => resolveIdentityKey({ connectionType: 'lan' })).toThrow();
+  });
+
+  it('builds a bluetooth:mac:<deviceId> key for Bluetooth', () => {
+    expect(resolveIdentityKey({ connectionType: 'bluetooth', device: btDevice })).toBe('bluetooth:mac:00:11:22:33:44:55');
+  });
+
+  it('builds a usb:device:<deviceId> key for USB', () => {
+    expect(resolveIdentityKey({ connectionType: 'usb', device: usbDevice })).toBe('usb:device:1155:22222');
+  });
+
+  it('throws when USB/Bluetooth is missing the device', () => {
+    expect(() => resolveIdentityKey({ connectionType: 'usb' })).toThrow();
+  });
+
+  it('two different physical printers of the same model over USB collide on identityKey — a documented limitation, not a bug', () => {
+    const cloneA: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} };
+    const cloneB: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} };
+    expect(resolveIdentityKey({ connectionType: 'usb', device: cloneA })).toBe(
+      resolveIdentityKey({ connectionType: 'usb', device: cloneB }),
+    );
+  });
+});
