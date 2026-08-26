@@ -14,7 +14,7 @@ Refactor kiến trúc feature `printer` (`NDTCore.App/src/features/printer/`) th
 
 **Ngoài phạm vi (explicitly out of scope):** TrueType font cho TSPL (`TsplFontManager`, lệnh `DOWNLOAD`, capability detection). Đây là tính năng **chưa được verify khả thi trên phần cứng thật** — cần một spike riêng trước khi thiết kế chi tiết. Lần refactor này chỉ giữ chỗ tối thiểu trong model (xem §4.3) để không khoá kiến trúc, không xây bất kỳ phần implementation nào của nó. Khi triển khai thật, nguồn font sẽ là asset được thêm thủ công vào app (không tải qua mạng lúc runtime).
 
-Đây là refactor kiến trúc + đổi data model — **không migrate dữ liệu cũ** (xem §9), người dùng thêm lại máy in sau khi cập nhật.
+Đây là refactor kiến trúc + đổi data model — **không migrate dữ liệu cũ** (xem §10), người dùng thêm lại máy in sau khi cập nhật.
 
 ---
 
@@ -37,27 +37,37 @@ Giữ nguyên convention hiện tại của module: control/section phụ thuộ
 
 ### 2.3 Layering & trách nhiệm
 
+`Transport` là abstraction kết nối chuẩn cho các connectionType do chính feature tự viết/kiểm soát (TSPL). ESC/POS là **ngoại lệ có chủ đích** vì thư viện vendor sở hữu toàn bộ vòng đời kết nối và gộp connect+encode+write làm 1 — 2 nhánh layering khác nhau từ `PrinterDriver` trở xuống:
+
 ```text
 PrintRoutingService
         ↓ (chọn printer + driver cho 1 content type)
 PrinterService
         ↓ (facade, lifecycle, storage-backed operations)
 PrinterDriver
-        ↓ (hiểu protocol; encode(document) → raw bytes)
-Transport
-        ↓ (quản lý connection/state/reconnect theo connectionType)
-Adapter
-        ↓ (wrapper thuần cho native SDK/vendor library, không có logic)
-Native SDK / Printer
+        │
+        ├── Generic path (TSPL)
+        │       ↓ encode(document) → raw bytes
+        │   Transport
+        │       ↓ (connection/state/reconnect theo connectionType)
+        │   Adapter
+        │       ↓ (wrapper cho native module, vd RNUSBPrinter.printRawData)
+        │   Native module / Printer
+        │
+        └── ESC/POS pragmatic path (ngoại lệ, xem bên dưới)
+                ↓
+            Adapter (ThermalPrinterLibraryAdapter)
+                ↓ (connect+encode+write gộp — API của thư viện, theo namespace USB/BLE/Net)
+            @poriyaalar/react-native-thermal-receipt-printer
 ```
 
 Nguyên tắc:
 - **Routing** chỉ biết "content type nào → printer nào / driver nào" — không biết cách driver mã hoá dữ liệu.
 - **Driver** biết cách mã hoá `PrintDocument` thành raw bytes cho đúng protocol của nó, và tự quyết định dùng document variant nào (text/image) dựa trên capability/config của chính nó — không phải Routing/PrintService quyết định thay.
-- **Transport** chỉ biết kết nối/ghi/đọc byte theo connectionType, không biết Receipt/Label là gì.
-- **Adapter** chỉ gọi thẳng native module/vendor SDK, không chứa business logic.
+- **Transport** (nhánh generic/TSPL) chỉ biết kết nối/ghi/đọc byte theo connectionType, không biết Receipt/Label là gì.
+- **Adapter** wrap native module/vendor SDK — có thể chứa integration/mapping logic (convert API, chuẩn hoá lỗi, callback→Promise, bridge vòng đời kết nối), nhưng **không chứa business logic về máy in** (content type, routing, printer state).
 
-**Ngoại lệ đã biết (documented pragmatic exception):** `EscPosDriver` (ESC/POS) dùng thư viện `@poriyaalar/react-native-thermal-receipt-printer`, thư viện này gộp connect+encode+write làm 1 lệnh theo từng connectionType (3 namespace độc lập `USBPrinter`/`BLEPrinter`/`NetPrinter`, không phải 1 Transport chung). Viết lại toàn bộ ESC/POS thành raw-byte-tự-encode + dùng chung Transport với TSPL sẽ phải tái hiện lại các workaround đã verify trên phần cứng thật (UTF-8 mode-switch, `keepConnection` NPE tránh treo Promise...) — rủi ro regression cao, không đáng đánh đổi ở lần refactor này. Quyết định: **giữ nguyên EscPosDriver tự chọn namespace theo connectionType nội bộ**, bọc trong `adapters/ThermalPrinterLibraryAdapter.ts` để phần code bên ngoài driver (PrinterService, PrintRoutingService...) không thấy chi tiết thư viện. Đây là compromise có chủ đích, không phải thiếu sót.
+**Ngoại lệ đã biết (documented pragmatic exception):** `EscPosDriver` (ESC/POS) dùng thư viện `@poriyaalar/react-native-thermal-receipt-printer`, thư viện này gộp connect+encode+write làm 1 lệnh theo từng connectionType (3 namespace độc lập `USBPrinter`/`BLEPrinter`/`NetPrinter`, không phải 1 Transport chung). Viết lại toàn bộ ESC/POS thành raw-byte-tự-encode + dùng chung Transport với TSPL sẽ phải tái hiện lại các workaround đã verify trên phần cứng thật (UTF-8 mode-switch, `keepConnection` NPE tránh treo Promise...) — rủi ro regression cao, không đáng đánh đổi ở lần refactor này. Quyết định: **giữ nguyên EscPosDriver tự chọn namespace theo connectionType nội bộ**, bọc trong `adapters/ThermalPrinterLibraryAdapter.ts` để phần code bên ngoài driver (PrinterService, PrintRoutingService...) không thấy chi tiết thư viện. Đây là compromise có chủ đích, không phải thiếu sót — ESC/POS **không đi qua `Transport`**, và `encode()` của nó chỉ phục vụ unit test/snapshot (xem §7), không phải production write path.
 
 ---
 
@@ -88,16 +98,20 @@ src/features/printer/
 │   ├── LanTransport.ts
 │   ├── BluetoothTransport.ts
 │   └── UsbTransport.ts
-├── adapters/                  # MỚI — wrapper thuần cho native SDK/vendor library
+├── adapters/                  # MỚI — external implementation boundary: wrap native SDK/vendor library.
+│   │                          # Được phép chứa integration/mapping logic (convert API, chuẩn hoá lỗi,
+│   │                          # callback→Promise, bridge vòng đời kết nối) — KHÔNG chứa business logic
+│   │                          # về máy in (content type, routing, printer state).
 │   ├── ThermalPrinterLibraryAdapter.ts  # bọc @poriyaalar/... (USBPrinter/BLEPrinter/NetPrinter)
 │   ├── UsbPrinterNativeAdapter.ts       # từ services/UsbPrinterNative.ts (RNUSBPrinter.printRawData)
 │   └── MockPrinterAdapter.ts            # cho unit test — thay native thật
 ├── discovery/
-│   └── PrinterDiscoveryService.ts  # đổi tên từ discoverProtocol.ts, nhận `excludedDrivers` (xem §5.1)
+│   ├── PrinterDiscoveryService.ts  # đổi tên từ discoverProtocol.ts, nhận `excludedDrivers` (xem §5.1)
+│   └── PrinterResolver.ts          # MỚI — tính identityKey (xem §6), KHÔNG tự quyết định duplicate
 ├── definitions/
 │   └── PrinterDriverDefinitions.ts  # MỚI — capability TĨNH theo driver TYPE (không phải vendor/model)
 ├── storage/
-│   └── PrinterStorage.ts     # tách đọc/ghi MMKV ra khỏi PrinterService, có version + migration (§9)
+│   └── PrinterStorage.ts     # tách đọc/ghi MMKV ra khỏi PrinterService, có version + migration (§10)
 ├── store/                    # giữ nguyên — Redux slice
 ├── schemas/                  # giữ nguyên vị trí — Zod, cập nhật shape + enforce invariant (§4.2, §8)
 ├── types/                    # cập nhật shape (§4)
@@ -162,9 +176,19 @@ interface Printer {
   createdAt: string;
   updatedAt: string;
   // KHÔNG có isDefault
-  // KHÔNG có bất kỳ field trạng thái kết nối runtime nào (status sống trong driver, không persist — invariant #11)
+  // KHÔNG có bất kỳ field trạng thái kết nối runtime nào — invariant #11
 }
 ```
+
+**Ràng buộc `connectionType` ↔ `device`/`lan`:** shape TypeScript ở trên để `device`/`lan` optional (không đổi thành discriminated union để giảm phạm vi refactor), nhưng **Zod schema phải enforce** để không lọt state vô nghĩa (vd `connectionType: 'lan'` kèm `device` của USB):
+
+```text
+connectionType === 'usb'        → device required, lan forbidden
+connectionType === 'bluetooth'  → device required, lan forbidden
+connectionType === 'lan'        → lan required, device forbidden
+```
+
+Dùng Zod `superRefine` trên `Printer` schema (cùng chỗ enforce invariant #3, #10 — xem §8).
 
 ### 4.3 `definitions/PrinterDriverDefinitions.ts`
 
@@ -247,23 +271,49 @@ Tính `identityKey` ngay khi đủ thông tin thiết bị/IP (trước khi bấ
 
 ## 7. PrintRoutingService & Print Pipeline
 
+### 7.1 Trách nhiệm từng service (tránh vòng lặp trách nhiệm)
+
 ```text
-PrintService.print(printType, documentVariants)
-   → PrintRoutingService.resolveTargets(printType)
-       // với mỗi printer enabled: tìm driver có contentTypes chứa printType (≤ 1 theo invariant #3)
-       // trả về PrintTarget[] = [{ printer, driver }]
-   → với mỗi target: PrintScheduler.enqueue({ printerId: printer.id, printType, documentVariants, ... })
-   → PrinterService.print(printerId, documentVariants, printType)
-       → const driver = printer.drivers.find(d => d.contentTypes.includes(printType))
-       → const bytes = driverImpl(driver.type).encode(documentVariants, driver.config, printType)
-             // Driver tự quyết định dùng variant nào (text/image) — KHÔNG phải
-             // PrintRoutingService/PrintService biết "tspl thì ưu tiên ảnh"
-       → transport.write(bytes)
+Business layer (OrderPrintTrigger...)
+   ↓
+PrintService            — orchestrate 1 print request từ business layer:
+   ↓                      print(printType, documentVariants) → hỏi Routing → đẩy Scheduler
+PrintRoutingService      — CHỈ: contentType → enabled printers → driver → PrintTarget[]
+   ↓                      (routing concern thuần, không biết cách encode)
+PrintScheduler           — CHỈ: resourceKey → serialize job → execute
+   ↓
+PrinterService           — quản lý 1 printer cụ thể / lifecycle: add/update/remove/get/
+                           connect/disconnect/testPrint/print(printerId, ...)
+   ↓
+Driver runtime           — encode + gửi đi (xem §7.2, khác nhau theo driver — không đồng nhất)
 ```
 
-`PrintRoutingService` chỉ biết "content type nào → printer nào / driver nào" (routing concern). Việc chọn document representation (text vs image) là **driver capability concern**, nằm trong `encode()` của từng driver — `TsplDriver.encode()` luôn ưu tiên `documentVariants.image` (vì `renderMode` luôn `'bitmap'`); `EscPosDriver.encode()` luôn dùng `documentVariants.text`.
+`PrinterService.print(printerId, ...)` cũng là 1 API gọi trực tiếp được (vd từ `testPrint`), **không bắt buộc phải đi qua** `PrintRoutingService` — routing chỉ là đường vào từ content-type-level request (`PrintService`).
 
-`IPrinterDriver` thêm method public pure `encode(documents, config, printType?): Uint8Array` — tách khỏi việc gọi `transport.write()`, cho phép unit test encode logic mà không cần transport/printer thật (snapshot raw output). Method `print()`/`testPrint()` hiện tại vẫn giữ vai trò orchestrate (connect-if-needed + encode + write), gọi `encode()` nội bộ.
+Type dùng chung giữa các service này:
+
+```ts
+interface PrintRequest {
+  printType: PrintContentType;
+  documentVariants: PrintDocumentVariants;
+}
+
+interface PrintTarget {
+  printer: Printer;
+  driver: PrinterDriver;
+}
+```
+
+### 7.2 Production write path — KHÔNG đồng nhất giữa các driver
+
+`PrinterService.print(printerId, documentVariants, printType)` tra `driver = printer.drivers.find(d => d.contentTypes.includes(printType))` rồi gọi `driver.print(...)` — **không giả định mọi driver đều đi qua `transport.write(bytes)`**, vì ESC/POS là ngoại lệ đã ghi ở §2.3 (thư viện vendor gộp connect+encode+write, không có `Transport` độc lập để gọi `write()` từ bên ngoài):
+
+- **TSPL** (generic path): `PrinterService` gọi `driver.print(...)` → nội bộ gọi `encode(documentVariants, config, printType)` → `transport.write(bytes)`.
+- **ESC/POS** (pragmatic path): `PrinterService` gọi `driver.print(...)` → nội bộ đi thẳng qua `ThermalPrinterLibraryAdapter` (API `printText`/`connectPrinter` gộp sẵn) — không có bước `transport.write(bytes)` tách rời.
+
+Việc chọn document representation (text vs image) là **driver capability concern**, nằm trong logic nội bộ của từng driver khi build nội dung để gửi — `TsplDriver` luôn ưu tiên `documentVariants.image` (vì `renderMode` luôn `'bitmap'`); `EscPosDriver` luôn dùng `documentVariants.text`. `PrintRoutingService`/`PrintService` không biết chi tiết này.
+
+`IPrinterDriver` thêm method public pure **`encode(documents, config, printType?): Uint8Array`** cho driver nào hỗ trợ raw-byte generation (bắt buộc với TSPL, dùng cho unit test/snapshot raw output không cần transport/printer thật). Với ESC/POS, `encode()` (đổi tên từ `encodeDocument` hiện đang private) cũng được public hoá cho mục đích test tương tự, **nhưng đây không phải lý do để viết lại production print path của ESC/POS** — `encode()` ở đây chỉ phục vụ test, production vẫn đi qua `ThermalPrinterLibraryAdapter` như hiện tại.
 
 ---
 
@@ -275,12 +325,14 @@ PrintService.print(printType, documentVariants)
 4. Protocol/driver không phải identity.
 5. Identity được resolve trước khi connect (không phụ thuộc protocol).
 6. Duplicate check không phụ thuộc protocol — dựa hoàn toàn vào `identityKey`.
-7. Driver tạo/chuẩn bị dữ liệu in (`encode()`); Routing chỉ chọn target, không biết cách encode.
-8. Adapter/Transport không chứa business logic về content type hay routing.
+7. Driver tạo/chuẩn bị dữ liệu in; Routing chỉ chọn target (`{printer, driver}`), không biết cách driver gửi dữ liệu đi (encode→transport, hay đi thẳng qua thư viện gộp sẵn như ESC/POS — xem §7.2).
+8. Adapter/Transport được phép chứa integration/mapping logic (convert API, chuẩn hoá lỗi, callback→Promise), nhưng không chứa business logic về content type hay routing.
 9. TSPL hiện tại luôn `renderMode = 'bitmap'` — không có lựa chọn khác ở phase này.
 10. `drivers` không rỗng — Zod `z.array(printerDriverSchema).min(1).max(2)`.
-11. Runtime connection state (`PrinterStatus`) **không** persist vào `Printer` model — sống trong bộ nhớ JS của driver (Map theo printerId), đúng như hành vi hiện tại.
-12. Migration sang model mới là **destructive reset** nếu không migrate an toàn được (xem §9).
+11. Runtime connection state (`PrinterStatus`) **không** persist vào `Printer` model — thuộc runtime connection layer, hiện tại implementation là 1 status map trong bộ nhớ theo `printerId` (không khoá cứng khái niệm này vào riêng "driver" — chỉ là chi tiết implementation hiện có).
+12. Migration sang model mới là **destructive reset** nếu không migrate an toàn được (xem §10).
+13. `connectionType` ràng buộc `device`/`lan` — Zod enforce: `usb`/`bluetooth` → `device` bắt buộc, `lan` cấm; `lan` → `lan` bắt buộc, `device` cấm (xem §4.2).
+14. Resource key của `PrinterConnectionLock` phải phản ánh đúng ranh giới concurrency thật của implementation bên dưới (thư viện singleton theo connectionType cho ESC/POS, transport riêng theo connection cho TSPL) — **không phải** định danh vật lý của printer. Không tự ý đổi thành `bluetooth:<deviceId>`/`lan:<host>:<port>` đồng loạt cho mọi driver (xem §9).
 
 ---
 
