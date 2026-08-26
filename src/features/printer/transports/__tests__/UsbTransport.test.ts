@@ -2,7 +2,7 @@
 import { UsbTransport } from '../UsbTransport';
 import { AppErrorException } from '../../types/AppError';
 
-jest.mock('../../services/UsbPrinterNative', () => ({
+jest.mock('../../adapters/UsbPrinterNativeAdapter', () => ({
   ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
   printRawDataUsb: jest.fn().mockResolvedValue(undefined),
 }));
@@ -13,7 +13,7 @@ describe('UsbTransport.connect', () => {
   });
 
   it('initializes the shared USB native module before connecting', async () => {
-    const { ensureUsbInitialized } = jest.requireMock('../../services/UsbPrinterNative') as {
+    const { ensureUsbInitialized } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
       ensureUsbInitialized: jest.Mock;
     };
     const transport = new UsbTransport();
@@ -46,7 +46,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('base64-encodes the bytes and keeps the connection open', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../services/UsbPrinterNative') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     const transport = new UsbTransport();
@@ -55,7 +55,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('wraps a native write failure into PRINT_ERROR', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../services/UsbPrinterNative') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
@@ -64,7 +64,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('rethrows as AppErrorException', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../services/UsbPrinterNative') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
