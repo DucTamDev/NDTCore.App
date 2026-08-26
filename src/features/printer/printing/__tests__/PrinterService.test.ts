@@ -3,7 +3,7 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import type { Printer, PrinterDriver, PrinterStatus } from '../../types/printer.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
@@ -62,6 +62,13 @@ describe('PrinterService', () => {
     expect(service.getPrinters()[0].name).toBe('Tên mới');
   });
 
+  it('addPrinter() recomputes identityKey from connection fields, overriding a wrong caller-supplied value', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    const staleIdentity: Printer = { ...basePrinter, identityKey: 'lan:9.9.9.9:1' };
+    service.addPrinter(staleIdentity);
+    expect(service.getPrinters()[0].identityKey).toBe('lan:192.168.1.10:9100');
+  });
+
   it('removePrinter() removes it from the list', () => {
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
@@ -90,6 +97,27 @@ describe('PrinterService', () => {
     expect(tsplDriver.connect).toHaveBeenCalled();
   });
 
+  it('disconnect() disconnects every driver of the printer', async () => {
+    const escposDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: tsplDriver }, createResourceLock());
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
+    service.addPrinter(twoDriverPrinter);
+    await service.disconnect(twoDriverPrinter.id);
+    expect(escposDriver.disconnect).toHaveBeenCalledWith(twoDriverPrinter.id);
+    expect(tsplDriver.disconnect).toHaveBeenCalledWith(twoDriverPrinter.id);
+  });
+
+  it('disconnect() does not let one driver failing block the other', async () => {
+    const escposDriver = makeMockDriver({ disconnect: jest.fn().mockRejectedValue(new Error('offline')) });
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: escposDriver, tspl: tsplDriver }, createResourceLock());
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
+    service.addPrinter(twoDriverPrinter);
+    await service.disconnect(twoDriverPrinter.id);
+    expect(tsplDriver.disconnect).toHaveBeenCalled();
+  });
+
   it('getStatus() returns connected when at least one driver of the printer is connected', () => {
     const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('idle') });
     const tsplDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('connected') });
@@ -104,6 +132,37 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
     expect(service.getStatus(basePrinter.id)).toBe('error');
+  });
+
+  it('onStatusChange() aggregates across drivers and unsubscribes every driver', () => {
+    let tsplCallback: ((status: PrinterStatus) => void) | undefined;
+    const escposUnsubscribe = jest.fn();
+    const tsplUnsubscribe = jest.fn();
+    const escposDriver = makeMockDriver({
+      getStatus: jest.fn().mockReturnValue('idle'),
+      onStatusChange: jest.fn().mockReturnValue(escposUnsubscribe),
+    });
+    const tsplDriver = makeMockDriver({
+      getStatus: jest.fn().mockReturnValue('idle'),
+      onStatusChange: jest.fn().mockImplementation((_printerId: string, cb: (status: PrinterStatus) => void) => {
+        tsplCallback = cb;
+        return tsplUnsubscribe;
+      }),
+    });
+    const service = createPrinterService({ escpos: escposDriver, tspl: tsplDriver }, createResourceLock());
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
+    service.addPrinter(twoDriverPrinter);
+
+    const callback = jest.fn();
+    const unsubscribe = service.onStatusChange(twoDriverPrinter.id, callback);
+
+    tsplDriver.getStatus.mockReturnValue('connected');
+    tsplCallback?.('connected');
+    expect(callback).toHaveBeenCalledWith('connected');
+
+    unsubscribe();
+    expect(escposUnsubscribe).toHaveBeenCalled();
+    expect(tsplUnsubscribe).toHaveBeenCalled();
   });
 
   it('print() forwards to the driver whose contentTypes includes the printType', async () => {
