@@ -76,7 +76,12 @@ describe('printerSchema', () => {
   });
 
   it('rejects two drivers of the same type on one printer', () => {
-    const printer: Printer = { ...basePrinter, drivers: [escposDriver, { ...escposDriver, contentTypes: [] }] };
+    // Cả 2 driver cùng type 'tspl', contentTypes RỜI NHAU và hợp lệ riêng lẻ —
+    // để chỉ có rule "không được có 2 driver cùng type" là lý do fail, không
+    // bị lẫn với rule contentTypes trùng nhau hay rule min(1).
+    const firstTspl: PrinterDriver = { ...tsplDriver, contentTypes: ['Receipt'] };
+    const secondTspl: PrinterDriver = { ...tsplDriver, contentTypes: ['Label'] };
+    const printer: Printer = { ...basePrinter, drivers: [firstTspl, secondTspl] };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 

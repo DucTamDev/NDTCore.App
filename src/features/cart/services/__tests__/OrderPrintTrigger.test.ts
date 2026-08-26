@@ -166,14 +166,14 @@ describe('printReceipt', () => {
   });
 
   it('captures a bill image and sends it alongside the text document when a target printer needs one', async () => {
-    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue('58mm');
+    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue(58);
     const capture = jest.fn().mockResolvedValue('base64-png-data');
     (PrintService.print as jest.Mock).mockResolvedValue({ status: 'success', jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
 
     await printReceipt(document, capture);
 
-    expect(capture).toHaveBeenCalledWith(document, '58mm');
+    expect(capture).toHaveBeenCalledWith(document, 58);
     expect(PrintService.print).toHaveBeenCalledWith('Receipt', {
       text: document,
       image: { elements: [{ type: 'image', data: 'base64-png-data', x: 0, y: 0 }] },
@@ -181,7 +181,7 @@ describe('printReceipt', () => {
   });
 
   it('falls back to text-only when captureBillImage resolves null (capture failed)', async () => {
-    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue('80mm');
+    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue(80);
     const capture = jest.fn().mockResolvedValue(null);
     (PrintService.print as jest.Mock).mockResolvedValue({ status: 'success', jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);

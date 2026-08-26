@@ -50,6 +50,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [testPrintReceiptPending, setTestPrintReceiptPending] = useState(false);
   const [testPrintLabelPending, setTestPrintLabelPending] = useState(false);
   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
@@ -174,14 +175,19 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     return entry;
   };
 
-  const startDiscovery = (lan?: { ip: string; port: number }): void => {
+  /**
+   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connectionType/device/lan)
+   * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
+   * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
+   * (vd `paperSize`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
+   * (final-review finding #2). Dùng chung `buildDraftPrinter()` với đường
+   * `onChooseProtocol` thay vì tự dựng 1 draft rời rạc ở đây.
+   */
+  const startDiscovery = (): void => {
     resetDiscoveryFields('connecting');
     discoveryUnsubscribeRef.current = PrinterService.discoverDriver(
       {
-        printerId,
-        connectionType,
-        device: connectionType === 'lan' ? undefined : selectedDevice,
-        lan,
+        draftPrinter: buildDraftPrinter(),
         excludedDrivers: drivers.map((d) => d.type),
       },
       (event: DiscoveryEvent) => {
@@ -211,9 +217,9 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const onConnectPress = (): void => {
     if (connectionType === 'lan') {
-      lanForm.handleSubmit((values) => startDiscovery(buildLan(values)))();
+      lanForm.handleSubmit(() => startDiscovery())();
     } else {
-      startDiscovery(undefined);
+      startDiscovery();
     }
   };
 
@@ -338,9 +344,14 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const onSave = displayForm.handleSubmit(() => {
     if (drivers.length === 0) return;
     const printer = buildDraftPrinter();
+    try {
+      if (initialValues) PrinterService.updatePrinter(printer);
+      else PrinterService.addPrinter(printer);
+    } catch (error) {
+      setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
+      return;
+    }
     savedRef.current = true;
-    if (initialValues) PrinterService.updatePrinter(printer);
-    else PrinterService.addPrinter(printer);
     if (printer.autoReconnect && liveStatus !== 'connected') {
       PrinterService.connect(printer.id).catch(() => undefined);
     }
@@ -353,6 +364,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     (connectionType !== 'lan' && !selectedDevice) ||
     drivers.length >= 2 ||
     Boolean(identityErrorMessage);
+  const hasEmptyContentTypeDriver = drivers.some((d) => d.contentTypes.length === 0);
 
   return (
     <Portal>
@@ -396,6 +408,12 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             <Text variant="bodySmall" style={styles.addDriverHint}>Máy in này còn hỗ trợ thêm driver khác — bấm "Kết nối" để dò tiếp.</Text>
           ) : null}
 
+          {hasEmptyContentTypeDriver ? (
+            <Text variant="bodySmall" style={styles.identityError}>
+              Mỗi driver phải nhận in ít nhất 1 loại nội dung (Hoá đơn/Tem) — chọn ở phần bên dưới trước khi lưu.
+            </Text>
+          ) : null}
+
           <PrinterInfoCard
             control={displayForm.control}
             errors={displayForm.formState.errors}
@@ -411,13 +429,16 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             testPrintLabelPending={testPrintLabelPending}
             onTestPrintLabel={onTestPrintLabel}
             onSave={onSave}
-            saveDisabled={drivers.length === 0 || connectionDirty}
+            saveDisabled={drivers.length === 0 || connectionDirty || hasEmptyContentTypeDriver}
             locked={drivers.length === 0}
           />
           {captureNode}
         </ScrollView>
         <Snackbar visible={testPrintErrorMessage !== null} onDismiss={() => setTestPrintErrorMessage(null)} duration={5000}>
           {testPrintErrorMessage}
+        </Snackbar>
+        <Snackbar visible={saveErrorMessage !== null} onDismiss={() => setSaveErrorMessage(null)} duration={5000}>
+          {saveErrorMessage}
         </Snackbar>
       </Modal>
     </Portal>

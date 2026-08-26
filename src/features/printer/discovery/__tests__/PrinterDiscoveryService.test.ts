@@ -1,6 +1,6 @@
 import { createDiscoverDriver, type DiscoveryEvent } from '../PrinterDiscoveryService';
 import type { IPrinterDriver } from '../../types/driver.types';
-import type { PrinterDriverType } from '../../types/printer.types';
+import type { Printer, PrinterDriverType } from '../../types/printer.types';
 import { PrinterLogger } from '../../services/PrinterLogger';
 
 jest.mock('../../services/PrinterLogger', () => ({
@@ -36,7 +36,22 @@ const collectEvents = (
   });
 
 describe('PrinterDiscoveryService', () => {
-  const baseInput = { printerId: 'p1', connectionType: 'lan' as const, lan: { ip: '192.168.1.10', port: 9100 } };
+  // Draft `Printer` ĐẦY ĐỦ — sau fix finding #2, `DiscoveryInput.draftPrinter`
+  // là 1 Printer thật (do caller tự dựng), không phải mấy field rời rạc nữa.
+  const baseDraftPrinter: Printer = {
+    id: 'p1',
+    name: 'Máy in mới',
+    drivers: [],
+    connectionType: 'lan',
+    lan: { ip: '192.168.1.10', port: 9100 },
+    identityKey: 'lan:192.168.1.10:9100',
+    paperSize: 80,
+    autoReconnect: true,
+    enabled: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const baseInput = { draftPrinter: baseDraftPrinter };
 
   afterEach(() => jest.clearAllMocks());
 

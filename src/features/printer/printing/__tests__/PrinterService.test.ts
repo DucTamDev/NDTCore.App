@@ -317,7 +317,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver }, createResourceLock());
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      service.discoverDriver({ printerId: 'p1', connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 } }, (event) => {
+      service.discoverDriver({ draftPrinter: { ...basePrinter, drivers: [] } }, (event) => {
         events.push(event.stage);
         if (event.stage === 'identified') resolve();
       });
