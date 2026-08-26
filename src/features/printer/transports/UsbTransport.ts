@@ -2,7 +2,7 @@
 import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import { Buffer } from 'buffer';
 import { AppErrorException } from '../types/AppError';
-import { ensureUsbInitialized, printRawDataUsb } from '../services/UsbPrinterNative';
+import { ensureUsbInitialized, printRawDataUsb } from '../adapters/UsbPrinterNativeAdapter';
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 

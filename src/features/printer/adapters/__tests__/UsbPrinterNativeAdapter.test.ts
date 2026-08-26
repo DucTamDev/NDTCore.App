@@ -1,6 +1,6 @@
-// src/features/printer/services/UsbPrinterNative.test.ts
+// src/features/printer/adapters/__tests__/UsbPrinterNativeAdapter.test.ts
 import { NativeModules } from 'react-native';
-import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNative';
+import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeAdapter';
 
 describe('ensureUsbInitialized', () => {
   it('calls USBPrinter.init() only once even when called multiple times', async () => {
