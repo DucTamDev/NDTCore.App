@@ -153,7 +153,14 @@ export interface Printer {
   // KHÔNG có field trạng thái kết nối runtime nào (invariant #11).
 }
 
-export type DeviceScanEventType = 'loading' | 'found' | 'empty' | 'error';
+export const DeviceScanEventType = {
+  loading: 'loading',
+  found: 'found',
+  empty: 'empty',
+  error: 'error',
+} as const;
+
+export type DeviceScanEventType = (typeof DeviceScanEventType)[keyof typeof DeviceScanEventType];
 
 export interface DeviceScanEvent {
   type: DeviceScanEventType;

@@ -5,6 +5,7 @@ import { List, IconButton, Text } from 'react-native-paper';
 import { PrinterService } from '../printing/PrinterService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
+import { DeviceScanEventType } from '../types/printer.types';
 import type { ConnectionType, PrinterDevice } from '../types/printer.types';
 
 export interface DeviceScanListProps {
@@ -32,13 +33,13 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
     let settled = false;
     const unsubscribe = PrinterService.scanForConnectionType(connectionType, (event) => {
       if (settled) return;
-      if (event.type === 'loading') setLoading(true);
-      if (event.type === 'found' || event.type === 'empty') {
+      if (event.type === DeviceScanEventType.loading) setLoading(true);
+      if (event.type === DeviceScanEventType.found || event.type === DeviceScanEventType.empty) {
         settled = true;
         setLoading(false);
         setDevices(event.devices ?? []);
       }
-      if (event.type === 'error') {
+      if (event.type === DeviceScanEventType.error) {
         settled = true;
         setLoading(false);
         setErrorMessage(event.error?.message ?? 'Không thể quét thiết bị');

@@ -1,7 +1,7 @@
 // src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
@@ -211,7 +211,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
     driver.scan(ConnectionType.lan, (event) => events.push(event.type));
-    expect(events).toEqual(['empty']);
+    expect(events).toEqual([DeviceScanEventType.empty]);
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       NetPrinter: { getDeviceList: jest.Mock };
     };
@@ -224,10 +224,10 @@ describe('EscPosDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    expect(events).toEqual(['loading', 'empty']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.empty]);
     const { BLEPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       BLEPrinter: { getDeviceList: jest.Mock };
     };
@@ -244,10 +244,10 @@ describe('EscPosDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    expect(events).toEqual(['loading', 'error']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.error]);
   });
 
   it('scan("bluetooth") emits empty (not error) when getDeviceList rejects with "No Device Found"', async () => {
@@ -260,10 +260,10 @@ describe('EscPosDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    expect(events).toEqual(['loading', 'empty']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.empty]);
   });
 
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
@@ -393,7 +393,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
@@ -414,10 +414,10 @@ describe('EscPosDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    expect(events).toEqual(['loading', 'error']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.error]);
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { scanFailed: jest.Mock };
     };

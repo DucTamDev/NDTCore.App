@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
@@ -233,14 +233,14 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     driver.scan(ConnectionType.lan, (event) => events.push(event.type));
-    expect(events).toEqual(['empty']);
+    expect(events).toEqual([DeviceScanEventType.empty]);
   });
 
   it('scan() on usb immediately reports error', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     driver.scan(ConnectionType.usb, (event) => events.push(event.type));
-    expect(events).toEqual(['error']);
+    expect(events).toEqual([DeviceScanEventType.error]);
   });
 
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
@@ -435,14 +435,14 @@ describe('TsplDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
     const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
-    expect(events).toEqual(['loading', 'empty']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.empty]);
   });
 
   it('scan("bluetooth") emits an error and skips startDiscovery when permission is denied', async () => {
@@ -459,10 +459,10 @@ describe('TsplDriver', () => {
     await new Promise<void>((resolve) => {
       driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== 'loading') resolve();
+        if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    expect(events).toEqual(['loading', 'error']);
+    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.error]);
     expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
   });
 

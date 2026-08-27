@@ -4,6 +4,7 @@ import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
@@ -45,15 +46,15 @@ export class EscPosDriver implements IPrinterDriver {
 
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
     if (connectionType === ConnectionType.lan) {
-      onEvent({ type: 'empty' });
+      onEvent({ type: DeviceScanEventType.empty });
       return () => undefined;
     }
     if (connectionType === ConnectionType.usb && Platform.OS !== 'android') {
-      onEvent({ type: 'error', error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
+      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
     let cancelled = false;
-    onEvent({ type: 'loading' });
+    onEvent({ type: DeviceScanEventType.loading });
     const startedAt = Date.now();
     const run = async (): Promise<void> => {
       try {
@@ -61,7 +62,7 @@ export class EscPosDriver implements IPrinterDriver {
           const granted = await ensureBluetoothPermission();
           if (cancelled) return;
           if (!granted) {
-            onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
+            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
             return;
           }
         }
@@ -70,23 +71,23 @@ export class EscPosDriver implements IPrinterDriver {
         if (connectionType === ConnectionType.bluetooth) {
           const devices = await BLEPrinter.getDeviceList();
           if (cancelled) return;
-          onEvent({ type: devices.length > 0 ? 'found' : 'empty', devices: devices.map((d) => ({ deviceId: d.inner_mac_address, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
+          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: d.inner_mac_address, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         } else {
           const devices = await USBPrinter.getDeviceList();
           if (cancelled) return;
-          onEvent({ type: devices.length > 0 ? 'found' : 'empty', devices: devices.map((d) => ({ deviceId: `${d.vendor_id}:${d.product_id}`, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
+          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: `${d.vendor_id}:${d.product_id}`, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         }
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
         if (/no device found/i.test(message)) {
-          onEvent({ type: 'empty' });
+          onEvent({ type: DeviceScanEventType.empty });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
           return;
         }
-        onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message } });
+        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message } });
         PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
       }
     };

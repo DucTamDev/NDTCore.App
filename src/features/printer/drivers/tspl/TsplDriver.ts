@@ -2,6 +2,7 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import { PrintType } from '../../types/printConfiguration.types';
@@ -54,41 +55,41 @@ export class TsplDriver implements IPrinterDriver {
 
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
     if (connectionType === ConnectionType.lan) {
-      onEvent({ type: 'empty' });
+      onEvent({ type: DeviceScanEventType.empty });
       return () => undefined;
     }
     if (connectionType === ConnectionType.usb) {
-      onEvent({ type: 'error', error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
+      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
       return () => undefined;
     }
-    onEvent({ type: 'loading' });
+    onEvent({ type: DeviceScanEventType.loading });
     let cancelled = false;
     const startedAt = Date.now();
     ensureBluetoothPermission()
       .then((granted) => {
         if (cancelled) return;
         if (!granted) {
-          onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
+          onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
           return;
         }
         RNBluetoothClassic.startDiscovery()
           .then((devices) => {
             if (cancelled) return;
             onEvent({
-              type: devices.length > 0 ? 'found' : 'empty',
+              type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty,
               devices: devices.map((d) => ({ deviceId: d.address, displayName: d.name ?? d.address, rawDevice: d as unknown as Record<string, unknown> })),
             });
             PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
           })
           .catch((error: unknown) => {
             if (cancelled) return;
-            onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
+            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
             PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
           });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
+        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
         PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
       });
     return () => {
