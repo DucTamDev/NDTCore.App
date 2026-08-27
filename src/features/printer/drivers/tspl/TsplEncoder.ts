@@ -107,10 +107,14 @@ export class TsplEncoder {
    * thể — chưa verify trên phần cứng thật nên chưa hardcode ở đây, ghi nhận
    * là khoảng trống đã biết. `image()` (BITMAP) là đường vòng cho vấn đề này
    * khi nội dung cần hiển thị chính xác bất kể font máy in có gì.
+   *
+   * Tham số `fontName` cho phép ghi đè font mặc định — hữu ích khi cần font
+   * custom (vd font TrueType đã tải qua `DOWNLOAD`). Mặc định `'3'` để giữ
+   * lại hành vi hiện tại.
    */
-  text(x: number, y: number, content: string): this {
+  text(x: number, y: number, content: string, fontName: string = '3'): this {
     const escaped = content.replace(/"/g, '\\"');
-    this.pushLine(`TEXT ${x},${y},"3",0,1,1,"${escaped}"`);
+    this.pushLine(`TEXT ${x},${y},"${fontName}",0,1,1,"${escaped}"`);
     return this;
   }
 

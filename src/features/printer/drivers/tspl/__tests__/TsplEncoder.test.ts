@@ -120,4 +120,20 @@ describe('TsplEncoder', () => {
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
+
+  it('text() uses the given fontName instead of the built-in "3" when provided', () => {
+    const encoder = new TsplEncoder();
+    encoder.text(0, 0, 'Trà sữa', 'VIETFONT');
+    const bytes = encoder.encode();
+    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('"VIETFONT"');
+  });
+
+  it('text() still defaults to font "3" when no fontName is given (unchanged behavior)', () => {
+    const encoder = new TsplEncoder();
+    encoder.text(0, 0, 'Trà sữa');
+    const bytes = encoder.encode();
+    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('"3"');
+  });
 });
