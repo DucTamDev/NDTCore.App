@@ -3,14 +3,14 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver, type PrinterStatus } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
-  getStatus: jest.fn().mockReturnValue('connected'),
+  getStatus: jest.fn().mockReturnValue(PrinterStatus.connected),
   onStatusChange: jest.fn().mockReturnValue(() => undefined),
   testPrint: jest.fn().mockResolvedValue(undefined),
   print: jest.fn().mockResolvedValue(undefined),
@@ -120,19 +120,19 @@ describe('PrinterService', () => {
   });
 
   it('getStatus() returns connected when at least one driver of the printer is connected', () => {
-    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('idle') });
-    const tsplDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('connected') });
+    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.idle) });
+    const tsplDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.connected) });
     const service = createPrinterService({ escpos: escposDriver, tspl: tsplDriver }, createResourceLock());
     const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
     service.addPrinter(twoDriverPrinter);
-    expect(service.getStatus(twoDriverPrinter.id)).toBe('connected');
+    expect(service.getStatus(twoDriverPrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('getStatus() falls back to the first driver status when none are connected', () => {
-    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('error') });
+    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.error) });
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
-    expect(service.getStatus(basePrinter.id)).toBe('error');
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.error);
   });
 
   it('onStatusChange() aggregates across drivers and unsubscribes every driver', () => {
@@ -140,11 +140,11 @@ describe('PrinterService', () => {
     const escposUnsubscribe = jest.fn();
     const tsplUnsubscribe = jest.fn();
     const escposDriver = makeMockDriver({
-      getStatus: jest.fn().mockReturnValue('idle'),
+      getStatus: jest.fn().mockReturnValue(PrinterStatus.idle),
       onStatusChange: jest.fn().mockReturnValue(escposUnsubscribe),
     });
     const tsplDriver = makeMockDriver({
-      getStatus: jest.fn().mockReturnValue('idle'),
+      getStatus: jest.fn().mockReturnValue(PrinterStatus.idle),
       onStatusChange: jest.fn().mockImplementation((_printerId: string, cb: (status: PrinterStatus) => void) => {
         tsplCallback = cb;
         return tsplUnsubscribe;
@@ -157,9 +157,9 @@ describe('PrinterService', () => {
     const callback = jest.fn();
     const unsubscribe = service.onStatusChange(twoDriverPrinter.id, callback);
 
-    tsplDriver.getStatus.mockReturnValue('connected');
-    tsplCallback?.('connected');
-    expect(callback).toHaveBeenCalledWith('connected');
+    tsplDriver.getStatus.mockReturnValue(PrinterStatus.connected);
+    tsplCallback?.(PrinterStatus.connected);
+    expect(callback).toHaveBeenCalledWith(PrinterStatus.connected);
 
     unsubscribe();
     expect(escposUnsubscribe).toHaveBeenCalled();
@@ -188,7 +188,7 @@ describe('PrinterService', () => {
   });
 
   it('print() connects first when the driver reports the printer is not connected', async () => {
-    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue('idle') });
+    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.idle) });
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };

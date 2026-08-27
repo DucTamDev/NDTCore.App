@@ -18,14 +18,17 @@ export type PaperSize = 58 | 80;
 export type DriverSource = 'auto' | 'manual';
 export type TsplRenderMode = 'bitmap' | 'truetype';
 
-export type PrinterStatus =
-  | 'idle'
-  | 'connecting'
-  | 'connected'
-  | 'disconnecting'
-  | 'disconnected'
-  | 'reconnecting'
-  | 'error';
+export const PrinterStatus = {
+  idle: 'idle',
+  connecting: 'connecting',
+  connected: 'connected',
+  disconnecting: 'disconnecting',
+  disconnected: 'disconnected',
+  reconnecting: 'reconnecting',
+  error: 'error',
+} as const;
+
+export type PrinterStatus = (typeof PrinterStatus)[keyof typeof PrinterStatus];
 
 export interface PrinterDevice {
   deviceId: string;

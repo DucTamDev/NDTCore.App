@@ -7,7 +7,7 @@ import printerReducer, {
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const drivers: PrinterDriver[] = [
@@ -54,9 +54,9 @@ describe('printerSlice', () => {
   });
 
   it('printerStatusChanged updates statusById for that printer only', () => {
-    const state = printerReducer(undefined, printerStatusChanged({ printerId: 'p1', status: 'connected' }));
-    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe('connected');
-    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe('idle');
+    const state = printerReducer(undefined, printerStatusChanged({ printerId: 'p1', status: PrinterStatus.connected }));
+    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe(PrinterStatus.connected);
+    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe(PrinterStatus.idle);
   });
 
   it('printerEnabledChanged updates enabled for that printer only', () => {

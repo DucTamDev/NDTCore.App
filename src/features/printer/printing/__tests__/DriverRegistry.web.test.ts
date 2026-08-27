@@ -1,6 +1,6 @@
 import { DriverRegistry } from '../DriverRegistry.web';
 import { AppErrorCode } from '../../types/AppError';
-import { ConnectionType } from '../../types/printer.types';
+import { ConnectionType, PrinterStatus } from '../../types/printer.types';
 
 describe('DriverRegistry (web)', () => {
   it('registers both driver types', () => {
@@ -30,7 +30,7 @@ describe('DriverRegistry (web)', () => {
   });
 
   it('getStatus always returns "error"', () => {
-    expect(DriverRegistry.escpos.getStatus('p1')).toBe('error');
+    expect(DriverRegistry.escpos.getStatus('p1')).toBe(PrinterStatus.error);
   });
 
   it('onStatusChange returns a no-op unsubscribe', () => {

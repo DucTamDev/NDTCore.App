@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { Printer, PrinterStatus } from '../types/printer.types';
+import { PrinterStatus } from '../types/printer.types';
+import type { Printer } from '../types/printer.types';
 
 interface PrinterState {
   printers: Printer[];
@@ -50,6 +51,6 @@ interface StateWithPrinter {
 
 export const selectPrinters = (state: StateWithPrinter): Printer[] => state.printer.printers;
 export const selectPrinterStatus = (state: StateWithPrinter, printerId: string): PrinterStatus =>
-  state.printer.statusById[printerId] ?? 'idle';
+  state.printer.statusById[printerId] ?? PrinterStatus.idle;
 
 export default printerSlice.reducer;

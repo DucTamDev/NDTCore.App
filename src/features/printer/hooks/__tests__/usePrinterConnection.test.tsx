@@ -5,7 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterConnection } from '../usePrinterConnection';
 import printerReducer from '../../store/printerSlice';
 import { PrinterService } from '../../printing/PrinterService';
-import type { PrinterStatus } from '../../types/printer.types';
+import { PrinterStatus } from '../../types/printer.types';
 
 jest.mock('../../printing/PrinterService', () => ({
   PrinterService: {
@@ -29,7 +29,7 @@ describe('usePrinterConnection', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('dispatches PrinterService.getStatus() into the store on mount', () => {
-    (PrinterService.getStatus as jest.Mock).mockReturnValue('connected');
+    (PrinterService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.connected);
     (PrinterService.onStatusChange as jest.Mock).mockReturnValue(() => undefined);
     const store = makeStore();
     const statuses: PrinterStatus[] = [];
@@ -42,12 +42,12 @@ describe('usePrinterConnection', () => {
       );
     });
 
-    expect(statuses[statuses.length - 1]).toBe('connected');
+    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.connected);
     expect(PrinterService.getStatus).toHaveBeenCalledWith('p1');
   });
 
   it('updates when PrinterService.onStatusChange pushes a new status', () => {
-    (PrinterService.getStatus as jest.Mock).mockReturnValue('idle');
+    (PrinterService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.idle);
     let pushStatus: ((status: PrinterStatus) => void) | undefined;
     (PrinterService.onStatusChange as jest.Mock).mockImplementation(
       (_id: string, callback: (status: PrinterStatus) => void) => {
@@ -66,14 +66,14 @@ describe('usePrinterConnection', () => {
       );
     });
     act(() => {
-      pushStatus?.('connected');
+      pushStatus?.(PrinterStatus.connected);
     });
 
-    expect(statuses[statuses.length - 1]).toBe('connected');
+    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.connected);
   });
 
   it('unsubscribes from PrinterService.onStatusChange on unmount', () => {
-    (PrinterService.getStatus as jest.Mock).mockReturnValue('idle');
+    (PrinterService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.idle);
     const unsubscribe = jest.fn();
     (PrinterService.onStatusChange as jest.Mock).mockReturnValue(unsubscribe);
     const store = makeStore();

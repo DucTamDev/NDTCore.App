@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../printer.types';
 import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
@@ -51,13 +51,13 @@ describe('printer domain types', () => {
       scan: () => () => undefined,
       connect: async () => undefined,
       disconnect: async () => undefined,
-      getStatus: () => 'idle',
+      getStatus: () => PrinterStatus.idle,
       onStatusChange: () => () => undefined,
       testPrint: async () => undefined,
       print: async () => undefined,
       identify: async () => null,
       encode: () => new Uint8Array(),
     };
-    expect(driver.getStatus('p1')).toBe('idle');
+    expect(driver.getStatus('p1')).toBe(PrinterStatus.idle);
   });
 });

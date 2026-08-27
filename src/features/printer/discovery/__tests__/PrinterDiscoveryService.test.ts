@@ -1,6 +1,6 @@
 import { createDiscoverDriver, type DiscoveryEvent } from '../PrinterDiscoveryService';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, type Printer } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer } from '../../types/printer.types';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { AppErrorCode } from '../../types/AppError';
 
@@ -15,7 +15,7 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   scan: jest.fn().mockReturnValue(() => undefined),
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
-  getStatus: jest.fn().mockReturnValue('connected'),
+  getStatus: jest.fn().mockReturnValue(PrinterStatus.connected),
   onStatusChange: jest.fn().mockReturnValue(() => undefined),
   testPrint: jest.fn().mockResolvedValue(undefined),
   print: jest.fn().mockResolvedValue(undefined),

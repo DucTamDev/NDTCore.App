@@ -1,5 +1,6 @@
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
-import type { PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { PrinterStatus } from '../types/printer.types';
+import type { PrinterDriverType } from '../types/printer.types';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
 
 class WebUnsupportedDriver implements IPrinterDriver {
@@ -16,7 +17,7 @@ class WebUnsupportedDriver implements IPrinterDriver {
   }
 
   getStatus(): PrinterStatus {
-    return 'error';
+    return PrinterStatus.error;
   }
 
   onStatusChange(): Unsubscribe {

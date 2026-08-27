@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
@@ -136,17 +136,17 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const statuses: string[] = [];
     driver.onStatusChange(lanPrinter.id, (status) => statuses.push(status));
-    expect(driver.getStatus(lanPrinter.id)).toBe('idle');
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.idle);
     await driver.connect(lanPrinter, tsplDriverEntry);
-    expect(statuses).toEqual(['connecting', 'connected']);
-    expect(driver.getStatus(lanPrinter.id)).toBe('connected');
+    expect(statuses).toEqual([PrinterStatus.connecting, PrinterStatus.connected]);
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('disconnect() transitions to disconnected and clears the connection', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.disconnect(lanPrinter.id);
-    expect(driver.getStatus(lanPrinter.id)).toBe('disconnected');
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.disconnected);
   });
 
   it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows CONNECTION_ERROR when transport.close() rejects', async () => {
@@ -159,7 +159,7 @@ describe('TsplDriver', () => {
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
 
     await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
-    expect(driver.getStatus(lanPrinter.id)).toBe('error');
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
@@ -187,7 +187,7 @@ describe('TsplDriver', () => {
   it('connect() over USB rejects with VALIDATION_ERROR when no device was chosen', async () => {
     const driver = new TsplDriver();
     await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.VALIDATION_ERROR });
-    expect(driver.getStatus(usbPrinterNoDevice.id)).toBe('error');
+    expect(driver.getStatus(usbPrinterNoDevice.id)).toBe(PrinterStatus.error);
   });
 
   it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers', async () => {
@@ -201,7 +201,7 @@ describe('TsplDriver', () => {
   it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers and transitions to connected', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);
-    expect(driver.getStatus(usbPrinter.id)).toBe('connected');
+    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('testPrint() over USB writes through UsbTransport', async () => {
@@ -361,7 +361,7 @@ describe('TsplDriver', () => {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe('connected');
+    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
@@ -371,7 +371,7 @@ describe('TsplDriver', () => {
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new TsplDriver();
     await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe('error');
+    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.error);
   });
 
   it('connect() logs connectSucceeded on success', async () => {

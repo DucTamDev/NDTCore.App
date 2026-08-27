@@ -3,7 +3,7 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
@@ -149,7 +149,7 @@ describe('PrintScheduler', () => {
       scan: jest.fn().mockReturnValue(() => undefined),
       connect: jest.fn().mockResolvedValue(undefined),
       disconnect: jest.fn().mockResolvedValue(undefined),
-      getStatus: jest.fn().mockReturnValue('connected'),
+      getStatus: jest.fn().mockReturnValue(PrinterStatus.connected),
       onStatusChange: jest.fn().mockReturnValue(() => undefined),
       testPrint: jest.fn().mockImplementation(async () => {
         order.push('testPrint-start');

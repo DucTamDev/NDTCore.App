@@ -1,8 +1,8 @@
 // src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
+import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
@@ -98,7 +98,7 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
-    this.setStatus(printer.id, 'connecting');
+    this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
     try {
       const transport = this.createTransport(printer.connectionType);
@@ -118,33 +118,33 @@ export class TsplDriver implements IPrinterDriver {
       }
       this.connections.set(printer.id, transport);
       this.contexts.set(printer.id, { printer, driver });
-      this.setStatus(printer.id, 'connected');
+      this.setStatus(printer.id, PrinterStatus.connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
-      this.setStatus(printer.id, 'error');
+      this.setStatus(printer.id, PrinterStatus.error);
       PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
   async disconnect(printerId: string): Promise<void> {
-    this.setStatus(printerId, 'disconnecting');
+    this.setStatus(printerId, PrinterStatus.disconnecting);
     const transport = this.connections.get(printerId);
     try {
       await transport?.close();
     } catch (error) {
-      this.setStatus(printerId, 'error');
+      this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error) });
       throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
     }
-    this.setStatus(printerId, 'disconnected');
+    this.setStatus(printerId, PrinterStatus.disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.tspl });
   }
 
   getStatus(printerId: string): PrinterStatus {
-    return this.statuses.get(printerId) ?? 'idle';
+    return this.statuses.get(printerId) ?? PrinterStatus.idle;
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {

@@ -25,13 +25,12 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
+import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type {
   Printer,
   PrinterDevice,
   PrinterDeviceInfo,
   PrinterDriver,
-  PrinterStatus,
 } from '../types/printer.types';
 
 export interface AddPrinterModalProps {
@@ -53,7 +52,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [tsplFontPending, setTsplFontPending] = useState(false);
   const { captureNode, captureBillImage } = useBillImageCapture();
-  const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
+  const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.idle);
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
@@ -95,7 +94,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   useEffect(() => {
     const activeDriver = drivers[0];
     if (protocolState !== 'identified' || !activeDriver) {
-      setLiveStatus('idle');
+      setLiveStatus(PrinterStatus.idle);
       return undefined;
     }
     setLiveStatus(PrinterService.getStatusForDriver(activeDriver.type, printerId));
@@ -382,7 +381,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       return;
     }
     savedRef.current = true;
-    if (printer.autoReconnect && liveStatus !== 'connected') {
+    if (printer.autoReconnect && liveStatus !== PrinterStatus.connected) {
       PrinterService.connect(printer.id).catch(() => undefined);
     }
     onSaved();

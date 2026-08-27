@@ -7,6 +7,7 @@ import { PrinterService } from '../printing/PrinterService';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
+import { PrinterStatus } from '../types/printer.types';
 import type { Printer } from '../types/printer.types';
 
 export interface PrinterListItemProps {
@@ -29,7 +30,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdi
   const closeMenu = (): void => setMenuVisible(false);
 
   const handleDelete = async (): Promise<void> => {
-    if (status === 'connected') {
+    if (status === PrinterStatus.connected) {
       setConfirmDeleteVisible(true);
       return;
     }

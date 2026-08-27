@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, UsbRawDevice } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
@@ -95,7 +95,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
-    this.setStatus(printer.id, 'connecting');
+    this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
     try {
       if (printer.connectionType === ConnectionType.bluetooth) {
@@ -129,27 +129,27 @@ export class EscPosDriver implements IPrinterDriver {
 
       const previousOwner = this.activeByType.get(printer.connectionType);
       if (previousOwner && previousOwner !== printer.id) {
-        this.setStatus(previousOwner, 'disconnected');
+        this.setStatus(previousOwner, PrinterStatus.disconnected);
       }
       this.activeByType.set(printer.connectionType, printer.id);
-      this.setStatus(printer.id, 'connected');
+      this.setStatus(printer.id, PrinterStatus.connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
-      this.setStatus(printer.id, 'error');
+      this.setStatus(printer.id, PrinterStatus.error);
       PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
   async disconnect(printerId: string): Promise<void> {
-    this.setStatus(printerId, 'disconnecting');
+    this.setStatus(printerId, PrinterStatus.disconnecting);
     const connectionType = this.connectedTypes.get(printerId);
     try {
       if (connectionType && this.activeByType.get(connectionType) === printerId) {
         await ThermalPrinterLibraryAdapter.namespaceFor(connectionType).closeConn();
       }
     } catch (error) {
-      this.setStatus(printerId, 'error');
+      this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
       throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -158,7 +158,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.deviceInfos.delete(printerId);
       this.contexts.delete(printerId);
     }
-    this.setStatus(printerId, 'disconnected');
+    this.setStatus(printerId, PrinterStatus.disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
@@ -208,7 +208,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   getStatus(printerId: string): PrinterStatus {
-    return this.statuses.get(printerId) ?? 'idle';
+    return this.statuses.get(printerId) ?? PrinterStatus.idle;
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {

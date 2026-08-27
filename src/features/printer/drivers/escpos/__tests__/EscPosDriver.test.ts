@@ -1,7 +1,7 @@
 // src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
-import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
@@ -90,7 +90,7 @@ describe('EscPosDriver', () => {
     const statuses: string[] = [];
     driver.onStatusChange(lanPrinter.id, (status) => statuses.push(status));
     await driver.connect(lanPrinter, escposDriverEntry);
-    expect(statuses).toEqual(['connecting', 'connected']);
+    expect(statuses).toEqual([PrinterStatus.connecting, PrinterStatus.connected]);
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as { NetPrinter: { connectPrinter: jest.Mock } };
     expect(NetPrinter.connectPrinter).toHaveBeenCalledWith('192.168.1.50', 9100);
   });
@@ -141,7 +141,7 @@ describe('EscPosDriver', () => {
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
     expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith('00:11:22:33:44:55');
-    expect(driver.getStatus(blePrinter.id)).toBe('connected');
+    expect(driver.getStatus(blePrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
@@ -151,7 +151,7 @@ describe('EscPosDriver', () => {
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new EscPosDriver();
     await expect(driver.connect(blePrinter, escposDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
-    expect(driver.getStatus(blePrinter.id)).toBe('error');
+    expect(driver.getStatus(blePrinter.id)).toBe(PrinterStatus.error);
   });
 
   it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers', async () => {
@@ -167,7 +167,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     await driver.disconnect(lanPrinter.id);
-    expect(driver.getStatus(lanPrinter.id)).toBe('disconnected');
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.disconnected);
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       NetPrinter: { closeConn: jest.Mock };
     };
@@ -183,7 +183,7 @@ describe('EscPosDriver', () => {
     await driver.connect(lanPrinter, escposDriverEntry);
 
     await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
-    expect(driver.getStatus(lanPrinter.id)).toBe('error');
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
@@ -204,7 +204,7 @@ describe('EscPosDriver', () => {
 
     const secondPrinter: Printer = { ...lanPrinter, id: 'receipt-lan-2' };
     await driver.connect(secondPrinter, escposDriverEntry);
-    expect(driver.getStatus(secondPrinter.id)).toBe('connected');
+    expect(driver.getStatus(secondPrinter.id)).toBe(PrinterStatus.connected);
   });
 
   it('scan("lan") reports empty immediately without calling the library', () => {
@@ -313,11 +313,11 @@ describe('EscPosDriver', () => {
     const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
 
     await driver.connect(printerA, escposDriverEntry);
-    expect(driver.getStatus(printerA.id)).toBe('connected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
 
     await driver.connect(printerB, escposDriverEntry);
-    expect(driver.getStatus(printerA.id)).toBe('disconnected');
-    expect(driver.getStatus(printerB.id)).toBe('connected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.disconnected);
+    expect(driver.getStatus(printerB.id)).toBe(PrinterStatus.connected);
   });
 
   it('does not flip printer A to disconnected when connecting printer B on the same connectionType fails validation', async () => {
@@ -326,12 +326,12 @@ describe('EscPosDriver', () => {
     const printerBInvalid: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: undefined };
 
     await driver.connect(printerA, escposDriverEntry);
-    expect(driver.getStatus(printerA.id)).toBe('connected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
 
     await expect(driver.connect(printerBInvalid, escposDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.VALIDATION_ERROR });
     // printer A must still be reported as connected — the failed attempt on B
     // never touched the native connection, so A's real state is unchanged.
-    expect(driver.getStatus(printerA.id)).toBe('connected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
   });
 
   it('testPrint() reconnects instead of taking the stale fast path when another printer has taken over the shared connection', async () => {
@@ -348,7 +348,7 @@ describe('EscPosDriver', () => {
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
     await driver.testPrint(printerA, escposDriverEntry, sampleDocuments);
     expect(NetPrinter.connectPrinter.mock.calls.length).toBe(callsBeforeTestPrint + 1);
-    expect(driver.getStatus(printerA.id)).toBe('connected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
   });
 
   it('connect() logs connectSucceeded on success', async () => {
@@ -487,11 +487,11 @@ describe('EscPosDriver', () => {
 
     await driver.disconnect(printerA.id);
     expect(NetPrinter.closeConn).not.toHaveBeenCalled();
-    expect(driver.getStatus(printerA.id)).toBe('disconnected');
+    expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.disconnected);
 
     await driver.disconnect(printerB.id);
     expect(NetPrinter.closeConn).toHaveBeenCalledTimes(1);
-    expect(driver.getStatus(printerB.id)).toBe('disconnected');
+    expect(driver.getStatus(printerB.id)).toBe(PrinterStatus.disconnected);
   });
 
   it('print() joins text/line/table elements into a single printText call', async () => {

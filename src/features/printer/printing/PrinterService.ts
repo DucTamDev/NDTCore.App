@@ -1,7 +1,7 @@
 // src/features/printer/printing/PrinterService.ts
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
-import { ConnectionType, PrinterDriverType } from '../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDriver, PrinterStatus, TsplFontConfig } from '../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
@@ -119,7 +119,7 @@ export const createPrinterService = (
     const driverEntry = printer.drivers.find((d) => (printType ? d.contentTypes.includes(printType) : true));
     if (!driverEntry) throw new Error(`Máy in ${printerId} không có driver nào nhận in ${printType ?? '(không rõ loại)'}`);
     const driver = getDriver(driverEntry.type);
-    if (driver.getStatus(printerId) !== 'connected') {
+    if (driver.getStatus(printerId) !== PrinterStatus.connected) {
       await driver.connect(printer, driverEntry);
     }
     await driver.print(printerId, documents, printType);
@@ -146,7 +146,7 @@ export const createPrinterService = (
   const getStatus = (printerId: string): PrinterStatus => {
     const printer = findOrThrow(printerId);
     const statuses = printer.drivers.map((d) => getDriver(d.type).getStatus(printerId));
-    return statuses.find((s) => s === 'connected') ?? statuses[0] ?? 'idle';
+    return statuses.find((s) => s === PrinterStatus.connected) ?? statuses[0] ?? PrinterStatus.idle;
   };
 
   const onStatusChange = (printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe => {
