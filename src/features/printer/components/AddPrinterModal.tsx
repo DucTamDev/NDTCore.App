@@ -24,7 +24,7 @@ import { PrinterInfoCard } from './PrinterInfoCard';
 import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
-import type { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type {
   Printer,
@@ -368,8 +368,8 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     }
   };
 
-  const onTestPrintReceipt = (): Promise<void> => runTestPrint(setTestPrintReceiptPending, 'Receipt', buildSampleReceiptDocument());
-  const onTestPrintLabel = (): Promise<void> => runTestPrint(setTestPrintLabelPending, 'Label', buildSampleLabelDocument());
+  const onTestPrintReceipt = (): Promise<void> => runTestPrint(setTestPrintReceiptPending, PrintType.Receipt, buildSampleReceiptDocument());
+  const onTestPrintLabel = (): Promise<void> => runTestPrint(setTestPrintLabelPending, PrintType.Label, buildSampleLabelDocument());
 
   const onSave = displayForm.handleSubmit(() => {
     if (drivers.length === 0) return;

@@ -1,12 +1,13 @@
 import type { IPrinterDriver } from '../driver.types';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../printer.types';
+import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
   it('accepts a fully-formed Printer with a single tspl driver for a LAN label printer', () => {
     const driver: PrinterDriver = {
       type: PrinterDriverType.tspl,
       source: 'auto',
-      contentTypes: ['Label'],
+      contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
     };
     const printer: Printer = {
@@ -30,8 +31,8 @@ describe('printer domain types', () => {
       id: 'p1',
       name: 'Máy in đa năng',
       drivers: [
-        { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } },
-        { type: PrinterDriverType.tspl, source: 'manual', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } },
+        { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } },
+        { type: PrinterDriverType.tspl, source: 'manual', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } },
       ],
       connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} },

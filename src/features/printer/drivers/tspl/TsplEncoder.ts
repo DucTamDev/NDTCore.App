@@ -1,5 +1,5 @@
 import type { PaperSize } from '../../types/printer.types';
-import type { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 
 /**
@@ -85,9 +85,9 @@ export class TsplEncoder {
    * khe) + `CONTINUOUS_HEIGHT_MM` (ngưỡng an toàn rộng, không phải khổ giấy
    * thật cần khớp).
    */
-  initialize(paperSize: PaperSize, printType: PrintType = 'Receipt', labelHeightMm: number = DEFAULT_LABEL_HEIGHT_MM): this {
+  initialize(paperSize: PaperSize, printType: PrintType = PrintType.Receipt, labelHeightMm: number = DEFAULT_LABEL_HEIGHT_MM): this {
     const widthMm = paperSize === 58 ? 50 : 72;
-    if (printType === 'Label') {
+    if (printType === PrintType.Label) {
       this.pushLine(`SIZE ${widthMm} mm, ${labelHeightMm} mm`);
       this.pushLine('GAP 2 mm, 0 mm');
     } else {

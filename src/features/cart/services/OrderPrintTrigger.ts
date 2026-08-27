@@ -6,7 +6,7 @@ import { SERVICE_TYPE_LABELS } from '../types/cart.types';
 import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/types/printDocument.types';
-import type { PrintType } from '../../printer/types/printConfiguration.types';
+import { PrintType } from '../../printer/types/printConfiguration.types';
 import type { PaperSize } from '../../printer/types/printer.types';
 
 interface BillItem {
@@ -193,8 +193,8 @@ export const printReceipt = async (
   captureBillImage: CaptureBillImage,
 ): Promise<PrintReceiptOutcome> => {
   try {
-    const documents = await buildPrintDocumentVariants('Receipt', textDocument, captureBillImage);
-    const result = await PrintService.print('Receipt', documents);
+    const documents = await buildPrintDocumentVariants(PrintType.Receipt, textDocument, captureBillImage);
+    const result = await PrintService.print(PrintType.Receipt, documents);
     if (result.status === 'no-available-printer') return 'no-printer';
     if (result.status === 'failed' || result.status === 'partial-failure') {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);

@@ -4,7 +4,7 @@ import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../t
 import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
-import type { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../types/printConfiguration.types';
 import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
 import { TsplFontManager } from './TsplFontManager';
 import { LanTransport } from '../../transports/LanTransport';
@@ -31,7 +31,7 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
 
 const resolveHeightMm = (driver: PrinterDriver, printType?: PrintType): number => {
   const labelHeightMm = driver.config.type === PrinterDriverType.tspl ? driver.config.labelHeightMm : undefined;
-  return printType === 'Label' ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
+  return printType === PrintType.Label ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
 };
 
 export class TsplDriver implements IPrinterDriver {

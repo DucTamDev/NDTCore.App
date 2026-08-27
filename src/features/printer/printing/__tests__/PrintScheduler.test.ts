@@ -5,12 +5,13 @@ import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
+import { PrintType } from '../../types/printConfiguration.types';
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
+const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
-  id: 'job1', requestId: 'req1', printerId: 'p1', printType: 'Receipt',
+  id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
   documentVariants: { text: { elements: [] } }, status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
@@ -109,8 +110,8 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', printType: 'Label' })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', printType: 'Label' })),
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', printType: PrintType.Label })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', printType: PrintType.Label })),
     ]);
     expect(maxInFlight).toBe(2);
   });
@@ -136,8 +137,8 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', printType: 'Receipt' })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', printType: 'Label' })),
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', printType: PrintType.Receipt })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', printType: PrintType.Label })),
     ]);
     expect(maxInFlight).toBe(2);
   });

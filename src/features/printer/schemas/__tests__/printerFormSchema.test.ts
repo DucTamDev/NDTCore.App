@@ -1,16 +1,17 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { PrintType } from '../../types/printConfiguration.types';
 
 const escposDriver: PrinterDriver = {
   type: PrinterDriverType.escpos,
   source: 'auto',
-  contentTypes: ['Receipt'],
+  contentTypes: [PrintType.Receipt],
   config: { type: PrinterDriverType.escpos },
 };
 const tsplDriver: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: 'auto',
-  contentTypes: ['Label'],
+  contentTypes: [PrintType.Label],
   config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
 };
 
@@ -59,7 +60,7 @@ describe('printerDriverSchema', () => {
   });
 
   it('rejects an escpos driver assigned Label (outside its capability)', () => {
-    const invalid: PrinterDriver = { ...escposDriver, contentTypes: ['Label'] };
+    const invalid: PrinterDriver = { ...escposDriver, contentTypes: [PrintType.Label] };
     expect(printerDriverSchema.safeParse(invalid).success).toBe(false);
   });
 
@@ -72,7 +73,7 @@ describe('printerDriverSchema', () => {
     const driver: PrinterDriver = {
       type: PrinterDriverType.tspl,
       source: 'auto',
-      contentTypes: ['Label'],
+      contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(true);
@@ -80,7 +81,7 @@ describe('printerDriverSchema', () => {
 
   it('accepts a tspl driver with renderMode truetype and a valid font config', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(true);
@@ -88,7 +89,7 @@ describe('printerDriverSchema', () => {
 
   it('rejects a font name containing invalid characters', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: 'VIET FONT"', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);
@@ -96,7 +97,7 @@ describe('printerDriverSchema', () => {
 
   it('rejects an empty font name', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: '', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);
@@ -114,7 +115,7 @@ describe('printerSchema', () => {
   });
 
   it('rejects two drivers that both claim Receipt (invariant #3)', () => {
-    const overlapping: PrinterDriver = { ...tsplDriver, contentTypes: ['Receipt'] };
+    const overlapping: PrinterDriver = { ...tsplDriver, contentTypes: [PrintType.Receipt] };
     const printer: Printer = { ...basePrinter, drivers: [escposDriver, overlapping] };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
@@ -123,8 +124,8 @@ describe('printerSchema', () => {
     // Cả 2 driver cùng type 'tspl', contentTypes RỜI NHAU và hợp lệ riêng lẻ —
     // để chỉ có rule "không được có 2 driver cùng type" là lý do fail, không
     // bị lẫn với rule contentTypes trùng nhau hay rule min(1).
-    const firstTspl: PrinterDriver = { ...tsplDriver, contentTypes: ['Receipt'] };
-    const secondTspl: PrinterDriver = { ...tsplDriver, contentTypes: ['Label'] };
+    const firstTspl: PrinterDriver = { ...tsplDriver, contentTypes: [PrintType.Receipt] };
+    const secondTspl: PrinterDriver = { ...tsplDriver, contentTypes: [PrintType.Label] };
     const printer: Printer = { ...basePrinter, drivers: [firstTspl, secondTspl] };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });

@@ -1,9 +1,8 @@
-import { PRINT_TYPE_LABELS } from '../printConfiguration.types';
-import type { PrintType } from '../printConfiguration.types';
+import { PRINT_TYPE_LABELS, PrintType } from '../printConfiguration.types';
 
 describe('PRINT_TYPE_LABELS', () => {
   it('has a Vietnamese label for every PrintType', () => {
-    const types: PrintType[] = ['Receipt', 'Label'];
+    const types: PrintType[] = [PrintType.Receipt, PrintType.Label];
     for (const type of types) {
       expect(PRINT_TYPE_LABELS[type]).toEqual(expect.any(String));
     }

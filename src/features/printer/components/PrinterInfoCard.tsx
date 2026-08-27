@@ -10,7 +10,7 @@ import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
-import type { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../types/printConfiguration.types';
 import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, PrinterStatus } from '../types/printer.types';
 
@@ -151,7 +151,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
           label="In bill thử"
           mode="outlined"
           style={styles.testPrintButton}
-          disabled={status !== 'connected' || !canPrint('Receipt') || testPrintReceiptPending}
+          disabled={status !== 'connected' || !canPrint(PrintType.Receipt) || testPrintReceiptPending}
           loading={testPrintReceiptPending}
           onPress={onTestPrintReceipt}
         />
@@ -159,7 +159,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
           label="In tem thử"
           mode="outlined"
           style={styles.testPrintButton}
-          disabled={status !== 'connected' || !canPrint('Label') || testPrintLabelPending}
+          disabled={status !== 'connected' || !canPrint(PrintType.Label) || testPrintLabelPending}
           loading={testPrintLabelPending}
           onPress={onTestPrintLabel}
         />

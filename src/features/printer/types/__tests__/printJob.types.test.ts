@@ -1,6 +1,7 @@
 import type { PrintDocument } from '../printDocument.types';
 import type { PrintJob, PrintResult } from '../printJob.types';
 import { AppErrorCode } from '../AppError';
+import { PrintType } from '../printConfiguration.types';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 
@@ -10,7 +11,7 @@ describe('print job types', () => {
       id: 'job1',
       requestId: 'req1',
       printerId: 'p1',
-      printType: 'Receipt',
+      printType: PrintType.Receipt,
       documentVariants: { text: document },
       status: 'pending',
       retryCount: 0,

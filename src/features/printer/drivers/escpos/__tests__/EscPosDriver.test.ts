@@ -2,6 +2,7 @@
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -45,7 +46,7 @@ jest.mock('../../../services/PrinterLogger', () => ({
   },
 }));
 
-const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
 
 const lanPrinter: Printer = {
   id: 'receipt-lan',

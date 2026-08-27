@@ -4,6 +4,7 @@ import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -83,7 +84,7 @@ jest.mock('../../../services/PrinterLogger', () => ({
 const tsplDriverEntry: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: 'auto',
-  contentTypes: ['Label'],
+  contentTypes: [PrintType.Label],
   config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
 };
 
@@ -316,7 +317,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await expect(
-      driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), 'Label'),
+      driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), PrintType.Label),
     ).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
   });
 
@@ -324,7 +325,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await expect(
-      driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), 'Receipt'),
+      driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), PrintType.Receipt),
     ).resolves.toBeUndefined();
   });
 

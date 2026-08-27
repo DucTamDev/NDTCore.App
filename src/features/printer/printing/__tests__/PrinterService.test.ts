@@ -4,6 +4,7 @@ import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver, type PrinterStatus } from '../../types/printer.types';
+import { PrintType } from '../../types/printConfiguration.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
@@ -18,8 +19,8 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   ...overrides,
 });
 
-const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
-const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
+const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
 
 const basePrinter: Printer = {
   id: 'p1',
@@ -172,8 +173,8 @@ describe('PrinterService', () => {
     const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
     service.addPrinter(twoDriverPrinter);
     const documents = { text: { elements: [] } };
-    await service.print(twoDriverPrinter.id, documents, 'Label');
-    expect(tsplDriver.print).toHaveBeenCalledWith(twoDriverPrinter.id, documents, 'Label');
+    await service.print(twoDriverPrinter.id, documents, PrintType.Label);
+    expect(tsplDriver.print).toHaveBeenCalledWith(twoDriverPrinter.id, documents, PrintType.Label);
     expect(escposDriver.print).not.toHaveBeenCalled();
   });
 

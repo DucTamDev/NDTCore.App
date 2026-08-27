@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import { ConnectionType, PrinterDriverType } from '../types/printer.types';
+import { PrintType } from '../types/printConfiguration.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
@@ -31,7 +32,7 @@ export const printerDisplaySchema = z.object({
 
 export type PrinterDisplayValues = z.infer<typeof printerDisplaySchema>;
 
-const printContentTypeSchema = z.enum(['Receipt', 'Label']);
+const printContentTypeSchema = z.enum([PrintType.Receipt, PrintType.Label]);
 
 const tsplFontConfigSchema = z.object({
   name: z.string().regex(/^[A-Za-z0-9_-]+$/, 'Tên font chỉ được chứa chữ, số, gạch dưới, gạch ngang'),

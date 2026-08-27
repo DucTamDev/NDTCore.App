@@ -4,6 +4,7 @@ import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { PrintRowElement, PrintTextElement } from '../../../printer/types/printDocument.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
+import { PrintType } from '../../../printer/types/printConfiguration.types';
 
 jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
@@ -162,7 +163,7 @@ describe('printReceipt', () => {
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
     await printReceipt(document, noopCapture);
     expect(noopCapture).not.toHaveBeenCalled();
-    expect(PrintService.print).toHaveBeenCalledWith('Receipt', { text: document });
+    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
   });
 
   it('captures a bill image and sends it alongside the text document when a target printer needs one', async () => {
@@ -174,7 +175,7 @@ describe('printReceipt', () => {
     await printReceipt(document, capture);
 
     expect(capture).toHaveBeenCalledWith(document, 58);
-    expect(PrintService.print).toHaveBeenCalledWith('Receipt', {
+    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
       text: document,
       image: { elements: [{ type: 'image', data: 'base64-png-data', x: 0, y: 0 }] },
     });
@@ -188,6 +189,6 @@ describe('printReceipt', () => {
 
     await printReceipt(document, capture);
 
-    expect(PrintService.print).toHaveBeenCalledWith('Receipt', { text: document });
+    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
   });
 });

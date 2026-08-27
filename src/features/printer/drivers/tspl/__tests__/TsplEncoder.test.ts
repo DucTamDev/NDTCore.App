@@ -1,5 +1,6 @@
 // src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
 import { TsplEncoder } from '../TsplEncoder';
+import { PrintType } from '../../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
 /** Decode UTF-8 bytes back to a JS string — project has no `@types/node`/DOM lib, so no `Buffer`/`TextDecoder` global to reach for here. */
@@ -43,13 +44,13 @@ describe('TsplEncoder', () => {
   });
 
   it('initialize() emits gap-sensing SIZE/GAP for Label, sized for 58mm paper', () => {
-    const output = decode(new TsplEncoder().initialize(58, 'Label').encode());
+    const output = decode(new TsplEncoder().initialize(58, PrintType.Label).encode());
     expect(output).toContain('SIZE 50 mm, 30 mm');
     expect(output).toContain('GAP 2 mm, 0 mm');
   });
 
   it('initialize() emits Label SIZE sized for 80mm paper, with a custom labelHeightMm', () => {
-    const output = decode(new TsplEncoder().initialize(80, 'Label', 40).encode());
+    const output = decode(new TsplEncoder().initialize(80, PrintType.Label, 40).encode());
     expect(output).toContain('SIZE 72 mm, 40 mm');
   });
 
