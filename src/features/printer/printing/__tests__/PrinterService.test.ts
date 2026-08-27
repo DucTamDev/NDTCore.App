@@ -5,6 +5,7 @@ import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
+import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
@@ -320,10 +321,10 @@ describe('PrinterService', () => {
     await new Promise<void>((resolve) => {
       service.discoverDriver({ draftPrinter: { ...basePrinter, drivers: [] } }, (event) => {
         events.push(event.stage);
-        if (event.stage === 'identified') resolve();
+        if (event.stage === DiscoveryStage.identified) resolve();
       });
     });
-    expect(events).toEqual(['connecting', 'identifying', 'identified']);
+    expect(events).toEqual([DiscoveryStage.connecting, DiscoveryStage.identifying, DiscoveryStage.identified]);
   });
 
   it('two printers sharing the same resourceKey never connect concurrently', async () => {

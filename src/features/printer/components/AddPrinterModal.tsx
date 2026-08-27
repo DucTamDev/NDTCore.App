@@ -21,7 +21,7 @@ import {
 import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel, type ConnectionState, type ProtocolState } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
-import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
+import { DiscoveryStage, type DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
@@ -190,9 +190,9 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
         excludedDrivers: drivers.map((d) => d.type),
       },
       (event: DiscoveryEvent) => {
-        if (event.stage === 'identifying') {
+        if (event.stage === DiscoveryStage.identifying) {
           setProtocolState('detecting');
-        } else if (event.stage === 'identified' && event.protocol) {
+        } else if (event.stage === DiscoveryStage.identified && event.protocol) {
           setConnectionState('connected');
           setProtocolState('identified');
           setLastProtocol(event.protocol);
@@ -202,10 +202,10 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
           if (!displayForm.getValues('name')) {
             displayForm.setValue('name', event.deviceInfo?.deviceName ?? selectedDevice?.displayName ?? 'Máy in mới');
           }
-        } else if (event.stage === 'unknown_protocol') {
+        } else if (event.stage === DiscoveryStage.unknown_protocol) {
           setConnectionState('idle');
           setProtocolState('unknown');
-        } else if (event.stage === 'error') {
+        } else if (event.stage === DiscoveryStage.error) {
           setConnectionState('error');
           setProtocolState('idle');
           setConnectionErrorMessage(event.error?.message);

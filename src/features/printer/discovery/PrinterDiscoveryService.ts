@@ -13,7 +13,15 @@ import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
  */
 const CANDIDATE_ORDER: PrinterDriverType[] = [PrinterDriverType.tspl, PrinterDriverType.escpos];
 
-export type DiscoveryStage = 'connecting' | 'identifying' | 'identified' | 'unknown_protocol' | 'error';
+export const DiscoveryStage = {
+  connecting: 'connecting',
+  identifying: 'identifying',
+  identified: 'identified',
+  unknown_protocol: 'unknown_protocol',
+  error: 'error',
+} as const;
+
+export type DiscoveryStage = (typeof DiscoveryStage)[keyof typeof DiscoveryStage];
 
 export interface DiscoveryEvent {
   stage: DiscoveryStage;
@@ -65,7 +73,7 @@ export const createDiscoverDriver =
         const driver = registry[type];
         const draftDriver = { type, source: DriverSource.auto, contentTypes: [], config: getDriverDefinition(type).defaultConfig };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
-        onEvent({ stage: 'connecting', protocol: type });
+        onEvent({ stage: DiscoveryStage.connecting, protocol: type });
         try {
           await driver.connect(draftPrinter, draftDriver);
         } catch {
@@ -77,14 +85,14 @@ export const createDiscoverDriver =
           await disconnectQuietly();
           return;
         }
-        onEvent({ stage: 'identifying', protocol: type });
+        onEvent({ stage: DiscoveryStage.identifying, protocol: type });
         const deviceInfo = await driver.identify(printerId).catch(() => null);
         if (cancelled) {
           await disconnectQuietly();
           return;
         }
         if (deviceInfo) {
-          onEvent({ stage: 'identified', protocol: type, deviceInfo });
+          onEvent({ stage: DiscoveryStage.identified, protocol: type, deviceInfo });
           PrinterLogger.protocolDetected({ printerId, protocol: type, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
           return;
         }
@@ -94,11 +102,11 @@ export const createDiscoverDriver =
 
       if (cancelled) return;
       if (candidates.length === 0 || connectFailures === candidates.length) {
-        onEvent({ stage: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Không thể kết nối tới máy in' } });
+        onEvent({ stage: DiscoveryStage.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Không thể kết nối tới máy in' } });
         PrinterLogger.discoveryFailed({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
         return;
       }
-      onEvent({ stage: 'unknown_protocol' });
+      onEvent({ stage: DiscoveryStage.unknown_protocol });
       PrinterLogger.protocolUnknown({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
     };
 
