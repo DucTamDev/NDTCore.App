@@ -72,7 +72,9 @@ Không thêm `version`/`fontHash` ở phase này — hiện chỉ có đúng 1 f
 
 ## 4. Font asset
 
-Bundle 1 file `.ttf` có đầy đủ glyph tiếng Việt vào `src/assets/fonts/` (thư mục `assets/` đã tồn tại trong repo). Đề xuất **Noto Sans Regular** (giấy phép Apache 2.0, phủ đầy đủ Unicode tiếng Việt) làm mặc định — có thể thay bằng file khác cùng chỗ nếu cần, miễn cùng tên trong `TsplFontConfig.fileName`.
+Đọc byte thô của file `.ttf` qua **`react-native-fs`** (dependency mới, chỉ dùng cho tính năng này) — `require()`/Metro bundler không cho truy cập byte thô của asset không phải ảnh, nên không dùng được `src/assets/`. `RNFS.readFileAssets(path, 'base64')` chỉ đọc được từ thư mục asset **native Android** (`android/app/src/main/assets/`), không phải thư mục JS — vì vậy file font phải đặt tại `android/app/src/main/assets/fonts/NotoSans-Regular.ttf`, KHÔNG phải `src/assets/fonts/`. Tính năng này do đó chỉ verify được trên Android; iOS chưa có đường dẫn tương đương được thiết kế ở phase này (tương tự giới hạn "USB chỉ Android" đã có sẵn trong module).
+
+Đề xuất **Noto Sans Regular** (giấy phép Apache 2.0, phủ đầy đủ Unicode tiếng Việt) làm font mặc định — file `.ttf` thật phải được người vận hành tải về và đặt tay vào đúng đường dẫn trên (không có cách nào lấy binary thật qua các bước tự động của plan/agent).
 
 ---
 
@@ -83,10 +85,12 @@ Bundle 1 file `.ttf` có đầy đủ glyph tiếng Việt vào `src/assets/font
 ```ts
 export interface TsplFontManager {
   /**
-   * Đọc file `.ttf` từ assets, gửi qua lệnh `DOWNLOAD "<fileName>",BINARY,<len>,<data>`
-   * (cú pháp TSPL2 phổ biến — CHƯA xác nhận trên phần cứng thật, xem §2).
-   * Resolve nếu transport gửi xong không lỗi. Throw nếu transport lỗi
-   * (mất kết nối, timeout...) HOẶC nếu không đọc được file font từ assets.
+   * Đọc file `.ttf` qua `react-native-fs` (`RNFS.readFileAssets`, chỉ
+   * Android — xem §4), gửi qua lệnh `DOWNLOAD "<name>",<byteCount>` +
+   * byte nhị phân thô theo sau (cú pháp TSPL2 phổ biến — CHƯA xác nhận
+   * trên phần cứng thật, xem §2). Resolve nếu transport gửi xong không
+   * lỗi. Throw nếu: platform không phải Android, không đọc được file
+   * font từ assets, hoặc transport lỗi (mất kết nối, timeout...).
    * KHÔNG tự đặt `fontInstalled` — đó là việc của caller (xem §6).
    */
   ensureFontInstalled(transport: TsplTransport, font: TsplFontConfig): Promise<void>;
