@@ -5,12 +5,7 @@ export type PrinterDriverType = 'escpos' | 'tspl';
 export type ConnectionType = 'usb' | 'bluetooth' | 'lan';
 export type PaperSize = 58 | 80;
 export type DriverSource = 'auto' | 'manual';
-/**
- * Chỉ 1 giá trị khả dụng hiện tại — TrueType font cho TSPL ngoài phạm vi lần
- * refactor này (xem spec §1, §4.1). KHÔNG thêm `'truetype'` vào union này cho
- * tới khi có spike riêng xác nhận khả thi trên phần cứng thật.
- */
-export type TsplRenderMode = 'bitmap';
+export type TsplRenderMode = 'bitmap' | 'truetype';
 
 export type PrinterStatus =
   | 'idle'
@@ -38,15 +33,31 @@ export interface PrinterDeviceInfo {
   model?: string;
 }
 
+export interface TsplFontConfig {
+  /**
+   * Tên logical dùng trong CẢ lệnh `DOWNLOAD "<name>",...` (tên file lưu
+   * trên máy in) LẪN lệnh `TEXT x,y,"<name>",...` (chọn font khi in) —
+   * hai lệnh này dùng chung 1 định danh theo tài liệu TSPL2 phổ biến.
+   * Phải khớp `/^[A-Za-z0-9_-]+$/` để không tạo command TSPL hỏng nếu
+   * chứa dấu ngoặc kép/ký tự đặc biệt.
+   */
+  name: string;
+  /** Tên file `.ttf` trong `android/app/src/main/assets/fonts/` — CHỈ dùng để đọc byte qua `RNFS.readFileAssets`, không gửi lên máy in. */
+  fileName: string;
+  /**
+   * Chỉ nghĩa "lệnh DOWNLOAD đã gửi xong không lỗi ở tầng transport" —
+   * KHÔNG đảm bảo máy in thật sự lưu/nhận diện được font (không có cách
+   * nào từ phần mềm xác nhận điều đó, tương tự giới hạn identityKey USB).
+   */
+  fontInstalled: boolean;
+}
+
 export interface TsplDriverConfig {
   type: 'tspl';
-  /** Luôn `'bitmap'` — không có UI chọn ở phase này (xem spec §4.2, §7.2). */
+  /** Mặc định 'bitmap' — hành vi đã verify trên phần cứng thật. 'truetype' là thử nghiệm, xem spec 2026-08-27. */
   renderMode: TsplRenderMode;
-  /**
-   * Chỉ có ý nghĩa khi in Tem (`PrintType.Label`) — chiều cao khổ giấy VẬT LÝ
-   * (mm) khai báo trong lệnh `SIZE`/`GAP` của TSPL. `undefined` dùng
-   * `DEFAULT_LABEL_HEIGHT_MM` (xem `drivers/tspl/TsplEncoder.ts`).
-   */
+  /** Chỉ có khi renderMode từng được đặt 'truetype' ít nhất 1 lần. */
+  font?: TsplFontConfig;
   labelHeightMm?: number;
 }
 
