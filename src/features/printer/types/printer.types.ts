@@ -7,6 +7,7 @@ export const PrinterDriverType = {
 } as const;
 
 export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
+
 export const ConnectionType = {
   usb: 'usb',
   bluetooth: 'bluetooth',
@@ -14,6 +15,7 @@ export const ConnectionType = {
 } as const;
 
 export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
+
 export type PaperSize = 58 | 80;
 
 export const DriverSource = {
