@@ -1,6 +1,6 @@
 // src/features/printer/printing/PrinterService.ts
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
-import type { ConnectionType, DeviceScanEvent, Printer, PrinterDriver, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import type { ConnectionType, DeviceScanEvent, Printer, PrinterDriver, PrinterDriverType, PrinterStatus, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
@@ -8,6 +8,7 @@ import { PrinterStorage } from '../storage/PrinterStorage';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { printerSchema } from '../schemas/printerFormSchema';
 import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from '../discovery/PrinterDiscoveryService';
+import type { TsplDriver } from '../drivers/tspl/TsplDriver';
 
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
 
@@ -160,6 +161,16 @@ export const createPrinterService = (
 
   const discoverDriver = (input: DiscoveryInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
 
+  /**
+   * Passthrough TSPL-riêng — KHÔNG đưa vào `IPrinterDriver` chung vì tính
+   * năng này chỉ có nghĩa với TSPL, ESC/POS không có khái niệm font custom.
+   * Cast trực tiếp sang `TsplDriver` vì `registry.tspl` luôn là instance đó.
+   */
+  const installTsplFont = async (printerId: string, font: TsplFontConfig): Promise<void> => {
+    const tsplDriver = getDriver('tspl') as TsplDriver;
+    await tsplDriver.installTrueTypeFont(printerId, font);
+  };
+
   return {
     getPrinters,
     addPrinter,
@@ -181,6 +192,7 @@ export const createPrinterService = (
     onStatusChangeForDriver,
     disconnectForDriver,
     discoverDriver,
+    installTsplFont,
   };
 };
 

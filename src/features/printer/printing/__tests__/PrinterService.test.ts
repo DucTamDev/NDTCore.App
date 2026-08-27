@@ -343,4 +343,14 @@ describe('PrinterService', () => {
     await Promise.all([service.connect(basePrinter.id), service.connect(second.id)]);
     expect(maxInFlight).toBe(1);
   });
+
+  it('installTsplFont() delegates to the tspl driver instance directly (not through the generic IPrinterDriver interface)', async () => {
+    const tsplDriver = { ...makeMockDriver(), installTrueTypeFont: jest.fn().mockResolvedValue(undefined) };
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await service.installTsplFont('p1', font);
+
+    expect(tsplDriver.installTrueTypeFont).toHaveBeenCalledWith('p1', font);
+  });
 });
