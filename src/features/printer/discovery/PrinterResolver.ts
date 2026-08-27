@@ -1,4 +1,5 @@
-import type { ConnectionType, PrinterDevice, PrinterLanConfig } from '../types/printer.types';
+import { ConnectionType } from '../types/printer.types';
+import type { PrinterDevice, PrinterLanConfig } from '../types/printer.types';
 
 export interface ResolveIdentityKeyInput {
   connectionType: ConnectionType;
@@ -18,14 +19,14 @@ export interface ResolveIdentityKeyInput {
  * cắm cùng lúc — giới hạn đã biết, không cố tạo giải pháp giả.
  */
 export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
-  if (input.connectionType === 'lan') {
+  if (input.connectionType === ConnectionType.lan) {
     if (!input.lan) throw new Error('Thiếu cấu hình IP/Port để tính identityKey cho kết nối LAN');
     return `lan:${input.lan.ip}:${input.lan.port}`;
   }
   if (!input.device) {
     throw new Error(`Thiếu thiết bị để tính identityKey cho kết nối ${input.connectionType}`);
   }
-  if (input.connectionType === 'bluetooth') {
+  if (input.connectionType === ConnectionType.bluetooth) {
     return `bluetooth:mac:${input.device.deviceId}`;
   }
   return `usb:device:${input.device.deviceId}`;

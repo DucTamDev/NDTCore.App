@@ -1,5 +1,5 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 
 const escposDriver: PrinterDriver = {
   type: PrinterDriverType.escpos,
@@ -18,7 +18,7 @@ const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in',
   drivers: [escposDriver],
-  connectionType: 'lan',
+  connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
   paperSize: 80,
@@ -152,7 +152,7 @@ describe('printerSchema', () => {
   it('rejects connectionType usb with a lan config set (invariant #13)', () => {
     const printer: Printer = {
       ...basePrinter,
-      connectionType: 'usb',
+      connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'x', rawDevice: {} },
       lan: undefined,
     };
@@ -162,7 +162,7 @@ describe('printerSchema', () => {
   });
 
   it('rejects connectionType usb with no device set (invariant #13)', () => {
-    const printer: Printer = { ...basePrinter, connectionType: 'usb', lan: undefined };
+    const printer: Printer = { ...basePrinter, connectionType: ConnectionType.usb, lan: undefined };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 });

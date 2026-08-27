@@ -1,5 +1,6 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { PrinterLogger } from './PrinterLogger';
+import { ConnectionType } from '../types/printer.types';
 
 async function requestModernBluetoothPermissions(): Promise<boolean> {
   const results = await PermissionsAndroid.requestMultiple([
@@ -30,7 +31,7 @@ export async function ensureBluetoothPermission(): Promise<boolean> {
   const granted =
     Platform.Version >= 31 ? await requestModernBluetoothPermissions() : await requestLegacyBluetoothPermission();
   if (!granted) {
-    PrinterLogger.permissionDenied({ connectionType: 'bluetooth' });
+    PrinterLogger.permissionDenied({ connectionType: ConnectionType.bluetooth });
   }
   return granted;
 }

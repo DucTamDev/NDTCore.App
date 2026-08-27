@@ -1,7 +1,7 @@
 // src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -51,7 +51,7 @@ const lanPrinter: Printer = {
   id: 'receipt-lan',
   name: 'Máy in hoá đơn',
   drivers: [escposDriverEntry],
-  connectionType: 'lan',
+  connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.50', port: 9100 },
   identityKey: 'lan:192.168.1.50:9100',
   paperSize: 80,
@@ -64,7 +64,7 @@ const lanPrinter: Printer = {
 const blePrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-ble',
-  connectionType: 'bluetooth',
+  connectionType: ConnectionType.bluetooth,
   lan: undefined,
   device: { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BLE', rawDevice: {} },
 };
@@ -72,7 +72,7 @@ const blePrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-usb',
-  connectionType: 'usb',
+  connectionType: ConnectionType.usb,
   lan: undefined,
   device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
 };
@@ -124,7 +124,7 @@ describe('EscPosDriver', () => {
 
   it('identify() over USB always returns null', async () => {
     const driver = new EscPosDriver();
-    const usbPrinterHere: Printer = { ...lanPrinter, id: 'receipt-usb', connectionType: 'usb', lan: undefined, device: { deviceId: '1155:22222', displayName: 'USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } };
+    const usbPrinterHere: Printer = { ...lanPrinter, id: 'receipt-usb', connectionType: ConnectionType.usb, lan: undefined, device: { deviceId: '1155:22222', displayName: 'USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } };
     await driver.connect(usbPrinterHere, escposDriverEntry);
     expect(await driver.identify(usbPrinterHere.id)).toBeNull();
   });
@@ -209,7 +209,7 @@ describe('EscPosDriver', () => {
   it('scan("lan") reports empty immediately without calling the library', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
-    driver.scan('lan', (event) => events.push(event.type));
+    driver.scan(ConnectionType.lan, (event) => events.push(event.type));
     expect(events).toEqual(['empty']);
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       NetPrinter: { getDeviceList: jest.Mock };
@@ -221,7 +221,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });
@@ -241,7 +241,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });
@@ -257,7 +257,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });
@@ -357,7 +357,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos, connectionType: 'lan' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos, connectionType: ConnectionType.lan }),
     );
   });
 
@@ -372,7 +372,7 @@ describe('EscPosDriver', () => {
       expect.objectContaining({
         printerId: badPrinter.id,
         protocol: PrinterDriverType.escpos,
-        connectionType: 'lan',
+        connectionType: ConnectionType.lan,
         errorCode: AppErrorCode.VALIDATION_ERROR,
       }),
     );
@@ -391,7 +391,7 @@ describe('EscPosDriver', () => {
   it('scan("bluetooth") logs scanCompleted with the device count on success', async () => {
     const driver = new EscPosDriver();
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         if (event.type !== 'loading') resolve();
       });
     });
@@ -399,7 +399,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { scanCompleted: jest.Mock };
     };
     expect(PrinterLogger.scanCompleted).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionType: 'bluetooth', deviceCount: 0 }),
+      expect.objectContaining({ connectionType: ConnectionType.bluetooth, deviceCount: 0 }),
     );
   });
 
@@ -411,7 +411,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });
@@ -421,7 +421,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { scanFailed: jest.Mock };
     };
     expect(PrinterLogger.scanFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionType: 'bluetooth', errorCode: AppErrorCode.CONNECTION_ERROR }),
+      expect.objectContaining({ connectionType: ConnectionType.bluetooth, errorCode: AppErrorCode.CONNECTION_ERROR }),
     );
   });
 

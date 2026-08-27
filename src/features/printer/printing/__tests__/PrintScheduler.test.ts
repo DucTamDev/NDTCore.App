@@ -3,7 +3,7 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
@@ -16,7 +16,7 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
 });
 
 const makePrinter = (overrides: Partial<Printer> = {}): Printer => ({
-  id: 'p1', name: 'Máy in', drivers: [escposDriver], connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 },
+  id: 'p1', name: 'Máy in', drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
   identityKey: 'lan:1.1.1.1:9100', paperSize: 80, autoReconnect: false, enabled: true, createdAt: 'x', updatedAt: 'x',
   ...overrides,
 });
@@ -119,9 +119,9 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } }),
       makePrinter({
-        id: 'label-bt', drivers: [tsplDriver], connectionType: 'bluetooth', lan: undefined,
+        id: 'label-bt', drivers: [tsplDriver], connectionType: ConnectionType.bluetooth, lan: undefined,
         device: { deviceId: 'd1', displayName: 'Label BT', rawDevice: {} },
       }),
     ];

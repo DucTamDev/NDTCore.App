@@ -3,7 +3,7 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { PrinterDriverType, type Printer, type PrinterDriver, type PrinterStatus } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver, type PrinterStatus } from '../../types/printer.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
@@ -25,7 +25,7 @@ const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in hóa đơn quầy 1',
   drivers: [escposDriverEntry],
-  connectionType: 'lan',
+  connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
   paperSize: 80,
@@ -269,16 +269,16 @@ describe('PrinterService', () => {
     const escposDriver = makeMockDriver();
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     const onEvent = jest.fn();
-    service.scanForConnectionType('usb', onEvent);
-    expect(escposDriver.scan).toHaveBeenCalledWith('usb', onEvent);
+    service.scanForConnectionType(ConnectionType.usb, onEvent);
+    expect(escposDriver.scan).toHaveBeenCalledWith(ConnectionType.usb, onEvent);
   });
 
   it('scanForConnectionType(bluetooth) forwards to the tspl driver scan', () => {
     const tsplDriver = makeMockDriver();
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver }, createResourceLock());
     const onEvent = jest.fn();
-    service.scanForConnectionType('bluetooth', onEvent);
-    expect(tsplDriver.scan).toHaveBeenCalledWith('bluetooth', onEvent);
+    service.scanForConnectionType(ConnectionType.bluetooth, onEvent);
+    expect(tsplDriver.scan).toHaveBeenCalledWith(ConnectionType.bluetooth, onEvent);
   });
 
   it('connectDraft() connects via the driver matching the given driver type without touching storage', async () => {

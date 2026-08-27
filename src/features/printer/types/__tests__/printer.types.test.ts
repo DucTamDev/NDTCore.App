@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../printer.types';
 
 describe('printer domain types', () => {
   it('accepts a fully-formed Printer with a single tspl driver for a LAN label printer', () => {
@@ -13,7 +13,7 @@ describe('printer domain types', () => {
       id: 'p1',
       name: 'Máy in tem quầy 1',
       drivers: [driver],
-      connectionType: 'lan',
+      connectionType: ConnectionType.lan,
       lan: { ip: '192.168.1.50', port: 9100 },
       identityKey: 'lan:192.168.1.50:9100',
       paperSize: 58,
@@ -33,7 +33,7 @@ describe('printer domain types', () => {
         { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } },
         { type: PrinterDriverType.tspl, source: 'manual', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } },
       ],
-      connectionType: 'usb',
+      connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} },
       identityKey: 'usb:device:1155:22222',
       paperSize: 80,

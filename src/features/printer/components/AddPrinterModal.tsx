@@ -25,9 +25,8 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import type { PrintType } from '../types/printConfiguration.types';
-import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
+import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type {
-  ConnectionType,
   Printer,
   PrinterDevice,
   PrinterDeviceInfo,
@@ -44,7 +43,7 @@ export interface AddPrinterModalProps {
 
 export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved }) => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
-  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? 'usb');
+  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? ConnectionType.usb);
   const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.device);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [drivers, setDrivers] = useState<PrinterDriver[]>(initialValues?.drivers ?? []);
@@ -125,7 +124,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   /** Đủ thông tin để tính identityKey (không cần biết protocol) — xem `resolveIdentityKey`. */
   const currentIdentityKey = (): string | null => {
     try {
-      if (connectionType === 'lan') {
+      if (connectionType === ConnectionType.lan) {
         const values = lanForm.getValues();
         if (!lanConnectionSchema.safeParse(values).success) return null;
         return resolveIdentityKey({ connectionType, lan: buildLan(values) });
@@ -217,7 +216,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const onConnectPress = (): void => {
-    if (connectionType === 'lan') {
+    if (connectionType === ConnectionType.lan) {
       lanForm.handleSubmit(() => startDiscovery())();
     } else {
       startDiscovery();
@@ -229,8 +228,8 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     name: displayForm.getValues('name') || 'Máy in mới',
     drivers,
     connectionType,
-    device: connectionType === 'lan' ? undefined : selectedDevice,
-    lan: connectionType === 'lan' ? buildLan(lanForm.getValues()) : undefined,
+    device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
+    lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
     identityKey: currentIdentityKey() ?? '',
     paperSize: displayForm.getValues('paperSize'),
     autoReconnect,
@@ -392,7 +391,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const connectLabel = connectionState === 'connecting' ? 'Đang kết nối...' : connectionState === 'connected' ? 'Kết nối lại' : 'Kết nối';
   const connectDisabled =
     connectionState === 'connecting' ||
-    (connectionType !== 'lan' && !selectedDevice) ||
+    (connectionType !== ConnectionType.lan && !selectedDevice) ||
     drivers.length >= 2 ||
     Boolean(identityErrorMessage);
   const hasEmptyContentTypeDriver = drivers.some((d) => d.contentTypes.length === 0);

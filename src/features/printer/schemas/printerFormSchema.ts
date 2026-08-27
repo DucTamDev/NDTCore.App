@@ -1,7 +1,7 @@
 // src/features/printer/schemas/printerFormSchema.ts
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { PrinterDriverType } from '../types/printer.types';
+import { ConnectionType, PrinterDriverType } from '../types/printer.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
@@ -101,7 +101,7 @@ export const printerSchema = z
     vendor: z.string().optional(),
     model: z.string().optional(),
     drivers: z.array(printerDriverSchema).min(1).max(2),
-    connectionType: z.enum(['usb', 'bluetooth', 'lan']),
+    connectionType: z.enum([ConnectionType.usb, ConnectionType.bluetooth, ConnectionType.lan]),
     device: printerDeviceSchema.optional(),
     lan: printerLanConfigSchema.optional(),
     identityKey: z.string().min(1),
@@ -112,7 +112,7 @@ export const printerSchema = z
     updatedAt: z.string(),
   })
   .superRefine((printer, ctx) => {
-    if (printer.connectionType === 'lan') {
+    if (printer.connectionType === ConnectionType.lan) {
       if (!printer.lan) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connectionType lan bắt buộc phải có lan' });
       if (printer.device) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connectionType lan không được có device' });
     } else {

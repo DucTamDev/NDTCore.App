@@ -7,7 +7,13 @@ export const PrinterDriverType = {
 } as const;
 
 export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
-export type ConnectionType = 'usb' | 'bluetooth' | 'lan';
+export const ConnectionType = {
+  usb: 'usb',
+  bluetooth: 'bluetooth',
+  lan: 'lan',
+} as const;
+
+export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
 export type PaperSize = 58 | 80;
 export type DriverSource = 'auto' | 'manual';
 export type TsplRenderMode = 'bitmap' | 'truetype';

@@ -5,7 +5,8 @@ import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DeviceScanList } from './DeviceScanList';
-import type { ConnectionType, PrinterDevice } from '../types/printer.types';
+import { ConnectionType } from '../types/printer.types';
+import type { PrinterDevice } from '../types/printer.types';
 
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;
@@ -54,12 +55,12 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
       value={connectionType}
       onValueChange={(value) => onConnectionTypeChange(value as ConnectionType)}
       buttons={[
-        { value: 'usb', label: 'USB' },
-        { value: 'bluetooth', label: 'Bluetooth' },
-        { value: 'lan', label: 'LAN' },
+        { value: ConnectionType.usb, label: 'USB' },
+        { value: ConnectionType.bluetooth, label: 'Bluetooth' },
+        { value: ConnectionType.lan, label: 'LAN' },
       ]}
     />
-    {connectionType === 'lan' ? (
+    {connectionType === ConnectionType.lan ? (
       <>
         <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} disabled={disabled} />
         <View style={styles.lanIpActions}>

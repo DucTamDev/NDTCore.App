@@ -1,6 +1,6 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
 import { AppErrorCode } from '../../types/AppError';
 
@@ -11,7 +11,7 @@ const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'a
 const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
-  id, name: id, drivers: [escposDriver], connectionType: 'lan', lan: { ip: '1.1.1.1', port: 9100 },
+  id, name: id, drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
   identityKey: `lan:1.1.1.1:9100-${id}`, paperSize: 80, autoReconnect: false, enabled: true,
   createdAt: 'x', updatedAt: 'x', ...overrides,
 });

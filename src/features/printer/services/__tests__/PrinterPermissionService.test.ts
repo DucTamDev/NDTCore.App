@@ -1,6 +1,7 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { ensureBluetoothPermission } from '../PrinterPermissionService';
 import { PrinterLogger } from '../PrinterLogger';
+import { ConnectionType } from '../../types/printer.types';
 
 jest.mock('../PrinterLogger', () => ({
   PrinterLogger: {
@@ -76,7 +77,7 @@ describe('ensureBluetoothPermission', () => {
     } as unknown as Awaited<ReturnType<typeof PermissionsAndroid.requestMultiple>>);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(false);
-    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: 'bluetooth' });
+    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.bluetooth });
   });
 
   it('requests ACCESS_FINE_LOCATION on Android below API 31, returns true when granted', async () => {
@@ -94,7 +95,7 @@ describe('ensureBluetoothPermission', () => {
     jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(false);
-    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: 'bluetooth' });
+    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.bluetooth });
   });
 
   it('does not log permissionDenied when permission is granted', async () => {

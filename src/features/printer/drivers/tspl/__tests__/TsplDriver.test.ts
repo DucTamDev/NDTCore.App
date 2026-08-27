@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -91,7 +91,7 @@ const lanPrinter: Printer = {
   id: 'label-1',
   name: 'Máy in tem',
   drivers: [tsplDriverEntry],
-  connectionType: 'lan',
+  connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.60', port: 9100 },
   identityKey: 'lan:192.168.1.60:9100',
   paperSize: 58,
@@ -104,7 +104,7 @@ const lanPrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'label-usb',
-  connectionType: 'usb',
+  connectionType: ConnectionType.usb,
   lan: undefined,
   device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
 };
@@ -113,7 +113,7 @@ const usbPrinter: Printer = {
 const usbPrinterNoDevice: Printer = {
   ...lanPrinter,
   id: 'label-usb-nodevice',
-  connectionType: 'usb',
+  connectionType: ConnectionType.usb,
   lan: undefined,
   device: undefined,
 };
@@ -121,7 +121,7 @@ const usbPrinterNoDevice: Printer = {
 const bluetoothPrinter: Printer = {
   ...lanPrinter,
   id: 'label-bt',
-  connectionType: 'bluetooth',
+  connectionType: ConnectionType.bluetooth,
   lan: undefined,
   device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} },
 };
@@ -231,14 +231,14 @@ describe('TsplDriver', () => {
   it('scan() on lan immediately reports empty (no scan for LAN)', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan('lan', (event) => events.push(event.type));
+    driver.scan(ConnectionType.lan, (event) => events.push(event.type));
     expect(events).toEqual(['empty']);
   });
 
   it('scan() on usb immediately reports error', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan('usb', (event) => events.push(event.type));
+    driver.scan(ConnectionType.usb, (event) => events.push(event.type));
     expect(events).toEqual(['error']);
   });
 
@@ -380,7 +380,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: 'lan' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.lan }),
     );
   });
 
@@ -391,7 +391,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, connectionType: 'usb' }),
+      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.usb }),
     );
   });
 
@@ -432,7 +432,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });
@@ -456,7 +456,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan('bluetooth', (event) => {
+      driver.scan(ConnectionType.bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== 'loading') resolve();
       });

@@ -1,8 +1,8 @@
 // src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
-import { isTsplTrueTypeActive, PrinterDriverType } from '../../types/printer.types';
-import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
+import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType } from '../../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import type { PrintType } from '../../types/printConfiguration.types';
 import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
@@ -47,17 +47,17 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   private createTransport(connectionType: ConnectionType): TsplTransport {
-    if (connectionType === 'lan') return new LanTransport();
-    if (connectionType === 'bluetooth') return new BluetoothTransport();
+    if (connectionType === ConnectionType.lan) return new LanTransport();
+    if (connectionType === ConnectionType.bluetooth) return new BluetoothTransport();
     return new UsbTransport();
   }
 
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
-    if (connectionType === 'lan') {
+    if (connectionType === ConnectionType.lan) {
       onEvent({ type: 'empty' });
       return () => undefined;
     }
-    if (connectionType === 'usb') {
+    if (connectionType === ConnectionType.usb) {
       onEvent({ type: 'error', error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
       return () => undefined;
     }
@@ -102,10 +102,10 @@ export class TsplDriver implements IPrinterDriver {
     const startedAt = Date.now();
     try {
       const transport = this.createTransport(printer.connectionType);
-      if (printer.connectionType === 'lan') {
+      if (printer.connectionType === ConnectionType.lan) {
         if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
         await (transport as LanTransport).connect(printer.lan.ip, printer.lan.port);
-      } else if (printer.connectionType === 'bluetooth') {
+      } else if (printer.connectionType === ConnectionType.bluetooth) {
         if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
         const granted = await ensureBluetoothPermission();
         if (!granted) throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' });
@@ -212,9 +212,9 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   private async writeBytes(printer: Printer, transport: TsplTransport | undefined, bytes: Uint8Array): Promise<void> {
-    if (printer.connectionType === 'lan') {
+    if (printer.connectionType === ConnectionType.lan) {
       (transport as LanTransport).write(bytes);
-    } else if (printer.connectionType === 'bluetooth') {
+    } else if (printer.connectionType === ConnectionType.bluetooth) {
       await (transport as BluetoothTransport).write(bytes);
     } else {
       await (transport as UsbTransport).write(bytes);

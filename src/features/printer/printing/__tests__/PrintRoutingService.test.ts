@@ -1,5 +1,5 @@
 import { createPrintRoutingService } from '../PrintRoutingService';
-import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
 const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
@@ -8,7 +8,7 @@ const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => (
   id,
   name: id,
   drivers: [escposDriver],
-  connectionType: 'lan',
+  connectionType: ConnectionType.lan,
   lan: { ip: '1.1.1.1', port: 9100 },
   identityKey: `lan:1.1.1.1:9100-${id}`,
   paperSize: 80,

@@ -1,7 +1,7 @@
 // src/features/printer/printing/PrinterService.ts
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
-import { PrinterDriverType } from '../types/printer.types';
-import type { ConnectionType, DeviceScanEvent, Printer, PrinterDriver, PrinterStatus, TsplFontConfig } from '../types/printer.types';
+import { ConnectionType, PrinterDriverType } from '../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDriver, PrinterStatus, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
@@ -129,9 +129,9 @@ export const createPrinterService = (
     getDriver(type).scan(connectionType, onEvent);
 
   const scanForConnectionType = (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
-    if (connectionType === 'usb') return getDriver(PrinterDriverType.escpos).scan('usb', onEvent);
-    if (connectionType === 'bluetooth') return getDriver(PrinterDriverType.tspl).scan('bluetooth', onEvent);
-    return getDriver(PrinterDriverType.tspl).scan('lan', onEvent);
+    if (connectionType === ConnectionType.usb) return getDriver(PrinterDriverType.escpos).scan(ConnectionType.usb, onEvent);
+    if (connectionType === ConnectionType.bluetooth) return getDriver(PrinterDriverType.tspl).scan(ConnectionType.bluetooth, onEvent);
+    return getDriver(PrinterDriverType.tspl).scan(ConnectionType.lan, onEvent);
   };
 
   const connectDraft = async (printer: Printer, driver: PrinterDriver): Promise<void> => {
