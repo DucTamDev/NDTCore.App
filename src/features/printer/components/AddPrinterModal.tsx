@@ -5,6 +5,7 @@ import { Modal, Portal, Snackbar, Text } from 'react-native-paper';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterService } from '../printing/PrinterService';
+import { DEFAULT_TSPL_FONT } from '../drivers/tspl/TsplFontManager';
 import { getCurrentWifiIp } from '../services/NetworkInfoService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../utils/sampleDocuments';
 import { useBillImageCapture } from '../hooks/useBillImageCapture';
@@ -51,6 +52,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const [testPrintLabelPending, setTestPrintLabelPending] = useState(false);
   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+  const [tsplFontPending, setTsplFontPending] = useState(false);
   const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>('idle');
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
@@ -309,8 +311,37 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setDrivers((prev) => prev.map((d) => (d.type === type ? { ...d, contentTypes } : d)));
   };
 
+  const onToggleTsplFont = async (enabled: boolean): Promise<void> => {
+    const tsplDriverEntry = drivers.find((d) => d.type === 'tspl');
+    if (!tsplDriverEntry || tsplDriverEntry.config.type !== 'tspl') return;
+
+    if (!enabled) {
+      setDrivers((prev) => prev.map((d) => (d.type === 'tspl' && d.config.type === 'tspl' ? { ...d, config: { ...d.config, renderMode: 'bitmap' } } : d)));
+      return;
+    }
+
+    const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
+    setTsplFontPending(true);
+    try {
+      await PrinterService.installTsplFont(printerId, font);
+      setDrivers((prev) =>
+        prev.map((d) =>
+          d.type === 'tspl' && d.config.type === 'tspl'
+            ? { ...d, config: { ...d.config, renderMode: 'truetype', font: { ...font, fontInstalled: true } } }
+            : d,
+        ),
+      );
+    } catch (error) {
+      setTestPrintErrorMessage(error instanceof AppErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
+      // renderMode stays 'bitmap' (default) — never set to 'truetype' on failure, per spec §6/§7.
+    } finally {
+      setTsplFontPending(false);
+    }
+  };
+
   const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocumentVariants> => {
-    if (driver.type !== 'tspl') return { text: document };
+    const usesTrueType = driver.type === 'tspl' && driver.config.type === 'tspl' && driver.config.renderMode === 'truetype' && driver.config.font?.fontInstalled;
+    if (driver.type !== 'tspl' || usesTrueType) return { text: document };
     const base64 = await captureBillImage(document, printer.paperSize);
     if (!base64) return { text: document };
     return { text: document, image: { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] } };
@@ -428,6 +459,8 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
             onTestPrintReceipt={onTestPrintReceipt}
             testPrintLabelPending={testPrintLabelPending}
             onTestPrintLabel={onTestPrintLabel}
+            onToggleTsplFont={onToggleTsplFont}
+            tsplFontPending={tsplFontPending}
             onSave={onSave}
             saveDisabled={drivers.length === 0 || connectionDirty || hasEmptyContentTypeDriver}
             locked={drivers.length === 0}
