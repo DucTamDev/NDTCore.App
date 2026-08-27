@@ -2,9 +2,21 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
+import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import type { Printer, PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
+
+// `../TsplFontManager` is automocked (no factory) below so `mock.instances`
+// reflects the real class shape — but automocking still `require`s the real
+// module to introspect it, which transitively pulls in the real
+// `react-native-fs` (untranspiled Flow syntax, not in this project's Jest
+// `transformIgnorePatterns`). Stub it out the same way TsplFontManager's own
+// test does, purely to keep that require from crashing the parser.
+jest.mock('react-native-fs', () => ({
+  readFileAssets: jest.fn(),
+}));
+jest.mock('../TsplFontManager');
 
 /**
  * `TsplDriver.print()` decodes 'image' elements as real PNG bytes — a
@@ -486,5 +498,77 @@ describe('TsplDriver', () => {
     const expectedBytes = driver.encode(lanPrinter, tsplDriverEntry, sampleDocuments);
     await driver.print(lanPrinter.id, sampleDocuments);
     expect(Array.from(instance.write.mock.calls[0][0] as Uint8Array)).toEqual(Array.from(expectedBytes));
+  });
+});
+
+describe('TsplDriver.installTrueTypeFont', () => {
+  it('delegates to TsplFontManager.ensureFontInstalled using the connected transport', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplDriverEntry);
+    // `mock.instances[0]` would be the very first `TsplDriver` constructed
+    // anywhere in this file (each `new TsplDriver()` builds its own private
+    // `TsplFontManager`, and mocks aren't cleared between tests) — take the
+    // most recent instance instead, matching the pattern already used above
+    // for `LanTransport.mock.results[...length - 1]`.
+    const instances = (TsplFontManager as jest.Mock).mock.instances;
+    const ensureFontInstalledMock = instances[instances.length - 1].ensureFontInstalled as jest.Mock;
+    ensureFontInstalledMock.mockResolvedValue(undefined);
+
+    await driver.installTrueTypeFont(lanPrinter.id, DEFAULT_TSPL_FONT);
+
+    expect(ensureFontInstalledMock).toHaveBeenCalledWith(expect.anything(), DEFAULT_TSPL_FONT);
+  });
+
+  it('throws CONNECTION_ERROR when the printer is not connected', async () => {
+    const driver = new TsplDriver();
+    await expect(driver.installTrueTypeFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+      code: 'CONNECTION_ERROR',
+    });
+  });
+});
+
+describe('TsplDriver renderMode resolution (via encode())', () => {
+  it('encode() uses bitmap (image variant) when renderMode is bitmap, ignoring any font config', () => {
+    const driver = new TsplDriver();
+    const driverWithFont: PrinterDriver = {
+      ...tsplDriverEntry,
+      config: { type: 'tspl', renderMode: 'bitmap', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+    };
+    const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
+    const bytes = driver.encode(lanPrinter, driverWithFont, withImage);
+    const ascii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('BITMAP');
+  });
+
+  it('encode() uses truetype (text variant + custom font name) only when renderMode is truetype AND font.fontInstalled is true', () => {
+    const driver = new TsplDriver();
+    const driverWithInstalledFont: PrinterDriver = {
+      ...tsplDriverEntry,
+      config: { type: 'tspl', renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+    };
+    const bytes = driver.encode(lanPrinter, driverWithInstalledFont, sampleDocuments);
+    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain(`"${DEFAULT_TSPL_FONT.name}"`);
+    expect(ascii).not.toContain('BITMAP');
+  });
+
+  it('encode() falls back to bitmap when renderMode is truetype but font.fontInstalled is false', () => {
+    const driver = new TsplDriver();
+    const driverWithUninstalledFont: PrinterDriver = {
+      ...tsplDriverEntry,
+      config: { type: 'tspl', renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: false } },
+    };
+    const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
+    const bytes = driver.encode(lanPrinter, driverWithUninstalledFont, withImage);
+    const ascii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('BITMAP');
+  });
+
+  it('encode() falls back to bitmap when renderMode is truetype but no font config exists at all', () => {
+    const driver = new TsplDriver();
+    const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: 'tspl', renderMode: 'truetype' } };
+    const bytes = driver.encode(lanPrinter, driverNoFont, sampleDocuments);
+    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('"3"'); // built-in bitmap font, the bitmap-mode default
   });
 });

@@ -1,10 +1,11 @@
 // src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
-import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus } from '../../types/printer.types';
+import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import type { PrintType } from '../../types/printConfiguration.types';
 import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
+import { TsplFontManager } from './TsplFontManager';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
 import { UsbTransport } from '../../transports/UsbTransport';
@@ -34,9 +35,6 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
   return bytes;
 };
 
-/** `documents.image` chỉ có nếu nơi gọi (`useBillImageCapture`/AddPrinterModal test print) chủ động chụp — luôn ưu tiên vì `renderMode` luôn `'bitmap'`, fallback về text nếu không có image. */
-const resolveDocument = (documents: PrintDocumentVariants): PrintDocument => documents.image ?? documents.text;
-
 const resolveHeightMm = (driver: PrinterDriver, printType?: PrintType): number => {
   const labelHeightMm = driver.config.type === 'tspl' ? driver.config.labelHeightMm : undefined;
   return printType === 'Label' ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
@@ -47,6 +45,7 @@ export class TsplDriver implements IPrinterDriver {
   private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
+  private fontManager = new TsplFontManager();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
@@ -160,17 +159,37 @@ export class TsplDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  private encodeElements(encoder: TsplEncoder, document: PrintDocument, paperSize: Printer['paperSize'], heightMm: number): void {
+  /**
+   * `truetype` chỉ có hiệu lực khi `renderMode === 'truetype'` VÀ
+   * `font.fontInstalled === true` — mọi trường hợp khác (chưa cài, cài
+   * thất bại, không có config font) đều fallback `'bitmap'`. Fallback CỨNG,
+   * không có nhánh nào khác — xem spec 2026-08-27 §7.
+   */
+  private resolveDocumentAndFont(driver: PrinterDriver, documents: PrintDocumentVariants): { document: PrintDocument; fontName: string } {
+    const config = driver.config;
+    if (config.type === 'tspl' && config.renderMode === 'truetype' && config.font?.fontInstalled) {
+      return { document: documents.text, fontName: config.font.name };
+    }
+    return { document: documents.image ?? documents.text, fontName: '3' };
+  }
+
+  private encodeElements(
+    encoder: TsplEncoder,
+    document: PrintDocument,
+    paperSize: Printer['paperSize'],
+    heightMm: number,
+    fontName: string,
+  ): void {
     const paperWidth = PAPER_WIDTH_CHARS[paperSize];
     for (const element of document.elements) {
       if (element.type === 'text') {
-        encoder.text(element.x, element.y, element.content);
+        encoder.text(element.x, element.y, element.content, fontName);
       } else if (element.type === 'line') {
-        encoder.text(element.x, element.y, '-'.repeat(paperWidth));
+        encoder.text(element.x, element.y, '-'.repeat(paperWidth), fontName);
       } else if (element.type === 'table') {
-        element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  ')));
+        element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  '), fontName));
       } else if (element.type === 'row') {
-        encoder.text(element.x, element.y, formatRow(element.left, element.right, paperWidth));
+        encoder.text(element.x, element.y, formatRow(element.left, element.right, paperWidth), fontName);
       } else if (element.type === 'image') {
         const bitmap = decodePngBase64ToMonochrome(element.data, PAPER_IMAGE_WIDTH_PX[paperSize]);
         const maxHeightPx = heightMm * DOTS_PER_MM;
@@ -193,8 +212,9 @@ export class TsplDriver implements IPrinterDriver {
 
   encode(printer: Printer, driver: PrinterDriver, documents: PrintDocumentVariants, printType?: PrintType): Uint8Array {
     const heightMm = resolveHeightMm(driver, printType);
+    const { document, fontName } = this.resolveDocumentAndFont(driver, documents);
     const encoder = new TsplEncoder().initialize(printer.paperSize, printType, heightMm);
-    this.encodeElements(encoder, resolveDocument(documents), printer.paperSize, heightMm);
+    this.encodeElements(encoder, document, printer.paperSize, heightMm, fontName);
     return encoder.cut().encode();
   }
 
@@ -245,5 +265,13 @@ export class TsplDriver implements IPrinterDriver {
     } catch {
       return null;
     }
+  }
+
+  async installTrueTypeFont(printerId: string, font: TsplFontConfig): Promise<void> {
+    const transport = this.connections.get(printerId);
+    if (!transport) {
+      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+    }
+    await this.fontManager.ensureFontInstalled(transport, font);
   }
 }
