@@ -1,7 +1,7 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import type { PrintJob } from '../../types/printJob.types';
+import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
 import { AppErrorCode } from '../../types/AppError';
 import { PrintType } from '../../types/printConfiguration.types';
 
@@ -36,7 +36,7 @@ describe('PrintService.print', () => {
     const p1 = makePrinter('p1');
     const deps = makeDeps(
       [{ printer: p1, driver: escposDriver }],
-      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: 'success', retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     const documentVariants = { text: textDocument, image: imageDocument };
@@ -47,7 +47,7 @@ describe('PrintService.print', () => {
   it('reports success when all jobs succeed', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: 'success', retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe('success');
@@ -56,7 +56,7 @@ describe('PrintService.print', () => {
   it('reports partial-failure on mixed results', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: printerId === 'p1' ? 'success' : 'failed', retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.success : PrintJobStatus.failed, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe('partial-failure');
@@ -65,7 +65,7 @@ describe('PrintService.print', () => {
   it('reports failed with no top-level error when every job fails', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: 'failed', retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } }),
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });

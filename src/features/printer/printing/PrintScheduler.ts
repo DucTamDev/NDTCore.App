@@ -1,7 +1,7 @@
 import { AppErrorException, AppErrorCode, type AppError } from '../types/AppError';
 import { PrinterService } from './PrinterService';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
-import type { PrintJob } from '../types/printJob.types';
+import { PrintJobStatus, type PrintJob } from '../types/printJob.types';
 
 type PrinterServiceLike = Pick<typeof PrinterService, 'print' | 'getPrinters'>;
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
@@ -30,13 +30,13 @@ export const createPrintScheduler = (
   const enqueue = (job: PrintJob): Promise<PrintJob> =>
     lock
       .runExclusive(resourceKeyFor(job), async () => {
-        job.status = 'printing';
+        job.status = PrintJobStatus.printing;
         job.startedAt = new Date().toISOString();
         try {
           await printerService.print(job.printerId, job.documentVariants, job.printType);
-          job.status = 'success';
+          job.status = PrintJobStatus.success;
         } catch (error) {
-          job.status = 'failed';
+          job.status = PrintJobStatus.failed;
           job.error = toAppError(error);
         }
         job.completedAt = new Date().toISOString();
@@ -45,7 +45,7 @@ export const createPrintScheduler = (
 
   const retry = (job: PrintJob): Promise<PrintJob> => {
     job.retryCount += 1;
-    job.status = 'pending';
+    job.status = PrintJobStatus.pending;
     job.error = undefined;
     return enqueue(job);
   };

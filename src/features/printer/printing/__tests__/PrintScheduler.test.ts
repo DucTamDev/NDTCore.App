@@ -4,7 +4,7 @@ import { createResourceLock } from '../PrinterConnectionLock';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import type { PrintJob } from '../../types/printJob.types';
+import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
@@ -12,7 +12,7 @@ const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: Driver
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
-  documentVariants: { text: { elements: [] } }, status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
+  documentVariants: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
@@ -27,7 +27,7 @@ describe('PrintScheduler', () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
-    expect(result.status).toBe('success');
+    expect(result.status).toBe(PrintJobStatus.success);
     expect(result.completedAt).toBeDefined();
   });
 
@@ -38,16 +38,16 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
-    expect(result.status).toBe('failed');
+    expect(result.status).toBe(PrintJobStatus.failed);
     expect(result.error).toEqual({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
-    const result = await scheduler.retry(makeJob({ status: 'failed', retryCount: 0 }));
+    const result = await scheduler.retry(makeJob({ status: PrintJobStatus.failed, retryCount: 0 }));
     expect(result.retryCount).toBe(1);
-    expect(result.status).toBe('success');
+    expect(result.status).toBe(PrintJobStatus.success);
   });
 
   it('never runs two jobs for the same printerId concurrently when the printer is not found in getPrinters (resourceKeyFor falls back to printerId)', async () => {

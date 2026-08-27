@@ -7,7 +7,7 @@ import type { PrintType } from '../types/printConfiguration.types';
 import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
 import type { PrintDocumentVariants } from '../types/driver.types';
-import type { PrintJob, PrintResult } from '../types/printJob.types';
+import { PrintJobStatus, type PrintJob, type PrintResult } from '../types/printJob.types';
 
 export type { PrintDocumentVariants };
 
@@ -50,13 +50,13 @@ export const createPrintService = (deps: PrintServiceDeps) => {
           printerId: printer.id,
           printType,
           documentVariants,
-          status: 'pending',
+          status: PrintJobStatus.pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),
         }),
       ),
     );
-    const successCount = jobs.filter((job) => job.status === 'success').length;
+    const successCount = jobs.filter((job) => job.status === PrintJobStatus.success).length;
     const status = successCount === jobs.length ? 'success' : successCount === 0 ? 'failed' : 'partial-failure';
     return { status, jobs };
   };

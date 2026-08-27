@@ -1,5 +1,5 @@
 import type { PrintDocument } from '../printDocument.types';
-import type { PrintJob, PrintResult } from '../printJob.types';
+import { PrintJobStatus, type PrintJob, type PrintResult } from '../printJob.types';
 import { AppErrorCode } from '../AppError';
 import { PrintType } from '../printConfiguration.types';
 
@@ -13,11 +13,11 @@ describe('print job types', () => {
       printerId: 'p1',
       printType: PrintType.Receipt,
       documentVariants: { text: document },
-      status: 'pending',
+      status: PrintJobStatus.pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
-    expect(job.status).toBe('pending');
+    expect(job.status).toBe(PrintJobStatus.pending);
   });
 
   it('accepts every PrintResult status', () => {

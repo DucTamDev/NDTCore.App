@@ -2,7 +2,15 @@ import type { AppError } from './AppError';
 import type { PrintDocumentVariants } from './driver.types';
 import type { PrintType } from './printConfiguration.types';
 
-export type PrintJobStatus = 'pending' | 'printing' | 'success' | 'failed' | 'cancelled';
+export const PrintJobStatus = {
+  pending: 'pending',
+  printing: 'printing',
+  success: 'success',
+  failed: 'failed',
+  cancelled: 'cancelled',
+} as const;
+
+export type PrintJobStatus = (typeof PrintJobStatus)[keyof typeof PrintJobStatus];
 
 export interface PrintJob {
   id: string;
