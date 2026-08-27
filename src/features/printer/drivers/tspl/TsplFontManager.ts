@@ -9,7 +9,7 @@ import type { TsplTransport } from './TsplDriver';
 /** Font mặc định bundle sẵn trong app — chỉ 1 font ở phase này, xem spec §4/§10. */
 export const DEFAULT_TSPL_FONT: TsplFontConfig = {
   name: 'VIETFONT',
-  fileName: 'NotoSans-Regular.ttf',
+  fileName: 'Roboto-Regular.ttf',
   fontInstalled: false,
 };
 

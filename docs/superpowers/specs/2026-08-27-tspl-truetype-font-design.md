@@ -72,9 +72,9 @@ Không thêm `version`/`fontHash` ở phase này — hiện chỉ có đúng 1 f
 
 ## 4. Font asset
 
-Đọc byte thô của file `.ttf` qua **`react-native-fs`** (dependency mới, chỉ dùng cho tính năng này) — `require()`/Metro bundler không cho truy cập byte thô của asset không phải ảnh, nên không dùng được `src/assets/`. `RNFS.readFileAssets(path, 'base64')` chỉ đọc được từ thư mục asset **native Android** (`android/app/src/main/assets/`), không phải thư mục JS — vì vậy file font phải đặt tại `android/app/src/main/assets/fonts/NotoSans-Regular.ttf`, KHÔNG phải `src/assets/fonts/`. Tính năng này do đó chỉ verify được trên Android; iOS chưa có đường dẫn tương đương được thiết kế ở phase này (tương tự giới hạn "USB chỉ Android" đã có sẵn trong module).
+Đọc byte thô của file `.ttf` qua **`react-native-fs`** (dependency mới, chỉ dùng cho tính năng này) — `require()`/Metro bundler không cho truy cập byte thô của asset không phải ảnh, nên không dùng được `src/assets/`. `RNFS.readFileAssets(path, 'base64')` chỉ đọc được từ thư mục asset **native Android** (`android/app/src/main/assets/`), không phải thư mục JS — vì vậy file font phải đặt tại `android/app/src/main/assets/fonts/`, KHÔNG phải `src/assets/fonts/`. Tính năng này do đó chỉ verify được trên Android; iOS chưa có đường dẫn tương đương được thiết kế ở phase này (tương tự giới hạn "USB chỉ Android" đã có sẵn trong module).
 
-Đề xuất **Noto Sans Regular** (giấy phép Apache 2.0, phủ đầy đủ Unicode tiếng Việt) làm font mặc định — file `.ttf` thật phải được người vận hành tải về và đặt tay vào đúng đường dẫn trên (không có cách nào lấy binary thật qua các bước tự động của plan/agent).
+Font mặc định đã bundle: **Roboto-Regular** (`android/app/src/main/assets/fonts/Roboto-Regular.ttf`, ~145KB) — người dùng chọn từ bộ font UI có sẵn của app, hỗ trợ tiếng Việt. `DEFAULT_TSPL_FONT.fileName` trong `TsplFontManager.ts` trỏ đúng file này.
 
 ---
 
@@ -188,7 +188,7 @@ encode(printer, driver, documents, printType) {
 ## 8. UI (`PrinterInfoCard.tsx`)
 
 Driver card TSPL: thay dòng tĩnh "Chế độ render: Bitmap" (từ refactor trước) bằng `AppSwitch` **"In bằng font TrueType (thử nghiệm)"**. Khi bật:
-1. Validate `name` (nếu chưa có `font` config, dùng giá trị mặc định cố định trong code, vd `name: 'VIETFONT'`, `fileName: 'NotoSans-Regular.ttf'` — không cần UI nhập tay tên font ở phase này, chỉ 1 font bundle sẵn).
+1. Validate `name` (nếu chưa có `font` config, dùng giá trị mặc định cố định trong code — `DEFAULT_TSPL_FONT`: `name: 'VIETFONT'`, `fileName: 'Roboto-Regular.ttf'` — không cần UI nhập tay tên font ở phase này, chỉ 1 font bundle sẵn).
 2. Gọi `ensureFontInstalled` (hiện loading ngắn trên switch).
 3. Theo luồng §6 — thành công thì giữ switch bật, thất bại thì switch tự tắt lại (revert) + Snackbar báo lỗi.
 
