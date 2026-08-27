@@ -14,7 +14,7 @@ import { PrinterLogger } from '../../services/PrinterLogger';
 import { PAPER_WIDTH_CHARS, PAPER_IMAGE_WIDTH_PX, formatRow } from '../../utils/paperWidth';
 import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
 
-type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
+export type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
 const IDENTIFY_TIMEOUT_MS = 1000;
 
