@@ -1,6 +1,7 @@
 // src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
+import { isTsplTrueTypeActive } from '../../types/printer.types';
 import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import type { PrintType } from '../../types/printConfiguration.types';
@@ -166,9 +167,8 @@ export class TsplDriver implements IPrinterDriver {
    * không có nhánh nào khác — xem spec 2026-08-27 §7.
    */
   private resolveDocumentAndFont(driver: PrinterDriver, documents: PrintDocumentVariants): { document: PrintDocument; fontName: string } {
-    const config = driver.config;
-    if (config.type === 'tspl' && config.renderMode === 'truetype' && config.font?.fontInstalled) {
-      return { document: documents.text, fontName: config.font.name };
+    if (isTsplTrueTypeActive(driver) && driver.config.type === 'tspl' && driver.config.font) {
+      return { document: documents.text, fontName: driver.config.font.name };
     }
     return { document: documents.image ?? documents.text, fontName: '3' };
   }

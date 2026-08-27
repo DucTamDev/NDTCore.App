@@ -1,8 +1,10 @@
-import type { PrinterDriverType } from '../types/printer.types';
+import type { PrinterDriverConfig, PrinterDriverType } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 
 export interface PrinterDriverDefinition {
   contentTypes: PrintType[];
+  /** Config khởi tạo khi thêm 1 driver mới loại này — nguồn sự thật duy nhất, không viết tay rải rác ở nơi gọi. */
+  defaultConfig: PrinterDriverConfig;
 }
 
 /**
@@ -13,8 +15,8 @@ export interface PrinterDriverDefinition {
  * không đáng tin (xem CLAUDE.md).
  */
 export const PRINTER_DRIVER_DEFINITIONS: Record<PrinterDriverType, PrinterDriverDefinition> = {
-  escpos: { contentTypes: ['Receipt'] },
-  tspl: { contentTypes: ['Receipt', 'Label'] },
+  escpos: { contentTypes: ['Receipt'], defaultConfig: { type: 'escpos' } },
+  tspl: { contentTypes: ['Receipt', 'Label'], defaultConfig: { type: 'tspl', renderMode: 'bitmap' } },
 };
 
 export const getDriverDefinition = (type: PrinterDriverType): PrinterDriverDefinition => PRINTER_DRIVER_DEFINITIONS[type];

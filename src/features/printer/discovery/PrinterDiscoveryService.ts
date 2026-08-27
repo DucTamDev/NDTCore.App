@@ -2,6 +2,7 @@ import type { IPrinterDriver } from '../types/driver.types';
 import type { Printer, PrinterDeviceInfo, PrinterDriverType } from '../types/printer.types';
 import type { AppError } from '../types/AppError';
 import { PrinterLogger } from '../services/PrinterLogger';
+import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 
 /**
  * Thử `tspl` trước `escpos` — xem lý do ở lịch sử `discoverProtocol.ts`
@@ -61,7 +62,7 @@ export const createDiscoverDriver =
         if (cancelled) return;
         candidatesTried.push(type);
         const driver = registry[type];
-        const draftDriver = { type, source: 'auto' as const, contentTypes: [], config: type === 'tspl' ? { type: 'tspl' as const, renderMode: 'bitmap' as const } : { type: 'escpos' as const } };
+        const draftDriver = { type, source: 'auto' as const, contentTypes: [], config: getDriverDefinition(type).defaultConfig };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: 'connecting', protocol: type });
         try {

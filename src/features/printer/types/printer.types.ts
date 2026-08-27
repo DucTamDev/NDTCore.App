@@ -87,6 +87,16 @@ export interface PrinterDriver {
   config: PrinterDriverConfig;
 }
 
+/**
+ * `true` chỉ khi driver là TSPL, `renderMode` đang `'truetype'` VÀ font đã
+ * cài thành công (`font.fontInstalled`) — nguồn sự thật duy nhất cho điều
+ * kiện này, dùng ở cả tầng driver (`TsplDriver.resolveDocumentAndFont`) lẫn
+ * tầng UI/print routing (`PrintService`, `AddPrinterModal`, `PrinterInfoCard`)
+ * để tránh viết tay lặp lại cùng 1 điều kiện ở nhiều nơi.
+ */
+export const isTsplTrueTypeActive = (driver: PrinterDriver): boolean =>
+  driver.type === 'tspl' && driver.config.type === 'tspl' && driver.config.renderMode === 'truetype' && !!driver.config.font?.fontInstalled;
+
 export interface Printer {
   id: string;
   name: string;

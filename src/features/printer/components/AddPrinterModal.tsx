@@ -25,6 +25,7 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import type { PrintType } from '../types/printConfiguration.types';
+import { isTsplTrueTypeActive } from '../types/printer.types';
 import type {
   ConnectionType,
   Printer,
@@ -171,8 +172,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   const addDriverToList = (type: PrinterDriverType, source: 'auto' | 'manual'): PrinterDriver => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
     const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
-    const config = type === 'tspl' ? ({ type: 'tspl', renderMode: 'bitmap' } as const) : ({ type: 'escpos' } as const);
-    const entry: PrinterDriver = { type, source, contentTypes, config };
+    const entry: PrinterDriver = { type, source, contentTypes, config: getDriverDefinition(type).defaultConfig };
     setDrivers((prev) => [...prev, entry]);
     return entry;
   };
@@ -247,7 +247,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       type: chosenProtocol,
       source: 'manual',
       contentTypes: [],
-      config: chosenProtocol === 'tspl' ? { type: 'tspl', renderMode: 'bitmap' } : { type: 'escpos' },
+      config: getDriverDefinition(chosenProtocol).defaultConfig,
     };
     const draftPrinter: Printer = { ...buildDraftPrinter(), drivers: [...drivers, draftDriver] };
     PrinterService.connectDraft(draftPrinter, draftDriver)
@@ -340,8 +340,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocumentVariants> => {
-    const usesTrueType = driver.type === 'tspl' && driver.config.type === 'tspl' && driver.config.renderMode === 'truetype' && driver.config.font?.fontInstalled;
-    if (driver.type !== 'tspl' || usesTrueType) return { text: document };
+    if (driver.type !== 'tspl' || isTsplTrueTypeActive(driver)) return { text: document };
     const base64 = await captureBillImage(document, printer.paperSize);
     if (!base64) return { text: document };
     return { text: document, image: { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] } };
