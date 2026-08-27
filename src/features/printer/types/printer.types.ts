@@ -16,7 +16,13 @@ export const ConnectionType = {
 export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
 export type PaperSize = 58 | 80;
 export type DriverSource = 'auto' | 'manual';
-export type TsplRenderMode = 'bitmap' | 'truetype';
+
+export const TsplRenderMode = {
+  bitmap: 'bitmap',
+  truetype: 'truetype',
+} as const;
+
+export type TsplRenderMode = (typeof TsplRenderMode)[keyof typeof TsplRenderMode];
 
 export const PrinterStatus = {
   idle: 'idle',
@@ -117,7 +123,7 @@ export interface PrinterDriver {
 export const isTsplTrueTypeActive = (driver: PrinterDriver): boolean =>
   driver.type === PrinterDriverType.tspl &&
   driver.config.type === PrinterDriverType.tspl &&
-  driver.config.renderMode === 'truetype' &&
+  driver.config.renderMode === TsplRenderMode.truetype &&
   !!driver.config.font?.fontInstalled;
 
 export interface Printer {

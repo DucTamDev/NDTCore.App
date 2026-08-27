@@ -3,7 +3,7 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
@@ -20,7 +20,7 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
 });
 
 const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
+const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
 
 const basePrinter: Printer = {
   id: 'p1',

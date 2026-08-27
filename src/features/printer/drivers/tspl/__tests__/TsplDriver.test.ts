@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
@@ -85,7 +85,7 @@ const tsplDriverEntry: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: 'auto',
   contentTypes: [PrintType.Label],
-  config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
+  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
 };
 
 const lanPrinter: Printer = {
@@ -534,7 +534,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: PrinterDriverType.tspl, renderMode: 'bitmap', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
     };
     const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
     const bytes = driver.encode(lanPrinter, driverWithFont, withImage);
@@ -546,7 +546,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithInstalledFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
     };
     const bytes = driver.encode(lanPrinter, driverWithInstalledFont, sampleDocuments);
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
@@ -558,7 +558,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithUninstalledFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: false } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { ...DEFAULT_TSPL_FONT, fontInstalled: false } },
     };
     const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
     const bytes = driver.encode(lanPrinter, driverWithUninstalledFont, withImage);
@@ -568,7 +568,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
 
   it('encode() falls back to bitmap when renderMode is truetype but no font config exists at all', () => {
     const driver = new TsplDriver();
-    const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: 'truetype' } };
+    const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype } };
     const bytes = driver.encode(lanPrinter, driverNoFont, sampleDocuments);
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('"3"'); // built-in bitmap font, the bitmap-mode default

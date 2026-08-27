@@ -25,7 +25,7 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type {
   Printer,
   PrinterDevice,
@@ -314,7 +314,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
     if (!enabled) {
       setDrivers((prev) =>
-        prev.map((d) => (d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: { ...d.config, renderMode: 'bitmap' } } : d)),
+        prev.map((d) => (d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: { ...d.config, renderMode: TsplRenderMode.bitmap } } : d)),
       );
       return;
     }
@@ -326,7 +326,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       setDrivers((prev) =>
         prev.map((d) =>
           d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl
-            ? { ...d, config: { ...d.config, renderMode: 'truetype', font: { ...font, fontInstalled: true } } }
+            ? { ...d, config: { ...d.config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } } }
             : d,
         ),
       );

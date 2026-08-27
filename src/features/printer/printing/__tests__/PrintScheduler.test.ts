@@ -3,12 +3,12 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,

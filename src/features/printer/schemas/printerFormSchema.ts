@@ -1,7 +1,7 @@
 // src/features/printer/schemas/printerFormSchema.ts
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { ConnectionType, PrinterDriverType } from '../types/printer.types';
+import { ConnectionType, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -42,7 +42,7 @@ const tsplFontConfigSchema = z.object({
 
 const tsplDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.tspl),
-  renderMode: z.enum(['bitmap', 'truetype']),
+  renderMode: z.enum([TsplRenderMode.bitmap, TsplRenderMode.truetype]),
   font: tsplFontConfigSchema.optional(),
   labelHeightMm: z.number().positive().optional(),
 });

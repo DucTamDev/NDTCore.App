@@ -1,5 +1,5 @@
 import { PRINTER_DRIVER_DEFINITIONS, getDriverDefinition } from '../PrinterDriverDefinitions';
-import { PrinterDriverType } from '../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 describe('PrinterDriverDefinitions', () => {
@@ -20,6 +20,6 @@ describe('PrinterDriverDefinitions', () => {
   });
 
   it('tspl default config is { type: tspl, renderMode: bitmap }', () => {
-    expect(PRINTER_DRIVER_DEFINITIONS.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: 'bitmap' });
+    expect(PRINTER_DRIVER_DEFINITIONS.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap });
   });
 });

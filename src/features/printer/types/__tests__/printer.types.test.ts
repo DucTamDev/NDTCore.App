@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
 import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
@@ -8,7 +8,7 @@ describe('printer domain types', () => {
       type: PrinterDriverType.tspl,
       source: 'auto',
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
     };
     const printer: Printer = {
       id: 'p1',
@@ -32,7 +32,7 @@ describe('printer domain types', () => {
       name: 'Máy in đa năng',
       drivers: [
         { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } },
-        { type: PrinterDriverType.tspl, source: 'manual', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } },
+        { type: PrinterDriverType.tspl, source: 'manual', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } },
       ],
       connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} },
