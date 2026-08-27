@@ -78,9 +78,37 @@ describe('PrintService.imageDocumentPaperSize', () => {
     expect(createPrintService(deps).imageDocumentPaperSize('Receipt')).toBeNull();
   });
 
-  it('returns the paperSize of the tspl target — TSPL always wants image now, no toggle', () => {
+  it('returns the paperSize of the tspl target when it is in bitmap mode', () => {
     const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [tsplDriver] }), driver: tsplDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize('Receipt')).toBe(58);
+  });
+
+  it('returns null when the only tspl target is fully switched to truetype (installed font) — encode() discards the image entirely', () => {
+    const truetypeDriver: PrinterDriver = {
+      type: 'tspl',
+      source: 'auto',
+      contentTypes: ['Label'],
+      config: { type: 'tspl', renderMode: 'truetype', font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+    };
+    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
+    expect(createPrintService(deps).imageDocumentPaperSize('Receipt')).toBeNull();
+  });
+
+  it('returns the bitmap target paperSize when a mix of truetype+installed and bitmap tspl targets both resolve the same printType', () => {
+    const truetypeDriver: PrinterDriver = {
+      type: 'tspl',
+      source: 'auto',
+      contentTypes: ['Receipt'],
+      config: { type: 'tspl', renderMode: 'truetype', font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+    };
+    const deps = makeDeps(
+      [
+        { printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeDriver] }), driver: truetypeDriver },
+        { printer: makePrinter('p2', { paperSize: 80, drivers: [tsplDriver] }), driver: tsplDriver },
+      ],
+      () => { throw new Error('unused'); },
+    );
+    expect(createPrintService(deps).imageDocumentPaperSize('Receipt')).toBe(80);
   });
 
   it('the real exported PrintService singleton has no configured printers by default, so it returns null', () => {

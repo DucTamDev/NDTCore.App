@@ -59,6 +59,19 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     expect(transport.write).not.toHaveBeenCalled();
   });
 
+  it('rejects with VALIDATION_ERROR when the font asset decodes to 0 bytes', async () => {
+    Object.defineProperty(Platform, 'OS', { get: () => 'android' });
+    const RNFS = jest.requireMock('react-native-fs') as { readFileAssets: jest.Mock };
+    RNFS.readFileAssets.mockResolvedValue('');
+    const manager = new TsplFontManager();
+    const transport = makeTransport();
+
+    await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    expect(transport.write).not.toHaveBeenCalled();
+  });
+
   it('rejects with CONNECTION_ERROR when the transport write fails', async () => {
     Object.defineProperty(Platform, 'OS', { get: () => 'android' });
     const RNFS = jest.requireMock('react-native-fs') as { readFileAssets: jest.Mock };

@@ -48,6 +48,17 @@ export interface TsplFontConfig {
    * Chỉ nghĩa "lệnh DOWNLOAD đã gửi xong không lỗi ở tầng transport" —
    * KHÔNG đảm bảo máy in thật sự lưu/nhận diện được font (không có cách
    * nào từ phần mềm xác nhận điều đó, tương tự giới hạn identityKey USB).
+   *
+   * Giá trị này được lưu (`PrinterStorage`, MMKV) và KHÔNG bao giờ được
+   * verify lại sau khi set — kể cả sau khi reconnect/mất điện máy in
+   * (quyết định thiết kế đã chốt, xem spec 2026-08-27 §7: "reconnect cùng
+   * printer, fontInstalled vẫn true → không DOWNLOAD lại"). Nếu firmware
+   * máy in lưu font ở vùng nhớ tạm (DRAM, không phải flash) — khả năng có
+   * thật với cú pháp `DOWNLOAD` không có flag `F` — font có thể mất sau
+   * khi máy in mất điện mà `fontInstalled` vẫn `true` trong app, dẫn tới
+   * `TEXT` tham chiếu 1 font không còn tồn tại. Chưa có cách software nào
+   * phát hiện việc này (không có hardware thật để verify). Người dùng cần
+   * tắt rồi bật lại switch TrueType nếu nghi ngờ máy in đã mất font.
    */
   fontInstalled: boolean;
 }
@@ -58,6 +69,7 @@ export interface TsplDriverConfig {
   renderMode: TsplRenderMode;
   /** Chỉ có khi renderMode từng được đặt 'truetype' ít nhất 1 lần. */
   font?: TsplFontConfig;
+  /** Chiều cao vật lý nhãn (mm) — tương ứng lệnh `SIZE`/`GAP`. `undefined` nghĩa dùng `DEFAULT_LABEL_HEIGHT_MM`. */
   labelHeightMm?: number;
 }
 

@@ -353,4 +353,58 @@ describe('PrinterService', () => {
 
     expect(tsplDriver.installTrueTypeFont).toHaveBeenCalledWith('p1', font);
   });
+
+  it('installTsplFont() runs the driver call through the connection lock, keyed by connectionResourceKey, for a saved printer', async () => {
+    const tsplDriver = { ...makeMockDriver(), installTrueTypeFont: jest.fn().mockResolvedValue(undefined) };
+    const lock = createResourceLock();
+    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, lock);
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
+    service.addPrinter(twoDriverPrinter);
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await service.installTsplFont(twoDriverPrinter.id, font);
+
+    expect(runExclusiveSpy).toHaveBeenCalledWith('tspl:lan:192.168.1.10:9100', expect.any(Function));
+    expect(tsplDriver.installTrueTypeFont).toHaveBeenCalledWith(twoDriverPrinter.id, font);
+  });
+
+  it('installTsplFont() is actually mutually exclusive — two concurrent calls on the same printer never overlap the driver write', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const tsplDriver = {
+      ...makeMockDriver(),
+      installTrueTypeFont: jest.fn().mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }),
+    };
+    const lock = createResourceLock();
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, lock);
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
+    service.addPrinter(twoDriverPrinter);
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await Promise.all([
+      service.installTsplFont(twoDriverPrinter.id, font),
+      service.installTsplFont(twoDriverPrinter.id, font),
+    ]);
+
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('installTsplFont() falls back to the bare printerId as the lock key for a draft (unsaved) printer', async () => {
+    const tsplDriver = { ...makeMockDriver(), installTrueTypeFont: jest.fn().mockResolvedValue(undefined) };
+    const lock = createResourceLock();
+    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, lock);
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await service.installTsplFont('draft-not-saved', font);
+
+    expect(runExclusiveSpy).toHaveBeenCalledWith('draft-not-saved', expect.any(Function));
+    expect(tsplDriver.installTrueTypeFont).toHaveBeenCalledWith('draft-not-saved', font);
+  });
 });

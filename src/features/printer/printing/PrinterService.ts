@@ -162,13 +162,28 @@ export const createPrinterService = (
   const discoverDriver = (input: DiscoveryInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
 
   /**
+   * Rơi về `printerId` nếu chưa lưu (flow thêm máy in mới trong
+   * AddPrinterModal gọi installTsplFont trước khi printer có trong storage)
+   * — an toàn vì draft printer chưa lưu không thể trùng resource key với
+   * printer khác. Cùng pattern với `PrintScheduler.resourceKeyFor`.
+   */
+  const resourceKeyForTsplPrinterId = (printerId: string): string => {
+    const printer = getPrinters().find((p) => p.id === printerId);
+    if (!printer) return printerId;
+    return resourceKeyFor(printer, 'tspl');
+  };
+
+  /**
    * Passthrough TSPL-riêng — KHÔNG đưa vào `IPrinterDriver` chung vì tính
    * năng này chỉ có nghĩa với TSPL, ESC/POS không có khái niệm font custom.
    * Cast trực tiếp sang `TsplDriver` vì `registry.tspl` luôn là instance đó.
+   * Qua `lock.runExclusive` như mọi thao tác ghi transport khác trong file
+   * này — DOWNLOAD gửi hàng trăm KB, không được interleave với 1 print job
+   * đang chạy trên cùng kết nối (final review finding, xem ledger).
    */
   const installTsplFont = async (printerId: string, font: TsplFontConfig): Promise<void> => {
     const tsplDriver = getDriver('tspl') as TsplDriver;
-    await tsplDriver.installTrueTypeFont(printerId, font);
+    await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), () => tsplDriver.installTrueTypeFont(printerId, font));
   };
 
   return {

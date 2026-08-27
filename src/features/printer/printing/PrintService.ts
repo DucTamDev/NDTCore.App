@@ -16,14 +16,20 @@ interface PrintServiceDeps {
 
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
-   * `paperSize` cần để render ảnh cho `printType` này, hoặc `null` nếu không
-   * có target nào dùng driver tspl — TSPL `renderMode` luôn `'bitmap'` nên
-   * hễ có tspl target là cần ảnh, không còn toggle `tsplRenderAsImage` như
-   * trước (spec §4.4). Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
-   * capture khi có giá trị trả về.
+   * `paperSize` cần để render ảnh cho `printType` này, hoặc `null` nếu
+   * không có target nào tspl thật sự cần ảnh. TSPL `renderMode` có thể là
+   * `'bitmap'` (mặc định, cần ảnh) HOẶC `'truetype'` (thử nghiệm — khi đã
+   * cài font thành công thì `TsplDriver.encode()` dùng thẳng `documents.text`,
+   * bỏ qua `documents.image` hoàn toàn, xem spec 2026-08-27 §7) — nên chỉ
+   * coi là "cần ảnh" nếu target CHƯA ở chế độ truetype đã cài font xong.
+   * Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi có giá
+   * trị trả về.
    */
+  const usesTrueTypeRender = (driver: PrintTarget['driver']): boolean =>
+    driver.type === 'tspl' && driver.config.type === 'tspl' && driver.config.renderMode === 'truetype' && !!driver.config.font?.fontInstalled;
+
   const imageDocumentPaperSize = (printType: PrintType): PaperSize | null => {
-    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === 'tspl');
+    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === 'tspl' && !usesTrueTypeRender(t.driver));
     return target ? target.printer.paperSize : null;
   };
 

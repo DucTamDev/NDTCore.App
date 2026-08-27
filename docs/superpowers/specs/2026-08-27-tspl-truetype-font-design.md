@@ -180,6 +180,7 @@ encode(printer, driver, documents, printType) {
 | Cài font thất bại (§6) | Bitmap — `renderMode` không bao giờ được set `'truetype'` nếu cài thất bại |
 | `font.name` không khớp regex | Bitmap + báo lỗi ngay tại UI, không gọi `ensureFontInstalled` |
 | Reconnect cùng printer, `font.fontInstalled` vẫn `true` | Không `DOWNLOAD` lại — dùng luôn `'truetype'` |
+| Máy in mất điện/factory reset giữa 2 lần kết nối, `font.fontInstalled` vẫn `true` (app không biết) | Không phát hiện được — vẫn dùng `'truetype'`, có thể in sai/trắng. Giới hạn đã biết, chấp nhận được vì không có cách verify từ software (tương tự giới hạn identify() qua USB). Người dùng tự tắt/bật lại switch nếu nghi ngờ. |
 | Đổi sang printer khác | Tính lại từ đầu — tự nhiên đúng vì `TsplDriverConfig` nằm trong từng `PrinterDriver` của từng `Printer` riêng, không có state global dùng chung |
 
 ---

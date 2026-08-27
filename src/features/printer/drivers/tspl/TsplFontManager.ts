@@ -37,10 +37,19 @@ export class TsplFontManager {
       throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 
-    const fontBytes = Buffer.from(base64, 'base64');
-    const header = Buffer.from(`DOWNLOAD "${font.name}",${fontBytes.length}\r\n`, 'utf8');
-    const footer = Buffer.from('\r\n', 'utf8');
-    const payload = new Uint8Array(Buffer.concat([header, fontBytes, footer]));
+    let payload: Uint8Array;
+    try {
+      const fontBytes = Buffer.from(base64, 'base64');
+      if (fontBytes.length === 0) {
+        throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `File font "${font.fileName}" rỗng` });
+      }
+      const header = Buffer.from(`DOWNLOAD "${font.name}",${fontBytes.length}\r\n`, 'utf8');
+      const footer = Buffer.from('\r\n', 'utf8');
+      payload = new Uint8Array(Buffer.concat([header, fontBytes, footer]));
+    } catch (error) {
+      if (error instanceof AppErrorException) throw error;
+      throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `Không đọc được file font "${font.fileName}" từ assets` });
+    }
 
     try {
       await transport.write(payload);
