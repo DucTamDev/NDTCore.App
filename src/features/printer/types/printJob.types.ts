@@ -28,7 +28,14 @@ export interface PrintJob {
   completedAt?: string;
 }
 
-export type PrintResultStatus = 'success' | 'partial-failure' | 'failed' | 'no-available-printer';
+export const PrintResultStatus = {
+  success: 'success',
+  partialFailure: 'partial-failure',
+  failed: 'failed',
+  noAvailablePrinter: 'no-available-printer',
+} as const;
+
+export type PrintResultStatus = (typeof PrintResultStatus)[keyof typeof PrintResultStatus];
 
 export interface PrintResult {
   status: PrintResultStatus;

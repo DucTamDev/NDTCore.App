@@ -7,7 +7,7 @@ import type { PrintType } from '../types/printConfiguration.types';
 import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
 import type { PrintDocumentVariants } from '../types/driver.types';
-import { PrintJobStatus, type PrintJob, type PrintResult } from '../types/printJob.types';
+import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../types/printJob.types';
 
 export type { PrintDocumentVariants };
 
@@ -36,7 +36,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
     const targets = deps.routing.resolveTargets(printType);
     if (targets.length === 0) {
       return {
-        status: 'no-available-printer',
+        status: PrintResultStatus.noAvailablePrinter,
         jobs: [],
         error: { code: AppErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
       };
@@ -57,7 +57,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
       ),
     );
     const successCount = jobs.filter((job) => job.status === PrintJobStatus.success).length;
-    const status = successCount === jobs.length ? 'success' : successCount === 0 ? 'failed' : 'partial-failure';
+    const status = successCount === jobs.length ? PrintResultStatus.success : successCount === 0 ? PrintResultStatus.failed : PrintResultStatus.partialFailure;
     return { status, jobs };
   };
 

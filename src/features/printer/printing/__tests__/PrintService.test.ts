@@ -1,7 +1,7 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
+import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../types/printJob.types';
 import { AppErrorCode } from '../../types/AppError';
 import { PrintType } from '../../types/printConfiguration.types';
 
@@ -27,7 +27,7 @@ describe('PrintService.print', () => {
     const deps = makeDeps([], () => { throw new Error('should not be called'); });
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
-    expect(result.status).toBe('no-available-printer');
+    expect(result.status).toBe(PrintResultStatus.noAvailablePrinter);
     expect(result.error?.code).toBe(AppErrorCode.NO_AVAILABLE_PRINTER);
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
@@ -50,7 +50,7 @@ describe('PrintService.print', () => {
       (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
-    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe('success');
+    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.success);
   });
 
   it('reports partial-failure on mixed results', async () => {
@@ -59,7 +59,7 @@ describe('PrintService.print', () => {
       (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.success : PrintJobStatus.failed, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
-    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe('partial-failure');
+    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.partialFailure);
   });
 
   it('reports failed with no top-level error when every job fails', async () => {
@@ -69,7 +69,7 @@ describe('PrintService.print', () => {
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
-    expect(result.status).toBe('failed');
+    expect(result.status).toBe(PrintResultStatus.failed);
     expect(result.error).toBeUndefined();
   });
 });

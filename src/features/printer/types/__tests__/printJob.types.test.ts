@@ -1,5 +1,5 @@
 import type { PrintDocument } from '../printDocument.types';
-import { PrintJobStatus, type PrintJob, type PrintResult } from '../printJob.types';
+import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../printJob.types';
 import { AppErrorCode } from '../AppError';
 import { PrintType } from '../printConfiguration.types';
 
@@ -24,10 +24,10 @@ describe('print job types', () => {
     // 'PRINT_ERROR' here is just an existing AppErrorCode to satisfy the shape —
     // 'NO_AVAILABLE_PRINTER' isn't added until Task 10, which runs after this one.
     const results: PrintResult[] = [
-      { status: 'success', jobs: [] },
-      { status: 'partial-failure', jobs: [] },
-      { status: 'failed', jobs: [] },
-      { status: 'no-available-printer', jobs: [], error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } },
+      { status: PrintResultStatus.success, jobs: [] },
+      { status: PrintResultStatus.partialFailure, jobs: [] },
+      { status: PrintResultStatus.failed, jobs: [] },
+      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });

@@ -1,4 +1,5 @@
 import { PrintService, type PrintDocumentVariants } from '../../printer/printing/PrintService';
+import { PrintResultStatus } from '../../printer/types/printJob.types';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { formatDateTime, PAYMENT_METHOD_LABEL } from '../utils/billFormat';
@@ -195,8 +196,8 @@ export const printReceipt = async (
   try {
     const documents = await buildPrintDocumentVariants(PrintType.Receipt, textDocument, captureBillImage);
     const result = await PrintService.print(PrintType.Receipt, documents);
-    if (result.status === 'no-available-printer') return 'no-printer';
-    if (result.status === 'failed' || result.status === 'partial-failure') {
+    if (result.status === PrintResultStatus.noAvailablePrinter) return 'no-printer';
+    if (result.status === PrintResultStatus.failed || result.status === PrintResultStatus.partialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);
       return 'failed';
     }
