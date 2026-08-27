@@ -43,6 +43,10 @@ export interface PrinterInfoCardProps {
   onTestPrintReceipt: () => void;
   testPrintLabelPending: boolean;
   onTestPrintLabel: () => void;
+  /** Bật/tắt renderMode truetype cho driver TSPL (chỉ có ý nghĩa khi có driver type 'tspl' trong `drivers`). */
+  onToggleTsplFont: (enabled: boolean) => void;
+  /** true trong lúc đang chạy `ensureFontInstalled` — vô hiệu hoá switch để tránh double-tap. */
+  tsplFontPending: boolean;
   onSave: () => void;
   saveDisabled: boolean;
   locked: boolean;
@@ -62,6 +66,8 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   onTestPrintReceipt,
   testPrintLabelPending,
   onTestPrintLabel,
+  onToggleTsplFont,
+  tsplFontPending,
   onSave,
   saveDisabled,
   locked,
@@ -128,7 +134,14 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
-          {driver.type === 'tspl' ? <Text variant="bodySmall" style={styles.renderModeLabel}>Chế độ render: Bitmap</Text> : null}
+          {driver.type === 'tspl' ? (
+            <AppSwitch
+              label="In bằng font TrueType (thử nghiệm)"
+              value={driver.config.type === 'tspl' && driver.config.renderMode === 'truetype'}
+              onValueChange={onToggleTsplFont}
+              disabled={locked || tsplFontPending}
+            />
+          ) : null}
         </View>
       ))}
 
@@ -159,7 +172,6 @@ const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   driverCard: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
-  renderModeLabel: { color: '#6B7280' },
   testPrintRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   testPrintButton: { flex: 1 },
 });
