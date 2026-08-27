@@ -1,16 +1,16 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
-import { ConnectionType, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const escposDriver: PrinterDriver = {
   type: PrinterDriverType.escpos,
-  source: 'auto',
+  source: DriverSource.auto,
   contentTypes: [PrintType.Receipt],
   config: { type: PrinterDriverType.escpos },
 };
 const tsplDriver: PrinterDriver = {
   type: PrinterDriverType.tspl,
-  source: 'auto',
+  source: DriverSource.auto,
   contentTypes: [PrintType.Label],
   config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
 };
@@ -72,7 +72,7 @@ describe('printerDriverSchema', () => {
   it('accepts a tspl driver with renderMode bitmap and no font', () => {
     const driver: PrinterDriver = {
       type: PrinterDriverType.tspl,
-      source: 'auto',
+      source: DriverSource.auto,
       contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
     };
@@ -81,7 +81,7 @@ describe('printerDriverSchema', () => {
 
   it('accepts a tspl driver with renderMode truetype and a valid font config', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
+      type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(true);
@@ -89,7 +89,7 @@ describe('printerDriverSchema', () => {
 
   it('rejects a font name containing invalid characters', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
+      type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIET FONT"', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);
@@ -97,7 +97,7 @@ describe('printerDriverSchema', () => {
 
   it('rejects an empty font name', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label],
+      type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: '', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);

@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
@@ -83,7 +83,7 @@ jest.mock('../../../services/PrinterLogger', () => ({
 
 const tsplDriverEntry: PrinterDriver = {
   type: PrinterDriverType.tspl,
-  source: 'auto',
+  source: DriverSource.auto,
   contentTypes: [PrintType.Label],
   config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
 };

@@ -1,7 +1,7 @@
 // src/features/printer/schemas/printerFormSchema.ts
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { ConnectionType, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -61,7 +61,7 @@ const printerDriverConfigSchema = z.discriminatedUnion('type', [tsplDriverConfig
 export const printerDriverSchema = z
   .object({
     type: z.enum([PrinterDriverType.escpos, PrinterDriverType.tspl]),
-    source: z.enum(['auto', 'manual']),
+    source: z.enum([DriverSource.auto, DriverSource.manual]),
     contentTypes: z.array(printContentTypeSchema).min(1),
     config: printerDriverConfigSchema,
   })

@@ -15,7 +15,13 @@ export const ConnectionType = {
 
 export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
 export type PaperSize = 58 | 80;
-export type DriverSource = 'auto' | 'manual';
+
+export const DriverSource = {
+  auto: 'auto',
+  manual: 'manual',
+} as const;
+
+export type DriverSource = (typeof DriverSource)[keyof typeof DriverSource];
 
 export const TsplRenderMode = {
   bitmap: 'bitmap',

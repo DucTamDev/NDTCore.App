@@ -1,6 +1,6 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
-import { ConnectionType, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
 import { AppErrorCode } from '../../types/AppError';
 import { PrintType } from '../../types/printConfiguration.types';
@@ -8,8 +8,8 @@ import { PrintType } from '../../types/printConfiguration.types';
 const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', x: 0, y: 0 }] };
 const imageDocument = { elements: [{ type: 'image' as const, data: 'base64...', x: 0, y: 0 }] };
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
+const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
   id, name: id, drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
@@ -88,7 +88,7 @@ describe('PrintService.imageDocumentPaperSize', () => {
   it('returns null when the only tspl target is fully switched to truetype (installed font) — encode() discards the image entirely', () => {
     const truetypeDriver: PrinterDriver = {
       type: PrinterDriverType.tspl,
-      source: 'auto',
+      source: DriverSource.auto,
       contentTypes: [PrintType.Label],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
@@ -99,7 +99,7 @@ describe('PrintService.imageDocumentPaperSize', () => {
   it('returns the bitmap target paperSize when a mix of truetype+installed and bitmap tspl targets both resolve the same printType', () => {
     const truetypeDriver: PrinterDriver = {
       type: PrinterDriverType.tspl,
-      source: 'auto',
+      source: DriverSource.auto,
       contentTypes: [PrintType.Receipt],
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };

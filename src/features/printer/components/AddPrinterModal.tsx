@@ -25,7 +25,7 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type {
   Printer,
   PrinterDevice,
@@ -166,7 +166,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   /** Thêm driver mới vào `drivers[]` với contentTypes mặc định = mọi type driver này hỗ trợ TRỪ type đã thuộc driver khác (invariant #3). */
-  const addDriverToList = (type: PrinterDriverType, source: 'auto' | 'manual'): PrinterDriver => {
+  const addDriverToList = (type: PrinterDriverType, source: DriverSource): PrinterDriver => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
     const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
     const entry: PrinterDriver = { type, source, contentTypes, config: getDriverDefinition(type).defaultConfig };
@@ -198,7 +198,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
           setLastProtocol(event.protocol);
           setDeviceInfo(event.deviceInfo);
           setConnectionDirty(false);
-          addDriverToList(event.protocol, 'auto');
+          addDriverToList(event.protocol, DriverSource.auto);
           if (!displayForm.getValues('name')) {
             displayForm.setValue('name', event.deviceInfo?.deviceName ?? selectedDevice?.displayName ?? 'Máy in mới');
           }
@@ -242,7 +242,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     setProtocolState('detecting');
     const draftDriver: PrinterDriver = {
       type: chosenProtocol,
-      source: 'manual',
+      source: DriverSource.manual,
       contentTypes: [],
       config: getDriverDefinition(chosenProtocol).defaultConfig,
     };
@@ -254,7 +254,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
         setLastProtocol(chosenProtocol);
         setDeviceInfo(undefined);
         setConnectionDirty(false);
-        addDriverToList(chosenProtocol, 'manual');
+        addDriverToList(chosenProtocol, DriverSource.manual);
       })
       .catch((error: { message: string }) => {
         setConnectionState('error');

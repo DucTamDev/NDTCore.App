@@ -7,13 +7,13 @@ import printerReducer, {
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const drivers: PrinterDriver[] = [
   {
     type: PrinterDriverType.escpos,
-    source: 'auto',
+    source: DriverSource.auto,
     contentTypes: [PrintType.Receipt],
     config: { type: PrinterDriverType.escpos },
   },

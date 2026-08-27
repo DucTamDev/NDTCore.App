@@ -11,7 +11,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { ConnectionType, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -124,7 +124,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         <View key={driver.type} style={styles.driverCard}>
           <View style={styles.row}>
             <Chip>{`Driver: ${protocolLabel[driver.type]}`}</Chip>
-            <Chip>{driver.source === 'auto' ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
+            <Chip>{driver.source === DriverSource.auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
           </View>
           {getDriverDefinition(driver.type).contentTypes.map((contentType) => (
             <AppSwitch

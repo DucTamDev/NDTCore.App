@@ -1,7 +1,7 @@
 // src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
@@ -46,7 +46,7 @@ jest.mock('../../../services/PrinterLogger', () => ({
   },
 }));
 
-const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
 
 const lanPrinter: Printer = {
   id: 'receipt-lan',

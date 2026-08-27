@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../types/driver.types';
-import { PrinterDriverType } from '../types/printer.types';
+import { DriverSource, PrinterDriverType } from '../types/printer.types';
 import type { Printer, PrinterDeviceInfo } from '../types/printer.types';
 import { AppErrorCode, type AppError } from '../types/AppError';
 import { PrinterLogger } from '../services/PrinterLogger';
@@ -63,7 +63,7 @@ export const createDiscoverDriver =
         if (cancelled) return;
         candidatesTried.push(type);
         const driver = registry[type];
-        const draftDriver = { type, source: 'auto' as const, contentTypes: [], config: getDriverDefinition(type).defaultConfig };
+        const draftDriver = { type, source: DriverSource.auto, contentTypes: [], config: getDriverDefinition(type).defaultConfig };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: 'connecting', protocol: type });
         try {
