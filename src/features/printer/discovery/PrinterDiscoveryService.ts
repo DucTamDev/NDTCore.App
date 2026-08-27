@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../types/driver.types';
 import type { Printer, PrinterDeviceInfo, PrinterDriverType } from '../types/printer.types';
-import type { AppError } from '../types/AppError';
+import { AppErrorCode, type AppError } from '../types/AppError';
 import { PrinterLogger } from '../services/PrinterLogger';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 
@@ -93,7 +93,7 @@ export const createDiscoverDriver =
 
       if (cancelled) return;
       if (candidates.length === 0 || connectFailures === candidates.length) {
-        onEvent({ stage: 'error', error: { code: 'CONNECTION_ERROR', message: 'Không thể kết nối tới máy in' } });
+        onEvent({ stage: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Không thể kết nối tới máy in' } });
         PrinterLogger.discoveryFailed({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
         return;
       }

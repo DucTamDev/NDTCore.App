@@ -1,7 +1,8 @@
 // src/features/printer/transports/LanTransport.ts
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../types/AppError';
+import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { CONNECT_TIMEOUT_MS } from './constants';
 
 /**
  * `react-native-tcp-socket` không export type `Socket` ở top-level (chỉ export
@@ -12,8 +13,6 @@ import { AppErrorException } from '../types/AppError';
  * is inferred from `createConnection`'s return value instead.)
  */
 type LanSocket = ReturnType<typeof TcpSocket.createConnection>;
-
-const CONNECT_TIMEOUT_MS = 10000;
 
 export class LanTransport {
   private socket: LanSocket | null = null;
@@ -37,7 +36,7 @@ export class LanTransport {
         settled = true;
         socket.destroy();
         this.socket = null;
-        reject(new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Kết nối LAN quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Kết nối LAN quá thời gian chờ' }));
       }, timeoutMs);
       const socket = TcpSocket.createConnection({ host: ip, port }, () => {
         if (settled) return;
@@ -57,7 +56,7 @@ export class LanTransport {
 
   write(bytes: Uint8Array): void {
     if (!this.socket) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'LAN socket chưa được kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'LAN socket chưa được kết nối' });
     }
     this.socket.write(bytes);
   }

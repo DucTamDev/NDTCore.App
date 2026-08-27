@@ -1,6 +1,7 @@
 // src/features/printer/transports/BluetoothTransport.test.ts
 import { BluetoothTransport } from '../BluetoothTransport';
 import { Buffer } from 'buffer';
+import { AppErrorCode } from '../../types/AppError';
 
 type ReceivedListener = (event: { data: string }) => void;
 
@@ -143,7 +144,7 @@ describe('BluetoothTransport.close', () => {
     const transport = new BluetoothTransport();
     await transport.connect('AA:BB:CC:DD:EE:FF');
 
-    await expect(transport.close()).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
-    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
   });
 });

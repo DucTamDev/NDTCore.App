@@ -6,6 +6,7 @@ import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import type { Printer, PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
+import { AppErrorCode } from '../../../types/AppError';
 
 // `../TsplFontManager` is automocked (no factory) below so `mock.instances`
 // reflects the real class shape — but automocking still `require`s the real
@@ -156,7 +157,7 @@ describe('TsplDriver', () => {
     };
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
 
-    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
     expect(driver.getStatus(lanPrinter.id)).toBe('error');
 
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
@@ -179,12 +180,12 @@ describe('TsplDriver', () => {
 
     await expect(
       driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] })),
-    ).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    ).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
   });
 
   it('connect() over USB rejects with VALIDATION_ERROR when no device was chosen', async () => {
     const driver = new TsplDriver();
-    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.VALIDATION_ERROR });
     expect(driver.getStatus(usbPrinterNoDevice.id)).toBe('error');
   });
 
@@ -316,7 +317,7 @@ describe('TsplDriver', () => {
     await driver.connect(lanPrinter, tsplDriverEntry);
     await expect(
       driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), 'Label'),
-    ).rejects.toMatchObject({ code: 'ENCODING_FAILED' });
+    ).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
   });
 
   it('print() does NOT reject the same oversized-for-Label image when printing a Receipt (continuous paper, no fixed label height)', async () => {
@@ -332,7 +333,7 @@ describe('TsplDriver', () => {
     await driver.connect(lanPrinter, tsplDriverEntry);
     const badElement = { type: 'unknown-kind', x: 0, y: 0 } as unknown as PrintElement;
     await expect(driver.print(lanPrinter.id, asDocuments({ elements: [badElement] }))).rejects.toMatchObject({
-      code: 'ENCODING_FAILED',
+      code: AppErrorCode.ENCODING_FAILED,
     });
   });
 
@@ -368,7 +369,7 @@ describe('TsplDriver', () => {
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new TsplDriver();
-    await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
     expect(driver.getStatus(bluetoothPrinter.id)).toBe('error');
   });
 
@@ -385,7 +386,7 @@ describe('TsplDriver', () => {
 
   it('connect() logs connectFailed on failure', async () => {
     const driver = new TsplDriver();
-    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.VALIDATION_ERROR });
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
@@ -418,12 +419,12 @@ describe('TsplDriver', () => {
 
   it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
     const driver = new TsplDriver();
-    await expect(driver.testPrint(usbPrinterNoDevice, tsplDriverEntry, sampleDocuments)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(driver.testPrint(usbPrinterNoDevice, tsplDriverEntry, sampleDocuments)).rejects.toMatchObject({ code: AppErrorCode.VALIDATION_ERROR });
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: 'tspl', errorCode: 'VALIDATION_ERROR' }),
+      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: 'tspl', errorCode: AppErrorCode.VALIDATION_ERROR }),
     );
   });
 
@@ -522,7 +523,7 @@ describe('TsplDriver.installTrueTypeFont', () => {
   it('throws CONNECTION_ERROR when the printer is not connected', async () => {
     const driver = new TsplDriver();
     await expect(driver.installTrueTypeFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: 'CONNECTION_ERROR',
+      code: AppErrorCode.CONNECTION_ERROR,
     });
   });
 });

@@ -1,5 +1,6 @@
 import type { PrintDocument } from '../printDocument.types';
 import type { PrintJob, PrintResult } from '../printJob.types';
+import { AppErrorCode } from '../AppError';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 
@@ -25,7 +26,7 @@ describe('print job types', () => {
       { status: 'success', jobs: [] },
       { status: 'partial-failure', jobs: [] },
       { status: 'failed', jobs: [] },
-      { status: 'no-available-printer', jobs: [], error: { code: 'PRINT_ERROR', message: 'x' } },
+      { status: 'no-available-printer', jobs: [], error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });

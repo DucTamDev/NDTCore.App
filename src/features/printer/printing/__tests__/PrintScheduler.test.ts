@@ -1,7 +1,7 @@
 import { createPrintScheduler } from '../PrintScheduler';
 import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
-import { AppErrorException } from '../../types/AppError';
+import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { IPrinterDriver } from '../../types/driver.types';
 import type { Printer, PrinterDriver } from '../../types/printer.types';
 import type { PrintJob } from '../../types/printJob.types';
@@ -32,13 +32,13 @@ describe('PrintScheduler', () => {
 
   it('enqueue() resolves with status failed and an AppError when PrinterService.print rejects', async () => {
     const printerService = {
-      print: jest.fn().mockRejectedValue(new AppErrorException({ code: 'PRINT_ERROR', message: 'hết giấy' })),
+      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe('failed');
-    expect(result.error).toEqual({ code: 'PRINT_ERROR', message: 'hết giấy' });
+    expect(result.error).toEqual({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {

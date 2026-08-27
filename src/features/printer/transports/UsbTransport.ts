@@ -1,7 +1,7 @@
 // src/features/printer/transports/UsbTransport.ts
 import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../types/AppError';
+import { AppErrorException, AppErrorCode } from '../types/AppError';
 import { ensureUsbInitialized, printRawDataUsb } from '../adapters/UsbPrinterNativeAdapter';
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -20,7 +20,7 @@ export class UsbTransport {
     try {
       await USBPrinter.connectPrinter(vendorId as unknown as string, productId as unknown as string);
     } catch (error) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: errorMessage(error) });
     }
   }
 
@@ -28,7 +28,7 @@ export class UsbTransport {
     try {
       await printRawDataUsb(Buffer.from(bytes).toString('base64'), true);
     } catch (error) {
-      throw new AppErrorException({ code: 'PRINT_ERROR', message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINT_ERROR, message: errorMessage(error) });
     }
   }
 
@@ -36,7 +36,7 @@ export class UsbTransport {
     try {
       await USBPrinter.closeConn();
     } catch (error) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: errorMessage(error) });
     }
   }
 }

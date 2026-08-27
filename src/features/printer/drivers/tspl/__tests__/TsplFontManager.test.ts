@@ -2,6 +2,7 @@
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
+import { AppErrorCode } from '../../../types/AppError';
 
 jest.mock('react-native-fs', () => ({
   readFileAssets: jest.fn(),
@@ -25,7 +26,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport();
     await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: 'UNSUPPORTED_CONNECTION',
+      code: AppErrorCode.UNSUPPORTED_CONNECTION,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -54,7 +55,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const transport = makeTransport();
 
     await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
+      code: AppErrorCode.VALIDATION_ERROR,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -67,7 +68,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const transport = makeTransport();
 
     await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
+      code: AppErrorCode.VALIDATION_ERROR,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -80,7 +81,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const transport = makeTransport({ write: jest.fn().mockRejectedValue(new Error('socket closed')) });
 
     await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: 'CONNECTION_ERROR',
+      code: AppErrorCode.CONNECTION_ERROR,
     });
   });
 });

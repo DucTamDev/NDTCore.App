@@ -1,4 +1,4 @@
-import { AppErrorException, type AppError } from '../types/AppError';
+import { AppErrorException, AppErrorCode, type AppError } from '../types/AppError';
 import { PrinterService } from './PrinterService';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import type { PrintJob } from '../types/printJob.types';
@@ -11,7 +11,7 @@ export const createPrintScheduler = (
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
   const toAppError = (error: unknown): AppError =>
-    error instanceof AppErrorException ? { code: error.code, message: error.message } : { code: 'PRINT_ERROR', message: String(error) };
+    error instanceof AppErrorException ? { code: error.code, message: error.message } : { code: AppErrorCode.PRINT_ERROR, message: String(error) };
 
   /**
    * Tra printer + driver sẽ xử lý `job.printType`, rồi tính resource key

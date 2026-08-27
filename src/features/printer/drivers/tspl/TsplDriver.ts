@@ -2,7 +2,7 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
 import { isTsplTrueTypeActive } from '../../types/printer.types';
-import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig } from '../../types/printer.types';
+import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import type { PrintType } from '../../types/printConfiguration.types';
 import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
@@ -10,7 +10,7 @@ import { TsplFontManager } from './TsplFontManager';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
 import { UsbTransport } from '../../transports/UsbTransport';
-import { AppErrorException, type AppErrorCode } from '../../types/AppError';
+import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { PAPER_WIDTH_CHARS, PAPER_IMAGE_WIDTH_PX, formatRow } from '../../utils/paperWidth';
@@ -19,13 +19,6 @@ import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
 export type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
 const IDENTIFY_TIMEOUT_MS = 1000;
-
-interface UsbRawDevice {
-  vendor_id: number;
-  product_id: number;
-}
-
-const errorCodeOf = (error: unknown): AppErrorCode => (error instanceof AppErrorException ? error.code : 'UNKNOWN_ERROR');
 
 const encodeAsciiCommand = (text: string): Uint8Array => {
   const bytes = new Uint8Array(text.length);
@@ -65,7 +58,7 @@ export class TsplDriver implements IPrinterDriver {
       return () => undefined;
     }
     if (connectionType === 'usb') {
-      onEvent({ type: 'error', error: { code: 'UNSUPPORTED_CONNECTION', message: 'TsplDriver không tự quét USB' } });
+      onEvent({ type: 'error', error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
       return () => undefined;
     }
     onEvent({ type: 'loading' });
@@ -75,7 +68,7 @@ export class TsplDriver implements IPrinterDriver {
       .then((granted) => {
         if (cancelled) return;
         if (!granted) {
-          onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' } });
+          onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
           return;
         }
         RNBluetoothClassic.startDiscovery()
@@ -89,14 +82,14 @@ export class TsplDriver implements IPrinterDriver {
           })
           .catch((error: unknown) => {
             if (cancelled) return;
-            onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
-            PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
+            onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
+            PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
           });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        onEvent({ type: 'error', error: { code: 'CONNECTION_ERROR', message: String(error) } });
-        PrinterLogger.scanFailed({ connectionType, errorCode: 'CONNECTION_ERROR', durationMs: Date.now() - startedAt });
+        onEvent({ type: 'error', error: { code: AppErrorCode.CONNECTION_ERROR, message: String(error) } });
+        PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
       });
     return () => {
       cancelled = true;
@@ -110,17 +103,17 @@ export class TsplDriver implements IPrinterDriver {
     try {
       const transport = this.createTransport(printer.connectionType);
       if (printer.connectionType === 'lan') {
-        if (!printer.lan) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu cấu hình IP/Port' });
+        if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
         await (transport as LanTransport).connect(printer.lan.ip, printer.lan.port);
       } else if (printer.connectionType === 'bluetooth') {
-        if (!printer.device) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị Bluetooth' });
+        if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
         const granted = await ensureBluetoothPermission();
-        if (!granted) throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Chưa được cấp quyền Bluetooth' });
+        if (!granted) throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' });
         await (transport as BluetoothTransport).connect(printer.device.deviceId);
       } else {
-        if (!printer.device) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Chưa chọn thiết bị USB' });
+        if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị USB' });
         const raw = printer.device.rawDevice as unknown as UsbRawDevice | undefined;
-        if (!raw) throw new AppErrorException({ code: 'VALIDATION_ERROR', message: 'Thiếu thông tin thiết bị USB' });
+        if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
         await (transport as UsbTransport).connect(Number(raw.vendor_id), Number(raw.product_id));
       }
       this.connections.set(printer.id, transport);
@@ -142,7 +135,7 @@ export class TsplDriver implements IPrinterDriver {
     } catch (error) {
       this.setStatus(printerId, 'error');
       PrinterLogger.disconnectFailed({ printerId, protocol: 'tspl', errorCode: errorCodeOf(error) });
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
     }
@@ -195,7 +188,7 @@ export class TsplDriver implements IPrinterDriver {
         const maxHeightPx = heightMm * DOTS_PER_MM;
         if (bitmap.heightPx > maxHeightPx) {
           throw new AppErrorException({
-            code: 'ENCODING_FAILED',
+            code: AppErrorCode.ENCODING_FAILED,
             message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
           });
         }
@@ -205,7 +198,7 @@ export class TsplDriver implements IPrinterDriver {
       } else if (element.type === 'qrCode') {
         encoder.qrcode(element.x, element.y, element.content);
       } else {
-        throw new AppErrorException({ code: 'ENCODING_FAILED', message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+        throw new AppErrorException({ code: AppErrorCode.ENCODING_FAILED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
       }
     }
   }
@@ -248,7 +241,7 @@ export class TsplDriver implements IPrinterDriver {
     const context = this.contexts.get(printerId);
     const transport = this.connections.get(printerId);
     if (!context || !transport) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Máy in chưa kết nối' });
     }
     const bytes = this.encode(context.printer, context.driver, documents, printType);
     await this.writeBytes(context.printer, transport, bytes);
@@ -270,7 +263,7 @@ export class TsplDriver implements IPrinterDriver {
   async installTrueTypeFont(printerId: string, font: TsplFontConfig): Promise<void> {
     const transport = this.connections.get(printerId);
     if (!transport) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Máy in chưa kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Máy in chưa kết nối' });
     }
     await this.fontManager.ensureFontInstalled(transport, font);
   }

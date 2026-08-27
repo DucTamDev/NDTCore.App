@@ -1,9 +1,8 @@
 // src/features/printer/transports/BluetoothTransport.ts
 import RNBluetoothClassic, { type BluetoothDevice } from 'react-native-bluetooth-classic';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../types/AppError';
-
-const CONNECT_TIMEOUT_MS = 10000;
+import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { CONNECT_TIMEOUT_MS } from './constants';
 
 export class BluetoothTransport {
   private device: BluetoothDevice | null = null;
@@ -22,7 +21,7 @@ export class BluetoothTransport {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         timedOut = true;
-        reject(new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Kết nối Bluetooth quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Kết nối Bluetooth quá thời gian chờ' }));
       }, timeoutMs);
     });
 
@@ -40,7 +39,7 @@ export class BluetoothTransport {
 
   async write(bytes: Uint8Array): Promise<void> {
     if (!this.device) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: 'Thiết bị Bluetooth chưa được kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Thiết bị Bluetooth chưa được kết nối' });
     }
     await this.device.write(Buffer.from(bytes).toString('base64'), 'base64');
   }
@@ -78,7 +77,7 @@ export class BluetoothTransport {
     try {
       await this.device?.disconnect();
     } catch (error) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.device = null;
     }

@@ -2,6 +2,7 @@ import { PrintRoutingService, type PrintTarget } from './PrintRoutingService';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
+import { AppErrorCode } from '../types/AppError';
 import type { PrintType } from '../types/printConfiguration.types';
 import { isTsplTrueTypeActive } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
@@ -37,7 +38,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
       return {
         status: 'no-available-printer',
         jobs: [],
-        error: { code: 'NO_AVAILABLE_PRINTER', message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
+        error: { code: AppErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
       };
     }
     const requestId = generateId();

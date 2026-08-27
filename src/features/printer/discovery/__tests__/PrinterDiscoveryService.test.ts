@@ -2,6 +2,7 @@ import { createDiscoverDriver, type DiscoveryEvent } from '../PrinterDiscoverySe
 import type { IPrinterDriver } from '../../types/driver.types';
 import type { Printer, PrinterDriverType } from '../../types/printer.types';
 import { PrinterLogger } from '../../services/PrinterLogger';
+import { AppErrorCode } from '../../types/AppError';
 
 jest.mock('../../services/PrinterLogger', () => ({
   PrinterLogger: {
@@ -104,7 +105,7 @@ describe('PrinterDiscoveryService', () => {
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     const last = events[events.length - 1];
     expect(last.stage).toBe('error');
-    expect(last.error?.code).toBe('CONNECTION_ERROR');
+    expect(last.error?.code).toBe(AppErrorCode.CONNECTION_ERROR);
     expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: 'p1', connectionType: 'lan', candidatesTried: ['tspl', 'escpos'] }),
     );

@@ -1,4 +1,5 @@
 import { DriverRegistry } from '../DriverRegistry.web';
+import { AppErrorCode } from '../../types/AppError';
 
 describe('DriverRegistry (web)', () => {
   it('registers both driver types', () => {
@@ -15,12 +16,12 @@ describe('DriverRegistry (web)', () => {
 
   it('connect rejects with UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
+    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: AppErrorCode.UNSUPPORTED_CONNECTION });
   });
 
   it('testPrint rejects with UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: 'UNSUPPORTED_CONNECTION' });
+    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: AppErrorCode.UNSUPPORTED_CONNECTION });
   });
 
   it('disconnect resolves without throwing', async () => {

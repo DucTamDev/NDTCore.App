@@ -1,6 +1,6 @@
 // src/features/printer/transports/UsbTransport.test.ts
 import { UsbTransport } from '../UsbTransport';
-import { AppErrorException } from '../../types/AppError';
+import { AppErrorException, AppErrorCode } from '../../types/AppError';
 
 jest.mock('../../adapters/UsbPrinterNativeAdapter', () => ({
   ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
@@ -36,7 +36,7 @@ describe('UsbTransport.connect', () => {
     };
     USBPrinter.connectPrinter.mockRejectedValueOnce(new Error('device not found'));
     const transport = new UsbTransport();
-    await expect(transport.connect(1155, 22222)).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(transport.connect(1155, 22222)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
   });
 });
 
@@ -60,7 +60,7 @@ describe('UsbTransport.write', () => {
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
     const transport = new UsbTransport();
-    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: 'PRINT_ERROR' });
+    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.PRINT_ERROR });
   });
 
   it('rethrows as AppErrorException', async () => {
@@ -93,6 +93,6 @@ describe('UsbTransport.close', () => {
     };
     USBPrinter.closeConn.mockRejectedValueOnce(new Error('device already unplugged'));
     const transport = new UsbTransport();
-    await expect(transport.close()).rejects.toMatchObject({ code: 'CONNECTION_ERROR' });
+    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
   });
 });

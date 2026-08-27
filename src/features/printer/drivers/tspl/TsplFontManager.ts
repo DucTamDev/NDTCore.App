@@ -2,7 +2,7 @@
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';
-import { AppErrorException } from '../../types/AppError';
+import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import type { TsplFontConfig } from '../../types/printer.types';
 import type { TsplTransport } from './TsplDriver';
 
@@ -27,34 +27,34 @@ export const DEFAULT_TSPL_FONT: TsplFontConfig = {
 export class TsplFontManager {
   async ensureFontInstalled(transport: TsplTransport, font: TsplFontConfig): Promise<void> {
     if (Platform.OS !== 'android') {
-      throw new AppErrorException({ code: 'UNSUPPORTED_CONNECTION', message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
+      throw new AppErrorException({ code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
     }
 
     let base64: string;
     try {
       base64 = await RNFS.readFileAssets(`fonts/${font.fileName}`, 'base64');
     } catch {
-      throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `Không đọc được file font "${font.fileName}" từ assets` });
+      throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 
     let payload: Uint8Array;
     try {
       const fontBytes = Buffer.from(base64, 'base64');
       if (fontBytes.length === 0) {
-        throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `File font "${font.fileName}" rỗng` });
+        throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: `File font "${font.fileName}" rỗng` });
       }
       const header = Buffer.from(`DOWNLOAD "${font.name}",${fontBytes.length}\r\n`, 'utf8');
       const footer = Buffer.from('\r\n', 'utf8');
       payload = new Uint8Array(Buffer.concat([header, fontBytes, footer]));
     } catch (error) {
       if (error instanceof AppErrorException) throw error;
-      throw new AppErrorException({ code: 'VALIDATION_ERROR', message: `Không đọc được file font "${font.fileName}" từ assets` });
+      throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 
     try {
       await transport.write(payload);
     } catch (error) {
-      throw new AppErrorException({ code: 'CONNECTION_ERROR', message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     }
   }
 }
