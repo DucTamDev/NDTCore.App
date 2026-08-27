@@ -22,6 +22,12 @@ export interface PrinterDevice {
   rawDevice: Record<string, unknown>;
 }
 
+/** Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — descriptor USB native trả về, dùng chung bởi cả `EscPosDriver` và `TsplDriver`. */
+export interface UsbRawDevice {
+  vendor_id: number;
+  product_id: number;
+}
+
 export interface PrinterLanConfig {
   ip: string;
   port: number;
