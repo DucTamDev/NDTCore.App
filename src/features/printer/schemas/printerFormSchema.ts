@@ -32,9 +32,16 @@ export type PrinterDisplayValues = z.infer<typeof printerDisplaySchema>;
 
 const printContentTypeSchema = z.enum(['Receipt', 'Label']);
 
+const tsplFontConfigSchema = z.object({
+  name: z.string().regex(/^[A-Za-z0-9_-]+$/, 'Tên font chỉ được chứa chữ, số, gạch dưới, gạch ngang'),
+  fileName: z.string().min(1),
+  fontInstalled: z.boolean(),
+});
+
 const tsplDriverConfigSchema = z.object({
   type: z.literal('tspl'),
-  renderMode: z.literal('bitmap'),
+  renderMode: z.enum(['bitmap', 'truetype']),
+  font: tsplFontConfigSchema.optional(),
   labelHeightMm: z.number().positive().optional(),
 });
 
