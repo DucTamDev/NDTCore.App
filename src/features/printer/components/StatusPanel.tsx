@@ -3,7 +3,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, SegmentedButtons } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import type { PrinterDeviceInfo, PrinterDriverType } from '../types/printer.types';
+import { PrinterDriverType, type PrinterDeviceInfo } from '../types/printer.types';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';
@@ -24,7 +24,7 @@ const protocolLabel: Record<PrinterDriverType, string> = {
   tspl: 'TSPL',
 };
 
-const ALL_PROTOCOLS: PrinterDriverType[] = ['escpos', 'tspl'];
+const ALL_PROTOCOLS: PrinterDriverType[] = [PrinterDriverType.escpos, PrinterDriverType.tspl];
 
 export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,

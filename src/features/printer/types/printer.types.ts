@@ -1,7 +1,12 @@
 import type { AppError } from './AppError';
 import type { PrintType } from './printConfiguration.types';
 
-export type PrinterDriverType = 'escpos' | 'tspl';
+export const PrinterDriverType = {
+  escpos: 'escpos',
+  tspl: 'tspl',
+} as const;
+
+export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
 export type ConnectionType = 'usb' | 'bluetooth' | 'lan';
 export type PaperSize = 58 | 80;
 export type DriverSource = 'auto' | 'manual';
@@ -101,7 +106,10 @@ export interface PrinterDriver {
  * để tránh viết tay lặp lại cùng 1 điều kiện ở nhiều nơi.
  */
 export const isTsplTrueTypeActive = (driver: PrinterDriver): boolean =>
-  driver.type === 'tspl' && driver.config.type === 'tspl' && driver.config.renderMode === 'truetype' && !!driver.config.font?.fontInstalled;
+  driver.type === PrinterDriverType.tspl &&
+  driver.config.type === PrinterDriverType.tspl &&
+  driver.config.renderMode === 'truetype' &&
+  !!driver.config.font?.fontInstalled;
 
 export interface Printer {
   id: string;

@@ -4,7 +4,7 @@ import { generateId } from '../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
 import { AppErrorCode } from '../types/AppError';
 import type { PrintType } from '../types/printConfiguration.types';
-import { isTsplTrueTypeActive } from '../types/printer.types';
+import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import type { PrintJob, PrintResult } from '../types/printJob.types';
@@ -28,7 +28,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
    * trị trả về.
    */
   const imageDocumentPaperSize = (printType: PrintType): PaperSize | null => {
-    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === 'tspl' && !isTsplTrueTypeActive(t.driver));
+    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === PrinterDriverType.tspl && !isTsplTrueTypeActive(t.driver));
     return target ? target.printer.paperSize : null;
   };
 

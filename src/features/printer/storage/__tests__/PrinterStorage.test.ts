@@ -1,11 +1,11 @@
 import { PrinterStorage } from '../PrinterStorage';
 import { StorageService } from '../../../../services/StorageService';
-import type { Printer } from '../../types/printer.types';
+import { PrinterDriverType, type Printer } from '../../types/printer.types';
 
 const printer: Printer = {
   id: 'p1',
   name: 'Máy in',
-  drivers: [{ type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } }],
+  drivers: [{ type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } }],
   connectionType: 'lan',
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',

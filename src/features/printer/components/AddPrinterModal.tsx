@@ -25,14 +25,13 @@ import type { DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocumentVariants } from '../types/driver.types';
 import type { PrintType } from '../types/printConfiguration.types';
-import { isTsplTrueTypeActive } from '../types/printer.types';
+import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type {
   ConnectionType,
   Printer,
   PrinterDevice,
   PrinterDeviceInfo,
   PrinterDriver,
-  PrinterDriverType,
   PrinterStatus,
 } from '../types/printer.types';
 
@@ -312,11 +311,13 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const onToggleTsplFont = async (enabled: boolean): Promise<void> => {
-    const tsplDriverEntry = drivers.find((d) => d.type === 'tspl');
-    if (!tsplDriverEntry || tsplDriverEntry.config.type !== 'tspl') return;
+    const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
+    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
 
     if (!enabled) {
-      setDrivers((prev) => prev.map((d) => (d.type === 'tspl' && d.config.type === 'tspl' ? { ...d, config: { ...d.config, renderMode: 'bitmap' } } : d)));
+      setDrivers((prev) =>
+        prev.map((d) => (d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: { ...d.config, renderMode: 'bitmap' } } : d)),
+      );
       return;
     }
 
@@ -326,7 +327,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       await PrinterService.installTsplFont(printerId, font);
       setDrivers((prev) =>
         prev.map((d) =>
-          d.type === 'tspl' && d.config.type === 'tspl'
+          d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl
             ? { ...d, config: { ...d.config, renderMode: 'truetype', font: { ...font, fontInstalled: true } } }
             : d,
         ),
@@ -340,7 +341,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocumentVariants> => {
-    if (driver.type !== 'tspl' || isTsplTrueTypeActive(driver)) return { text: document };
+    if (driver.type !== PrinterDriverType.tspl || isTsplTrueTypeActive(driver)) return { text: document };
     const base64 = await captureBillImage(document, printer.paperSize);
     if (!base64) return { text: document };
     return { text: document, image: { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] } };

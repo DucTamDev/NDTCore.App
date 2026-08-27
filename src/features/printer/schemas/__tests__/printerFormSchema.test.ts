@@ -1,8 +1,18 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 
-const escposDriver: PrinterDriver = { type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } };
-const tsplDriver: PrinterDriver = { type: 'tspl', source: 'auto', contentTypes: ['Label'], config: { type: 'tspl', renderMode: 'bitmap' } };
+const escposDriver: PrinterDriver = {
+  type: PrinterDriverType.escpos,
+  source: 'auto',
+  contentTypes: ['Receipt'],
+  config: { type: PrinterDriverType.escpos },
+};
+const tsplDriver: PrinterDriver = {
+  type: PrinterDriverType.tspl,
+  source: 'auto',
+  contentTypes: ['Label'],
+  config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
+};
 
 const basePrinter: Printer = {
   id: 'p1',
@@ -54,35 +64,40 @@ describe('printerDriverSchema', () => {
   });
 
   it('rejects a driver whose config.type does not match driver.type', () => {
-    const mismatched = { ...escposDriver, config: { type: 'tspl', renderMode: 'bitmap' } };
+    const mismatched = { ...escposDriver, config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
     expect(printerDriverSchema.safeParse(mismatched).success).toBe(false);
   });
 
   it('accepts a tspl driver with renderMode bitmap and no font', () => {
-    const driver: PrinterDriver = { type: 'tspl', source: 'auto', contentTypes: ['Label'], config: { type: 'tspl', renderMode: 'bitmap' } };
+    const driver: PrinterDriver = {
+      type: PrinterDriverType.tspl,
+      source: 'auto',
+      contentTypes: ['Label'],
+      config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
+    };
     expect(printerDriverSchema.safeParse(driver).success).toBe(true);
   });
 
   it('accepts a tspl driver with renderMode truetype and a valid font config', () => {
     const driver: PrinterDriver = {
-      type: 'tspl', source: 'auto', contentTypes: ['Label'],
-      config: { type: 'tspl', renderMode: 'truetype', font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(true);
   });
 
   it('rejects a font name containing invalid characters', () => {
     const driver: PrinterDriver = {
-      type: 'tspl', source: 'auto', contentTypes: ['Label'],
-      config: { type: 'tspl', renderMode: 'truetype', font: { name: 'VIET FONT"', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: 'VIET FONT"', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);
   });
 
   it('rejects an empty font name', () => {
     const driver: PrinterDriver = {
-      type: 'tspl', source: 'auto', contentTypes: ['Label'],
-      config: { type: 'tspl', renderMode: 'truetype', font: { name: '', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'],
+      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { name: '', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     expect(printerDriverSchema.safeParse(driver).success).toBe(false);
   });

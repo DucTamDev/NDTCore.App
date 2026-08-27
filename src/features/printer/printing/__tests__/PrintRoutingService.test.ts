@@ -1,8 +1,8 @@
 import { createPrintRoutingService } from '../PrintRoutingService';
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import { PrinterDriverType, type Printer, type PrinterDriver } from '../../types/printer.types';
 
-const escposDriver: PrinterDriver = { type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } };
-const tsplDriver: PrinterDriver = { type: 'tspl', source: 'auto', contentTypes: ['Label'], config: { type: 'tspl', renderMode: 'bitmap' } };
+const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: 'auto', contentTypes: ['Label'], config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
   id,

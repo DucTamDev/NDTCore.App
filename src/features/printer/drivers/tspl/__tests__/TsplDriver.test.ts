@@ -3,7 +3,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import type { Printer, PrinterDriver } from '../../../types/printer.types';
+import { PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -81,10 +81,10 @@ jest.mock('../../../services/PrinterLogger', () => ({
 }));
 
 const tsplDriverEntry: PrinterDriver = {
-  type: 'tspl',
+  type: PrinterDriverType.tspl,
   source: 'auto',
   contentTypes: ['Label'],
-  config: { type: 'tspl', renderMode: 'bitmap' },
+  config: { type: PrinterDriverType.tspl, renderMode: 'bitmap' },
 };
 
 const lanPrinter: Printer = {
@@ -164,7 +164,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'tspl' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
     );
   });
 
@@ -380,7 +380,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'tspl', connectionType: 'lan' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: 'lan' }),
     );
   });
 
@@ -391,7 +391,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: 'tspl', connectionType: 'usb' }),
+      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, connectionType: 'usb' }),
     );
   });
 
@@ -402,7 +402,7 @@ describe('TsplDriver', () => {
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
-    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: 'tspl' });
+    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl });
   });
 
   it('testPrint() logs testPrintSucceeded', async () => {
@@ -413,7 +413,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'tspl' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
     );
   });
 
@@ -424,7 +424,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: 'tspl', errorCode: AppErrorCode.VALIDATION_ERROR }),
+      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, errorCode: AppErrorCode.VALIDATION_ERROR }),
     );
   });
 
@@ -533,7 +533,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: 'tspl', renderMode: 'bitmap', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: 'bitmap', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
     };
     const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
     const bytes = driver.encode(lanPrinter, driverWithFont, withImage);
@@ -545,7 +545,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithInstalledFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: 'tspl', renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
     };
     const bytes = driver.encode(lanPrinter, driverWithInstalledFont, sampleDocuments);
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
@@ -557,7 +557,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverWithUninstalledFont: PrinterDriver = {
       ...tsplDriverEntry,
-      config: { type: 'tspl', renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: false } },
+      config: { type: PrinterDriverType.tspl, renderMode: 'truetype', font: { ...DEFAULT_TSPL_FONT, fontInstalled: false } },
     };
     const withImage = { text: sampleDocuments.text, image: { elements: [{ type: 'image' as const, data: tinyPngBase64(), x: 0, y: 0 }] } };
     const bytes = driver.encode(lanPrinter, driverWithUninstalledFont, withImage);
@@ -567,7 +567,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
 
   it('encode() falls back to bitmap when renderMode is truetype but no font config exists at all', () => {
     const driver = new TsplDriver();
-    const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: 'tspl', renderMode: 'truetype' } };
+    const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: 'truetype' } };
     const bytes = driver.encode(lanPrinter, driverNoFont, sampleDocuments);
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('"3"'); // built-in bitmap font, the bitmap-mode default

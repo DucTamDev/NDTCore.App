@@ -1,6 +1,7 @@
 // src/features/printer/schemas/printerFormSchema.ts
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import { PrinterDriverType } from '../types/printer.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
@@ -39,14 +40,14 @@ const tsplFontConfigSchema = z.object({
 });
 
 const tsplDriverConfigSchema = z.object({
-  type: z.literal('tspl'),
+  type: z.literal(PrinterDriverType.tspl),
   renderMode: z.enum(['bitmap', 'truetype']),
   font: tsplFontConfigSchema.optional(),
   labelHeightMm: z.number().positive().optional(),
 });
 
 const escPosDriverConfigSchema = z.object({
-  type: z.literal('escpos'),
+  type: z.literal(PrinterDriverType.escpos),
 });
 
 const printerDriverConfigSchema = z.discriminatedUnion('type', [tsplDriverConfigSchema, escPosDriverConfigSchema]);
@@ -58,7 +59,7 @@ const printerDriverConfigSchema = z.discriminatedUnion('type', [tsplDriverConfig
  */
 export const printerDriverSchema = z
   .object({
-    type: z.enum(['escpos', 'tspl']),
+    type: z.enum([PrinterDriverType.escpos, PrinterDriverType.tspl]),
     source: z.enum(['auto', 'manual']),
     contentTypes: z.array(printContentTypeSchema).min(1),
     config: printerDriverConfigSchema,

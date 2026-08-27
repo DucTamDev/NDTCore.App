@@ -11,8 +11,8 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import type { PrintType } from '../types/printConfiguration.types';
-import { isTsplTrueTypeActive } from '../types/printer.types';
-import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
+import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, PrinterStatus } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
   usb: 'USB',
@@ -135,7 +135,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
-          {driver.type === 'tspl' ? (
+          {driver.type === PrinterDriverType.tspl ? (
             <AppSwitch
               label="In bằng font TrueType (thử nghiệm)"
               value={isTsplTrueTypeActive(driver)}

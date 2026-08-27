@@ -1,7 +1,7 @@
 // src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
 import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
-import type { Printer, PrinterDriver } from '../../../types/printer.types';
+import { PrinterDriverType, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import type { PrintDocumentVariants } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
@@ -45,7 +45,7 @@ jest.mock('../../../services/PrinterLogger', () => ({
   },
 }));
 
-const escposDriverEntry: PrinterDriver = { type: 'escpos', source: 'auto', contentTypes: ['Receipt'], config: { type: 'escpos' } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: 'auto', contentTypes: ['Receipt'], config: { type: PrinterDriverType.escpos } };
 
 const lanPrinter: Printer = {
   id: 'receipt-lan',
@@ -188,7 +188,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos }),
     );
   });
 
@@ -357,7 +357,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos', connectionType: 'lan' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos, connectionType: 'lan' }),
     );
   });
 
@@ -371,7 +371,7 @@ describe('EscPosDriver', () => {
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
       expect.objectContaining({
         printerId: badPrinter.id,
-        protocol: 'escpos',
+        protocol: PrinterDriverType.escpos,
         connectionType: 'lan',
         errorCode: AppErrorCode.VALIDATION_ERROR,
       }),
@@ -385,7 +385,7 @@ describe('EscPosDriver', () => {
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
-    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: 'escpos' });
+    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos });
   });
 
   it('scan("bluetooth") logs scanCompleted with the device count on success', async () => {
@@ -433,7 +433,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos }),
     );
   });
 
@@ -448,7 +448,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: blePrinter.id, protocol: 'escpos', errorCode: AppErrorCode.CONNECTION_ERROR }),
+      expect.objectContaining({ printerId: blePrinter.id, protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.CONNECTION_ERROR }),
     );
   });
 
@@ -467,7 +467,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos', errorCode: AppErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -598,7 +598,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos' }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos }),
     );
   });
 
@@ -619,7 +619,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: 'escpos', errorCode: AppErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.UNKNOWN_ERROR }),
     );
   });
 });

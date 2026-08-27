@@ -1,7 +1,7 @@
 // src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
-import { isTsplTrueTypeActive } from '../../types/printer.types';
+import { isTsplTrueTypeActive, PrinterDriverType } from '../../types/printer.types';
 import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
 import type { PrintDocument } from '../../types/printDocument.types';
 import type { PrintType } from '../../types/printConfiguration.types';
@@ -30,7 +30,7 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
 };
 
 const resolveHeightMm = (driver: PrinterDriver, printType?: PrintType): number => {
-  const labelHeightMm = driver.config.type === 'tspl' ? driver.config.labelHeightMm : undefined;
+  const labelHeightMm = driver.config.type === PrinterDriverType.tspl ? driver.config.labelHeightMm : undefined;
   return printType === 'Label' ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
 };
 
@@ -119,10 +119,10 @@ export class TsplDriver implements IPrinterDriver {
       this.connections.set(printer.id, transport);
       this.contexts.set(printer.id, { printer, driver });
       this.setStatus(printer.id, 'connected');
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: 'tspl', connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, 'error');
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: 'tspl', connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -134,13 +134,13 @@ export class TsplDriver implements IPrinterDriver {
       await transport?.close();
     } catch (error) {
       this.setStatus(printerId, 'error');
-      PrinterLogger.disconnectFailed({ printerId, protocol: 'tspl', errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error) });
       throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
     }
     this.setStatus(printerId, 'disconnected');
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: 'tspl' });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.tspl });
   }
 
   getStatus(printerId: string): PrinterStatus {
@@ -160,7 +160,7 @@ export class TsplDriver implements IPrinterDriver {
    * không có nhánh nào khác — xem spec 2026-08-27 §7.
    */
   private resolveDocumentAndFont(driver: PrinterDriver, documents: PrintDocumentVariants): { document: PrintDocument; fontName: string } {
-    if (isTsplTrueTypeActive(driver) && driver.config.type === 'tspl' && driver.config.font) {
+    if (isTsplTrueTypeActive(driver) && driver.config.type === PrinterDriverType.tspl && driver.config.font) {
       return { document: documents.text, fontName: driver.config.font.name };
     }
     return { document: documents.image ?? documents.text, fontName: '3' };
@@ -230,9 +230,9 @@ export class TsplDriver implements IPrinterDriver {
       const transport = this.connections.get(printer.id);
       const bytes = this.encode(printer, driver, documents, printType);
       await this.writeBytes(printer, transport, bytes);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: 'tspl', durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: 'tspl', errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }

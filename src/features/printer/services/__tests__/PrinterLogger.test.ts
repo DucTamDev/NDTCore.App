@@ -1,6 +1,7 @@
 import { LoggerService } from '../../../../services/LoggerService';
 import { PrinterLogger } from '../PrinterLogger';
 import { AppErrorCode } from '../../types/AppError';
+import { PrinterDriverType } from '../../types/printer.types';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: {
@@ -35,10 +36,10 @@ describe('PrinterLogger', () => {
   });
 
   it('connectSucceeded logs an info event with printerId/protocol/connectionType/durationMs', () => {
-    PrinterLogger.connectSucceeded({ printerId: 'p1', protocol: 'escpos', connectionType: 'lan', durationMs: 200 });
+    PrinterLogger.connectSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: 'lan', durationMs: 200 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.connect.succeeded', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       connectionType: 'lan',
       durationMs: 200,
     });
@@ -47,14 +48,14 @@ describe('PrinterLogger', () => {
   it('connectFailed logs a warning event with printerId/protocol/connectionType/errorCode/durationMs', () => {
     PrinterLogger.connectFailed({
       printerId: 'p1',
-      protocol: 'tspl',
+      protocol: PrinterDriverType.tspl,
       connectionType: 'bluetooth',
       errorCode: AppErrorCode.CONNECTION_ERROR,
       durationMs: 300,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.connect.failed', {
       printerId: 'p1',
-      protocol: 'tspl',
+      protocol: PrinterDriverType.tspl,
       connectionType: 'bluetooth',
       errorCode: AppErrorCode.CONNECTION_ERROR,
       durationMs: 300,
@@ -62,36 +63,36 @@ describe('PrinterLogger', () => {
   });
 
   it('disconnectSucceeded logs an info event with printerId/protocol', () => {
-    PrinterLogger.disconnectSucceeded({ printerId: 'p1', protocol: 'escpos' });
+    PrinterLogger.disconnectSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.disconnect.succeeded', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
     });
   });
 
   it('disconnectFailed logs a warning event with printerId/protocol/errorCode', () => {
-    PrinterLogger.disconnectFailed({ printerId: 'p1', protocol: 'tspl', errorCode: AppErrorCode.CONNECTION_ERROR });
+    PrinterLogger.disconnectFailed({ printerId: 'p1', protocol: PrinterDriverType.tspl, errorCode: AppErrorCode.CONNECTION_ERROR });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.disconnect.failed', {
       printerId: 'p1',
-      protocol: 'tspl',
+      protocol: PrinterDriverType.tspl,
       errorCode: AppErrorCode.CONNECTION_ERROR,
     });
   });
 
   it('testPrintSucceeded logs an info event with printerId/protocol/durationMs', () => {
-    PrinterLogger.testPrintSucceeded({ printerId: 'p1', protocol: 'escpos', durationMs: 400 });
+    PrinterLogger.testPrintSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos, durationMs: 400 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.test-print.succeeded', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       durationMs: 400,
     });
   });
 
   it('testPrintFailed logs an error event with printerId/protocol/errorCode/durationMs', () => {
-    PrinterLogger.testPrintFailed({ printerId: 'p1', protocol: 'escpos', errorCode: AppErrorCode.PRINT_ERROR, durationMs: 500 });
+    PrinterLogger.testPrintFailed({ printerId: 'p1', protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.PRINT_ERROR, durationMs: 500 });
     expect(LoggerService.error).toHaveBeenCalledWith('printer.test-print.failed', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       errorCode: AppErrorCode.PRINT_ERROR,
       durationMs: 500,
     });
@@ -103,24 +104,24 @@ describe('PrinterLogger', () => {
   });
 
   it('discoveryStarted logs a debug event with printerId/connectionType/candidates', () => {
-    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: 'lan', candidates: ['tspl', 'escpos'] });
+    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: 'lan', candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos] });
     expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.started', {
       printerId: 'p1',
       connectionType: 'lan',
-      candidates: ['tspl', 'escpos'],
+      candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos],
     });
   });
 
   it('discoveryCandidateRejected logs a debug event with printerId/protocol/connectionType/reason', () => {
     PrinterLogger.discoveryCandidateRejected({
       printerId: 'p1',
-      protocol: 'tspl',
+      protocol: PrinterDriverType.tspl,
       connectionType: 'usb',
       reason: 'not_confirmed',
     });
     expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.candidate-rejected', {
       printerId: 'p1',
-      protocol: 'tspl',
+      protocol: PrinterDriverType.tspl,
       connectionType: 'usb',
       reason: 'not_confirmed',
     });
@@ -130,13 +131,13 @@ describe('PrinterLogger', () => {
     PrinterLogger.discoveryFailed({
       printerId: 'p1',
       connectionType: 'lan',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 600,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.discovery.failed', {
       printerId: 'p1',
       connectionType: 'lan',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 600,
     });
   });
@@ -144,16 +145,16 @@ describe('PrinterLogger', () => {
   it('protocolDetected logs an info event with printerId/protocol/connectionType/candidatesTried/durationMs', () => {
     PrinterLogger.protocolDetected({
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       connectionType: 'lan',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 700,
     });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.protocol.detected', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       connectionType: 'lan',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 700,
     });
   });
@@ -162,31 +163,31 @@ describe('PrinterLogger', () => {
     PrinterLogger.protocolUnknown({
       printerId: 'p1',
       connectionType: 'usb',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 800,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.protocol.unknown', {
       printerId: 'p1',
       connectionType: 'usb',
-      candidatesTried: ['tspl', 'escpos'],
+      candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 800,
     });
   });
 
   it('printSucceeded logs an info event with printerId/protocol/durationMs', () => {
-    PrinterLogger.printSucceeded({ printerId: 'p1', protocol: 'escpos', durationMs: 250 });
+    PrinterLogger.printSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos, durationMs: 250 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.print.succeeded', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       durationMs: 250,
     });
   });
 
   it('printFailed logs an error event with printerId/protocol/errorCode/durationMs', () => {
-    PrinterLogger.printFailed({ printerId: 'p1', protocol: 'escpos', errorCode: AppErrorCode.ENCODING_FAILED, durationMs: 80 });
+    PrinterLogger.printFailed({ printerId: 'p1', protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.ENCODING_FAILED, durationMs: 80 });
     expect(LoggerService.error).toHaveBeenCalledWith('printer.print.failed', {
       printerId: 'p1',
-      protocol: 'escpos',
+      protocol: PrinterDriverType.escpos,
       errorCode: AppErrorCode.ENCODING_FAILED,
       durationMs: 80,
     });

@@ -1,4 +1,5 @@
-import type { ConnectionType, PrinterDevice, PrinterDriverType, PrinterLanConfig } from '../types/printer.types';
+import { PrinterDriverType } from '../types/printer.types';
+import type { ConnectionType, PrinterDevice, PrinterLanConfig } from '../types/printer.types';
 
 type Task = () => Promise<void>;
 
@@ -25,7 +26,7 @@ export interface ConnectionResourceKeyInput {
  */
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
   if (input.connectionType === 'usb') return 'usb';
-  if (input.driverType === 'escpos') return `escpos:${input.connectionType}`;
+  if (input.driverType === PrinterDriverType.escpos) return `escpos:${input.connectionType}`;
   if (input.connectionType === 'bluetooth') {
     if (!input.device) throw new Error('Thiếu device để tính resource key cho TSPL qua Bluetooth');
     return `tspl:bluetooth:${input.device.deviceId}`;

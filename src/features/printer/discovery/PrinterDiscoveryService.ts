@@ -1,5 +1,6 @@
 import type { IPrinterDriver } from '../types/driver.types';
-import type { Printer, PrinterDeviceInfo, PrinterDriverType } from '../types/printer.types';
+import { PrinterDriverType } from '../types/printer.types';
+import type { Printer, PrinterDeviceInfo } from '../types/printer.types';
 import { AppErrorCode, type AppError } from '../types/AppError';
 import { PrinterLogger } from '../services/PrinterLogger';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
@@ -10,7 +11,7 @@ import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
  * `~!T`), trong khi ESC/POS's `identify()` chỉ chứng minh "đã connect thành
  * công". Qua USB cả 2 driver luôn trả `null` — cố ý, không phải thiếu rule.
  */
-const CANDIDATE_ORDER: PrinterDriverType[] = ['tspl', 'escpos'];
+const CANDIDATE_ORDER: PrinterDriverType[] = [PrinterDriverType.tspl, PrinterDriverType.escpos];
 
 export type DiscoveryStage = 'connecting' | 'identifying' | 'identified' | 'unknown_protocol' | 'error';
 

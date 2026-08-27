@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
+import { PrinterDriverType } from '../../types/printer.types';
 import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus, UsbRawDevice } from '../../types/printer.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
@@ -132,10 +133,10 @@ export class EscPosDriver implements IPrinterDriver {
       }
       this.activeByType.set(printer.connectionType, printer.id);
       this.setStatus(printer.id, 'connected');
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: 'escpos', connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, 'error');
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: 'escpos', connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -149,7 +150,7 @@ export class EscPosDriver implements IPrinterDriver {
       }
     } catch (error) {
       this.setStatus(printerId, 'error');
-      PrinterLogger.disconnectFailed({ printerId, protocol: 'escpos', errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
       throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
     } finally {
       if (connectionType && this.activeByType.get(connectionType) === printerId) this.activeByType.delete(connectionType);
@@ -158,7 +159,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.contexts.delete(printerId);
     }
     this.setStatus(printerId, 'disconnected');
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: 'escpos' });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
   /** Chỉ dùng cho test/snapshot (spec §7.2) — production `print()`/`testPrint()` KHÔNG gọi hàm này. */
@@ -199,9 +200,9 @@ export class EscPosDriver implements IPrinterDriver {
     const startedAt = Date.now();
     try {
       await this.printText(connectionType, context.printer, documents);
-      PrinterLogger.printSucceeded({ printerId, protocol: 'escpos', durationMs: Date.now() - startedAt });
+      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.printFailed({ printerId, protocol: 'escpos', errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -226,9 +227,9 @@ export class EscPosDriver implements IPrinterDriver {
       const connectionType = this.connectedTypes.get(printer.id);
       if (!connectionType) return;
       await this.printText(connectionType, printer, documents);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: 'escpos', durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: 'escpos', errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
