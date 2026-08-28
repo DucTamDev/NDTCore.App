@@ -1,20 +1,19 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
-import type { PrintDocument } from '../../types/printDocument.types';
 import { PrintType } from '../../types/printConfiguration.types';
-import { TsplEncoder, DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM, DOTS_PER_MM } from './TsplEncoder';
+import { DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM } from './TsplEncoder';
 import { TsplFontManager } from './TsplFontManager';
+import { resolveTsplStrategy } from './TsplStrategyRegistry';
+import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
 import { UsbTransport } from '../../transports/UsbTransport';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
-import { PAPER_WIDTH_CHARS, PAPER_IMAGE_WIDTH_PX, formatRow } from '../../utils/paperWidth';
-import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
 
 export type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
@@ -154,86 +153,34 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   /**
-   * `truetype` chỉ hiệu lực khi `renderMode === 'truetype'` VÀ
-   * `font.fontInstalled === true`; mọi trường hợp khác dùng bitmap, và bitmap
-   * BẮT BUỘC có `documents.image` — không fallback về text + font bitmap
-   * `"3"` (không có dấu tiếng Việt) khi ảnh chưa render được, ném lỗi thay vì
-   * in sai lặng lẽ.
-   *
-   * `documents.image` giờ là base64 string trực tiếp (không còn bọc trong
-   * `PrintDocument`), nên nhánh bitmap không còn "document" để trả về —
-   * trả `kind: 'image'` để `encode()` tự vẽ bitmap, bỏ qua `encodeElements`.
-   * Tạm thời tới Task 6 (TSPL Strategy Pattern) sẽ thay hẳn cách resolve này.
+   * Nguồn render DUY NHẤT — chọn strategy theo `renderMode` qua
+   * `resolveTsplStrategy` rồi validate/encode qua strategy đó. KHÔNG tự
+   * switch renderMode ở đây, KHÔNG fallback khi `validate()` ném lỗi (RULE 05,
+   * §27-30) — lỗi phải propagate thẳng ra ngoài.
    */
-  private resolveDocumentAndFont(
-    driver: PrinterDriver,
-    documents: PrintDocuments,
-  ): { kind: 'text'; document: PrintDocument; fontName: string } | { kind: 'image'; base64: string } {
-    if (isTsplTrueTypeActive(driver) && driver.config.type === PrinterDriverType.tspl && driver.config.font) {
-      return { kind: 'text', document: documents.text, fontName: driver.config.font.name };
+  private buildBytes(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Uint8Array {
+    if (driver.config.type !== PrinterDriverType.tspl) {
+      throw new AppErrorException({ code: AppErrorCode.TSPL_RENDER_MODE_UNSUPPORTED, message: 'Driver không phải TSPL.' });
     }
-    if (!documents.image) {
-      throw new AppErrorException({ code: AppErrorCode.TSPL_IMAGE_REQUIRED, message: 'Chưa có ảnh bitmap để in — capture ảnh đã thất bại hoặc chưa được render.' });
-    }
-    return { kind: 'image', base64: documents.image };
+    const strategy = resolveTsplStrategy(driver.config.renderMode);
+    const context: TsplStrategyContext = {
+      printer,
+      driver,
+      documents,
+      printType,
+      heightMm: resolveHeightMm(driver, printType),
+    };
+    strategy.validate(context);
+    return strategy.encode(context);
   }
 
-  private encodeElements(
-    encoder: TsplEncoder,
-    document: PrintDocument,
-    paperSize: Printer['paperSize'],
-    heightMm: number,
-    fontName: string,
-  ): void {
-    const paperWidth = PAPER_WIDTH_CHARS[paperSize];
-    for (const element of document.elements) {
-      if (element.type === 'text') {
-        encoder.text(element.x, element.y, element.content, fontName);
-      } else if (element.type === 'line') {
-        encoder.text(element.x, element.y, '-'.repeat(paperWidth), fontName);
-      } else if (element.type === 'table') {
-        element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  '), fontName));
-      } else if (element.type === 'row') {
-        encoder.text(element.x, element.y, formatRow(element.left, element.right, paperWidth), fontName);
-      } else if (element.type === 'image') {
-        const bitmap = decodePngBase64ToMonochrome(element.data, PAPER_IMAGE_WIDTH_PX[paperSize]);
-        const maxHeightPx = heightMm * DOTS_PER_MM;
-        if (bitmap.heightPx > maxHeightPx) {
-          throw new AppErrorException({
-            code: AppErrorCode.TSPL_IMAGE_TOO_LARGE,
-            message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
-          });
-        }
-        encoder.image(element.x, element.y, bitmap);
-      } else if (element.type === 'barcode') {
-        encoder.barcode(element.x, element.y, element.content);
-      } else if (element.type === 'qrCode') {
-        encoder.qrcode(element.x, element.y, element.content);
-      } else {
-        throw new AppErrorException({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
-      }
-    }
-  }
-
+  /**
+   * @deprecated Xoá ở Task 8 khi encode() rời khỏi IPrinterDriver — chỉ để
+   * thoả interface tạm thời. `printType` mặc định `Receipt` khi bỏ trống,
+   * khớp default cũ của `TsplEncoder.initialize()`.
+   */
   encode(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType?: PrintType): Uint8Array {
-    const heightMm = resolveHeightMm(driver, printType);
-    const encoder = new TsplEncoder().initialize(printer.paperSize, printType, heightMm);
-    const resolved = this.resolveDocumentAndFont(driver, documents);
-    if (resolved.kind === 'text') {
-      this.encodeElements(encoder, resolved.document, printer.paperSize, heightMm, resolved.fontName);
-    } else {
-      // tạm thời tới Task 6 — bitmap path nhận base64 string trực tiếp, bỏ vòng lặp element cho nhánh image
-      const bitmap = decodePngBase64ToMonochrome(resolved.base64, PAPER_IMAGE_WIDTH_PX[printer.paperSize]);
-      const maxHeightPx = heightMm * DOTS_PER_MM;
-      if (bitmap.heightPx > maxHeightPx) {
-        throw new AppErrorException({
-          code: AppErrorCode.TSPL_IMAGE_TOO_LARGE,
-          message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
-        });
-      }
-      encoder.image(0, 0, bitmap);
-    }
-    return encoder.cut().encode();
+    return this.buildBytes(printer, driver, documents, printType ?? PrintType.Receipt);
   }
 
   private async writeBytes(printer: Printer, transport: TsplTransport | undefined, bytes: Uint8Array): Promise<void> {
@@ -246,14 +193,14 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType?: PrintType): Promise<void> {
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void> {
     const startedAt = Date.now();
     try {
       if (!this.connections.has(printer.id)) {
         await this.connect(printer, driver);
       }
       const transport = this.connections.get(printer.id);
-      const bytes = this.encode(printer, driver, documents, printType);
+      const bytes = this.buildBytes(printer, driver, documents, printType);
       await this.writeBytes(printer, transport, bytes);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
@@ -262,13 +209,13 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
-  async print(printerId: string, documents: PrintDocuments, printType?: PrintType): Promise<void> {
+  async print(printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> {
     const context = this.contexts.get(printerId);
     const transport = this.connections.get(printerId);
     if (!context || !transport) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
-    const bytes = this.encode(context.printer, context.driver, documents, printType);
+    const bytes = this.buildBytes(context.printer, context.driver, documents, printType);
     await this.writeBytes(context.printer, transport, bytes);
   }
 
