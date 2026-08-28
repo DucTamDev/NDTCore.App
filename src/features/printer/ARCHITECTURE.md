@@ -2508,11 +2508,12 @@ printerId
 operation
 driverType
 connectionType
-resourceKey
 duration
 result
 errorCode
 ```
+
+`resourceKey` KHÔNG log vì chứa IP (TSPL LAN = `tspl:lan:<ip>:<port>`) — vi phạm §106. `connectionType` + `driverType` đã đủ để debug concurrency.
 
 ---
 
