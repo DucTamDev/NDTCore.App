@@ -1,5 +1,6 @@
 import { Buffer } from 'buffer';
 import { LanTransport } from '../LanTransport';
+import { AppErrorCode } from '../../types/AppError';
 
 type DataListener = (data: Buffer | string) => void;
 
@@ -63,6 +64,19 @@ describe('LanTransport.readOnce', () => {
     const transport = new LanTransport();
     const result = await transport.readOnce(500);
     expect(result).toBeNull();
+  });
+});
+
+describe('LanTransport.write', () => {
+  it('throws PRINTER_WRITE_FAILED when writing while not connected', () => {
+    const transport = new LanTransport();
+    let caught: unknown;
+    try {
+      transport.write(new Uint8Array([0x41]));
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
   });
 });
 

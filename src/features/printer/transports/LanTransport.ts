@@ -52,7 +52,7 @@ export class LanTransport {
 
   write(bytes: Uint8Array): void {
     if (!this.socket) {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'LAN socket chưa được kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: 'LAN socket chưa được kết nối' });
     }
     this.socket.write(bytes);
   }
