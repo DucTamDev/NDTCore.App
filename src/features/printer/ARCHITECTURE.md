@@ -1,30 +1,3 @@
-Được. Với yêu cầu **production architecture**, bản trước vẫn còn quá ngắn và thiên về mô tả. Tôi sẽ viết lại thành một **Architecture & Runtime Design Document đầy đủ**, khoảng 80+ mục/bước, trong đó đặc biệt làm rõ:
-
-* `TsplDriver` dùng **Strategy Pattern**
-* `DOWNLOAD` là **font installation lifecycle**, **không nằm trong print flow**
-* **Không fallback** giữa TrueType ↔ Bitmap
-* TSPL `Receipt` và `Label` vẫn độc lập với protocol
-* Discovery / manual protocol selection
-* Printer lifecycle
-* Driver lifecycle
-* Transport lifecycle
-* TTF lifecycle
-* Bitmap lifecycle
-* Print routing
-* Scheduler
-* Lock/concurrency
-* Error handling
-* Storage
-* logging
-* testing
-* SOLID
-* file-by-file responsibility
-* production rules ở cuối
-
-Dưới đây là bản nên dùng làm `docs/architecture/printer.md`.
-
----
-
 # Printer Feature — Production Architecture & Runtime Design
 
 **Document Type:** Architecture Contract
@@ -351,6 +324,12 @@ type PrintType =
   | 'Receipt'
   | 'Label';
 ```
+
+Codebase khai báo bằng const-object pattern:
+`export const PrintType = { Receipt: 'Receipt', Label: 'Label' } as const`
+kèm derived type `type PrintType = (typeof PrintType)[keyof typeof PrintType]`.
+Giá trị chuỗi `'Receipt' | 'Label'` không đổi — xem
+`types/printConfiguration.types.ts`.
 
 Ví dụ:
 
@@ -708,41 +687,50 @@ Không polling.
 
 ```ts
 interface IPrinterDriver {
-  scan(): Promise<PrinterDevice[]>;
+  scan(
+    connectionType: ConnectionType,
+    onEvent: (event: DeviceScanEvent) => void,
+  ): Unsubscribe;
 
   connect(
     printer: Printer,
+    driver: PrinterDriver,
   ): Promise<void>;
 
-  disconnect(
-    printer: Printer,
-  ): Promise<void>;
+  disconnect(printerId: string): Promise<void>;
 
-  getStatus(
-    printer: Printer,
-  ): PrinterStatus;
+  getStatus(printerId: string): PrinterStatus;
 
   onStatusChange(
-    listener: StatusListener,
+    printerId: string,
+    callback: (status: PrinterStatus) => void,
   ): Unsubscribe;
 
-  identify(
-    printer: Printer,
-  ): Promise<PrinterIdentity | null>;
+  identify(printerId: string): Promise<PrinterDeviceInfo | null>;
 
   print(
-    printer: Printer,
+    printerId: string,
     documents: PrintDocuments,
     printType: PrintType,
   ): Promise<void>;
 
   testPrint(
     printer: Printer,
+    driver: PrinterDriver,
     documents: PrintDocuments,
     printType: PrintType,
   ): Promise<void>;
 }
 ```
+
+Pseudocode gốc §23 là minh hoạ; signature chuẩn xem `types/driver.types.ts`.
+Điểm khác với pseudocode:
+
+* **KHÔNG có `encode()`** — render TSPL nằm ở strategy (§27-30), ESC/POS ở builder (§111).
+* `printType: PrintType` là **bắt buộc** trên `print()` / `testPrint()`.
+* `scan` là streaming: `scan(connectionType, onEvent): Unsubscribe` — không phải `Promise<PrinterDevice[]>` — để huỷ được stream discovery Bluetooth ~12s.
+* `connect(printer, driver)` — 1 `Printer` có ≤ 2 driver, mỗi driver connect bằng config/transport riêng.
+* `disconnect` / `getStatus` / `onStatusChange` / `identify` nhận `printerId`.
 
 ---
 
@@ -1329,13 +1317,17 @@ PRINT
 
 ```ts
 interface TsplFontConfig {
-  renderMode: 'bitmap' | 'truetype';
+  name: string;
 
-  fontName?: string;
+  fileName: string;
 
   fontInstalled: boolean;
 }
 ```
+
+`renderMode` KHÔNG thuộc `TsplFontConfig` — nó thuộc `TsplDriverConfig`
+(§14, §29). `name` là định danh logical dùng chung cho `DOWNLOAD "<name>"`
+và `TEXT ...,"<name>"`; `fileName` là tên file `.ttf` trong assets.
 
 `fontInstalled` là application state.
 
@@ -2012,13 +2004,14 @@ Ví dụ:
 
 ```ts
 interface PrintDocuments {
-  text?: PrintDocument;
+  text: PrintDocument;
 
   image?: string;
 }
 ```
 
-Không bắt buộc cả hai.
+`text` **bắt buộc** trong codebase (mọi flow đều có document text); `image`
+là base64 PNG **không** tiền tố `data:` — nguồn cho TSPL bitmap.
 
 Strategy quyết định document nào được sử dụng.
 
@@ -2052,17 +2045,33 @@ font installation
 interface PrintJob {
   id: string;
 
-  printerId: string;
+  requestId: string;
 
-  driverType: PrinterDriverType;
+  printerId: string;
 
   printType: PrintType;
 
   documents: PrintDocuments;
 
-  createdAt: number;
+  status: PrintJobStatus;
+
+  retryCount: number;
+
+  error?: AppError;
+
+  createdAt: string;
+
+  startedAt?: string;
+
+  completedAt?: string;
 }
 ```
+
+`driverType` **không** lưu trên job — `PrintScheduler` tự tra driver từ
+`printer + printType` (`resourceKeyFor`); thêm field là trùng nguồn sự thật.
+`requestId` gộp các job multi-target sinh từ 1 lệnh `PrintService.print`
+(cần cho failure isolation §128-129). `status` / `retryCount` / `*At` là
+scheduler lifecycle (§86, §94).
 
 ---
 
@@ -2501,19 +2510,24 @@ Tất cả printer operation phải đi qua:
 PrinterLogger
 ```
 
-Log fields:
+Log fields (tên đúng như code phát ra):
 
 ```text
 printerId
 operation
-driverType
+protocol
 connectionType
-duration
+durationMs
 result
 errorCode
 ```
 
-`resourceKey` KHÔNG log vì chứa IP (TSPL LAN = `tspl:lan:<ip>:<port>`) — vi phạm §106. `connectionType` + `driverType` đã đủ để debug concurrency.
+`operation`: `'scan' | 'connect' | 'disconnect' | 'discovery' | 'test-print' | 'print' | 'font-install'`.
+`result`: `'success' | 'failure' | 'started'` (`started` cho event mốc-bắt-đầu lifecycle).
+
+`resourceKey` **KHÔNG** log — với TSPL LAN nó là `tspl:lan:<ip>:<port>`,
+chứa IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
+concurrency mà không lộ IP (xem `PrinterLogger.ts`, spec §12.6).
 
 ---
 
@@ -3745,6 +3759,72 @@ Saving a printer MUST NOT implicitly DOWNLOAD fonts.
 RULE 50
 The print pipeline MUST be deterministic from configured driver + render mode.
 ```
+
+---
+
+# 145b. TSPL Rendering Contract — Named Rules
+
+Tám named rule dưới đây đặt tên rõ cho phần TSPL rendering, mỗi rule map sang
+RULE số hiện có ở §145 và ghi cách test:
+
+| Named rule | Nội dung | Trùng RULE | Testable via |
+|---|---|---|---|
+| **TSPL Strategy Ownership** | `TsplDriver` MUST NOT chứa document-rendering implementation. Mọi render TSPL delegate cho `ITsplPrintStrategy` resolve **chỉ** từ `TsplDriverConfig.renderMode`. | 05, 37 | `TsplDriver.ts` không import `TsplEncoder`/`pngToMonochrome`; unit test `buildBytes` gọi registry |
+| **No Fallback** | `renderMode` là hard rendering contract. Strategy fail → print job fail. MUST NOT chuyển strategy khác. | 08-12, 130 | test: bitmap thiếu ảnh → `TSPL_IMAGE_REQUIRED` (không có `TEXT` trong bytes); truetype thiếu font → `TSPL_FONT_NOT_INSTALLED` (không có `BITMAP`) |
+| **No Download During Print** | Font install MUST NEVER xảy ra trong `print` / `testPrint` / reconnect / retry. `DOWNLOAD` chỉ là explicit font-install op. | 13-17, 47 | spy `TsplFontManager.downloadFont` — assert không gọi trong mọi test print path |
+| **Strategy Purity** | `ITsplPrintStrategy` MUST NOT chạm storage / connection state / native / transport / printer I/O. | 12-14, 37, 118 | strategy file không import `transports/` / `adapters/` / `storage/` / `StorageService` |
+| **Driver Responsibility** | `TsplDriver` sở hữu connection lifecycle + orchestrate write, MUST NOT sở hữu document rendering. | 37, 43, 115 | như "Strategy Ownership" |
+| **Transport Responsibility** | `TsplTransport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | transport file không import `types/printDocument` / strategy / encoder |
+| **Configuration Is Source of Truth** | `renderMode` quyết định strategy. Runtime font availability MUST NOT âm thầm đổi renderMode đã cấu hình. | 19, 28, 130, 134 | không tồn tại code path đọc runtime state để chọn strategy |
+| **Explicit Failure** | Mọi điều kiện TSPL render invalid/unsupported MUST sinh `TSPL_*` code cụ thể + kết thúc job đó. | 12, 31, 42-43 | bảng test §11.1 (spec conformance) phủ từng code |
+
+---
+
+# Documented Deviations
+
+Các chỗ ARCHITECTURE.md không thể theo 100% literal vì tự mâu thuẫn hoặc
+pseudocode làm regress hành vi thật. Nguồn: spec
+`docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md` §12.
+
+**D1 — `IPrinterDriver` §23 signature là minh hoạ.** §23 viết
+`scan(): Promise<PrinterDevice[]>`, `connect(printer)`,
+`onStatusChange(listener)`. Signature thật (`types/driver.types.ts`) giữ
+`scan(connectionType, onEvent): Unsubscribe` (stream Bluetooth ~12s, cần
+huỷ), `connect(printer, driver)` (1 printer ≤ 2 driver), `onStatusChange(printerId, cb)`
+(status theo từng printer). Chỉ đổi thật: bỏ `encode()` + `printType` bắt buộc.
+
+**D2 — `EscPosDriver` không đi qua `Transport`.** §56-61 mô tả Transport
+chung; ESC/POS dùng thư viện vendor gộp connect+encode+write (§61 cũng thừa
+nhận). Giữ ngoại lệ pragmatic. `EscPosTextBuilder` thuần chỉ phục vụ test.
+
+**D3 — Font persist khi Add-flow (§46 bước "Persist state").** §46/§126 giả
+định printer đã tồn tại trong storage. Trong `AddPrinterModal` (thêm mới),
+printer chưa có khi user bật switch TrueType. Reconcile: `installTsplFont`
+chỉ `savePrinters(...)` nếu printer đã trong storage; với draft thì
+`AddPrinterModal` mang state vào `buildDraftPrinter()` lúc Save.
+
+**D4 — `PrintJob` giữ field ngoài §85.** §85 chỉ liệt kê
+`id, printerId, driverType, printType, documents, createdAt`. Shape thật
+(`types/printJob.types.ts`) giữ thêm `requestId` (failure isolation §128-129),
+`status`, `retryCount`, `error?`, `startedAt?`, `completedAt?` (scheduler
+lifecycle §86, §94) và **bỏ** `driverType` (scheduler tự tra từ printer +
+printType). §85 doc đã cập nhật theo shape thật.
+
+**D5 — `TSPL_ELEMENT_UNSUPPORTED` dùng chung với ESC/POS.** §101 chỉ có
+`TSPL_ELEMENT_UNSUPPORTED`. `EscPosTextBuilder` gặp element không in được
+(barcode/image) cũng ném code này — không có `ESCPOS_*` trong §101. Chấp
+nhận tên "TSPL_" hơi rộng nghĩa để bám §101 100%.
+
+**D6 — `PrinterLogger` bỏ `resourceKey` (§105 vs §106).** §105 liệt kê
+`resourceKey` là field log; §106 cấm log IP; resourceKey TSPL LAN =
+`tspl:lan:<ip>:<port>`. Ưu tiên §106 → không log `resourceKey`. §105 doc đã
+cập nhật.
+
+**D7 — TrueType chưa xác nhận phần cứng.** Cú pháp `DOWNLOAD` +
+`TEXT "<font>"` theo TSPL2 phổ biến, **chưa test máy thật** (kế thừa spec
+2026-08-27 §2). No-fallback nghĩa là nếu cú pháp sai trên firmware cụ thể →
+in fail thật (trước đây fallback bitmap che được). User phải test phần cứng
+trước khi bật TrueType ở production.
 
 ---
 
