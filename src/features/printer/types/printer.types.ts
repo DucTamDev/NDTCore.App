@@ -122,17 +122,15 @@ export interface PrinterDriver {
 }
 
 /**
- * `true` chỉ khi driver là TSPL, `renderMode` đang `'truetype'` VÀ font đã
- * cài thành công (`font.fontInstalled`) — nguồn sự thật duy nhất cho điều
- * kiện này, dùng ở cả tầng driver (`TsplDriver.resolveDocumentAndFont`) lẫn
- * tầng UI/print routing (`PrintService`, `AddPrinterModal`, `PrinterInfoCard`)
- * để tránh viết tay lặp lại cùng 1 điều kiện ở nhiều nơi.
+ * `renderMode` đã CẤU HÌNH của driver TSPL — ý định đã khai báo, không quan
+ * tâm font đã cài thành công hay chưa (`font.fontInstalled`). Dưới kiến trúc
+ * Strategy không-fallback, "đã cấu hình truetype nhưng chưa sẵn sàng" giờ là
+ * lỗi in tường minh do `TsplTrueTypeStrategy` ném ra, không còn là trạng thái
+ * để tầng gọi (`PrintService`, `AddPrinterModal`, `PrinterInfoCard`) tự đoán
+ * và né tránh. `null` nếu driver không phải TSPL.
  */
-export const isTsplTrueTypeActive = (driver: PrinterDriver): boolean =>
-  driver.type === PrinterDriverType.tspl &&
-  driver.config.type === PrinterDriverType.tspl &&
-  driver.config.renderMode === TsplRenderMode.truetype &&
-  !!driver.config.font?.fontInstalled;
+export const tsplRenderModeOf = (driver: PrinterDriver): TsplRenderMode | null =>
+  driver.config.type === PrinterDriverType.tspl ? driver.config.renderMode : null;
 
 export interface Printer {
   id: string;

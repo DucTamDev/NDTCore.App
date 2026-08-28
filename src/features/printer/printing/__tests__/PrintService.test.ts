@@ -96,6 +96,17 @@ describe('PrintService.imageDocumentPaperSize', () => {
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
   });
 
+  it('returns null when the tspl target is configured truetype but font is NOT installed — configured intent wins, not effective capability', () => {
+    const truetypeNotInstalledDriver: PrinterDriver = {
+      type: PrinterDriverType.tspl,
+      source: DriverSource.auto,
+      contentTypes: [PrintType.Label],
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype },
+    };
+    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
+    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+  });
+
   it('returns the bitmap target paperSize when a mix of truetype+installed and bitmap tspl targets both resolve the same printType', () => {
     const truetypeDriver: PrinterDriver = {
       type: PrinterDriverType.tspl,

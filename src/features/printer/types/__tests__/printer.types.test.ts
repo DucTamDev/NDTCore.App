@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
 import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
@@ -59,5 +59,16 @@ describe('printer domain types', () => {
       encode: () => new Uint8Array(),
     };
     expect(driver.getStatus('p1')).toBe(PrinterStatus.idle);
+  });
+});
+
+describe('tsplRenderModeOf', () => {
+  const tspl = (renderMode: TsplRenderMode) => ({ type: PrinterDriverType.tspl, source: 'auto', contentTypes: [], config: { type: PrinterDriverType.tspl, renderMode } } as never);
+  it('trả renderMode đã cấu hình (không quan tâm fontInstalled)', () => {
+    expect(tsplRenderModeOf(tspl(TsplRenderMode.truetype))).toBe(TsplRenderMode.truetype);
+    expect(tsplRenderModeOf(tspl(TsplRenderMode.bitmap))).toBe(TsplRenderMode.bitmap);
+  });
+  it('trả null cho driver escpos', () => {
+    expect(tsplRenderModeOf({ type: PrinterDriverType.escpos, source: 'auto', contentTypes: [], config: { type: PrinterDriverType.escpos } } as never)).toBeNull();
   });
 });

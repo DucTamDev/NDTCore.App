@@ -10,7 +10,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { ConnectionType, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -137,7 +137,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
           {driver.type === PrinterDriverType.tspl ? (
             <AppSwitch
               label="In bằng font TrueType (thử nghiệm)"
-              value={isTsplTrueTypeActive(driver)}
+              value={tsplRenderModeOf(driver) === TsplRenderMode.truetype}
               onValueChange={onToggleTsplFont}
               disabled={locked || tsplFontPending}
             />

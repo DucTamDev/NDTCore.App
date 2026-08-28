@@ -24,7 +24,7 @@ import { DiscoveryStage, type DiscoveryEvent } from '../discovery/PrinterDiscove
 import { AppErrorException } from '../types/AppError';
 import type { PrintDocuments } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type {
   Printer,
   PrinterDevice,
@@ -338,7 +338,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
   };
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocuments> => {
-    if (driver.type !== PrinterDriverType.tspl || isTsplTrueTypeActive(driver)) return { text: document };
+    if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) return { text: document };
     const base64 = await captureBillImage(document, printer.paperSize);
     if (!base64) return { text: document };
     return { text: document, image: base64 };
