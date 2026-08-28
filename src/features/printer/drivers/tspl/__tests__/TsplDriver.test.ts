@@ -311,6 +311,34 @@ describe('TsplDriver', () => {
     expect(text).toContain(`TEXT 5,10,"${DEFAULT_TSPL_FONT.name}",0,1,1,"Ma don${' '.repeat(22)}#001"`);
   });
 
+  /**
+   * Khôi phục coverage đã mất khi Task 2 đổi test này sang cover top-level
+   * `documents.image` (luôn vẽ tại 0,0). Nhánh `element.type === 'image'`
+   * trong `encodeElements()` (image lồng trong `PrintDocument.elements`) vẫn
+   * là code sống — mang x/y thật riêng của nó, khác `documents.image` — nên
+   * cần 1 test riêng khẳng định x/y đó được truyền đúng vào `encoder.image()`.
+   */
+  it('print() encodes an image PrintElement inside documents.text.elements into a real BITMAP command with its own x/y (via encodeElements(), truetype)', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplTruetypeDriverEntry);
+    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
+    await driver.print(lanPrinter.id, asTextDocuments({ elements: [{ type: 'image', data: tinyPngBase64(), x: 3, y: 7 }] }));
+    const bytes = instance.write.mock.calls[0][0] as Uint8Array;
+    // `initialize()` viết SIZE/GAP/CODEPAGE/CLS trước — tìm đúng vị trí bắt
+    // đầu của "BITMAP" trong toàn bộ byte stream thay vì giả định index 0.
+    const asAscii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
+    const bitmapStart = asAscii.indexOf('BITMAP');
+    expect(bitmapStart).toBeGreaterThan(-1);
+    // `TsplDriver` chuẩn hoá mọi ảnh về đúng `PAPER_IMAGE_WIDTH_PX[58]`
+    // (384px, xem `decodePngBase64ToMonochrome`) bất kể kích thước gốc — ảnh
+    // test rộng 2px bị scale lên 384px (widthBytes = ceil(384/8) = 48), cao
+    // tương ứng theo tỉ lệ (1px * 384/2 = 192px). Khác với `documents.image`
+    // (luôn 0,0), x/y ở đây (3,7) phải đến từ chính `element.x`/`element.y`.
+    const header = 'BITMAP 3,7,48,192,0,';
+    expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
+  });
+
   it('print() decodes documents.image (base64 PNG) into a real BITMAP command at (0,0) (widthBytes = ceil(width/8))', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
