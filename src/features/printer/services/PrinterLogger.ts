@@ -13,10 +13,11 @@ import type { ConnectionType, PrinterDriverType } from '../types/printer.types';
  * — nhúng IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
  * concurrency mà không lộ IP (spec §12.6).
  *
- * Mọi payload đều kèm 2 field chuẩn (§9.2 / §105):
+ * Mọi payload đều kèm field chuẩn (§9.2 / §105):
  * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `font-install`).
- * - `result`: `success` / `failure`, hoặc `started` cho event mốc-bắt-đầu
- *   lifecycle (chưa có kết quả để phân loại, vd `discoveryStarted`).
+ * - `result`: `success` / `failure` — OPTIONAL. Event mốc-bắt-đầu lifecycle
+ *   (`discoveryStarted`) KHÔNG phát `result`: `operation: 'discovery'` + tên
+ *   event `.started` đã mang phase, chưa có kết quả để phân loại.
  */
 type PrinterLogOperation =
   | 'scan'
@@ -27,13 +28,17 @@ type PrinterLogOperation =
   | 'print'
   | 'font-install';
 
-type PrinterLogResult = 'success' | 'failure' | 'started';
+type PrinterLogResult = 'success' | 'failure';
 
 const withStdFields = <T extends Record<string, unknown>>(
   operation: PrinterLogOperation,
-  result: PrinterLogResult,
+  result: PrinterLogResult | undefined,
   params: T,
-): T & { operation: PrinterLogOperation; result: PrinterLogResult } => ({ ...params, operation, result });
+): T & { operation: PrinterLogOperation; result?: PrinterLogResult } => ({
+  ...params,
+  operation,
+  ...(result ? { result } : {}),
+});
 
 export const PrinterLogger = {
   scanCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void {
@@ -90,7 +95,7 @@ export const PrinterLogger = {
   },
 
   discoveryStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrinterDriverType[] }): void {
-    LoggerService.debug('printer.discovery.started', withStdFields('discovery', 'started', params));
+    LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
   },
 
   /**

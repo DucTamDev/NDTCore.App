@@ -131,15 +131,16 @@ describe('PrinterLogger', () => {
     });
   });
 
-  it('discoveryStarted logs a debug event with operation=discovery, result=started', () => {
+  it('discoveryStarted logs a debug event with operation=discovery and NO result field', () => {
     PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: ConnectionType.lan, candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos] });
     expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.started', {
       printerId: 'p1',
       connectionType: ConnectionType.lan,
       candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       operation: 'discovery',
-      result: 'started',
     });
+    const payload = (LoggerService.debug as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('result');
   });
 
   it('discoveryCandidateRejected logs a debug event with operation=discovery, result=failure', () => {

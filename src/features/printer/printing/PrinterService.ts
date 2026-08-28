@@ -221,16 +221,29 @@ export const createPrinterService = (
         try {
           await tsplDriver.installTsplFont(printerId, font);
         } finally {
-          if (!wasConnected && printer && tsplEntry) {
+          // `printer`/`tsplEntry` chắc chắn có ở đây khi `!wasConnected` — nhánh
+          // thiếu chúng đã throw trước khi vào try này (§95).
+          if (!wasConnected) {
             await tsplDriver.disconnect(printerId).catch(() => undefined);
           }
         }
       });
     } catch (error) {
-      PrinterLogger.fontInstallFailed({ printerId, connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      // Draft chưa lưu không có `connectionType` — chỉ đính khi có giá trị,
+      // không phát `connectionType: undefined` vào log.
+      PrinterLogger.fontInstallFailed({
+        printerId,
+        ...(connectionType ? { connectionType } : {}),
+        errorCode: errorCodeOf(error),
+        durationMs: Date.now() - startedAt,
+      });
       throw error;
     }
-    PrinterLogger.fontInstallSucceeded({ printerId, connectionType, durationMs: Date.now() - startedAt });
+    PrinterLogger.fontInstallSucceeded({
+      printerId,
+      ...(connectionType ? { connectionType } : {}),
+      durationMs: Date.now() - startedAt,
+    });
 
     if (printer && tsplEntry && tsplEntry.config.type === PrinterDriverType.tspl) {
       savePrinters(

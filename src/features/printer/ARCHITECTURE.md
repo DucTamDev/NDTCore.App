@@ -2523,7 +2523,9 @@ errorCode
 ```
 
 `operation`: `'scan' | 'connect' | 'disconnect' | 'discovery' | 'test-print' | 'print' | 'font-install'`.
-`result`: `'success' | 'failure' | 'started'` (`started` cho event mốc-bắt-đầu lifecycle).
+`result`: `'success' | 'failure'` — **optional**. Event mốc-bắt-đầu lifecycle
+(vd `discovery.started`) KHÔNG phát `result`: `operation` + tên event (`.started`)
+đã mang thông tin phase, chưa có kết quả để phân loại.
 
 `resourceKey` **KHÔNG** log — với TSPL LAN nó là `tspl:lan:<ip>:<port>`,
 chứa IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
@@ -2554,7 +2556,7 @@ IP address chỉ log nếu architecture/security policy cho phép; mặc định
 Printer native operation:
 
 ```text
-UNSUPPORTED_CONNECTION
+PRINTER_UNSUPPORTED_CONNECTION
 ```
 
 Không được để web bundle import native printer module.

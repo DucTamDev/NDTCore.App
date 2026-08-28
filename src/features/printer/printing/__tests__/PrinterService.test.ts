@@ -6,6 +6,7 @@ import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRen
 import { PrintType } from '../../types/printConfiguration.types';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { AppErrorCode } from '../../types/AppError';
+import { PrinterLogger } from '../../services/PrinterLogger';
 
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
@@ -482,5 +483,37 @@ describe('PrinterService', () => {
     await service.reconnect(twoDriverPrinter.id);
 
     expect(tsplDriver.installTsplFont).not.toHaveBeenCalled();
+  });
+
+  it('installTsplFont() calls PrinterLogger.fontInstallSucceeded after a successful install', async () => {
+    const succeededSpy = jest.spyOn(PrinterLogger, 'fontInstallSucceeded').mockImplementation(() => undefined);
+    const tsplDriver = { ...makeMockDriver(), installTsplFont: jest.fn().mockResolvedValue(undefined) };
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());
+    const tsplPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
+    service.addPrinter(tsplPrinter);
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await service.installTsplFont(tsplPrinter.id, font);
+
+    expect(succeededSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: tsplPrinter.id, connectionType: ConnectionType.lan }),
+    );
+    succeededSpy.mockRestore();
+  });
+
+  it('installTsplFont() calls PrinterLogger.fontInstallFailed then rethrows when the DOWNLOAD fails', async () => {
+    const failedSpy = jest.spyOn(PrinterLogger, 'fontInstallFailed').mockImplementation(() => undefined);
+    const downloadError = new Error('download timed out');
+    const tsplDriver = { ...makeMockDriver(), installTsplFont: jest.fn().mockRejectedValue(downloadError) };
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());
+    const tsplPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
+    service.addPrinter(tsplPrinter);
+    const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
+
+    await expect(service.installTsplFont(tsplPrinter.id, font)).rejects.toThrow('download timed out');
+    expect(failedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: tsplPrinter.id, errorCode: expect.any(String) }),
+    );
+    failedSpy.mockRestore();
   });
 });
