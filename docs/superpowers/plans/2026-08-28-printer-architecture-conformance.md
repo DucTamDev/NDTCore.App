@@ -508,6 +508,7 @@ describe('TsplTrueTypeStrategy', () => {
   it('encode ném TSPL_ELEMENT_UNSUPPORTED cho element lạ', () => {
     const bad = { ...ctx(installed), documents: { text: { elements: [{ type: 'weird', x: 0, y: 0 } as never] } } };
     try { s.encode(bad); } catch (e) { expect(e).toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED }); }
+    expect(() => s.encode(bad)).toThrow();
   });
 });
 ```
