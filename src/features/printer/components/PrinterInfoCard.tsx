@@ -45,7 +45,7 @@ export interface PrinterInfoCardProps {
   onTestPrintLabel: () => void;
   /** Chỉ có ý nghĩa khi có driver type 'tspl' trong `drivers`. */
   onToggleTsplFont: (enabled: boolean) => void;
-  /** true trong lúc đang chạy `ensureFontInstalled` — vô hiệu hoá switch để tránh double-tap. */
+  /** true trong lúc đang chạy `installTsplFont` — vô hiệu hoá switch để tránh double-tap. */
   tsplFontPending: boolean;
   onSave: () => void;
   saveDisabled: boolean;

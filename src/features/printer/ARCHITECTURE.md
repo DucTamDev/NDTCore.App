@@ -1272,7 +1272,7 @@ TsplFontManager.install()
 Không có:
 
 ```text
-ensureFontInstalled()
+downloadFont()
 ```
 
 trong print path.

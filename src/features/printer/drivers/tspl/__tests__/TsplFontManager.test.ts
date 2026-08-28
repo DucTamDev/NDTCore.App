@@ -12,7 +12,7 @@ const makeTransport = (overrides: Partial<{ write: jest.Mock }> = {}) => ({
   ...overrides,
 });
 
-describe('TsplFontManager.ensureFontInstalled', () => {
+describe('TsplFontManager.downloadFont', () => {
   const originalOS = Platform.OS;
 
   afterEach(() => {
@@ -24,7 +24,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     Object.defineProperty(Platform, 'OS', { get: () => 'ios' });
     const manager = new TsplFontManager();
     const transport = makeTransport();
-    await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+    await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
       code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
     });
     expect(transport.write).not.toHaveBeenCalled();
@@ -37,7 +37,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport();
 
-    await manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT);
+    await manager.downloadFont(transport as never, DEFAULT_TSPL_FONT);
 
     expect(RNFS.readFileAssets).toHaveBeenCalledWith(`fonts/${DEFAULT_TSPL_FONT.fileName}`, 'base64');
     expect(transport.write).toHaveBeenCalledTimes(1);
@@ -53,7 +53,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport();
 
-    await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+    await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
       code: AppErrorCode.TSPL_FONT_INVALID,
     });
     expect(transport.write).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport();
 
-    await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+    await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
       code: AppErrorCode.TSPL_FONT_INVALID,
     });
     expect(transport.write).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ describe('TsplFontManager.ensureFontInstalled', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport({ write: jest.fn().mockRejectedValue(new Error('socket closed')) });
 
-    await expect(manager.ensureFontInstalled(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+    await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
       code: AppErrorCode.TSPL_FONT_INSTALL_FAILED,
     });
   });

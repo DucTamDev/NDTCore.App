@@ -223,11 +223,11 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
-  async installTrueTypeFont(printerId: string, font: TsplFontConfig): Promise<void> {
+  async installTsplFont(printerId: string, font: TsplFontConfig): Promise<void> {
     const transport = this.connections.get(printerId);
     if (!transport) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
-    await this.fontManager.ensureFontInstalled(transport, font);
+    await this.fontManager.downloadFont(transport, font);
   }
 }

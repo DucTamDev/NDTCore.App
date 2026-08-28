@@ -24,7 +24,7 @@ export const DEFAULT_TSPL_FONT: TsplFontConfig = {
  * giới hạn USB-chỉ-Android đã có trong module này.
  */
 export class TsplFontManager {
-  async ensureFontInstalled(transport: TsplTransport, font: TsplFontConfig): Promise<void> {
+  async downloadFont(transport: TsplTransport, font: TsplFontConfig): Promise<void> {
     if (Platform.OS !== 'android') {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
     }

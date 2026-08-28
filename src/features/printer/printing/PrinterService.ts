@@ -1,5 +1,5 @@
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
@@ -186,13 +186,56 @@ export const createPrinterService = (
    * Passthrough TSPL-riêng — KHÔNG đưa vào `IPrinterDriver` chung vì tính
    * năng này chỉ có nghĩa với TSPL, ESC/POS không có khái niệm font custom.
    * Cast trực tiếp sang `TsplDriver` vì `registry.tspl` luôn là instance đó.
-   * Qua `lock.runExclusive` như mọi thao tác ghi transport khác trong file
-   * này — DOWNLOAD gửi hàng trăm KB, không được interleave với 1 print job
-   * đang chạy trên cùng kết nối (final review finding, xem ledger).
+   *
+   * Orchestrate trọn lifecycle §46/§126 trong `lock.runExclusive` (DOWNLOAD
+   * gửi hàng trăm KB, không được interleave với print job trên cùng resource):
+   * connect (chỉ khi CHÍNH hàm này mở) → DOWNLOAD → disconnect (chỉ cái mình
+   * mở — §95 "Driver Connect Reuse": modal Add giữ connection từ discovery,
+   * không đóng của người khác). Sau lock mới "persist state": chỉ khi printer
+   * đã có trong storage; draft chưa lưu do `AddPrinterModal` mang state vào
+   * `buildDraftPrinter()` lúc Save (§8.4, §12.3).
    */
   const installTsplFont = async (printerId: string, font: TsplFontConfig): Promise<void> => {
     const tsplDriver = getDriver(PrinterDriverType.tspl) as TsplDriver;
-    await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), () => tsplDriver.installTrueTypeFont(printerId, font));
+    const printer = getPrinters().find((p) => p.id === printerId);
+    const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
+
+    await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), async () => {
+      const wasConnected = tsplDriver.getStatus(printerId) === PrinterStatus.connected;
+      if (!wasConnected) {
+        // Không tìm thấy printer trong storage và driver cũng chưa connected →
+        // không tự connect được (thiếu `Printer` object). Draft hợp lệ luôn
+        // được modal connect sẵn qua discovery trước khi gọi hàm này.
+        if (!printer || !tsplEntry) {
+          throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối — kết nối trước khi cài font.' });
+        }
+        await tsplDriver.connect(printer, tsplEntry);
+      }
+      try {
+        await tsplDriver.installTsplFont(printerId, font);
+      } finally {
+        if (!wasConnected && printer && tsplEntry) {
+          await tsplDriver.disconnect(printerId).catch(() => undefined);
+        }
+      }
+    });
+
+    if (printer && tsplEntry && tsplEntry.config.type === PrinterDriverType.tspl) {
+      savePrinters(
+        getPrinters().map((p) =>
+          p.id !== printerId
+            ? p
+            : {
+                ...p,
+                drivers: p.drivers.map((d) =>
+                  d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
+                    ? d
+                    : { ...d, config: { ...d.config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } } },
+                ),
+              },
+        ),
+      );
+    }
   };
 
   return {

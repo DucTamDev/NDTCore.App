@@ -399,9 +399,9 @@ describe('TsplDriver', () => {
     expect(instance.write).not.toHaveBeenCalled();
   });
 
-  /** `ensureFontInstalled` là method DUY NHẤT của `TsplFontManager` thực sự gửi lệnh `DOWNLOAD` — không có `downloadFont` riêng biệt. */
-  it('print()/testPrint()/connect() KHÔNG gọi TsplFontManager.ensureFontInstalled', async () => {
-    const spy = jest.spyOn(TsplFontManager.prototype, 'ensureFontInstalled');
+  /** `downloadFont` là method DUY NHẤT của `TsplFontManager` thực sự gửi lệnh `DOWNLOAD` — print path không được chạm tới nó. */
+  it('print()/testPrint()/connect() KHÔNG gọi TsplFontManager.downloadFont', async () => {
+    const spy = jest.spyOn(TsplFontManager.prototype, 'downloadFont');
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt).catch(() => undefined);
@@ -539,8 +539,8 @@ describe('TsplDriver', () => {
 
 });
 
-describe('TsplDriver.installTrueTypeFont', () => {
-  it('delegates to TsplFontManager.ensureFontInstalled using the connected transport', async () => {
+describe('TsplDriver.installTsplFont', () => {
+  it('delegates to TsplFontManager.downloadFont using the connected transport', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     // `mock.instances[0]` would be the very first `TsplDriver` constructed
@@ -549,17 +549,17 @@ describe('TsplDriver.installTrueTypeFont', () => {
     // most recent instance instead, matching the pattern already used above
     // for `LanTransport.mock.results[...length - 1]`.
     const instances = (TsplFontManager as jest.Mock).mock.instances;
-    const ensureFontInstalledMock = instances[instances.length - 1].ensureFontInstalled as jest.Mock;
-    ensureFontInstalledMock.mockResolvedValue(undefined);
+    const downloadFontMock = instances[instances.length - 1].downloadFont as jest.Mock;
+    downloadFontMock.mockResolvedValue(undefined);
 
-    await driver.installTrueTypeFont(lanPrinter.id, DEFAULT_TSPL_FONT);
+    await driver.installTsplFont(lanPrinter.id, DEFAULT_TSPL_FONT);
 
-    expect(ensureFontInstalledMock).toHaveBeenCalledWith(expect.anything(), DEFAULT_TSPL_FONT);
+    expect(downloadFontMock).toHaveBeenCalledWith(expect.anything(), DEFAULT_TSPL_FONT);
   });
 
   it('throws PRINTER_NOT_CONNECTED when the printer is not connected', async () => {
     const driver = new TsplDriver();
-    await expect(driver.installTrueTypeFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
+    await expect(driver.installTsplFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
       code: AppErrorCode.PRINTER_NOT_CONNECTED,
     });
   });
