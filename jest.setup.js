@@ -53,16 +53,15 @@ jest.mock('react-native-tcp-socket', () => ({
 // @react-native-community/netinfo touches the RNCNetInfo native module at
 // import time (nativeInterface.ts), so any test that transitively imports
 // NetworkInfoService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to
-// load without a mock. Only `fetch` is used in app code (NetworkInfoService);
-// addEventListener/useNetInfo are stubbed defensively for future callers.
-// Tests needing finer control (NetworkInfoService.test.ts) override locally.
+// load without a mock. `NetInfo.fetch()` is the ONLY member app code uses
+// (NetworkInfoService.getCurrentWifiIp reads type/isConnected/details.ipAddress
+// off its result). Tests needing finer control (NetworkInfoService.test.ts)
+// override locally.
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
   default: {
-    fetch: jest.fn(() => Promise.resolve({ type: 'wifi', isConnected: true, details: {} })),
-    addEventListener: jest.fn(() => jest.fn()),
+    fetch: jest.fn(() => Promise.resolve({ type: 'wifi', isConnected: true, details: { ipAddress: '192.168.1.5' } })),
   },
-  useNetInfo: jest.fn(() => ({ isConnected: true, type: 'wifi', details: {} })),
 }));
 
 // react-native-view-shot ships untransformed ESM (src/index.tsx) and pulls a

@@ -112,7 +112,7 @@ Verdict mỗi dòng là đúng một trong:
 | 42 | Rendering error là hard failure | ✅ conform — `strategies/*` ném `TSPL_*` không catch; `drivers/tspl/TsplStrategyRegistry.ts:16` `TSPL_RENDER_MODE_UNSUPPORTED`; test strategies. |
 | 43 | Không có implicit fallback | ✅ conform — `drivers/tspl/TsplDriver.ts:155-174` comment "KHÔNG fallback"; Part B B6 (`isTsplTrueTypeActive` rỗng); test `drivers/tspl/__tests__/TsplDriver.test.ts`. |
 | 44 | Printing failure không làm payment fail | ✅ conform — `../cart/hooks/useCheckout.ts:44-49` không `await` printReceipt (fire-and-forget), `../cart/services/OrderPrintTrigger.ts:195-210` nuốt lỗi + `LoggerService.warning`; test `../cart/services/__tests__/OrderPrintTrigger.test.ts`. |
-| 45 | Printer errors phải được log | ✅ conform — `drivers/escpos/EscPosDriver.ts:139,153,182` + `drivers/tspl/TsplDriver.ts:124,136,198` `PrinterLogger.*Failed`; production TSPL print-fail: `PrintScheduler` gán `job.error` + `OrderPrintTrigger.ts:204,209` log. Ghi chú: `TsplDriver.print()` không tự emit `PrinterLogger` (ESC/POS có) — chấp nhận vì scheduler+trigger đã log mọi print-fail. |
+| 45 | Printer errors phải được log | ✅ conform — `drivers/escpos/EscPosDriver.ts:139,153,182` + `drivers/tspl/TsplDriver.ts:124,136,198,218` `PrinterLogger.*Failed`; `TsplDriver.print()` giờ emit `PrinterLogger.printFailed`/`printSucceeded` (`drivers/tspl/TsplDriver.ts:216,218`) đúng như ESC/POS (`EscPosDriver.ts:180,182`); test `drivers/tspl/__tests__/TsplDriver.test.ts` ("log printFailed (RULE 33)", "logs printSucceeded on the success path"). Production TSPL print-fail còn được `PrintScheduler` gán `job.error` + `OrderPrintTrigger.ts:204,209` log. |
 
 ---
 
@@ -152,7 +152,7 @@ Verdict mỗi dòng là đúng một trong:
 | 30 | Duplicate physical printer bị từ chối | ✅ conform — `printing/PrinterService.ts:33-41`; test `printing/__tests__/PrinterService.test.ts:50`. |
 | 31 | Native errors normalize thành `AppError` | ✅ conform — `types/AppError.ts` + wrap ở transport/driver; test `types/__tests__/AppError.test.ts`. |
 | 32 | Print failure không chặn payment thành công | ✅ conform — `../cart/hooks/useCheckout.ts:44-49`; test `../cart/services/__tests__/OrderPrintTrigger.test.ts`. |
-| 33 | Mọi printer failure phải được log | ✅ conform — `PrinterLogger.*Failed` ở `drivers/escpos/EscPosDriver.ts:139,153,182` + `drivers/tspl/TsplDriver.ts:124,136,198`; production print-fail: `PrintScheduler` `job.error` + `../cart/services/OrderPrintTrigger.ts:204,209`. |
+| 33 | Mọi printer failure phải được log | ✅ conform — `PrinterLogger.*Failed` ở `drivers/escpos/EscPosDriver.ts:139,153,182` + `drivers/tspl/TsplDriver.ts:124,136,198,218`; `TsplDriver.print()` emit `PrinterLogger.printFailed` khi build/write ném (`drivers/tspl/TsplDriver.ts:218`) + `printSucceeded` khi thành công (`:216`), test `drivers/tspl/__tests__/TsplDriver.test.ts` ("log printFailed (RULE 33)", "logs printSucceeded on the success path"). Production print-fail còn có `PrintScheduler` `job.error` + `../cart/services/OrderPrintTrigger.ts:204,209`. |
 | 34 | Sensitive print/customer data không log | ✅ conform — `services/PrinterLogger.ts:5-19` (không nhận field nhạy cảm), bỏ `resourceKey` (D6); test `services/__tests__/PrinterLogger.test.ts:49-51,253-254` (assert không có `ip`/`mac`/`resourceKey`). |
 | 35 | Transport chỉ truyền bytes | ⚠️ deviation (D2) — TSPL transport (`transports/{Lan,Bluetooth,Usb}Transport.ts`) chỉ nhận `Uint8Array` (Part B B4 rỗng); ESC/POS không có tầng transport riêng (D2). |
 | 36 | Encoder chỉ sinh protocol command | ✅ conform — `drivers/tspl/TsplEncoder.ts:1-3` chỉ import type + `MonochromeBitmap`; không connect/transport (`grep "connect\|transport" TsplEncoder.ts` rỗng); test `drivers/tspl/__tests__/TsplEncoder.test.ts`. |
@@ -165,7 +165,7 @@ Verdict mỗi dòng là đúng một trong:
 | 43 | Không layer nào bypass abstraction boundary | ✅ conform — Part B B1/B3/B4 rỗng; `drivers/tspl/TsplDriver.ts:7` chỉ import hằng số từ `TsplEncoder`. |
 | 44 | Driver mới phải implement `IPrinterDriver` | ✅ conform — `types/driver.types.ts` là contract; `drivers/tspl/TsplDriver.ts` + `drivers/escpos/EscPosDriver.ts` `implements`. Signature thật khác pseudocode §23 (D1). |
 | 45 | TSPL render mode mới phải implement `ITsplPrintStrategy` | ✅ conform — `strategies/tsplStrategy.types.ts` `ITsplPrintStrategy`; registry `drivers/tspl/TsplStrategyRegistry.ts:8` typed `Record<TsplRenderMode, ITsplPrintStrategy>`. |
-| 46 | Transport mới phải implement transport abstraction | ✅ conform — `types/driver.types.ts` / `drivers/tspl/tsplTransport` shape; 3 transport hiện có cùng `write()`/`connect()`/`disconnect()`. ⚠️ ESC/POS ngoại lệ (D2). |
+| 46 | Transport mới phải implement transport abstraction | ✅ conform — `types/driver.types.ts` / `drivers/tspl/tsplTransport` shape; 3 transport hiện có cùng `write()`/`connect()`/`disconnect()`. (D2 không áp dụng: ESC/POS không có tầng transport nào để đối chiếu — quy tắc chỉ ràng buộc transport thực sự tồn tại.) |
 | 47 | Đổi printer config KHÔNG âm thầm install font | ✅ conform — `components/AddPrinterModal.tsx:309-320` tắt switch chỉ đổi `renderMode`, không gọi installTsplFont; install chỉ khi `enabled === true` (:321-324). |
 | 48 | Đổi render mode KHÔNG âm thầm print | ✅ conform — `components/AddPrinterModal.tsx` `onToggleTsplFont` không gọi print/testPrint; `printing/PrinterService.installTsplFont` chỉ DOWNLOAD + persist. |
 | 49 | Save printer KHÔNG âm thầm DOWNLOAD font | ✅ conform — `printing/PrinterService.ts:54-59` `addPrinter` chỉ `savePrinters`; DOWNLOAD tách riêng ở `installTsplFont`. Persist-in-add-flow xem D3. |
@@ -193,7 +193,7 @@ Verdict mỗi dòng là đúng một trong:
 | Verdict | Số dòng |
 |---|---|
 | ✅ conform | 100 |
-| ⚠️ deviation (D2 / D7) | 3 (Invariant 5, RULE 35, Named "Transport Responsibility"; RULE 09/22 + Named "No Fallback" mang thêm chú thích D7 nhưng verdict chính vẫn ✅) |
+| ⚠️ deviation (D2 / D7) | 3 (Invariant 5, RULE 35, Named "Transport Responsibility"; Invariant 22 + RULE 09 + Named "No Fallback" mang thêm chú thích D7 nhưng verdict chính vẫn ✅) |
 | N/A (hardware) | 0 |
 | **Tổng** | **103** (45 + 50 + 8) |
 
