@@ -77,6 +77,8 @@ jest.mock('../../../services/PrinterLogger', () => ({
     disconnectFailed: jest.fn(),
     testPrintSucceeded: jest.fn(),
     testPrintFailed: jest.fn(),
+    printSucceeded: jest.fn(),
+    printFailed: jest.fn(),
   },
 }));
 
@@ -380,13 +382,31 @@ describe('TsplDriver', () => {
     });
   });
 
-  it('print() bitmap mode: thiếu documents.image → ném TSPL_IMAGE_REQUIRED, KHÔNG ghi bytes', async () => {
+  it('print() bitmap mode: thiếu documents.image → ném TSPL_IMAGE_REQUIRED, KHÔNG ghi bytes, log printFailed (RULE 33)', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
     await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: AppErrorCode.TSPL_IMAGE_REQUIRED });
     expect(instance.write).not.toHaveBeenCalled();
+    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+      PrinterLogger: { printFailed: jest.Mock };
+    };
+    expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, errorCode: AppErrorCode.TSPL_IMAGE_REQUIRED }),
+    );
+  });
+
+  it('print() logs printSucceeded on the success path (RULE 33)', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt);
+    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+      PrinterLogger: { printSucceeded: jest.Mock };
+    };
+    expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
+    );
   });
 
   it('print() truetype mode chưa cài font → ném TSPL_FONT_NOT_INSTALLED, KHÔNG ghi bytes', async () => {

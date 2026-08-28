@@ -206,8 +206,18 @@ export class TsplDriver implements IPrinterDriver {
     if (!context || !transport) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
-    const bytes = this.buildBytes(context.printer, context.driver, documents, printType);
-    await this.writeBytes(context.printer, transport, bytes);
+    // RULE 33 / Invariant 45: mọi print failure phải được log cùng event
+    // chuẩn hoá như ESC/POS. `catch` chỉ log rồi ném lại — KHÔNG nuốt lỗi,
+    // KHÔNG fallback (lỗi strategy.validate/encode vẫn propagate nguyên vẹn).
+    const startedAt = Date.now();
+    try {
+      const bytes = this.buildBytes(context.printer, context.driver, documents, printType);
+      await this.writeBytes(context.printer, transport, bytes);
+      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
+    } catch (error) {
+      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      throw error;
+    }
   }
 
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
