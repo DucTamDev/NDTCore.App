@@ -1,4 +1,3 @@
-// src/features/printer/drivers/escpos/EscPosDriver.ts
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';

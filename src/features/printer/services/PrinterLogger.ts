@@ -62,7 +62,6 @@ export const PrinterLogger = {
     LoggerService.warning('printer.permission.denied', params);
   },
 
-  /** Bắt đầu 1 phiên `discoverProtocol()` — trace danh sách candidate sẽ thử, theo đúng thứ tự ưu tiên. */
   discoveryStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrinterDriverType[] }): void {
     LoggerService.debug('printer.discovery.started', params);
   },

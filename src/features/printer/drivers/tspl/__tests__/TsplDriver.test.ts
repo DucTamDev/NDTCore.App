@@ -1,4 +1,3 @@
-// src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
@@ -110,7 +109,6 @@ const usbPrinter: Printer = {
   device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
 };
 
-/** Không có `device` — dùng cho các test kiểm tra `VALIDATION_ERROR` khi chưa chọn thiết bị USB. */
 const usbPrinterNoDevice: Printer = {
   ...lanPrinter,
   id: 'label-usb-nodevice',

@@ -1,4 +1,3 @@
-// src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
 import { TsplEncoder } from '../TsplEncoder';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';

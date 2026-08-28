@@ -40,11 +40,6 @@ export interface DiscoveryInput {
    * ra đồng thời trong lúc discovery còn đang mở — xem final-review finding #2).
    */
   draftPrinter: Printer;
-  /**
-   * Driver type đã có trong printer đang thêm/sửa — do `AddPrinterModal` tự
-   * tính (spec §5.1). Service này chỉ NHẬN constraint, không tự biết
-   * business rule "driver này đã được add vào Printer".
-   */
   excludedDrivers?: PrinterDriverType[];
 }
 

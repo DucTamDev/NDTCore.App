@@ -1,4 +1,3 @@
-// src/features/printer/transports/LanTransport.test.ts
 import { Buffer } from 'buffer';
 import { LanTransport } from '../LanTransport';
 

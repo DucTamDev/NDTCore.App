@@ -1,4 +1,3 @@
-// src/features/printer/schemas/printerFormSchema.ts
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
@@ -53,11 +52,7 @@ const escPosDriverConfigSchema = z.object({
 
 const printerDriverConfigSchema = z.discriminatedUnion('type', [tsplDriverConfigSchema, escPosDriverConfigSchema]);
 
-/**
- * Validate 1 `PrinterDriver`: `config.type` phải khớp `type`, và `contentTypes`
- * phải là tập con capability của `PrinterDriverDefinitions[type]` (invariant
- * doc — không phải chỉ disable checkbox ở UI, spec §8).
- */
+/** Invariant doc — không phải chỉ disable checkbox ở UI, spec §8. */
 export const printerDriverSchema = z
   .object({
     type: z.enum([PrinterDriverType.escpos, PrinterDriverType.tspl]),
@@ -91,9 +86,9 @@ const printerLanConfigSchema = z.object({
 });
 
 /**
- * Validate toàn bộ `Printer` trước khi persist — safety net ở service layer
- * (invariant #2, #3, #10, #13, spec §8), KHÔNG thay thế validation UI (UI đã
- * tự ngăn phần lớn state không hợp lệ trước khi tới đây).
+ * Safety net ở service layer (invariant #2, #3, #10, #13, spec §8), KHÔNG
+ * thay thế validation UI (UI đã tự ngăn phần lớn state không hợp lệ trước
+ * khi tới đây).
  */
 export const printerSchema = z
   .object({

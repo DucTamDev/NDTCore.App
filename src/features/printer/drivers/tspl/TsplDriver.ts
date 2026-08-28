@@ -1,4 +1,3 @@
-// src/features/printer/drivers/tspl/TsplDriver.ts
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../../types/printer.types';

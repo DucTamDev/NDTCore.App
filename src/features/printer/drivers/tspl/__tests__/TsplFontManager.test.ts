@@ -1,4 +1,3 @@
-// src/features/printer/drivers/tspl/__tests__/TsplFontManager.test.ts
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';

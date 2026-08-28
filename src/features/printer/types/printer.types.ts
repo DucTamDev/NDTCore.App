@@ -103,7 +103,7 @@ export interface TsplDriverConfig {
   renderMode: TsplRenderMode;
   /** Chỉ có khi renderMode từng được đặt 'truetype' ít nhất 1 lần. */
   font?: TsplFontConfig;
-  /** Chiều cao vật lý nhãn (mm) — tương ứng lệnh `SIZE`/`GAP`. `undefined` nghĩa dùng `DEFAULT_LABEL_HEIGHT_MM`. */
+  /** Tương ứng lệnh `SIZE`/`GAP`. `undefined` nghĩa dùng `DEFAULT_LABEL_HEIGHT_MM`. */
   labelHeightMm?: number;
 }
 

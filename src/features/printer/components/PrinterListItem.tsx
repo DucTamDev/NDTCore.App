@@ -1,4 +1,3 @@
-// src/features/printer/components/PrinterListItem.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, Menu } from 'react-native-paper';

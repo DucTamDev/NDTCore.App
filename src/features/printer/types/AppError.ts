@@ -28,5 +28,5 @@ export class AppErrorException extends Error {
   }
 }
 
-/** Rút `AppErrorCode` từ 1 lỗi bất kỳ — `'UNKNOWN_ERROR'` nếu không phải `AppErrorException` (vd lỗi native module ném thẳng). */
+/** Trả `'UNKNOWN_ERROR'` nếu không phải `AppErrorException` (vd lỗi native module ném thẳng). */
 export const errorCodeOf = (error: unknown): AppErrorCode => (error instanceof AppErrorException ? error.code : AppErrorCode.UNKNOWN_ERROR);

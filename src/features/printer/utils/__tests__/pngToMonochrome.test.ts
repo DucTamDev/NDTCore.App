@@ -20,7 +20,6 @@ const buildPngBase64 = (widthPx: number, heightPx: number, pixels: number[][]): 
 
 describe('decodePngBase64ToMonochrome', () => {
   it('decodes a real PNG and thresholds it into a matching monochrome bitmap', () => {
-    // Ảnh 8x1: nửa trái đen, nửa phải trắng.
     const pixels = [BLACK, BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, WHITE];
     const base64Png = buildPngBase64(8, 1, pixels);
 

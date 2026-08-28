@@ -1,4 +1,3 @@
-// src/features/printer/adapters/UsbPrinterNativeAdapter.ts
 import { NativeModules } from 'react-native';
 import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 

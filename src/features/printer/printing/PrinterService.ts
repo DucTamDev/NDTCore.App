@@ -1,4 +1,3 @@
-// src/features/printer/printing/PrinterService.ts
 import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';

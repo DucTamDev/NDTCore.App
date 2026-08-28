@@ -1,4 +1,3 @@
-// src/features/printer/printing/__tests__/PrinterService.test.ts
 import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';

@@ -1,4 +1,3 @@
-// src/features/printer/components/PrinterList.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { EmptyState } from '../../../components/EmptyState';

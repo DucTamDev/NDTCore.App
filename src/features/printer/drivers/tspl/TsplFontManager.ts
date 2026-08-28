@@ -1,4 +1,3 @@
-// src/features/printer/drivers/tspl/TsplFontManager.ts
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';

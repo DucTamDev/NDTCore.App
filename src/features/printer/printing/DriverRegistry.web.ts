@@ -12,9 +12,7 @@ class WebUnsupportedDriver implements IPrinterDriver {
     throw new AppErrorException({ code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
   }
 
-  async disconnect(): Promise<void> {
-    // no-op — không có kết nối thật để ngắt trên web
-  }
+  async disconnect(): Promise<void> {}
 
   getStatus(): PrinterStatus {
     return PrinterStatus.error;

@@ -1,4 +1,3 @@
-// src/features/printer/transports/BluetoothTransport.test.ts
 import { BluetoothTransport } from '../BluetoothTransport';
 import { Buffer } from 'buffer';
 import { AppErrorCode } from '../../types/AppError';

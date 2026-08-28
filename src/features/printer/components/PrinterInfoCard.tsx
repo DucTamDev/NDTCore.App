@@ -1,4 +1,3 @@
-// src/features/printer/components/PrinterInfoCard.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Chip } from 'react-native-paper';
@@ -44,7 +43,7 @@ export interface PrinterInfoCardProps {
   onTestPrintReceipt: () => void;
   testPrintLabelPending: boolean;
   onTestPrintLabel: () => void;
-  /** Bật/tắt renderMode truetype cho driver TSPL (chỉ có ý nghĩa khi có driver type 'tspl' trong `drivers`). */
+  /** Chỉ có ý nghĩa khi có driver type 'tspl' trong `drivers`. */
   onToggleTsplFont: (enabled: boolean) => void;
   /** true trong lúc đang chạy `ensureFontInstalled` — vô hiệu hoá switch để tránh double-tap. */
   tsplFontPending: boolean;

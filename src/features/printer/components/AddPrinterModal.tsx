@@ -1,4 +1,3 @@
-// src/features/printer/components/AddPrinterModal.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Modal, Portal, Snackbar, Text } from 'react-native-paper';
@@ -120,7 +119,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
-  /** Đủ thông tin để tính identityKey (không cần biết protocol) — xem `resolveIdentityKey`. */
+  /** Không cần biết protocol — xem `resolveIdentityKey`. */
   const currentIdentityKey = (): string | null => {
     try {
       if (connectionType === ConnectionType.lan) {
@@ -165,7 +164,7 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     resetDiscoveryFields('idle');
   };
 
-  /** Thêm driver mới vào `drivers[]` với contentTypes mặc định = mọi type driver này hỗ trợ TRỪ type đã thuộc driver khác (invariant #3). */
+  /** TRỪ content type đã thuộc driver khác (invariant #3). */
   const addDriverToList = (type: PrinterDriverType, source: DriverSource): PrinterDriver => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
     const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));

@@ -1,4 +1,3 @@
-// src/features/printer/components/ConnectionSection.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SegmentedButtons, HelperText } from 'react-native-paper';
@@ -26,7 +25,7 @@ export interface ConnectionSectionProps {
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
-  /** Khoá toàn bộ section (segmented buttons/inputs/device list/nút Kết nối) khi đã có >= 1 driver — điểm kết nối vật lý cố định sau khi driver đầu tiên được xác nhận. */
+  /** Điểm kết nối vật lý cố định sau khi driver đầu tiên được xác nhận. */
   disabled: boolean;
 }
 

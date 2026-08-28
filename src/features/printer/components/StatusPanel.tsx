@@ -1,4 +1,3 @@
-// src/features/printer/components/StatusPanel.tsx
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, SegmentedButtons } from 'react-native-paper';
@@ -14,7 +13,6 @@ export interface StatusPanelProps {
   protocol?: PrinterDriverType;
   deviceInfo?: PrinterDeviceInfo;
   errorMessage?: string;
-  /** Chỉ hiện lựa chọn thủ công cho driver type CHƯA có trong printer đang thêm/sửa (spec §5.1). */
   excludedDrivers: PrinterDriverType[];
   onChooseProtocol: (protocol: PrinterDriverType) => void;
 }

@@ -1,4 +1,3 @@
-// src/features/printer/components/DeviceScanList.tsx
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';

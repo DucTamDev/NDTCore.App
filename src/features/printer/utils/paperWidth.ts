@@ -21,7 +21,6 @@ export const PAPER_IMAGE_WIDTH_PX: Record<PaperSize, number> = {
   80: 576,
 };
 
-/** Ghép `left`/`right` thành 1 dòng canh trái/phải trong `width` ký tự. */
 export const formatRow = (left: string, right: string, width: number): string => {
   const gap = Math.max(1, width - left.length - right.length);
   return `${left}${' '.repeat(gap)}${right}`;

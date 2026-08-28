@@ -1,4 +1,3 @@
-// src/features/printer/adapters/__tests__/UsbPrinterNativeAdapter.test.ts
 import { NativeModules } from 'react-native';
 import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeAdapter';
 

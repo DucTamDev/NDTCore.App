@@ -1,4 +1,3 @@
-// src/features/printer/transports/UsbTransport.test.ts
 import { UsbTransport } from '../UsbTransport';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 

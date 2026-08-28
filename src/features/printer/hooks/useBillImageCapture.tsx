@@ -1,4 +1,3 @@
-// src/features/printer/hooks/useBillImageCapture.tsx
 import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';

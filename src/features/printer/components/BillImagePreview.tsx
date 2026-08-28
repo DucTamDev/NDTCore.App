@@ -1,4 +1,3 @@
-// src/features/printer/components/BillImagePreview.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { PrintDocument, PrintElement } from '../types/printDocument.types';
