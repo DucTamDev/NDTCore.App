@@ -74,6 +74,8 @@ Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `
 
 ### Printer Module (`src/features/printer/`)
 
+Xem [`src/features/printer/ARCHITECTURE.md`](src/features/printer/ARCHITECTURE.md) để hiểu chi tiết toàn bộ layer, flow (discovery, in thật, in thử), resource key/identity key, và các giới hạn đã biết. Tóm tắt nhanh:
+
 Kiến trúc theo hướng driver, UI **không bao giờ** gọi thẳng SDK/native module — luôn qua `PrinterService`:
 
 ```text

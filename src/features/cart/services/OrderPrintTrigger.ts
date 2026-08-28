@@ -162,11 +162,13 @@ export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 export type CaptureBillImage = (document: PrintDocument, paperSize: PaperSize) => Promise<string | null>;
 
 /**
- * Chỉ render + chụp ảnh khi thật sự có máy in TSPL được gán cho `printType`
- * (`PrintService.imageDocumentPaperSize`) — capture tốn chi phí (layout +
- * screenshot native), không làm nếu không có máy nào cần tới. Capture thất
- * bại (trả `null`) không chặn in — rơi về `text` cho máy TSPL đó, chấp nhận
- * rủi ro thiếu dấu tiếng Việt còn hơn không in được gì.
+ * Chỉ render + chụp ảnh khi thật sự có máy in TSPL bitmap-mode được gán cho
+ * `printType` (`PrintService.imageDocumentPaperSize`) — capture tốn chi phí
+ * (layout + screenshot native), không làm nếu không có máy nào cần tới.
+ * Capture thất bại (trả `null`) → gửi `text`-only cho MỌI target; target nào
+ * thật sự cần ảnh (TSPL bitmap) sẽ tự thất bại rõ ràng ở
+ * `TsplDriver.encode()` thay vì âm thầm in sai dấu — các target khác
+ * (ESC/POS, TSPL truetype) không cần ảnh nên vẫn in bình thường.
  */
 const buildPrintDocumentVariants = async (
   printType: PrintType,

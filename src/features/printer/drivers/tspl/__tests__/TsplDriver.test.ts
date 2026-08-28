@@ -125,9 +125,16 @@ const bluetoothPrinter: Printer = {
   device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} },
 };
 
-const sampleDocuments: PrintDocumentVariants = { text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] } };
+const sampleDocuments: PrintDocumentVariants = {
+  text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] },
+  image: { elements: [{ type: 'image', data: tinyPngBase64(), x: 0, y: 0 }] },
+};
 
-const asDocuments = (document: PrintDocument): PrintDocumentVariants => ({ text: document });
+/** Bitmap mode (mặc định) không còn fallback về `text` khi thiếu `image` — dùng riêng để test đúng trường hợp đó. */
+const textOnlyDocuments: PrintDocumentVariants = { text: sampleDocuments.text };
+
+/** `image` = `text` — bitmap mode bắt buộc có `documents.image`, xem `TsplDriver.resolveDocumentAndFont()`. */
+const asDocuments = (document: PrintDocument): PrintDocumentVariants => ({ text: document, image: document });
 
 describe('TsplDriver', () => {
   it('connect() over LAN transitions status idle -> connecting -> connected', async () => {
@@ -479,15 +486,15 @@ describe('TsplDriver', () => {
     expect(ascii).toContain('BITMAP');
   });
 
-  it('encode() falls back to documents.text when no image variant is provided', () => {
+  it('encode() throws ENCODING_FAILED in bitmap mode when no image variant is provided', () => {
     const driver = new TsplDriver();
-    const bytes = driver.encode(lanPrinter, tsplDriverEntry, sampleDocuments);
-    // `sampleDocuments.text` chứa tiếng Việt có dấu ("In thử") — `TsplEncoder`
-    // mã hoá UTF-8 thật (nhiều byte/ký tự, xem `TsplEncoder.text()`), nên
-    // phải decode UTF-8 đúng cách bằng `Buffer`, không thể `String.fromCharCode`
-    // byte-by-byte (vốn chỉ đúng cho nội dung thuần ASCII).
-    const decoded = Buffer.from(bytes).toString('utf8');
-    expect(decoded).toContain('In thử');
+    let error: unknown;
+    try {
+      driver.encode(lanPrinter, tsplDriverEntry, textOnlyDocuments);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
   });
 
   it('print() writes the same bytes that encode() produces', async () => {
@@ -568,7 +575,7 @@ describe('TsplDriver renderMode resolution (via encode())', () => {
     const driver = new TsplDriver();
     const driverNoFont: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype } };
     const bytes = driver.encode(lanPrinter, driverNoFont, sampleDocuments);
-    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
-    expect(ascii).toContain('"3"'); // built-in bitmap font, the bitmap-mode default
+    const ascii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('BITMAP');
   });
 });

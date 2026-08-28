@@ -154,16 +154,20 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   /**
-   * `truetype` chỉ có hiệu lực khi `renderMode === 'truetype'` VÀ
-   * `font.fontInstalled === true` — mọi trường hợp khác (chưa cài, cài
-   * thất bại, không có config font) đều fallback `'bitmap'`. Fallback CỨNG,
-   * không có nhánh nào khác — xem spec 2026-08-27 §7.
+   * `truetype` chỉ hiệu lực khi `renderMode === 'truetype'` VÀ
+   * `font.fontInstalled === true`; mọi trường hợp khác dùng bitmap, và bitmap
+   * BẮT BUỘC có `documents.image` — không fallback về text + font bitmap
+   * `"3"` (không có dấu tiếng Việt) khi ảnh chưa render được, ném lỗi thay vì
+   * in sai lặng lẽ.
    */
   private resolveDocumentAndFont(driver: PrinterDriver, documents: PrintDocumentVariants): { document: PrintDocument; fontName: string } {
     if (isTsplTrueTypeActive(driver) && driver.config.type === PrinterDriverType.tspl && driver.config.font) {
       return { document: documents.text, fontName: driver.config.font.name };
     }
-    return { document: documents.image ?? documents.text, fontName: '3' };
+    if (!documents.image) {
+      throw new AppErrorException({ code: AppErrorCode.ENCODING_FAILED, message: 'Chưa có ảnh bitmap để in — capture ảnh đã thất bại hoặc chưa được render.' });
+    }
+    return { document: documents.image, fontName: '3' };
   }
 
   private encodeElements(
