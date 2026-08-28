@@ -14,6 +14,8 @@ Verdict mỗi dòng là đúng một trong:
 - `N/A (hardware)` cho phần chỉ kiểm được trên máy in thật
 
 Đường dẫn trích dẫn tương đối tính từ `src/features/printer/` trừ khi ghi rõ khác.
+Số dòng (`file:line`) là **gần đúng** — code dịch chuyển theo thời gian; dùng để
+định vị nhanh, không phải cam kết chính xác từng dòng.
 
 ---
 
@@ -23,10 +25,10 @@ Verdict mỗi dòng là đúng một trong:
 
 | # | Tóm tắt | Verdict |
 |---|---|---|
-| 1 | UI không gọi native printer | ✅ conform — UI chỉ gọi facade: `components/AddPrinterModal.tsx:324` (`PrinterService.installTsplFont`), toàn bộ `components/*` import `printing/PrinterService`; không `components/*` nào import `transports/`/`adapters/`. |
+| 1 | UI không gọi native printer | ✅ conform — UI chỉ gọi facade: `components/AddPrinterModal.tsx:327` (`PrinterService.installTsplFont`), toàn bộ `components/*` import `printing/PrinterService`; không `components/*` nào import `transports/`/`adapters/`. |
 | 2 | Business feature không gọi native printer | ✅ conform — `../cart/services/OrderPrintTrigger.ts:1` chỉ dùng `printing/PrintService`; không import driver/transport/adapter. |
 | 3 | Production printing đi qua `PrintService` | ✅ conform — `printing/PrintService.ts:66`; `../cart/hooks/useCheckout.ts:47` + `../cart/hooks/useOrderHistory.ts:76` gọi `printReceipt` → `PrintService.print`. |
-| 4 | Printer management đi qua `PrinterService` | ✅ conform — `printing/PrinterService.ts:278` (singleton facade); test `printing/__tests__/PrinterService.test.ts`. |
+| 4 | Printer management đi qua `PrinterService` | ✅ conform — `printing/PrinterService.ts:323` (`export const PrinterService = createPrinterService(...)`, singleton facade); test `printing/__tests__/PrinterService.test.ts`. |
 | 5 | Native access chỉ ở adapter/transport boundary | ⚠️ deviation (D2) — TSPL đúng (`transports/{Lan,Bluetooth,Usb}Transport.ts` + `adapters/UsbPrinterNativeAdapter.ts`); ESC/POS dùng thẳng thư viện vendor gộp connect+encode+write trong `drivers/escpos/EscPosDriver.ts` — D2 chấp nhận ngoại lệ pragmatic. |
 
 ### Driver
@@ -54,7 +56,7 @@ Verdict mỗi dòng là đúng một trong:
 |---|---|---|
 | 15 | Bitmap mode yêu cầu image | ✅ conform — `strategies/TsplBitmapStrategy.ts:15-21` ném `TSPL_IMAGE_REQUIRED`; test `strategies/__tests__/TsplBitmapStrategy.test.ts`. |
 | 16 | PNG phải convert thành 1-bit bitmap | ✅ conform — `utils/pngToMonochrome.ts:50` `decodePngBase64ToMonochrome` → `utils/monochromeBitmap.ts` `rgbaToMonochromeBitmap`; test `utils/__tests__/pngToMonochrome.test.ts`, `monochromeBitmap.test.ts`. |
-| 17 | Image width phải normalize | ✅ conform — `strategies/TsplBitmapStrategy.ts:29` resize về `PAPER_IMAGE_WIDTH_PX[printer.paperSize]`; `utils/pngToMonochrome.ts:47-61`. |
+| 17 | Image width phải normalize | ✅ conform — `strategies/TsplBitmapStrategy.ts:28` resize về `PAPER_IMAGE_WIDTH_PX[printer.paperSize]`; `utils/pngToMonochrome.ts:47-61`. |
 | 18 | Image height phải validate | ✅ conform — `strategies/TsplBitmapStrategy.ts:36-42` ném `TSPL_IMAGE_TOO_LARGE` khi `bitmap.heightPx > heightMm * DOTS_PER_MM`. |
 | 19 | Bitmap failure không fallback | ✅ conform — `strategies/TsplBitmapStrategy.ts` chỉ `throw`, không nhánh TEXT; `drivers/tspl/TsplDriver.ts:173-174` không catch quanh `strategy.validate/encode`; test `drivers/tspl/__tests__/TsplDriver.test.ts` ("không fallback"). |
 
@@ -76,7 +78,7 @@ Verdict mỗi dòng là đúng một trong:
 | 26 | Test print không được `DOWNLOAD` | ✅ conform — `drivers/tspl/TsplDriver.ts:187-201`; cùng test `TsplDriver.test.ts:403`; `printing/__tests__/PrinterService.test.ts:473` (RULE 15-17). |
 | 27 | Reconnect không được `DOWNLOAD` | ✅ conform — `printing/PrinterService.ts:104-107` `reconnect` = disconnect+connect; test `printing/__tests__/PrinterService.test.ts:473-484`. |
 | 28 | `TsplDriver.print()` không gọi `TsplFontManager.install()` | ✅ conform — `drivers/tspl/TsplDriver.ts:203-211`; test `drivers/tspl/__tests__/TsplDriver.test.ts:403`. |
-| 29 | Font installation là explicit operation | ✅ conform — chỉ `PrinterService.installTsplFont` (`printing/PrinterService.ts:199`) và `AddPrinterModal.onToggleTsplFont` (`components/AddPrinterModal.tsx:324`) khởi động; test `printing/__tests__/PrinterService.test.ts:487+` (A4). |
+| 29 | Font installation là explicit operation | ✅ conform — chỉ `PrinterService.installTsplFont` (`printing/PrinterService.ts:199`) và `AddPrinterModal.onToggleTsplFont` (`components/AddPrinterModal.tsx:327`) khởi động; test `printing/__tests__/PrinterService.test.ts:487+` (A4). |
 
 ### Discovery
 
@@ -122,7 +124,7 @@ Verdict mỗi dòng là đúng một trong:
 |---|---|---|
 | 01 | UI không access native printer module | ✅ conform — xem Invariant 1; `components/*` chỉ import `printing/PrinterService`. |
 | 02 | Production printing qua `PrintService` | ✅ conform — `printing/PrintService.ts:66`; xem Invariant 3. |
-| 03 | Printer management qua `PrinterService` | ✅ conform — `printing/PrinterService.ts:278`; xem Invariant 4. |
+| 03 | Printer management qua `PrinterService` | ✅ conform — `printing/PrinterService.ts:323`; xem Invariant 4. |
 | 04 | `PrintType` và `PrinterDriverType` độc lập | ✅ conform — `types/printConfiguration.types.ts` + `types/printer.types.ts` tách rời; test `types/__tests__/printConfiguration.types.test.ts`. |
 | 05 | `TsplDriver` dùng Strategy Pattern | ✅ conform — `drivers/tspl/TsplDriver.ts:165`; Part B B3 (`TsplDriver.ts` không `new TsplEncoder`/PNG decode). |
 | 06 | Bitmap dùng `TsplBitmapStrategy` | ✅ conform — `drivers/tspl/TsplStrategyRegistry.ts:9`. |
@@ -131,13 +133,13 @@ Verdict mỗi dòng là đúng một trong:
 | 09 | TrueType failure không fallback BITMAP | ✅ conform — `strategies/TsplTrueTypeStrategy.ts` chỉ throw; test `strategies/__tests__/TsplTrueTypeStrategy.test.ts`. ⚠️ hardware chưa xác nhận (D7). |
 | 10 | TrueType thiếu font → FAIL | ✅ conform — `strategies/TsplTrueTypeStrategy.ts:20-21` `TSPL_FONT_NOT_INSTALLED`; test `strategies/__tests__/TsplTrueTypeStrategy.test.ts`. |
 | 11 | Bitmap thiếu image → FAIL | ✅ conform — `strategies/TsplBitmapStrategy.ts:15-21` `TSPL_IMAGE_REQUIRED`; test `strategies/__tests__/TsplBitmapStrategy.test.ts`. |
-| 12 | Unsupported rendering → FAIL | ✅ conform — `drivers/tspl/TsplStrategyRegistry.ts:16` `TSPL_RENDER_MODE_UNSUPPORTED`; `drivers/tspl/TsplEncoder.ts` ném `TSPL_ELEMENT_UNSUPPORTED`; test `drivers/tspl/__tests__/TsplEncoder.test.ts`. |
+| 12 | Unsupported rendering → FAIL | ✅ conform — `drivers/tspl/TsplStrategyRegistry.ts:16` `TSPL_RENDER_MODE_UNSUPPORTED`; `TSPL_ELEMENT_UNSUPPORTED` ném ở `drivers/tspl/strategies/TsplTrueTypeStrategy.ts:47` (nhánh `else` của switch element trong `encode()`) + `drivers/escpos/EscPosTextBuilder.ts:25`; test `drivers/tspl/strategies/__tests__/TsplTrueTypeStrategy.test.ts`, `drivers/escpos/__tests__/EscPosTextBuilder.test.ts`. |
 | 13 | DOWNLOAD chỉ thuộc font installation | ✅ conform — `drivers/tspl/TsplFontManager.ts:27`; Part B B2. |
 | 14 | PRINT không bao giờ chạy DOWNLOAD | ✅ conform — `drivers/tspl/TsplDriver.ts:203-211`; test `drivers/tspl/__tests__/TsplDriver.test.ts:403`. |
 | 15 | TEST PRINT không bao giờ chạy DOWNLOAD | ✅ conform — `drivers/tspl/TsplDriver.ts:187-201`; test `printing/__tests__/PrinterService.test.ts:473`. |
 | 16 | RECONNECT không bao giờ chạy DOWNLOAD | ✅ conform — `printing/PrinterService.ts:104-107`; test `printing/__tests__/PrinterService.test.ts:473`. |
 | 17 | `TsplDriver.print()` không install font | ✅ conform — `drivers/tspl/TsplDriver.ts:203-211`; test `drivers/tspl/__tests__/TsplDriver.test.ts:403`. |
-| 18 | Font installation gọi explicit | ✅ conform — `printing/PrinterService.ts:199` + `components/AddPrinterModal.tsx:324`; test `printing/__tests__/PrinterService.test.ts` (A4, :487+). |
+| 18 | Font installation gọi explicit | ✅ conform — `printing/PrinterService.ts:199` + `components/AddPrinterModal.tsx:327`; test `printing/__tests__/PrinterService.test.ts` (A4, :487+). |
 | 19 | `fontInstalled` không phải hardware verification | ✅ conform — chỉ là config flag ở `types/printer.types.ts` `TsplFontConfig`; strategy chỉ đọc nó để quyết định fail sớm (`strategies/TsplTrueTypeStrategy.ts:20`); ARCHITECTURE.md §51 + D7. |
 | 20 | Discovery dùng real `identify()` khi hỗ trợ | ✅ conform — `discovery/PrinterDiscoveryService.ts:83-84`; test `discovery/__tests__/PrinterDiscoveryService.test.ts`. |
 | 21 | Vendor/model không phải protocol truth | ✅ conform — `discovery/PrinterDiscoveryService.ts:8-14` (no rule table). |
@@ -166,7 +168,7 @@ Verdict mỗi dòng là đúng một trong:
 | 44 | Driver mới phải implement `IPrinterDriver` | ✅ conform — `types/driver.types.ts` là contract; `drivers/tspl/TsplDriver.ts` + `drivers/escpos/EscPosDriver.ts` `implements`. Signature thật khác pseudocode §23 (D1). |
 | 45 | TSPL render mode mới phải implement `ITsplPrintStrategy` | ✅ conform — `strategies/tsplStrategy.types.ts` `ITsplPrintStrategy`; registry `drivers/tspl/TsplStrategyRegistry.ts:8` typed `Record<TsplRenderMode, ITsplPrintStrategy>`. |
 | 46 | Transport mới phải implement transport abstraction | ✅ conform — `types/driver.types.ts` / `drivers/tspl/tsplTransport` shape; 3 transport hiện có cùng `write()`/`connect()`/`disconnect()`. (D2 không áp dụng: ESC/POS không có tầng transport nào để đối chiếu — quy tắc chỉ ràng buộc transport thực sự tồn tại.) |
-| 47 | Đổi printer config KHÔNG âm thầm install font | ✅ conform — `components/AddPrinterModal.tsx:309-320` tắt switch chỉ đổi `renderMode`, không gọi installTsplFont; install chỉ khi `enabled === true` (:321-324). |
+| 47 | Đổi printer config KHÔNG âm thầm install font | ✅ conform — `components/AddPrinterModal.tsx:314-322` tắt switch chỉ đổi `renderMode` (+ persist đối xứng `PrinterService.setTsplRenderMode`), không gọi installTsplFont; install chỉ khi `enabled === true` (:324-338). |
 | 48 | Đổi render mode KHÔNG âm thầm print | ✅ conform — `components/AddPrinterModal.tsx` `onToggleTsplFont` không gọi print/testPrint; `printing/PrinterService.installTsplFont` chỉ DOWNLOAD + persist. |
 | 49 | Save printer KHÔNG âm thầm DOWNLOAD font | ✅ conform — `printing/PrinterService.ts:54-59` `addPrinter` chỉ `savePrinters`; DOWNLOAD tách riêng ở `installTsplFont`. Persist-in-add-flow xem D3. |
 | 50 | Print pipeline deterministic từ driver + render mode | ✅ conform — `drivers/tspl/TsplDriver.ts:161-174` `buildBytes` chỉ đọc `driver.config.renderMode` (không đọc runtime state); §145b "Configuration Is Source of Truth". |
@@ -177,14 +179,14 @@ Verdict mỗi dòng là đúng một trong:
 
 | Named rule | Verdict |
 |---|---|
-| TSPL Strategy Ownership | ✅ conform — `drivers/tspl/TsplDriver.ts:7` chỉ import `DEFAULT_LABEL_HEIGHT_MM`/`CONTINUOUS_HEIGHT_MM` từ `TsplEncoder` (hằng số), không `new TsplEncoder`/`pngToMonochrome`; render delegate `resolveTsplStrategy` (:165). Part B B3 rỗng. |
+| TSPL Strategy Ownership | ✅ conform — `TsplDriver.ts` không `new TsplEncoder` và không import PNG decode / element rendering — chỉ 2 hằng số khổ giấy (`DEFAULT_LABEL_HEIGHT_MM`/`CONTINUOUS_HEIGHT_MM` từ `./TsplEncoder`, `drivers/tspl/TsplDriver.ts:7`); render delegate `resolveTsplStrategy` (:165). Part B B3 rỗng. |
 | No Fallback | ✅ conform — `strategies/TsplBitmapStrategy.ts` (`TSPL_IMAGE_REQUIRED`, không "TEXT") + `strategies/TsplTrueTypeStrategy.ts` (`TSPL_FONT_NOT_INSTALLED`, không "BITMAP"); test `strategies/__tests__/TsplBitmapStrategy.test.ts`, `TsplTrueTypeStrategy.test.ts`. ⚠️ firmware chưa xác nhận (D7). |
 | No Download During Print | ✅ conform — Part B B2: `downloadFont`/`installTsplFont` callers chỉ gồm `TsplFontManager`/`TsplDriver.installTsplFont`/`PrinterService.installTsplFont`/`AddPrinterModal.onToggleTsplFont`; test `drivers/tspl/__tests__/TsplDriver.test.ts:403`. |
 | Strategy Purity | ✅ conform — Part B B1: `grep "transports/\|adapters/\|storage/\|StorageService" strategies/` rỗng. |
 | Driver Responsibility | ✅ conform — `drivers/tspl/TsplDriver.ts` sở hữu connect/disconnect/`writeBytes` (:177-185), render đẩy sang strategy (:165-174). |
 | Transport Responsibility | ✅ conform — Part B B4: `grep "printDocument\|Strategy\|TsplEncoder" transports/` rỗng; transport chỉ nhận `Uint8Array`. ⚠️ ESC/POS không qua transport (D2). |
 | Configuration Is Source of Truth | ✅ conform — `drivers/tspl/TsplDriver.ts:165` `resolveTsplStrategy(driver.config.renderMode)`; không code path nào đọc runtime font availability để chọn strategy (Part B B6 `isTsplTrueTypeActive` rỗng). |
-| Explicit Failure | ✅ conform — mọi nhánh invalid ném `TSPL_*` cụ thể: `TSPL_IMAGE_REQUIRED/INVALID/TOO_LARGE` (`strategies/TsplBitmapStrategy.ts:18,31,38`), `TSPL_FONT_NOT_INSTALLED` (`strategies/TsplTrueTypeStrategy.ts:21,28`), `TSPL_RENDER_MODE_UNSUPPORTED` (`TsplStrategyRegistry.ts:16`), `TSPL_ELEMENT_UNSUPPORTED` (`TsplEncoder.ts`, dùng chung ESC/POS — D5); test `drivers/tspl/__tests__/TsplEncoder.test.ts`, strategies. |
+| Explicit Failure | ✅ conform — mọi nhánh invalid ném `TSPL_*` cụ thể: `TSPL_IMAGE_REQUIRED/INVALID/TOO_LARGE` (`strategies/TsplBitmapStrategy.ts:18,31,39`), `TSPL_FONT_NOT_INSTALLED` (`strategies/TsplTrueTypeStrategy.ts:21,28`), `TSPL_RENDER_MODE_UNSUPPORTED` (`TsplStrategyRegistry.ts:16`), `TSPL_ELEMENT_UNSUPPORTED` (`strategies/TsplTrueTypeStrategy.ts:47` + `drivers/escpos/EscPosTextBuilder.ts:25`, code dùng chung ESC/POS — D5); test `drivers/tspl/strategies/__tests__/TsplTrueTypeStrategy.test.ts`, `drivers/escpos/__tests__/EscPosTextBuilder.test.ts`, strategies. |
 
 ---
 
