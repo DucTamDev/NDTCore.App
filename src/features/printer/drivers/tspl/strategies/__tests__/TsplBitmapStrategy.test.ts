@@ -64,6 +64,7 @@ describe('TsplBitmapStrategy', () => {
   });
 
   it('encode ném TSPL_IMAGE_INVALID khi base64 không phải PNG', () => {
+    expect(() => s.encode(ctx({ documents: { text: { elements: [] }, image: 'bm90LWEtcG5n' } }))).toThrow();
     try {
       s.encode(ctx({ documents: { text: { elements: [] }, image: 'bm90LWEtcG5n' } }));
     } catch (e) {
@@ -72,6 +73,7 @@ describe('TsplBitmapStrategy', () => {
   });
 
   it('encode ném TSPL_IMAGE_TOO_LARGE khi ảnh cao hơn heightMm*DOTS_PER_MM', () => {
+    expect(() => s.encode(ctx({ heightMm: 0.01 }))).toThrow();
     // heightMm nhỏ để chắc chắn vượt
     try {
       s.encode(ctx({ heightMm: 0.01 }));
