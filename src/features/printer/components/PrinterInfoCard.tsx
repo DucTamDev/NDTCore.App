@@ -34,7 +34,7 @@ export interface PrinterInfoCardProps {
   errors: FieldErrors<PrinterDisplayValues>;
   connectionType: ConnectionType;
   drivers: PrinterDriver[];
-  onUpdateDriverContentTypes: (type: PrinterDriverType, contentTypes: PrintType[]) => void;
+  onToggleContentType: (type: PrinterDriverType, contentType: PrintType, value: boolean) => void;
   deviceInfo?: PrinterDeviceInfo;
   status: PrinterStatus;
   autoReconnect: boolean;
@@ -57,7 +57,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   errors,
   connectionType,
   drivers,
-  onUpdateDriverContentTypes,
+  onToggleContentType,
   deviceInfo,
   status,
   autoReconnect,
@@ -74,11 +74,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
 }) => {
   const claimedElsewhere = (type: PrinterDriverType, contentType: PrintType): boolean =>
     drivers.some((d) => d.type !== type && d.contentTypes.includes(contentType));
-
-  const toggleContentType = (driver: PrinterDriver, contentType: PrintType, value: boolean): void => {
-    const next = value ? [...driver.contentTypes, contentType] : driver.contentTypes.filter((ct) => ct !== contentType);
-    onUpdateDriverContentTypes(driver.type, next);
-  };
 
   const canPrint = (contentType: PrintType): boolean => drivers.some((d) => d.contentTypes.includes(contentType));
 
@@ -130,7 +125,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               key={contentType}
               label={contentTypeLabel[contentType]}
               value={driver.contentTypes.includes(contentType)}
-              onValueChange={(value) => toggleContentType(driver, contentType, value)}
+              onValueChange={(value) => onToggleContentType(driver.type, contentType, value)}
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
