@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, TouchableRipple, Icon, useTheme } from 'react-native-paper';
-import { useDispatch, useSelector } from 'react-redux';
-import type { AppDispatch, RootState } from '../../../store';
+import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../../../store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
-import { selectPrinters } from '../../printer/store/printerSlice';
+import { usePrinterList } from '../../printer/hooks/usePrinterList';
 import { PrinterService } from '../../printer/printing/PrinterService';
 import { PrinterStatus } from '../../printer/types/printer.types';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -26,7 +26,7 @@ export const ApplicationSidebar: React.FC<ApplicationSidebarProps> = ({
   isTablet,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const printers = useSelector((state: RootState) => selectPrinters(state));
+  const { printers } = usePrinterList();
   const hasConnectedPrinter = printers.some((p) => PrinterService.getStatus(p.id) === PrinterStatus.connected);
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
