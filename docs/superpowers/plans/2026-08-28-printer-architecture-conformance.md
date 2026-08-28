@@ -701,12 +701,12 @@ it('print()/testPrint()/connect() KHÔNG gọi TsplFontManager.downloadFont', as
   const spy = jest.spyOn(TsplFontManager.prototype, 'downloadFont' as never);
   const driver = new TsplDriver();
   await driver.connect(lanPrinter, tsplDriverEntry);
-  await driver.print(lanPrinter.id, { text: sampleText, image: TINY_PNG }, PrintType.Receipt).catch(() => undefined);
-  await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: TINY_PNG }, PrintType.Receipt).catch(() => undefined);
+  await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt).catch(() => undefined);
+  await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt).catch(() => undefined);
   expect(spy).not.toHaveBeenCalled();
 });
 ```
-*(Đặt `sampleText` = `sampleDocuments.text`; `TINY_PNG` dùng chung như Task 3.)*
+*(Đặt `sampleText` = `sampleDocuments.text`. `tinyPngBase64()` là helper PNG hợp lệ đã có sẵn trong file test này (dùng bởi WIP baseline commit `5727f7e`) — dùng lại, KHÔNG tạo hằng số `TINY_PNG` mới.)*
 
 - [ ] **Step 2: Chạy — FAIL** (`driver.encode` không còn / hành vi cũ)
 
@@ -753,6 +753,19 @@ const bytes = this.buildBytes(printer, driver, documents, printType);
 await this.writeBytes(printer, transport, bytes);
 ```
 (`printType` bỏ `?` — bắt buộc.)
+
+**QUAN TRỌNG — cầu nối interface tới Task 8:** `IPrinterDriver.encode()` CHƯA bị xoá
+khỏi interface ở task này (chỉ xoá ở Task 8). Nếu `TsplDriver` không còn method
+`encode`, nó hết implement `IPrinterDriver` → type-check FAIL. Vì vậy **giữ lại
+1 method `encode()` thin delegate** (xoá hẳn ở Task 8 cùng lúc xoá khỏi interface):
+
+```ts
+/** @deprecated Xoá ở Task 8 khi encode() rời khỏi IPrinterDriver — chỉ để thoả interface tạm thời. */
+encode(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Uint8Array {
+  return this.buildBytes(printer, driver, documents, printType);
+}
+```
+Test cũ gọi `driver.encode(...)` ở Task này (nếu còn) vẫn PASS qua delegate này.
 
 - [ ] **Step 4: Chạy — PASS** (test file này + toàn bộ printer suite)
 
