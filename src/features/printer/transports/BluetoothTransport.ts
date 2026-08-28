@@ -20,7 +20,7 @@ export class BluetoothTransport {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         timedOut = true;
-        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Kết nối Bluetooth quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT, message: 'Kết nối Bluetooth quá thời gian chờ' }));
       }, timeoutMs);
     });
 

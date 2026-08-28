@@ -32,7 +32,7 @@ export class LanTransport {
         settled = true;
         socket.destroy();
         this.socket = null;
-        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Kết nối LAN quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT, message: 'Kết nối LAN quá thời gian chờ' }));
       }, timeoutMs);
       const socket = TcpSocket.createConnection({ host: ip, port }, () => {
         if (settled) return;
@@ -44,7 +44,10 @@ export class LanTransport {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        reject(error);
+        // Socket 'error' lúc connect = từ chối kết nối / host không tới được —
+        // map sang PRINTER_CONNECTION_FAILED để `errorCodeOf()` không trả
+        // UNKNOWN_ERROR cho lỗi LAN phổ biến nhất (spec §6.2).
+        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error.message }));
       });
       this.socket = socket;
     });

@@ -80,6 +80,7 @@ describe('BluetoothTransport.connect', () => {
     jest.advanceTimersByTime(5000);
 
     await expect(connectPromise).rejects.toThrow();
+    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT });
 
     // Dọn promise connectToDevice() gốc để không treo tay cầm bất đồng bộ
     // sau khi test kết thúc.

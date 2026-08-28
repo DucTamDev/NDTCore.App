@@ -89,7 +89,7 @@ describe('LanTransport.connect', () => {
     jest.useRealTimers();
   });
 
-  it('rejects and destroys the socket when the server never accepts the connection within timeoutMs', async () => {
+  it('rejects with PRINTER_CONNECTION_TIMEOUT and destroys the socket when the server never accepts the connection within timeoutMs', async () => {
     tcpSocketMock.default.createConnection.mockImplementation(() => tcpSocketMock.__mockSocket);
     jest.useFakeTimers();
 
@@ -99,6 +99,19 @@ describe('LanTransport.connect', () => {
     jest.advanceTimersByTime(5000);
 
     await expect(connectPromise).rejects.toThrow();
+    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT });
     expect(tcpSocketMock.__mockSocket.destroy).toHaveBeenCalled();
+  });
+
+  it('rejects with PRINTER_CONNECTION_FAILED when the socket emits an error before connecting (connection refused / host unreachable)', async () => {
+    tcpSocketMock.default.createConnection.mockImplementation(() => tcpSocketMock.__mockSocket);
+
+    const transport = new LanTransport();
+    const connectPromise = transport.connect('192.168.1.60', 9100, 5000);
+    connectPromise.catch(() => undefined);
+    tcpSocketMock.__emit('error', new Error('ECONNREFUSED 192.168.1.60:9100'));
+
+    await expect(connectPromise).rejects.toThrow();
+    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
   });
 });
