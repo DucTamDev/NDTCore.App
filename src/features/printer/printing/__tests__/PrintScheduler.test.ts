@@ -177,7 +177,7 @@ describe('PrintScheduler', () => {
         // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
         // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } });
+        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } }, PrintType.Receipt);
       })(),
     ]);
 

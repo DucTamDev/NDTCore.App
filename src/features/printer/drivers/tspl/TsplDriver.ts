@@ -28,7 +28,7 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
   return bytes;
 };
 
-const resolveHeightMm = (driver: PrinterDriver, printType?: PrintType): number => {
+const resolveHeightMm = (driver: PrinterDriver, printType: PrintType): number => {
   const labelHeightMm = driver.config.type === PrinterDriverType.tspl ? driver.config.labelHeightMm : undefined;
   return printType === PrintType.Label ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
 };

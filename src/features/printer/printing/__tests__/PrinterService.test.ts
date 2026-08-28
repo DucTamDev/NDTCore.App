@@ -177,13 +177,13 @@ describe('PrinterService', () => {
     expect(escposDriver.print).not.toHaveBeenCalled();
   });
 
-  it('print() forwards to the printer default driver when printType is omitted', async () => {
+  it('print() forwards to the printer default driver, passing the printType through', async () => {
     const escposDriver = makeMockDriver();
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
-    await service.print(basePrinter.id, documents);
-    expect(escposDriver.print).toHaveBeenCalledWith(basePrinter.id, documents, undefined);
+    await service.print(basePrinter.id, documents, PrintType.Receipt);
+    expect(escposDriver.print).toHaveBeenCalledWith(basePrinter.id, documents, PrintType.Receipt);
   });
 
   it('print() connects first when the driver reports the printer is not connected', async () => {
@@ -191,9 +191,9 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, documents, PrintType.Receipt);
     expect(escposDriver.connect).toHaveBeenCalledWith(basePrinter, escposDriverEntry);
-    expect(escposDriver.print).toHaveBeenCalledWith(basePrinter.id, documents, undefined);
+    expect(escposDriver.print).toHaveBeenCalledWith(basePrinter.id, documents, PrintType.Receipt);
   });
 
   it('print() does not reconnect when the driver reports the printer is already connected', async () => {
@@ -201,7 +201,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     service.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, documents, PrintType.Receipt);
     expect(escposDriver.connect).not.toHaveBeenCalled();
   });
 
@@ -209,8 +209,8 @@ describe('PrinterService', () => {
     const escposDriver = makeMockDriver();
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     const documents = { text: { elements: [] } };
-    await service.testPrint(basePrinter, escposDriverEntry, documents);
-    expect(escposDriver.testPrint).toHaveBeenCalledWith(basePrinter, escposDriverEntry, documents, undefined);
+    await service.testPrint(basePrinter, escposDriverEntry, documents, PrintType.Receipt);
+    expect(escposDriver.testPrint).toHaveBeenCalledWith(basePrinter, escposDriverEntry, documents, PrintType.Receipt);
     expect(service.getPrinters()).toEqual([]);
   });
 
@@ -219,7 +219,7 @@ describe('PrinterService', () => {
     const lock = createResourceLock();
     const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, lock);
-    await service.testPrint(basePrinter, escposDriverEntry, { text: { elements: [] } });
+    await service.testPrint(basePrinter, escposDriverEntry, { text: { elements: [] } }, PrintType.Receipt);
     expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
   });
 
