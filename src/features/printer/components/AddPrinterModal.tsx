@@ -315,6 +315,9 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
       setDrivers((prev) =>
         prev.map((d) => (d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: { ...d.config, renderMode: TsplRenderMode.bitmap } } : d)),
       );
+      // Persist đối xứng với nhánh bật (`installTsplFont` ghi renderMode='truetype'
+      // cho printer đã lưu) — no-op nếu là draft chưa lưu, Save sẽ lo phần đó.
+      PrinterService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
       return;
     }
 

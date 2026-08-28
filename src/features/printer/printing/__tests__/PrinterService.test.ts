@@ -450,6 +450,31 @@ describe('PrinterService', () => {
     expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } });
   });
 
+  it('setTsplRenderMode() persists renderMode=bitmap for a saved TSPL printer (symmetric with the TrueType toggle-off)', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    const tsplPrinter: Printer = {
+      ...basePrinter,
+      drivers: [
+        {
+          ...tsplDriverEntry,
+          config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+        },
+      ],
+    };
+    service.addPrinter(tsplPrinter);
+
+    service.setTsplRenderMode(tsplPrinter.id, TsplRenderMode.bitmap);
+
+    const savedTspl = service.getPrinters().find((p) => p.id === tsplPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.tspl)!;
+    expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, font: { fontInstalled: true } });
+  });
+
+  it('setTsplRenderMode() is a no-op for a draft (unsaved) printer', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    expect(() => service.setTsplRenderMode('draft-not-saved', TsplRenderMode.bitmap)).not.toThrow();
+    expect(service.getPrinters()).toEqual([]);
+  });
+
   it('installTsplFont() for a draft (unsaved but already connected) resolves without writing storage', async () => {
     const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());

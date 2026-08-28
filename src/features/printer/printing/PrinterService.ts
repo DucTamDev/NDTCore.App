@@ -239,12 +239,9 @@ export const createPrinterService = (
       });
       throw error;
     }
-    PrinterLogger.fontInstallSucceeded({
-      printerId,
-      ...(connectionType ? { connectionType } : {}),
-      durationMs: Date.now() - startedAt,
-    });
 
+    // Persist TRƯỚC khi log success — nếu `savePrinters` ném thì không được để
+    // log đã tuyên bố thành công rồi lỗi mới thoát ra không kèm fontInstallFailed.
     if (printer && tsplEntry && tsplEntry.config.type === PrinterDriverType.tspl) {
       savePrinters(
         getPrinters().map((p) =>
@@ -261,6 +258,40 @@ export const createPrinterService = (
         ),
       );
     }
+
+    PrinterLogger.fontInstallSucceeded({
+      printerId,
+      ...(connectionType ? { connectionType } : {}),
+      durationMs: Date.now() - startedAt,
+    });
+  };
+
+  /**
+   * Persist `renderMode` cho TSPL driver của 1 printer ĐÃ LƯU — đối xứng với
+   * nhánh persist của `installTsplFont` (§46 "persist state as the last step"
+   * đúng theo cả 2 chiều bật/tắt). Printer chưa lưu (draft) → no-op: modal Add
+   * mang state vào `buildDraftPrinter()` lúc Save. Khi chuyển về `bitmap` giữ
+   * nguyên `config.font` — `fontInstalled` vẫn true nghĩa là font còn trên máy
+   * in; routing chọn strategy theo `renderMode` (Task 7).
+   */
+  const setTsplRenderMode = (printerId: string, renderMode: TsplRenderMode): void => {
+    const printer = getPrinters().find((p) => p.id === printerId);
+    const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
+    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) return;
+    savePrinters(
+      getPrinters().map((p) =>
+        p.id !== printerId
+          ? p
+          : {
+              ...p,
+              drivers: p.drivers.map((d) =>
+                d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
+                  ? d
+                  : { ...d, config: { ...d.config, renderMode } },
+              ),
+            },
+      ),
+    );
   };
 
   return {
@@ -285,6 +316,7 @@ export const createPrinterService = (
     disconnectForDriver,
     discoverDriver,
     installTsplFont,
+    setTsplRenderMode,
   };
 };
 
