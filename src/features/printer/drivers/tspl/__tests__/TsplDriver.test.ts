@@ -154,7 +154,7 @@ describe('TsplDriver', () => {
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.disconnected);
   });
 
-  it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows CONNECTION_ERROR when transport.close() rejects', async () => {
+  it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows PRINTER_CONNECTION_FAILED when transport.close() rejects', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
@@ -163,7 +163,7 @@ describe('TsplDriver', () => {
     };
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
 
-    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
@@ -174,7 +174,7 @@ describe('TsplDriver', () => {
     );
   });
 
-  it('disconnect() clears the stale transport reference despite the native failure — print() afterwards correctly reports CONNECTION_ERROR instead of using a broken transport', async () => {
+  it('disconnect() clears the stale transport reference despite the native failure — print() afterwards correctly reports PRINTER_NOT_CONNECTED instead of using a broken transport', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
@@ -186,7 +186,7 @@ describe('TsplDriver', () => {
 
     await expect(
       driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] })),
-    ).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    ).rejects.toMatchObject({ code: AppErrorCode.PRINTER_NOT_CONNECTED });
   });
 
   it('connect() over USB rejects with VALIDATION_ERROR when no device was chosen', async () => {
@@ -318,12 +318,12 @@ describe('TsplDriver', () => {
     expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
   });
 
-  it('print() rejects with ENCODING_FAILED when the image is taller than the declared label height', async () => {
+  it('print() rejects with TSPL_IMAGE_TOO_LARGE when the image is taller than the declared label height', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await expect(
       driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'image', data: squarePngBase64(), x: 0, y: 0 }] }), PrintType.Label),
-    ).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    ).rejects.toMatchObject({ code: AppErrorCode.TSPL_IMAGE_TOO_LARGE });
   });
 
   it('print() does NOT reject the same oversized-for-Label image when printing a Receipt (continuous paper, no fixed label height)', async () => {
@@ -334,12 +334,12 @@ describe('TsplDriver', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('print() rejects with ENCODING_FAILED for an unsupported element', async () => {
+  it('print() rejects with TSPL_ELEMENT_UNSUPPORTED for an unsupported element', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     const badElement = { type: 'unknown-kind', x: 0, y: 0 } as unknown as PrintElement;
     await expect(driver.print(lanPrinter.id, asDocuments({ elements: [badElement] }))).rejects.toMatchObject({
-      code: AppErrorCode.ENCODING_FAILED,
+      code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED,
     });
   });
 
@@ -369,13 +369,13 @@ describe('TsplDriver', () => {
     expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.connected);
   });
 
-  it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
+  it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
     const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new TsplDriver();
-    await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.error);
   });
 
@@ -486,7 +486,7 @@ describe('TsplDriver', () => {
     expect(ascii).toContain('BITMAP');
   });
 
-  it('encode() throws ENCODING_FAILED in bitmap mode when no image variant is provided', () => {
+  it('encode() throws TSPL_IMAGE_REQUIRED in bitmap mode when no image variant is provided', () => {
     const driver = new TsplDriver();
     let error: unknown;
     try {
@@ -494,7 +494,7 @@ describe('TsplDriver', () => {
     } catch (caught) {
       error = caught;
     }
-    expect(error).toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    expect(error).toMatchObject({ code: AppErrorCode.TSPL_IMAGE_REQUIRED });
   });
 
   it('print() writes the same bytes that encode() produces', async () => {
@@ -526,10 +526,10 @@ describe('TsplDriver.installTrueTypeFont', () => {
     expect(ensureFontInstalledMock).toHaveBeenCalledWith(expect.anything(), DEFAULT_TSPL_FONT);
   });
 
-  it('throws CONNECTION_ERROR when the printer is not connected', async () => {
+  it('throws PRINTER_NOT_CONNECTED when the printer is not connected', async () => {
     const driver = new TsplDriver();
     await expect(driver.installTrueTypeFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: AppErrorCode.CONNECTION_ERROR,
+      code: AppErrorCode.PRINTER_NOT_CONNECTED,
     });
   });
 });

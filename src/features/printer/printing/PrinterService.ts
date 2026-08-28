@@ -2,6 +2,7 @@ import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../type
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
+import { AppErrorException, AppErrorCode } from '../types/AppError';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterStorage } from '../storage/PrinterStorage';
@@ -24,14 +25,17 @@ export const createPrinterService = (
 
   const findOrThrow = (printerId: string): Printer => {
     const found = getPrinters().find((p) => p.id === printerId);
-    if (!found) throw new Error(`Không tìm thấy máy in với id ${printerId}`);
+    if (!found) throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
     return found;
   };
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
     const collision = getPrinters().find((p) => p.id !== printer.id && p.identityKey === printer.identityKey);
     if (collision) {
-      throw new Error(`Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`);
+      throw new AppErrorException({
+        code: AppErrorCode.PRINTER_ALREADY_EXISTS,
+        message: `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`,
+      });
     }
   };
 
@@ -116,7 +120,12 @@ export const createPrinterService = (
   const print = async (printerId: string, documents: PrintDocumentVariants, printType?: PrintType): Promise<void> => {
     const printer = findOrThrow(printerId);
     const driverEntry = printer.drivers.find((d) => (printType ? d.contentTypes.includes(printType) : true));
-    if (!driverEntry) throw new Error(`Máy in ${printerId} không có driver nào nhận in ${printType ?? '(không rõ loại)'}`);
+    if (!driverEntry) {
+      throw new AppErrorException({
+        code: AppErrorCode.NO_AVAILABLE_PRINTER,
+        message: `Máy in ${printerId} không có driver nào nhận in ${printType ?? '(không rõ loại)'}`,
+      });
+    }
     const driver = getDriver(driverEntry.type);
     if (driver.getStatus(printerId) !== PrinterStatus.connected) {
       await driver.connect(printer, driverEntry);

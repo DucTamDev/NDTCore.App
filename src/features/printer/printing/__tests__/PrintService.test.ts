@@ -65,7 +65,7 @@ describe('PrintService.print', () => {
   it('reports failed with no top-level error when every job fails', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } }),
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });

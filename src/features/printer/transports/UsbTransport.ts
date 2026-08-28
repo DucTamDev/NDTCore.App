@@ -19,7 +19,7 @@ export class UsbTransport {
     try {
       await USBPrinter.connectPrinter(vendorId as unknown as string, productId as unknown as string);
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }
   }
 
@@ -27,7 +27,7 @@ export class UsbTransport {
     try {
       await printRawDataUsb(Buffer.from(bytes).toString('base64'), true);
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.PRINT_ERROR, message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: errorMessage(error) });
     }
   }
 
@@ -35,7 +35,7 @@ export class UsbTransport {
     try {
       await USBPrinter.closeConn();
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: errorMessage(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }
   }
 }

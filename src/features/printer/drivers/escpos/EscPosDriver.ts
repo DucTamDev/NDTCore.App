@@ -49,7 +49,7 @@ export class EscPosDriver implements IPrinterDriver {
       return () => undefined;
     }
     if (connectionType === ConnectionType.usb && Platform.OS !== 'android') {
-      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
+      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
     let cancelled = false;
@@ -61,7 +61,7 @@ export class EscPosDriver implements IPrinterDriver {
           const granted = await ensureBluetoothPermission();
           if (cancelled) return;
           if (!granted) {
-            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
+            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
             return;
           }
         }
@@ -86,8 +86,8 @@ export class EscPosDriver implements IPrinterDriver {
           PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
           return;
         }
-        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message } });
-        PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
+        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_CONNECTION_FAILED, message } });
+        PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
       }
     };
     run();
@@ -100,7 +100,7 @@ export class EscPosDriver implements IPrinterDriver {
     try {
       if (printer.connectionType === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
-        if (!granted) throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' });
+        if (!granted) throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
       }
       await this.ensureInitialized(printer.connectionType);
 
@@ -151,7 +151,7 @@ export class EscPosDriver implements IPrinterDriver {
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       if (connectionType && this.activeByType.get(connectionType) === printerId) this.activeByType.delete(connectionType);
       this.connectedTypes.delete(printerId);
@@ -176,7 +176,7 @@ export class EscPosDriver implements IPrinterDriver {
       } else if (element.type === 'row') {
         lines.push(formatRow(element.left, element.right, paperWidth));
       } else {
-        throw new AppErrorException({ code: AppErrorCode.ENCODING_FAILED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+        throw new AppErrorException({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
       }
     }
     return `${lines.join('\n')}\n`;
@@ -195,7 +195,7 @@ export class EscPosDriver implements IPrinterDriver {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     if (!context || !connectionType || this.activeByType.get(connectionType) !== printerId) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Máy in chưa kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
     const startedAt = Date.now();
     try {

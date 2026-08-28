@@ -143,13 +143,13 @@ describe('EscPosDriver', () => {
     expect(driver.getStatus(blePrinter.id)).toBe(PrinterStatus.connected);
   });
 
-  it('connect() over Bluetooth fails with CONNECTION_ERROR when permission is denied', async () => {
+  it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
     const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new EscPosDriver();
-    await expect(driver.connect(blePrinter, escposDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.connect(blePrinter, escposDriverEntry)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(blePrinter.id)).toBe(PrinterStatus.error);
   });
 
@@ -173,7 +173,7 @@ describe('EscPosDriver', () => {
     expect(NetPrinter.closeConn).toHaveBeenCalled();
   });
 
-  it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows CONNECTION_ERROR when native closeConn() rejects', async () => {
+  it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows PRINTER_CONNECTION_FAILED when native closeConn() rejects', async () => {
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       NetPrinter: { closeConn: jest.Mock };
     };
@@ -181,7 +181,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
 
-    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
@@ -421,7 +421,7 @@ describe('EscPosDriver', () => {
       PrinterLogger: { scanFailed: jest.Mock };
     };
     expect(PrinterLogger.scanFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionType: ConnectionType.bluetooth, errorCode: AppErrorCode.CONNECTION_ERROR }),
+      expect.objectContaining({ connectionType: ConnectionType.bluetooth, errorCode: AppErrorCode.PRINTER_CONNECTION_FAILED }),
     );
   });
 
@@ -443,12 +443,12 @@ describe('EscPosDriver', () => {
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new EscPosDriver();
-    await expect(driver.testPrint(blePrinter, escposDriverEntry, sampleDocuments)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.testPrint(blePrinter, escposDriverEntry, sampleDocuments)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: blePrinter.id, protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.CONNECTION_ERROR }),
+      expect.objectContaining({ printerId: blePrinter.id, protocol: PrinterDriverType.escpos, errorCode: AppErrorCode.PRINTER_CONNECTION_FAILED }),
     );
   });
 
@@ -531,7 +531,7 @@ describe('EscPosDriver', () => {
     );
   });
 
-  it('print() throws ENCODING_FAILED for a barcode element without calling printText', async () => {
+  it('print() throws TSPL_ELEMENT_UNSUPPORTED for a barcode element without calling printText', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
@@ -539,22 +539,22 @@ describe('EscPosDriver', () => {
     };
     const callsBefore = NetPrinter.printText.mock.calls.length;
     const document: PrintDocument = { elements: [{ type: 'barcode', content: '123', x: 0, y: 0 }] };
-    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED });
     expect(NetPrinter.printText.mock.calls.length).toBe(callsBefore);
   });
 
-  it('print() throws ENCODING_FAILED for a qrCode element', async () => {
+  it('print() throws TSPL_ELEMENT_UNSUPPORTED for a qrCode element', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     const document: PrintDocument = { elements: [{ type: 'qrCode', content: 'https://x', x: 0, y: 0 }] };
-    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED });
   });
 
-  it('print() throws ENCODING_FAILED for an image element', async () => {
+  it('print() throws TSPL_ELEMENT_UNSUPPORTED for an image element', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     const document: PrintDocument = { elements: [{ type: 'image', data: 'AAAA', x: 0, y: 0 }] };
-    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED });
   });
 
   it('print() validates all elements before sending anything — an unsupported element after valid ones still sends nothing', async () => {
@@ -570,24 +570,24 @@ describe('EscPosDriver', () => {
         { type: 'barcode', content: '123', x: 0, y: 10 },
       ],
     };
-    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.ENCODING_FAILED });
+    await expect(driver.print(lanPrinter.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED });
     expect(NetPrinter.printText.mock.calls.length).toBe(callsBefore);
   });
 
-  it('print() throws CONNECTION_ERROR when not connected', async () => {
+  it('print() throws PRINTER_NOT_CONNECTED when not connected', async () => {
     const driver = new EscPosDriver();
     const document: PrintDocument = { elements: [] };
-    await expect(driver.print('never-connected', asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.print('never-connected', asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_NOT_CONNECTED });
   });
 
-  it('print() throws CONNECTION_ERROR when the printer is no longer the active owner of the shared connection', async () => {
+  it('print() throws PRINTER_NOT_CONNECTED when the printer is no longer the active owner of the shared connection', async () => {
     const driver = new EscPosDriver();
     const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
     const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
     const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
-    await expect(driver.print(printerA.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(driver.print(printerA.id, asDocuments(document))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_NOT_CONNECTED });
   });
 
   it('print() logs printSucceeded on success', async () => {

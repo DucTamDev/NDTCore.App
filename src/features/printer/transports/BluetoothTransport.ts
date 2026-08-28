@@ -20,7 +20,7 @@ export class BluetoothTransport {
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         timedOut = true;
-        reject(new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Kết nối Bluetooth quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Kết nối Bluetooth quá thời gian chờ' }));
       }, timeoutMs);
     });
 
@@ -38,7 +38,7 @@ export class BluetoothTransport {
 
   async write(bytes: Uint8Array): Promise<void> {
     if (!this.device) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Thiết bị Bluetooth chưa được kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: 'Thiết bị Bluetooth chưa được kết nối' });
     }
     await this.device.write(Buffer.from(bytes).toString('base64'), 'base64');
   }
@@ -76,7 +76,7 @@ export class BluetoothTransport {
     try {
       await this.device?.disconnect();
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.device = null;
     }

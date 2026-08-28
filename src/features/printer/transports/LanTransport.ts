@@ -32,7 +32,7 @@ export class LanTransport {
         settled = true;
         socket.destroy();
         this.socket = null;
-        reject(new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Kết nối LAN quá thời gian chờ' }));
+        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Kết nối LAN quá thời gian chờ' }));
       }, timeoutMs);
       const socket = TcpSocket.createConnection({ host: ip, port }, () => {
         if (settled) return;
@@ -52,7 +52,7 @@ export class LanTransport {
 
   write(bytes: Uint8Array): void {
     if (!this.socket) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'LAN socket chưa được kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'LAN socket chưa được kết nối' });
     }
     this.socket.write(bytes);
   }

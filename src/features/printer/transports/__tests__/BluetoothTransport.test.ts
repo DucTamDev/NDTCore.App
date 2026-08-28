@@ -134,7 +134,7 @@ describe('BluetoothTransport.close', () => {
     expect(disconnect).toHaveBeenCalled();
   });
 
-  it('clears the device reference and throws CONNECTION_ERROR even when native disconnect() rejects — a subsequent write() must not think it is still connected', async () => {
+  it('clears the device reference and throws PRINTER_CONNECTION_FAILED even when native disconnect() rejects — a subsequent write() must not think it is still connected', async () => {
     bluetoothMock.default.connectToDevice.mockResolvedValueOnce({
       disconnect: jest.fn().mockRejectedValue(new Error('already out of range')),
       write: jest.fn(),
@@ -143,7 +143,7 @@ describe('BluetoothTransport.close', () => {
     const transport = new BluetoothTransport();
     await transport.connect('AA:BB:CC:DD:EE:FF');
 
-    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
-    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
+    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
   });
 });

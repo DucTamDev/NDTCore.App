@@ -33,13 +33,13 @@ describe('PrintScheduler', () => {
 
   it('enqueue() resolves with status failed and an AppError when PrinterService.print rejects', async () => {
     const printerService = {
-      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' })),
+      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.failed);
-    expect(result.error).toEqual({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' });
+    expect(result.error).toEqual({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {

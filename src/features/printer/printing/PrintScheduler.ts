@@ -11,7 +11,7 @@ export const createPrintScheduler = (
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
   const toAppError = (error: unknown): AppError =>
-    error instanceof AppErrorException ? { code: error.code, message: error.message } : { code: AppErrorCode.PRINT_ERROR, message: String(error) };
+    error instanceof AppErrorException ? { code: error.code, message: error.message } : { code: AppErrorCode.UNKNOWN_ERROR, message: String(error) };
 
   /**
    * Tra printer + driver sẽ xử lý `job.printType`, rồi tính resource key

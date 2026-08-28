@@ -21,13 +21,12 @@ describe('print job types', () => {
   });
 
   it('accepts every PrintResult status', () => {
-    // 'PRINT_ERROR' here is just an existing AppErrorCode to satisfy the shape —
-    // 'NO_AVAILABLE_PRINTER' isn't added until Task 10, which runs after this one.
+    // 'UNKNOWN_ERROR' ở đây chỉ là 1 AppErrorCode bất kỳ để thoả shape.
     const results: PrintResult[] = [
       { status: PrintResultStatus.success, jobs: [] },
       { status: PrintResultStatus.partialFailure, jobs: [] },
       { status: PrintResultStatus.failed, jobs: [] },
-      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } },
+      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });
