@@ -1,0 +1,45 @@
+import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
+import { TsplRenderMode } from '../../../types/printer.types';
+import { AppErrorException, AppErrorCode } from '../../../types/AppError';
+import { TsplEncoder, DOTS_PER_MM } from '../TsplEncoder';
+import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperWidth';
+import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
+
+/**
+ * `documents.image` (base64 PNG) → monochrome 1-bit → lệnh `BITMAP` (§31-38).
+ * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
+ */
+export class TsplBitmapStrategy implements ITsplPrintStrategy {
+  readonly mode = TsplRenderMode.bitmap;
+
+  validate(context: TsplStrategyContext): void {
+    if (!context.documents.image) {
+      throw new AppErrorException({
+        code: AppErrorCode.TSPL_IMAGE_REQUIRED,
+        message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.',
+      });
+    }
+  }
+
+  encode(context: TsplStrategyContext): Uint8Array {
+    const { printer, printType, heightMm, documents } = context;
+    let bitmap;
+    try {
+      bitmap = decodePngBase64ToMonochrome(documents.image as string, PAPER_IMAGE_WIDTH_PX[printer.paperSize]);
+    } catch (error) {
+      throw new AppErrorException({
+        code: AppErrorCode.TSPL_IMAGE_INVALID,
+        message: 'Ảnh bill không hợp lệ (không giải mã được PNG).',
+        cause: error,
+      });
+    }
+    const maxHeightPx = heightMm * DOTS_PER_MM;
+    if (bitmap.heightPx > maxHeightPx) {
+      throw new AppErrorException({
+        code: AppErrorCode.TSPL_IMAGE_TOO_LARGE,
+        message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
+      });
+    }
+    return new TsplEncoder().initialize(printer.paperSize, printType, heightMm).image(0, 0, bitmap).cut().encode();
+  }
+}
