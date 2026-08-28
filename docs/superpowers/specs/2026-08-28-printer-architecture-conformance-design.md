@@ -124,6 +124,14 @@ export interface ITsplPrintStrategy {
 }
 ```
 
+**Context là configuration-only có chủ đích.** `TsplStrategyContext` KHÔNG chứa
+bất kỳ field runtime nào (connection state, transport, kết quả query máy in).
+`validate()` chỉ kiểm tra **configuration invariant** đã resolve sẵn vào
+`driver.config` — không phải discovery, không phải runtime font detection.
+`config.font?.fontInstalled` là application state đã persist (§50-51), strategy
+tin nó như contract; nếu máy in thực tế mất font thì đó là hard failure ở
+`transport.write` / máy in, KHÔNG phải việc strategy đoán trước.
+
 ### 4.3 `TsplBitmapStrategy`
 
 - `mode = TsplRenderMode.bitmap`.
@@ -473,7 +481,21 @@ Sửa **tại chỗ** `src/features/printer/ARCHITECTURE.md`:
 3. **Thêm mục "Documented Deviations"** vào cuối (trước §146) — copy từ §12
    spec này (ESC/POS pragmatic path, scan streaming, per-driver connect, draft
    font persist, TrueType chưa verify phần cứng, iOS không có đường font/USB).
-4. Không đổi nội dung 50 RULE / 45 invariant / các flow §124-145.
+4. **Thêm §145b "TSPL Rendering Contract — Named Rules"** ngay sau §145 — 7
+   rule đặt tên rõ, mỗi rule kèm map sang RULE số hiện có + ghi "testable via":
+
+   | Named rule | Nội dung | Trùng RULE | Testable via |
+   |---|---|---|---|
+   | **TSPL Strategy Ownership** | `TsplDriver` MUST NOT chứa document-rendering implementation. Mọi render TSPL delegate cho `ITsplPrintStrategy` resolve **chỉ** từ `TsplDriverConfig.renderMode`. | 05, 37 | `TsplDriver.ts` không import `TsplEncoder`/`pngToMonochrome`; unit test `buildBytes` gọi registry |
+   | **No Fallback** | `renderMode` là hard rendering contract. Strategy fail → print job fail. MUST NOT chuyển strategy khác. | 08-12, 130 | test: bitmap thiếu ảnh → `TSPL_IMAGE_REQUIRED` (không có `TEXT` trong bytes); truetype thiếu font → `TSPL_FONT_NOT_INSTALLED` (không có `BITMAP`) |
+   | **No Download During Print** | Font install MUST NEVER xảy ra trong `print` / `testPrint` / reconnect / retry. `DOWNLOAD` chỉ là explicit font-install op. | 13-17, 47 | spy `TsplFontManager.downloadFont` — assert không gọi trong mọi test print path |
+   | **Strategy Purity** | `ITsplPrintStrategy` MUST NOT chạm storage / connection state / native / transport / printer I/O. | 12-14, 37, 118 | strategy file không import `transports/` / `adapters/` / `storage/` / `StorageService` |
+   | **Driver Responsibility** | `TsplDriver` sở hữu connection lifecycle + orchestrate write, MUST NOT sở hữu document rendering. | 37, 43, 115 | như "Strategy Ownership" |
+   | **Transport Responsibility** | `TsplTransport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | transport file không import `types/printDocument` / strategy / encoder |
+   | **Configuration Is Source of Truth** | `renderMode` quyết định strategy. Runtime font availability MUST NOT âm thầm đổi renderMode đã cấu hình. | 19, 28, 130, 134 | không tồn tại code path đọc runtime state để chọn strategy |
+   | **Explicit Failure** | Mọi điều kiện TSPL render invalid/unsupported MUST sinh `TSPL_*` code cụ thể + kết thúc job đó. | 12, 31, 42-43 | bảng test §11.1 phủ từng code |
+
+5. Không đổi nội dung 50 RULE / 45 invariant / các flow §124-145.
 
 ---
 
