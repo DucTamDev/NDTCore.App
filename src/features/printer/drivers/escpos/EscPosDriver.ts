@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
-import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
@@ -163,7 +163,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   /** Chỉ dùng cho test/snapshot (spec §7.2) — production `print()`/`testPrint()` KHÔNG gọi hàm này. */
-  private encodeDocumentText(printer: Printer, documents: PrintDocumentVariants): string {
+  private encodeDocumentText(printer: Printer, documents: PrintDocuments): string {
     const paperWidth = PAPER_WIDTH_CHARS[printer.paperSize];
     const lines: string[] = [];
     for (const element of documents.text.elements) {
@@ -182,16 +182,16 @@ export class EscPosDriver implements IPrinterDriver {
     return `${lines.join('\n')}\n`;
   }
 
-  encode(printer: Printer, _driver: PrinterDriver, documents: PrintDocumentVariants): Uint8Array {
+  encode(printer: Printer, _driver: PrinterDriver, documents: PrintDocuments): Uint8Array {
     return new Uint8Array(Buffer.from(this.encodeDocumentText(printer, documents), 'utf8'));
   }
 
-  private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocumentVariants): Promise<void> {
+  private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocuments): Promise<void> {
     const text = this.encodeDocumentText(printer, documents);
     await ThermalPrinterLibraryAdapter.printTextAsync(connectionType, text, { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
   }
 
-  async print(printerId: string, documents: PrintDocumentVariants): Promise<void> {
+  async print(printerId: string, documents: PrintDocuments): Promise<void> {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     if (!context || !connectionType || this.activeByType.get(connectionType) !== printerId) {
@@ -217,7 +217,7 @@ export class EscPosDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocumentVariants): Promise<void> {
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
     const startedAt = Date.now();
     try {
       const isStaleOwner = this.activeByType.get(printer.connectionType) !== printer.id;

@@ -33,7 +33,7 @@ export const createPrintScheduler = (
         job.status = PrintJobStatus.printing;
         job.startedAt = new Date().toISOString();
         try {
-          await printerService.print(job.printerId, job.documentVariants, job.printType);
+          await printerService.print(job.printerId, job.documents, job.printType);
           job.status = PrintJobStatus.success;
         } catch (error) {
           job.status = PrintJobStatus.failed;

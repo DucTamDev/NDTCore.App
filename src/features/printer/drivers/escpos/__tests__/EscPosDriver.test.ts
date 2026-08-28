@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { EscPosDriver } from '../EscPosDriver';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
-import type { PrintDocumentVariants } from '../../../types/driver.types';
+import type { PrintDocuments } from '../../../types/driver.types';
 import type { PrintDocument } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
 
@@ -77,9 +77,9 @@ const usbPrinter: Printer = {
   device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
 };
 
-const sampleDocuments: PrintDocumentVariants = { text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] } };
+const sampleDocuments: PrintDocuments = { text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] } };
 
-const asDocuments = (document: PrintDocument): PrintDocumentVariants => ({ text: document });
+const asDocuments = (document: PrintDocument): PrintDocuments => ({ text: document });
 
 describe('EscPosDriver', () => {
   afterEach(() => jest.clearAllMocks());
@@ -104,7 +104,7 @@ describe('EscPosDriver', () => {
   it('encode() ignores documents.image — ESC/POS always uses text (production never calls encode(), this is test-only per spec §7.2)', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const withImage: PrintDocumentVariants = { text: sampleDocuments.text, image: { elements: [{ type: 'text', content: 'should not be used', x: 0, y: 0 }] } };
+    const withImage: PrintDocuments = { text: sampleDocuments.text, image: 'c2hvdWxkLW5vdC1iZS11c2Vk' };
     const bytes = driver.encode(lanPrinter, escposDriverEntry, withImage);
     expect(Buffer.from(bytes).toString('utf8')).toContain('In thử');
   });

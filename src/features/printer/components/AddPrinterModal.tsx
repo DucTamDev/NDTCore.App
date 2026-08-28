@@ -22,7 +22,7 @@ import { StatusPanel, type ConnectionState, type ProtocolState } from './StatusP
 import { PrinterInfoCard } from './PrinterInfoCard';
 import { DiscoveryStage, type DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
 import { AppErrorException } from '../types/AppError';
-import type { PrintDocumentVariants } from '../types/driver.types';
+import type { PrintDocuments } from '../types/driver.types';
 import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type {
@@ -337,11 +337,11 @@ export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initi
     }
   };
 
-  const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocumentVariants> => {
+  const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: import('../types/printDocument.types').PrintDocument): Promise<PrintDocuments> => {
     if (driver.type !== PrinterDriverType.tspl || isTsplTrueTypeActive(driver)) return { text: document };
     const base64 = await captureBillImage(document, printer.paperSize);
     if (!base64) return { text: document };
-    return { text: document, image: { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] } };
+    return { text: document, image: base64 };
   };
 
   const runTestPrint = async (

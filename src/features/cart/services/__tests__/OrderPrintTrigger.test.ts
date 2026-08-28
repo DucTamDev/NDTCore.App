@@ -178,7 +178,7 @@ describe('printReceipt', () => {
     expect(capture).toHaveBeenCalledWith(document, 58);
     expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
       text: document,
-      image: { elements: [{ type: 'image', data: 'base64-png-data', x: 0, y: 0 }] },
+      image: 'base64-png-data',
     });
   });
 

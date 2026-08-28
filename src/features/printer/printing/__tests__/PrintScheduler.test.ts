@@ -12,7 +12,7 @@ const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: Driver
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
-  documentVariants: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
+  documents: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 

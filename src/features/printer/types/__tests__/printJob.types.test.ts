@@ -12,12 +12,26 @@ describe('print job types', () => {
       requestId: 'req1',
       printerId: 'p1',
       printType: PrintType.Receipt,
-      documentVariants: { text: document },
+      documents: { text: document },
       status: PrintJobStatus.pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
     expect(job.status).toBe(PrintJobStatus.pending);
+  });
+
+  it('PrintJob dùng field documents (không phải documentVariants)', () => {
+    const job: PrintJob = {
+      id: '1',
+      requestId: 'r',
+      printerId: 'p',
+      printType: PrintType.Receipt,
+      documents: { text: { elements: [] } },
+      status: PrintJobStatus.pending,
+      retryCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    expect(job.documents.text).toBeDefined();
   });
 
   it('accepts every PrintResult status', () => {

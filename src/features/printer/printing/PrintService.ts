@@ -6,10 +6,10 @@ import { AppErrorCode } from '../types/AppError';
 import type { PrintType } from '../types/printConfiguration.types';
 import { isTsplTrueTypeActive, PrinterDriverType } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
-import type { PrintDocumentVariants } from '../types/driver.types';
+import type { PrintDocuments } from '../types/driver.types';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../types/printJob.types';
 
-export type { PrintDocumentVariants };
+export type { PrintDocuments };
 
 interface PrintServiceDeps {
   routing: Pick<typeof PrintRoutingService, 'resolveTargets'>;
@@ -32,7 +32,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
     return target ? target.printer.paperSize : null;
   };
 
-  const print = async (printType: PrintType, documentVariants: PrintDocumentVariants): Promise<PrintResult> => {
+  const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
     const targets = deps.routing.resolveTargets(printType);
     if (targets.length === 0) {
       return {
@@ -49,7 +49,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
           requestId,
           printerId: printer.id,
           printType,
-          documentVariants,
+          documents,
           status: PrintJobStatus.pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),

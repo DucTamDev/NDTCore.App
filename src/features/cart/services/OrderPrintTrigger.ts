@@ -1,4 +1,4 @@
-import { PrintService, type PrintDocumentVariants } from '../../printer/printing/PrintService';
+import { PrintService, type PrintDocuments } from '../../printer/printing/PrintService';
 import { PrintResultStatus } from '../../printer/types/printJob.types';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
@@ -174,12 +174,12 @@ const buildPrintDocumentVariants = async (
   printType: PrintType,
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
-): Promise<PrintDocumentVariants> => {
+): Promise<PrintDocuments> => {
   const paperSize = PrintService.imageDocumentPaperSize(printType);
   if (!paperSize) return { text: textDocument };
   const base64 = await captureBillImage(textDocument, paperSize);
   if (!base64) return { text: textDocument };
-  return { text: textDocument, image: { elements: [{ type: 'image', data: base64, x: 0, y: 0 }] } };
+  return { text: textDocument, image: base64 };
 };
 
 /**

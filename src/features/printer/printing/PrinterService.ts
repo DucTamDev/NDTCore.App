@@ -1,4 +1,4 @@
-import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
@@ -113,11 +113,11 @@ export const createPrinterService = (
       });
   };
 
-  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocumentVariants, printType?: PrintType): Promise<void> => {
+  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType?: PrintType): Promise<void> => {
     await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType));
   };
 
-  const print = async (printerId: string, documents: PrintDocumentVariants, printType?: PrintType): Promise<void> => {
+  const print = async (printerId: string, documents: PrintDocuments, printType?: PrintType): Promise<void> => {
     const printer = findOrThrow(printerId);
     const driverEntry = printer.drivers.find((d) => (printType ? d.contentTypes.includes(printType) : true));
     if (!driverEntry) {
