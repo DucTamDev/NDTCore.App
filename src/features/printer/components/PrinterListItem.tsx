@@ -60,6 +60,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
       />
       <Menu visible={menuVisible} onDismiss={closeMenu} anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}>
         <Menu.Item title="Kết nối" onPress={() => { closeMenu(); actions.connect(printer.id); }} />
+        {/* actions.disconnect nuốt lỗi sẵn trong hook — gọi fire-and-forget ở đây là an toàn. */}
         <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); actions.disconnect(printer.id); }} />
         <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); actions.reconnect(printer.id); }} />
         <Menu.Item title="Chỉnh sửa" onPress={() => { closeMenu(); onEdit(printer); }} />

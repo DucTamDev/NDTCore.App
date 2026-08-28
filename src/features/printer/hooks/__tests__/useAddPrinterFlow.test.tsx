@@ -148,4 +148,59 @@ describe('useAddPrinterFlow', () => {
     update({ visible: false, initialValues: savedTspl, onSaved: jest.fn() });
     expect(PrinterService.disconnectForDriver).not.toHaveBeenCalled();
   });
+
+  it('manual protocol pick connects the draft and appends a "manual" driver', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    expect(PrinterService.connectDraft).toHaveBeenCalled();
+    expect(get().statusPanel.connectionState).toBe('connected');
+    expect(get().infoCard.drivers[0]).toEqual(expect.objectContaining({ type: PrinterDriverType.escpos, source: DriverSource.manual }));
+  });
+
+  it('discovery "error" stage shows the error message and no driver', () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.error, error: { code: 'X', message: 'mất kết nối' } }));
+    expect(get().statusPanel.connectionState).toBe('error');
+    expect(get().statusPanel.errorMessage).toBe('mất kết nối');
+    expect(get().infoCard.drivers).toHaveLength(0);
+  });
+
+  it('add-mode save calls addPrinter and auto-connects when autoReconnect is on', async () => {
+    const onSaved = jest.fn();
+    const { get } = render({ visible: true, onSaved });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.identified, protocol: PrinterDriverType.tspl }));
+    act(() => get().infoCard.onToggleContentType(PrinterDriverType.tspl, PrintType.Receipt, true));
+    await act(async () => { await get().infoCard.onSave(); });
+    expect(PrinterService.addPrinter).toHaveBeenCalledWith(expect.objectContaining({ drivers: expect.any(Array) }));
+    expect(PrinterService.connect).toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalled();
+  });
+
+  it('runTestPrint routes the sample document to PrinterService.testPrint for the matching driver', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onTestPrintLabel(); });
+    expect(PrinterService.testPrint).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p1' }),
+      expect.objectContaining({ type: PrinterDriverType.tspl }),
+      expect.objectContaining({ text: expect.anything() }),
+      PrintType.Label,
+    );
+  });
+
+  it('onToggleTsplFont(true) installs the font and flips config to truetype', async () => {
+    const bitmapTspl: Printer = {
+      ...savedTspl,
+      drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } }],
+    };
+    const { get } = render({ visible: true, initialValues: bitmapTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onToggleTsplFont(true); });
+    expect(PrinterService.installTsplFont).toHaveBeenCalledWith('p1', expect.objectContaining({ fileName: expect.any(String) }));
+    const tspl = get().infoCard.drivers[0];
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.truetype);
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.font?.fontInstalled).toBe(true);
+  });
 });
