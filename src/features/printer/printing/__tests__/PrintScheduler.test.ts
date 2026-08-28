@@ -161,7 +161,6 @@ describe('PrintScheduler', () => {
         order.push('print-end');
       }),
       identify: jest.fn().mockResolvedValue(null),
-      encode: jest.fn().mockReturnValue(new Uint8Array()),
     };
     // Chung 1 lock — đây chính là cầu nối giữa PrintScheduler (đơn hàng thật)
     // và PrinterService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi

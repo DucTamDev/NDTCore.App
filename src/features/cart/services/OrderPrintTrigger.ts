@@ -167,8 +167,9 @@ export type CaptureBillImage = (document: PrintDocument, paperSize: PaperSize) =
  * (layout + screenshot native), không làm nếu không có máy nào cần tới.
  * Capture thất bại (trả `null`) → gửi `text`-only cho MỌI target; target nào
  * thật sự cần ảnh (TSPL bitmap) sẽ tự thất bại rõ ràng ở
- * `TsplDriver.encode()` thay vì âm thầm in sai dấu — các target khác
- * (ESC/POS, TSPL truetype) không cần ảnh nên vẫn in bình thường.
+ * `TsplBitmapStrategy.validate()` (`TSPL_IMAGE_REQUIRED`) thay vì âm thầm in
+ * sai dấu — các target khác (ESC/POS, TSPL truetype) không cần ảnh nên vẫn in
+ * bình thường.
  */
 const buildPrintDocumentVariants = async (
   printType: PrintType,

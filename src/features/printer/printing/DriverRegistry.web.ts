@@ -33,10 +33,6 @@ class WebUnsupportedDriver implements IPrinterDriver {
   async identify(): Promise<null> {
     return null;
   }
-
-  encode(): Uint8Array {
-    return new Uint8Array();
-  }
 }
 
 const webUnsupportedDriver = new WebUnsupportedDriver();

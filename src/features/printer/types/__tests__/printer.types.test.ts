@@ -56,7 +56,6 @@ describe('printer domain types', () => {
       testPrint: async () => undefined,
       print: async () => undefined,
       identify: async () => null,
-      encode: () => new Uint8Array(),
     };
     expect(driver.getStatus('p1')).toBe(PrinterStatus.idle);
   });

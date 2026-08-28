@@ -15,7 +15,6 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   testPrint: jest.fn().mockResolvedValue(undefined),
   print: jest.fn().mockResolvedValue(undefined),
   identify: jest.fn().mockResolvedValue(null),
-  encode: jest.fn().mockReturnValue(new Uint8Array()),
   ...overrides,
 });
 

@@ -174,15 +174,6 @@ export class TsplDriver implements IPrinterDriver {
     return strategy.encode(context);
   }
 
-  /**
-   * @deprecated Xoá ở Task 8 khi encode() rời khỏi IPrinterDriver — chỉ để
-   * thoả interface tạm thời. `printType` mặc định `Receipt` khi bỏ trống,
-   * khớp default cũ của `TsplEncoder.initialize()`.
-   */
-  encode(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType?: PrintType): Uint8Array {
-    return this.buildBytes(printer, driver, documents, printType ?? PrintType.Receipt);
-  }
-
   private async writeBytes(printer: Printer, transport: TsplTransport | undefined, bytes: Uint8Array): Promise<void> {
     if (printer.connectionType === ConnectionType.lan) {
       (transport as LanTransport).write(bytes);

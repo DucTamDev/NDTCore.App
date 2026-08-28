@@ -89,7 +89,7 @@ const tsplDriverEntry: PrinterDriver = {
 
 /**
  * `documents.image` giờ là base64 string thuần — bitmap mode không còn duyệt
- * qua `PrintElement[]` nữa (xem `TsplDriver.encode()`). Để vẫn cover
+ * qua `PrintElement[]` nữa (xem `TsplBitmapStrategy`). Để vẫn cover
  * `encodeElements()` (text/line/table/row/barcode/qrCode/unsupported), các
  * test đó phải đi qua nhánh truetype (`documents.text`) bằng driver này thay
  * vì `tsplDriverEntry` mặc định.
@@ -350,7 +350,7 @@ describe('TsplDriver', () => {
     // (384px, xem `decodePngBase64ToMonochrome`) bất kể kích thước gốc — ảnh
     // test rộng 2px bị scale lên 384px (widthBytes = ceil(384/8) = 48), cao
     // tương ứng theo tỉ lệ (1px * 384/2 = 192px). `documents.image` là base64
-    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplDriver.encode().
+    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplBitmapStrategy.
     const header = 'BITMAP 0,0,48,192,0,';
     expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
   });
@@ -537,30 +537,6 @@ describe('TsplDriver', () => {
     expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
   });
 
-  it('encode() is a pure function — calling it twice with the same input yields identical bytes, without needing a live connection', () => {
-    const driver = new TsplDriver();
-    const bytesA = driver.encode(lanPrinter, tsplDriverEntry, sampleDocuments);
-    const bytesB = driver.encode(lanPrinter, tsplDriverEntry, sampleDocuments);
-    expect(Array.from(bytesA)).toEqual(Array.from(bytesB));
-  });
-
-  it('encode() prefers documents.image over documents.text (renderMode is always bitmap)', () => {
-    const driver = new TsplDriver();
-    const withImage: PrintDocuments = { text: sampleDocuments.text, image: tinyPngBase64() };
-    const bytes = driver.encode(lanPrinter, tsplDriverEntry, withImage);
-    const ascii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
-    expect(ascii).toContain('BITMAP');
-  });
-
-  it('print() writes the same bytes that encode() produces', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
-    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    const expectedBytes = driver.encode(lanPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt);
-    await driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt);
-    expect(Array.from(instance.write.mock.calls[0][0] as Uint8Array)).toEqual(Array.from(expectedBytes));
-  });
 });
 
 describe('TsplDriver.installTrueTypeFont', () => {

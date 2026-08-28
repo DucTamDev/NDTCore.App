@@ -113,8 +113,17 @@ export const createPrinterService = (
       });
   };
 
+  /**
+   * `printType` ở facade này vẫn tuỳ chọn — caller (nút "In thử" thủ công)
+   * không phải lúc nào cũng biết loại nội dung. `IPrinterDriver.testPrint`
+   * yêu cầu `printType` bắt buộc vì driver luôn được gọi bởi tầng biết rõ
+   * (`PrintScheduler`/`AddPrinterModal`) — driver nào không cần tới nó
+   * (ESC/POS) bỏ qua tham số, driver nào cần (`TsplDriver`, tính chiều cao
+   * label) đã tự chấp nhận `undefined` từ trước (rơi về khổ giấy cuộn liên
+   * tục). Cast ở đây không đổi hành vi runtime, chỉ khớp lại kiểu.
+   */
   const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType?: PrintType): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType));
+    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType as PrintType));
   };
 
   const print = async (printerId: string, documents: PrintDocuments, printType?: PrintType): Promise<void> => {
@@ -130,7 +139,7 @@ export const createPrinterService = (
     if (driver.getStatus(printerId) !== PrinterStatus.connected) {
       await driver.connect(printer, driverEntry);
     }
-    await driver.print(printerId, documents, printType);
+    await driver.print(printerId, documents, printType as PrintType);
   };
 
   const scanDevices = (type: PrinterDriverType, connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>

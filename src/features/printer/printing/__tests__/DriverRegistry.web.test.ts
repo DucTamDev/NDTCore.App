@@ -43,9 +43,4 @@ describe('DriverRegistry (web)', () => {
   it('identify resolves null', async () => {
     await expect(DriverRegistry.tspl.identify('p1')).resolves.toBeNull();
   });
-
-  it('encode returns an empty Uint8Array', () => {
-    // @ts-expect-error -- web stub ignores its arguments entirely
-    expect(DriverRegistry.escpos.encode()).toEqual(new Uint8Array());
-  });
 });
