@@ -159,6 +159,25 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.drivers[0]).toEqual(expect.objectContaining({ type: PrinterDriverType.escpos, source: DriverSource.manual }));
   });
 
+  it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
+  });
+
+  it('KHÔNG ghi đè tên hiển thị nếu user đã gõ', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
+    act(() => { (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1'; });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
+  });
+
   it('discovery "error" stage shows the error message and no driver', () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());

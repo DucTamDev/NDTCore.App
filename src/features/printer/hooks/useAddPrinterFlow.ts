@@ -214,6 +214,19 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     };
   };
 
+  /**
+   * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn
+   * TRỐNG (user đã gõ thì giữ nguyên). Sau đó ô vẫn sửa được bình thường.
+   */
+  const prefillDisplayName = (deviceName?: string): void => {
+    if (displayForm.getValues('name')) return;
+    const lanIp = connectionType === ConnectionType.lan ? lanForm.getValues('lanIp') : undefined;
+    displayForm.setValue(
+      'name',
+      deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
+    );
+  };
+
   const startDiscovery = (): void => {
     resetDiscoveryFields('connecting');
     discoveryUnsubscribeRef.current = PrinterService.discoverDriver(
@@ -232,9 +245,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
           setConnectionDirty(false);
           addDriverToList(event.protocol, DriverSource.auto);
           refreshUsbSerial();
-          if (!displayForm.getValues('name')) {
-            displayForm.setValue('name', event.deviceInfo?.deviceName ?? selectedDevice?.displayName ?? 'Máy in mới');
-          }
+          prefillDisplayName(event.deviceInfo?.deviceName);
         } else if (event.stage === DiscoveryStage.unknown_protocol) {
           setConnectionState('idle');
           setProtocolState('unknown');
@@ -289,6 +300,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
         setConnectionDirty(false);
         addDriverToList(chosenProtocol, DriverSource.manual);
         refreshUsbSerial();
+        prefillDisplayName();
       })
       .catch((error: { message: string }) => {
         setConnectionState('error');
