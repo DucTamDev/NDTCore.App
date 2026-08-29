@@ -10,7 +10,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { DriverSource, isTsplTrueTypeActive, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { ConnectionType, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -34,7 +34,7 @@ export interface PrinterInfoCardProps {
   errors: FieldErrors<PrinterDisplayValues>;
   connectionType: ConnectionType;
   drivers: PrinterDriver[];
-  onUpdateDriverContentTypes: (type: PrinterDriverType, contentTypes: PrintType[]) => void;
+  onToggleContentType: (type: PrinterDriverType, contentType: PrintType, value: boolean) => void;
   deviceInfo?: PrinterDeviceInfo;
   status: PrinterStatus;
   autoReconnect: boolean;
@@ -45,7 +45,7 @@ export interface PrinterInfoCardProps {
   onTestPrintLabel: () => void;
   /** Chỉ có ý nghĩa khi có driver type 'tspl' trong `drivers`. */
   onToggleTsplFont: (enabled: boolean) => void;
-  /** true trong lúc đang chạy `ensureFontInstalled` — vô hiệu hoá switch để tránh double-tap. */
+  /** true trong lúc đang chạy `installTsplFont` — vô hiệu hoá switch để tránh double-tap. */
   tsplFontPending: boolean;
   onSave: () => void;
   saveDisabled: boolean;
@@ -57,7 +57,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   errors,
   connectionType,
   drivers,
-  onUpdateDriverContentTypes,
+  onToggleContentType,
   deviceInfo,
   status,
   autoReconnect,
@@ -74,11 +74,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
 }) => {
   const claimedElsewhere = (type: PrinterDriverType, contentType: PrintType): boolean =>
     drivers.some((d) => d.type !== type && d.contentTypes.includes(contentType));
-
-  const toggleContentType = (driver: PrinterDriver, contentType: PrintType, value: boolean): void => {
-    const next = value ? [...driver.contentTypes, contentType] : driver.contentTypes.filter((ct) => ct !== contentType);
-    onUpdateDriverContentTypes(driver.type, next);
-  };
 
   const canPrint = (contentType: PrintType): boolean => drivers.some((d) => d.contentTypes.includes(contentType));
 
@@ -130,14 +125,14 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               key={contentType}
               label={contentTypeLabel[contentType]}
               value={driver.contentTypes.includes(contentType)}
-              onValueChange={(value) => toggleContentType(driver, contentType, value)}
+              onValueChange={(value) => onToggleContentType(driver.type, contentType, value)}
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
           {driver.type === PrinterDriverType.tspl ? (
             <AppSwitch
               label="In bằng font TrueType (thử nghiệm)"
-              value={isTsplTrueTypeActive(driver)}
+              value={tsplRenderModeOf(driver) === TsplRenderMode.truetype}
               onValueChange={onToggleTsplFont}
               disabled={locked || tsplFontPending}
             />

@@ -1,5 +1,7 @@
 # TSPL TrueType Font — Design Specification
 
+> **[2026-08-28] §7 (bảng fallback) và §9 (test theo bảng fallback) BỊ THAY THẾ** bởi `docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md`: renderMode là contract cứng, không fallback. Các phần khác của spec này (§1-6, §8, §10) vẫn còn hiệu lực.
+
 ## 1. Phạm vi & mục tiêu
 
 Thêm khả năng in bằng font TrueType thật (thay vì bitmap chụp lại từ `useBillImageCapture`) cho driver TSPL, dưới dạng **tùy chọn cấu hình có thể bật/tắt lại (switchable), không phải thay thế cứng cơ chế bitmap hiện tại**. Đây là phần đã bị loại khỏi refactor kiến trúc trước đó (`docs/superpowers/specs/2026-08-26-printer-architecture-refactor-design.md` §1) vì chưa được xác nhận khả thi trên phần cứng thật — spec này mở lại phần đó với thiết kế cụ thể, nhưng **không** có xác nhận phần cứng thật đi kèm.

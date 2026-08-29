@@ -1,21 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterService } from '../printing/PrinterService';
+import { usePrinterList } from '../hooks/usePrinterList';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
 import type { Printer } from '../types/printer.types';
 
 export const PrinterManagementPanel: React.FC = () => {
-  const [printers, setPrinters] = useState<Printer[]>(() => PrinterService.getPrinters());
+  const { printers, reload, ...actions } = usePrinterList();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
   const [addSessionId, setAddSessionId] = useState(0);
-
-  const refresh = useCallback(() => {
-    setPrinters(PrinterService.getPrinters());
-  }, []);
 
   const openAddModal = (): void => {
     setAddSessionId((n) => n + 1);
@@ -32,7 +28,7 @@ export const PrinterManagementPanel: React.FC = () => {
 
   const onSaved = (): void => {
     closeModal();
-    refresh();
+    reload();
   };
 
   return (
@@ -42,7 +38,7 @@ export const PrinterManagementPanel: React.FC = () => {
         <AppButton label="Thêm máy in" onPress={openAddModal} />
       </View>
 
-      <PrinterList printers={printers} onEdit={openEditModal} onChanged={refresh} />
+      <PrinterList printers={printers} actions={actions} onEdit={openEditModal} />
 
       <AddPrinterModal
         key={editingPrinter?.id ?? `add-${addSessionId}`}

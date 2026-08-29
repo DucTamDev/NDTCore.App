@@ -15,7 +15,7 @@ interface PrintRoutingServiceDeps {
  * CHỈ biết "content type nào → printer nào / driver nào" (spec §7.1) —
  * không biết cách driver mã hoá/gửi dữ liệu, không quyết định document
  * variant nào được dùng (đó là driver capability concern, xem
- * `drivers/tspl/TsplDriver.ts` `encode()`).
+ * `drivers/tspl/TsplDriver.ts`).
  */
 export const createPrintRoutingService = (deps: PrintRoutingServiceDeps) => {
   const resolveTargets = (printType: PrintType): PrintTarget[] => {

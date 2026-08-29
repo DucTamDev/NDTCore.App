@@ -12,7 +12,7 @@ const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: Driver
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
-  documentVariants: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
+  documents: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
@@ -33,13 +33,13 @@ describe('PrintScheduler', () => {
 
   it('enqueue() resolves with status failed and an AppError when PrinterService.print rejects', async () => {
     const printerService = {
-      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' })),
+      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.failed);
-    expect(result.error).toEqual({ code: AppErrorCode.PRINT_ERROR, message: 'hết giấy' });
+    expect(result.error).toEqual({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {
@@ -161,7 +161,6 @@ describe('PrintScheduler', () => {
         order.push('print-end');
       }),
       identify: jest.fn().mockResolvedValue(null),
-      encode: jest.fn().mockReturnValue(new Uint8Array()),
     };
     // Chung 1 lock — đây chính là cầu nối giữa PrintScheduler (đơn hàng thật)
     // và PrinterService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
@@ -178,7 +177,7 @@ describe('PrintScheduler', () => {
         // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
         // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } });
+        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } }, PrintType.Receipt);
       })(),
     ]);
 

@@ -1,16 +1,16 @@
 import { Platform } from 'react-native';
-import { Buffer } from 'buffer';
 import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
-import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
+import type { PrintType } from '../../types/printConfiguration.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { ensureUsbInitialized } from '../../adapters/UsbPrinterNativeAdapter';
 import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibraryAdapter';
-import { PAPER_WIDTH_CHARS, formatRow } from '../../utils/paperWidth';
+import { buildEscPosText } from './EscPosTextBuilder';
 
 /**
  * Ngoại lệ pragmatic của ESC/POS (spec §2.3): thư viện vendor gộp
@@ -49,7 +49,7 @@ export class EscPosDriver implements IPrinterDriver {
       return () => undefined;
     }
     if (connectionType === ConnectionType.usb && Platform.OS !== 'android') {
-      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
+      onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
     let cancelled = false;
@@ -61,7 +61,7 @@ export class EscPosDriver implements IPrinterDriver {
           const granted = await ensureBluetoothPermission();
           if (cancelled) return;
           if (!granted) {
-            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' } });
+            onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
             return;
           }
         }
@@ -86,8 +86,8 @@ export class EscPosDriver implements IPrinterDriver {
           PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
           return;
         }
-        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.CONNECTION_ERROR, message } });
-        PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.CONNECTION_ERROR, durationMs: Date.now() - startedAt });
+        onEvent({ type: DeviceScanEventType.error, error: { code: AppErrorCode.PRINTER_CONNECTION_FAILED, message } });
+        PrinterLogger.scanFailed({ connectionType, errorCode: AppErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
       }
     };
     run();
@@ -100,7 +100,7 @@ export class EscPosDriver implements IPrinterDriver {
     try {
       if (printer.connectionType === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
-        if (!granted) throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Chưa được cấp quyền Bluetooth' });
+        if (!granted) throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
       }
       await this.ensureInitialized(printer.connectionType);
 
@@ -151,7 +151,7 @@ export class EscPosDriver implements IPrinterDriver {
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: error instanceof Error ? error.message : String(error) });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       if (connectionType && this.activeByType.get(connectionType) === printerId) this.activeByType.delete(connectionType);
       this.connectedTypes.delete(printerId);
@@ -162,40 +162,17 @@ export class EscPosDriver implements IPrinterDriver {
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
-  /** Chỉ dùng cho test/snapshot (spec §7.2) — production `print()`/`testPrint()` KHÔNG gọi hàm này. */
-  private encodeDocumentText(printer: Printer, documents: PrintDocumentVariants): string {
-    const paperWidth = PAPER_WIDTH_CHARS[printer.paperSize];
-    const lines: string[] = [];
-    for (const element of documents.text.elements) {
-      if (element.type === 'text') {
-        lines.push(element.content);
-      } else if (element.type === 'line') {
-        lines.push('-'.repeat(paperWidth));
-      } else if (element.type === 'table') {
-        for (const row of element.rows) lines.push(row.join('  '));
-      } else if (element.type === 'row') {
-        lines.push(formatRow(element.left, element.right, paperWidth));
-      } else {
-        throw new AppErrorException({ code: AppErrorCode.ENCODING_FAILED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
-      }
-    }
-    return `${lines.join('\n')}\n`;
-  }
-
-  encode(printer: Printer, _driver: PrinterDriver, documents: PrintDocumentVariants): Uint8Array {
-    return new Uint8Array(Buffer.from(this.encodeDocumentText(printer, documents), 'utf8'));
-  }
-
-  private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocumentVariants): Promise<void> {
-    const text = this.encodeDocumentText(printer, documents);
+  private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocuments): Promise<void> {
+    const text = buildEscPosText(printer.paperSize, documents);
     await ThermalPrinterLibraryAdapter.printTextAsync(connectionType, text, { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
   }
 
-  async print(printerId: string, documents: PrintDocumentVariants): Promise<void> {
+  /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async print(printerId: string, documents: PrintDocuments, _printType: PrintType): Promise<void> {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     if (!context || !connectionType || this.activeByType.get(connectionType) !== printerId) {
-      throw new AppErrorException({ code: AppErrorCode.CONNECTION_ERROR, message: 'Máy in chưa kết nối' });
+      throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
     const startedAt = Date.now();
     try {
@@ -217,7 +194,8 @@ export class EscPosDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocumentVariants): Promise<void> {
+  /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType): Promise<void> {
     const startedAt = Date.now();
     try {
       const isStaleOwner = this.activeByType.get(printer.connectionType) !== printer.id;

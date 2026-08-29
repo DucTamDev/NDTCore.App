@@ -15,14 +15,14 @@ describe('DriverRegistry (web)', () => {
     expect(() => unsubscribe()).not.toThrow();
   });
 
-  it('connect rejects with UNSUPPORTED_CONNECTION', async () => {
+  it('connect rejects with PRINTER_UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: AppErrorCode.UNSUPPORTED_CONNECTION });
+    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
-  it('testPrint rejects with UNSUPPORTED_CONNECTION', async () => {
+  it('testPrint rejects with PRINTER_UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: AppErrorCode.UNSUPPORTED_CONNECTION });
+    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
   it('disconnect resolves without throwing', async () => {
@@ -42,10 +42,5 @@ describe('DriverRegistry (web)', () => {
 
   it('identify resolves null', async () => {
     await expect(DriverRegistry.tspl.identify('p1')).resolves.toBeNull();
-  });
-
-  it('encode returns an empty Uint8Array', () => {
-    // @ts-expect-error -- web stub ignores its arguments entirely
-    expect(DriverRegistry.escpos.encode()).toEqual(new Uint8Array());
   });
 });

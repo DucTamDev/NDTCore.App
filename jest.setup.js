@@ -50,6 +50,28 @@ jest.mock('react-native-tcp-socket', () => ({
   },
 }));
 
+// @react-native-community/netinfo touches the RNCNetInfo native module at
+// import time (nativeInterface.ts), so any test that transitively imports
+// NetworkInfoService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to
+// load without a mock. `NetInfo.fetch()` is the ONLY member app code uses
+// (NetworkInfoService.getCurrentWifiIp reads type/isConnected/details.ipAddress
+// off its result). Tests needing finer control (NetworkInfoService.test.ts)
+// override locally.
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    fetch: jest.fn(() => Promise.resolve({ type: 'wifi', isConnected: true, details: { ipAddress: '192.168.1.5' } })),
+  },
+}));
+
+// react-native-view-shot ships untransformed ESM (src/index.tsx) and pulls a
+// native module; useBillImageCapture.tsx imports `captureRef` at load time, so
+// any test transitively importing AddPrinterModal fails to parse without this.
+jest.mock('react-native-view-shot', () => ({
+  __esModule: true,
+  captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
+}));
+
 // @poriyaalar/react-native-thermal-receipt-printer ships an ESM build that the
 // `react-native` Jest preset does not transform, so any test that transitively
 // imports ThermalReceiptDriver.ts — even without exercising it — fails to

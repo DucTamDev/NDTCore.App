@@ -29,13 +29,13 @@ describe('UsbTransport.connect', () => {
     expect(USBPrinter.connectPrinter).toHaveBeenCalledWith(1155, 22222);
   });
 
-  it('wraps a native connect failure into CONNECTION_ERROR', async () => {
+  it('wraps a native connect failure into PRINTER_CONNECTION_FAILED', async () => {
     const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     USBPrinter.connectPrinter.mockRejectedValueOnce(new Error('device not found'));
     const transport = new UsbTransport();
-    await expect(transport.connect(1155, 22222)).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(transport.connect(1155, 22222)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
   });
 });
 
@@ -53,13 +53,13 @@ describe('UsbTransport.write', () => {
     expect(printRawDataUsb).toHaveBeenCalledWith('QUI=', true);
   });
 
-  it('wraps a native write failure into PRINT_ERROR', async () => {
+  it('wraps a native write failure into PRINTER_WRITE_FAILED', async () => {
     const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
     const transport = new UsbTransport();
-    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.PRINT_ERROR });
+    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
   });
 
   it('rethrows as AppErrorException', async () => {
@@ -86,12 +86,12 @@ describe('UsbTransport.close', () => {
     expect(USBPrinter.closeConn).toHaveBeenCalled();
   });
 
-  it('wraps a native close failure into CONNECTION_ERROR instead of leaking a raw error', async () => {
+  it('wraps a native close failure into PRINTER_CONNECTION_FAILED instead of leaking a raw error', async () => {
     const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
       USBPrinter: { closeConn: jest.Mock };
     };
     USBPrinter.closeConn.mockRejectedValueOnce(new Error('device already unplugged'));
     const transport = new UsbTransport();
-    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.CONNECTION_ERROR });
+    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
   });
 });

@@ -1,4 +1,4 @@
-import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import { PrinterStatus } from '../types/printer.types';
 import type { PrinterDriverType } from '../types/printer.types';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
@@ -9,7 +9,7 @@ class WebUnsupportedDriver implements IPrinterDriver {
   }
 
   async connect(): Promise<void> {
-    throw new AppErrorException({ code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+    throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
   }
 
   async disconnect(): Promise<void> {}
@@ -23,19 +23,15 @@ class WebUnsupportedDriver implements IPrinterDriver {
   }
 
   async testPrint(): Promise<void> {
-    throw new AppErrorException({ code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+    throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
   }
 
   async print(): Promise<void> {
-    throw new AppErrorException({ code: AppErrorCode.UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+    throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
   }
 
   async identify(): Promise<null> {
     return null;
-  }
-
-  encode(): Uint8Array {
-    return new Uint8Array();
   }
 }
 

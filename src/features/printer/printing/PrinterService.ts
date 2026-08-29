@@ -1,7 +1,9 @@
-import type { IPrinterDriver, PrintDocumentVariants, Unsubscribe } from '../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/driver.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
+import { AppErrorException, AppErrorCode, errorCodeOf } from '../types/AppError';
+import { PrinterLogger } from '../services/PrinterLogger';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterStorage } from '../storage/PrinterStorage';
@@ -24,14 +26,17 @@ export const createPrinterService = (
 
   const findOrThrow = (printerId: string): Printer => {
     const found = getPrinters().find((p) => p.id === printerId);
-    if (!found) throw new Error(`Không tìm thấy máy in với id ${printerId}`);
+    if (!found) throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
     return found;
   };
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
     const collision = getPrinters().find((p) => p.id !== printer.id && p.identityKey === printer.identityKey);
     if (collision) {
-      throw new Error(`Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`);
+      throw new AppErrorException({
+        code: AppErrorCode.PRINTER_ALREADY_EXISTS,
+        message: `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`,
+      });
     }
   };
 
@@ -109,14 +114,19 @@ export const createPrinterService = (
       });
   };
 
-  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocumentVariants, printType?: PrintType): Promise<void> => {
+  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void> => {
     await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType));
   };
 
-  const print = async (printerId: string, documents: PrintDocumentVariants, printType?: PrintType): Promise<void> => {
+  const print = async (printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> => {
     const printer = findOrThrow(printerId);
-    const driverEntry = printer.drivers.find((d) => (printType ? d.contentTypes.includes(printType) : true));
-    if (!driverEntry) throw new Error(`Máy in ${printerId} không có driver nào nhận in ${printType ?? '(không rõ loại)'}`);
+    const driverEntry = printer.drivers.find((d) => d.contentTypes.includes(printType));
+    if (!driverEntry) {
+      throw new AppErrorException({
+        code: AppErrorCode.NO_AVAILABLE_PRINTER,
+        message: `Máy in ${printerId} không có driver nào nhận in ${printType}`,
+      });
+    }
     const driver = getDriver(driverEntry.type);
     if (driver.getStatus(printerId) !== PrinterStatus.connected) {
       await driver.connect(printer, driverEntry);
@@ -177,13 +187,111 @@ export const createPrinterService = (
    * Passthrough TSPL-riêng — KHÔNG đưa vào `IPrinterDriver` chung vì tính
    * năng này chỉ có nghĩa với TSPL, ESC/POS không có khái niệm font custom.
    * Cast trực tiếp sang `TsplDriver` vì `registry.tspl` luôn là instance đó.
-   * Qua `lock.runExclusive` như mọi thao tác ghi transport khác trong file
-   * này — DOWNLOAD gửi hàng trăm KB, không được interleave với 1 print job
-   * đang chạy trên cùng kết nối (final review finding, xem ledger).
+   *
+   * Orchestrate trọn lifecycle §46/§126 trong `lock.runExclusive` (DOWNLOAD
+   * gửi hàng trăm KB, không được interleave với print job trên cùng resource):
+   * connect (chỉ khi CHÍNH hàm này mở) → DOWNLOAD → disconnect (chỉ cái mình
+   * mở — §95 "Driver Connect Reuse": modal Add giữ connection từ discovery,
+   * không đóng của người khác). Sau lock mới "persist state": chỉ khi printer
+   * đã có trong storage; draft chưa lưu do `AddPrinterModal` mang state vào
+   * `buildDraftPrinter()` lúc Save (§8.4, §12.3).
    */
   const installTsplFont = async (printerId: string, font: TsplFontConfig): Promise<void> => {
     const tsplDriver = getDriver(PrinterDriverType.tspl) as TsplDriver;
-    await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), () => tsplDriver.installTrueTypeFont(printerId, font));
+    const printer = getPrinters().find((p) => p.id === printerId);
+    const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
+    // `connectionType` chỉ có khi printer đã lưu; draft (flow AddPrinterModal)
+    // chưa có `Printer` object nên để `undefined` — logger nhận optional.
+    const connectionType = printer?.connectionType;
+    // Đo trọn op DOWNLOAD (kể cả connect/disconnect do chính hàm này mở).
+    const startedAt = Date.now();
+
+    try {
+      await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), async () => {
+        const wasConnected = tsplDriver.getStatus(printerId) === PrinterStatus.connected;
+        if (!wasConnected) {
+          // Không tìm thấy printer trong storage và driver cũng chưa connected →
+          // không tự connect được (thiếu `Printer` object). Draft hợp lệ luôn
+          // được modal connect sẵn qua discovery trước khi gọi hàm này.
+          if (!printer || !tsplEntry) {
+            throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối — kết nối trước khi cài font.' });
+          }
+          await tsplDriver.connect(printer, tsplEntry);
+        }
+        try {
+          await tsplDriver.installTsplFont(printerId, font);
+        } finally {
+          // `printer`/`tsplEntry` chắc chắn có ở đây khi `!wasConnected` — nhánh
+          // thiếu chúng đã throw trước khi vào try này (§95).
+          if (!wasConnected) {
+            await tsplDriver.disconnect(printerId).catch(() => undefined);
+          }
+        }
+      });
+    } catch (error) {
+      // Draft chưa lưu không có `connectionType` — chỉ đính khi có giá trị,
+      // không phát `connectionType: undefined` vào log.
+      PrinterLogger.fontInstallFailed({
+        printerId,
+        ...(connectionType ? { connectionType } : {}),
+        errorCode: errorCodeOf(error),
+        durationMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+
+    // Persist TRƯỚC khi log success — nếu `savePrinters` ném thì không được để
+    // log đã tuyên bố thành công rồi lỗi mới thoát ra không kèm fontInstallFailed.
+    if (printer && tsplEntry && tsplEntry.config.type === PrinterDriverType.tspl) {
+      savePrinters(
+        getPrinters().map((p) =>
+          p.id !== printerId
+            ? p
+            : {
+                ...p,
+                drivers: p.drivers.map((d) =>
+                  d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
+                    ? d
+                    : { ...d, config: { ...d.config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } } },
+                ),
+              },
+        ),
+      );
+    }
+
+    PrinterLogger.fontInstallSucceeded({
+      printerId,
+      ...(connectionType ? { connectionType } : {}),
+      durationMs: Date.now() - startedAt,
+    });
+  };
+
+  /**
+   * Persist `renderMode` cho TSPL driver của 1 printer ĐÃ LƯU — đối xứng với
+   * nhánh persist của `installTsplFont` (§46 "persist state as the last step"
+   * đúng theo cả 2 chiều bật/tắt). Printer chưa lưu (draft) → no-op: modal Add
+   * mang state vào `buildDraftPrinter()` lúc Save. Khi chuyển về `bitmap` giữ
+   * nguyên `config.font` — `fontInstalled` vẫn true nghĩa là font còn trên máy
+   * in; routing chọn strategy theo `renderMode` (Task 7).
+   */
+  const setTsplRenderMode = (printerId: string, renderMode: TsplRenderMode): void => {
+    const printer = getPrinters().find((p) => p.id === printerId);
+    const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
+    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) return;
+    savePrinters(
+      getPrinters().map((p) =>
+        p.id !== printerId
+          ? p
+          : {
+              ...p,
+              drivers: p.drivers.map((d) =>
+                d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
+                  ? d
+                  : { ...d, config: { ...d.config, renderMode } },
+              ),
+            },
+      ),
+    );
   };
 
   return {
@@ -208,6 +316,7 @@ export const createPrinterService = (
     disconnectForDriver,
     discoverDriver,
     installTsplFont,
+    setTsplRenderMode,
   };
 };
 

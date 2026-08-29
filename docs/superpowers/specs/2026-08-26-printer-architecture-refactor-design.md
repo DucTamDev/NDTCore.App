@@ -1,5 +1,7 @@
 # Printer Feature — Architecture Refactor Design
 
+> **[2026-08-28] §7.2 (`IPrinterDriver.encode()` public) BỊ THAY THẾ** bởi `docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md`: interface không có `encode()`. Phần còn lại của spec này vẫn còn hiệu lực.
+
 Nguồn gốc: dựa trên `docs/superpowers/specs/2026-08-26-refactor.md` (bản phác thảo ban đầu), đã qua nhiều vòng review/điều chỉnh với domain owner. Tài liệu này là **bản chốt** — thay thế bản phác thảo gốc làm nguồn tham chiếu để lập implementation plan.
 
 ## 1. Phạm vi & mục tiêu

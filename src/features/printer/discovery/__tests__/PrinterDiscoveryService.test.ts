@@ -20,7 +20,6 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   testPrint: jest.fn().mockResolvedValue(undefined),
   print: jest.fn().mockResolvedValue(undefined),
   identify: jest.fn().mockResolvedValue(null),
-  encode: jest.fn().mockReturnValue(new Uint8Array()),
   ...overrides,
 });
 
@@ -105,7 +104,7 @@ describe('PrinterDiscoveryService', () => {
     const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     const last = events[events.length - 1];
     expect(last.stage).toBe(DiscoveryStage.error);
-    expect(last.error?.code).toBe(AppErrorCode.CONNECTION_ERROR);
+    expect(last.error?.code).toBe(AppErrorCode.PRINTER_CONNECTION_FAILED);
     expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: 'p1', connectionType: ConnectionType.lan, candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos] }),
     );

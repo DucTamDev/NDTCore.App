@@ -6,7 +6,7 @@ import { AppErrorCode } from '../../types/AppError';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', x: 0, y: 0 }] };
-const imageDocument = { elements: [{ type: 'image' as const, data: 'base64...', x: 0, y: 0 }] };
+const imageBase64 = 'base64...';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
 const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
@@ -32,22 +32,22 @@ describe('PrintService.print', () => {
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
 
-  it('enqueues one job per resolved target, carrying the full documentVariants through untouched', async () => {
+  it('enqueues one job per resolved target, carrying the full documents through untouched', async () => {
     const p1 = makePrinter('p1');
     const deps = makeDeps(
       [{ printer: p1, driver: escposDriver }],
-      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
-    const documentVariants = { text: textDocument, image: imageDocument };
-    await service.print(PrintType.Receipt, documentVariants);
-    expect(deps.scheduler.enqueue).toHaveBeenCalledWith(expect.objectContaining({ printerId: 'p1', documentVariants }));
+    const documents = { text: textDocument, image: imageBase64 };
+    await service.print(PrintType.Receipt, documents);
+    expect(deps.scheduler.enqueue).toHaveBeenCalledWith(expect.objectContaining({ printerId: 'p1', documents }));
   });
 
   it('reports success when all jobs succeed', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.success);
@@ -56,7 +56,7 @@ describe('PrintService.print', () => {
   it('reports partial-failure on mixed results', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.success : PrintJobStatus.failed, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.success : PrintJobStatus.failed, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.partialFailure);
@@ -65,7 +65,7 @@ describe('PrintService.print', () => {
   it('reports failed with no top-level error when every job fails', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documentVariants: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } }),
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
@@ -93,6 +93,17 @@ describe('PrintService.imageDocumentPaperSize', () => {
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
+    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+  });
+
+  it('returns null when the tspl target is configured truetype but font is NOT installed — configured intent wins, not effective capability', () => {
+    const truetypeNotInstalledDriver: PrinterDriver = {
+      type: PrinterDriverType.tspl,
+      source: DriverSource.auto,
+      contentTypes: [PrintType.Label],
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype },
+    };
+    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
   });
 

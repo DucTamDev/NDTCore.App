@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, Menu } from 'react-native-paper';
 import { usePrinterConnection } from '../hooks/usePrinterConnection';
-import { PrinterService } from '../printing/PrinterService';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PrinterStatus } from '../types/printer.types';
+import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../types/printer.types';
 
 export interface PrinterListItemProps {
   printer: Printer;
+  actions: PrinterListActions;
   onEdit: (printer: Printer) => void;
-  onChanged: () => void;
 }
 
 const connectionLabel: Record<Printer['connectionType'], string> = {
@@ -21,27 +21,27 @@ const connectionLabel: Record<Printer['connectionType'], string> = {
   lan: 'LAN',
 };
 
-export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdit, onChanged }) => {
+export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actions, onEdit }) => {
   const status = usePrinterConnection(printer.id);
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const closeMenu = (): void => setMenuVisible(false);
 
-  const handleDelete = async (): Promise<void> => {
+  // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — đây là
+  // interaction của chính card (dialog xác nhận của nó), không phải business logic.
+  const requestDelete = (): void => {
     if (status === PrinterStatus.connected) {
       setConfirmDeleteVisible(true);
       return;
     }
-    PrinterService.removePrinter(printer.id);
-    onChanged();
+    actions.remove(printer.id);
   };
 
   const confirmDelete = async (): Promise<void> => {
-    await PrinterService.disconnect(printer.id).catch(() => undefined);
-    PrinterService.removePrinter(printer.id);
+    await actions.disconnect(printer.id);
+    actions.remove(printer.id);
     setConfirmDeleteVisible(false);
-    onChanged();
   };
 
   return (
@@ -56,17 +56,15 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, onEdi
       <AppSwitch
         label=""
         value={printer.enabled ?? true}
-        onValueChange={(enabled) => {
-          PrinterService.setEnabled(printer.id, enabled);
-          onChanged();
-        }}
+        onValueChange={(enabled) => actions.setEnabled(printer.id, enabled)}
       />
       <Menu visible={menuVisible} onDismiss={closeMenu} anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}>
-        <Menu.Item title="Kết nối" onPress={() => { closeMenu(); PrinterService.connect(printer.id).catch(() => undefined); }} />
-        <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); PrinterService.disconnect(printer.id).catch(() => undefined); }} />
-        <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); PrinterService.reconnect(printer.id).catch(() => undefined); }} />
+        <Menu.Item title="Kết nối" onPress={() => { closeMenu(); actions.connect(printer.id); }} />
+        {/* actions.disconnect nuốt lỗi sẵn trong hook — gọi fire-and-forget ở đây là an toàn. */}
+        <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); actions.disconnect(printer.id); }} />
+        <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); actions.reconnect(printer.id); }} />
         <Menu.Item title="Chỉnh sửa" onPress={() => { closeMenu(); onEdit(printer); }} />
-        <Menu.Item title="Xóa" onPress={() => { closeMenu(); handleDelete(); }} />
+        <Menu.Item title="Xóa" onPress={() => { closeMenu(); requestDelete(); }} />
       </Menu>
       <ConfirmDialog
         visible={confirmDeleteVisible}

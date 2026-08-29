@@ -12,7 +12,7 @@ describe('print job types', () => {
       requestId: 'req1',
       printerId: 'p1',
       printType: PrintType.Receipt,
-      documentVariants: { text: document },
+      documents: { text: document },
       status: PrintJobStatus.pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
@@ -20,14 +20,27 @@ describe('print job types', () => {
     expect(job.status).toBe(PrintJobStatus.pending);
   });
 
+  it('PrintJob dùng field documents (không phải documentVariants)', () => {
+    const job: PrintJob = {
+      id: '1',
+      requestId: 'r',
+      printerId: 'p',
+      printType: PrintType.Receipt,
+      documents: { text: { elements: [] } },
+      status: PrintJobStatus.pending,
+      retryCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    expect(job.documents.text).toBeDefined();
+  });
+
   it('accepts every PrintResult status', () => {
-    // 'PRINT_ERROR' here is just an existing AppErrorCode to satisfy the shape —
-    // 'NO_AVAILABLE_PRINTER' isn't added until Task 10, which runs after this one.
+    // 'UNKNOWN_ERROR' ở đây chỉ là 1 AppErrorCode bất kỳ để thoả shape.
     const results: PrintResult[] = [
       { status: PrintResultStatus.success, jobs: [] },
       { status: PrintResultStatus.partialFailure, jobs: [] },
       { status: PrintResultStatus.failed, jobs: [] },
-      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.PRINT_ERROR, message: 'x' } },
+      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });
