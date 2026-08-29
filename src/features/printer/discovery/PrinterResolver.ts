@@ -1,5 +1,5 @@
 import { ConnectionType } from '../types/printer.types';
-import type { PrinterDevice, PrinterLanConfig } from '../types/printer.types';
+import type { PrinterDevice, PrinterLanConfig, UsbRawDevice } from '../types/printer.types';
 
 export interface ResolveIdentityKeyInput {
   connectionType: ConnectionType;
@@ -13,10 +13,10 @@ export interface ResolveIdentityKeyInput {
  * KHÔNG tự quyết định "có phải trùng lặp không" — so khớp với printer đã lưu
  * là việc của `printing/PrinterService.ts` (spec §6.2).
  *
- * USB không có cách đọc serial number đáng tin qua thư viện hiện tại — fallback
- * duy nhất là vendorId:productId, đã có sẵn trong `PrinterDevice.deviceId`
- * dạng "vendor_id:product_id", KHÔNG đảm bảo phân biệt được 2 máy cùng model
- * cắm cùng lúc — giới hạn đã biết, không cố tạo giải pháp giả.
+ * USB: ưu tiên `usb:serial:<serial>` (đọc từ `UsbDeviceInfoModule`, cần quyền
+ * USB — có sau khi user "Kết nối"). Chưa có serial thì rơi về
+ * `usb:device:<vendor_id:product_id>` — KHÔNG phân biệt được 2 máy cùng model
+ * cắm cùng lúc, giới hạn đã biết.
  */
 export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
   if (input.connectionType === ConnectionType.lan) {
@@ -29,5 +29,7 @@ export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
   if (input.connectionType === ConnectionType.bluetooth) {
     return `bluetooth:mac:${input.device.deviceId}`;
   }
+  const serial = (input.device.rawDevice as unknown as UsbRawDevice | undefined)?.serialNumber;
+  if (serial) return `usb:serial:${serial}`;
   return `usb:device:${input.device.deviceId}`;
 };

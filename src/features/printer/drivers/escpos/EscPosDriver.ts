@@ -9,6 +9,7 @@ import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppErr
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { ensureUsbInitialized } from '../../adapters/UsbPrinterNativeAdapter';
+import { listUsbDevices, findUsbDescriptor } from '../../adapters/UsbPrinterInfoNative';
 import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibraryAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 
@@ -73,9 +74,18 @@ export class EscPosDriver implements IPrinterDriver {
           onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: d.inner_mac_address, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         } else {
-          const devices = await USBPrinter.getDeviceList();
+          const [libDevices, richDevices] = await Promise.all([USBPrinter.getDeviceList(), listUsbDevices()]);
           if (cancelled) return;
-          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: `${d.vendor_id}:${d.product_id}`, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
+          const devices = libDevices.map((d) => {
+            const rich = findUsbDescriptor(richDevices, Number(d.vendor_id), Number(d.product_id));
+            return {
+              deviceId: `${d.vendor_id}:${d.product_id}`,
+              // Tên máy in thật (Xprinter XP-420B) thay cho path /dev/bus/usb/...
+              displayName: rich?.productName || rich?.manufacturerName || d.device_name,
+              rawDevice: { ...(rich ?? {}), ...d } as unknown as Record<string, unknown>,
+            };
+          });
+          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         }
       } catch (error) {

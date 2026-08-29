@@ -50,10 +50,25 @@ export interface PrinterDevice {
   rawDevice: Record<string, unknown>;
 }
 
-/** Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — descriptor USB native trả về, dùng chung bởi cả `EscPosDriver` và `TsplDriver`. */
+/**
+ * Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'`.
+ * `vendor_id`/`product_id` (string từ thư viện `@poriyaalar`, hoặc number từ
+ * enumerate riêng — `connect()` luôn `Number()` lại) LUÔN có. Các field còn lại
+ * là enrichment từ `UsbDeviceInfoModule` — optional vì native module có thể
+ * chưa build vào, hoặc `serialNumber` chưa có quyền lúc scan.
+ */
 export interface UsbRawDevice {
-  vendor_id: number;
-  product_id: number;
+  vendor_id: number | string;
+  product_id: number | string;
+  manufacturerName?: string | null;
+  productName?: string | null;
+  serialNumber?: string | null;
+  version?: string | null;
+  interfaceClass?: number;
+  interfaceSubclass?: number;
+  interfaceProtocol?: number;
+  hasBulkInEndpoint?: boolean;
+  hasBulkOutEndpoint?: boolean;
 }
 
 export interface PrinterLanConfig {

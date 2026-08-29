@@ -9,6 +9,7 @@ import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import { listUsbDevices, findUsbDescriptor } from '../adapters/UsbPrinterInfoNative';
 import {
   lanConnectionSchema,
   printerDisplaySchema,
@@ -24,7 +25,7 @@ import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
-import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
+import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../types/printer.types';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -193,9 +194,13 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
    * (vd `paperSize`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
    * (final-review finding #2).
    */
-  const buildDraftPrinter = (): Printer => ({
+  const buildDraftPrinter = (): Printer => {
+    const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
+    return {
     id: printerId,
     name: displayForm.getValues('name') || 'Máy in mới',
+    vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
+    model: initialValues?.model ?? usbRaw?.productName ?? undefined,
     drivers,
     connectionType,
     device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
@@ -206,7 +211,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     enabled: initialValues?.enabled ?? true,
     createdAt: initialValues?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+    };
+  };
 
   const startDiscovery = (): void => {
     resetDiscoveryFields('connecting');
@@ -225,6 +231,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
           setDeviceInfo(event.deviceInfo);
           setConnectionDirty(false);
           addDriverToList(event.protocol, DriverSource.auto);
+          refreshUsbSerial();
           if (!displayForm.getValues('name')) {
             displayForm.setValue('name', event.deviceInfo?.deviceName ?? selectedDevice?.displayName ?? 'Máy in mới');
           }
@@ -248,6 +255,20 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     }
   };
 
+  /**
+   * `UsbDevice.serialNumber` chỉ đọc được sau khi user cấp quyền USB (bấm "Kết
+   * nối") — lúc scan trả `null`. Gọi lại enumerate sau khi connect thành công
+   * để identityKey lưu được `usb:serial:<serial>` thay vì chỉ `vid:pid`.
+   */
+  const refreshUsbSerial = async (): Promise<void> => {
+    if (connectionType !== ConnectionType.usb || !selectedDevice) return;
+    const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
+    if (raw.serialNumber) return;
+    const rich = findUsbDescriptor(await listUsbDevices(), Number(raw.vendor_id), Number(raw.product_id));
+    if (!rich?.serialNumber) return;
+    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber: rich.serialNumber } } : prev));
+  };
+
   const onChooseProtocol = (chosenProtocol: PrinterDriverType): void => {
     setConnectionState('connecting');
     setProtocolState('detecting');
@@ -266,6 +287,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
         setDeviceInfo(undefined);
         setConnectionDirty(false);
         addDriverToList(chosenProtocol, DriverSource.manual);
+        refreshUsbSerial();
       })
       .catch((error: { message: string }) => {
         setConnectionState('error');
