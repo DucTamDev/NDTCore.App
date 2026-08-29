@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import { LoggerService } from '../../../services/LoggerService';
 
 /** 1:1 với `UsbDeviceInfoModule.describe()` (Kotlin) — toàn bộ USB descriptor. */
 export interface UsbDeviceDescriptor {
@@ -31,10 +32,16 @@ export interface UsbDeviceDescriptor {
  */
 export const listUsbDevices = async (): Promise<UsbDeviceDescriptor[]> => {
   const mod = NativeModules.UsbDeviceInfo as { listDevices?: () => Promise<UsbDeviceDescriptor[]> } | undefined;
-  if (!mod?.listDevices) return [];
+  if (!mod?.listDevices) {
+    LoggerService.debug('UsbDeviceInfo.listDevices — native module CHƯA link (cần build lại)');
+    return [];
+  }
   try {
-    return await mod.listDevices();
-  } catch {
+    const devices = await mod.listDevices();
+    LoggerService.debug('UsbDeviceInfo.listDevices', { count: devices.length, devices });
+    return devices;
+  } catch (error) {
+    LoggerService.warning('UsbDeviceInfo.listDevices thất bại', { error: error instanceof Error ? error.message : String(error) });
     return [];
   }
 };

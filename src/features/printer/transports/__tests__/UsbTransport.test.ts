@@ -2,6 +2,8 @@ import { Buffer } from 'buffer';
 import { UsbTransport } from '../UsbTransport';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 
+jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+
 jest.mock('../../adapters/UsbPrinterNativeAdapter', () => ({
   ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
   printRawDataUsb: jest.fn().mockResolvedValue(undefined),

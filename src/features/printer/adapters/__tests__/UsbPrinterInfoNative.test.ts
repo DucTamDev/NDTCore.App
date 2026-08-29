@@ -1,6 +1,8 @@
 import { NativeModules } from 'react-native';
 import { listUsbDevices, findUsbDescriptor, type UsbDeviceDescriptor } from '../UsbPrinterInfoNative';
 
+jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+
 const descriptor = (over: Partial<UsbDeviceDescriptor> = {}): UsbDeviceDescriptor => ({
   deviceName: '/dev/bus/usb/001/009',
   deviceId: 1009,

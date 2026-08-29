@@ -1,6 +1,7 @@
 import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
 import { Buffer } from 'buffer';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { LoggerService } from '../../../services/LoggerService';
 import { ensureUsbInitialized, printRawDataUsb } from '../adapters/UsbPrinterNativeAdapter';
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -34,12 +35,18 @@ export class UsbTransport {
   }
 
   async write(bytes: Uint8Array): Promise<void> {
+    const totalChunks = Math.max(1, Math.ceil(bytes.length / USB_WRITE_CHUNK_BYTES));
+    LoggerService.debug('UsbTransport.write', { totalBytes: bytes.length, totalChunks, chunkSize: USB_WRITE_CHUNK_BYTES });
+    let index = 0;
     try {
       for (let offset = 0; offset < bytes.length; offset += USB_WRITE_CHUNK_BYTES) {
         const chunk = bytes.subarray(offset, offset + USB_WRITE_CHUNK_BYTES);
+        index += 1;
         await printRawDataUsb(Buffer.from(chunk).toString('base64'), true);
+        LoggerService.debug(`UsbTransport.write: chunk ${index}/${totalChunks} OK`, { bytes: chunk.length });
       }
     } catch (error) {
+      LoggerService.warning(`UsbTransport.write: chunk ${index}/${totalChunks} FAIL`, { error: errorMessage(error) });
       throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: errorMessage(error) });
     }
   }

@@ -227,9 +227,11 @@ export const createPrinterService = (
     // Đo trọn op DOWNLOAD (kể cả connect/disconnect do chính hàm này mở).
     const startedAt = Date.now();
 
+    LoggerService.debug('installTsplFont: bắt đầu', { printerId, inStorage: Boolean(printer), connectionType, font: { name: font.name, fileName: font.fileName } });
     try {
       await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), async () => {
         const wasConnected = tsplDriver.getStatus(printerId) === PrinterStatus.connected;
+        LoggerService.debug('installTsplFont: trong lock', { wasConnected });
         if (!wasConnected) {
           // Không tìm thấy printer trong storage và driver cũng chưa connected →
           // không tự connect được (thiếu `Printer` object). Draft hợp lệ luôn
@@ -237,10 +239,13 @@ export const createPrinterService = (
           if (!printer || !tsplEntry) {
             throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối — kết nối trước khi cài font.' });
           }
+          LoggerService.debug('installTsplFont: tự connect');
           await tsplDriver.connect(printer, tsplEntry);
         }
         try {
+          LoggerService.debug('installTsplFont: gọi driver.installTsplFont (DOWNLOAD)');
           await tsplDriver.installTsplFont(printerId, font);
+          LoggerService.debug('installTsplFont: DOWNLOAD xong');
         } finally {
           // `printer`/`tsplEntry` chắc chắn có ở đây khi `!wasConnected` — nhánh
           // thiếu chúng đã throw trước khi vào try này (§95).

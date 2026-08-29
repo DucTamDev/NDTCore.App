@@ -3,6 +3,8 @@ import { Buffer } from 'buffer';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { AppErrorCode } from '../../../types/AppError';
 
+jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+
 jest.mock('react-native-fs', () => ({
   readFileAssets: jest.fn(),
 }));

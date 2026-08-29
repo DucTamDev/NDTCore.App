@@ -8,6 +8,7 @@ import type { PrintType } from '../../types/printConfiguration.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
+import { LoggerService } from '../../../../services/LoggerService';
 import { ensureUsbInitialized } from '../../adapters/UsbPrinterNativeAdapter';
 import { listUsbDevices, findUsbDescriptor } from '../../adapters/UsbPrinterInfoNative';
 import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibraryAdapter';
@@ -76,6 +77,7 @@ export class EscPosDriver implements IPrinterDriver {
         } else {
           const [libDevices, richDevices] = await Promise.all([USBPrinter.getDeviceList(), listUsbDevices()]);
           if (cancelled) return;
+          LoggerService.debug('EscPosDriver.scan(usb): raw', { libDevices, richDevices });
           const devices = libDevices.map((d) => {
             const rich = findUsbDescriptor(richDevices, Number(d.vendor_id), Number(d.product_id));
             return {

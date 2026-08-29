@@ -3,6 +3,8 @@ import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocuments } from '../../../types/driver.types';
+
+jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 import type { PrintDocument } from '../../../types/printDocument.types';
 import { AppErrorCode } from '../../../types/AppError';
 
