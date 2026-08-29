@@ -47,7 +47,6 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.encoder.ByteMatrix;
-import com.ndtcorepos.thermalprinter.R;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
