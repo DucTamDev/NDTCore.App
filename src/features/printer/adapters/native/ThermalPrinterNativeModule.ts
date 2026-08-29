@@ -2,17 +2,15 @@ import { NativeModules, Platform } from 'react-native';
 import * as EPToolkit from './EPToolkit';
 
 /**
- * Bản vendor của `@poriyaalar/react-native-thermal-receipt-printer` (chỉ Android)
- * — copy từ `dist/index.js`, chuyển sang TS. Giữ nguyên 3 namespace kết nối
- * độc lập (`USBPrinter`/`BLEPrinter`/`NetPrinter`) và pipeline
- * `printText` → `EPToolkit.exchange_text` → base64 → native `printRawData`.
+ * Lớp JS của native module RN*Printer (`com.ndtcorepos.thermalprinter`, code ở
+ * `android/app/src/main/java/com/ndtcorepos/thermalprinter/`) — chỉ Android.
+ * Gốc: copy từ `@poriyaalar/react-native-thermal-receipt-printer` `dist/index.js`,
+ * chuyển sang TS. Giữ 3 namespace kết nối độc lập (`USBPrinter`/`BLEPrinter`/
+ * `NetPrinter`) + pipeline `printText` → `EPToolkit.exchange_text` → base64 →
+ * native `printRawData`.
  *
  * Lược bỏ so với bản gốc: `NetPrinterEventEmitter` + enum sự kiện scan
  * (app không dùng), `exchange_image` (Jimp không chạy trong RN).
- *
- * Native module tương ứng nằm ở `android/app/src/main/java/com/ndtcorepos/thermalprinter/`.
- *
- * Android-only vendored fork of the upstream thermal receipt printer library.
  */
 const RNUSBPrinter = NativeModules.RNUSBPrinter;
 const RNBLEPrinter = NativeModules.RNBLEPrinter;

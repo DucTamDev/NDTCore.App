@@ -2,16 +2,19 @@ import { NativeModules } from 'react-native';
 import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeAdapter';
 
 describe('ensureUsbInitialized', () => {
-  it('calls USBPrinter.init() only once even when called multiple times', async () => {
-    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
-      USBPrinter: { init: jest.Mock };
-    };
-    const callsBefore = USBPrinter.init.mock.calls.length;
+  const original = NativeModules.RNUSBPrinter;
+  afterEach(() => {
+    NativeModules.RNUSBPrinter = original;
+  });
+
+  it('calls RNUSBPrinter.init() only once even when called multiple times', async () => {
+    const init = jest.fn((cbSuccess: () => void) => cbSuccess());
+    NativeModules.RNUSBPrinter = { ...NativeModules.RNUSBPrinter, init };
 
     await ensureUsbInitialized();
     await ensureUsbInitialized();
 
-    expect(USBPrinter.init.mock.calls.length).toBe(callsBefore + 1);
+    expect(init).toHaveBeenCalledTimes(1);
   });
 });
 

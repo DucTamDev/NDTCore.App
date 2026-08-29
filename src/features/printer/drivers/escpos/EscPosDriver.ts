@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { USBPrinter, BLEPrinter } from '../../vendor/thermal-receipt-printer';
+import { USBPrinter, BLEPrinter } from '../../adapters/native/ThermalPrinterNativeModule';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
@@ -9,12 +9,12 @@ import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppErr
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
-import { ensureUsbInitialized } from '../../adapters/UsbPrinterNativeAdapter';
-import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibraryAdapter';
+import { ensureUsbInitialized } from '../../adapters/native/UsbPrinterNativeAdapter';
+import { ThermalPrinterAdapter } from '../../adapters/native/ThermalPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 
 /**
- * Ngoại lệ pragmatic của ESC/POS (spec §2.3): module vendored gộp
+ * Ngoại lệ pragmatic của ESC/POS (spec §2.3): native module RN*Printer gộp
  * connect+encode+write theo namespace riêng cho từng connectionType, không
  * đi qua `Transport` chung với TSPL. Driver này vẫn tự chọn namespace theo
  * connectionType nội bộ — giữ nguyên hành vi đã verify trên phần cứng thật
@@ -39,7 +39,7 @@ export class EscPosDriver implements IPrinterDriver {
     if (connectionType === ConnectionType.usb) {
       await ensureUsbInitialized();
     } else {
-      await ThermalPrinterLibraryAdapter.namespaceFor(connectionType).init();
+      await ThermalPrinterAdapter.namespaceFor(connectionType).init();
     }
     this.initialized.add(connectionType);
   }
@@ -115,16 +115,16 @@ export class EscPosDriver implements IPrinterDriver {
       let deviceName: string | undefined;
       if (printer.connectionType === ConnectionType.lan) {
         if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-        const result = await ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.lan).connectPrinter(printer.lan.ip, printer.lan.port);
+        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.lan).connectPrinter(printer.lan.ip, printer.lan.port);
         deviceName = result?.device_name;
       } else if (printer.connectionType === ConnectionType.bluetooth) {
         if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
-        const result = await ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.bluetooth).connectPrinter(printer.device.deviceId);
+        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.bluetooth).connectPrinter(printer.device.deviceId);
         deviceName = result?.device_name;
       } else {
         const raw = printer.device?.rawDevice as unknown as UsbRawDevice | undefined;
         if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-        const result = await ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.usb).connectPrinter(
+        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.usb).connectPrinter(
           Number(raw.vendor_id),
           Number(raw.product_id),
         );
@@ -154,7 +154,7 @@ export class EscPosDriver implements IPrinterDriver {
     const connectionType = this.connectedTypes.get(printerId);
     try {
       if (connectionType && this.activeByType.get(connectionType) === printerId) {
-        await ThermalPrinterLibraryAdapter.namespaceFor(connectionType).closeConn();
+        await ThermalPrinterAdapter.namespaceFor(connectionType).closeConn();
       }
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
@@ -172,7 +172,7 @@ export class EscPosDriver implements IPrinterDriver {
 
   private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocuments): Promise<void> {
     const text = buildEscPosText(printer.paperSize, documents);
-    await ThermalPrinterLibraryAdapter.printTextAsync(connectionType, text, { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
+    await ThermalPrinterAdapter.printTextAsync(connectionType, text, { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
   }
 
   /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */

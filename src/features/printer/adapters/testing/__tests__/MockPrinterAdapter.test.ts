@@ -1,5 +1,5 @@
-import { createMockUsbPrinterNativeAdapter, createMockThermalPrinterLibraryAdapter } from '../MockPrinterAdapter';
-import { ConnectionType } from '../../types/printer.types';
+import { createMockUsbPrinterNativeAdapter, createMockThermalPrinterAdapter } from '../MockPrinterAdapter';
+import { ConnectionType } from '../../../types/printer.types';
 
 describe('MockPrinterAdapter', () => {
   it('createMockUsbPrinterNativeAdapter resolves ensureUsbInitialized and printRawDataUsb', async () => {
@@ -8,8 +8,8 @@ describe('MockPrinterAdapter', () => {
     await expect(mock.printRawDataUsb('AAAA', true)).resolves.toBeUndefined();
   });
 
-  it('createMockThermalPrinterLibraryAdapter returns a namespace stub with init/getDeviceList/connectPrinter/closeConn', async () => {
-    const mock = createMockThermalPrinterLibraryAdapter();
+  it('createMockThermalPrinterAdapter returns a namespace stub with init/getDeviceList/connectPrinter/closeConn', async () => {
+    const mock = createMockThermalPrinterAdapter();
     const namespace = mock.namespaceFor(ConnectionType.lan);
     await expect(namespace.init()).resolves.toBeUndefined();
     await expect(namespace.getDeviceList()).resolves.toEqual([]);

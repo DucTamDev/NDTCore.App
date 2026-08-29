@@ -72,12 +72,12 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
 
-// Module in nhiệt vendored (src/features/printer/vendor/thermal-receipt-printer)
+// Lớp JS của native module RN*Printer (adapters/native/ThermalPrinterNativeModule)
 // gọi thẳng NativeModules.RN*Printer ở tầng namespace, nên bất kỳ test nào
 // transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
 // đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
 // UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
-jest.mock('./src/features/printer/vendor/thermal-receipt-printer', () => {
+jest.mock('./src/features/printer/adapters/native/ThermalPrinterNativeModule', () => {
   const namespace = () => ({
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
@@ -93,3 +93,17 @@ jest.mock('./src/features/printer/vendor/thermal-receipt-printer', () => {
     NetPrinter: namespace(),
   };
 });
+
+// UsbPrinterNativeAdapter gọi thẳng NativeModules.RNUSBPrinter.init/printRawData
+// (không qua tầng namespace) — RN jest preset không có native module này, nên
+// bất kỳ test nào chạm ensureUsbInitialized()/printRawDataUsb() sẽ nổ nếu không
+// stub. Test cần kiểm soát chi tiết (UsbPrinterNativeAdapter.test.ts) ghi đè
+// NativeModules.RNUSBPrinter cục bộ rồi khôi phục.
+{
+  const { NativeModules } = require('react-native');
+  NativeModules.RNUSBPrinter = {
+    ...NativeModules.RNUSBPrinter,
+    init: jest.fn((cbSuccess) => cbSuccess?.()),
+    printRawData: jest.fn((_d, _k, cbSuccess) => cbSuccess?.('ok')),
+  };
+}

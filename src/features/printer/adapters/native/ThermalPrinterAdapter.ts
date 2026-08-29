@@ -1,5 +1,5 @@
-import { USBPrinter, BLEPrinter, NetPrinter } from '../vendor/thermal-receipt-printer';
-import type { ConnectionType } from '../types/printer.types';
+import { USBPrinter, BLEPrinter, NetPrinter } from './ThermalPrinterNativeModule';
+import type { ConnectionType } from '../../types/printer.types';
 
 export interface ThermalPrinterPrintTextOptions {
   keepConnection: boolean;
@@ -9,12 +9,11 @@ export interface ThermalPrinterPrintTextOptions {
 }
 
 /**
- * Boundary duy nhất giữa `EscPosDriver` và module vendored
- * `printer/vendor/thermal-receipt-printer` (spec §2.3 — ngoại lệ
- * pragmatic: module gộp connect+encode+write theo namespace riêng cho
- * từng connectionType; `EscPosDriver` vẫn tự chọn namespace nội bộ). Adapter
- * này chỉ re-export namespace + chuẩn hoá `printText()` (callback-based)
- * thành Promise — không chứa business logic về máy in.
+ * Boundary giữa `EscPosDriver` và lớp JS của native module RN*Printer
+ * (`./index` — 3 namespace USB/BLE/Net, spec §2.3 ngoại lệ pragmatic: gộp
+ * connect+encode+write theo connectionType thay vì đi qua `Transport` chung).
+ * Adapter này chỉ chọn namespace theo connectionType + chuẩn hoá `printText()`
+ * (callback) thành Promise — không chứa business logic về máy in.
  */
 interface ThermalPrinterNamespaceMap {
   usb: typeof USBPrinter;
@@ -24,7 +23,7 @@ interface ThermalPrinterNamespaceMap {
 
 const namespaces: ThermalPrinterNamespaceMap = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
 
-export const ThermalPrinterLibraryAdapter = {
+export const ThermalPrinterAdapter = {
   /**
    * Generic theo `T extends ConnectionType` (thay vì trả union) để caller
    * gọi `namespaceFor('lan').connectPrinter(ip, port)` được TypeScript suy
@@ -37,7 +36,7 @@ export const ThermalPrinterLibraryAdapter = {
 
   printTextAsync(connectionType: ConnectionType, text: string, options: ThermalPrinterPrintTextOptions): Promise<void> {
     return new Promise((resolve, reject) => {
-      ThermalPrinterLibraryAdapter.namespaceFor(connectionType).printText(
+      ThermalPrinterAdapter.namespaceFor(connectionType).printText(
         text,
         options,
         () => resolve(),

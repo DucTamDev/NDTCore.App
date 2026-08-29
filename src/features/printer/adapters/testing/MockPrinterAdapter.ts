@@ -8,7 +8,7 @@ export const createMockUsbPrinterNativeAdapter = () => ({
   printRawDataUsb: jest.fn().mockResolvedValue(undefined),
 });
 
-export const createMockThermalPrinterLibraryAdapter = () => ({
+export const createMockThermalPrinterAdapter = () => ({
   namespaceFor: jest.fn().mockReturnValue({
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),

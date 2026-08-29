@@ -4,7 +4,7 @@ import { AppErrorException, AppErrorCode } from '../../types/AppError';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
-jest.mock('../../adapters/UsbPrinterNativeAdapter', () => ({
+jest.mock('../../adapters/native/UsbPrinterNativeAdapter', () => ({
   ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
   printRawDataUsb: jest.fn().mockResolvedValue(undefined),
 }));
@@ -15,7 +15,7 @@ describe('UsbTransport.connect', () => {
   });
 
   it('initializes the shared USB native module before connecting', async () => {
-    const { ensureUsbInitialized } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { ensureUsbInitialized } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       ensureUsbInitialized: jest.Mock;
     };
     const transport = new UsbTransport();
@@ -26,14 +26,14 @@ describe('UsbTransport.connect', () => {
   it('connects using vendor_id/product_id as numbers', async () => {
     const transport = new UsbTransport();
     await transport.connect(1155, 22222);
-    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     expect(USBPrinter.connectPrinter).toHaveBeenCalledWith(1155, 22222);
   });
 
   it('wraps a native connect failure into PRINTER_CONNECTION_FAILED', async () => {
-    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     USBPrinter.connectPrinter.mockRejectedValueOnce(new Error('device not found'));
@@ -48,7 +48,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('base64-encodes the bytes and keeps the connection open', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     const transport = new UsbTransport();
@@ -58,7 +58,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('splits a payload larger than 16KB into ≤16KB chunks (font DOWNLOAD case)', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     const transport = new UsbTransport();
@@ -74,7 +74,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('surfaces a mid-stream chunk failure as PRINTER_WRITE_FAILED', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('USB print failed'));
@@ -84,7 +84,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('wraps a native write failure into PRINTER_WRITE_FAILED', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
@@ -93,7 +93,7 @@ describe('UsbTransport.write', () => {
   });
 
   it('rethrows as AppErrorException', async () => {
-    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/native/UsbPrinterNativeAdapter') as {
       printRawDataUsb: jest.Mock;
     };
     printRawDataUsb.mockRejectedValueOnce(new Error('USB print failed'));
@@ -110,14 +110,14 @@ describe('UsbTransport.close', () => {
   it('closes the shared native USB connection', async () => {
     const transport = new UsbTransport();
     await transport.close();
-    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { closeConn: jest.Mock };
     };
     expect(USBPrinter.closeConn).toHaveBeenCalled();
   });
 
   it('wraps a native close failure into PRINTER_CONNECTION_FAILED instead of leaking a raw error', async () => {
-    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { closeConn: jest.Mock };
     };
     USBPrinter.closeConn.mockRejectedValueOnce(new Error('device already unplugged'));

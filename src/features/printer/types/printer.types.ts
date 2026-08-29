@@ -52,8 +52,8 @@ export interface PrinterDevice {
 
 /**
  * Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'` —
- * chính là 1 phần tử `IUSBPrinter` từ `USBPrinter.getDeviceList()` (module
- * vendored `thermal-receipt-printer`, tầng native `USBPrinterDevice.toRNWritableMap()`).
+ * chính là 1 phần tử `IUSBPrinter` từ `USBPrinter.getDeviceList()`
+ * (`adapters/native/ThermalPrinterNativeModule`, tầng native `USBPrinterDevice.toRNWritableMap()`).
  * `vendor_id`/`product_id` LUÔN có (`connect()` luôn `Number()` lại). Các field
  * enrichment optional — `serialNumber` cần quyền USB (Android 10+), native cũ
  * hơn có thể chưa build vào.
@@ -65,7 +65,7 @@ export interface UsbRawDevice {
   productName?: string | null;
   serialNumber?: string | null;
   version?: string | null;
-  /** Cấu trúc interface/endpoint đầy đủ — xem `vendor/thermal-receipt-printer` `UsbInterfaceInfo`. */
+  /** Cấu trúc interface/endpoint đầy đủ — xem `adapters/native/ThermalPrinterNativeModule` `UsbInterfaceInfo`. */
   interfaces?: unknown[];
   hasBulkInEndpoint?: boolean;
   hasBulkOutEndpoint?: boolean;

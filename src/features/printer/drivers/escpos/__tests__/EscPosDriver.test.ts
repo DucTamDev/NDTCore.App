@@ -13,7 +13,7 @@ import { AppErrorCode } from '../../../types/AppError';
 // specific to each namespace (not a shared `{host, port}`-style object), and
 // `printText()` is callback-based (`cbSuccess`/`cbErr`), not Promise-returning.
 // Mocks below reflect the real shapes.
-jest.mock('../../../vendor/thermal-receipt-printer', () => ({
+jest.mock('../../../adapters/native/ThermalPrinterNativeModule', () => ({
   USBPrinter: {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
@@ -92,7 +92,7 @@ describe('EscPosDriver', () => {
     driver.onStatusChange(lanPrinter.id, (status) => statuses.push(status));
     await driver.connect(lanPrinter, escposDriverEntry);
     expect(statuses).toEqual([PrinterStatus.connecting, PrinterStatus.connected]);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as { NetPrinter: { connectPrinter: jest.Mock } };
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as { NetPrinter: { connectPrinter: jest.Mock } };
     expect(NetPrinter.connectPrinter).toHaveBeenCalledWith('192.168.1.50', 9100);
   });
 
@@ -110,7 +110,7 @@ describe('EscPosDriver', () => {
   it('print() calls printText via the vendor library, using buildEscPosText internally (pragmatic path)', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as { NetPrinter: { printText: jest.Mock } };
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as { NetPrinter: { printText: jest.Mock } };
     await driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt);
     expect(NetPrinter.printText).toHaveBeenCalledWith(
       expect.stringContaining('In thử'),
@@ -133,7 +133,7 @@ describe('EscPosDriver', () => {
     const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
-    const { BLEPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { BLEPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       BLEPrinter: { connectPrinter: jest.Mock };
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe('EscPosDriver', () => {
   it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers', async () => {
     const driver = new EscPosDriver();
     await driver.connect(usbPrinter, escposDriverEntry);
-    const { USBPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     expect(USBPrinter.connectPrinter).toHaveBeenCalledWith(1155, 22222);
@@ -165,14 +165,14 @@ describe('EscPosDriver', () => {
     await driver.connect(lanPrinter, escposDriverEntry);
     await driver.disconnect(lanPrinter.id);
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.disconnected);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { closeConn: jest.Mock };
     };
     expect(NetPrinter.closeConn).toHaveBeenCalled();
   });
 
   it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows PRINTER_CONNECTION_FAILED when native closeConn() rejects', async () => {
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { closeConn: jest.Mock };
     };
     NetPrinter.closeConn.mockRejectedValueOnce(new Error('socket already closed'));
@@ -191,7 +191,7 @@ describe('EscPosDriver', () => {
   });
 
   it('disconnect() clears activeByType bookkeeping despite the native failure — a second printer on the same connectionType is not blocked forever', async () => {
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { closeConn: jest.Mock };
     };
     NetPrinter.closeConn.mockRejectedValueOnce(new Error('socket already closed'));
@@ -209,7 +209,7 @@ describe('EscPosDriver', () => {
     const events: string[] = [];
     driver.scan(ConnectionType.lan, (event) => events.push(event.type));
     expect(events).toEqual([DeviceScanEventType.empty]);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { getDeviceList: jest.Mock };
     };
     expect(NetPrinter.getDeviceList).not.toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe('EscPosDriver', () => {
       });
     });
     expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.empty]);
-    const { BLEPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { BLEPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       BLEPrinter: { getDeviceList: jest.Mock };
     };
     expect(BLEPrinter.getDeviceList).toHaveBeenCalled();
@@ -248,7 +248,7 @@ describe('EscPosDriver', () => {
   });
 
   it('scan("bluetooth") emits empty (not error) when getDeviceList rejects with "No Device Found"', async () => {
-    const { BLEPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { BLEPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       BLEPrinter: { getDeviceList: jest.Mock };
     };
     BLEPrinter.getDeviceList.mockRejectedValueOnce('No Device Found');
@@ -266,7 +266,7 @@ describe('EscPosDriver', () => {
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { connectPrinter: jest.Mock; printText: jest.Mock };
     };
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
@@ -294,7 +294,7 @@ describe('EscPosDriver', () => {
   });
 
   it('identify() returns null (not {}) when connectPrinter() resolves without a real device_name — a device that merely accepted the connection is not proof it speaks ESC/POS', async () => {
-    const { USBPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     USBPrinter.connectPrinter.mockResolvedValueOnce({ vendor_id: '1155', product_id: '22222' });
@@ -339,7 +339,7 @@ describe('EscPosDriver', () => {
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
 
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { connectPrinter: jest.Mock };
     };
     const callsBeforeTestPrint = NetPrinter.connectPrinter.mock.calls.length;
@@ -402,7 +402,7 @@ describe('EscPosDriver', () => {
   });
 
   it('scan("bluetooth") logs scanFailed on a genuine connection error (not "No Device Found")', async () => {
-    const { BLEPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { BLEPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       BLEPrinter: { getDeviceList: jest.Mock };
     };
     BLEPrinter.getDeviceList.mockRejectedValueOnce(new Error('bluetooth adapter off'));
@@ -451,7 +451,7 @@ describe('EscPosDriver', () => {
   });
 
   it('testPrint() logs testPrintFailed when printText fails', async () => {
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     const driver = new EscPosDriver();
@@ -477,7 +477,7 @@ describe('EscPosDriver', () => {
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
 
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { closeConn: jest.Mock };
     };
     NetPrinter.closeConn.mockClear();
@@ -494,7 +494,7 @@ describe('EscPosDriver', () => {
   it('print() joins text/line/table elements into a single printText call', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     const document: PrintDocument = {
@@ -516,7 +516,7 @@ describe('EscPosDriver', () => {
   it('print() renders a row element as a left/right-aligned line sized to the printer paperSize', async () => {
     const driver = new EscPosDriver();
     await driver.connect({ ...lanPrinter, paperSize: 58 }, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     const document: PrintDocument = { elements: [{ type: 'row', left: 'Mã đơn', right: '#001', x: 0, y: 0 }] };
@@ -532,7 +532,7 @@ describe('EscPosDriver', () => {
   it('print() throws TSPL_ELEMENT_UNSUPPORTED for a barcode element without calling printText', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     const callsBefore = NetPrinter.printText.mock.calls.length;
@@ -558,7 +558,7 @@ describe('EscPosDriver', () => {
   it('print() validates all elements before sending anything — an unsupported element after valid ones still sends nothing', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     const callsBefore = NetPrinter.printText.mock.calls.length;
@@ -603,7 +603,7 @@ describe('EscPosDriver', () => {
   it('print() logs printFailed when printText fails', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { NetPrinter } = jest.requireMock('../../../vendor/thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/ThermalPrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };
     NetPrinter.printText.mockImplementationOnce(

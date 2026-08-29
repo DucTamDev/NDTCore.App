@@ -1527,7 +1527,7 @@ ESC/POS sử dụng vendor thermal printer library.
 ```text
 EscPosDriver
     ↓
-ThermalPrinterLibraryAdapter
+ThermalPrinterAdapter
     ↓
 Vendor Library
     ↓
@@ -1552,7 +1552,7 @@ Chỉ các module sau được phép biết native:
 
 ```text
 UsbPrinterNativeAdapter
-ThermalPrinterLibraryAdapter
+ThermalPrinterAdapter
 Transport implementations
 ```
 
@@ -2692,7 +2692,7 @@ LanTransport.ts
 # 112. Adapter Responsibility
 
 ```text
-ThermalPrinterLibraryAdapter
+ThermalPrinterAdapter
 → ESC/POS vendor SDK boundary
 
 UsbPrinterNativeAdapter
