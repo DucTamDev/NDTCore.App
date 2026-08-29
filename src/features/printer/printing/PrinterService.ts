@@ -4,6 +4,7 @@ import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '..
 import type { PrintType } from '../types/printConfiguration.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../types/AppError';
 import { PrinterLogger } from '../services/PrinterLogger';
+import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from './DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterStorage } from '../storage/PrinterStorage';
@@ -134,13 +135,33 @@ export const createPrinterService = (
     await driver.print(printerId, documents, printType);
   };
 
+  /**
+   * Chèn log `debug` (chỉ chạy trong `__DEV__`) cho MỌI `DeviceScanEvent` —
+   * gồm cả `rawDevice` gốc từ native (vendor_id/product_id cho USB, mac cho BT)
+   * để soi lúc UI hiển thị sai thiết bị. Không đi qua `PrinterLogger` vì tầng đó
+   * cố ý không nhận `rawDevice`/MAC (§106); đây là log dev thuần.
+   */
+  const withScanLogging =
+    (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
+    (event: DeviceScanEvent): void => {
+      LoggerService.debug('printer.scan.event', {
+        connectionType,
+        type: event.type,
+        deviceCount: event.devices?.length ?? 0,
+        devices: event.devices?.map((d) => ({ deviceId: d.deviceId, displayName: d.displayName, rawDevice: d.rawDevice })),
+        error: event.error ? { code: event.error.code, message: event.error.message } : undefined,
+      });
+      onEvent(event);
+    };
+
   const scanDevices = (type: PrinterDriverType, connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
-    getDriver(type).scan(connectionType, onEvent);
+    getDriver(type).scan(connectionType, withScanLogging(connectionType, onEvent));
 
   const scanForConnectionType = (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
-    if (connectionType === ConnectionType.usb) return getDriver(PrinterDriverType.escpos).scan(ConnectionType.usb, onEvent);
-    if (connectionType === ConnectionType.bluetooth) return getDriver(PrinterDriverType.tspl).scan(ConnectionType.bluetooth, onEvent);
-    return getDriver(PrinterDriverType.tspl).scan(ConnectionType.lan, onEvent);
+    const tapped = withScanLogging(connectionType, onEvent);
+    if (connectionType === ConnectionType.usb) return getDriver(PrinterDriverType.escpos).scan(ConnectionType.usb, tapped);
+    if (connectionType === ConnectionType.bluetooth) return getDriver(PrinterDriverType.tspl).scan(ConnectionType.bluetooth, tapped);
+    return getDriver(PrinterDriverType.tspl).scan(ConnectionType.lan, tapped);
   };
 
   const connectDraft = async (printer: Printer, driver: PrinterDriver): Promise<void> => {

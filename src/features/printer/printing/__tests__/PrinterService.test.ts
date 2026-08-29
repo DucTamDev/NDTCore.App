@@ -8,6 +8,8 @@ import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { AppErrorCode } from '../../types/AppError';
 import { PrinterLogger } from '../../services/PrinterLogger';
 
+jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+
 const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
   connect: jest.fn().mockResolvedValue(undefined),
@@ -272,7 +274,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     const onEvent = jest.fn();
     service.scanForConnectionType(ConnectionType.usb, onEvent);
-    expect(escposDriver.scan).toHaveBeenCalledWith(ConnectionType.usb, onEvent);
+    expect(escposDriver.scan).toHaveBeenCalledWith(ConnectionType.usb, expect.any(Function));
   });
 
   it('scanForConnectionType(bluetooth) forwards to the tspl driver scan', () => {
@@ -280,7 +282,22 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver }, createResourceLock());
     const onEvent = jest.fn();
     service.scanForConnectionType(ConnectionType.bluetooth, onEvent);
-    expect(tsplDriver.scan).toHaveBeenCalledWith(ConnectionType.bluetooth, onEvent);
+    expect(tsplDriver.scan).toHaveBeenCalledWith(ConnectionType.bluetooth, expect.any(Function));
+  });
+
+  it('scan events pass through the logging tap to the caller unchanged', () => {
+    const escposDriver = makeMockDriver();
+    (escposDriver.scan as jest.Mock).mockImplementation((_ct, onEvent: (e: unknown) => void) => {
+      onEvent({ type: 'found', devices: [{ deviceId: '11575:33751', displayName: '/dev/bus/usb/001/009', rawDevice: { vendor_id: '11575', product_id: '33751', device_name: '/dev/bus/usb/001/009' } }] });
+      return () => undefined;
+    });
+    const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
+    const onEvent = jest.fn();
+    service.scanForConnectionType(ConnectionType.usb, onEvent);
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'found',
+      devices: [expect.objectContaining({ deviceId: '11575:33751' })],
+    }));
   });
 
   it('connectDraft() connects via the driver matching the given driver type without touching storage', async () => {
