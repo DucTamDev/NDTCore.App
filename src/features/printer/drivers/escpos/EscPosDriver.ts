@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import { USBPrinter, BLEPrinter } from '../../adapters/native/PrinterNativeModule';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
@@ -9,8 +8,7 @@ import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppErr
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
-import { ensureUsbInitialized } from '../../adapters/native/UsbPrinterNativeBridge';
-import { ThermalPrinterAdapter } from '../../adapters/native/PrinterNativeModule';
+import { USBPrinter, BLEPrinter, ensureUsbInitialized, ThermalPrinterAdapter } from '../../adapters/native/PrinterNativeModule';
 import { buildEscPosText } from './EscPosTextBuilder';
 
 /**

@@ -1,8 +1,7 @@
-import { USBPrinter } from '../adapters/native/PrinterNativeModule';
+import { USBPrinter, ensureUsbInitialized, printRawDataUsb } from '../adapters/native/PrinterNativeModule';
 import { Buffer } from 'buffer';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
 import { LoggerService } from '../../../services/LoggerService';
-import { ensureUsbInitialized, printRawDataUsb } from '../adapters/native/UsbPrinterNativeBridge';
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 

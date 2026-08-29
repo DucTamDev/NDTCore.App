@@ -127,7 +127,7 @@ Không được:
 ```text
 AddPrinterModal
  ↓
-UsbPrinterNativeBridge
+PrinterNativeModule
 ```
 
 Không được:
@@ -1551,7 +1551,7 @@ Native
 Chỉ các module sau được phép biết native:
 
 ```text
-UsbPrinterNativeBridge
+PrinterNativeModule
 ThermalPrinterAdapter
 Transport implementations
 ```
@@ -2695,7 +2695,7 @@ LanTransport.ts
 ThermalPrinterAdapter
 → ESC/POS vendor SDK boundary
 
-UsbPrinterNativeBridge
+PrinterNativeModule
 → RNUSBPrinter raw USB boundary
 
 MockPrinterAdapter

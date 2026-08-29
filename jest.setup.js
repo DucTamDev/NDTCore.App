@@ -99,14 +99,13 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
       namespaceFor: (connectionType) => namespaces[connectionType],
       printTextAsync: jest.fn().mockResolvedValue(undefined),
     },
+    ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
+    printRawDataUsb: jest.fn().mockResolvedValue(undefined),
   };
 });
 
-// UsbPrinterNativeBridge gọi thẳng NativeModules.RNUSBPrinter.init/printRawData
-// (không qua tầng namespace) — RN jest preset không có native module này, nên
-// bất kỳ test nào chạm ensureUsbInitialized()/printRawDataUsb() sẽ nổ nếu không
-// stub. Test cần kiểm soát chi tiết (UsbPrinterNativeBridge.test.ts) ghi đè
-// NativeModules.RNUSBPrinter cục bộ rồi khôi phục.
+// PrinterNativeModule.test.ts dùng requireActual để test bản THẬT (ensureUsbInitialized,
+// namespace) — cần NativeModules.RNUSBPrinter tồn tại vì RN jest preset không có.
 {
   const { NativeModules } = require('react-native');
   NativeModules.RNUSBPrinter = {

@@ -66,3 +66,33 @@ describe('ThermalPrinterAdapter', () => {
     ).rejects.toThrow('boom');
   });
 });
+
+describe('ensureUsbInitialized', () => {
+  it('gọi RNUSBPrinter.init() đúng 1 lần dù được gọi nhiều lần (memoize)', async () => {
+    const { ensureUsbInitialized } = loadReal();
+    await ensureUsbInitialized();
+    await ensureUsbInitialized();
+    expect(NativeModules.RNUSBPrinter.init).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('printRawDataUsb', () => {
+  it('resolve khi native gọi success callback', async () => {
+    const { printRawDataUsb } = loadReal();
+    await expect(printRawDataUsb('QUI=', true)).resolves.toBeUndefined();
+    expect(NativeModules.RNUSBPrinter.printRawData).toHaveBeenCalledWith(
+      'QUI=',
+      true,
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('reject khi native gọi error callback', async () => {
+    NativeModules.RNUSBPrinter.printRawData = jest.fn(
+      (_data: unknown, _keep: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) => cbErr?.(new Error('USB fail')),
+    );
+    const { printRawDataUsb } = loadReal();
+    await expect(printRawDataUsb('QUI=', true)).rejects.toThrow('USB fail');
+  });
+});

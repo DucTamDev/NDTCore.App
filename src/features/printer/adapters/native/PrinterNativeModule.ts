@@ -262,6 +262,39 @@ export const NetPrinter = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// USB lifecycle helpers (app-specific, không có trong upstream) — `RNUSBPrinter`
+// là native module singleton dùng chung `EscPosDriver` + `TsplDriver` (qua
+// `UsbTransport`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let usbInitPromise: Promise<void> | null = null;
+
+/**
+ * Gọi `USBPrinter.init()` 2 lần từ 2 driver độc lập sẽ đăng ký trùng
+ * `BroadcastReceiver` ở tầng native (`USBPrinterAdapter.init()`). Memoize để
+ * toàn app chỉ `init()` đúng 1 lần bất kể driver nào gọi trước.
+ */
+export const ensureUsbInitialized = (): Promise<void> => {
+  if (!usbInitPromise) usbInitPromise = USBPrinter.init();
+  return usbInitPromise;
+};
+
+/**
+ * Ghi byte thô (base64) qua USB — `RNUSBPrinter.printRawData` decode base64 rồi
+ * `bulkTransfer()` gửi nguyên byte, KHÔNG qua encode ESC/POS như `printText`.
+ * Dùng cho TSPL (giao thức byte thô).
+ */
+export const printRawDataUsb = (base64Data: string, keepConnection: boolean): Promise<void> =>
+  new Promise((resolve, reject) => {
+    RNUSBPrinter.printRawData(
+      base64Data,
+      keepConnection,
+      () => resolve(),
+      (error: Error) => reject(error),
+    );
+  });
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Boundary cho `EscPosDriver`: chọn namespace theo connectionType + chuẩn hoá
 // `printText()` (callback) thành Promise (spec §2.3 — ngoại lệ pragmatic: gộp
 // connect+encode+write theo connectionType thay vì đi qua `Transport` chung).

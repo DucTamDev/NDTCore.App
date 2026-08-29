@@ -40,6 +40,8 @@ jest.mock('../../../adapters/native/PrinterNativeModule', () => {
     USBPrinter,
     BLEPrinter,
     NetPrinter,
+    ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
+    printRawDataUsb: jest.fn().mockResolvedValue(undefined),
     ThermalPrinterAdapter: {
       namespaceFor: (connectionType: string) => namespaces[connectionType],
       printTextAsync: (connectionType: string, text: string, options: unknown): Promise<void> =>
