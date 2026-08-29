@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, SegmentedButtons } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
+import { AppButton } from '../../../components/AppButton';
 import { PrinterDriverType, type PrinterDeviceInfo } from '../types/printer.types';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -34,11 +35,19 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   onChooseProtocol,
 }) => {
   if (protocolState === 'unknown') {
-    const choices = ALL_PROTOCOLS.filter((type) => !excludedDrivers.includes(type)).map((type) => ({ value: type, label: protocolLabel[type] }));
+    const choices = ALL_PROTOCOLS.filter((type) => !excludedDrivers.includes(type));
     return (
       <View style={styles.container}>
-        <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
-        <SegmentedButtons value="" onValueChange={(value) => onChooseProtocol(value as PrinterDriverType)} buttons={choices} />
+        <Text variant="bodyMedium">
+          {excludedDrivers.length > 0
+            ? 'Chọn giao thức cho driver tiếp theo:'
+            : 'Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:'}
+        </Text>
+        <View style={styles.choiceRow}>
+          {choices.map((type) => (
+            <AppButton key={type} label={protocolLabel[type]} mode="contained" onPress={() => onChooseProtocol(type)} />
+          ))}
+        </View>
       </View>
     );
   }
@@ -85,6 +94,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
+  choiceRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   errorText: { color: '#B91C1C' },
   successText: { color: '#15803D' },
 });
