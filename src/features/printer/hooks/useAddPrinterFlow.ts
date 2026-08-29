@@ -9,7 +9,7 @@ import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { listUsbDevices, findUsbDescriptor } from '../adapters/UsbPrinterInfoNative';
+import { USBPrinter } from '../vendor/thermal-receipt-printer';
 import {
   lanConnectionSchema,
   printerDisplaySchema,
@@ -264,7 +264,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     if (connectionType !== ConnectionType.usb || !selectedDevice) return;
     const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
     if (raw.serialNumber) return;
-    const rich = findUsbDescriptor(await listUsbDevices(), Number(raw.vendor_id), Number(raw.product_id));
+    const devices = await USBPrinter.getDeviceList().catch(() => []);
+    const rich = devices.find((d) => Number(d.vendor_id) === Number(raw.vendor_id) && Number(d.product_id) === Number(raw.product_id));
     if (!rich?.serialNumber) return;
     setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber: rich.serialNumber } } : prev));
   };

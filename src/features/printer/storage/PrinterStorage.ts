@@ -11,7 +11,7 @@ const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
  * KHÔNG migrate. Giá trị 1 tương ứng với model `drivers: PrinterDriver[]`
  * (thay cho `protocol` đơn) của lần refactor này.
  */
-// v3: identityKey USB = `usb:<vid>:<pid>[:<serial>]` (từ UsbDeviceInfoModule).
+// v3: identityKey USB = `usb:<vid>:<pid>[:<serial>]` (serial từ USBPrinter.getDeviceList()).
 // Format đổi so với v1 (`usb:device:...`) và v2 (`usb:serial:...`) → reset.
 const CURRENT_STORAGE_VERSION = 3;
 

@@ -14,7 +14,7 @@ export interface ResolveIdentityKeyInput {
  * là việc của `printing/PrinterService.ts` (spec §6.2).
  *
  * USB: `usb:<vid>:<pid>[:<serial>]`. `deviceId` của `PrinterDevice` USB đã là
- * `"<vendor_id>:<product_id>"`. Serial (đọc từ `UsbDeviceInfoModule`, cần quyền
+ * `"<vendor_id>:<product_id>"`. Serial (từ `USBPrinter.getDeviceList()`, cần quyền
  * USB — có sau khi user "Kết nối") pin thêm vào để rút/cắm lại đổi bus path
  * (`/dev/bus/usb/001/010` → `.../011`) vẫn nhận ra cùng máy. Không có serial thì
  * chỉ `vid:pid` — KHÔNG phân biệt được 2 máy cùng model cắm cùng lúc.

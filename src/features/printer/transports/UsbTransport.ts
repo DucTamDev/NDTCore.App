@@ -28,7 +28,7 @@ export class UsbTransport {
   async connect(vendorId: number, productId: number): Promise<void> {
     await ensureUsbInitialized();
     try {
-      await USBPrinter.connectPrinter(vendorId as unknown as string, productId as unknown as string);
+      await USBPrinter.connectPrinter(vendorId, productId);
     } catch (error) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }

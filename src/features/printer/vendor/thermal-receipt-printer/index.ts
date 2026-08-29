@@ -38,11 +38,53 @@ export interface PrinterImageOptions {
   paddingX?: number;
 }
 
-/** Thiết bị máy in USB (như native trả về). / USB printer device as returned by native. */
+/** 1 endpoint của USB interface. / One endpoint of a USB interface. */
+export interface UsbEndpointInfo {
+  address: number;
+  number: number;
+  direction: 'in' | 'out';
+  type: 'control' | 'isochronous' | 'bulk' | 'interrupt' | 'unknown';
+  maxPacketSize: number;
+  interval: number;
+}
+
+/** 1 interface của USB device. / One interface of a USB device. */
+export interface UsbInterfaceInfo {
+  id: number;
+  alternateSetting: number;
+  /** USB class code — 7 = Printer. */
+  class: number;
+  subclass: number;
+  /** 2 = bidirectional (IEEE-1284) → đọc được device ID / phản hồi. */
+  protocol: number;
+  name: string | null;
+  endpoints: UsbEndpointInfo[];
+}
+
+/**
+ * Thiết bị máy in USB — `getDeviceList()` trả TOÀN BỘ descriptor (xem
+ * `USBPrinterDevice.toRNWritableMap()` tầng native). `vendor_id`/`product_id`
+ * là `number` (native `putInt`); các field enrichment optional vì `serialNumber`
+ * cần quyền USB (Android 10+) và native cũ hơn có thể chưa build vào.
+ *
+ * USB printer device — `getDeviceList()` returns the full descriptor.
+ */
 export interface IUSBPrinter {
   device_name: string;
-  vendor_id: string;
-  product_id: string;
+  device_id?: number;
+  vendor_id: number;
+  product_id: number;
+  manufacturerName?: string | null;
+  productName?: string | null;
+  serialNumber?: string | null;
+  version?: string | null;
+  deviceClass?: number;
+  deviceSubclass?: number;
+  deviceProtocol?: number;
+  interfaces?: UsbInterfaceInfo[];
+  /** Có bulk-IN endpoint ở BẤT KỲ interface nào → đọc được phản hồi máy in. */
+  hasBulkInEndpoint?: boolean;
+  hasBulkOutEndpoint?: boolean;
 }
 
 /** Thiết bị máy in Bluetooth. / Bluetooth printer device. */
@@ -97,7 +139,7 @@ export const USBPrinter = {
       RNUSBPrinter.getDeviceList((printers: IUSBPrinter[]) => resolve(printers), (error: Error) => reject(error)),
     ),
 
-  connectPrinter: (vendorId: string, productId: string): Promise<IUSBPrinter> =>
+  connectPrinter: (vendorId: number, productId: number): Promise<IUSBPrinter> =>
     new Promise((resolve, reject) =>
       RNUSBPrinter.connectPrinter(
         vendorId,

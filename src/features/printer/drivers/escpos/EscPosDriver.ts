@@ -10,7 +10,6 @@ import { ensureBluetoothPermission } from '../../services/PrinterPermissionServi
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
 import { ensureUsbInitialized } from '../../adapters/UsbPrinterNativeAdapter';
-import { listUsbDevices, findUsbDescriptor } from '../../adapters/UsbPrinterInfoNative';
 import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibraryAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 
@@ -75,18 +74,15 @@ export class EscPosDriver implements IPrinterDriver {
           onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: d.inner_mac_address, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         } else {
-          const [libDevices, richDevices] = await Promise.all([USBPrinter.getDeviceList(), listUsbDevices()]);
+          const usbDevices = await USBPrinter.getDeviceList();
           if (cancelled) return;
-          LoggerService.debug('EscPosDriver.scan(usb): raw', { libDevices, richDevices });
-          const devices = libDevices.map((d) => {
-            const rich = findUsbDescriptor(richDevices, Number(d.vendor_id), Number(d.product_id));
-            return {
-              deviceId: `${d.vendor_id}:${d.product_id}`,
-              // Tên máy in thật (Xprinter XP-420B) thay cho path /dev/bus/usb/...
-              displayName: rich?.productName || rich?.manufacturerName || d.device_name,
-              rawDevice: { ...(rich ?? {}), ...d } as unknown as Record<string, unknown>,
-            };
-          });
+          LoggerService.debug('EscPosDriver.scan(usb): devices', { usbDevices });
+          const devices = usbDevices.map((d) => ({
+            deviceId: `${d.vendor_id}:${d.product_id}`,
+            // Tên máy in thật (Xprinter XP-420B) thay cho path /dev/bus/usb/...
+            displayName: d.productName || d.manufacturerName || d.device_name,
+            rawDevice: d as unknown as Record<string, unknown>,
+          }));
           onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
         }
@@ -129,8 +125,8 @@ export class EscPosDriver implements IPrinterDriver {
         const raw = printer.device?.rawDevice as unknown as UsbRawDevice | undefined;
         if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
         const result = await ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.usb).connectPrinter(
-          Number(raw.vendor_id) as unknown as string,
-          Number(raw.product_id) as unknown as string,
+          Number(raw.vendor_id),
+          Number(raw.product_id),
         );
         deviceName = result?.device_name;
       }
