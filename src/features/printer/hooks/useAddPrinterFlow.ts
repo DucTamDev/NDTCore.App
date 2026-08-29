@@ -258,7 +258,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   /**
    * `UsbDevice.serialNumber` chỉ đọc được sau khi user cấp quyền USB (bấm "Kết
    * nối") — lúc scan trả `null`. Gọi lại enumerate sau khi connect thành công
-   * để identityKey lưu được `usb:serial:<serial>` thay vì chỉ `vid:pid`.
+   * để identityKey pin thêm serial (`usb:<vid>:<pid>:<serial>`) thay vì chỉ `vid:pid`.
    */
   const refreshUsbSerial = async (): Promise<void> => {
     if (connectionType !== ConnectionType.usb || !selectedDevice) return;

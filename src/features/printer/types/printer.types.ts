@@ -64,9 +64,8 @@ export interface UsbRawDevice {
   productName?: string | null;
   serialNumber?: string | null;
   version?: string | null;
-  interfaceClass?: number;
-  interfaceSubclass?: number;
-  interfaceProtocol?: number;
+  /** Cấu trúc interface/endpoint đầy đủ — xem `adapters/UsbPrinterInfoNative.ts` `UsbInterfaceInfo`. */
+  interfaces?: unknown[];
   hasBulkInEndpoint?: boolean;
   hasBulkOutEndpoint?: boolean;
 }

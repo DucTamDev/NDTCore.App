@@ -1,7 +1,28 @@
 import { NativeModules } from 'react-native';
 import { LoggerService } from '../../../services/LoggerService';
 
-/** 1:1 với `UsbDeviceInfoModule.describe()` (Kotlin) — toàn bộ USB descriptor. */
+export interface UsbEndpointInfo {
+  address: number;
+  number: number;
+  direction: 'in' | 'out';
+  type: 'control' | 'isochronous' | 'bulk' | 'interrupt' | 'unknown';
+  maxPacketSize: number;
+  interval: number;
+}
+
+export interface UsbInterfaceInfo {
+  id: number;
+  alternateSetting: number;
+  /** USB class code — 7 = Printer. */
+  class: number;
+  subclass: number;
+  /** 2 = bidirectional (IEEE-1284) → đọc được device ID / phản hồi. */
+  protocol: number;
+  name: string | null;
+  endpoints: UsbEndpointInfo[];
+}
+
+/** 1:1 với `UsbDeviceInfoModule.describe()` (Kotlin) — descriptor lồng đầy đủ. */
 export interface UsbDeviceDescriptor {
   deviceName: string;
   deviceId: number;
@@ -15,11 +36,8 @@ export interface UsbDeviceDescriptor {
   deviceClass: number;
   deviceSubclass: number;
   deviceProtocol: number;
-  interfaceCount: number;
-  interfaceClass: number;
-  interfaceSubclass: number;
-  interfaceProtocol: number;
-  /** Có bulk-IN endpoint → về mặt vật lý đọc được phản hồi máy in (identify qua USB khả thi). */
+  interfaces: UsbInterfaceInfo[];
+  /** Có bulk-IN endpoint ở BẤT KỲ interface nào → đọc được phản hồi máy in (identify qua USB khả thi). */
   hasBulkInEndpoint: boolean;
   hasBulkOutEndpoint: boolean;
 }

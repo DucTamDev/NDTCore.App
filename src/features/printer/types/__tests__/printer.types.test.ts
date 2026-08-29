@@ -36,7 +36,7 @@ describe('printer domain types', () => {
       ],
       connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} },
-      identityKey: 'usb:device:1155:22222',
+      identityKey: 'usb:1155:22222',
       paperSize: 80,
       autoReconnect: false,
       enabled: true,

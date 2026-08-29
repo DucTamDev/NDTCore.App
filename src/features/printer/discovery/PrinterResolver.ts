@@ -13,10 +13,11 @@ export interface ResolveIdentityKeyInput {
  * KHÔNG tự quyết định "có phải trùng lặp không" — so khớp với printer đã lưu
  * là việc của `printing/PrinterService.ts` (spec §6.2).
  *
- * USB: ưu tiên `usb:serial:<serial>` (đọc từ `UsbDeviceInfoModule`, cần quyền
- * USB — có sau khi user "Kết nối"). Chưa có serial thì rơi về
- * `usb:device:<vendor_id:product_id>` — KHÔNG phân biệt được 2 máy cùng model
- * cắm cùng lúc, giới hạn đã biết.
+ * USB: `usb:<vid>:<pid>[:<serial>]`. `deviceId` của `PrinterDevice` USB đã là
+ * `"<vendor_id>:<product_id>"`. Serial (đọc từ `UsbDeviceInfoModule`, cần quyền
+ * USB — có sau khi user "Kết nối") pin thêm vào để rút/cắm lại đổi bus path
+ * (`/dev/bus/usb/001/010` → `.../011`) vẫn nhận ra cùng máy. Không có serial thì
+ * chỉ `vid:pid` — KHÔNG phân biệt được 2 máy cùng model cắm cùng lúc.
  */
 export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
   if (input.connectionType === ConnectionType.lan) {
@@ -30,6 +31,5 @@ export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
     return `bluetooth:mac:${input.device.deviceId}`;
   }
   const serial = (input.device.rawDevice as unknown as UsbRawDevice | undefined)?.serialNumber;
-  if (serial) return `usb:serial:${serial}`;
-  return `usb:device:${input.device.deviceId}`;
+  return serial ? `usb:${input.device.deviceId}:${serial}` : `usb:${input.device.deviceId}`;
 };
