@@ -13,29 +13,47 @@ import { AppErrorCode } from '../../../types/AppError';
 // specific to each namespace (not a shared `{host, port}`-style object), and
 // `printText()` is callback-based (`cbSuccess`/`cbErr`), not Promise-returning.
 // Mocks below reflect the real shapes.
-jest.mock('../../../adapters/native/ThermalPrinterNativeModule', () => ({
-  USBPrinter: {
+jest.mock('../../../adapters/native/ThermalPrinterNativeModule', () => {
+  const USBPrinter = {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'USB', vendor_id: '1155', product_id: '22222' }),
     printText: jest.fn((_t: string, _o: unknown, cb?: (msg: string) => void) => cb?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
-  },
-  BLEPrinter: {
+  };
+  const BLEPrinter = {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'BLE', inner_mac_address: '00:11:22:33:44:55' }),
     printText: jest.fn((_t: string, _o: unknown, cb?: (msg: string) => void) => cb?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
-  },
-  NetPrinter: {
+  };
+  const NetPrinter = {
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue({ device_name: 'Net', host: '192.168.1.50', port: 9100 }),
     printText: jest.fn((_t: string, _o: unknown, cb?: (msg: string) => void) => cb?.('ok')),
     closeConn: jest.fn().mockResolvedValue(undefined),
-  },
-}));
+  };
+  const namespaces: Record<string, unknown> = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
+  return {
+    USBPrinter,
+    BLEPrinter,
+    NetPrinter,
+    ThermalPrinterAdapter: {
+      namespaceFor: (connectionType: string) => namespaces[connectionType],
+      printTextAsync: (connectionType: string, text: string, options: unknown): Promise<void> =>
+        new Promise((resolve, reject) => {
+          (namespaces[connectionType] as { printText: jest.Mock }).printText(
+            text,
+            options,
+            () => resolve(),
+            (error: Error) => reject(error),
+          );
+        }),
+    },
+  };
+});
 jest.mock('../../../services/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));

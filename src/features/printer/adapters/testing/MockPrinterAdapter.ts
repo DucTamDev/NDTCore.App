@@ -3,7 +3,7 @@
  * test tự viết lại `jest.fn()` boilerplate cho từng adapter. KHÔNG dùng cho
  * production code (chỉ import được từ file test, phụ thuộc global `jest`).
  */
-export const createMockUsbPrinterNativeAdapter = () => ({
+export const createMockUsbPrinterNativeBridge = () => ({
   ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
   printRawDataUsb: jest.fn().mockResolvedValue(undefined),
 });

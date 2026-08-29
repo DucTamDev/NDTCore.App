@@ -9,8 +9,8 @@ import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppErr
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
-import { ensureUsbInitialized } from '../../adapters/native/UsbPrinterNativeAdapter';
-import { ThermalPrinterAdapter } from '../../adapters/native/ThermalPrinterAdapter';
+import { ensureUsbInitialized } from '../../adapters/native/UsbPrinterNativeBridge';
+import { ThermalPrinterAdapter } from '../../adapters/native/ThermalPrinterNativeModule';
 import { buildEscPosText } from './EscPosTextBuilder';
 
 /**

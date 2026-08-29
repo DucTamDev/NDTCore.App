@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native';
-import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeAdapter';
+import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeBridge';
 
 describe('ensureUsbInitialized', () => {
   const original = NativeModules.RNUSBPrinter;

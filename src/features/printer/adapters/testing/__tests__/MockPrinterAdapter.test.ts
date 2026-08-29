@@ -1,9 +1,9 @@
-import { createMockUsbPrinterNativeAdapter, createMockThermalPrinterAdapter } from '../MockPrinterAdapter';
+import { createMockUsbPrinterNativeBridge, createMockThermalPrinterAdapter } from '../MockPrinterAdapter';
 import { ConnectionType } from '../../../types/printer.types';
 
 describe('MockPrinterAdapter', () => {
-  it('createMockUsbPrinterNativeAdapter resolves ensureUsbInitialized and printRawDataUsb', async () => {
-    const mock = createMockUsbPrinterNativeAdapter();
+  it('createMockUsbPrinterNativeBridge resolves ensureUsbInitialized and printRawDataUsb', async () => {
+    const mock = createMockUsbPrinterNativeBridge();
     await expect(mock.ensureUsbInitialized()).resolves.toBeUndefined();
     await expect(mock.printRawDataUsb('AAAA', true)).resolves.toBeUndefined();
   });

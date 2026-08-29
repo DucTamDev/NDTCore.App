@@ -1,4 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
+import type { ConnectionType } from '../../types/printer.types';
 import * as EPToolkit from './EPToolkit';
 
 /**
@@ -257,5 +258,50 @@ export const NetPrinter = {
       (msg: string) => cbSuccess?.(msg),
       (error: Error) => cbErr?.(error),
     );
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Boundary cho `EscPosDriver`: chọn namespace theo connectionType + chuẩn hoá
+// `printText()` (callback) thành Promise (spec §2.3 — ngoại lệ pragmatic: gộp
+// connect+encode+write theo connectionType thay vì đi qua `Transport` chung).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Tuỳ chọn `printText` cho `EscPosDriver`. / `printText` options for `EscPosDriver`. */
+export interface ThermalPrinterPrintTextOptions {
+  keepConnection: boolean;
+  cut: boolean;
+  tailingLine: boolean;
+  encoding: 'UTF8';
+}
+
+interface ThermalPrinterNamespaceMap {
+  usb: typeof USBPrinter;
+  bluetooth: typeof BLEPrinter;
+  lan: typeof NetPrinter;
+}
+
+const namespaces: ThermalPrinterNamespaceMap = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
+
+export const ThermalPrinterAdapter = {
+  /**
+   * Generic theo `T extends ConnectionType` (thay vì trả union) để caller
+   * gọi `namespaceFor('lan').connectPrinter(ip, port)` được TypeScript suy
+   * luận đúng overload của từng namespace — 3 namespace có `connectPrinter`
+   * khác chữ ký hẳn nhau (LAN: `(host, port)`, BLE: `(mac)`, USB:
+   * `(vendorId, productId)`), trả union sẽ làm TS giao (intersect) tham số
+   * của cả 3 chữ ký lại thành `never`.
+   */
+  namespaceFor: <T extends ConnectionType>(connectionType: T): ThermalPrinterNamespaceMap[T] => namespaces[connectionType],
+
+  printTextAsync(connectionType: ConnectionType, text: string, options: ThermalPrinterPrintTextOptions): Promise<void> {
+    return new Promise((resolve, reject) => {
+      ThermalPrinterAdapter.namespaceFor(connectionType).printText(
+        text,
+        options,
+        () => resolve(),
+        (error: Error) => reject(error),
+      );
+    });
   },
 };
