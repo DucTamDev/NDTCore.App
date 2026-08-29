@@ -72,12 +72,12 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
 
-// Lớp JS của native module RN*Printer (adapters/native/ThermalPrinterNativeModule)
+// Lớp JS của native module RN*Printer (adapters/native/PrinterNativeModule)
 // gọi thẳng NativeModules.RN*Printer ở tầng namespace, nên bất kỳ test nào
 // transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
 // đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
 // UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
-jest.mock('./src/features/printer/adapters/native/ThermalPrinterNativeModule', () => {
+jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
   const namespace = () => ({
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),

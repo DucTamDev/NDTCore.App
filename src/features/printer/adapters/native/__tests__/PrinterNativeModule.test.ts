@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 const loadReal = () =>
-  jest.requireActual('../ThermalPrinterNativeModule') as typeof import('../ThermalPrinterNativeModule');
+  jest.requireActual('../PrinterNativeModule') as typeof import('../PrinterNativeModule');
 
 describe('ThermalPrinterAdapter', () => {
   it('namespaceFor returns the namespace matching each connectionType', () => {

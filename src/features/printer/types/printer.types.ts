@@ -53,7 +53,7 @@ export interface PrinterDevice {
 /**
  * Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'` —
  * chính là 1 phần tử `IUSBPrinter` từ `USBPrinter.getDeviceList()`
- * (`adapters/native/ThermalPrinterNativeModule`, tầng native `USBPrinterDevice.toRNWritableMap()`).
+ * (`adapters/native/PrinterNativeModule`, tầng native `USBPrinterDevice.toRNWritableMap()`).
  * `vendor_id`/`product_id` LUÔN có (`connect()` luôn `Number()` lại). Các field
  * enrichment optional — `serialNumber` cần quyền USB (Android 10+), native cũ
  * hơn có thể chưa build vào.
@@ -65,7 +65,7 @@ export interface UsbRawDevice {
   productName?: string | null;
   serialNumber?: string | null;
   version?: string | null;
-  /** Cấu trúc interface/endpoint đầy đủ — xem `adapters/native/ThermalPrinterNativeModule` `UsbInterfaceInfo`. */
+  /** Cấu trúc interface/endpoint đầy đủ — xem `adapters/native/PrinterNativeModule` `UsbInterfaceInfo`. */
   interfaces?: unknown[];
   hasBulkInEndpoint?: boolean;
   hasBulkOutEndpoint?: boolean;

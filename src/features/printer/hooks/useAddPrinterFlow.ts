@@ -9,7 +9,7 @@ import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { USBPrinter } from '../adapters/native/ThermalPrinterNativeModule';
+import { USBPrinter } from '../adapters/native/PrinterNativeModule';
 import {
   lanConnectionSchema,
   printerDisplaySchema,

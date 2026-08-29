@@ -17,7 +17,7 @@ export interface ConnectionResourceKeyInput {
  * - USB: `RNUSBPrinter` là native module singleton dùng chung giữa CẢ 2
  *   driver — 1 key toàn cục `"usb"` bất kể protocol.
  * - ESC/POS qua Bluetooth/LAN: native module RN*Printer (qua
- *   `adapters/native/ThermalPrinterNativeModule`) giữ đúng 1 kết nối / namespace,
+ *   `adapters/native/PrinterNativeModule`) giữ đúng 1 kết nối / namespace,
  *   singleton TOÀN CỤC theo connectionType — KHÔNG theo
  *   device. Thu hẹp xuống per-device sẽ tái tạo lại bug multi-printer đã
  *   fix trước đây (2 job tưởng độc lập nhưng cướp kết nối lẫn nhau).

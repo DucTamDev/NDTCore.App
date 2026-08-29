@@ -1,4 +1,4 @@
-import { USBPrinter } from '../adapters/native/ThermalPrinterNativeModule';
+import { USBPrinter } from '../adapters/native/PrinterNativeModule';
 import { Buffer } from 'buffer';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
 import { LoggerService } from '../../../services/LoggerService';

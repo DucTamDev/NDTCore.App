@@ -25,7 +25,7 @@ export const ensureUsbInitialized = (): Promise<void> => {
 /**
  * `printRawData` có sẵn ở tầng native (`USBPrinterAdapter.printRawData` —
  * decode base64 rồi `bulkTransfer()` gửi nguyên byte, không qua biến đổi
- * ESC/POS nào) nhưng `ThermalPrinterNativeModule` chỉ expose
+ * ESC/POS nào) nhưng `PrinterNativeModule` chỉ expose
  * `printText`/`printBill` — gọi thẳng native module cho TSPL, vốn là giao
  * thức byte thô không đi qua `printText` được.
  */
