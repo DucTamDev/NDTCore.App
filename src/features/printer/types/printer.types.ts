@@ -52,7 +52,7 @@ export interface PrinterDevice {
 
 /**
  * Hình dạng thật của `PrinterDevice.rawDevice` khi `connectionType === 'usb'`.
- * `vendor_id`/`product_id` (string từ thư viện `@poriyaalar`, hoặc number từ
+ * `vendor_id`/`product_id` (string từ module vendored `thermal-receipt-printer`, hoặc number từ
  * enumerate riêng — `connect()` luôn `Number()` lại) LUÔN có. Các field còn lại
  * là enrichment từ `UsbDeviceInfoModule` — optional vì native module có thể
  * chưa build vào, hoặc `serialNumber` chưa có quyền lúc scan.

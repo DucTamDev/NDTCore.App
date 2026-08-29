@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { USBPrinter, BLEPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
+import { USBPrinter, BLEPrinter } from '../../vendor/thermal-receipt-printer';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
@@ -15,7 +15,7 @@ import { ThermalPrinterLibraryAdapter } from '../../adapters/ThermalPrinterLibra
 import { buildEscPosText } from './EscPosTextBuilder';
 
 /**
- * Ngoại lệ pragmatic của ESC/POS (spec §2.3): thư viện vendor gộp
+ * Ngoại lệ pragmatic của ESC/POS (spec §2.3): module vendored gộp
  * connect+encode+write theo namespace riêng cho từng connectionType, không
  * đi qua `Transport` chung với TSPL. Driver này vẫn tự chọn namespace theo
  * connectionType nội bộ — giữ nguyên hành vi đã verify trên phần cứng thật

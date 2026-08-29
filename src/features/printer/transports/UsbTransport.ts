@@ -1,4 +1,4 @@
-import { USBPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
+import { USBPrinter } from '../vendor/thermal-receipt-printer';
 import { Buffer } from 'buffer';
 import { AppErrorException, AppErrorCode } from '../types/AppError';
 import { LoggerService } from '../../../services/LoggerService';

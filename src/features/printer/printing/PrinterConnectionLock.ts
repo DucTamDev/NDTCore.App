@@ -16,8 +16,8 @@ export interface ConnectionResourceKeyInput {
  *
  * - USB: `RNUSBPrinter` là native module singleton dùng chung giữa CẢ 2
  *   driver — 1 key toàn cục `"usb"` bất kể protocol.
- * - ESC/POS qua Bluetooth/LAN: thư viện `@poriyaalar/...` giữ đúng 1 kết nối
- *   native / namespace, singleton TOÀN CỤC theo connectionType — KHÔNG theo
+ * - ESC/POS qua Bluetooth/LAN: module vendored `printer/vendor/thermal-receipt-printer`
+ *   giữ đúng 1 kết nối native / namespace, singleton TOÀN CỤC theo connectionType — KHÔNG theo
  *   device. Thu hẹp xuống per-device sẽ tái tạo lại bug multi-printer đã
  *   fix trước đây (2 job tưởng độc lập nhưng cướp kết nối lẫn nhau).
  * - TSPL qua Bluetooth/LAN: `TsplDriver` tự quản lý transport riêng theo

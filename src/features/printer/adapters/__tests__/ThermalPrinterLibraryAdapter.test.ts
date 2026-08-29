@@ -1,4 +1,4 @@
-jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => ({
+jest.mock('../../vendor/thermal-receipt-printer', () => ({
   USBPrinter: { printText: jest.fn((_t: string, _o: unknown, cb?: () => void) => cb?.()) },
   BLEPrinter: { printText: jest.fn((_t: string, _o: unknown, cb?: () => void) => cb?.()) },
   NetPrinter: { printText: jest.fn((_t: string, _o: unknown, cb?: () => void) => cb?.()) },
@@ -12,7 +12,7 @@ describe('ThermalPrinterLibraryAdapter', () => {
 
   it('namespaceFor returns the namespace matching each connectionType', () => {
     const { USBPrinter, BLEPrinter, NetPrinter } = jest.requireMock(
-      '@poriyaalar/react-native-thermal-receipt-printer',
+      '../../vendor/thermal-receipt-printer',
     ) as Record<string, unknown>;
     expect(ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.usb)).toBe(USBPrinter);
     expect(ThermalPrinterLibraryAdapter.namespaceFor(ConnectionType.bluetooth)).toBe(BLEPrinter);
@@ -31,7 +31,7 @@ describe('ThermalPrinterLibraryAdapter', () => {
   });
 
   it('printTextAsync rejects when the library calls the error callback', async () => {
-    const { NetPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { NetPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       NetPrinter: { printText: jest.Mock };
     };
     NetPrinter.printText.mockImplementationOnce(

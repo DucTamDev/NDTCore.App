@@ -26,14 +26,14 @@ describe('UsbTransport.connect', () => {
   it('connects using vendor_id/product_id as numbers', async () => {
     const transport = new UsbTransport();
     await transport.connect(1155, 22222);
-    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     expect(USBPrinter.connectPrinter).toHaveBeenCalledWith(1155, 22222);
   });
 
   it('wraps a native connect failure into PRINTER_CONNECTION_FAILED', async () => {
-    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       USBPrinter: { connectPrinter: jest.Mock };
     };
     USBPrinter.connectPrinter.mockRejectedValueOnce(new Error('device not found'));
@@ -110,14 +110,14 @@ describe('UsbTransport.close', () => {
   it('closes the shared native USB connection', async () => {
     const transport = new UsbTransport();
     await transport.close();
-    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       USBPrinter: { closeConn: jest.Mock };
     };
     expect(USBPrinter.closeConn).toHaveBeenCalled();
   });
 
   it('wraps a native close failure into PRINTER_CONNECTION_FAILED instead of leaking a raw error', async () => {
-    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       USBPrinter: { closeConn: jest.Mock };
     };
     USBPrinter.closeConn.mockRejectedValueOnce(new Error('device already unplugged'));

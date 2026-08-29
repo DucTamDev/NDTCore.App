@@ -3,7 +3,7 @@ import { ensureUsbInitialized, printRawDataUsb } from '../UsbPrinterNativeAdapte
 
 describe('ensureUsbInitialized', () => {
   it('calls USBPrinter.init() only once even when called multiple times', async () => {
-    const { USBPrinter } = jest.requireMock('@poriyaalar/react-native-thermal-receipt-printer') as {
+    const { USBPrinter } = jest.requireMock('../../vendor/thermal-receipt-printer') as {
       USBPrinter: { init: jest.Mock };
     };
     const callsBefore = USBPrinter.init.mock.calls.length;

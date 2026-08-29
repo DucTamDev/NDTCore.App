@@ -130,6 +130,10 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Máy in nhiệt vendored trong repo (com.ndtcorepos.thermalprinter) — QRCode cho
+    // UtilsImage/*.printQRCode. Xem src/features/printer/vendor/thermal-receipt-printer/.
+    implementation("com.google.zxing:core:3.3.0")
 }
 
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"

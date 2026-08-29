@@ -1,4 +1,4 @@
-import { USBPrinter, BLEPrinter, NetPrinter } from '@poriyaalar/react-native-thermal-receipt-printer';
+import { USBPrinter, BLEPrinter, NetPrinter } from '../vendor/thermal-receipt-printer';
 import type { ConnectionType } from '../types/printer.types';
 
 export interface ThermalPrinterPrintTextOptions {
@@ -9,9 +9,9 @@ export interface ThermalPrinterPrintTextOptions {
 }
 
 /**
- * Boundary duy nhất giữa `EscPosDriver` và thư viện vendor
- * `@poriyaalar/react-native-thermal-receipt-printer` (spec §2.3 — ngoại lệ
- * pragmatic: thư viện gộp connect+encode+write theo namespace riêng cho
+ * Boundary duy nhất giữa `EscPosDriver` và module vendored
+ * `printer/vendor/thermal-receipt-printer` (spec §2.3 — ngoại lệ
+ * pragmatic: module gộp connect+encode+write theo namespace riêng cho
  * từng connectionType; `EscPosDriver` vẫn tự chọn namespace nội bộ). Adapter
  * này chỉ re-export namespace + chuẩn hoá `printText()` (callback-based)
  * thành Promise — không chứa business logic về máy in.

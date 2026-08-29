@@ -15,8 +15,8 @@ import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 
 /**
- * Đọc TOÀN BỘ USB descriptor mà Android phơi ra — thư viện `@poriyaalar/
- * react-native-thermal-receipt-printer` chỉ map `getDeviceName()` (đường
+ * Đọc TOÀN BỘ USB descriptor mà Android phơi ra — module in nhiệt vendored
+ * (`com.ndtcorepos.thermalprinter`) chỉ map `getDeviceName()` (đường
  * `/dev/bus/usb/...`), bỏ mất manufacturer/product/serial + toàn bộ
  * interface/endpoint. Module này chỉ ĐỌC, không mở kết nối.
  *

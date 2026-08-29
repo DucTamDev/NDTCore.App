@@ -72,13 +72,12 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
 
-// @poriyaalar/react-native-thermal-receipt-printer ships an ESM build that the
-// `react-native` Jest preset does not transform, so any test that transitively
-// imports ThermalReceiptDriver.ts — even without exercising it — fails to
-// parse unless the module is mocked here. Test files that need finer control
-// (e.g. ThermalReceiptDriver.test.ts) override this with their own local
-// jest.mock(), which takes precedence.
-jest.mock('@poriyaalar/react-native-thermal-receipt-printer', () => {
+// Module in nhiệt vendored (src/features/printer/vendor/thermal-receipt-printer)
+// gọi thẳng NativeModules.RN*Printer ở tầng namespace, nên bất kỳ test nào
+// transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
+// đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
+// UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
+jest.mock('./src/features/printer/vendor/thermal-receipt-printer', () => {
   const namespace = () => ({
     init: jest.fn().mockResolvedValue(undefined),
     getDeviceList: jest.fn().mockResolvedValue([]),
