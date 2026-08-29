@@ -1,10 +1,13 @@
 # adapters/library/
 
-Wrapper quanh **thư viện npm bên ngoài** dùng để giao tiếp với máy in.
+`IPrinterAdapter` chạy qua **thư viện npm generic** — không riêng máy in:
 
-Hiện **trống** — chưa có lib máy in nào được dùng trực tiếp ở tầng adapter.
-`react-native-bluetooth-classic` / `react-native-tcp-socket` đang được
-`transports/` gọi thẳng (chúng là transport byte generic, không riêng máy in).
+- `react-native-tcp-socket` (LAN)
+- `react-native-bluetooth-classic` (Bluetooth)
 
-Xem [`../native/`](../native/) cho bridge tới native module tự viết,
+`LibraryAdapter` bọc `transports/LanTransport` + `transports/BluetoothTransport`.
+Đọc được phản hồi (`read`) → TSPL dùng adapter này cho BLE/LAN (cần cho
+`identify` `~!T`). KHÔNG hỗ trợ USB.
+
+Xem [`../native/`](../native/) cho native module tự viết,
 [`../vendor/`](../vendor/) cho SDK hãng.

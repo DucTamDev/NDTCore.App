@@ -2,20 +2,18 @@ import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig, UsbRawDevice } from '../../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import { DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM } from './TsplEncoder';
 import { TsplFontManager } from './TsplFontManager';
 import { resolveTsplStrategy } from './TsplStrategyRegistry';
 import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
-import { LanTransport } from '../../transports/LanTransport';
-import { BluetoothTransport } from '../../transports/BluetoothTransport';
-import { UsbTransport } from '../../transports/UsbTransport';
+import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
+import { toConnectTarget } from '../../adapters/IPrinterAdapter';
+import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
-
-export type TsplTransport = LanTransport | BluetoothTransport | UsbTransport;
 
 const IDENTIFY_TIMEOUT_MS = 1000;
 
@@ -34,7 +32,7 @@ const resolveHeightMm = (driver: PrinterDriver, printType: PrintType): number =>
 };
 
 export class TsplDriver implements IPrinterDriver {
-  private connections = new Map<string, TsplTransport>();
+  private connections = new Map<string, IPrinterAdapter>();
   private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
@@ -43,12 +41,6 @@ export class TsplDriver implements IPrinterDriver {
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
-  }
-
-  private createTransport(connectionType: ConnectionType): TsplTransport {
-    if (connectionType === ConnectionType.lan) return new LanTransport();
-    if (connectionType === ConnectionType.bluetooth) return new BluetoothTransport();
-    return new UsbTransport();
   }
 
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
@@ -100,22 +92,13 @@ export class TsplDriver implements IPrinterDriver {
     this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
     try {
-      const transport = this.createTransport(printer.connectionType);
-      if (printer.connectionType === ConnectionType.lan) {
-        if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-        await (transport as LanTransport).connect(printer.lan.ip, printer.lan.port);
-      } else if (printer.connectionType === ConnectionType.bluetooth) {
-        if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+      if (printer.connectionType === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
         if (!granted) throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
-        await (transport as BluetoothTransport).connect(printer.device.deviceId);
-      } else {
-        if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị USB' });
-        const raw = printer.device.rawDevice as unknown as UsbRawDevice | undefined;
-        if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-        await (transport as UsbTransport).connect(Number(raw.vendor_id), Number(raw.product_id));
       }
-      this.connections.set(printer.id, transport);
+      const adapter = resolvePrinterAdapter(PrinterDriverType.tspl, printer.connectionType);
+      await adapter.connect(toConnectTarget(printer));
+      this.connections.set(printer.id, adapter);
       this.contexts.set(printer.id, { printer, driver });
       this.setStatus(printer.id, PrinterStatus.connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
@@ -128,9 +111,9 @@ export class TsplDriver implements IPrinterDriver {
 
   async disconnect(printerId: string): Promise<void> {
     this.setStatus(printerId, PrinterStatus.disconnecting);
-    const transport = this.connections.get(printerId);
+    const adapter = this.connections.get(printerId);
     try {
-      await transport?.close();
+      await adapter?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error) });
@@ -174,25 +157,15 @@ export class TsplDriver implements IPrinterDriver {
     return strategy.encode(context);
   }
 
-  private async writeBytes(printer: Printer, transport: TsplTransport | undefined, bytes: Uint8Array): Promise<void> {
-    if (printer.connectionType === ConnectionType.lan) {
-      (transport as LanTransport).write(bytes);
-    } else if (printer.connectionType === ConnectionType.bluetooth) {
-      await (transport as BluetoothTransport).write(bytes);
-    } else {
-      await (transport as UsbTransport).write(bytes);
-    }
-  }
-
   async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void> {
     const startedAt = Date.now();
     try {
       if (!this.connections.has(printer.id)) {
         await this.connect(printer, driver);
       }
-      const transport = this.connections.get(printer.id);
+      const adapter = this.connections.get(printer.id);
       const bytes = this.buildBytes(printer, driver, documents, printType);
-      await this.writeBytes(printer, transport, bytes);
+      await adapter?.write(bytes);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -202,8 +175,8 @@ export class TsplDriver implements IPrinterDriver {
 
   async print(printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> {
     const context = this.contexts.get(printerId);
-    const transport = this.connections.get(printerId);
-    if (!context || !transport) {
+    const adapter = this.connections.get(printerId);
+    if (!context || !adapter) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
     // RULE 33 / Invariant 45: mọi print failure phải được log cùng event
@@ -212,7 +185,7 @@ export class TsplDriver implements IPrinterDriver {
     const startedAt = Date.now();
     try {
       const bytes = this.buildBytes(context.printer, context.driver, documents, printType);
-      await this.writeBytes(context.printer, transport, bytes);
+      await adapter.write(bytes);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -221,12 +194,12 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
-    const transport = this.connections.get(printerId);
-    if (!transport || !('readOnce' in transport)) return null;
+    const adapter = this.connections.get(printerId);
+    if (!adapter) return null;
     try {
       const query = encodeAsciiCommand('~!T\r\n');
-      await transport.write(query);
-      const response = await transport.readOnce(IDENTIFY_TIMEOUT_MS);
+      await adapter.write(query);
+      const response = await adapter.read(IDENTIFY_TIMEOUT_MS);
       return response && response.length > 0 ? {} : null;
     } catch {
       return null;
@@ -234,10 +207,10 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async installTsplFont(printerId: string, font: TsplFontConfig): Promise<void> {
-    const transport = this.connections.get(printerId);
-    if (!transport) {
+    const adapter = this.connections.get(printerId);
+    if (!adapter) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
-    await this.fontManager.downloadFont(transport, font);
+    await this.fontManager.downloadFont(adapter, font);
   }
 }

@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { TsplFontConfig } from '../../types/printer.types';
-import type { TsplTransport } from './TsplDriver';
+import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 
 /** Font mặc định bundle sẵn trong app — chỉ 1 font ở phase này, xem spec §4/§10. */
 export const DEFAULT_TSPL_FONT: TsplFontConfig = {
@@ -25,8 +25,8 @@ export const DEFAULT_TSPL_FONT: TsplFontConfig = {
  * giới hạn USB-chỉ-Android đã có trong module này.
  */
 export class TsplFontManager {
-  async downloadFont(transport: TsplTransport, font: TsplFontConfig): Promise<void> {
-    LoggerService.debug('downloadFont: bắt đầu', { name: font.name, fileName: font.fileName, transport: transport.constructor.name });
+  async downloadFont(adapter: IPrinterAdapter, font: TsplFontConfig): Promise<void> {
+    LoggerService.debug('downloadFont: bắt đầu', { name: font.name, fileName: font.fileName, adapter: adapter.source });
     if (Platform.OS !== 'android') {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
     }
@@ -58,10 +58,10 @@ export class TsplFontManager {
     }
 
     try {
-      await transport.write(payload);
-      LoggerService.debug('downloadFont: transport.write xong', { payloadTotal: payload.length });
+      await adapter.write(payload);
+      LoggerService.debug('downloadFont: adapter.write xong', { payloadTotal: payload.length });
     } catch (error) {
-      LoggerService.warning('downloadFont: transport.write FAIL', { payloadTotal: payload.length, error: error instanceof Error ? error.message : String(error) });
+      LoggerService.warning('downloadFont: adapter.write FAIL', { payloadTotal: payload.length, error: error instanceof Error ? error.message : String(error) });
       throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_INSTALL_FAILED, message: error instanceof Error ? error.message : String(error) });
     }
   }
