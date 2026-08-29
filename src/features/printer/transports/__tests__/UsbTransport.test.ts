@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import { UsbTransport } from '../UsbTransport';
 import { AppErrorException, AppErrorCode } from '../../types/AppError';
 
@@ -50,7 +51,34 @@ describe('UsbTransport.write', () => {
     };
     const transport = new UsbTransport();
     await transport.write(new Uint8Array([0x41, 0x42]));
+    expect(printRawDataUsb).toHaveBeenCalledTimes(1);
     expect(printRawDataUsb).toHaveBeenCalledWith('QUI=', true);
+  });
+
+  it('splits a payload larger than 16KB into ≤16KB chunks (font DOWNLOAD case)', async () => {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+      printRawDataUsb: jest.Mock;
+    };
+    const transport = new UsbTransport();
+    await transport.write(new Uint8Array(40 * 1024)); // ~font-sized
+    expect(printRawDataUsb).toHaveBeenCalledTimes(3); // 16 + 16 + 8 KB
+    for (const [, keepConnection] of printRawDataUsb.mock.calls) {
+      expect(keepConnection).toBe(true);
+    }
+    // mỗi chunk decode ra ≤ 16KB
+    for (const [b64] of printRawDataUsb.mock.calls) {
+      expect(Buffer.from(b64 as string, 'base64').length).toBeLessThanOrEqual(16 * 1024);
+    }
+  });
+
+  it('surfaces a mid-stream chunk failure as PRINTER_WRITE_FAILED', async () => {
+    const { printRawDataUsb } = jest.requireMock('../../adapters/UsbPrinterNativeAdapter') as {
+      printRawDataUsb: jest.Mock;
+    };
+    printRawDataUsb.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('USB print failed'));
+    const transport = new UsbTransport();
+    await expect(transport.write(new Uint8Array(20 * 1024))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
+    expect(printRawDataUsb).toHaveBeenCalledTimes(2);
   });
 
   it('wraps a native write failure into PRINTER_WRITE_FAILED', async () => {

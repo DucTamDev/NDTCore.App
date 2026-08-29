@@ -6,6 +6,16 @@ import { ensureUsbInitialized, printRawDataUsb } from '../adapters/UsbPrinterNat
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
+ * Android `UsbDeviceConnection.bulkTransfer(ep, buf, len, timeout)` fail (trả
+ * `-1` ngay, không phải timeout) khi `len` vượt giới hạn 1 transfer (~16KB tuỳ
+ * kernel). Print bill/tem vài KB đi 1 lần bình thường; font `DOWNLOAD` (~145KB)
+ * hoặc bitmap dài phải chia. Gửi từng chunk với `keepConnection=true` — máy in
+ * TSPL đệm input thành 1 luồng, `DOWNLOAD` đọc đúng `byteCount` đã khai báo bất
+ * kể chia mấy lần.
+ */
+const USB_WRITE_CHUNK_BYTES = 16 * 1024;
+
+/**
  * Transport TSPL-qua-USB, dùng chung native module `RNUSBPrinter` với
  * `ThermalReceiptDriver` (escpos) — xem `UsbPrinterNative.ts` cho lý do cần
  * memoize `init()` dùng chung. Không có khả năng đọc phản hồi (chỉ có
@@ -25,7 +35,10 @@ export class UsbTransport {
 
   async write(bytes: Uint8Array): Promise<void> {
     try {
-      await printRawDataUsb(Buffer.from(bytes).toString('base64'), true);
+      for (let offset = 0; offset < bytes.length; offset += USB_WRITE_CHUNK_BYTES) {
+        const chunk = bytes.subarray(offset, offset + USB_WRITE_CHUNK_BYTES);
+        await printRawDataUsb(Buffer.from(chunk).toString('base64'), true);
+      }
     } catch (error) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: errorMessage(error) });
     }
