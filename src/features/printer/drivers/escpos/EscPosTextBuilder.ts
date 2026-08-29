@@ -4,10 +4,9 @@ import type { PrintDocuments } from '../../types/driver.types';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../utils/paperWidth';
 
 /**
- * `documents.text` → chuỗi text ESC/POS in được. THUẦN — không connect / native.
- * Phục vụ `EscPosDriver` nội bộ + unit test. Production ESC/POS vẫn qua
- * `ThermalPrinterAdapter.printTextAsync` (ngoại lệ pragmatic, xem
- * `EscPosDriver.printText`).
+ * `documents.text` → chuỗi text ESC/POS (có tag `<C>`/`<B>`…). THUẦN — không
+ * connect / native. `EscPosDriver` đưa chuỗi này cho `NativeAdapter.printText`
+ * (adapter tự encode ra byte qua `EPToolkit`).
  */
 export const buildEscPosText = (paperSize: PaperSize, documents: PrintDocuments): string => {
   const paperWidth = PAPER_WIDTH_CHARS[paperSize];

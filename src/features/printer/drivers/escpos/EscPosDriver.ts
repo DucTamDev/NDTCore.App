@@ -2,44 +2,35 @@ import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
 import type { PrintType } from '../../types/printConfiguration.types';
 import { AppErrorException, AppErrorCode, errorCodeOf } from '../../types/AppError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
-import { USBPrinter, BLEPrinter, ensureUsbInitialized, ThermalPrinterAdapter } from '../../adapters/native/PrinterNativeModule';
+import { NativeAdapter } from '../../adapters/native/NativeAdapter';
+import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 
+const ESC_POS_PRINT_OPTIONS = { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' } as const;
+
 /**
- * Ngoại lệ pragmatic của ESC/POS (spec §2.3): native module RN*Printer gộp
- * connect+encode+write theo namespace riêng cho từng connectionType, không
- * đi qua `Transport` chung với TSPL. Driver này vẫn tự chọn namespace theo
- * connectionType nội bộ — giữ nguyên hành vi đã verify trên phần cứng thật
- * (UTF-8 mode-switch, `keepConnection` NPE workaround...).
+ * ESC/POS đi qua `NativeAdapter` (`IPrinterAdapter`) — native module RN*Printer
+ * gộp connect+encode+write theo namespace/connectionType (spec §2.3, ngoại lệ
+ * pragmatic: KHÔNG dùng `read`, `printText` encode ở JS `EPToolkit`). Native là
+ * singleton per connectionType → `activeByType` giữ đúng 1 owner/loại.
  */
 export class EscPosDriver implements IPrinterDriver {
+  private adapters = new Map<string, NativeAdapter>();
   private connectedTypes = new Map<string, ConnectionType>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
-  private initialized = new Set<ConnectionType>();
-  private deviceInfos = new Map<string, PrinterDeviceInfo>();
   private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
   private activeByType = new Map<ConnectionType, string>();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
-  }
-
-  private async ensureInitialized(connectionType: ConnectionType): Promise<void> {
-    if (this.initialized.has(connectionType)) return;
-    if (connectionType === ConnectionType.usb) {
-      await ensureUsbInitialized();
-    } else {
-      await ThermalPrinterAdapter.namespaceFor(connectionType).init();
-    }
-    this.initialized.add(connectionType);
   }
 
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
@@ -64,26 +55,11 @@ export class EscPosDriver implements IPrinterDriver {
             return;
           }
         }
-        await this.ensureInitialized(connectionType);
+        const devices = await new NativeAdapter().listDevices(connectionType);
         if (cancelled) return;
-        if (connectionType === ConnectionType.bluetooth) {
-          const devices = await BLEPrinter.getDeviceList();
-          if (cancelled) return;
-          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices: devices.map((d) => ({ deviceId: d.inner_mac_address, displayName: d.device_name, rawDevice: d as unknown as Record<string, unknown> })) });
-          PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
-        } else {
-          const usbDevices = await USBPrinter.getDeviceList();
-          if (cancelled) return;
-          LoggerService.debug('EscPosDriver.scan(usb): devices', { usbDevices });
-          const devices = usbDevices.map((d) => ({
-            deviceId: `${d.vendor_id}:${d.product_id}`,
-            // Tên máy in thật (Xprinter XP-420B) thay cho path /dev/bus/usb/...
-            displayName: d.productName || d.manufacturerName || d.device_name,
-            rawDevice: d as unknown as Record<string, unknown>,
-          }));
-          onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
-          PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
-        }
+        LoggerService.debug('EscPosDriver.scan: devices', { connectionType, devices });
+        onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
+        PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
@@ -108,28 +84,11 @@ export class EscPosDriver implements IPrinterDriver {
         const granted = await ensureBluetoothPermission();
         if (!granted) throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
       }
-      await this.ensureInitialized(printer.connectionType);
 
-      let deviceName: string | undefined;
-      if (printer.connectionType === ConnectionType.lan) {
-        if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.lan).connectPrinter(printer.lan.ip, printer.lan.port);
-        deviceName = result?.device_name;
-      } else if (printer.connectionType === ConnectionType.bluetooth) {
-        if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
-        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.bluetooth).connectPrinter(printer.device.deviceId);
-        deviceName = result?.device_name;
-      } else {
-        const raw = printer.device?.rawDevice as unknown as UsbRawDevice | undefined;
-        if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-        const result = await ThermalPrinterAdapter.namespaceFor(ConnectionType.usb).connectPrinter(
-          Number(raw.vendor_id),
-          Number(raw.product_id),
-        );
-        deviceName = result?.device_name;
-      }
+      const adapter = new NativeAdapter();
+      await adapter.connect(toConnectTarget(printer));
 
-      if (deviceName) this.deviceInfos.set(printer.id, { deviceName });
+      this.adapters.set(printer.id, adapter);
       this.connectedTypes.set(printer.id, printer.connectionType);
       this.contexts.set(printer.id, { printer, driver });
 
@@ -150,39 +109,39 @@ export class EscPosDriver implements IPrinterDriver {
   async disconnect(printerId: string): Promise<void> {
     this.setStatus(printerId, PrinterStatus.disconnecting);
     const connectionType = this.connectedTypes.get(printerId);
+    const isActiveOwner = Boolean(connectionType) && this.activeByType.get(connectionType!) === printerId;
     try {
-      if (connectionType && this.activeByType.get(connectionType) === printerId) {
-        await ThermalPrinterAdapter.namespaceFor(connectionType).closeConn();
-      }
+      if (isActiveOwner) await this.adapters.get(printerId)?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
       throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
-      if (connectionType && this.activeByType.get(connectionType) === printerId) this.activeByType.delete(connectionType);
+      if (isActiveOwner) this.activeByType.delete(connectionType!);
+      this.adapters.delete(printerId);
       this.connectedTypes.delete(printerId);
-      this.deviceInfos.delete(printerId);
       this.contexts.delete(printerId);
     }
     this.setStatus(printerId, PrinterStatus.disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
-  private async printText(connectionType: ConnectionType, printer: Printer, documents: PrintDocuments): Promise<void> {
+  private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
     const text = buildEscPosText(printer.paperSize, documents);
-    await ThermalPrinterAdapter.printTextAsync(connectionType, text, { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
+    await adapter.printText(text, ESC_POS_PRINT_OPTIONS);
   }
 
   /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */
   async print(printerId: string, documents: PrintDocuments, _printType: PrintType): Promise<void> {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
-    if (!context || !connectionType || this.activeByType.get(connectionType) !== printerId) {
+    const adapter = this.adapters.get(printerId);
+    if (!context || !connectionType || !adapter || this.activeByType.get(connectionType) !== printerId) {
       throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
     const startedAt = Date.now();
     try {
-      await this.printText(connectionType, context.printer, documents);
+      await this.sendDocuments(adapter, context.printer, documents);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -205,12 +164,12 @@ export class EscPosDriver implements IPrinterDriver {
     const startedAt = Date.now();
     try {
       const isStaleOwner = this.activeByType.get(printer.connectionType) !== printer.id;
-      if (!this.connectedTypes.has(printer.id) || isStaleOwner) {
+      if (!this.adapters.has(printer.id) || isStaleOwner) {
         await this.connect(printer, driver);
       }
-      const connectionType = this.connectedTypes.get(printer.id);
-      if (!connectionType) return;
-      await this.printText(connectionType, printer, documents);
+      const adapter = this.adapters.get(printer.id);
+      if (!adapter) return;
+      await this.sendDocuments(adapter, printer, documents);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -218,10 +177,14 @@ export class EscPosDriver implements IPrinterDriver {
     }
   }
 
+  /**
+   * ESC/POS không có discriminator thật (native không `read`). Trả `{}` khi đã
+   * kết nối (BLE/LAN — "weak confirm" cho auto-detect, xem `PrinterDiscoveryService`),
+   * `null` cho USB (không bao giờ tự xác nhận protocol qua USB — xem CLAUDE.md).
+   */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
-    if (!connectionType) return null;
-    if (connectionType === ConnectionType.usb) return null;
-    return this.deviceInfos.get(printerId) ?? null;
+    if (!connectionType || connectionType === ConnectionType.usb) return null;
+    return this.adapters.has(printerId) ? {} : null;
   }
 }

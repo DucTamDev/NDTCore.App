@@ -267,17 +267,24 @@ export const NetPrinter = {
 // `UsbTransport`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-let usbInitPromise: Promise<void> | null = null;
+const initPromises: Partial<Record<ConnectionType, Promise<void>>> = {};
 
 /**
- * Gọi `USBPrinter.init()` 2 lần từ 2 driver độc lập sẽ đăng ký trùng
- * `BroadcastReceiver` ở tầng native (`USBPrinterAdapter.init()`). Memoize để
- * toàn app chỉ `init()` đúng 1 lần bất kể driver nào gọi trước.
+ * `RN*Printer` là native singleton per connectionType — gọi `init()` 2 lần từ 2
+ * driver/adapter độc lập sẽ đăng ký trùng `BroadcastReceiver` / listener ở tầng
+ * native. Memoize theo connectionType để toàn app chỉ `init()` đúng 1 lần.
  */
-export const ensureUsbInitialized = (): Promise<void> => {
-  if (!usbInitPromise) usbInitPromise = USBPrinter.init();
-  return usbInitPromise;
+export const ensureNativeInitialized = (connectionType: ConnectionType): Promise<void> => {
+  const existing = initPromises[connectionType];
+  if (existing) return existing;
+  const ns = connectionType === 'usb' ? USBPrinter : connectionType === 'bluetooth' ? BLEPrinter : NetPrinter;
+  const promise = ns.init();
+  initPromises[connectionType] = promise;
+  return promise;
 };
+
+/** @deprecated dùng `ensureNativeInitialized('usb')`. */
+export const ensureUsbInitialized = (): Promise<void> => ensureNativeInitialized('usb');
 
 /**
  * Ghi byte thô (base64) qua USB — `RNUSBPrinter.printRawData` decode base64 rồi
@@ -292,6 +299,18 @@ export const printRawDataUsb = (base64Data: string, keepConnection: boolean): Pr
       () => resolve(),
       (error: Error) => reject(error),
     );
+  });
+
+/** Ghi byte thô (base64) qua Bluetooth — `RNBLEPrinter.printRawData`, không encode. */
+export const printRawDataBluetooth = (base64Data: string, keepConnection: boolean): Promise<void> =>
+  new Promise((resolve, reject) => {
+    RNBLEPrinter.printRawData(base64Data, keepConnection, () => resolve(), (error: Error) => reject(error));
+  });
+
+/** Ghi byte thô (base64) qua LAN — `RNNetPrinter.printRawData`, không encode. */
+export const printRawDataLan = (base64Data: string, keepConnection: boolean): Promise<void> =>
+  new Promise((resolve, reject) => {
+    RNNetPrinter.printRawData(base64Data, keepConnection, () => resolve(), (error: Error) => reject(error));
   });
 
 // ─────────────────────────────────────────────────────────────────────────────

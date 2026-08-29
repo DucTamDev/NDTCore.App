@@ -100,7 +100,10 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
       printTextAsync: jest.fn().mockResolvedValue(undefined),
     },
     ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
+    ensureNativeInitialized: jest.fn().mockResolvedValue(undefined),
     printRawDataUsb: jest.fn().mockResolvedValue(undefined),
+    printRawDataBluetooth: jest.fn().mockResolvedValue(undefined),
+    printRawDataLan: jest.fn().mockResolvedValue(undefined),
   };
 });
 

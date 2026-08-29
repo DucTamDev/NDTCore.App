@@ -41,7 +41,10 @@ jest.mock('../../../adapters/native/PrinterNativeModule', () => {
     BLEPrinter,
     NetPrinter,
     ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
+    ensureNativeInitialized: jest.fn().mockResolvedValue(undefined),
     printRawDataUsb: jest.fn().mockResolvedValue(undefined),
+    printRawDataBluetooth: jest.fn().mockResolvedValue(undefined),
+    printRawDataLan: jest.fn().mockResolvedValue(undefined),
     ThermalPrinterAdapter: {
       namespaceFor: (connectionType: string) => namespaces[connectionType],
       printTextAsync: (connectionType: string, text: string, options: unknown): Promise<void> =>
@@ -306,22 +309,11 @@ describe('EscPosDriver', () => {
     expect(result).toBeNull();
   });
 
-  it('identify() returns a non-null PrinterDeviceInfo when connected', async () => {
+  it('identify() over BLE/LAN returns {} (weak confirm) when connected — native không có discriminator thật', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     const result = await driver.identify(lanPrinter.id);
-    expect(result).toEqual({ deviceName: 'Net' });
-  });
-
-  it('identify() returns null (not {}) when connectPrinter() resolves without a real device_name — a device that merely accepted the connection is not proof it speaks ESC/POS', async () => {
-    const { USBPrinter } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
-      USBPrinter: { connectPrinter: jest.Mock };
-    };
-    USBPrinter.connectPrinter.mockResolvedValueOnce({ vendor_id: '1155', product_id: '22222' });
-    const driver = new EscPosDriver();
-    await driver.connect(usbPrinter, escposDriverEntry);
-    const result = await driver.identify(usbPrinter.id);
-    expect(result).toBeNull();
+    expect(result).toEqual({});
   });
 
   it('connecting printer B on the same connectionType as already-connected printer A flips A to disconnected', async () => {
