@@ -62,7 +62,7 @@ src/
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module
 ├── theme/                 # React Native Paper theme
-├── types/                 # ApiResponse dùng chung toàn app (AppError chuyển vào features/printer/types/ — chỉ printer dùng)
+├── types/                 # ApiResponse dùng chung toàn app (PrinterError chuyển vào features/printer/types/ — chỉ printer dùng)
 └── utils/
 ```
 

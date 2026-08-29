@@ -1,6 +1,6 @@
 import { LibraryAdapter } from '../LibraryAdapter';
 import { ConnectionType } from '../../../types/printer.types';
-import { AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorCode } from '../../../types/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -36,7 +36,7 @@ describe('LibraryAdapter', () => {
   it('connect(usb) -> PRINTER_UNSUPPORTED_CONNECTION', async () => {
     await expect(
       new LibraryAdapter().connect({ connectionType: ConnectionType.usb, usb: { vendorId: 1, productId: 2 } }),
-    ).rejects.toMatchObject({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
+    ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
   it('connect(lan) mở LanTransport với ip/port', async () => {
@@ -70,7 +70,7 @@ describe('LibraryAdapter', () => {
 
   it('write trước connect -> PRINTER_NOT_CONNECTED', async () => {
     await expect(new LibraryAdapter().write(new Uint8Array([1]))).rejects.toMatchObject({
-      code: AppErrorCode.PRINTER_NOT_CONNECTED,
+      code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
     });
   });
 });

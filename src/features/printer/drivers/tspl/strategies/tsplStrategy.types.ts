@@ -19,7 +19,7 @@ export interface TsplStrategyContext {
 
 export interface ITsplPrintStrategy {
   readonly mode: TsplRenderMode;
-  /** Ném `AppErrorException` (TSPL_*) nếu context không đủ điều kiện. KHÔNG trả bool, KHÔNG fallback. */
+  /** Ném `PrinterErrorException` (TSPL_*) nếu context không đủ điều kiện. KHÔNG trả bool, KHÔNG fallback. */
   validate(context: TsplStrategyContext): void;
   /** Thuần: context → raw TSPL bytes. */
   encode(context: TsplStrategyContext): Uint8Array;

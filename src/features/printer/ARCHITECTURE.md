@@ -2067,7 +2067,7 @@ interface PrintJob {
 
   retryCount: number;
 
-  error?: AppError;
+  error?: PrinterError;
 
   createdAt: string;
 
@@ -2394,7 +2394,7 @@ Adapter / Transport
  ↓
 Driver
  ↓
-AppError
+PrinterError
 ```
 
 ---
@@ -3515,7 +3515,7 @@ Các invariant dưới đây là **MUST**.
 
 ### Error
 
-41. Native errors phải normalize thành `AppError`.
+41. Native errors phải normalize thành `PrinterError`.
 42. Rendering error là hard failure.
 43. Không có implicit fallback.
 44. Printing failure không làm payment fail.
@@ -3712,7 +3712,7 @@ RULE 30
 Duplicate physical printers MUST be rejected.
 
 RULE 31
-Native errors MUST be normalized to AppError.
+Native errors MUST be normalized to PrinterError.
 
 RULE 32
 Print failure MUST NOT block successful payment.

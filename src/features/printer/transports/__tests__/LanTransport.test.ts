@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { LanTransport } from '../LanTransport';
-import { AppErrorCode } from '../../types/AppError';
+import { PrinterErrorCode } from '../../types/PrinterError';
 
 type DataListener = (data: Buffer | string) => void;
 
@@ -76,7 +76,7 @@ describe('LanTransport.write', () => {
     } catch (error) {
       caught = error;
     }
-    expect(caught).toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
+    expect(caught).toMatchObject({ code: PrinterErrorCode.PRINTER_WRITE_FAILED });
   });
 });
 
@@ -99,7 +99,7 @@ describe('LanTransport.connect', () => {
     jest.advanceTimersByTime(5000);
 
     await expect(connectPromise).rejects.toThrow();
-    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT });
+    await expect(connectPromise).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_TIMEOUT });
     expect(tcpSocketMock.__mockSocket.destroy).toHaveBeenCalled();
   });
 
@@ -112,6 +112,6 @@ describe('LanTransport.connect', () => {
     tcpSocketMock.__emit('error', new Error('ECONNREFUSED 192.168.1.60:9100'));
 
     await expect(connectPromise).rejects.toThrow();
-    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
+    await expect(connectPromise).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
   });
 });

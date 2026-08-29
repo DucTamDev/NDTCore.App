@@ -1,6 +1,6 @@
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
-import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
 import { CONNECT_TIMEOUT_MS } from '../config/printerConfig';
 
 /**
@@ -32,7 +32,7 @@ export class LanTransport {
         settled = true;
         socket.destroy();
         this.socket = null;
-        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT, message: 'Kết nối LAN quá thời gian chờ' }));
+        reject(new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_TIMEOUT, message: 'Kết nối LAN quá thời gian chờ' }));
       }, timeoutMs);
       const socket = TcpSocket.createConnection({ host: ip, port }, () => {
         if (settled) return;
@@ -47,7 +47,7 @@ export class LanTransport {
         // Socket 'error' lúc connect = từ chối kết nối / host không tới được —
         // map sang PRINTER_CONNECTION_FAILED để `errorCodeOf()` không trả
         // UNKNOWN_ERROR cho lỗi LAN phổ biến nhất (spec §6.2).
-        reject(new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: error.message }));
+        reject(new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error.message }));
       });
       this.socket = socket;
     });
@@ -55,7 +55,7 @@ export class LanTransport {
 
   write(bytes: Uint8Array): void {
     if (!this.socket) {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: 'LAN socket chưa được kết nối' });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: 'LAN socket chưa được kết nối' });
     }
     this.socket.write(bytes);
   }

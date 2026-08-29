@@ -1,7 +1,7 @@
 import { createPrintScheduler } from '../PrintScheduler';
 import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
@@ -31,15 +31,15 @@ describe('PrintScheduler', () => {
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and an AppError when PrinterService.print rejects', async () => {
+  it('enqueue() resolves with status failed and an PrinterError when PrinterService.print rejects', async () => {
     const printerService = {
-      print: jest.fn().mockRejectedValue(new AppErrorException({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
+      print: jest.fn().mockRejectedValue(new PrinterErrorException({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.failed);
-    expect(result.error).toEqual({ code: AppErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
+    expect(result.error).toEqual({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {

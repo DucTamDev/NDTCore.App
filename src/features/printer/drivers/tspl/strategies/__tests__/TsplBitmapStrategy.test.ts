@@ -1,6 +1,6 @@
 import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
-import { AppErrorCode } from '../../../../types/AppError';
+import { PrinterErrorCode } from '../../../../types/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../types/printConfiguration.types';
 import type { Printer, PrinterDriver } from '../../../../types/printer.types';
@@ -48,7 +48,7 @@ describe('TsplBitmapStrategy', () => {
     try {
       s.validate(ctx({ documents: { text: { elements: [] } } }));
     } catch (e) {
-      expect(e).toMatchObject({ code: AppErrorCode.TSPL_IMAGE_REQUIRED });
+      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_REQUIRED });
     }
   });
 
@@ -68,7 +68,7 @@ describe('TsplBitmapStrategy', () => {
     try {
       s.encode(ctx({ documents: { text: { elements: [] }, image: 'bm90LWEtcG5n' } }));
     } catch (e) {
-      expect(e).toMatchObject({ code: AppErrorCode.TSPL_IMAGE_INVALID });
+      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_INVALID });
     }
   });
 
@@ -78,7 +78,7 @@ describe('TsplBitmapStrategy', () => {
     try {
       s.encode(ctx({ heightMm: 0.01 }));
     } catch (e) {
-      expect(e).toMatchObject({ code: AppErrorCode.TSPL_IMAGE_TOO_LARGE });
+      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE });
     }
   });
 });

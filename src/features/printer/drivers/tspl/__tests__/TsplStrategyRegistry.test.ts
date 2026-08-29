@@ -1,6 +1,6 @@
 import { TsplStrategyRegistry, resolveTsplStrategy } from '../TsplStrategyRegistry';
 import { TsplRenderMode } from '../../../types/printer.types';
-import { AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorCode } from '../../../types/PrinterError';
 
 describe('TsplStrategyRegistry', () => {
   it('resolve bitmap → strategy có mode bitmap', () => {
@@ -14,7 +14,7 @@ describe('TsplStrategyRegistry', () => {
   });
   it('mode lạ → TSPL_RENDER_MODE_UNSUPPORTED', () => {
     try { resolveTsplStrategy('raster' as never); } catch (e) {
-      expect(e).toMatchObject({ code: AppErrorCode.TSPL_RENDER_MODE_UNSUPPORTED });
+      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED });
     }
     expect(() => resolveTsplStrategy('raster' as never)).toThrow();
   });

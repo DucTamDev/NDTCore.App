@@ -1,5 +1,5 @@
 import { buildEscPosText } from '../EscPosTextBuilder';
-import { AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorCode } from '../../../types/PrinterError';
 import type { PrintDocuments } from '../../../types/driver.types';
 
 describe('buildEscPosText', () => {
@@ -17,7 +17,7 @@ describe('buildEscPosText', () => {
 
   it('element không in được (barcode) → TSPL_ELEMENT_UNSUPPORTED', () => {
     const docs: PrintDocuments = { text: { elements: [{ type: 'barcode', content: 'X', x: 0, y: 0 }] } };
-    try { buildEscPosText(80, docs); } catch (e) { expect(e).toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED }); }
+    try { buildEscPosText(80, docs); } catch (e) { expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }); }
     expect(() => buildEscPosText(80, docs)).toThrow();
   });
 });

@@ -1,6 +1,6 @@
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
 import type { ConnectionType, PrinterDevice } from '../../types/printer.types';
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 
 /**
  * `IPrinterAdapter` chạy qua **SDK do hãng máy in cung cấp** (vd binary blob,
@@ -14,8 +14,8 @@ export class VendorAdapter implements IPrinterAdapter {
   readonly source = 'vendor' as const;
 
   private notIntegrated(): never {
-    throw new AppErrorException({
-      code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
+    throw new PrinterErrorException({
+      code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
       message: 'VendorAdapter chưa tích hợp SDK hãng nào',
     });
   }

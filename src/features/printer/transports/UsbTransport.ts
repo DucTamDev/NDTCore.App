@@ -1,6 +1,6 @@
 import { USBPrinter, ensureUsbInitialized, printRawDataUsb } from '../adapters/native/PrinterNativeModule';
 import { Buffer } from 'buffer';
-import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
 import { LoggerService } from '../../../services/LoggerService';
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -29,7 +29,7 @@ export class UsbTransport {
     try {
       await USBPrinter.connectPrinter(vendorId, productId);
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }
   }
 
@@ -46,7 +46,7 @@ export class UsbTransport {
       }
     } catch (error) {
       LoggerService.warning(`UsbTransport.write: chunk ${index}/${totalChunks} FAIL`, { error: errorMessage(error) });
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_WRITE_FAILED, message: errorMessage(error) });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: errorMessage(error) });
     }
   }
 
@@ -54,7 +54,7 @@ export class UsbTransport {
     try {
       await USBPrinter.closeConn();
     } catch (error) {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }
   }
 }

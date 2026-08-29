@@ -1,5 +1,5 @@
 import { DriverRegistry } from '../DriverRegistry.web';
-import { AppErrorCode } from '../../types/AppError';
+import { PrinterErrorCode } from '../../types/PrinterError';
 import { ConnectionType, PrinterStatus } from '../../types/printer.types';
 
 describe('DriverRegistry (web)', () => {
@@ -17,12 +17,12 @@ describe('DriverRegistry (web)', () => {
 
   it('connect rejects with PRINTER_UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
+    await expect(DriverRegistry.tspl.connect()).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
   it('testPrint rejects with PRINTER_UNSUPPORTED_CONNECTION', async () => {
     // @ts-expect-error -- web stub ignores its arguments entirely
-    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
+    await expect(DriverRegistry.escpos.testPrint()).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
   it('disconnect resolves without throwing', async () => {

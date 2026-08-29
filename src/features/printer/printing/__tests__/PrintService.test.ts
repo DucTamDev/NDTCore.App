@@ -2,7 +2,7 @@ import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../types/printJob.types';
-import { AppErrorCode } from '../../types/AppError';
+import { PrinterErrorCode } from '../../types/PrinterError';
 import { PrintType } from '../../types/printConfiguration.types';
 
 const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', x: 0, y: 0 }] };
@@ -28,7 +28,7 @@ describe('PrintService.print', () => {
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
     expect(result.status).toBe(PrintResultStatus.noAvailablePrinter);
-    expect(result.error?.code).toBe(AppErrorCode.NO_AVAILABLE_PRINTER);
+    expect(result.error?.code).toBe(PrinterErrorCode.NO_AVAILABLE_PRINTER);
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
 
@@ -65,7 +65,7 @@ describe('PrintService.print', () => {
   it('reports failed with no top-level error when every job fails', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } }),
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });

@@ -1,4 +1,4 @@
-export const AppErrorCode = {
+export const PrinterErrorCode = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   NO_AVAILABLE_PRINTER: 'NO_AVAILABLE_PRINTER',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
@@ -23,25 +23,25 @@ export const AppErrorCode = {
   TSPL_ELEMENT_UNSUPPORTED: 'TSPL_ELEMENT_UNSUPPORTED',
 } as const;
 
-export type AppErrorCode = (typeof AppErrorCode)[keyof typeof AppErrorCode];
+export type PrinterErrorCode = (typeof PrinterErrorCode)[keyof typeof PrinterErrorCode];
 
-export interface AppError {
-  code: AppErrorCode;
+export interface PrinterError {
+  code: PrinterErrorCode;
   message: string;
   cause?: unknown;
 }
 
-export class AppErrorException extends Error {
-  code: AppErrorCode;
+export class PrinterErrorException extends Error {
+  code: PrinterErrorCode;
   cause?: unknown;
 
-  constructor(error: AppError) {
+  constructor(error: PrinterError) {
     super(error.message);
-    this.name = 'AppErrorException';
+    this.name = 'PrinterErrorException';
     this.code = error.code;
     this.cause = error.cause;
   }
 }
 
-/** Trả `'UNKNOWN_ERROR'` nếu không phải `AppErrorException` (vd lỗi native module ném thẳng). */
-export const errorCodeOf = (error: unknown): AppErrorCode => (error instanceof AppErrorException ? error.code : AppErrorCode.UNKNOWN_ERROR);
+/** Trả `'UNKNOWN_ERROR'` nếu không phải `PrinterErrorException` (vd lỗi native module ném thẳng). */
+export const errorCodeOf = (error: unknown): PrinterErrorCode => (error instanceof PrinterErrorException ? error.code : PrinterErrorCode.UNKNOWN_ERROR);

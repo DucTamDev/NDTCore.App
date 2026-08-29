@@ -1,4 +1,4 @@
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { PaperSize } from '../../types/printer.types';
 import type { PrintDocuments } from '../../types/driver.types';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../utils/paperWidth';
@@ -21,7 +21,7 @@ export const buildEscPosText = (paperSize: PaperSize, documents: PrintDocuments)
     } else if (element.type === 'row') {
       lines.push(formatRow(element.left, element.right, paperWidth));
     } else {
-      throw new AppErrorException({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
     }
   }
   return `${lines.join('\n')}\n`;

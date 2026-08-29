@@ -1,4 +1,4 @@
-import type { AppError } from './AppError';
+import type { PrinterError } from './PrinterError';
 import type { PrintDocuments } from './driver.types';
 import type { PrintType } from './printConfiguration.types';
 
@@ -22,7 +22,7 @@ export interface PrintJob {
   documents: PrintDocuments;
   status: PrintJobStatus;
   retryCount: number;
-  error?: AppError;
+  error?: PrinterError;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
@@ -40,5 +40,5 @@ export type PrintResultStatus = (typeof PrintResultStatus)[keyof typeof PrintRes
 export interface PrintResult {
   status: PrintResultStatus;
   jobs: PrintJob[];
-  error?: AppError;
+  error?: PrinterError;
 }

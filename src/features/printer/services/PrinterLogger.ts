@@ -1,5 +1,5 @@
 import { LoggerService } from '../../../services/LoggerService';
-import type { AppErrorCode } from '../types/AppError';
+import type { PrinterErrorCode } from '../types/PrinterError';
 import type { ConnectionType, PrinterDriverType } from '../types/printer.types';
 
 /**
@@ -45,7 +45,7 @@ export const PrinterLogger = {
     LoggerService.info('printer.scan.completed', withStdFields('scan', 'success', params));
   },
 
-  scanFailed(params: { connectionType: ConnectionType; errorCode: AppErrorCode; durationMs: number }): void {
+  scanFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
     LoggerService.warning('printer.scan.failed', withStdFields('scan', 'failure', params));
   },
 
@@ -62,7 +62,7 @@ export const PrinterLogger = {
     printerId: string;
     protocol: PrinterDriverType;
     connectionType: ConnectionType;
-    errorCode: AppErrorCode;
+    errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.connect.failed', withStdFields('connect', 'failure', params));
@@ -72,7 +72,7 @@ export const PrinterLogger = {
     LoggerService.info('printer.disconnect.succeeded', withStdFields('disconnect', 'success', params));
   },
 
-  disconnectFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: AppErrorCode }): void {
+  disconnectFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode }): void {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
   },
 
@@ -83,7 +83,7 @@ export const PrinterLogger = {
   testPrintFailed(params: {
     printerId: string;
     protocol: PrinterDriverType;
-    errorCode: AppErrorCode;
+    errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
     LoggerService.error('printer.test-print.failed', withStdFields('test-print', 'failure', params));
@@ -146,7 +146,7 @@ export const PrinterLogger = {
     LoggerService.info('printer.print.succeeded', withStdFields('print', 'success', params));
   },
 
-  printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: AppErrorCode; durationMs: number }): void {
+  printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode; durationMs: number }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
   },
 
@@ -162,7 +162,7 @@ export const PrinterLogger = {
   fontInstallFailed(params: {
     printerId: string;
     connectionType?: ConnectionType;
-    errorCode: AppErrorCode;
+    errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.font-install.failed', withStdFields('font-install', 'failure', params));

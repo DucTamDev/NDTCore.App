@@ -1,6 +1,6 @@
 import { BluetoothTransport } from '../BluetoothTransport';
 import { Buffer } from 'buffer';
-import { AppErrorCode } from '../../types/AppError';
+import { PrinterErrorCode } from '../../types/PrinterError';
 
 type ReceivedListener = (event: { data: string }) => void;
 
@@ -80,7 +80,7 @@ describe('BluetoothTransport.connect', () => {
     jest.advanceTimersByTime(5000);
 
     await expect(connectPromise).rejects.toThrow();
-    await expect(connectPromise).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_TIMEOUT });
+    await expect(connectPromise).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_TIMEOUT });
 
     // Dọn promise connectToDevice() gốc để không treo tay cầm bất đồng bộ
     // sau khi test kết thúc.
@@ -144,7 +144,7 @@ describe('BluetoothTransport.close', () => {
     const transport = new BluetoothTransport();
     await transport.connect('AA:BB:CC:DD:EE:FF');
 
-    await expect(transport.close()).rejects.toMatchObject({ code: AppErrorCode.PRINTER_CONNECTION_FAILED });
-    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: AppErrorCode.PRINTER_WRITE_FAILED });
+    await expect(transport.close()).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
+    await expect(transport.write(new Uint8Array([0x41]))).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_WRITE_FAILED });
   });
 });

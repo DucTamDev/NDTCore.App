@@ -1,6 +1,6 @@
 import { TsplTrueTypeStrategy } from '../TsplTrueTypeStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
-import { AppErrorCode } from '../../../../types/AppError';
+import { PrinterErrorCode } from '../../../../types/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../types/printConfiguration.types';
 import type { Printer, PrinterDriver } from '../../../../types/printer.types';
@@ -29,7 +29,7 @@ describe('TsplTrueTypeStrategy', () => {
   it('mode === truetype', () => expect(s.mode).toBe(TsplRenderMode.truetype));
 
   it('validate ném TSPL_FONT_NOT_INSTALLED khi fontInstalled=false', () => {
-    try { s.validate(ctx(notInstalled)); } catch (e) { expect(e).toMatchObject({ code: AppErrorCode.TSPL_FONT_NOT_INSTALLED }); }
+    try { s.validate(ctx(notInstalled)); } catch (e) { expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED }); }
     expect(() => s.validate(ctx(notInstalled))).toThrow();
   });
 
@@ -49,7 +49,7 @@ describe('TsplTrueTypeStrategy', () => {
 
   it('encode ném TSPL_ELEMENT_UNSUPPORTED cho element lạ', () => {
     const bad = { ...ctx(installed), documents: { text: { elements: [{ type: 'weird', x: 0, y: 0 } as never] } } };
-    try { s.encode(bad); } catch (e) { expect(e).toMatchObject({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED }); }
+    try { s.encode(bad); } catch (e) { expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }); }
     expect(() => s.encode(bad)).toThrow();
   });
 });

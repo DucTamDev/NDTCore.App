@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorCode } from '../../../types/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -27,7 +27,7 @@ describe('TsplFontManager.downloadFont', () => {
     const manager = new TsplFontManager();
     const transport = makeTransport();
     await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
+      code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe('TsplFontManager.downloadFont', () => {
     const transport = makeTransport();
 
     await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: AppErrorCode.TSPL_FONT_INVALID,
+      code: PrinterErrorCode.TSPL_FONT_INVALID,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -69,7 +69,7 @@ describe('TsplFontManager.downloadFont', () => {
     const transport = makeTransport();
 
     await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: AppErrorCode.TSPL_FONT_INVALID,
+      code: PrinterErrorCode.TSPL_FONT_INVALID,
     });
     expect(transport.write).not.toHaveBeenCalled();
   });
@@ -82,7 +82,7 @@ describe('TsplFontManager.downloadFont', () => {
     const transport = makeTransport({ write: jest.fn().mockRejectedValue(new Error('socket closed')) });
 
     await expect(manager.downloadFont(transport as never, DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: AppErrorCode.TSPL_FONT_INSTALL_FAILED,
+      code: PrinterErrorCode.TSPL_FONT_INSTALL_FAILED,
     });
   });
 });

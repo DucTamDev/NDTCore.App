@@ -20,7 +20,7 @@ import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
 import { DiscoveryStage, type DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
-import { AppErrorException } from '../types/AppError';
+import { PrinterErrorException } from '../types/PrinterError';
 import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
@@ -374,7 +374,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
         ),
       );
     } catch (error) {
-      setTestPrintErrorMessage(error instanceof AppErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
+      setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
       // renderMode stays 'bitmap' (default) — never set to 'truetype' on failure, per spec §6/§7.
     } finally {
       setTsplFontPending(false);
@@ -404,7 +404,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       const documents = await resolveTestPrintDocuments(driver, printer, sampleDocument);
       await PrinterService.testPrint(printer, driver, documents, printType);
     } catch (error) {
-      setTestPrintErrorMessage(error instanceof AppErrorException ? error.message : 'In thử thất bại');
+      setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {
       setPending(false);
     }

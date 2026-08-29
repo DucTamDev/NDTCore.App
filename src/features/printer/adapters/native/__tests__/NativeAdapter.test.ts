@@ -1,6 +1,6 @@
 import { NativeAdapter } from '../NativeAdapter';
 import { ConnectionType } from '../../../types/printer.types';
-import { AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorCode } from '../../../types/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -78,7 +78,7 @@ describe('NativeAdapter', () => {
 
   it('connect(usb) thiếu target.usb -> VALIDATION_ERROR', async () => {
     await expect(new NativeAdapter().connect({ connectionType: ConnectionType.usb })).rejects.toMatchObject({
-      code: AppErrorCode.VALIDATION_ERROR,
+      code: PrinterErrorCode.VALIDATION_ERROR,
     });
   });
 

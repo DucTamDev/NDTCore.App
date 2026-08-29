@@ -1,5 +1,5 @@
 import type { ConnectionType, PrinterDevice, Printer, UsbRawDevice } from '../types/printer.types';
-import { AppErrorException, AppErrorCode } from '../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
 
 /**
  * Mục tiêu kết nối 1 máy in — phẳng theo `connectionType`, driver dựng từ
@@ -58,14 +58,14 @@ export interface IPrinterAdapter {
  */
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
   if (printer.connectionType === 'lan') {
-    if (!printer.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
+    if (!printer.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
     return { connectionType: printer.connectionType, lan: { ip: printer.lan.ip, port: printer.lan.port } };
   }
   if (printer.connectionType === 'bluetooth') {
-    if (!printer.device) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+    if (!printer.device) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
     return { connectionType: printer.connectionType, bluetooth: { deviceId: printer.device.deviceId } };
   }
   const raw = printer.device?.rawDevice as unknown as UsbRawDevice | undefined;
-  if (!raw) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
+  if (!raw) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
   return { connectionType: printer.connectionType, usb: { vendorId: Number(raw.vendor_id), productId: Number(raw.product_id) } };
 };

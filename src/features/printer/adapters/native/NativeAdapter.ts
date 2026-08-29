@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
 import { ConnectionType } from '../../types/printer.types';
 import type { PrinterDevice } from '../../types/printer.types';
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import { UsbTransport } from '../../transports/UsbTransport';
 import {
   USBPrinter,
@@ -51,36 +51,36 @@ export class NativeAdapter implements IPrinterAdapter {
   async connect(target: PrinterConnectTarget): Promise<void> {
     this.connectionType = target.connectionType;
     if (target.connectionType === ConnectionType.usb) {
-      if (!target.usb) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
+      if (!target.usb) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
       this.usb = new UsbTransport();
       await this.usb.connect(target.usb.vendorId, target.usb.productId);
       return;
     }
     if (target.connectionType === ConnectionType.bluetooth) {
-      if (!target.bluetooth) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+      if (!target.bluetooth) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
       await ensureNativeInitialized(ConnectionType.bluetooth);
       await BLEPrinter.connectPrinter(target.bluetooth.deviceId);
       return;
     }
-    if (!target.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
+    if (!target.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
     await ensureNativeInitialized(ConnectionType.lan);
     await NetPrinter.connectPrinter(target.lan.ip, target.lan.port);
   }
 
   async write(bytes: Uint8Array): Promise<void> {
     if (this.connectionType === ConnectionType.usb) {
-      if (!this.usb) throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in USB chưa kết nối' });
+      if (!this.usb) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in USB chưa kết nối' });
       return this.usb.write(bytes);
     }
     const base64 = Buffer.from(bytes).toString('base64');
     if (this.connectionType === ConnectionType.bluetooth) return printRawDataBluetooth(base64, true);
     if (this.connectionType === ConnectionType.lan) return printRawDataLan(base64, true);
-    throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
   }
 
   async printText(text: string, options: PrinterPrintTextOptions): Promise<void> {
     if (!this.connectionType) {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
     }
     if (this.connectionType === ConnectionType.usb) {
       return new Promise((resolve, reject) => {

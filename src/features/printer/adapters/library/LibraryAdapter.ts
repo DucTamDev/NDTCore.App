@@ -2,7 +2,7 @@ import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
 import { ConnectionType } from '../../types/printer.types';
 import type { PrinterDevice } from '../../types/printer.types';
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
 import * as EPToolkit from '../native/utils/EPToolkit';
@@ -35,18 +35,18 @@ export class LibraryAdapter implements IPrinterAdapter {
   async connect(target: PrinterConnectTarget): Promise<void> {
     this.connectionType = target.connectionType;
     if (target.connectionType === ConnectionType.lan) {
-      if (!target.lan) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
+      if (!target.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
       this.lan = new LanTransport();
       await this.lan.connect(target.lan.ip, target.lan.port);
       return;
     }
     if (target.connectionType === ConnectionType.bluetooth) {
-      if (!target.bluetooth) throw new AppErrorException({ code: AppErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+      if (!target.bluetooth) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
       this.bluetooth = new BluetoothTransport();
       await this.bluetooth.connect(target.bluetooth.deviceId);
       return;
     }
-    throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'LibraryAdapter không hỗ trợ USB' });
+    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'LibraryAdapter không hỗ trợ USB' });
   }
 
   async write(bytes: Uint8Array): Promise<void> {
@@ -58,7 +58,7 @@ export class LibraryAdapter implements IPrinterAdapter {
       await this.bluetooth.write(bytes);
       return;
     }
-    throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
   }
 
   async printText(text: string, options: PrinterPrintTextOptions): Promise<void> {

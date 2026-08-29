@@ -1,6 +1,6 @@
 import type { PrintDocument } from '../printDocument.types';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../printJob.types';
-import { AppErrorCode } from '../AppError';
+import { PrinterErrorCode } from '../PrinterError';
 import { PrintType } from '../printConfiguration.types';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
@@ -35,12 +35,12 @@ describe('print job types', () => {
   });
 
   it('accepts every PrintResult status', () => {
-    // 'UNKNOWN_ERROR' ở đây chỉ là 1 AppErrorCode bất kỳ để thoả shape.
+    // 'UNKNOWN_ERROR' ở đây chỉ là 1 PrinterErrorCode bất kỳ để thoả shape.
     const results: PrintResult[] = [
       { status: PrintResultStatus.success, jobs: [] },
       { status: PrintResultStatus.partialFailure, jobs: [] },
       { status: PrintResultStatus.failed, jobs: [] },
-      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: AppErrorCode.UNKNOWN_ERROR, message: 'x' } },
+      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });

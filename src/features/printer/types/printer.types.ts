@@ -1,4 +1,4 @@
-import type { AppError } from './AppError';
+import type { PrinterError } from './PrinterError';
 import type { PrintType } from './printConfiguration.types';
 
 export const PrinterDriverType = {
@@ -180,5 +180,5 @@ export type DeviceScanEventType = (typeof DeviceScanEventType)[keyof typeof Devi
 export interface DeviceScanEvent {
   type: DeviceScanEventType;
   devices?: PrinterDevice[];
-  error?: AppError;
+  error?: PrinterError;
 }

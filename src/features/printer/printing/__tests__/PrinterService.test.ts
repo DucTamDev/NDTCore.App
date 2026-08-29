@@ -5,7 +5,7 @@ import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
-import { AppErrorCode } from '../../types/AppError';
+import { PrinterErrorCode } from '../../types/PrinterError';
 import { PrinterLogger } from '../../services/PrinterLogger';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
@@ -509,7 +509,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());
     const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
 
-    await expect(service.installTsplFont('ghost', font)).rejects.toMatchObject({ code: AppErrorCode.PRINTER_NOT_CONNECTED });
+    await expect(service.installTsplFont('ghost', font)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED });
     expect(tsplDriver.installTsplFont).not.toHaveBeenCalled();
   });
 

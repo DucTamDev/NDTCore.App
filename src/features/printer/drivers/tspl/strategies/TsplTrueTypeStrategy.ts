@@ -1,6 +1,6 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
 import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
-import { AppErrorException, AppErrorCode } from '../../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder } from '../TsplEncoder';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../../utils/paperWidth';
 
@@ -18,14 +18,14 @@ export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
   validate(context: TsplStrategyContext): void {
     const { config } = context.driver;
     if (config.type !== PrinterDriverType.tspl || config.renderMode !== TsplRenderMode.truetype || !config.font?.fontInstalled) {
-      throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Chưa cài font TrueType cho máy in này — bật lại công tắc "In bằng font TrueType" để cài.' });
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Chưa cài font TrueType cho máy in này — bật lại công tắc "In bằng font TrueType" để cài.' });
     }
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
     const { printer, driver, documents, printType, heightMm } = context;
     if (driver.config.type !== PrinterDriverType.tspl || !driver.config.font) {
-      throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Thiếu cấu hình font TrueType.' });
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Thiếu cấu hình font TrueType.' });
     }
     const fontName = driver.config.font.name;
     const paperWidth = PAPER_WIDTH_CHARS[printer.paperSize];
@@ -44,7 +44,7 @@ export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
       } else if (element.type === 'qrCode') {
         encoder.qrcode(element.x, element.y, element.content);
       } else {
-        throw new AppErrorException({ code: AppErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+        throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
       }
     }
     return encoder.cut().encode();

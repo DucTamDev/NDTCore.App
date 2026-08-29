@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';
-import { AppErrorException, AppErrorCode } from '../../types/AppError';
+import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { TsplFontConfig } from '../../types/printer.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
@@ -28,21 +28,21 @@ export class TsplFontManager {
   async downloadFont(adapter: IPrinterAdapter, font: TsplFontConfig): Promise<void> {
     LoggerService.debug('downloadFont: bắt đầu', { name: font.name, fileName: font.fileName, adapter: adapter.source });
     if (Platform.OS !== 'android') {
-      throw new AppErrorException({ code: AppErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Cài font TrueType chỉ hỗ trợ trên Android' });
     }
 
     let base64: string;
     try {
       base64 = await RNFS.readFileAssets(`fonts/${font.fileName}`, 'base64');
     } catch {
-      throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_INVALID, message: `Không đọc được file font "${font.fileName}" từ assets` });
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_INVALID, message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 
     let payload: Uint8Array;
     try {
       const fontBytes = Buffer.from(base64, 'base64');
       if (fontBytes.length === 0) {
-        throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_INVALID, message: `File font "${font.fileName}" rỗng` });
+        throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_INVALID, message: `File font "${font.fileName}" rỗng` });
       }
       const header = Buffer.from(`DOWNLOAD "${font.name}",${fontBytes.length}\r\n`, 'utf8');
       const footer = Buffer.from('\r\n', 'utf8');
@@ -53,8 +53,8 @@ export class TsplFontManager {
         payloadTotal: payload.length,
       });
     } catch (error) {
-      if (error instanceof AppErrorException) throw error;
-      throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_INVALID, message: `Không đọc được file font "${font.fileName}" từ assets` });
+      if (error instanceof PrinterErrorException) throw error;
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_INVALID, message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 
     try {
@@ -62,7 +62,7 @@ export class TsplFontManager {
       LoggerService.debug('downloadFont: adapter.write xong', { payloadTotal: payload.length });
     } catch (error) {
       LoggerService.warning('downloadFont: adapter.write FAIL', { payloadTotal: payload.length, error: error instanceof Error ? error.message : String(error) });
-      throw new AppErrorException({ code: AppErrorCode.TSPL_FONT_INSTALL_FAILED, message: error instanceof Error ? error.message : String(error) });
+      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_INSTALL_FAILED, message: error instanceof Error ? error.message : String(error) });
     }
   }
 }

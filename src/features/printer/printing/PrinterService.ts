@@ -2,7 +2,7 @@ import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/drive
 import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
-import { AppErrorException, AppErrorCode, errorCodeOf } from '../types/AppError';
+import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/PrinterError';
 import { PrinterLogger } from '../services/PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from './DriverRegistry';
@@ -27,15 +27,15 @@ export const createPrinterService = (
 
   const findOrThrow = (printerId: string): Printer => {
     const found = getPrinters().find((p) => p.id === printerId);
-    if (!found) throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+    if (!found) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
     return found;
   };
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
     const collision = getPrinters().find((p) => p.id !== printer.id && p.identityKey === printer.identityKey);
     if (collision) {
-      throw new AppErrorException({
-        code: AppErrorCode.PRINTER_ALREADY_EXISTS,
+      throw new PrinterErrorException({
+        code: PrinterErrorCode.PRINTER_ALREADY_EXISTS,
         message: `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`,
       });
     }
@@ -123,8 +123,8 @@ export const createPrinterService = (
     const printer = findOrThrow(printerId);
     const driverEntry = printer.drivers.find((d) => d.contentTypes.includes(printType));
     if (!driverEntry) {
-      throw new AppErrorException({
-        code: AppErrorCode.NO_AVAILABLE_PRINTER,
+      throw new PrinterErrorException({
+        code: PrinterErrorCode.NO_AVAILABLE_PRINTER,
         message: `Máy in ${printerId} không có driver nào nhận in ${printType}`,
       });
     }
@@ -237,7 +237,7 @@ export const createPrinterService = (
           // không tự connect được (thiếu `Printer` object). Draft hợp lệ luôn
           // được modal connect sẵn qua discovery trước khi gọi hàm này.
           if (!printer || !tsplEntry) {
-            throw new AppErrorException({ code: AppErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối — kết nối trước khi cài font.' });
+            throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối — kết nối trước khi cài font.' });
           }
           LoggerService.debug('installTsplFont: tự connect');
           await tsplDriver.connect(printer, tsplEntry);
