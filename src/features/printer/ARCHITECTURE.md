@@ -40,6 +40,16 @@ Tài liệu mô tả:
 
 Implementation phải tuân thủ contract này.
 
+> **Cập nhật 2026-08 — tầng `IPrinterAdapter`.** ESC/POS và TSPL giờ đi qua
+> `adapters/IPrinterAdapter` (`listDevices`/`connect`/`write`/`printText`/`read`/
+> `disconnect`) thay vì gọi thẳng namespace/transport. 3 impl theo nguồn cơ chế:
+> `NativeAdapter` (native module RN\*Printer), `LibraryAdapter` (tcp-socket /
+> bluetooth-classic, bọc `LanTransport`/`BluetoothTransport`), `VendorAdapter`
+> (skeleton). `resolvePrinterAdapter(driverType, connectionType)`: ESC/POS →
+> Native; TSPL/USB → Native; TSPL/BLE-LAN → Library. `transports/*Transport` giữ
+> nguyên làm building-block nội bộ của adapter. Các mục nói "ESC/POS vendor
+> library" / "TsplTransport" bên dưới mô tả trạng thái trước thay đổi này.
+
 ---
 
 # 2. Non-Goals

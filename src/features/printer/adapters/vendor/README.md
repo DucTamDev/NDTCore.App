@@ -1,9 +1,11 @@
 # adapters/vendor/
 
-Adapter quanh **SDK/source do hãng máy in cung cấp** (vd binary blob, SDK đóng).
+`IPrinterAdapter` chạy qua **SDK do hãng máy in cung cấp** (binary blob / SDK
+đóng — vd XPrinter `PrinterSDK`, `libPrinterSDK.a`).
 
-Hiện **trống** — chưa tích hợp SDK hãng nào. Ví dụ tương lai:
-`XPrinterSdkAdapter.ts` nếu tích hợp SDK riêng của Xprinter.
+`VendorAdapter` hiện là **skeleton** — mọi I/O ném `PRINTER_UNSUPPORTED_CONNECTION`.
+Khi tích hợp SDK: implement từng method + thêm nhánh `VendorAdapter` vào
+[`../resolvePrinterAdapter.ts`](../resolvePrinterAdapter.ts) cho model tương ứng.
 
-Xem [`../native/`](../native/) cho bridge tới native module tự viết,
+Xem [`../native/`](../native/) cho native module tự viết,
 [`../library/`](../library/) cho thư viện npm.
