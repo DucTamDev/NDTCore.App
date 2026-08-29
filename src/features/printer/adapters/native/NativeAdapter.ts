@@ -24,11 +24,16 @@ import {
 export class NativeAdapter implements IPrinterAdapter {
   readonly source = 'native' as const;
 
+  readonly canRead = false;
+
   private connectionType?: ConnectionType;
 
   private usb?: UsbTransport;
 
   async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
+    if (connectionType === ConnectionType.lan) return [];
+    // `RN*Printer.getDeviceList` NPE nếu chưa `init()` (native `adapter` == null).
+    await ensureNativeInitialized(connectionType);
     if (connectionType === ConnectionType.bluetooth) {
       const devices = await BLEPrinter.getDeviceList();
       return devices.map((d) => ({
@@ -37,15 +42,12 @@ export class NativeAdapter implements IPrinterAdapter {
         rawDevice: d as unknown as Record<string, unknown>,
       }));
     }
-    if (connectionType === ConnectionType.usb) {
-      const devices = await USBPrinter.getDeviceList();
-      return devices.map((d) => ({
-        deviceId: `${d.vendor_id}:${d.product_id}`,
-        displayName: d.productName || d.manufacturerName || d.device_name,
-        rawDevice: d as unknown as Record<string, unknown>,
-      }));
-    }
-    return [];
+    const devices = await USBPrinter.getDeviceList();
+    return devices.map((d) => ({
+      deviceId: `${d.vendor_id}:${d.product_id}`,
+      displayName: d.productName || d.manufacturerName || d.device_name,
+      rawDevice: d as unknown as Record<string, unknown>,
+    }));
   }
 
   async connect(target: PrinterConnectTarget): Promise<void> {

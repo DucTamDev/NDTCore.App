@@ -13,6 +13,8 @@ import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterErro
 export class VendorAdapter implements IPrinterAdapter {
   readonly source = 'vendor' as const;
 
+  readonly canRead = false;
+
   private notIntegrated(): never {
     throw new PrinterErrorException({
       code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,

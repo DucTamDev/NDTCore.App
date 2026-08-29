@@ -16,6 +16,8 @@ import * as EPToolkit from '../native/utils/EPToolkit';
 export class LibraryAdapter implements IPrinterAdapter {
   readonly source = 'library' as const;
 
+  readonly canRead = true;
+
   private lan?: LanTransport;
 
   private bluetooth?: BluetoothTransport;

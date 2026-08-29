@@ -33,6 +33,13 @@ export interface PrinterPrintTextOptions {
 export interface IPrinterAdapter {
   readonly source: 'native' | 'library' | 'vendor';
 
+  /**
+   * `true` nếu `read()` thực sự đọc được phản hồi từ máy in. `false` (native —
+   * chỉ bulk-OUT) thì caller KHÔNG được ghi lệnh dò (`~!T`…) rồi chờ đọc —
+   * `TsplDriver.identify()` phải trả `null` ngay, không ghi.
+   */
+  readonly canRead: boolean;
+
   /** Liệt kê thiết bị cho 1 connectionType — `[]` nếu adapter không quét loại đó. */
   listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]>;
 

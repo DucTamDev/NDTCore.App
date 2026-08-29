@@ -193,9 +193,14 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
+  /**
+   * Chỉ dò `~!T` khi adapter đọc được phản hồi (`canRead`). Adapter native
+   * (USB) chỉ bulk-OUT → trả `null` NGAY, KHÔNG ghi (ghi rồi chờ đọc = lệnh
+   * rác vào máy in + lỗi "device not initialized" lúc discovery).
+   */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const adapter = this.connections.get(printerId);
-    if (!adapter) return null;
+    if (!adapter || !adapter.canRead) return null;
     try {
       const query = encodeAsciiCommand('~!T\r\n');
       await adapter.write(query);

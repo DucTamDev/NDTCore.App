@@ -47,6 +47,13 @@ describe('NativeAdapter', () => {
     expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { device_name: 'BT', inner_mac_address: 'AA:BB' } }]);
   });
 
+  it('listDevices init native trước getDeviceList (tránh NPE native adapter==null)', async () => {
+    await new NativeAdapter().listDevices(ConnectionType.usb);
+    expect(mod().ensureNativeInitialized).toHaveBeenCalledWith(ConnectionType.usb);
+    await new NativeAdapter().listDevices(ConnectionType.bluetooth);
+    expect(mod().ensureNativeInitialized).toHaveBeenCalledWith(ConnectionType.bluetooth);
+  });
+
   it('connect(lan) init rồi NetPrinter.connectPrinter(ip, port)', async () => {
     const adapter = new NativeAdapter();
     await adapter.connect({ connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
