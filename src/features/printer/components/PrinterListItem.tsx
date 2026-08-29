@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, IconButton, Menu } from 'react-native-paper';
+import { Text, IconButton, Menu, Switch } from 'react-native-paper';
 import { usePrinterConnection } from '../hooks/usePrinterConnection';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
-import { AppSwitch } from '../../../components/AppSwitch';
+import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { PrinterStatus } from '../types/printer.types';
+import { PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../types/printer.types';
 
@@ -21,15 +21,23 @@ const connectionLabel: Record<Printer['connectionType'], string> = {
   lan: 'LAN',
 };
 
+const protocolLabel: Record<PrinterDriverType, string> = {
+  escpos: 'ESC/POS',
+  tspl: 'TSPL',
+};
+
 export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actions, onEdit }) => {
   const status = usePrinterConnection(printer.id);
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const closeMenu = (): void => setMenuVisible(false);
+  const enabled = printer.enabled ?? true;
+  const drivers = printer.drivers.map((d) => protocolLabel[d.type]).join(' + ');
+  const subtitle = [connectionLabel[printer.connectionType], drivers, `Khổ ${printer.paperSize}mm`].filter(Boolean).join(' · ');
 
-  // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — đây là
-  // interaction của chính card (dialog xác nhận của nó), không phải business logic.
+  // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — interaction
+  // của chính card (dialog xác nhận của nó), không phải business logic.
   const requestDelete = (): void => {
     if (status === PrinterStatus.connected) {
       setConfirmDeleteVisible(true);
@@ -45,27 +53,32 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   };
 
   return (
-    <View style={styles.row}>
-      <View style={styles.info}>
-        <Text style={styles.name}>{printer.name}</Text>
-        <Text style={styles.subtitle}>
-          {connectionLabel[printer.connectionType]} · Khổ {printer.paperSize}mm
-        </Text>
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <Text style={styles.name} numberOfLines={1}>{printer.name}</Text>
+        <PrinterStatusBadge status={status} />
       </View>
-      <PrinterStatusBadge status={status} />
-      <AppSwitch
-        label=""
-        value={printer.enabled ?? true}
-        onValueChange={(enabled) => actions.setEnabled(printer.id, enabled)}
-      />
-      <Menu visible={menuVisible} onDismiss={closeMenu} anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}>
-        <Menu.Item title="Kết nối" onPress={() => { closeMenu(); actions.connect(printer.id); }} />
-        {/* actions.disconnect nuốt lỗi sẵn trong hook — gọi fire-and-forget ở đây là an toàn. */}
-        <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); actions.disconnect(printer.id); }} />
-        <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); actions.reconnect(printer.id); }} />
-        <Menu.Item title="Chỉnh sửa" onPress={() => { closeMenu(); onEdit(printer); }} />
-        <Menu.Item title="Xóa" onPress={() => { closeMenu(); requestDelete(); }} />
-      </Menu>
+      <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+
+      <View style={styles.actionsRow}>
+        <View style={styles.enableGroup}>
+          <Text style={styles.enableLabel}>{enabled ? 'Đang bật' : 'Đã tắt'}</Text>
+          <Switch value={enabled} onValueChange={(value) => actions.setEnabled(printer.id, value)} />
+        </View>
+        <View style={styles.spacer} />
+        <AppButton label="Sửa" mode="outlined" compact onPress={() => onEdit(printer)} />
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}
+        >
+          <Menu.Item title="Kết nối" onPress={() => { closeMenu(); actions.connect(printer.id); }} />
+          <Menu.Item title="Ngắt kết nối" onPress={() => { closeMenu(); actions.disconnect(printer.id); }} />
+          <Menu.Item title="Kết nối lại" onPress={() => { closeMenu(); actions.reconnect(printer.id); }} />
+          <Menu.Item title="Xóa" onPress={() => { closeMenu(); requestDelete(); }} />
+        </Menu>
+      </View>
+
       <ConfirmDialog
         visible={confirmDeleteVisible}
         title="Xóa máy in"
@@ -78,8 +91,12 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
 };
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
-  info: { flex: 1 },
-  name: { fontSize: 13 },
-  subtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  card: { padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB', gap: 6 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name: { flex: 1, fontSize: 14, fontWeight: '600' },
+  subtitle: { fontSize: 12, color: '#6B7280' },
+  actionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  enableGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  enableLabel: { fontSize: 12, color: '#6B7280' },
+  spacer: { flex: 1 },
 });

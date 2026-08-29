@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
+import { LoggerService } from '../../../services/LoggerService';
 import { PrinterService } from '../printing/PrinterService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
 import type { Printer } from '../types/printer.types';
@@ -32,7 +33,12 @@ export const usePrinterList = (): UsePrinterList => {
   const printers = useSelector((state: RootState) => selectPrinters(state));
 
   const reload = useCallback(() => {
-    dispatch(printersLoaded(PrinterService.getPrinters()));
+    const list = PrinterService.getPrinters();
+    LoggerService.debug('usePrinterList.reload', {
+      count: list.length,
+      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connectionType, drivers: p.drivers.map((d) => d.type), enabled: p.enabled ?? true })),
+    });
+    dispatch(printersLoaded(list));
   }, [dispatch]);
 
   useEffect(() => {

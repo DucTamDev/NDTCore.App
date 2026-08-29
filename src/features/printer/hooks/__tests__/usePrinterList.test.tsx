@@ -8,6 +8,8 @@ import { PrinterService } from '../../printing/PrinterService';
 import { ConnectionType } from '../../types/printer.types';
 import type { Printer } from '../../types/printer.types';
 
+jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+
 jest.mock('../../printing/PrinterService', () => ({
   PrinterService: {
     getPrinters: jest.fn(),
