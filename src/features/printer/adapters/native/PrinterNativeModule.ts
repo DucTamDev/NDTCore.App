@@ -1,6 +1,6 @@
 import { NativeModules, Platform } from 'react-native';
 import type { ConnectionType } from '../../types/printer.types';
-import * as EPToolkit from './EPToolkit';
+import * as EPToolkit from './utils/EPToolkit';
 
 /**
  * Lớp JS của native module RN*Printer (`com.ndtcorepos.thermalprinter`, code ở

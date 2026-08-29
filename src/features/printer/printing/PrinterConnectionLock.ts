@@ -1,5 +1,6 @@
 import { ConnectionType, PrinterDriverType } from '../types/printer.types';
 import type { PrinterDevice, PrinterLanConfig } from '../types/printer.types';
+import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 
@@ -66,7 +67,15 @@ export const createResourceLock = () => {
     new Promise<T>((resolve, reject) => {
       if (!queues.has(key)) queues.set(key, []);
       queues.get(key)?.push(() => task().then(resolve, reject));
-      void processQueue(key);
+      // `processQueue` tự nuốt lỗi từng task (mỗi task đã `.then(resolve, reject)`
+      // về promise ngoài) nên `.catch` này gần như không bao giờ chạy — chỉ để
+      // không bỏ floating promise nếu chính `processQueue` hỏng ngoài dự kiến.
+      processQueue(key).catch((error: unknown) => {
+        LoggerService.error('PrinterConnectionLock.processQueue', {
+          key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     });
 
   return { runExclusive };
