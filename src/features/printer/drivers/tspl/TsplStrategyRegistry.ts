@@ -1,6 +1,7 @@
 import type { ITsplPrintStrategy } from './strategies/tsplStrategy.types';
 import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
 import { TsplTrueTypeStrategy } from './strategies/TsplTrueTypeStrategy';
+import { TsplInternalFontStrategy } from './strategies/TsplInternalFontStrategy';
 import { TsplRenderMode } from '../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 
@@ -8,6 +9,7 @@ import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterErro
 export const TsplStrategyRegistry: Record<TsplRenderMode, ITsplPrintStrategy> = {
   [TsplRenderMode.bitmap]: new TsplBitmapStrategy(),
   [TsplRenderMode.truetype]: new TsplTrueTypeStrategy(),
+  [TsplRenderMode.internalfont]: new TsplInternalFontStrategy(),
 };
 
 export const resolveTsplStrategy = (mode: TsplRenderMode): ITsplPrintStrategy => {

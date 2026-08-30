@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -39,10 +39,16 @@ const tsplFontConfigSchema = z.object({
   fontInstalled: z.boolean(),
 });
 
+const tsplInternalFontConfigSchema = z.object({
+  codepage: z.enum([TsplCodepage.utf8, TsplCodepage.cp1258, TsplCodepage.cp1252]),
+  fontName: z.string().regex(/^[A-Za-z0-9_.-]+$/, 'Tên font chỉ được chứa chữ, số, dấu chấm, gạch dưới, gạch ngang'),
+});
+
 const tsplDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.tspl),
-  renderMode: z.enum([TsplRenderMode.bitmap, TsplRenderMode.truetype]),
+  renderMode: z.enum([TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont]),
   font: tsplFontConfigSchema.optional(),
+  internalFont: tsplInternalFontConfigSchema.optional(),
   labelHeightMm: z.number().positive().optional(),
 });
 

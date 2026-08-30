@@ -1,6 +1,6 @@
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig } from '../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/PrinterError';
 import { PrinterLogger } from '../services/PrinterLogger';
@@ -320,6 +320,33 @@ export const createPrinterService = (
     );
   };
 
+  /**
+   * Persist `renderMode: 'internalfont'` + `internalFont` cho TSPL driver của
+   * 1 printer ĐÃ LƯU — không có bước "install" (chỉ 2 tham số config), khác
+   * `installTsplFont`. Printer chưa lưu (draft) → no-op: modal Add mang state
+   * vào `buildDraftPrinter()` lúc Save. Giữ nguyên `config.font` (nếu từng cài
+   * TrueType) để chuyển qua lại giữa các mode không mất cấu hình.
+   */
+  const setTsplInternalFont = (printerId: string, internalFont: TsplInternalFontConfig): void => {
+    const printer = getPrinters().find((p) => p.id === printerId);
+    const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
+    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) return;
+    savePrinters(
+      getPrinters().map((p) =>
+        p.id !== printerId
+          ? p
+          : {
+              ...p,
+              drivers: p.drivers.map((d) =>
+                d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
+                  ? d
+                  : { ...d, config: { ...d.config, renderMode: TsplRenderMode.internalfont, internalFont } },
+              ),
+            },
+      ),
+    );
+  };
+
   return {
     getPrinters,
     addPrinter,
@@ -343,6 +370,7 @@ export const createPrinterService = (
     discoverDriver,
     installTsplFont,
     setTsplRenderMode,
+    setTsplInternalFont,
   };
 };
 

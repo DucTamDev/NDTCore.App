@@ -492,6 +492,27 @@ describe('PrinterService', () => {
     expect(service.getPrinters()).toEqual([]);
   });
 
+  it('setTsplInternalFont() persists renderMode=internalfont + internalFont for a saved TSPL printer', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    const tsplPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
+    service.addPrinter(tsplPrinter);
+
+    service.setTsplInternalFont(tsplPrinter.id, { codepage: '1258', fontName: 'TSS24.BF2' });
+
+    const savedTspl = service.getPrinters().find((p) => p.id === tsplPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.tspl)!;
+    expect(savedTspl.config).toMatchObject({
+      type: PrinterDriverType.tspl,
+      renderMode: TsplRenderMode.internalfont,
+      internalFont: { codepage: '1258', fontName: 'TSS24.BF2' },
+    });
+  });
+
+  it('setTsplInternalFont() is a no-op for a draft (unsaved) printer', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    expect(() => service.setTsplInternalFont('draft-not-saved', { codepage: '1258', fontName: '3' })).not.toThrow();
+    expect(service.getPrinters()).toEqual([]);
+  });
+
   it('installTsplFont() for a draft (unsaved but already connected) resolves without writing storage', async () => {
     const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, createResourceLock());

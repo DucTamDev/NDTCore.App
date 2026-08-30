@@ -28,9 +28,24 @@ export type DriverSource = (typeof DriverSource)[keyof typeof DriverSource];
 export const TsplRenderMode = {
   bitmap: 'bitmap',
   truetype: 'truetype',
+  /**
+   * Font NỘI BỘ của máy in (resident font) tự vẽ glyph theo `CODEPAGE` khai
+   * báo — không bitmap, không `DOWNLOAD` font. Chỉ dùng được với máy in mà
+   * firmware thật sự hỗ trợ codepage tiếng Việt (vd CP1258); Xprinter XP-420B
+   * KHÔNG hỗ trợ (đã verify: in byte thanh tổ hợp thành ký tự rời).
+   */
+  internalfont: 'internalfont',
 } as const;
 
 export type TsplRenderMode = (typeof TsplRenderMode)[keyof typeof TsplRenderMode];
+
+export const TsplCodepage = {
+  utf8: 'UTF-8',
+  cp1258: '1258',
+  cp1252: '1252',
+} as const;
+
+export type TsplCodepage = (typeof TsplCodepage)[keyof typeof TsplCodepage];
 
 export const PrinterStatus = {
   idle: 'idle',
@@ -112,12 +127,34 @@ export interface TsplFontConfig {
   fontInstalled: boolean;
 }
 
+/**
+ * Cấu hình cho `renderMode: 'internalfont'` — chọn `CODEPAGE` và tên font nội
+ * bộ của máy in. KHÔNG có bước "install" như TrueType: chỉ là 2 tham số ghép
+ * thẳng vào lệnh `CODEPAGE`/`TEXT`.
+ */
+export interface TsplInternalFontConfig {
+  /** Ghép vào lệnh `CODEPAGE <codepage>`. `'1258'` → encode byte qua `utils/cp1258`; còn lại → byte thấp / UTF-8. */
+  codepage: TsplCodepage;
+  /**
+   * Tên font ghép vào lệnh `TEXT x,y,"<fontName>",...` — font resident của
+   * firmware (vd `'3'` = bitmap font mặc định, `'TSS24.BF2'` = font tiếng Việt
+   * trên 1 số dòng máy). Phải khớp `/^[A-Za-z0-9_.-]+$/` để không tạo command
+   * TSPL hỏng.
+   */
+  fontName: string;
+}
+
+/** Cấu hình `internalFont` mặc định khi người dùng lần đầu chọn "Font máy in" — CP1258 + font bitmap `'3'`. */
+export const DEFAULT_TSPL_INTERNAL_FONT: TsplInternalFontConfig = { codepage: '1258', fontName: '3' };
+
 export interface TsplDriverConfig {
   type: 'tspl';
-  /** Mặc định 'bitmap' — hành vi đã verify trên phần cứng thật. 'truetype' là thử nghiệm, xem spec 2026-08-27. */
+  /** Mặc định 'bitmap' — hành vi đã verify trên phần cứng thật. 'truetype'/'internalfont' là thử nghiệm, xem spec 2026-08-27. */
   renderMode: TsplRenderMode;
   /** Chỉ có khi renderMode từng được đặt 'truetype' ít nhất 1 lần. */
   font?: TsplFontConfig;
+  /** Chỉ có khi renderMode từng được đặt 'internalfont' ít nhất 1 lần. */
+  internalFont?: TsplInternalFontConfig;
   /** Tương ứng lệnh `SIZE`/`GAP`. `undefined` nghĩa dùng `DEFAULT_LABEL_HEIGHT_MM`. */
   labelHeightMm?: number;
 }

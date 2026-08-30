@@ -20,6 +20,7 @@ jest.mock('../../printing/PrinterService', () => ({
     updatePrinter: jest.fn(),
     installTsplFont: jest.fn(() => Promise.resolve()),
     setTsplRenderMode: jest.fn(),
+    setTsplInternalFont: jest.fn(),
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -127,12 +128,27 @@ describe('useAddPrinterFlow', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it('onToggleTsplFont(false) drops to bitmap and persists symmetrically', async () => {
+  it('onSelectTsplRenderMode(bitmap) drops to bitmap and persists symmetrically', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onToggleTsplFont(false); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.bitmap); });
     expect(PrinterService.setTsplRenderMode).toHaveBeenCalledWith('p1', TsplRenderMode.bitmap);
     const tspl = get().infoCard.drivers[0];
     expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.bitmap);
+  });
+
+  it('onSelectTsplRenderMode(internalfont) sets config + persists via setTsplInternalFont', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.internalfont); });
+    expect(PrinterService.setTsplInternalFont).toHaveBeenCalledWith('p1', { codepage: '1258', fontName: '3' });
+    const tspl = get().infoCard.drivers[0];
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.internalfont);
+  });
+
+  it('onChangeTsplInternalFont merges a patch and re-persists', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.internalfont); });
+    await act(async () => { get().infoCard.onChangeTsplInternalFont({ fontName: 'TSS24.BF2' }); });
+    expect(PrinterService.setTsplInternalFont).toHaveBeenLastCalledWith('p1', { codepage: '1258', fontName: 'TSS24.BF2' });
   });
 
   it('hiding the modal while connected disconnects each seeded driver without saving', () => {
@@ -210,13 +226,13 @@ describe('useAddPrinterFlow', () => {
     );
   });
 
-  it('onToggleTsplFont(true) installs the font and flips config to truetype', async () => {
+  it('onSelectTsplRenderMode(truetype) installs the font and flips config to truetype', async () => {
     const bitmapTspl: Printer = {
       ...savedTspl,
       drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } }],
     };
     const { get } = render({ visible: true, initialValues: bitmapTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onToggleTsplFont(true); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.truetype); });
     expect(PrinterService.installTsplFont).toHaveBeenCalledWith('p1', expect.objectContaining({ fileName: expect.any(String) }));
     const tspl = get().infoCard.drivers[0];
     expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.truetype);

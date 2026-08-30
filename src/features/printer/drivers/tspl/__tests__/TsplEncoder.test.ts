@@ -136,4 +136,34 @@ describe('TsplEncoder', () => {
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('"3"');
   });
+
+  describe('codepage', () => {
+    it('initialize() emits CODEPAGE UTF-8 by default', () => {
+      expect(decode(new TsplEncoder().initialize(58).encode())).toContain('CODEPAGE UTF-8');
+    });
+
+    it('initialize(..., "1258") emits CODEPAGE 1258', () => {
+      const ascii = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1258').encode())
+        .map((b) => String.fromCharCode(b)).join('');
+      expect(ascii).toContain('CODEPAGE 1258');
+    });
+
+    it('text() encodes content as CP1258 bytes (base + combining tone) under codepage 1258', () => {
+      const bytes = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1258').text(0, 0, 'Trà sữa').encode());
+      // command prefix is ASCII, content "Trà sữa" -> T r à(0xE0) ' ' s ữ(0xFD 0xDE) a
+      expect(bytes.join(',')).toContain([0x54, 0x72, 0xe0, 0x20, 0x73, 0xfd, 0xde, 0x61].join(','));
+    });
+
+    it('text() under codepage 1252 truncates to the low byte (no multi-byte UTF-8 for accented chars)', () => {
+      const bytes = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1252').text(0, 0, 'é').encode());
+      // 'é' = U+00E9 -> single byte 0xE9, never [0xC3, 0xA9] (UTF-8)
+      expect(bytes).toContain(0xe9);
+      expect(bytes.join(',')).not.toContain('195,169');
+    });
+
+    it('text() keeps UTF-8 multi-byte encoding when codepage is UTF-8 (unchanged behavior)', () => {
+      const output = decode(new TsplEncoder().initialize(58).text(0, 0, 'é').encode());
+      expect(output).toContain('"é"');
+    });
+  });
 });

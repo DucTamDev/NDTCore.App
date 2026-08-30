@@ -24,8 +24,8 @@ import { PrinterErrorException } from '../types/PrinterError';
 import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
-import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, UsbRawDevice } from '../types/printer.types';
+import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
+import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -360,37 +360,56 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     );
   };
 
-  const onToggleTsplFont = async (enabled: boolean): Promise<void> => {
+  const updateTsplConfig = (fn: (config: TsplDriverConfig) => TsplDriverConfig): void => {
+    setDrivers((prev) =>
+      prev.map((d) =>
+        d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: fn(d.config) } : d,
+      ),
+    );
+  };
+
+  /**
+   * Chọn chế độ render TSPL (`bitmap` / `truetype` / `internalfont`). `truetype`
+   * kéo theo bước cài font (`installTsplFont`) — thất bại thì KHÔNG đổi
+   * renderMode (spec §6/§7). `bitmap`/`internalfont` chỉ set config. Mọi nhánh
+   * persist đối xứng qua `PrinterService` — no-op nếu là draft chưa lưu, `Save`
+   * lo phần đó.
+   */
+  const onSelectTsplRenderMode = async (mode: TsplRenderMode): Promise<void> => {
     const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
     if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
 
-    if (!enabled) {
-      setDrivers((prev) =>
-        prev.map((d) => (d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: { ...d.config, renderMode: TsplRenderMode.bitmap } } : d)),
-      );
-      // Persist đối xứng với nhánh bật (`installTsplFont` ghi renderMode='truetype'
-      // cho printer đã lưu) — no-op nếu là draft chưa lưu, Save sẽ lo phần đó.
-      PrinterService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
+    if (mode === TsplRenderMode.truetype) {
+      const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
+      setTsplFontPending(true);
+      try {
+        await PrinterService.installTsplFont(printerId, font);
+        updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } }));
+      } catch (error) {
+        setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
+      } finally {
+        setTsplFontPending(false);
+      }
       return;
     }
 
-    const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
-    setTsplFontPending(true);
-    try {
-      await PrinterService.installTsplFont(printerId, font);
-      setDrivers((prev) =>
-        prev.map((d) =>
-          d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl
-            ? { ...d, config: { ...d.config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } } }
-            : d,
-        ),
-      );
-    } catch (error) {
-      setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
-      // renderMode stays 'bitmap' (default) — never set to 'truetype' on failure, per spec §6/§7.
-    } finally {
-      setTsplFontPending(false);
+    if (mode === TsplRenderMode.internalfont) {
+      const internalFont = tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT;
+      updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.internalfont, internalFont }));
+      PrinterService.setTsplInternalFont(printerId, internalFont);
+      return;
     }
+
+    updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.bitmap }));
+    PrinterService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
+  };
+
+  const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
+    const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
+    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
+    const next = { ...(tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT), ...patch };
+    updateTsplConfig((config) => ({ ...config, internalFont: next }));
+    PrinterService.setTsplInternalFont(printerId, next);
   };
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
@@ -503,7 +522,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       onTestPrintReceipt,
       testPrintLabelPending,
       onTestPrintLabel,
-      onToggleTsplFont,
+      onSelectTsplRenderMode,
+      onChangeTsplInternalFont,
       tsplFontPending,
       onSave,
       saveDisabled: drivers.length === 0 || connectionDirty || hasEmptyContentTypeDriver,
