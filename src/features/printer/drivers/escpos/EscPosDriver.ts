@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, paperSizeOf, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../../types/driver.types';
+import { ConnectionType, CutterMode, mediaOf, paperSizeOf, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
 import type { PrintType } from '../../types/printConfiguration.types';
@@ -11,8 +11,9 @@ import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
+import { resolveEffectiveCutterMode } from '../tspl/cutter';
 
-const ESC_POS_PRINT_OPTIONS = { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' } as const;
+const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 
 /**
  * ESC/POS đi qua `NativeAdapter` (`IPrinterAdapter`) — native module RN*Printer
@@ -127,12 +128,13 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   private async sendDocuments(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
+    const cut = resolveEffectiveCutterMode(mediaOf(driver)) !== CutterMode.none;
     const text = buildEscPosText(paperSizeOf(driver), documents);
-    await adapter.printText(text, ESC_POS_PRINT_OPTIONS);
+    await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
   }
 
-  /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */
-  async print(printerId: string, documents: PrintDocuments, _printType: PrintType): Promise<void> {
+  /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async print(printerId: string, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     const adapter = this.adapters.get(printerId);
@@ -159,8 +161,8 @@ export class EscPosDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  /** `printType` không dùng ở ESC/POS (không phân biệt bill/label) — chỉ giữ tham số để khớp `IPrinterDriver`. */
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType): Promise<void> {
+  /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
     try {
       const isStaleOwner = this.activeByType.get(printer.connectionType) !== printer.id;

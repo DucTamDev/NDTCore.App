@@ -145,6 +145,33 @@ describe('EscPosDriver', () => {
     );
   });
 
+  it('sendDocuments gửi cut:true khi media.cutterMode undefined (mặc định giữ hành vi cũ)', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect(lanPrinter, escposDriverEntry);
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { NetPrinter: { printText: jest.Mock } };
+    await driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt);
+    expect(NetPrinter.printText).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cut: true }),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('sendDocuments gửi cut:false khi media.cutterMode = none', async () => {
+    const noCutEntry: PrinterDriver = { ...escposDriverEntry, config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80, cutterMode: 'none' } } };
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [noCutEntry] }, noCutEntry);
+    const { NetPrinter } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { NetPrinter: { printText: jest.Mock } };
+    await driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt);
+    expect(NetPrinter.printText).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ cut: false }),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
   it('identify() over USB always returns null', async () => {
     const driver = new EscPosDriver();
     const usbPrinterHere: Printer = { ...lanPrinter, id: 'receipt-usb', connectionType: ConnectionType.usb, lan: undefined, device: { deviceId: '1155:22222', displayName: 'USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } };

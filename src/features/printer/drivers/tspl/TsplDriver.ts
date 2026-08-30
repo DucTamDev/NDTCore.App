@@ -1,5 +1,5 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
-import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig } from '../../types/printer.types';
@@ -157,7 +157,7 @@ export class TsplDriver implements IPrinterDriver {
     return strategy.encode(context);
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void> {
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, _options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
     try {
       if (!this.connections.has(printer.id)) {
@@ -173,7 +173,7 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
-  async print(printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> {
+  async print(printerId: string, documents: PrintDocuments, printType: PrintType, _options?: PrintOptions): Promise<void> {
     const context = this.contexts.get(printerId);
     const adapter = this.connections.get(printerId);
     if (!context || !adapter) {

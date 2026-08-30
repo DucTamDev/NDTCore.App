@@ -15,13 +15,22 @@ export interface PrintDocuments {
   image?: string;
 }
 
+/**
+ * Tuỳ chọn in bổ sung, không phụ thuộc protocol. Task 2 mới wire vào TSPL.
+ * Additional print options, protocol-agnostic. Wired into TSPL in Task 2.
+ */
+export interface PrintOptions {
+  /** Số HÀNG die-cut cần in (mỗi hàng = `media.columns` con tem). Default 1. Bỏ qua khi media continuous ở đường routing; `testPrint` dùng để in thử grid. */
+  rows?: number;
+}
+
 export interface IPrinterDriver {
   scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
   connect(printer: Printer, driver: PrinterDriver): Promise<void>;
   disconnect(printerId: string): Promise<void>;
   getStatus(printerId: string): PrinterStatus;
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe;
-  testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void>;
-  print(printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void>;
+  testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void>;
+  print(printerId: string, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void>;
   identify(printerId: string): Promise<PrinterDeviceInfo | null>;
 }
