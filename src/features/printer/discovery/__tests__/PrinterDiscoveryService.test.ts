@@ -41,7 +41,7 @@ describe('PrinterDiscoveryService', () => {
   // Draft `Printer` ĐẦY ĐỦ — `DiscoveryInput.draftPrinter` là 1 Printer thật
   // (do caller tự dựng), không phải mấy field rời rạc nữa.
   const baseDraftPrinter = makePrinter({ name: 'Máy in mới', drivers: [] });
-  const baseInput = { draftPrinter: baseDraftPrinter, paperSize: 80 as const };
+  const baseInput = { draftPrinter: baseDraftPrinter };
 
   afterEach(() => jest.clearAllMocks());
 
@@ -56,18 +56,18 @@ describe('PrinterDiscoveryService', () => {
     expect(escposDriver.connect).not.toHaveBeenCalled();
   });
 
-  it('threads input.paperSize into the candidate driver media handed to connect() (cross-seam: form → discovery)', async () => {
+  it('hands the candidate driver its own defaultConfig media (no form threading — SP-C)', async () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
     const escposDriver = makeMockDriver();
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, { ...baseInput, paperSize: 58 });
+    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     const [, candidateDriver] = tsplDriver.connect.mock.calls[0] as [unknown, PrinterDriver];
-    expect(candidateDriver.config.media.paperSize).toBe(58);
+    expect(candidateDriver.config.media.paperSize).toBe(getDriverDefinition(PrinterDriverType.tspl).defaultConfig.media.paperSize);
   });
 
-  it('does not mutate the shared defaultConfig when stamping candidate media', async () => {
+  it('does not mutate the shared defaultConfig when building candidate media', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, { ...baseInput, paperSize: 58 });
+    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(getDriverDefinition(PrinterDriverType.tspl).defaultConfig.media.paperSize).toBe(80);
     expect(getDriverDefinition(PrinterDriverType.escpos).defaultConfig.media.paperSize).toBe(80);
   });

@@ -24,8 +24,9 @@ import { PrinterErrorException } from '../types/PrinterError';
 import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
-import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
+import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, PrintMediaType, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
+import type { PrintMedia, Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
+import { dieCutRowOverflow } from '../utils/mediaValidation';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -68,6 +69,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.idle);
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
+  const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
   const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
@@ -97,7 +99,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     resolver: zodResolver(printerDisplaySchema),
     defaultValues: {
       name: initialValues?.name ?? '',
-      paperSize: initialValues?.drivers[0]?.config.media.paperSize ?? 80,
     },
   });
 
@@ -188,7 +189,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       type,
       source,
       contentTypes,
-      config: { ...def, media: { ...def.media, paperSize: displayForm.getValues('paperSize') } },
+      config: { ...def },
     };
     setDrivers((prev) => [...prev, entry]);
   };
@@ -212,10 +213,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
     identityKey: currentIdentityKey() ?? '',
     capabilities: initialValues?.capabilities ?? { cutter: false },
-    drivers: drivers.map((d) => ({
-      ...d,
-      config: { ...d.config, media: { ...d.config.media, paperSize: displayForm.getValues('paperSize') } },
-    })),
+    drivers,
     autoReconnect,
     enabled: initialValues?.enabled ?? true,
     createdAt: initialValues?.createdAt ?? new Date().toISOString(),
@@ -241,7 +239,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     discoveryUnsubscribeRef.current = PrinterService.discoverDriver(
       {
         draftPrinter: buildDraftPrinter(),
-        paperSize: displayForm.getValues('paperSize'),
         excludedDrivers: drivers.map((d) => d.type),
       },
       (event: DiscoveryEvent) => {
@@ -299,7 +296,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       type: chosenProtocol,
       source: DriverSource.manual,
       contentTypes: [],
-      config: { ...definitionConfig, media: { ...definitionConfig.media, paperSize: displayForm.getValues('paperSize') } },
+      config: { ...definitionConfig },
     };
     const base = buildDraftPrinter();
     const draftPrinter: Printer = { ...base, drivers: [...base.drivers, draftDriver] };
@@ -416,6 +413,20 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     PrinterService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
   };
 
+  const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.type !== driverType) return d;
+        let media = { ...d.config.media, ...patch } as PrintMedia;
+        if (media.type === PrintMediaType.dieCut) {
+          media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
+        }
+        return { ...d, config: { ...d.config, media } };
+      }),
+    );
+    PrinterService.setDriverMedia(printerId, driverType, patch);
+  };
+
   const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
     const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
     if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
@@ -445,7 +456,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     setTestPrintErrorMessage(null);
     try {
       const documents = await resolveTestPrintDocuments(driver, sampleDocument);
-      await PrinterService.testPrint(printer, driver, documents, printType);
+      const options = printType === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
+      await PrinterService.testPrint(printer, driver, documents, printType, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {
@@ -467,7 +479,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       return;
     }
     savedRef.current = true;
-    if (printer.autoReconnect && liveStatus !== PrinterStatus.connected) {
+    if (liveStatus === PrinterStatus.connected) {
+      PrinterService.reconnect(printer.id).catch(() => undefined);
+    } else if (printer.autoReconnect) {
       PrinterService.connect(printer.id).catch(() => undefined);
     }
     onSaved();
@@ -536,9 +550,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       onTestPrintLabel,
       onSelectTsplRenderMode,
       onChangeTsplInternalFont,
+      onChangeDriverMedia,
+      testPrintRowsText,
+      onTestPrintRowsChange: setTestPrintRowsText,
+      hasTsplDriver: drivers.some((d) => d.type === PrinterDriverType.tspl),
       tsplFontPending,
       onSave,
-      saveDisabled: drivers.length === 0 || connectionDirty || hasEmptyContentTypeDriver,
+      saveDisabled:
+        drivers.length === 0 ||
+        connectionDirty ||
+        hasEmptyContentTypeDriver ||
+        drivers.some((d) => dieCutRowOverflow(mediaOf(d)) != null),
       locked: drivers.length === 0,
     },
   };

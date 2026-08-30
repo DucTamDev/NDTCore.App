@@ -11,7 +11,7 @@ import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
 import { DEFAULT_TSPL_INTERNAL_FONT, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplCodepage, TsplRenderMode } from '../types/printer.types';
-import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
+import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
   usb: 'USB',
@@ -64,6 +64,13 @@ export interface PrinterInfoCardProps {
   onSelectTsplRenderMode: (mode: TsplRenderMode) => void;
   /** Cập nhật 1 phần cấu hình font máy in (`renderMode: 'internalfont'`). */
   onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
+  /** Cập nhật `media` per-driver (khổ giấy, loại giấy, kích thước die-cut). Wire UI ở Task 4. */
+  onChangeDriverMedia: (driverType: PrinterDriverType, patch: Partial<PrintMedia>) => void;
+  /** Số hàng die-cut cho "In tem thử" — giữ dạng text để nhập dở. */
+  testPrintRowsText: string;
+  onTestPrintRowsChange: (text: string) => void;
+  /** Có driver TSPL trong list — gate ô "Số hàng in thử". */
+  hasTsplDriver: boolean;
   /** true trong lúc đang chạy `installTsplFont` — vô hiệu hoá selector để tránh double-tap. */
   tsplFontPending: boolean;
   onSave: () => void;

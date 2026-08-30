@@ -5,7 +5,7 @@ import { PrinterService } from '../../printing/PrinterService';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import type { Printer } from '../../types/printer.types';
 
 jest.mock('../../printing/PrinterService', () => ({
   PrinterService: {
@@ -16,11 +16,13 @@ jest.mock('../../printing/PrinterService', () => ({
     discoverDriver: jest.fn(() => () => undefined),
     connectDraft: jest.fn(() => Promise.resolve()),
     connect: jest.fn(() => Promise.resolve()),
+    reconnect: jest.fn(() => Promise.resolve()),
     addPrinter: jest.fn(),
     updatePrinter: jest.fn(),
     installTsplFont: jest.fn(() => Promise.resolve()),
     setTsplRenderMode: jest.fn(),
     setTsplInternalFont: jest.fn(),
+    setDriverMedia: jest.fn(),
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -76,6 +78,7 @@ describe('useAddPrinterFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (PrinterService.getPrinters as jest.Mock).mockReturnValue([]);
+    (PrinterService.getStatusForDriver as jest.Mock).mockReturnValue('idle');
     (PrinterService.discoverDriver as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
       capturedDiscoveryHandler = handler;
       return () => undefined;
@@ -131,6 +134,14 @@ describe('useAddPrinterFlow', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it('onSave khi driver đang connected → reconnect (không connect) để context lấy media đã lưu', async () => {
+    (PrinterService.getStatusForDriver as jest.Mock).mockReturnValue('connected');
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onSave(); });
+    expect(PrinterService.reconnect).toHaveBeenCalledWith('p1');
+    expect(PrinterService.connect).not.toHaveBeenCalled();
+  });
+
   it('onSelectTsplRenderMode(bitmap) drops to bitmap and persists symmetrically', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
     await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.bitmap); });
@@ -178,30 +189,27 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.drivers[0]).toEqual(expect.objectContaining({ type: PrinterDriverType.escpos, source: DriverSource.manual }));
   });
 
-  it('manual protocol pick hands connectDraft a draft whose every driver.config.media.paperSize matches the form', async () => {
-    const { get } = render({ visible: true, onSaved: jest.fn() });
-    act(() => { (get().infoCard.control as unknown as { _formValues: { paperSize: number } })._formValues.paperSize = 58; });
-    act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
-    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
-    const [draft, draftDriver] = (PrinterService.connectDraft as jest.Mock).mock.calls[0] as [Printer, PrinterDriver];
-    expect(draft.drivers.length).toBeGreaterThan(0);
-    expect(draft.drivers.every((d) => d.config.media.paperSize === 58)).toBe(true);
-    expect(draftDriver.config.media.paperSize).toBe(58);
+  it('onChangeDriverMedia cập nhật media của driver đích và persist qua setDriverMedia', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { paperSize: 100 }); });
+    expect(get().infoCard.drivers[0].config.media.paperSize).toBe(100);
+    expect(PrinterService.setDriverMedia).toHaveBeenCalledWith('p1', PrinterDriverType.tspl, { paperSize: 100 });
   });
 
-  it('manual protocol pick with a driver ALREADY in the list hands connectDraft both entries at the form paperSize', async () => {
-    const { get } = render({ visible: true, onSaved: jest.fn() });
-    act(() => { (get().infoCard.control as unknown as { _formValues: { paperSize: number } })._formValues.paperSize = 58; });
-    act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
-    await act(async () => { await get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
-    await act(async () => { await get().statusPanel.onChooseProtocol(PrinterDriverType.tspl); });
-    const calls = (PrinterService.connectDraft as jest.Mock).mock.calls as [Printer, PrinterDriver][];
-    const [draft] = calls[calls.length - 1];
-    expect(draft.drivers).toHaveLength(2);
-    expect(draft.drivers.map((d) => d.type)).toEqual([PrinterDriverType.escpos, PrinterDriverType.tspl]);
-    expect(draft.drivers.every((d) => d.config.media.paperSize === 58)).toBe(true);
+  it('onChangeDriverMedia chỉ đổi driver đích — draft giữ media per-driver, không bị đè', async () => {
+    const twoDriver: Printer = {
+      ...savedTspl,
+      drivers: [
+        { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } },
+        savedTspl.drivers[0],
+      ],
+    };
+    const { get } = render({ visible: true, initialValues: twoDriver, onSaved: jest.fn() });
+    await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { paperSize: 100 }); });
+    await act(async () => { await get().infoCard.onSave(); });
+    const saved = (PrinterService.updatePrinter as jest.Mock).mock.calls[0][0] as Printer;
+    expect(saved.drivers.find((d) => d.type === PrinterDriverType.tspl)?.config.media.paperSize).toBe(100);
+    expect(saved.drivers.find((d) => d.type === PrinterDriverType.escpos)?.config.media.paperSize).toBe(80);
   });
 
   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
@@ -255,7 +263,22 @@ describe('useAddPrinterFlow', () => {
       expect.objectContaining({ type: PrinterDriverType.tspl }),
       expect.objectContaining({ text: expect.anything() }),
       PrintType.Label,
+      { rows: 1 },
     );
+  });
+
+  it('onChangeDriverMedia type=die_cut điền 5 field default', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { type: 'die_cut' }); });
+    const tspl = get().infoCard.drivers[0];
+    expect(tspl.config.media).toMatchObject({ type: 'die_cut', itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
+  });
+
+  it('runTestPrint(Label) với testPrintRowsText=3 → testPrint nhận { rows: 3 }', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { get().infoCard.onTestPrintRowsChange('3'); });
+    await act(async () => { await get().infoCard.onTestPrintLabel(); });
+    expect(PrinterService.testPrint).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), PrintType.Label, { rows: 3 });
   });
 
   it('onSelectTsplRenderMode(truetype) installs the font and flips config to truetype', async () => {

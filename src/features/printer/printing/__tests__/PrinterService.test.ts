@@ -336,7 +336,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver }, createResourceLock());
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      service.discoverDriver({ draftPrinter: { ...basePrinter, drivers: [] }, paperSize: 80 }, (event) => {
+      service.discoverDriver({ draftPrinter: { ...basePrinter, drivers: [] } }, (event) => {
         events.push(event.stage);
         if (event.stage === DiscoveryStage.identified) resolve();
       });
