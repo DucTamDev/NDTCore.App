@@ -1,5 +1,12 @@
 # TSPL Die-Cut Render + Cutter (SP-B) — Design Specification
 
+> **[2026-08-30] Điều chỉnh sau implement (final review):**
+> - §3.3: `cut()` với `mode === 'none'` phát `SET CUTTER OFF` (không phải "không phát gì") — `SET CUTTER` là setting bền của máy in, "không phát" không tắt được cắt. Kill-switch `cutterMode: 'none'` giờ hoạt động thật.
+> - §4.3: thêm helper `contentWidthChars(media)` — die_cut suy `line`/`row` char-width theo `itemWidthMm` (không phải khổ giấy) để không tràn qua cột.
+> - §1 "SP-B chỉ wire `testPrint`" **chưa đúng**: `PrinterService.testPrint` chưa có param `options`; `rows` mới tới được `TsplDriver.testPrint` khi gọi trực tiếp. Thread `options` qua `PrinterService.testPrint` + `useAddPrinterFlow.runTestPrint` + ô nhập số hàng → **SP-C**.
+> - Cross-field validate (`columns·itemWidthMm + gaps ≤ PRINTABLE_WIDTH_MM[paperSize]`) → **SP-C** form validation.
+> - `drivers/tspl/cutter.ts` → `utils/cutter.ts` (protocol-neutral).
+
 ## 0. Bối cảnh
 
 SP-B của nỗ lực `PrintMedia` (xem `2026-08-30-print-media-domain-design.md` §0 — 4 sub-project A→(B∥C)→D). SP-A đã có `PrintMedia` per `PrinterDriver.config` (`type: 'continuous' | 'die_cut'`, `paperSize`, `itemWidthMm/itemHeightMm`, `columns`, `horizontalGapMm/verticalGapMm`, `cutterMode`) + `PrinterCapabilities` per `Printer`, nhưng `TsplEncoder`/`TsplDriver` **chưa dùng** — vẫn render như trước (continuous only, `PRINT 1,1`, không lệnh cắt).
