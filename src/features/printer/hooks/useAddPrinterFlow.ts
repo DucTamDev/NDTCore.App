@@ -183,7 +183,13 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   const addDriverToList = (type: PrinterDriverType, source: DriverSource): void => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
     const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
-    const entry: PrinterDriver = { type, source, contentTypes, config: getDriverDefinition(type).defaultConfig };
+    const def = getDriverDefinition(type).defaultConfig;
+    const entry: PrinterDriver = {
+      type,
+      source,
+      contentTypes,
+      config: { ...def, media: { ...def.media, paperSize: displayForm.getValues('paperSize') } },
+    };
     setDrivers((prev) => [...prev, entry]);
   };
 
@@ -205,7 +211,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
     lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
     identityKey: currentIdentityKey() ?? '',
-    capabilities: { cutter: false },
+    capabilities: initialValues?.capabilities ?? { cutter: false },
     drivers: drivers.map((d) => ({
       ...d,
       config: { ...d.config, media: { ...d.config.media, paperSize: displayForm.getValues('paperSize') } },
@@ -235,6 +241,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     discoveryUnsubscribeRef.current = PrinterService.discoverDriver(
       {
         draftPrinter: buildDraftPrinter(),
+        paperSize: displayForm.getValues('paperSize'),
         excludedDrivers: drivers.map((d) => d.type),
       },
       (event: DiscoveryEvent) => {

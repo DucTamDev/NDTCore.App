@@ -3,12 +3,13 @@ import { createPrinterService } from '../PrinterService';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType, PrinterStatus, type Printer } from '../../types/printer.types';
 import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
 import { PrintType } from '../../types/printConfiguration.types';
+import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../testing/printerFixtures';
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
+const escposDriver = makeEscPosDriverEntry();
+const tsplDriver = makeTsplDriverEntry();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
@@ -16,11 +17,11 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   ...overrides,
 });
 
-const makePrinter = (overrides: Partial<Printer> = {}): Printer => ({
-  id: 'p1', name: 'Máy in', drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
-  identityKey: 'lan:1.1.1.1:9100', capabilities: { cutter: false }, autoReconnect: false, enabled: true, createdAt: 'x', updatedAt: 'x',
-  ...overrides,
-});
+const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
+  makePrinterFixture({
+    name: 'Máy in', lan: { ip: '1.1.1.1', port: 9100 }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
+    ...overrides,
+  });
 
 describe('PrintScheduler', () => {
   it('enqueue() resolves with status success when PrinterService.print resolves', async () => {

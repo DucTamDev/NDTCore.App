@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../types/driver.types';
 import { DriverSource, PrinterDriverType } from '../types/printer.types';
-import type { Printer, PrinterDeviceInfo } from '../types/printer.types';
+import type { PaperSize, Printer, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
 import { PrinterErrorCode, type PrinterError } from '../types/PrinterError';
 import { PrinterLogger } from '../services/PrinterLogger';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
@@ -32,14 +32,20 @@ export interface DiscoveryEvent {
 
 export interface DiscoveryInput {
   /**
-   * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, media, name,
-   * v.v.) do caller (`AddPrinterModal.buildDraftPrinter()`) tự dựng — service
-   * này KHÔNG tự tổng hợp draft từ các field rời rạc nữa, để tránh tạo ra 1
-   * draft thiếu field (từng gây bug: driver.connect() lưu context với
-   * `media: undefined`, sản xuất bản in sai lặng lẽ khi có print thật xảy
-   * ra đồng thời trong lúc discovery còn đang mở — xem final-review finding #2).
+   * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, name, v.v.) do
+   * caller (`useAddPrinterFlow.buildDraftPrinter()`) tự dựng — service này
+   * KHÔNG tự tổng hợp draft từ các field rời rạc nữa, để tránh tạo ra 1 draft
+   * thiếu field. `driver.connect()` lưu draft này làm context sống của driver,
+   * nên khổ giấy user đang chọn phải tới được context của candidate driver —
+   * việc đó đi qua `paperSize` bên dưới, KHÔNG qua `draftPrinter.drivers`
+   * (candidate driver chưa nằm trong list lúc discovery). Thiếu bước này thì
+   * candidate luôn mang `defaultConfig.media.paperSize` (80mm), in sai lặng lẽ
+   * nếu có print thật xảy ra đồng thời hoặc user save mà không reconnect
+   * (final-review Critical #1).
    */
   draftPrinter: Printer;
+  /** Khổ giấy user đang chọn trên form — stamp vào `media` của candidate driver trước khi `connect()`. */
+  paperSize: PaperSize;
   excludedDrivers?: PrinterDriverType[];
 }
 
@@ -66,7 +72,13 @@ export const createDiscoverDriver =
         if (cancelled) return;
         candidatesTried.push(type);
         const driver = registry[type];
-        const draftDriver = { type, source: DriverSource.auto, contentTypes: [], config: getDriverDefinition(type).defaultConfig };
+        const def = getDriverDefinition(type).defaultConfig;
+        const draftDriver: PrinterDriver = {
+          type,
+          source: DriverSource.auto,
+          contentTypes: [],
+          config: { ...def, media: { ...def.media, paperSize: input.paperSize } },
+        };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: DiscoveryStage.connecting, protocol: type });
         try {

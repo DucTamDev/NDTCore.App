@@ -1,24 +1,22 @@
 import { createPrintRoutingService } from '../PrintRoutingService';
-import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
+import type { Printer } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
+import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../testing/printerFixtures';
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
+const escposDriver = makeEscPosDriverEntry();
+const tsplDriver = makeTsplDriverEntry();
 
-const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
-  id,
-  name: id,
-  drivers: [escposDriver],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '1.1.1.1', port: 9100 },
-  identityKey: `lan:1.1.1.1:9100-${id}`,
-  capabilities: { cutter: false },
-  autoReconnect: false,
-  enabled: true,
-  createdAt: 'x',
-  updatedAt: 'x',
-  ...overrides,
-});
+const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer =>
+  makePrinterFixture({
+    id,
+    name: id,
+    drivers: [escposDriver],
+    lan: { ip: '1.1.1.1', port: 9100 },
+    identityKey: `lan:1.1.1.1:9100-${id}`,
+    createdAt: 'x',
+    updatedAt: 'x',
+    ...overrides,
+  });
 
 describe('PrintRoutingService.resolveTargets', () => {
   it('returns the printer + driver whose contentTypes include the given printType', () => {

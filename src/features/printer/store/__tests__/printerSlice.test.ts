@@ -7,31 +7,14 @@ import printerReducer, {
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrinterStatus } from '../../types/printer.types';
+import { makePrinter } from '../../testing/printerFixtures';
 
-const drivers: PrinterDriver[] = [
-  {
-    type: PrinterDriverType.escpos,
-    source: DriverSource.auto,
-    contentTypes: [PrintType.Receipt],
-    config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } },
-  },
-];
-
-const printer: Printer = {
-  id: 'p1',
+const printer = makePrinter({
   name: 'Máy in hóa đơn quầy 1',
-  drivers,
-  connectionType: ConnectionType.lan,
-  lan: { ip: '192.168.1.10', port: 9100 },
-  identityKey: 'lan:192.168.1.10:9100',
-  capabilities: { cutter: false },
-  autoReconnect: false,
-  enabled: true,
   createdAt: '2026-08-26T00:00:00.000Z',
   updatedAt: '2026-08-26T00:00:00.000Z',
-};
+});
 
 describe('printerSlice', () => {
   it('printersLoaded replaces the printer list', () => {

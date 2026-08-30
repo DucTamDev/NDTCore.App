@@ -1,21 +1,8 @@
 import { PrinterStorage } from '../PrinterStorage';
 import { StorageService } from '../../../../services/StorageService';
-import { ConnectionType, DriverSource, PrinterDriverType, type Printer } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { makePrinter } from '../../testing/printerFixtures';
 
-const printer: Printer = {
-  id: 'p1',
-  name: 'Máy in',
-  drivers: [{ type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } }],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '192.168.1.10', port: 9100 },
-  identityKey: 'lan:192.168.1.10:9100',
-  capabilities: { cutter: false },
-  autoReconnect: false,
-  enabled: true,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-};
+const printer = makePrinter({ name: 'Máy in' });
 
 describe('PrinterStorage', () => {
   beforeEach(() => {

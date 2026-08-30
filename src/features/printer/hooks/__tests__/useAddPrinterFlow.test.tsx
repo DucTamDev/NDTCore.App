@@ -190,6 +190,20 @@ describe('useAddPrinterFlow', () => {
     expect(draftDriver.config.media.paperSize).toBe(58);
   });
 
+  it('manual protocol pick with a driver ALREADY in the list hands connectDraft both entries at the form paperSize', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => { (get().infoCard.control as unknown as { _formValues: { paperSize: number } })._formValues.paperSize = 58; });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { await get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    await act(async () => { await get().statusPanel.onChooseProtocol(PrinterDriverType.tspl); });
+    const calls = (PrinterService.connectDraft as jest.Mock).mock.calls as [Printer, PrinterDriver][];
+    const [draft] = calls[calls.length - 1];
+    expect(draft.drivers).toHaveLength(2);
+    expect(draft.drivers.map((d) => d.type)).toEqual([PrinterDriverType.escpos, PrinterDriverType.tspl]);
+    expect(draft.drivers.every((d) => d.config.media.paperSize === 58)).toBe(true);
+  });
+
   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));

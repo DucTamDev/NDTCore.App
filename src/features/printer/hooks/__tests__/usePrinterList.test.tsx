@@ -5,8 +5,8 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterList, type UsePrinterList } from '../usePrinterList';
 import printerReducer from '../../store/printerSlice';
 import { PrinterService } from '../../printing/PrinterService';
-import { ConnectionType } from '../../types/printer.types';
 import type { Printer } from '../../types/printer.types';
+import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -21,20 +21,16 @@ jest.mock('../../printing/PrinterService', () => ({
   },
 }));
 
-const printer = (over: Partial<Printer> = {}): Printer => ({
-  id: 'p1',
-  name: 'M1',
-  drivers: [],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '1.2.3.4', port: 9100 },
-  identityKey: 'lan:1.2.3.4:9100',
-  capabilities: { cutter: false },
-  autoReconnect: false,
-  enabled: true,
-  createdAt: '',
-  updatedAt: '',
-  ...over,
-});
+const printer = (over: Partial<Printer> = {}): Printer =>
+  makePrinter({
+    name: 'M1',
+    drivers: [],
+    lan: { ip: '1.2.3.4', port: 9100 },
+    identityKey: 'lan:1.2.3.4:9100',
+    createdAt: '',
+    updatedAt: '',
+    ...over,
+  });
 
 const makeStore = () => configureStore({ reducer: { printer: printerReducer } });
 

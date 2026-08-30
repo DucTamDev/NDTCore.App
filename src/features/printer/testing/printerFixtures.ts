@@ -4,21 +4,22 @@ import { PrintType } from '../types/printConfiguration.types';
 
 export const DEFAULT_MEDIA: PrintMedia = { type: PrintMediaType.continuous, paperSize: 80 };
 
-export const makeEscPosDriverEntry = (o: Partial<PrinterDriver> & { media?: Partial<PrintMedia> } = {}): PrinterDriver => {
-  const { media, config, ...rest } = o;
+/** Override phần metadata của 1 `PrinterDriver` — `config` được factory tự dựng (dùng `media`/`renderMode`), không nhận qua đây. */
+type DriverEntryOverride = Partial<Omit<PrinterDriver, 'config'>> & { media?: Partial<PrintMedia> };
+
+export const makeEscPosDriverEntry = (o: DriverEntryOverride = {}): PrinterDriver => {
+  const { media, ...rest } = o;
   return {
     type: PrinterDriverType.escpos,
     source: DriverSource.auto,
     contentTypes: [PrintType.Receipt],
     ...rest,
-    config: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA, ...media }, ...(config as object) },
+    config: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA, ...media } },
   };
 };
 
-export const makeTsplDriverEntry = (
-  o: Partial<PrinterDriver> & { media?: Partial<PrintMedia>; renderMode?: TsplRenderMode } = {},
-): PrinterDriver => {
-  const { media, renderMode, config, ...rest } = o;
+export const makeTsplDriverEntry = (o: DriverEntryOverride & { renderMode?: TsplRenderMode } = {}): PrinterDriver => {
+  const { media, renderMode, ...rest } = o;
   return {
     type: PrinterDriverType.tspl,
     source: DriverSource.auto,
@@ -28,7 +29,6 @@ export const makeTsplDriverEntry = (
       type: PrinterDriverType.tspl,
       renderMode: renderMode ?? TsplRenderMode.bitmap,
       media: { ...DEFAULT_MEDIA, ...media },
-      ...(config as object),
     },
   };
 };
