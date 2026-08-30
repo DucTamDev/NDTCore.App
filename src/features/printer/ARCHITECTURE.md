@@ -448,7 +448,7 @@ interface Printer {
 
   identityKey: string;
 
-  paperSize: 58 | 80;
+  capabilities: PrinterCapabilities;
 
   autoReconnect: boolean;
 
@@ -459,6 +459,11 @@ interface Printer {
   updatedAt: string;
 }
 ```
+
+`capabilities` mô tả phần cứng máy in (vd có dao cắt hay không). Khổ giấy + layout
+(`media: PrintMedia`) KHÔNG nằm trên `Printer` — mỗi driver có `media` riêng trong
+`PrinterDriver.config`, vì cùng 1 máy in có thể chạy ESC/POS trên giấy cuộn và TSPL
+trên tem die-cut cùng lúc.
 
 ---
 

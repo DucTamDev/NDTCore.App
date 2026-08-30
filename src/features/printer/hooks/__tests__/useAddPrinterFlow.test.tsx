@@ -27,8 +27,9 @@ jest.mock('../../printing/PrinterService', () => ({
   },
 }));
 
+const mockCaptureBillImage = jest.fn(() => Promise.resolve(null));
 jest.mock('../useBillImageCapture', () => ({
-  useBillImageCapture: () => ({ captureNode: null, captureBillImage: jest.fn(() => Promise.resolve(null)) }),
+  useBillImageCapture: () => ({ captureNode: null, captureBillImage: mockCaptureBillImage }),
 }));
 
 jest.mock('../../services/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
@@ -77,6 +78,7 @@ const render = (props: FlowProps) => {
 describe('useAddPrinterFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCaptureBillImage.mockClear();
     (PrinterService.getPrinters as jest.Mock).mockReturnValue([]);
     (PrinterService.getStatusForDriver as jest.Mock).mockReturnValue('idle');
     (PrinterService.discoverDriver as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
@@ -272,6 +274,17 @@ describe('useAddPrinterFlow', () => {
     await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { type: 'die_cut' }); });
     const tspl = get().infoCard.drivers[0];
     expect(tspl.config.media).toMatchObject({ type: 'die_cut', itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
+  });
+
+  it('runTestPrint(Label) ở chế độ bitmap gọi captureBillImage với media của driver (die_cut)', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.bitmap); });
+    await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { type: 'die_cut' }); });
+    await act(async () => { await get().infoCard.onTestPrintLabel(); });
+    expect(mockCaptureBillImage).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'die_cut', columns: expect.any(Number) }),
+    );
   });
 
   it('runTestPrint(Label) với testPrintRowsText=3 → testPrint nhận { rows: 3 }', async () => {
