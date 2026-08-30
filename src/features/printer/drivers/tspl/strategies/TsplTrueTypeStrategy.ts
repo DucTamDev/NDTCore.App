@@ -1,7 +1,7 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
 import { paperSizeOf, PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
-import { TsplEncoder } from '../TsplEncoder';
+import { TsplEncoder, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../cutter';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../../utils/paperWidth';
 
@@ -31,21 +31,23 @@ export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
     const fontName = driver.config.font.name;
     const paperWidth = PAPER_WIDTH_CHARS[paperSizeOf(driver)];
     const encoder = new TsplEncoder().initialize(media, printType);
-    for (const element of documents.text.elements) {
-      if (element.type === 'text') {
-        encoder.text(element.x, element.y, element.content, fontName);
-      } else if (element.type === 'line') {
-        encoder.text(element.x, element.y, '-'.repeat(paperWidth), fontName);
-      } else if (element.type === 'table') {
-        element.rows.forEach((row, i) => encoder.text(element.x, element.y + i * 20, row.join('  '), fontName));
-      } else if (element.type === 'row') {
-        encoder.text(element.x, element.y, formatRow(element.left, element.right, paperWidth), fontName);
-      } else if (element.type === 'barcode') {
-        encoder.barcode(element.x, element.y, element.content);
-      } else if (element.type === 'qrCode') {
-        encoder.qrcode(element.x, element.y, element.content);
-      } else {
-        throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+    for (const dx of columnOffsets(media)) {
+      for (const element of documents.text.elements) {
+        if (element.type === 'text') {
+          encoder.text(element.x + dx, element.y, element.content, fontName);
+        } else if (element.type === 'line') {
+          encoder.text(element.x + dx, element.y, '-'.repeat(paperWidth), fontName);
+        } else if (element.type === 'table') {
+          element.rows.forEach((row, i) => encoder.text(element.x + dx, element.y + i * 20, row.join('  '), fontName));
+        } else if (element.type === 'row') {
+          encoder.text(element.x + dx, element.y, formatRow(element.left, element.right, paperWidth), fontName);
+        } else if (element.type === 'barcode') {
+          encoder.barcode(element.x + dx, element.y, element.content);
+        } else if (element.type === 'qrCode') {
+          encoder.qrcode(element.x + dx, element.y, element.content);
+        } else {
+          throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
+        }
       }
     }
     return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();

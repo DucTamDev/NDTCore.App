@@ -64,6 +64,20 @@ describe('TsplInternalFontStrategy', () => {
     expect(ascii).toContain('CODEPAGE UTF-8');
   });
 
+  it('die_cut 2 cột → mỗi element xuất hiện 2 lần, lần 2 tại x = element.x + pitch', () => {
+    const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as const;
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...dieCut }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
+    const dieCtx: TsplStrategyContext = {
+      printer, driver: dieCutDriver,
+      documents: { text: { elements: [{ type: 'text', content: 'A', x: 10, y: 0 }] } },
+      printType: PrintType.Receipt, media: { ...dieCut }, rows: 1,
+    };
+    const ascii = Array.from(s.encode(dieCtx)).map((b) => String.fromCharCode(b)).join('');
+    // pitch = (30 + 2) * 8 = 256 → cột 2 tại x = 10 + 256 = 266
+    expect(ascii).toContain('TEXT 10,0,');
+    expect(ascii).toContain('TEXT 266,0,');
+  });
+
   it('encode ném TSPL_ELEMENT_UNSUPPORTED cho element lạ', () => {
     const bad = { ...ctx(configured), documents: { text: { elements: [{ type: 'weird', x: 0, y: 0 } as never] } } };
     expect(() => s.encode(bad)).toThrow();

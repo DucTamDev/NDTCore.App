@@ -1,7 +1,7 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { paperSizeOf, TsplRenderMode } from '../../../types/printer.types';
+import { paperSizeOf, PrintMediaType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
-import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm } from '../TsplEncoder';
+import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../cutter';
 import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperWidth';
 import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
@@ -26,9 +26,12 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
     const { printType, media, rows, documents } = context;
     const heightMm = resolveSizeHeightMm(media, printType);
     const paperSize = paperSizeOf(context.driver);
+    const targetWidthPx = media.type === PrintMediaType.dieCut
+      ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
+      : PAPER_IMAGE_WIDTH_PX[paperSize];
     let bitmap;
     try {
-      bitmap = decodePngBase64ToMonochrome(documents.image as string, PAPER_IMAGE_WIDTH_PX[paperSize]);
+      bitmap = decodePngBase64ToMonochrome(documents.image as string, targetWidthPx);
     } catch (error) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_IMAGE_INVALID,
@@ -43,10 +46,8 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
         message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
       });
     }
-    return new TsplEncoder()
-      .initialize(media, printType)
-      .image(0, 0, bitmap)
-      .cut(rows, resolveEffectiveCutterMode(media))
-      .encode();
+    const encoder = new TsplEncoder().initialize(media, printType);
+    for (const dx of columnOffsets(media)) encoder.image(dx, 0, bitmap);
+    return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();
   }
 }
