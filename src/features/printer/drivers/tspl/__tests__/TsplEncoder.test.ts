@@ -1,6 +1,19 @@
-import { TsplEncoder } from '../TsplEncoder';
+import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintType } from '../../../types/printConfiguration.types';
+import { PrintMediaType, CutterMode } from '../../../types/printer.types';
+import type { PrintMedia } from '../../../types/printer.types';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
+
+const CONT = (paperSize: PrintMedia['paperSize'] = 58): PrintMedia => ({ type: PrintMediaType.continuous, paperSize });
+const DIE = (): PrintMedia => ({
+  type: PrintMediaType.dieCut,
+  paperSize: 100,
+  itemWidthMm: 30,
+  itemHeightMm: 20,
+  columns: 3,
+  horizontalGapMm: 2,
+  verticalGapMm: 3,
+});
 
 /** Decode UTF-8 bytes back to a JS string — project has no `@types/node`/DOM lib, so no `Buffer`/`TextDecoder` global to reach for here. */
 const decode = (bytes: Uint8Array): string => {
@@ -35,32 +48,66 @@ const decode = (bytes: Uint8Array): string => {
 describe('TsplEncoder', () => {
 
   it('initialize() defaults to continuous mode (Receipt) — GAP 0,0, no real gap to sense', () => {
-    const output = decode(new TsplEncoder().initialize(58).encode());
+    const output = decode(new TsplEncoder().initialize(CONT(58)).encode());
     expect(output).toContain('SIZE 50 mm, 200 mm');
     expect(output).toContain('GAP 0 mm, 0 mm');
     expect(output).toContain('CODEPAGE UTF-8');
     expect(output).toContain('CLS');
   });
 
-  it('initialize() emits gap-sensing SIZE/GAP for Label, sized for 58mm paper', () => {
-    const output = decode(new TsplEncoder().initialize(58, PrintType.Label).encode());
+  it('initialize(continuous, Label) does NOT gap-sense — GAP 0,0, DEFAULT_LABEL_HEIGHT_MM, sized for 58mm paper', () => {
+    const output = decode(new TsplEncoder().initialize(CONT(58), PrintType.Label).encode());
     expect(output).toContain('SIZE 50 mm, 30 mm');
-    expect(output).toContain('GAP 2 mm, 0 mm');
+    expect(output).toContain('GAP 0 mm, 0 mm');
   });
 
-  it('initialize() emits Label SIZE sized for 80mm paper, with a custom labelHeightMm', () => {
-    const output = decode(new TsplEncoder().initialize(80, PrintType.Label, 40).encode());
-    expect(output).toContain('SIZE 72 mm, 40 mm');
+  it('initialize(die_cut) emits row-wide SIZE + gap-sensing GAP verticalGapMm', () => {
+    const output = decode(new TsplEncoder().initialize(DIE()).encode());
+    expect(output).toContain('SIZE 94 mm, 20 mm'); // 3*30 + 2*2
+    expect(output).toContain('GAP 3 mm, 0 mm');
   });
 
-  it('initialize(100) emits SIZE 96 mm for the 100mm paper size', () => {
-    const output = decode(new TsplEncoder().initialize(100).encode());
+  it('initialize(continuous 100) emits SIZE 96 mm for the 100mm paper size', () => {
+    const output = decode(new TsplEncoder().initialize(CONT(100)).encode());
     expect(output).toContain('SIZE 96 mm, 200 mm');
   });
 
-  it('initialize(104) emits SIZE 104 mm for the 104mm paper size', () => {
-    const output = decode(new TsplEncoder().initialize(104).encode());
+  it('initialize(continuous 104) emits SIZE 104 mm for the 104mm paper size', () => {
+    const output = decode(new TsplEncoder().initialize(CONT(104)).encode());
     expect(output).toContain('SIZE 104 mm, 200 mm');
+  });
+
+  it('columnPitchDots = (itemWidthMm + horizontalGapMm) * 8', () => {
+    expect(columnPitchDots(DIE())).toBe(256); // (30+2)*8
+  });
+
+  it('columnOffsets: die_cut → [0, pitch, 2*pitch]; continuous → [0]', () => {
+    expect(columnOffsets(DIE())).toEqual([0, 256, 512]);
+    expect(columnOffsets(CONT())).toEqual([0]);
+  });
+
+  it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → itemHeightMm ?? DEFAULT', () => {
+    expect(resolveSizeHeightMm(DIE(), PrintType.Label)).toBe(20);
+    expect(resolveSizeHeightMm(CONT(), PrintType.Receipt)).toBe(200);
+    expect(resolveSizeHeightMm(CONT(), PrintType.Label)).toBe(30);
+  });
+
+  it('cut(3, per_job) → SET CUTTER 3 then PRINT 3,1', () => {
+    const output = decode(new TsplEncoder().cut(3, CutterMode.perJob).encode());
+    expect(output).toContain('SET CUTTER 3');
+    expect(output.trim().endsWith('PRINT 3,1')).toBe(true);
+  });
+
+  it('cut(2, per_row) → SET CUTTER 1 then PRINT 2,1', () => {
+    const output = decode(new TsplEncoder().cut(2, CutterMode.perRow).encode());
+    expect(output).toContain('SET CUTTER 1');
+    expect(output).toContain('PRINT 2,1');
+  });
+
+  it('cut(1, none) → only PRINT 1,1, no SET CUTTER', () => {
+    const output = decode(new TsplEncoder().cut(1, CutterMode.none).encode());
+    expect(output).not.toContain('SET CUTTER');
+    expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
 
   it('text() emits a TEXT command with escaped quotes', () => {
@@ -124,9 +171,9 @@ describe('TsplEncoder', () => {
     });
   });
 
-  it('cut() emits PRINT 1,1 and chains fluently with the other builders', () => {
+  it('cut() emits PRINT rows,1 and chains fluently with the other builders', () => {
     const output = decode(
-      new TsplEncoder().initialize(58).text(0, 0, 'A').cut().encode(),
+      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.perJob).encode(),
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
@@ -149,30 +196,30 @@ describe('TsplEncoder', () => {
 
   describe('codepage', () => {
     it('initialize() emits CODEPAGE UTF-8 by default', () => {
-      expect(decode(new TsplEncoder().initialize(58).encode())).toContain('CODEPAGE UTF-8');
+      expect(decode(new TsplEncoder().initialize(CONT(58)).encode())).toContain('CODEPAGE UTF-8');
     });
 
     it('initialize(..., "1258") emits CODEPAGE 1258', () => {
-      const ascii = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1258').encode())
+      const ascii = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1258').encode())
         .map((b) => String.fromCharCode(b)).join('');
       expect(ascii).toContain('CODEPAGE 1258');
     });
 
     it('text() encodes content as CP1258 bytes (base + combining tone) under codepage 1258', () => {
-      const bytes = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1258').text(0, 0, 'Trà sữa').encode());
+      const bytes = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1258').text(0, 0, 'Trà sữa').encode());
       // command prefix is ASCII, content "Trà sữa" -> T r à(0xE0) ' ' s ữ(0xFD 0xDE) a
       expect(bytes.join(',')).toContain([0x54, 0x72, 0xe0, 0x20, 0x73, 0xfd, 0xde, 0x61].join(','));
     });
 
     it('text() under codepage 1252 truncates to the low byte (no multi-byte UTF-8 for accented chars)', () => {
-      const bytes = Array.from(new TsplEncoder().initialize(58, PrintType.Receipt, 30, '1252').text(0, 0, 'é').encode());
+      const bytes = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1252').text(0, 0, 'é').encode());
       // 'é' = U+00E9 -> single byte 0xE9, never [0xC3, 0xA9] (UTF-8)
       expect(bytes).toContain(0xe9);
       expect(bytes.join(',')).not.toContain('195,169');
     });
 
     it('text() keeps UTF-8 multi-byte encoding when codepage is UTF-8 (unchanged behavior)', () => {
-      const output = decode(new TsplEncoder().initialize(58).text(0, 0, 'é').encode());
+      const output = decode(new TsplEncoder().initialize(CONT(58)).text(0, 0, 'é').encode());
       expect(output).toContain('"é"');
     });
   });

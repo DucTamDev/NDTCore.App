@@ -233,6 +233,18 @@ describe('TsplDriver', () => {
     expect(instance.write).toHaveBeenCalled();
   });
 
+  it('testPrint() with options.rows emits PRINT rows,1 and SET CUTTER rows (continuous default per_job)', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplDriverEntry);
+    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
+    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label, { rows: 4 });
+    const bytes = instance.write.mock.calls[0][0] as Uint8Array;
+    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('PRINT 4,1');
+    expect(ascii).toContain('SET CUTTER 4');
+  });
+
   it('print() over USB writes through UsbTransport', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);

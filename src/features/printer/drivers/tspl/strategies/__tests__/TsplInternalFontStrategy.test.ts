@@ -21,7 +21,7 @@ const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRe
 const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
   printer, driver,
   documents: { text: { elements: [{ type: 'text', content: 'Trà sữa', x: 0, y: 0 }] } },
-  printType: PrintType.Receipt, heightMm: 200,
+  printType: PrintType.Receipt, media: { ...MEDIA }, rows: 1,
 });
 
 describe('TsplInternalFontStrategy', () => {
@@ -45,7 +45,7 @@ describe('TsplInternalFontStrategy', () => {
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('CODEPAGE 1258');
     expect(ascii).toContain('"TSS24.BF2"');
-    expect(ascii).toContain('PRINT');
+    expect(ascii).toContain('PRINT 1,1');
     expect(ascii).not.toContain('BITMAP');
     expect(ascii).not.toContain('DOWNLOAD');
   });

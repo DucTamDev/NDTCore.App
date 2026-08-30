@@ -1,4 +1,4 @@
-import type { Printer, PrinterDriver, TsplRenderMode } from '../../../types/printer.types';
+import type { Printer, PrinterDriver, PrintMedia, TsplRenderMode } from '../../../types/printer.types';
 import type { PrintDocuments } from '../../../types/driver.types';
 import type { PrintType } from '../../../types/printConfiguration.types';
 
@@ -13,8 +13,10 @@ export interface TsplStrategyContext {
   driver: PrinterDriver;
   documents: PrintDocuments;
   printType: PrintType;
-  /** mm khai báo cho `SIZE` — resolve ở `TsplDriver.resolveHeightMm`. */
-  heightMm: number;
+  /** = `mediaOf(driver)`. Nguồn cho `SIZE`/`GAP`/`SET CUTTER`/layout cột. */
+  media: PrintMedia;
+  /** Số hàng die-cut cần in (>= 1). Continuous: số bản sao. */
+  rows: number;
 }
 
 export interface ITsplPrintStrategy {

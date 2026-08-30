@@ -1,8 +1,9 @@
-import type { PaperSize } from '../../types/printer.types';
-import { TsplCodepage } from '../../types/printer.types';
+import type { PaperSize, PrintMedia } from '../../types/printer.types';
+import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
+import { DOTS_PER_MM } from '../../utils/paperWidth';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -76,14 +77,49 @@ export const DEFAULT_LABEL_HEIGHT_MM = 30;
  */
 export const CONTINUOUS_HEIGHT_MM = 200;
 
-/** 203dpi — mật độ dot tiêu chuẩn của phần lớn máy in nhiệt TSPL (8 dot/mm). */
-export const DOTS_PER_MM = 8;
+export { DOTS_PER_MM };
 
 /**
  * mm in được theo khổ đầu in (`@ 8 dot/mm`) — dùng cho lệnh `SIZE`. Số cho
  * 100/104 là tạm, verify ở SP-B.
  */
 const PRINTABLE_WIDTH_MM: Record<PaperSize, number> = { 58: 50, 80: 72, 100: 96, 104: 104 };
+
+/**
+ * Chiều cao khai báo cho `SIZE`:
+ * - die_cut → `itemHeightMm` (schema SP-A đảm bảo có).
+ * - continuous Label → `itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM`.
+ * - continuous Receipt (hoặc không truyền printType) → `CONTINUOUS_HEIGHT_MM`.
+ *
+ * Declared height for `SIZE`: die_cut → item height; continuous Label →
+ * item height or the default; continuous Receipt → the wide safety ceiling.
+ */
+export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): number => {
+  if (media.type === PrintMediaType.dieCut) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  if (printType === PrintType.Label) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  return CONTINUOUS_HEIGHT_MM;
+};
+
+/**
+ * Khoảng cách tâm-đến-tâm giữa 2 cột die-cut, theo dot. Chỉ có nghĩa khi
+ * `media.type === 'die_cut'`.
+ *
+ * Centre-to-centre pitch between two die-cut columns, in dots.
+ */
+export const columnPitchDots = (media: PrintMedia): number =>
+  ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
+
+/**
+ * x-offset (dot) cho từng cột: die_cut → `[0, pitch, ...]` (`columns` phần
+ * tử); mọi trường hợp khác → `[0]`.
+ *
+ * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
+ */
+export const columnOffsets = (media: PrintMedia): number[] => {
+  if (media.type !== PrintMediaType.dieCut) return [0];
+  const pitch = columnPitchDots(media);
+  return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
+};
 
 export class TsplEncoder {
   /**
@@ -108,26 +144,27 @@ export class TsplEncoder {
   }
 
   /**
-   * `printType === 'Label'` → giấy tem rời có khe thật: khai báo `GAP 2mm,0mm`
-   * (dò khe) + `labelHeightMm` (từ `media.itemHeightMm`) khớp khổ tem vật lý. Mọi trường hợp khác
-   * (`'Receipt'` hoặc không truyền — vd `identify()`-only flow không có
-   * printType) → giấy cuộn liên tục, không có khe thật: `GAP 0,0` (tắt dò
-   * khe) + `CONTINUOUS_HEIGHT_MM` (ngưỡng an toàn rộng, không phải khổ giấy
-   * thật cần khớp).
+   * `SIZE`/`GAP` theo `media.type`:
+   * - die_cut → giấy tem rời có khe thật giữa các hàng: `SIZE` khai báo BỀ
+   *   RỘNG cả hàng (mọi cột + khe ngang) × `itemHeightMm`, `GAP <verticalGapMm>`
+   *   để cảm biến dò khe dọc.
+   * - continuous (Receipt hoặc Label, hoặc không truyền printType) → giấy cuộn
+   *   liên tục KHÔNG có khe vật lý: `GAP 0,0` (tắt dò khe). Chiều cao lấy từ
+   *   `resolveSizeHeightMm`.
+   *
+   * `SIZE`/`GAP` follow `media.type`: die_cut declares the full row width and
+   * senses the vertical gap; continuous always emits `GAP 0,0`.
    */
-  initialize(
-    paperSize: PaperSize,
-    printType: PrintType = PrintType.Receipt,
-    labelHeightMm: number = DEFAULT_LABEL_HEIGHT_MM,
-    codepage: TsplCodepage = TsplCodepage.utf8,
-  ): this {
+  initialize(media: PrintMedia, printType: PrintType = PrintType.Receipt, codepage: TsplCodepage = TsplCodepage.utf8): this {
     this.codepage = codepage;
-    const widthMm = PRINTABLE_WIDTH_MM[paperSize];
-    if (printType === PrintType.Label) {
-      this.pushLine(`SIZE ${widthMm} mm, ${labelHeightMm} mm`);
-      this.pushLine('GAP 2 mm, 0 mm');
+    const heightMm = resolveSizeHeightMm(media, printType);
+    if (media.type === PrintMediaType.dieCut) {
+      const columns = media.columns ?? 1;
+      const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
+      this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
+      this.pushLine(`GAP ${media.verticalGapMm ?? 0} mm, 0 mm`);
     } else {
-      this.pushLine(`SIZE ${widthMm} mm, ${CONTINUOUS_HEIGHT_MM} mm`);
+      this.pushLine(`SIZE ${PRINTABLE_WIDTH_MM[media.paperSize]} mm, ${heightMm} mm`);
       this.pushLine('GAP 0 mm, 0 mm');
     }
     this.pushLine(`CODEPAGE ${codepage}`);
@@ -203,8 +240,18 @@ export class TsplEncoder {
     return this;
   }
 
-  cut(): this {
-    this.pushLine('PRINT 1,1');
+  /**
+   * `SET CUTTER` + `PRINT rows,1`:
+   * - `per_row` → `SET CUTTER 1` (cắt sau mỗi hàng).
+   * - `per_job` → `SET CUTTER <rows>` (cắt 1 lần sau cả job).
+   * - `none` → không phát `SET CUTTER`.
+   *
+   * `SET CUTTER` then `PRINT rows,1`; `none` omits the cutter line entirely.
+   */
+  cut(rows: number, mode: CutterMode): this {
+    if (mode === CutterMode.perRow) this.pushLine('SET CUTTER 1');
+    else if (mode === CutterMode.perJob) this.pushLine(`SET CUTTER ${rows}`);
+    this.pushLine(`PRINT ${rows},1`);
     return this;
   }
 

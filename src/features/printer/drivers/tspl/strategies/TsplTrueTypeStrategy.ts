@@ -2,6 +2,7 @@ import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.typ
 import { paperSizeOf, PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder } from '../TsplEncoder';
+import { resolveEffectiveCutterMode } from '../cutter';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../../utils/paperWidth';
 
 /**
@@ -23,13 +24,13 @@ export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { driver, documents, printType, heightMm } = context;
+    const { driver, documents, printType, media, rows } = context;
     if (driver.config.type !== PrinterDriverType.tspl || !driver.config.font) {
       throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Thiếu cấu hình font TrueType.' });
     }
     const fontName = driver.config.font.name;
     const paperWidth = PAPER_WIDTH_CHARS[paperSizeOf(driver)];
-    const encoder = new TsplEncoder().initialize(paperSizeOf(driver), printType, heightMm);
+    const encoder = new TsplEncoder().initialize(media, printType);
     for (const element of documents.text.elements) {
       if (element.type === 'text') {
         encoder.text(element.x, element.y, element.content, fontName);
@@ -47,6 +48,6 @@ export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
         throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}` });
       }
     }
-    return encoder.cut().encode();
+    return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();
   }
 }

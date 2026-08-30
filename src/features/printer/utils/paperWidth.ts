@@ -1,5 +1,8 @@
 import type { PaperSize } from '../types/printer.types';
 
+/** 203dpi — mật độ dot chuẩn máy in nhiệt TSPL (8 dot/mm). */
+export const DOTS_PER_MM = 8;
+
 /**
  * Số ký tự/dòng ước lượng theo khổ giấy, dùng font mặc định (Font A) của máy
  * in ESC/POS — 32 ký tự cho 58mm, 48 ký tự cho 80mm là quy ước phổ biến của

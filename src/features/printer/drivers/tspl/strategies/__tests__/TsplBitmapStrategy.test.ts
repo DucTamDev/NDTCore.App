@@ -3,7 +3,9 @@ import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../types/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../types/printConfiguration.types';
-import type { Printer, PrinterDriver } from '../../../../types/printer.types';
+import type { Printer, PrinterDriver, PrintMedia } from '../../../../types/printer.types';
+
+const MEDIA: PrintMedia = { type: 'continuous', paperSize: 80 };
 
 // PNG 4x4 trắng hợp lệ, base64 (không data: prefix)
 const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAEAQMAAACTPww9AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAA/wAAG/+NIgAAAAJ0Uk5TAAB2k804AAAAC0lEQVR4nGNggAAAAAgAAbdYc5UAAAAASUVORK5CYII=';
@@ -34,7 +36,8 @@ const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
   driver,
   documents: { text: { elements: [] }, image: TINY_PNG },
   printType: PrintType.Receipt,
-  heightMm: 200,
+  media: MEDIA,
+  rows: 1,
   ...over,
 });
 
@@ -54,13 +57,13 @@ describe('TsplBitmapStrategy', () => {
 
   it('validate pass khi có image', () => expect(() => s.validate(ctx())).not.toThrow());
 
-  it('encode sinh bytes chứa BITMAP và PRINT', () => {
+  it('encode sinh bytes chứa BITMAP và PRINT 1,1', () => {
     const bytes = s.encode(ctx());
     const ascii = Array.from(bytes)
       .map((b) => String.fromCharCode(b))
       .join('');
     expect(ascii).toContain('BITMAP');
-    expect(ascii).toContain('PRINT');
+    expect(ascii).toContain('PRINT 1,1');
   });
 
   it('encode ném TSPL_IMAGE_INVALID khi base64 không phải PNG', () => {
@@ -72,11 +75,15 @@ describe('TsplBitmapStrategy', () => {
     }
   });
 
-  it('encode ném TSPL_IMAGE_TOO_LARGE khi ảnh cao hơn heightMm*DOTS_PER_MM', () => {
-    expect(() => s.encode(ctx({ heightMm: 0.01 }))).toThrow();
-    // heightMm nhỏ để chắc chắn vượt
+  it('encode ném TSPL_IMAGE_TOO_LARGE khi ảnh cao hơn resolveSizeHeightMm(media)*DOTS_PER_MM', () => {
+    // itemHeightMm cực nhỏ + Label để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
+    const tiny: Partial<TsplStrategyContext> = {
+      media: { type: 'continuous', paperSize: 80, itemHeightMm: 0.01 },
+      printType: PrintType.Label,
+    };
+    expect(() => s.encode(ctx(tiny))).toThrow();
     try {
-      s.encode(ctx({ heightMm: 0.01 }));
+      s.encode(ctx(tiny));
     } catch (e) {
       expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE });
     }

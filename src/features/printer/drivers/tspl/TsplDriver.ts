@@ -1,10 +1,9 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType, mediaOf, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
-import { DEFAULT_LABEL_HEIGHT_MM, CONTINUOUS_HEIGHT_MM } from './TsplEncoder';
 import { TsplFontManager } from './TsplFontManager';
 import { resolveTsplStrategy } from './TsplStrategyRegistry';
 import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
@@ -24,11 +23,6 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
     bytes[i] = text.charCodeAt(i) & 0xff;
   }
   return bytes;
-};
-
-const resolveHeightMm = (driver: PrinterDriver, printType: PrintType): number => {
-  const labelHeightMm = driver.config.type === PrinterDriverType.tspl ? driver.config.media.itemHeightMm : undefined;
-  return printType === PrintType.Label ? (labelHeightMm ?? DEFAULT_LABEL_HEIGHT_MM) : CONTINUOUS_HEIGHT_MM;
 };
 
 export class TsplDriver implements IPrinterDriver {
@@ -141,7 +135,7 @@ export class TsplDriver implements IPrinterDriver {
    * switch renderMode ở đây, KHÔNG fallback khi `validate()` ném lỗi (RULE 05,
    * §27-30) — lỗi phải propagate thẳng ra ngoài.
    */
-  private buildBytes(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Uint8Array {
+  private buildBytes(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, rows: number): Uint8Array {
     if (driver.config.type !== PrinterDriverType.tspl) {
       throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED, message: 'Driver không phải TSPL.' });
     }
@@ -151,20 +145,22 @@ export class TsplDriver implements IPrinterDriver {
       driver,
       documents,
       printType,
-      heightMm: resolveHeightMm(driver, printType),
+      media: mediaOf(driver),
+      rows,
     };
     strategy.validate(context);
     return strategy.encode(context);
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, _options?: PrintOptions): Promise<void> {
+  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
     try {
       if (!this.connections.has(printer.id)) {
         await this.connect(printer, driver);
       }
       const adapter = this.connections.get(printer.id);
-      const bytes = this.buildBytes(printer, driver, documents, printType);
+      const rows = Math.max(1, Math.floor(options?.rows ?? 1));
+      const bytes = this.buildBytes(printer, driver, documents, printType, rows);
       await adapter?.write(bytes);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
@@ -173,7 +169,7 @@ export class TsplDriver implements IPrinterDriver {
     }
   }
 
-  async print(printerId: string, documents: PrintDocuments, printType: PrintType, _options?: PrintOptions): Promise<void> {
+  async print(printerId: string, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> {
     const context = this.contexts.get(printerId);
     const adapter = this.connections.get(printerId);
     if (!context || !adapter) {
@@ -184,7 +180,8 @@ export class TsplDriver implements IPrinterDriver {
     // KHÔNG fallback (lỗi strategy.validate/encode vẫn propagate nguyên vẹn).
     const startedAt = Date.now();
     try {
-      const bytes = this.buildBytes(context.printer, context.driver, documents, printType);
+      const rows = Math.max(1, Math.floor(options?.rows ?? 1));
+      const bytes = this.buildBytes(context.printer, context.driver, documents, printType, rows);
       await adapter.write(bytes);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
