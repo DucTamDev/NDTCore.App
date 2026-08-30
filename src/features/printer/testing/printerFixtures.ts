@@ -4,28 +4,34 @@ import { PrintType } from '../types/printConfiguration.types';
 
 export const DEFAULT_MEDIA: PrintMedia = { type: PrintMediaType.continuous, paperSize: 80 };
 
-export const makeEscPosDriverEntry = (o: Partial<PrinterDriver> & { media?: Partial<PrintMedia> } = {}): PrinterDriver => ({
-  type: PrinterDriverType.escpos,
-  source: DriverSource.auto,
-  contentTypes: [PrintType.Receipt],
-  ...o,
-  config: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA, ...o.media }, ...(o.config as object) },
-});
+export const makeEscPosDriverEntry = (o: Partial<PrinterDriver> & { media?: Partial<PrintMedia> } = {}): PrinterDriver => {
+  const { media, config, ...rest } = o;
+  return {
+    type: PrinterDriverType.escpos,
+    source: DriverSource.auto,
+    contentTypes: [PrintType.Receipt],
+    ...rest,
+    config: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA, ...media }, ...(config as object) },
+  };
+};
 
 export const makeTsplDriverEntry = (
   o: Partial<PrinterDriver> & { media?: Partial<PrintMedia>; renderMode?: TsplRenderMode } = {},
-): PrinterDriver => ({
-  type: PrinterDriverType.tspl,
-  source: DriverSource.auto,
-  contentTypes: [PrintType.Label],
-  ...o,
-  config: {
+): PrinterDriver => {
+  const { media, renderMode, config, ...rest } = o;
+  return {
     type: PrinterDriverType.tspl,
-    renderMode: o.renderMode ?? TsplRenderMode.bitmap,
-    media: { ...DEFAULT_MEDIA, ...o.media },
-    ...(o.config as object),
-  },
-});
+    source: DriverSource.auto,
+    contentTypes: [PrintType.Label],
+    ...rest,
+    config: {
+      type: PrinterDriverType.tspl,
+      renderMode: renderMode ?? TsplRenderMode.bitmap,
+      media: { ...DEFAULT_MEDIA, ...media },
+      ...(config as object),
+    },
+  };
+};
 
 export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   id: 'p1',

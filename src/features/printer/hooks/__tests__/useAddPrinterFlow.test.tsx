@@ -5,7 +5,7 @@ import { PrinterService } from '../../printing/PrinterService';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
-import type { Printer } from '../../types/printer.types';
+import type { Printer, PrinterDriver } from '../../types/printer.types';
 
 jest.mock('../../printing/PrinterService', () => ({
   PrinterService: {
@@ -176,6 +176,18 @@ describe('useAddPrinterFlow', () => {
     expect(PrinterService.connectDraft).toHaveBeenCalled();
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().infoCard.drivers[0]).toEqual(expect.objectContaining({ type: PrinterDriverType.escpos, source: DriverSource.manual }));
+  });
+
+  it('manual protocol pick hands connectDraft a draft whose every driver.config.media.paperSize matches the form', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn() });
+    act(() => { (get().infoCard.control as unknown as { _formValues: { paperSize: number } })._formValues.paperSize = 58; });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    const [draft, draftDriver] = (PrinterService.connectDraft as jest.Mock).mock.calls[0] as [Printer, PrinterDriver];
+    expect(draft.drivers.length).toBeGreaterThan(0);
+    expect(draft.drivers.every((d) => d.config.media.paperSize === 58)).toBe(true);
+    expect(draftDriver.config.media.paperSize).toBe(58);
   });
 
   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {

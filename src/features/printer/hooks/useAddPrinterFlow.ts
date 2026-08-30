@@ -287,13 +287,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   const onChooseProtocol = (chosenProtocol: PrinterDriverType): void => {
     setConnectionState('connecting');
     setProtocolState('detecting');
+    const definitionConfig = getDriverDefinition(chosenProtocol).defaultConfig;
     const draftDriver: PrinterDriver = {
       type: chosenProtocol,
       source: DriverSource.manual,
       contentTypes: [],
-      config: getDriverDefinition(chosenProtocol).defaultConfig,
+      config: { ...definitionConfig, media: { ...definitionConfig.media, paperSize: displayForm.getValues('paperSize') } },
     };
-    const draftPrinter: Printer = { ...buildDraftPrinter(), drivers: [...drivers, draftDriver] };
+    const base = buildDraftPrinter();
+    const draftPrinter: Printer = { ...base, drivers: [...base.drivers, draftDriver] };
     PrinterService.connectDraft(draftPrinter, draftDriver)
       .then(() => {
         setConnectionState('connected');
