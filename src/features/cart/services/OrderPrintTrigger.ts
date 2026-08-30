@@ -8,7 +8,7 @@ import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '..
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/types/printDocument.types';
 import { PrintType } from '../../printer/types/printConfiguration.types';
-import type { PaperSize } from '../../printer/types/printer.types';
+import type { PrintMedia } from '../../printer/types/printer.types';
 
 interface BillItem {
   name: string;
@@ -158,12 +158,12 @@ export const buildReprintDocument = (order: OrderDetail, store: StoreViewModel |
 
 export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
-/** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG cho khổ giấy cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
-export type CaptureBillImage = (document: PrintDocument, paperSize: PaperSize) => Promise<string | null>;
+/** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG theo `media` cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
+export type CaptureBillImage = (document: PrintDocument, media: PrintMedia) => Promise<string | null>;
 
 /**
  * Chỉ render + chụp ảnh khi thật sự có máy in TSPL bitmap-mode được gán cho
- * `printType` (`PrintService.imageDocumentPaperSize`) — capture tốn chi phí
+ * `printType` (`PrintService.imageDocumentMedia`) — capture tốn chi phí
  * (layout + screenshot native), không làm nếu không có máy nào cần tới.
  * Capture thất bại (trả `null`) → gửi `text`-only cho MỌI target; target nào
  * thật sự cần ảnh (TSPL bitmap) sẽ tự thất bại rõ ràng ở
@@ -176,9 +176,9 @@ const buildPrintDocumentVariants = async (
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
 ): Promise<PrintDocuments> => {
-  const paperSize = PrintService.imageDocumentPaperSize(printType);
-  if (!paperSize) return { text: textDocument };
-  const base64 = await captureBillImage(textDocument, paperSize);
+  const media = PrintService.imageDocumentMedia(printType);
+  if (!media) return { text: textDocument };
+  const base64 = await captureBillImage(textDocument, media);
   if (!base64) return { text: textDocument };
   return { text: textDocument, image: base64 };
 };

@@ -75,16 +75,16 @@ describe('PrintService.print', () => {
   });
 });
 
-describe('PrintService.imageDocumentPaperSize', () => {
+describe('PrintService.imageDocumentMedia', () => {
   it('returns null when the only target uses escpos', () => {
     const deps = makeDeps([{ printer: makePrinter('p1'), driver: escposDriver }], () => { throw new Error('unused'); });
-    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
   });
 
-  it('returns the media paperSize of the tspl target when it is in bitmap mode', () => {
+  it('returns the media of the tspl target when it is in bitmap mode', () => {
     const tsplDriver58 = makeTsplDriverEntry({ media: { paperSize: 58 } });
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [tsplDriver58] }), driver: tsplDriver58 }], () => { throw new Error('unused'); });
-    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBe(58);
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual({ type: 'continuous', paperSize: 58 });
   });
 
   it('returns null when the only tspl target is fully switched to truetype (installed font) — encode() discards the image entirely', () => {
@@ -95,7 +95,7 @@ describe('PrintService.imageDocumentPaperSize', () => {
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
-    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
   });
 
   it('returns null when the tspl target is configured truetype but font is NOT installed — configured intent wins, not effective capability', () => {
@@ -106,10 +106,10 @@ describe('PrintService.imageDocumentPaperSize', () => {
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
-    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
   });
 
-  it('returns the bitmap target paperSize when a mix of truetype+installed and bitmap tspl targets both resolve the same printType', () => {
+  it('returns the bitmap target media when a mix of truetype+installed and bitmap tspl targets both resolve the same printType', () => {
     const truetypeDriver: PrinterDriver = {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
@@ -123,10 +123,10 @@ describe('PrintService.imageDocumentPaperSize', () => {
       ],
       () => { throw new Error('unused'); },
     );
-    expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBe(80);
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual({ type: 'continuous', paperSize: 80 });
   });
 
   it('the real exported PrintService singleton has no configured printers by default, so it returns null', () => {
-    expect(PrintService.imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
+    expect(PrintService.imageDocumentMedia(PrintType.Receipt)).toBeNull();
   });
 });

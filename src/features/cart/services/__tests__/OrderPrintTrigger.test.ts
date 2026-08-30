@@ -130,7 +130,7 @@ describe('printReceipt', () => {
 
   afterEach(() => {
     noopCapture.mockClear();
-    (PrintService.imageDocumentPaperSize as jest.Mock | undefined)?.mockReset();
+    (PrintService.imageDocumentMedia as jest.Mock | undefined)?.mockReset();
   });
 
   it('resolves "no-printer" when PrintService reports no-available-printer', async () => {
@@ -159,7 +159,7 @@ describe('printReceipt', () => {
   });
 
   it('does not call captureBillImage when no target printer needs an image document', async () => {
-    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue(null);
+    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue(null);
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
     await printReceipt(document, noopCapture);
@@ -168,14 +168,14 @@ describe('printReceipt', () => {
   });
 
   it('captures a bill image and sends it alongside the text document when a target printer needs one', async () => {
-    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue(58);
+    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: 'continuous', paperSize: 58 });
     const capture = jest.fn().mockResolvedValue('base64-png-data');
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
 
     await printReceipt(document, capture);
 
-    expect(capture).toHaveBeenCalledWith(document, 58);
+    expect(capture).toHaveBeenCalledWith(document, { type: 'continuous', paperSize: 58 });
     expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
       text: document,
       image: 'base64-png-data',
@@ -183,7 +183,7 @@ describe('printReceipt', () => {
   });
 
   it('falls back to text-only when captureBillImage resolves null (capture failed)', async () => {
-    (PrintService.imageDocumentPaperSize as jest.Mock).mockReturnValue(80);
+    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: 'continuous', paperSize: 80 });
     const capture = jest.fn().mockResolvedValue(null);
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);

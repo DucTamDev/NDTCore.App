@@ -24,7 +24,7 @@ import { PrinterErrorException } from '../types/PrinterError';
 import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, paperSizeOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
 
 export interface UseAddPrinterFlowInput {
@@ -426,7 +426,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
     if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) return { text: document };
-    const base64 = await captureBillImage(document, paperSizeOf(driver));
+    const base64 = await captureBillImage(document, mediaOf(driver));
     if (!base64) return { text: document };
     return { text: document, image: base64 };
   };

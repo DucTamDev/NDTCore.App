@@ -2,15 +2,16 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { BillImagePreview } from '../components/BillImagePreview';
-import { PAPER_IMAGE_WIDTH_PX } from '../utils/paperWidth';
+import { PAPER_IMAGE_WIDTH_PX, DOTS_PER_MM } from '../utils/paperWidth';
 import type { PrintDocument } from '../types/printDocument.types';
-import type { PaperSize } from '../types/printer.types';
+import type { PrintMedia } from '../types/printer.types';
+import { PrintMediaType } from '../types/printer.types';
 
 export interface UseBillImageCapture {
   /** Render `{captureNode}` vào JSX của component gọi hook này — capture cần 1 View thật đã mount, không tự tạo tree được từ tầng service. */
   captureNode: React.ReactNode;
   /** Trả base64 PNG (không tiền tố `data:...`) — trả `null` nếu capture thất bại thay vì throw, để nơi gọi tự quyết định fallback (vd dùng document text thay thế). */
-  captureBillImage: (document: PrintDocument, paperSize: PaperSize) => Promise<string | null>;
+  captureBillImage: (document: PrintDocument, media: PrintMedia) => Promise<string | null>;
 }
 
 /**
@@ -41,10 +42,14 @@ export const useBillImageCapture = (): UseBillImageCapture => {
   const [pending, setPending] = useState<{ document: PrintDocument; widthPx: number } | null>(null);
 
   const captureBillImage = useCallback(
-    (document: PrintDocument, paperSize: PaperSize): Promise<string | null> =>
+    (document: PrintDocument, media: PrintMedia): Promise<string | null> =>
       new Promise((resolve) => {
         resolverRef.current = resolve;
-        setPending({ document, widthPx: PAPER_IMAGE_WIDTH_PX[paperSize] });
+        const widthPx =
+          media.type === PrintMediaType.dieCut
+            ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
+            : PAPER_IMAGE_WIDTH_PX[media.paperSize];
+        setPending({ document, widthPx });
       }),
     [],
   );
