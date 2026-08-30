@@ -1,5 +1,7 @@
 import { TsplTrueTypeStrategy } from '../TsplTrueTypeStrategy';
+import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
+import type { PrintMedia } from '../../../../types/printer.types';
 import { PrinterErrorCode } from '../../../../types/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../types/printConfiguration.types';
@@ -60,6 +62,36 @@ describe('TsplTrueTypeStrategy', () => {
     // pitch = (30 + 2) * 8 = 256 → cột 2 tại x = 10 + 256 = 266
     expect(ascii).toContain('TEXT 10,0,');
     expect(ascii).toContain('TEXT 266,0,');
+  });
+
+  it('die_cut: line/row element dùng contentWidthChars (không phải bề rộng cả tờ giấy) và cũng nhân theo cột với offset +dx', () => {
+    const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as PrintMedia;
+    const width = contentWidthChars(dieCut);
+    expect(width).toBeLessThan(64); // < PAPER_WIDTH_CHARS[100], tức không tràn cột
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
+    const dieCtx: TsplStrategyContext = {
+      printer, driver: dieCutDriver,
+      documents: { text: { elements: [
+        { type: 'text', content: 'A', x: 10, y: 0 },
+        { type: 'line', x: 10, y: 20 },
+        { type: 'row', left: 'L', right: 'R', x: 10, y: 40 },
+      ] } },
+      printType: PrintType.Receipt, media: { ...dieCut }, rows: 1,
+    };
+    const ascii = Array.from(s.encode(dieCtx)).map((b) => String.fromCharCode(b)).join('');
+    // (a) dấu gạch của `line` dài đúng contentWidthChars, không phải bề rộng cả tờ
+    expect(ascii).toContain(`,"${'-'.repeat(width)}"`);
+    expect(ascii).not.toContain(`,"${'-'.repeat(64)}"`);
+    // (b) line + row (+ text) mỗi cái xuất hiện đúng `columns` lần
+    expect((ascii.match(new RegExp(`,"${'-'.repeat(width)}"`, 'g')) ?? []).length).toBe(2);
+    expect((ascii.match(/TEXT \d+,0,/g) ?? []).length).toBe(2);
+    expect((ascii.match(/TEXT \d+,20,/g) ?? []).length).toBe(2);
+    expect((ascii.match(/TEXT \d+,40,/g) ?? []).length).toBe(2);
+    // (c) offset +dx (pitch = 256) áp cho line/row/text
+    expect(ascii).toContain('TEXT 10,20,');
+    expect(ascii).toContain('TEXT 266,20,');
+    expect(ascii).toContain('TEXT 10,40,');
+    expect(ascii).toContain('TEXT 266,40,');
   });
 
   it('encode ném TSPL_ELEMENT_UNSUPPORTED cho element lạ', () => {

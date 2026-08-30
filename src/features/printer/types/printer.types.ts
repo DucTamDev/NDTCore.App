@@ -78,7 +78,12 @@ export interface PrintMedia {
   columns?: number;
   horizontalGapMm?: number;
   verticalGapMm?: number;
-  /** Chỉ áp dụng continuous + `capabilities.cutter`. die_cut ⇒ ép `'none'` (Task 2). `undefined` ⇒ coi như `'none'`. */
+  /**
+   * Chế độ cắt. `resolveEffectiveCutterMode` (utils/cutter.ts) áp ràng buộc
+   * vật lý: die_cut ⇒ LUÔN `'none'` (răng cưa tự tách); continuous +
+   * `undefined` ⇒ `'per_job'` (mặc định cứ cắt cuối mỗi job — giữ hành vi cũ);
+   * chỉ `'none'` tường minh mới tắt cắt. SP-C sẽ có UI cho field này.
+   */
   cutterMode?: CutterMode;
 }
 

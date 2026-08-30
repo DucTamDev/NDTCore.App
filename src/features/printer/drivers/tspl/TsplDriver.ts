@@ -16,6 +16,18 @@ import { PrinterLogger } from '../../services/PrinterLogger';
 
 const IDENTIFY_TIMEOUT_MS = 1000;
 
+/**
+ * Chuẩn hoá số hàng die-cut: sàn về số nguyên ≥ 1, và chặn `NaN` (input rỗng
+ * / hỏng từ ô nhập số hàng ở SP-C) — `Math.max(1, NaN)` trả `NaN`, kéo theo
+ * `SET CUTTER NaN` / `PRINT NaN,1`.
+ *
+ * Sanitises the die-cut row count: integer ≥ 1, with a `NaN` guard.
+ */
+const resolveRows = (options?: PrintOptions): number => {
+  const n = Math.floor(options?.rows ?? 1);
+  return Number.isFinite(n) ? Math.max(1, n) : 1;
+};
+
 const encodeAsciiCommand = (text: string): Uint8Array => {
   const bytes = new Uint8Array(text.length);
   for (let i = 0; i < text.length; i += 1) {
@@ -159,7 +171,7 @@ export class TsplDriver implements IPrinterDriver {
         await this.connect(printer, driver);
       }
       const adapter = this.connections.get(printer.id);
-      const rows = Math.max(1, Math.floor(options?.rows ?? 1));
+      const rows = resolveRows(options);
       const bytes = this.buildBytes(printer, driver, documents, printType, rows);
       await adapter?.write(bytes);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
@@ -180,7 +192,7 @@ export class TsplDriver implements IPrinterDriver {
     // KHÔNG fallback (lỗi strategy.validate/encode vẫn propagate nguyên vẹn).
     const startedAt = Date.now();
     try {
-      const rows = Math.max(1, Math.floor(options?.rows ?? 1));
+      const rows = resolveRows(options);
       const bytes = this.buildBytes(context.printer, context.driver, documents, printType, rows);
       await adapter.write(bytes);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });

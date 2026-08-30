@@ -3,7 +3,7 @@ import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.ty
 import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM } from '../../utils/paperWidth';
+import { DOTS_PER_MM, PAPER_WIDTH_CHARS } from '../../utils/paperWidth';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -119,6 +119,22 @@ export const columnOffsets = (media: PrintMedia): number[] => {
   if (media.type !== PrintMediaType.dieCut) return [0];
   const pitch = columnPitchDots(media);
   return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
+};
+
+/**
+ * Số ký tự/dòng cho nội dung TEXT: die_cut → ước lượng theo `itemWidthMm`
+ * (tỉ lệ với `PAPER_WIDTH_CHARS`/`PRINTABLE_WIDTH_MM` của khổ giấy); continuous
+ * → `PAPER_WIDTH_CHARS[paperSize]` như cũ. `line`/`row` element dùng số này để
+ * không tràn qua cột die-cut kế bên.
+ *
+ * Per-column character width for TEXT content: die_cut estimates from
+ * `itemWidthMm`; continuous keeps the full paper char count.
+ */
+export const contentWidthChars = (media: PrintMedia): number => {
+  if (media.type !== PrintMediaType.dieCut) return PAPER_WIDTH_CHARS[media.paperSize];
+  const full = PAPER_WIDTH_CHARS[media.paperSize];
+  const ratio = (media.itemWidthMm ?? 0) / PRINTABLE_WIDTH_MM[media.paperSize];
+  return Math.max(1, Math.floor(full * ratio));
 };
 
 export class TsplEncoder {
@@ -244,13 +260,19 @@ export class TsplEncoder {
    * `SET CUTTER` + `PRINT rows,1`:
    * - `per_row` → `SET CUTTER 1` (cắt sau mỗi hàng).
    * - `per_job` → `SET CUTTER <rows>` (cắt 1 lần sau cả job).
-   * - `none` → không phát `SET CUTTER`.
+   * - `none` → `SET CUTTER OFF` (tắt hẳn dao cắt).
    *
-   * `SET CUTTER` then `PRINT rows,1`; `none` omits the cutter line entirely.
+   * `SET CUTTER` là thiết lập BỀN của máy in TSPL: một khi job gửi `SET CUTTER n`
+   * thì máy vẫn tiếp tục cắt ở các job sau. Phát `SET CUTTER OFF` cho `none` để
+   * kill-switch (`cutterMode: 'none'`) và giấy die_cut thật sự dừng được máy đã
+   * từng nhận `SET CUTTER n`, thay vì chỉ "không set lại".
+   *
+   * `SET CUTTER` (or `SET CUTTER OFF` for `none`) then `PRINT rows,1`.
    */
   cut(rows: number, mode: CutterMode): this {
-    if (mode === CutterMode.perRow) this.pushLine('SET CUTTER 1');
-    else if (mode === CutterMode.perJob) this.pushLine(`SET CUTTER ${rows}`);
+    if (mode === CutterMode.none) this.pushLine('SET CUTTER OFF');
+    else if (mode === CutterMode.perRow) this.pushLine('SET CUTTER 1');
+    else this.pushLine(`SET CUTTER ${rows}`);
     this.pushLine(`PRINT ${rows},1`);
     return this;
   }

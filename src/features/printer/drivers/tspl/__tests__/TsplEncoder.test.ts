@@ -104,9 +104,9 @@ describe('TsplEncoder', () => {
     expect(output).toContain('PRINT 2,1');
   });
 
-  it('cut(1, none) → only PRINT 1,1, no SET CUTTER', () => {
+  it('cut(1, none) → SET CUTTER OFF then PRINT 1,1 last (persistent setting must be turned off, not just left unset)', () => {
     const output = decode(new TsplEncoder().cut(1, CutterMode.none).encode());
-    expect(output).not.toContain('SET CUTTER');
+    expect(output).toContain('SET CUTTER OFF');
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
 

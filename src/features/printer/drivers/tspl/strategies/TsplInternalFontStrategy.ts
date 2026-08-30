@@ -1,9 +1,9 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { paperSizeOf, PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
-import { TsplEncoder, columnOffsets } from '../TsplEncoder';
-import { resolveEffectiveCutterMode } from '../cutter';
-import { PAPER_WIDTH_CHARS, formatRow } from '../../../utils/paperWidth';
+import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
+import { resolveEffectiveCutterMode } from '../../../utils/cutter';
+import { formatRow } from '../../../utils/paperWidth';
 
 /**
  * `documents.text` → lệnh `TEXT`/`BARCODE`/`QRCODE` dùng font NỘI BỘ của máy in
@@ -37,7 +37,7 @@ export class TsplInternalFontStrategy implements ITsplPrintStrategy {
       });
     }
     const { fontName, codepage } = driver.config.internalFont;
-    const paperWidth = PAPER_WIDTH_CHARS[paperSizeOf(driver)];
+    const paperWidth = contentWidthChars(media);
     const encoder = new TsplEncoder().initialize(media, printType, codepage);
     for (const dx of columnOffsets(media)) {
       for (const element of documents.text.elements) {

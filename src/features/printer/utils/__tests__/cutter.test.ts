@@ -1,6 +1,6 @@
 import { resolveEffectiveCutterMode } from '../cutter';
-import { CutterMode, PrintMediaType } from '../../../types/printer.types';
-import type { PrintMedia } from '../../../types/printer.types';
+import { CutterMode, PrintMediaType } from '../../types/printer.types';
+import type { PrintMedia } from '../../types/printer.types';
 
 const dieCut = (cutterMode?: CutterMode): PrintMedia => ({
   type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, cutterMode,

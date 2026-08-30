@@ -1,5 +1,5 @@
-import { CutterMode, PrintMediaType } from '../../types/printer.types';
-import type { PrintMedia } from '../../types/printer.types';
+import { CutterMode, PrintMediaType } from '../types/printer.types';
+import type { PrintMedia } from '../types/printer.types';
 
 /**
  * Chế độ cắt THỰC THI sau khi áp ràng buộc vật lý:

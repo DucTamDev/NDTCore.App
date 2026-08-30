@@ -245,6 +245,31 @@ describe('TsplDriver', () => {
     expect(ascii).toContain('SET CUTTER 4');
   });
 
+  it.each([
+    ['NaN', NaN, 'PRINT 1,1'],
+    ['âm', -3, 'PRINT 1,1'],
+    ['số thực', 2.9, 'PRINT 2,1'],
+  ])('testPrint() sanitises options.rows = %s → %s', async (_label, rows, expected) => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplDriverEntry);
+    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
+    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label, { rows });
+    const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain(expected);
+    expect(ascii).not.toContain('PRINT NaN,1');
+  });
+
+  it('testPrint() with no options defaults to PRINT 1,1', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanPrinter, tsplDriverEntry);
+    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
+    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label);
+    const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('PRINT 1,1');
+  });
+
   it('print() over USB writes through UsbTransport', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);
