@@ -1,6 +1,6 @@
-import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDriver, TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
+import type { DeviceScanEvent, Printer, PrinterDriver, PrintMedia, TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/PrinterError';
 import { PrinterLogger } from '../services/PrinterLogger';
@@ -115,8 +115,8 @@ export const createPrinterService = (
       });
   };
 
-  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType));
+  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> => {
+    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType, options));
   };
 
   const print = async (printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> => {
@@ -347,6 +347,23 @@ export const createPrinterService = (
     );
   };
 
+  const setDriverMedia = (printerId: string, driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
+    const printers = getPrinters();
+    const printer = printers.find((p) => p.id === printerId);
+    const entry = printer?.drivers.find((d) => d.type === driverType);
+    if (!printer || !entry) return;
+    savePrinters(
+      printers.map((p) =>
+        p.id !== printerId ? p : {
+          ...p,
+          drivers: p.drivers.map((d) =>
+            d.type !== driverType ? d : { ...d, config: { ...d.config, media: { ...d.config.media, ...patch } } },
+          ),
+        },
+      ),
+    );
+  };
+
   return {
     getPrinters,
     addPrinter,
@@ -371,6 +388,7 @@ export const createPrinterService = (
     installTsplFont,
     setTsplRenderMode,
     setTsplInternalFont,
+    setDriverMedia,
   };
 };
 

@@ -214,7 +214,7 @@ describe('PrinterService', () => {
     const service = createPrinterService({ escpos: escposDriver, tspl: makeMockDriver() }, createResourceLock());
     const documents = { text: { elements: [] } };
     await service.testPrint(basePrinter, escposDriverEntry, documents, PrintType.Receipt);
-    expect(escposDriver.testPrint).toHaveBeenCalledWith(basePrinter, escposDriverEntry, documents, PrintType.Receipt);
+    expect(escposDriver.testPrint).toHaveBeenCalledWith(basePrinter, escposDriverEntry, documents, PrintType.Receipt, undefined);
     expect(service.getPrinters()).toEqual([]);
   });
 
@@ -532,6 +532,34 @@ describe('PrinterService', () => {
 
     await expect(service.installTsplFont('ghost', font)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED });
     expect(tsplDriver.installTsplFont).not.toHaveBeenCalled();
+  });
+
+  it('setDriverMedia() persist media patch cho tspl driver của printer đã lưu', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    service.addPrinter({ ...basePrinter, drivers: [tsplDriverEntry] });
+    service.setDriverMedia(basePrinter.id, PrinterDriverType.tspl, { paperSize: 100 });
+    const saved = service.getPrinters()[0].drivers.find((d) => d.type === PrinterDriverType.tspl)!;
+    expect(saved.config.media).toMatchObject({ type: 'continuous', paperSize: 100 });
+  });
+
+  it('setDriverMedia() cho escpos driver', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    service.addPrinter(basePrinter);
+    service.setDriverMedia(basePrinter.id, PrinterDriverType.escpos, { paperSize: 58 });
+    expect(service.getPrinters()[0].drivers[0].config.media.paperSize).toBe(58);
+  });
+
+  it('setDriverMedia() no-op cho printer chưa lưu', () => {
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, createResourceLock());
+    expect(() => service.setDriverMedia('not-saved', PrinterDriverType.tspl, { paperSize: 100 })).not.toThrow();
+  });
+
+  it('testPrint() forward options xuống driver.testPrint', async () => {
+    const tsplDriver = makeMockDriver();
+    const service = createPrinterService({ escpos: makeMockDriver(), tspl: tsplDriver }, createResourceLock());
+    const p = { ...basePrinter, drivers: [tsplDriverEntry] };
+    await service.testPrint(p, tsplDriverEntry, { text: { elements: [] } }, PrintType.Label, { rows: 3 });
+    expect(tsplDriver.testPrint).toHaveBeenCalledWith(p, tsplDriverEntry, expect.anything(), PrintType.Label, { rows: 3 });
   });
 
   it('print() / testPrint() / reconnect() never invoke the tspl driver installTsplFont (RULE 15-17)', async () => {
