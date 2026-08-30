@@ -168,9 +168,23 @@ const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<Print
   `TsplDriver.resolveRows` (SP-B) đã guard `NaN`/âm/thập phân → không cần validate ở UI.
 - Expose trong return: `infoCard.testPrintRowsText`, `infoCard.onTestPrintRowsChange`, và `infoCard.hasTsplDriver` (để `PrinterInfoCard` biết có hiện ô không).
 
-### 5.3 `buildDraftPrinter`
+### 5.3 `buildDraftPrinter` + hoàn nguyên `paperSize` threading của SP-A finalfix
 
-Bỏ dòng `.map(... media: { ...d.config.media, paperSize: displayForm.getValues('paperSize') })` → chỉ `drivers,` (driver đã mang media đúng từ state qua `onChangeDriverMedia` + `addDriverToList`/discovery đã stamp — SP-A finalfix). `capabilities` giữ `initialValues?.capabilities ?? { cutter: false }` (SP-A finalfix).
+SP-A finalfix thread `displayForm.getValues('paperSize')` vào `addDriverToList` + `startDiscovery` → `DiscoveryInput.paperSize` → candidate config. SP-C **bỏ field đó** → hoàn nguyên:
+
+- `buildDraftPrinter`: bỏ `.map(... media: { ...d.config.media, paperSize: displayForm.getValues('paperSize') })` → chỉ `drivers,`.
+- `addDriverToList`: `config: { ...def }` (spread để phá shared-ref của `defaultConfig`, giữ `media` mặc định continuous 80).
+- `startDiscovery`: bỏ `paperSize:` khỏi `discoverDriver({...})`.
+- `DiscoveryInput`: bỏ field `paperSize`; `PrinterDiscoveryService` candidate config `{ ...def, media: { ...def.media } }` (vẫn phá shared-ref, dùng default 80).
+- `PrinterService.test.ts:339` + `PrinterDiscoveryService.test.ts`: bỏ `paperSize:` khỏi input dựng test.
+
+**Không còn "form paperSize" để honor lúc discovery** → SP-A finalfix Critical (discovery bỏ qua lựa chọn form) không còn áp dụng: giờ mọi driver mới nhận media default 80, người dùng chỉnh trong section media của driver đó. `capabilities` giữ `initialValues?.capabilities ?? { cutter: false }`.
+
+### 5.4 `onSave` — reconnect nếu đang connected
+
+Media đổi qua `onChangeDriverMedia` cập nhật `drivers` state + persist, NHƯNG context sống của driver (`TsplDriver.contexts` / `EscPosDriver.contexts`) set lúc connect, không tự refresh → 1 lần in routing thật sau Save có thể dùng media cũ (giới hạn đã biết, SP-A final review rec #2, hoãn).
+
+SP-C đóng cửa sổ này cho add-flow: `onSave` hiện `if (printer.autoReconnect && liveStatus !== connected) PrinterService.connect(...)` → đổi thành: nếu `liveStatus === connected` → `PrinterService.reconnect(printer.id)` (disconnect + connect lại, context lấy config đã lưu); ngược lại giữ nhánh `connect` cũ. `test-print` không bị ảnh hưởng (dùng `driver` truyền vào, không dùng context — xác nhận `TsplDriver.testPrint`/`EscPosDriver.testPrint`).
 
 ---
 
