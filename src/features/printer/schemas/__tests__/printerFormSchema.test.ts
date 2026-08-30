@@ -43,17 +43,12 @@ describe('lanConnectionSchema', () => {
 });
 
 describe('printerDisplaySchema', () => {
-  it('accepts a numeric paperSize of 58 or 80', () => {
-    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: 58 }).success).toBe(true);
-    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: 80 }).success).toBe(true);
-  });
-
-  it('rejects a string paperSize like the old "80mm"', () => {
-    expect(printerDisplaySchema.safeParse({ name: 'Máy in', paperSize: '80mm' }).success).toBe(false);
+  it('accepts { name } không cần paperSize', () => {
+    expect(printerDisplaySchema.safeParse({ name: 'Máy in' }).success).toBe(true);
   });
 
   it('rejects an empty name', () => {
-    expect(printerDisplaySchema.safeParse({ name: '', paperSize: 80 }).success).toBe(false);
+    expect(printerDisplaySchema.safeParse({ name: '' }).success).toBe(false);
   });
 });
 
@@ -200,6 +195,14 @@ describe('printMediaSchema (qua printerSchema)', () => {
 
   it('columns < 1 → fail', () => {
     expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 0, horizontalGapMm: 2, verticalGapMm: 3 }).success).toBe(false);
+  });
+
+  it('die_cut vượt khổ giấy → fail', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 4, horizontalGapMm: 2, verticalGapMm: 3 }).success).toBe(false);
+  });
+
+  it('die_cut vừa khổ giấy → pass', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 }).success).toBe(true);
   });
 });
 

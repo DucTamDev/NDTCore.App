@@ -1,9 +1,9 @@
-import type { PaperSize, PrintMedia } from '../../types/printer.types';
+import type { PrintMedia } from '../../types/printer.types';
 import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_WIDTH_CHARS } from '../../utils/paperWidth';
+import { DOTS_PER_MM, PAPER_WIDTH_CHARS, PRINTABLE_WIDTH_MM } from '../../utils/paperWidth';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -78,12 +78,6 @@ export const DEFAULT_LABEL_HEIGHT_MM = 30;
 export const CONTINUOUS_HEIGHT_MM = 200;
 
 export { DOTS_PER_MM };
-
-/**
- * mm in được theo khổ đầu in (`@ 8 dot/mm`) — dùng cho lệnh `SIZE`. Số cho
- * 100/104 là tạm, verify ở SP-B.
- */
-const PRINTABLE_WIDTH_MM: Record<PaperSize, number> = { 58: 50, 80: 72, 100: 96, 104: 104 };
 
 /**
  * Chiều cao khai báo cho `SIZE`:

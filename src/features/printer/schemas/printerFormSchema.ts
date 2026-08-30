@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import type { PrintMedia } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
+import { dieCutRowOverflow } from '../utils/mediaValidation';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
@@ -26,7 +28,6 @@ const paperSizeSchema = z.union([z.literal(58), z.literal(80), z.literal(100), z
 
 export const printerDisplaySchema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên máy in'),
-  paperSize: paperSizeSchema,
 });
 
 const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
@@ -50,6 +51,8 @@ const printMediaSchema = z
     if (m.cutterMode && m.cutterMode !== CutterMode.none) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
     }
+    const overflow = dieCutRowOverflow(m as PrintMedia);
+    if (overflow) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
   });
 
 const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });

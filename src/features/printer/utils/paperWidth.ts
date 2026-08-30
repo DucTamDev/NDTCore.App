@@ -4,6 +4,13 @@ import type { PaperSize } from '../types/printer.types';
 export const DOTS_PER_MM = 8;
 
 /**
+ * mm in được thật theo khổ đầu in (`@ DOTS_PER_MM`). Số cho 100/104 là tạm —
+ * verify khi có phần cứng (spec 2026-08-30). Dùng cho lệnh `SIZE` (TSPL) và
+ * validate die-cut vừa khổ giấy.
+ */
+export const PRINTABLE_WIDTH_MM: Record<PaperSize, number> = { 58: 50, 80: 72, 100: 96, 104: 104 };
+
+/**
  * Số ký tự/dòng ước lượng theo khổ giấy, dùng font mặc định (Font A) của máy
  * in ESC/POS — 32 ký tự cho 58mm, 48 ký tự cho 80mm là quy ước phổ biến của
  * máy in nhiệt POS, không đọc được từ driver/SDK nên phải hardcode theo khổ
