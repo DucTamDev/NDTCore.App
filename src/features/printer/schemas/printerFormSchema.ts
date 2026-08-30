@@ -29,16 +29,28 @@ export const printerDisplaySchema = z.object({
   paperSize: paperSizeSchema,
 });
 
-const printMediaSchema = z.object({
-  type: z.enum([PrintMediaType.continuous, PrintMediaType.dieCut]),
-  paperSize: paperSizeSchema,
-  itemWidthMm: z.number().positive().optional(),
-  itemHeightMm: z.number().positive().optional(),
-  columns: z.number().int().min(1).optional(),
-  horizontalGapMm: z.number().min(0).optional(),
-  verticalGapMm: z.number().min(0).optional(),
-  cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
-});
+const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
+
+const printMediaSchema = z
+  .object({
+    type: z.enum([PrintMediaType.continuous, PrintMediaType.dieCut]),
+    paperSize: paperSizeSchema,
+    itemWidthMm: z.number().positive().optional(),
+    itemHeightMm: z.number().positive().optional(),
+    columns: z.number().int().min(1).optional(),
+    horizontalGapMm: z.number().min(0).optional(),
+    verticalGapMm: z.number().min(0).optional(),
+    cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
+  })
+  .superRefine((m, ctx) => {
+    if (m.type !== PrintMediaType.dieCut) return;
+    for (const f of DIE_CUT_REQUIRED) {
+      if (m[f] === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `Giấy die-cut cần ${f}` });
+    }
+    if (m.cutterMode && m.cutterMode !== CutterMode.none) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
+    }
+  });
 
 const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
 
@@ -91,6 +103,9 @@ export const printerDriverSchema = z
         code: z.ZodIssueCode.custom,
         message: `Driver ${driver.type} không hỗ trợ content type: ${invalid.join(', ')}`,
       });
+    }
+    if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintMediaType.continuous) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['config', 'media', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
   });
 

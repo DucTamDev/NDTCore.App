@@ -1,6 +1,7 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
+import { makePrinter, makeTsplDriverEntry, makeEscPosDriverEntry } from '../../testing/printerFixtures';
 
 const MEDIA = { type: 'continuous', paperSize: 80 } as const;
 
@@ -167,5 +168,50 @@ describe('printerSchema', () => {
   it('rejects connectionType usb with no device set (invariant #13)', () => {
     const printer: Printer = { ...basePrinter, connectionType: ConnectionType.usb, lan: undefined };
     expect(printerSchema.safeParse(printer).success).toBe(false);
+  });
+});
+
+describe('printMediaSchema (qua printerSchema)', () => {
+  const withTsplMedia = (media: unknown) =>
+    printerSchema.safeParse(makePrinter({
+      drivers: [{ ...makeTsplDriverEntry(), config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media } as never }],
+    }));
+
+  it('continuous chỉ cần type + paperSize', () => {
+    expect(withTsplMedia({ type: 'continuous', paperSize: 80 }).success).toBe(true);
+  });
+
+  it('paperSize 100 hợp lệ', () => {
+    expect(withTsplMedia({ type: 'continuous', paperSize: 100 }).success).toBe(true);
+  });
+
+  it('die_cut thiếu columns/itemWidthMm/... → fail', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100 }).success).toBe(false);
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2 }).success).toBe(false); // thiếu verticalGapMm
+  });
+
+  it('die_cut đủ field → pass', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 }).success).toBe(true);
+  });
+
+  it('die_cut + cutterMode != none → fail', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, cutterMode: 'per_job' }).success).toBe(false);
+  });
+
+  it('columns < 1 → fail', () => {
+    expect(withTsplMedia({ type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 0, horizontalGapMm: 2, verticalGapMm: 3 }).success).toBe(false);
+  });
+});
+
+describe('ESC/POS media phải continuous', () => {
+  it('escpos + media.type die_cut → fail', () => {
+    const p = makePrinter({
+      drivers: [{ ...makeEscPosDriverEntry(), config: { type: PrinterDriverType.escpos, media: { type: 'die_cut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 2 } } as never }],
+    });
+    expect(printerSchema.safeParse(p).success).toBe(false);
+  });
+
+  it('escpos + media.type continuous → pass', () => {
+    expect(printerSchema.safeParse(makePrinter({ drivers: [makeEscPosDriverEntry()] })).success).toBe(true);
   });
 });
