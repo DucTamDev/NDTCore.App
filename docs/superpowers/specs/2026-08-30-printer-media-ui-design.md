@@ -143,19 +143,27 @@ Hiện `<Text style={{color:'#B91C1C'}}>{dieCutRowOverflow(media)}</Text>` dư�
 
 ```ts
 const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
-  setDrivers((prev) => prev.map((d) => {
-    if (d.type !== driverType) return d;
-    let media = { ...d.config.media, ...patch };
-    // đổi sang die_cut lần đầu → điền default 5 field nếu thiếu
-    if (media.type === PrintMediaType.dieCut) {
-      media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
-    }
-    return { ...d, config: { ...d.config, media } };
-  }));
-  PrinterService.setDriverMedia(printerId, driverType, patch);  // no-op nếu draft
+  const entry = drivers.find((d) => d.type === driverType);
+  if (!entry) return;
+  let media = { ...entry.config.media, ...patch };
+  // đổi sang die_cut lần đầu → điền default 5 field nếu thiếu
+  if (media.type === PrintMediaType.dieCut) {
+    media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
+  }
+  setDrivers((prev) => prev.map((d) => (d.type === driverType ? { ...d, config: { ...d.config, media } } : d)));
+  PrinterService.setDriverMedia(printerId, driverType, media);  // no-op nếu draft
 };
 ```
 (default die_cut giá trị: 30×20mm, 2 cột, gap 2/3mm — 2·30 + 1·2 = 62mm, vừa khổ 80.)
+
+Merge media 1 lần rồi truyền media **ĐÃ MERGE** cho `setDriverMedia` (không phải raw
+`patch`). Với draft (flow Thêm), persist là no-op và `onSave` dựng lại từ `drivers`
+state nên raw hay merged đều tương đương. Nhưng với printer **ĐANG SỬA (đã lưu)**,
+`setDriverMedia` là 1 lần ghi thật ngay lập tức → phải persist media ĐÃ MERGE (kể cả
+die_cut auto-fill), không phải raw patch, để không lưu media không hợp lệ nếu user
+thoát không Save. `setDriverMedia(printerId, driverType, media: Partial<PrintMedia>)`
+giữ nguyên chữ ký — truyền `PrintMedia` đầy đủ vẫn assignable, và merge
+`{ ...cũ, ...media }` với object đầy đủ là 1 lần thay thế trọn vẹn.
 
 ### 5.2 Số hàng "In tem thử"
 
@@ -282,7 +290,7 @@ Chạy: `npm run type-check` + `npx jest` + `npm run lint`.
 
 - **`PrinterInfoCard` phình to** — đã có render-mode + internalfont block; thêm media block × mỗi driver. Nếu vượt ~250 dòng → tách `DriverMediaSection` component con (không test riêng). Plan quyết.
 - **`printerDisplaySchema` mất `paperSize`** đụng mọi test dựng `PrinterDisplayValues` / form fixture — mechanical, đếm trước (`grep "paperSize" schemas/__tests__ hooks/__tests__`).
-- **`useLayoutMode` trong `PrinterManagementPanel`** — `useWindowDimensions` re-render khi xoay máy; đang giữa form mà xoay phone↔tablet → chuyển inline↔modal, `key` giữ nên state `useAddPrinterFlow` không mất (cùng `editingPrinter?.id`). Chấp nhận (hiếm).
+- **`useLayoutMode` trong `PrinterManagementPanel`** — đổi layout giữa chừng (phone↔tablet) sẽ remount hook `useAddPrinterFlow` → mất state form đang nhập: inline vs `Portal > Modal > AddPrinterForm` là 2 vị trí khác nhau trong cây, `key` không cứu được. Tần suất rất thấp: `useLayoutMode` dùng `Math.min(width, height)` nên xoay máy KHÔNG đổi mode — chỉ split-screen / gập máy. Chấp nhận; cleanup unmount (final-review Important 1) đảm bảo không rò kết nối khi remount.
 - **Không có nav back cứng** (inline dùng nút "‹ Quay lại" custom, không phải header nav) — nút Android back vật lý trên phone sẽ thoát tab/app thay vì về list. Nice-to-have: `BackHandler` trong `PrinterManagementPanel` khi `mode === 'form'`. Plan quyết (mình nghiêng: thêm, ~5 dòng).
 - Sau SP-C: cấu hình `die_cut` được, in thử N hàng được. Vẫn **chưa test thiết bị thật** (không có máy die-cut) — verify khi có hardware (checklist ở spec SP-B §10 note).
 - `cutterMode`/`capabilities.cutter` vẫn dormant — người dùng muốn tắt cắt phải sửa storage (chưa UI). Ghi nhận, SP sau.
