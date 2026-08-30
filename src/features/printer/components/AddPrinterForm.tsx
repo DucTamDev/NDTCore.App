@@ -63,7 +63,7 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({ visible, initial
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, gap: 8 },
+  root: { gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   scrollContent: { gap: 12, paddingBottom: 24 },
   identityError: { color: '#B91C1C' },

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
 import { PrintMediaType, PrinterDriverType, type PaperSize, type PrintMedia } from '../types/printer.types';
-import { dieCutRowOverflow } from '../utils/mediaValidation';
+import { dieCutMediaError } from '../utils/mediaValidation';
 
 const PAPER_SIZE_OPTIONS = [58, 80, 100, 104].map((n) => ({ label: `${n}mm`, value: String(n) }));
 const MEDIA_TYPE_OPTIONS = [
@@ -25,7 +25,7 @@ const numStr = (n: number | undefined): string => (n == null ? '' : String(n));
 export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverType, media, disabled, onChange }) => {
   const isTspl = driverType === PrinterDriverType.tspl;
   const isDieCut = media.type === PrintMediaType.dieCut;
-  const overflow = dieCutRowOverflow(media);
+  const mediaError = dieCutMediaError(media);
   return (
     <View style={styles.block}>
       <AppSelect
@@ -51,7 +51,7 @@ export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverTy
               <AppInput label="Số cột" keyboardType="numeric" value={numStr(media.columns)} onChangeText={(t) => onChange({ columns: parseNum(t) })} disabled={disabled} />
               <AppInput label="Khoảng cách ngang (mm)" keyboardType="numeric" value={numStr(media.horizontalGapMm)} onChangeText={(t) => onChange({ horizontalGapMm: parseNum(t) })} disabled={disabled} />
               <AppInput label="Khoảng cách dọc (mm)" keyboardType="numeric" value={numStr(media.verticalGapMm)} onChangeText={(t) => onChange({ verticalGapMm: parseNum(t) })} disabled={disabled} />
-              {overflow ? <Text style={styles.error}>{overflow}</Text> : null}
+              {mediaError ? <Text style={styles.error}>{mediaError}</Text> : null}
             </>
           ) : null}
         </>

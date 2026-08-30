@@ -347,6 +347,13 @@ export const createPrinterService = (
     );
   };
 
+  /**
+   * Persist `media` cho 1 driver của printer ĐÃ LƯU (nhận cả escpos lẫn tspl).
+   * `!entry` → no-op: printer draft / driver chưa nằm trong storage lúc modal Add
+   * đang chạy — modal giữ media trong `drivers` state và `buildDraftPrinter` ghi
+   * nó khi Save. Với printer đang SỬA, đây là 1 lần ghi thật ngay → caller phải
+   * truyền media ĐÃ MERGE (không phải raw patch) để không lưu media dở dang.
+   */
   const setDriverMedia = (printerId: string, driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
     const printers = getPrinters();
     const printer = printers.find((p) => p.id === printerId);

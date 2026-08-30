@@ -26,7 +26,7 @@ import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, PrintMediaType, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { PrintMedia, Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
-import { dieCutRowOverflow } from '../utils/mediaValidation';
+import { dieCutMediaError } from '../utils/mediaValidation';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -133,6 +133,19 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     };
   }, [visible, printerId]);
 
+  // Trên phone, `PrinterManagementPanel` unmount `AddPrinterForm` khi backToList
+  // với `visible` vẫn `true` → nhánh `!visible` ở trên không chạy. Cleanup theo
+  // vòng đời mount đảm bảo draft đang connected (chưa Save) được ngắt kết nối.
+  useEffect(
+    () => () => {
+      const current = connectionRef.current;
+      if (current.connectionState === 'connected' && !savedRef.current) {
+        current.drivers.forEach((d) => PrinterService.disconnectForDriver(d.type, printerId).catch(() => undefined));
+      }
+    },
+    [printerId],
+  );
+
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
   /** Không cần biết protocol — xem `resolveIdentityKey`. */
@@ -189,7 +202,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       type,
       source,
       contentTypes,
-      config: { ...def },
+      config: { ...def, media: { ...def.media } },
     };
     setDrivers((prev) => [...prev, entry]);
   };
@@ -296,7 +309,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       type: chosenProtocol,
       source: DriverSource.manual,
       contentTypes: [],
-      config: { ...definitionConfig },
+      config: { ...definitionConfig, media: { ...definitionConfig.media } },
     };
     const base = buildDraftPrinter();
     const draftPrinter: Printer = { ...base, drivers: [...base.drivers, draftDriver] };
@@ -414,17 +427,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   };
 
   const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
-    setDrivers((prev) =>
-      prev.map((d) => {
-        if (d.type !== driverType) return d;
-        let media = { ...d.config.media, ...patch } as PrintMedia;
-        if (media.type === PrintMediaType.dieCut) {
-          media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
-        }
-        return { ...d, config: { ...d.config, media } };
-      }),
-    );
-    PrinterService.setDriverMedia(printerId, driverType, patch);
+    const entry = drivers.find((d) => d.type === driverType);
+    if (!entry) return;
+    let media = { ...entry.config.media, ...patch } as PrintMedia;
+    if (media.type === PrintMediaType.dieCut) {
+      media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
+    }
+    setDrivers((prev) => prev.map((d) => (d.type === driverType ? { ...d, config: { ...d.config, media } } : d)));
+    // Persist media ĐÃ MERGE (kể cả die_cut auto-fill), không phải raw patch:
+    // với printer đang SỬA, `setDriverMedia` ghi thật ngay → raw `{ type: 'die_cut' }`
+    // sẽ lưu media không hợp lệ nếu user thoát không Save (final-review Important 2).
+    PrinterService.setDriverMedia(printerId, driverType, media);
   };
 
   const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
@@ -560,7 +573,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
         drivers.length === 0 ||
         connectionDirty ||
         hasEmptyContentTypeDriver ||
-        drivers.some((d) => dieCutRowOverflow(mediaOf(d)) != null),
+        drivers.some((d) => dieCutMediaError(mediaOf(d)) != null),
       locked: drivers.length === 0,
     },
   };

@@ -1,4 +1,4 @@
-import { dieCutRowOverflow } from '../mediaValidation';
+import { dieCutRowOverflow, dieCutMediaError } from '../mediaValidation';
 import { PrintMediaType } from '../../types/printer.types';
 import type { PrintMedia } from '../../types/printer.types';
 
@@ -20,5 +20,23 @@ describe('dieCutRowOverflow', () => {
   });
   it('null khi die-cut thiếu field (chưa đủ để tính)', () => {
     expect(dieCutRowOverflow({ type: PrintMediaType.dieCut, paperSize: 100 })).toBeNull();
+  });
+});
+
+describe('dieCutMediaError', () => {
+  it('báo thiếu field khi die-cut thiếu columns', () => {
+    const msg = dieCutMediaError({ type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, horizontalGapMm: 2, verticalGapMm: 3 });
+    expect(msg).toContain('columns');
+  });
+  it('trả message tràn khổ khi đủ field nhưng vượt', () => {
+    const msg = dieCutMediaError(die({ columns: 4 }));
+    expect(msg).toContain('126');
+    expect(msg).toContain('96');
+  });
+  it('null khi die-cut đủ field và vừa khổ', () => {
+    expect(dieCutMediaError(die({}))).toBeNull();
+  });
+  it('null cho media continuous', () => {
+    expect(dieCutMediaError({ type: PrintMediaType.continuous, paperSize: 80 })).toBeNull();
   });
 });

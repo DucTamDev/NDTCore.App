@@ -17,3 +17,18 @@ export const dieCutRowOverflow = (media: PrintMedia): string | null => {
   if (rowWidthMm <= printableMm) return null;
   return `Hàng ${columns} cột rộng ${rowWidthMm}mm, vượt khổ in được ${printableMm}mm — giảm số cột / kích thước tem / khoảng cách.`;
 };
+
+const DIE_CUT_FIELDS: (keyof PrintMedia)[] = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'];
+
+/**
+ * Lỗi cấu hình media hiển thị cho người dùng (thiếu field die-cut, hoặc hàng
+ * vượt khổ giấy), hoặc `null` nếu hợp lệ. Dùng cho `saveDisabled` + cảnh báo
+ * inline — nguồn sự thật CHUNG với `printMediaSchema` (schema thêm per-field
+ * `path` issue; helper này trả 1 message tổng để chặn nút Lưu).
+ */
+export const dieCutMediaError = (media: PrintMedia): string | null => {
+  if (media.type !== PrintMediaType.dieCut) return null;
+  const missing = DIE_CUT_FIELDS.filter((f) => media[f] == null);
+  if (missing.length > 0) return `Giấy die-cut cần đủ: ${missing.join(', ')}`;
+  return dieCutRowOverflow(media);
+};
