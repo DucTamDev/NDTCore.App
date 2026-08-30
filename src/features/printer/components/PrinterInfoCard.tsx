@@ -7,10 +7,11 @@ import { AppSelect } from '../../../components/AppSelect';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
+import { DriverMediaSection } from './DriverMediaSection';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -94,6 +95,10 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   onTestPrintLabel,
   onSelectTsplRenderMode,
   onChangeTsplInternalFont,
+  onChangeDriverMedia,
+  testPrintRowsText,
+  onTestPrintRowsChange,
+  hasTsplDriver,
   tsplFontPending,
   onSave,
   saveDisabled,
@@ -122,23 +127,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         <PrinterStatusBadge status={status} />
       </View>
 
-      <Controller
-        control={control}
-        name="paperSize"
-        render={({ field }) => (
-          <AppSelect
-            label="Khổ giấy"
-            value={String(field.value)}
-            onSelect={(value) => field.onChange(Number(value))}
-            options={[
-              { label: '58mm', value: '58' },
-              { label: '80mm', value: '80' },
-            ]}
-            disabled={locked}
-          />
-        )}
-      />
-
       <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
 
       {drivers.map((driver) => (
@@ -147,6 +135,12 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
             <Chip>{`Driver: ${protocolLabel[driver.type]}`}</Chip>
             <Chip>{driver.source === DriverSource.auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
           </View>
+          <DriverMediaSection
+            driverType={driver.type}
+            media={mediaOf(driver)}
+            disabled={locked}
+            onChange={(patch) => onChangeDriverMedia(driver.type, patch)}
+          />
           {getDriverDefinition(driver.type).contentTypes.map((contentType) => (
             <AppSwitch
               key={contentType}
@@ -193,6 +187,15 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         </View>
       ))}
 
+      {hasTsplDriver ? (
+        <AppInput
+          label="Số hàng in thử"
+          keyboardType="numeric"
+          value={testPrintRowsText}
+          onChangeText={onTestPrintRowsChange}
+          disabled={locked}
+        />
+      ) : null}
       <View style={styles.testPrintRow}>
         <AppButton
           label="In bill thử"
