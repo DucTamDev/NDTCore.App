@@ -1,6 +1,6 @@
 import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
-import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DeviceScanEventType, DriverSource, paperSizeOf, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocuments } from '../../../types/driver.types';
 
@@ -70,7 +70,9 @@ jest.mock('../../../services/PrinterLogger', () => ({
   },
 }));
 
-const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
+
+const escposDriverEntry58: PrinterDriver = { ...escposDriverEntry, config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 58 } } };
 
 const lanPrinter: Printer = {
   id: 'receipt-lan',
@@ -79,7 +81,7 @@ const lanPrinter: Printer = {
   connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.50', port: 9100 },
   identityKey: 'lan:192.168.1.50:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -120,13 +122,13 @@ describe('EscPosDriver', () => {
   });
 
   it('buildEscPosText() converts the resolved text document into ESC/POS text (pure, no driver/transport needed)', () => {
-    const text = buildEscPosText(lanPrinter.paperSize, sampleDocuments);
+    const text = buildEscPosText(paperSizeOf(escposDriverEntry), sampleDocuments);
     expect(text).toContain('In thử');
   });
 
   it('buildEscPosText() ignores documents.image — ESC/POS always uses text', () => {
     const withImage: PrintDocuments = { text: sampleDocuments.text, image: 'c2hvdWxkLW5vdC1iZS11c2Vk' };
-    const text = buildEscPosText(lanPrinter.paperSize, withImage);
+    const text = buildEscPosText(paperSizeOf(escposDriverEntry), withImage);
     expect(text).toContain('In thử');
   });
 
@@ -525,9 +527,9 @@ describe('EscPosDriver', () => {
     );
   });
 
-  it('print() renders a row element as a left/right-aligned line sized to the printer paperSize', async () => {
+  it('print() renders a row element as a left/right-aligned line sized to the driver media paperSize', async () => {
     const driver = new EscPosDriver();
-    await driver.connect({ ...lanPrinter, paperSize: 58 }, escposDriverEntry);
+    await driver.connect({ ...lanPrinter, drivers: [escposDriverEntry58] }, escposDriverEntry58);
     const { NetPrinter } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
       NetPrinter: { printText: jest.Mock };
     };

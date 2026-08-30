@@ -9,6 +9,8 @@ import type { PaperSize } from '../types/printer.types';
 export const PAPER_WIDTH_CHARS: Record<PaperSize, number> = {
   58: 32,
   80: 48,
+  100: 64,
+  104: 69,
 };
 
 /**
@@ -19,6 +21,8 @@ export const PAPER_WIDTH_CHARS: Record<PaperSize, number> = {
 export const PAPER_IMAGE_WIDTH_PX: Record<PaperSize, number> = {
   58: 384,
   80: 576,
+  100: 768,
+  104: 832,
 };
 
 export const formatRow = (left: string, right: string, width: number): string => {

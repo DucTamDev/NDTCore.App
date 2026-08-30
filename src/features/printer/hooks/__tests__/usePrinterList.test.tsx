@@ -28,7 +28,7 @@ const printer = (over: Partial<Printer> = {}): Printer => ({
   connectionType: ConnectionType.lan,
   lan: { ip: '1.2.3.4', port: 9100 },
   identityKey: 'lan:1.2.3.4:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '',

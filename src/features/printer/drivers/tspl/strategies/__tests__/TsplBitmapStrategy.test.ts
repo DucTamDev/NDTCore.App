@@ -15,7 +15,7 @@ const printer: Printer = {
   connectionType: 'lan' as Printer['connectionType'],
   lan: { ip: '1.2.3.4', port: 9100 },
   identityKey: 'lan:1.2.3.4:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '',
@@ -26,7 +26,7 @@ const driver: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: 'auto' as PrinterDriver['source'],
   contentTypes: [PrintType.Receipt],
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
+  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
 };
 
 const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({

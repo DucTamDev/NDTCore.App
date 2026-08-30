@@ -24,7 +24,7 @@ import { PrinterErrorException } from '../types/PrinterError';
 import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, DEFAULT_TSPL_INTERNAL_FONT, DriverSource, paperSizeOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
 
 export interface UseAddPrinterFlowInput {
@@ -97,7 +97,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     resolver: zodResolver(printerDisplaySchema),
     defaultValues: {
       name: initialValues?.name ?? '',
-      paperSize: initialValues?.paperSize ?? 80,
+      paperSize: initialValues?.drivers[0]?.config.media.paperSize ?? 80,
     },
   });
 
@@ -191,7 +191,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
    * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connectionType/device/lan)
    * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
    * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
-   * (vd `paperSize`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
+   * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
    * (final-review finding #2).
    */
   const buildDraftPrinter = (): Printer => {
@@ -201,12 +201,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     name: displayForm.getValues('name') || 'Máy in mới',
     vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
     model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-    drivers,
     connectionType,
     device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
     lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
     identityKey: currentIdentityKey() ?? '',
-    paperSize: displayForm.getValues('paperSize'),
+    capabilities: { cutter: false },
+    drivers: drivers.map((d) => ({
+      ...d,
+      config: { ...d.config, media: { ...d.config.media, paperSize: displayForm.getValues('paperSize') } },
+    })),
     autoReconnect,
     enabled: initialValues?.enabled ?? true,
     createdAt: initialValues?.createdAt ?? new Date().toISOString(),
@@ -412,9 +415,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     PrinterService.setTsplInternalFont(printerId, next);
   };
 
-  const resolveTestPrintDocuments = async (driver: PrinterDriver, printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
+  const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
     if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) return { text: document };
-    const base64 = await captureBillImage(document, printer.paperSize);
+    const base64 = await captureBillImage(document, paperSizeOf(driver));
     if (!base64) return { text: document };
     return { text: document, image: base64 };
   };
@@ -432,7 +435,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     setPending(true);
     setTestPrintErrorMessage(null);
     try {
-      const documents = await resolveTestPrintDocuments(driver, printer, sampleDocument);
+      const documents = await resolveTestPrintDocuments(driver, sampleDocument);
       await PrinterService.testPrint(printer, driver, documents, printType);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');

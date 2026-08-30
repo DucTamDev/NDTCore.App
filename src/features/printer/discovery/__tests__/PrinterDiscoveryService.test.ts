@@ -45,7 +45,7 @@ describe('PrinterDiscoveryService', () => {
     connectionType: ConnectionType.lan,
     lan: { ip: '192.168.1.10', port: 9100 },
     identityKey: 'lan:192.168.1.10:9100',
-    paperSize: 80,
+    capabilities: { cutter: false },
     autoReconnect: true,
     enabled: true,
     createdAt: '2026-01-01T00:00:00.000Z',

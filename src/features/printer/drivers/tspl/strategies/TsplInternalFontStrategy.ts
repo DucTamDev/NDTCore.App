@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
+import { paperSizeOf, PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder } from '../TsplEncoder';
 import { PAPER_WIDTH_CHARS, formatRow } from '../../../utils/paperWidth';
@@ -28,7 +28,7 @@ export class TsplInternalFontStrategy implements ITsplPrintStrategy {
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { printer, driver, documents, printType, heightMm } = context;
+    const { driver, documents, printType, heightMm } = context;
     if (driver.config.type !== PrinterDriverType.tspl || !driver.config.internalFont) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED,
@@ -36,8 +36,8 @@ export class TsplInternalFontStrategy implements ITsplPrintStrategy {
       });
     }
     const { fontName, codepage } = driver.config.internalFont;
-    const paperWidth = PAPER_WIDTH_CHARS[printer.paperSize];
-    const encoder = new TsplEncoder().initialize(printer.paperSize, printType, heightMm, codepage);
+    const paperWidth = PAPER_WIDTH_CHARS[paperSizeOf(driver)];
+    const encoder = new TsplEncoder().initialize(paperSizeOf(driver), printType, heightMm, codepage);
     for (const element of documents.text.elements) {
       if (element.type === 'text') {
         encoder.text(element.x, element.y, element.content, fontName);

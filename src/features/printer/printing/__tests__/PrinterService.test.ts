@@ -22,8 +22,8 @@ const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): j
   ...overrides,
 });
 
-const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
+const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
+const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const basePrinter: Printer = {
   id: 'p1',
@@ -32,7 +32,7 @@ const basePrinter: Printer = {
   connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -474,7 +474,7 @@ describe('PrinterService', () => {
       drivers: [
         {
           ...tsplDriverEntry,
-          config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+          config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
         },
       ],
     };

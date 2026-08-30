@@ -1,5 +1,7 @@
-import { PrinterDriverType, TsplRenderMode, type PrinterDriverConfig } from '../types/printer.types';
+import { PrinterDriverType, PrintMediaType, TsplRenderMode, type PrinterDriverConfig } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
+
+const DEFAULT_MEDIA = { type: PrintMediaType.continuous, paperSize: 80 } as const;
 
 export interface PrinterDriverDefinition {
   contentTypes: PrintType[];
@@ -15,8 +17,8 @@ export interface PrinterDriverDefinition {
  * không đáng tin (xem CLAUDE.md).
  */
 export const PRINTER_DRIVER_DEFINITIONS: Record<PrinterDriverType, PrinterDriverDefinition> = {
-  escpos: { contentTypes: [PrintType.Receipt], defaultConfig: { type: PrinterDriverType.escpos } },
-  tspl: { contentTypes: [PrintType.Receipt, PrintType.Label], defaultConfig: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } },
+  escpos: { contentTypes: [PrintType.Receipt], defaultConfig: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA } } },
+  tspl: { contentTypes: [PrintType.Receipt, PrintType.Label], defaultConfig: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...DEFAULT_MEDIA } } },
 };
 
 export const getDriverDefinition = (type: PrinterDriverType): PrinterDriverDefinition => PRINTER_DRIVER_DEFINITIONS[type];

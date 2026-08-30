@@ -15,7 +15,7 @@ const drivers: PrinterDriver[] = [
     type: PrinterDriverType.escpos,
     source: DriverSource.auto,
     contentTypes: [PrintType.Receipt],
-    config: { type: PrinterDriverType.escpos },
+    config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } },
   },
 ];
 
@@ -26,7 +26,7 @@ const printer: Printer = {
   connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-08-26T00:00:00.000Z',

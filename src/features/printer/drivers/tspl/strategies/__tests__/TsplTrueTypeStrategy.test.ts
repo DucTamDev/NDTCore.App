@@ -7,15 +7,16 @@ import type { Printer, PrinterDriver } from '../../../../types/printer.types';
 
 const printer: Printer = {
   id: 'p1', name: 'M', drivers: [], connectionType: 'lan' as Printer['connectionType'],
-  lan: { ip: '1.2.3.4', port: 9100 }, identityKey: 'k', paperSize: 80,
+  lan: { ip: '1.2.3.4', port: 9100 }, identityKey: 'k', capabilities: { cutter: false },
   autoReconnect: false, enabled: true, createdAt: '', updatedAt: '',
 };
+const MEDIA = { type: 'continuous', paperSize: 80 } as const;
 const withConfig = (config: PrinterDriver['config']): PrinterDriver => ({
   type: PrinterDriverType.tspl, source: 'auto' as PrinterDriver['source'], contentTypes: [PrintType.Receipt], config,
 });
-const installed = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
-const notInstalled = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: false } });
-const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap });
+const installed = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
+const notInstalled = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: false } });
+const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA } });
 
 const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
   printer, driver,

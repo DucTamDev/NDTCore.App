@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, Unsubscribe } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType, paperSizeOf, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
 import type { PrintType } from '../../types/printConfiguration.types';
@@ -126,8 +126,8 @@ export class EscPosDriver implements IPrinterDriver {
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
-  private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
-    const text = buildEscPosText(printer.paperSize, documents);
+  private async sendDocuments(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
+    const text = buildEscPosText(paperSizeOf(driver), documents);
     await adapter.printText(text, ESC_POS_PRINT_OPTIONS);
   }
 
@@ -141,7 +141,7 @@ export class EscPosDriver implements IPrinterDriver {
     }
     const startedAt = Date.now();
     try {
-      await this.sendDocuments(adapter, context.printer, documents);
+      await this.sendDocuments(adapter, context.driver, documents);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -169,7 +169,7 @@ export class EscPosDriver implements IPrinterDriver {
       }
       const adapter = this.adapters.get(printer.id);
       if (!adapter) return;
-      await this.sendDocuments(adapter, printer, documents);
+      await this.sendDocuments(adapter, driver, documents);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });

@@ -32,11 +32,11 @@ export interface DiscoveryEvent {
 
 export interface DiscoveryInput {
   /**
-   * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, paperSize, name,
+   * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, media, name,
    * v.v.) do caller (`AddPrinterModal.buildDraftPrinter()`) tự dựng — service
    * này KHÔNG tự tổng hợp draft từ các field rời rạc nữa, để tránh tạo ra 1
    * draft thiếu field (từng gây bug: driver.connect() lưu context với
-   * `paperSize: undefined`, sản xuất bản in sai lặng lẽ khi có print thật xảy
+   * `media: undefined`, sản xuất bản in sai lặng lẽ khi có print thật xảy
    * ra đồng thời trong lúc discovery còn đang mở — xem final-review finding #2).
    */
   draftPrinter: Printer;

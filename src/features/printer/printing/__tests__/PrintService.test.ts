@@ -4,16 +4,17 @@ import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type P
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../types/printJob.types';
 import { PrinterErrorCode } from '../../types/PrinterError';
 import { PrintType } from '../../types/printConfiguration.types';
+import { makeTsplDriverEntry } from '../../testing/printerFixtures';
 
 const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', x: 0, y: 0 }] };
 const imageBase64 = 'base64...';
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
+const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
   id, name: id, drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
-  identityKey: `lan:1.1.1.1:9100-${id}`, paperSize: 80, autoReconnect: false, enabled: true,
+  identityKey: `lan:1.1.1.1:9100-${id}`, capabilities: { cutter: false }, autoReconnect: false, enabled: true,
   createdAt: 'x', updatedAt: 'x', ...overrides,
 });
 
@@ -76,12 +77,13 @@ describe('PrintService.print', () => {
 
 describe('PrintService.imageDocumentPaperSize', () => {
   it('returns null when the only target uses escpos', () => {
-    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58 }), driver: escposDriver }], () => { throw new Error('unused'); });
+    const deps = makeDeps([{ printer: makePrinter('p1'), driver: escposDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
   });
 
-  it('returns the paperSize of the tspl target when it is in bitmap mode', () => {
-    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [tsplDriver] }), driver: tsplDriver }], () => { throw new Error('unused'); });
+  it('returns the media paperSize of the tspl target when it is in bitmap mode', () => {
+    const tsplDriver58 = makeTsplDriverEntry({ media: { paperSize: 58 } });
+    const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [tsplDriver58] }), driver: tsplDriver58 }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBe(58);
   });
 
@@ -90,9 +92,9 @@ describe('PrintService.imageDocumentPaperSize', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
-    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
+    const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
   });
 
@@ -101,9 +103,9 @@ describe('PrintService.imageDocumentPaperSize', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 } },
     };
-    const deps = makeDeps([{ printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
+    const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentPaperSize(PrintType.Receipt)).toBeNull();
   });
 
@@ -112,12 +114,12 @@ describe('PrintService.imageDocumentPaperSize', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Receipt],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     const deps = makeDeps(
       [
-        { printer: makePrinter('p1', { paperSize: 58, drivers: [truetypeDriver] }), driver: truetypeDriver },
-        { printer: makePrinter('p2', { paperSize: 80, drivers: [tsplDriver] }), driver: tsplDriver },
+        { printer: makePrinter('p1', { drivers: [truetypeDriver] }), driver: truetypeDriver },
+        { printer: makePrinter('p2', { drivers: [tsplDriver] }), driver: tsplDriver },
       ],
       () => { throw new Error('unused'); },
     );

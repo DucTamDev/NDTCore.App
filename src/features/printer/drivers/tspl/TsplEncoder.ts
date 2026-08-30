@@ -57,11 +57,11 @@ const encodeSingleByte = (text: string): number[] => {
 
 /**
  * Chiều cao khổ giấy mặc định khai báo trong `SIZE`/`GAP` khi in Tem
- * (`PrintType.Label`) và máy in chưa tự cấu hình `PrinterConfig.labelHeightMm`
+ * (`PrintType.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
  * (máy in đã lưu từ trước khi field này tồn tại). Với giấy tem rời có khe,
  * con số này phải khớp chiều dài tem VẬT LÝ để cảm biến dò khe hoạt động
  * đúng — không phải khớp nội dung cần in, và KHÔNG có nghĩa mọi máy đều dùng
- * tem 30mm (giấy vật lý mỗi nơi khác nhau) — xem `PrinterConfig.labelHeightMm`.
+ * tem 30mm (giấy vật lý mỗi nơi khác nhau) — xem `media.itemHeightMm`.
  * Nội dung cao hơn khổ giấy thật phải bị chặn ở tầng gọi (`TsplDriver`),
  * không thể "sửa" bằng cách nới `SIZE` lên tuỳ tiện.
  */
@@ -78,6 +78,12 @@ export const CONTINUOUS_HEIGHT_MM = 200;
 
 /** 203dpi — mật độ dot tiêu chuẩn của phần lớn máy in nhiệt TSPL (8 dot/mm). */
 export const DOTS_PER_MM = 8;
+
+/**
+ * mm in được theo khổ đầu in (`@ 8 dot/mm`) — dùng cho lệnh `SIZE`. Số cho
+ * 100/104 là tạm, verify ở SP-B.
+ */
+const PRINTABLE_WIDTH_MM: Record<PaperSize, number> = { 58: 50, 80: 72, 100: 96, 104: 104 };
 
 export class TsplEncoder {
   /**
@@ -103,7 +109,7 @@ export class TsplEncoder {
 
   /**
    * `printType === 'Label'` → giấy tem rời có khe thật: khai báo `GAP 2mm,0mm`
-   * (dò khe) + `labelHeightMm` khớp khổ tem vật lý. Mọi trường hợp khác
+   * (dò khe) + `labelHeightMm` (từ `media.itemHeightMm`) khớp khổ tem vật lý. Mọi trường hợp khác
    * (`'Receipt'` hoặc không truyền — vd `identify()`-only flow không có
    * printType) → giấy cuộn liên tục, không có khe thật: `GAP 0,0` (tắt dò
    * khe) + `CONTINUOUS_HEIGHT_MM` (ngưỡng an toàn rộng, không phải khổ giấy
@@ -116,7 +122,7 @@ export class TsplEncoder {
     codepage: TsplCodepage = TsplCodepage.utf8,
   ): this {
     this.codepage = codepage;
-    const widthMm = paperSize === 58 ? 50 : 72;
+    const widthMm = PRINTABLE_WIDTH_MM[paperSize];
     if (printType === PrintType.Label) {
       this.pushLine(`SIZE ${widthMm} mm, ${labelHeightMm} mm`);
       this.pushLine('GAP 2 mm, 0 mm');

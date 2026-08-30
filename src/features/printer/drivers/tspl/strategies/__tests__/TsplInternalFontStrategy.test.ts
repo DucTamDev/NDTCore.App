@@ -7,15 +7,16 @@ import type { Printer, PrinterDriver } from '../../../../types/printer.types';
 
 const printer: Printer = {
   id: 'p1', name: 'M', drivers: [], connectionType: 'lan' as Printer['connectionType'],
-  lan: { ip: '1.2.3.4', port: 9100 }, identityKey: 'k', paperSize: 80,
+  lan: { ip: '1.2.3.4', port: 9100 }, identityKey: 'k', capabilities: { cutter: false },
   autoReconnect: false, enabled: true, createdAt: '', updatedAt: '',
 };
+const MEDIA = { type: 'continuous', paperSize: 80 } as const;
 const withConfig = (config: PrinterDriver['config']): PrinterDriver => ({
   type: PrinterDriverType.tspl, source: 'auto' as PrinterDriver['source'], contentTypes: [PrintType.Receipt], config,
 });
-const configured = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
-const missing = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont });
-const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap });
+const configured = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
+const missing = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA } });
+const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA } });
 
 const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
   printer, driver,
@@ -58,7 +59,7 @@ describe('TsplInternalFontStrategy', () => {
   });
 
   it('encode dùng CODEPAGE UTF-8 khi codepage là UTF-8', () => {
-    const utf8 = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, internalFont: { codepage: 'UTF-8', fontName: '3' } });
+    const utf8 = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: 'UTF-8', fontName: '3' } });
     const ascii = Array.from(s.encode(ctx(utf8))).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('CODEPAGE UTF-8');
   });

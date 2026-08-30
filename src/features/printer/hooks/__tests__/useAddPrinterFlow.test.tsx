@@ -39,13 +39,13 @@ const savedTspl: Printer = {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
     },
   ],
   connectionType: ConnectionType.lan,
   lan: { ip: '10.0.0.5', port: 9100 },
   identityKey: 'lan:10.0.0.5:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: true,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -123,8 +123,11 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved });
     await act(async () => { await get().infoCard.onSave(); });
     expect(PrinterService.updatePrinter).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'p1', connectionType: ConnectionType.lan, paperSize: 80, drivers: expect.any(Array) }),
+      expect.objectContaining({ id: 'p1', connectionType: ConnectionType.lan, capabilities: { cutter: false }, drivers: expect.any(Array) }),
     );
+    const saved = (PrinterService.updatePrinter as jest.Mock).mock.calls[0][0] as Printer;
+    expect(saved.capabilities.cutter).toBe(false);
+    expect(saved.drivers.every((d) => d.config.media.paperSize === 80)).toBe(true);
     expect(onSaved).toHaveBeenCalled();
   });
 
@@ -211,6 +214,9 @@ describe('useAddPrinterFlow', () => {
     act(() => get().infoCard.onToggleContentType(PrinterDriverType.tspl, PrintType.Receipt, true));
     await act(async () => { await get().infoCard.onSave(); });
     expect(PrinterService.addPrinter).toHaveBeenCalledWith(expect.objectContaining({ drivers: expect.any(Array) }));
+    const added = (PrinterService.addPrinter as jest.Mock).mock.calls[0][0] as Printer;
+    expect(added.capabilities.cutter).toBe(false);
+    expect(added.drivers.every((d) => d.config.media.paperSize === 80)).toBe(true);
     expect(PrinterService.connect).toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalled();
   });
@@ -229,7 +235,7 @@ describe('useAddPrinterFlow', () => {
   it('onSelectTsplRenderMode(truetype) installs the font and flips config to truetype', async () => {
     const bitmapTspl: Printer = {
       ...savedTspl,
-      drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } }],
+      drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
     };
     const { get } = render({ visible: true, initialValues: bitmapTspl, onSaved: jest.fn() });
     await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.truetype); });

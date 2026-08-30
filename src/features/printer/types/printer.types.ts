@@ -16,7 +16,7 @@ export const ConnectionType = {
 
 export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
 
-export type PaperSize = 58 | 80;
+export type PaperSize = 58 | 80 | 100 | 104;
 
 export const DriverSource = {
   auto: 'auto',
@@ -46,6 +46,46 @@ export const TsplCodepage = {
 } as const;
 
 export type TsplCodepage = (typeof TsplCodepage)[keyof typeof TsplCodepage];
+
+export const PrintMediaType = {
+  /** Giấy cuộn liên tục — không khe/răng cưa vật lý. */
+  continuous: 'continuous',
+  /** Giấy tem rời có khe (die-cut / pre-cut), có thể nhiều cột. */
+  dieCut: 'die_cut',
+} as const;
+export type PrintMediaType = (typeof PrintMediaType)[keyof typeof PrintMediaType];
+
+export const CutterMode = {
+  none: 'none',
+  /** Cắt 1 lần sau khi in xong cả job. */
+  perJob: 'per_job',
+  /** Cắt sau mỗi hàng in liên tiếp. */
+  perRow: 'per_row',
+} as const;
+export type CutterMode = (typeof CutterMode)[keyof typeof CutterMode];
+
+/**
+ * Loại giấy + layout của 1 driver. Độc lập với `PrintType` (Receipt/Label) và
+ * `PrinterDriverType` — cùng 1 loại nội dung in được trên cả continuous lẫn
+ * die-cut. `itemWidthMm`/`itemHeightMm`/`columns`/gap chỉ có nghĩa (và schema
+ * bắt buộc — xem Task 2) khi `type === 'die_cut'`.
+ */
+export interface PrintMedia {
+  type: PrintMediaType;
+  paperSize: PaperSize;
+  itemWidthMm?: number;
+  itemHeightMm?: number;
+  columns?: number;
+  horizontalGapMm?: number;
+  verticalGapMm?: number;
+  /** Chỉ áp dụng continuous + `capabilities.cutter`. die_cut ⇒ ép `'none'` (Task 2). `undefined` ⇒ coi như `'none'`. */
+  cutterMode?: CutterMode;
+}
+
+export interface PrinterCapabilities {
+  /** Máy in có dao cắt (phần cứng). */
+  cutter: boolean;
+}
 
 export const PrinterStatus = {
   idle: 'idle',
@@ -155,12 +195,12 @@ export interface TsplDriverConfig {
   font?: TsplFontConfig;
   /** Chỉ có khi renderMode từng được đặt 'internalfont' ít nhất 1 lần. */
   internalFont?: TsplInternalFontConfig;
-  /** Tương ứng lệnh `SIZE`/`GAP`. `undefined` nghĩa dùng `DEFAULT_LABEL_HEIGHT_MM`. */
-  labelHeightMm?: number;
+  media: PrintMedia;
 }
 
 export interface EscPosDriverConfig {
   type: 'escpos';
+  media: PrintMedia;
 }
 
 export type PrinterDriverConfig = TsplDriverConfig | EscPosDriverConfig;
@@ -184,6 +224,12 @@ export interface PrinterDriver {
 export const tsplRenderModeOf = (driver: PrinterDriver): TsplRenderMode | null =>
   driver.config.type === PrinterDriverType.tspl ? driver.config.renderMode : null;
 
+/** `PrintMedia` của 1 driver entry. */
+export const mediaOf = (driver: PrinterDriver): PrintMedia => driver.config.media;
+
+/** Khổ giấy hiệu dụng của 1 driver entry — thay cho `Printer.paperSize` cũ. */
+export const paperSizeOf = (driver: PrinterDriver): PaperSize => driver.config.media.paperSize;
+
 export interface Printer {
   id: string;
   name: string;
@@ -196,7 +242,7 @@ export interface Printer {
   lan?: PrinterLanConfig;
   /** Xem `discovery/PrinterResolver.ts` — chỉ phụ thuộc connectionType+device/lan, không phụ thuộc driver nào. */
   identityKey: string;
-  paperSize: PaperSize;
+  capabilities: PrinterCapabilities;
   autoReconnect: boolean;
   enabled: boolean;
   createdAt: string;

@@ -15,11 +15,11 @@ describe('PrinterDriverDefinitions', () => {
     expect(getDriverDefinition(PrinterDriverType.tspl)).toBe(PRINTER_DRIVER_DEFINITIONS.tspl);
   });
 
-  it('escpos default config is { type: escpos }', () => {
-    expect(PRINTER_DRIVER_DEFINITIONS.escpos.defaultConfig).toEqual({ type: PrinterDriverType.escpos });
+  it('escpos default config is { type: escpos, media: continuous 80 }', () => {
+    expect(PRINTER_DRIVER_DEFINITIONS.escpos.defaultConfig).toEqual({ type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } });
   });
 
-  it('tspl default config is { type: tspl, renderMode: bitmap }', () => {
-    expect(PRINTER_DRIVER_DEFINITIONS.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap });
+  it('tspl default config is { type: tspl, renderMode: bitmap, media: continuous 80 }', () => {
+    expect(PRINTER_DRIVER_DEFINITIONS.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } });
   });
 });

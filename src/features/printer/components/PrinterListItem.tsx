@@ -35,7 +35,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const enabled = printer.enabled ?? true;
   const drivers = printer.drivers.map((d) => protocolLabel[d.type]).join(' + ');
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connectionType], drivers, `Khổ ${printer.paperSize}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connectionType], drivers, `Khổ ${printer.drivers[0]?.config.media.paperSize ?? '?'}mm`, model].filter(Boolean).join(' · ');
 
   // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — interaction
   // của chính card (dialog xác nhận của nó), không phải business logic.

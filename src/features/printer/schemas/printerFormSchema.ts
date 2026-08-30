@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { ConnectionType, DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -22,12 +22,25 @@ export const lanConnectionSchema = z.object({
 
 export type LanConnectionValues = z.infer<typeof lanConnectionSchema>;
 
-const paperSizeSchema = z.union([z.literal(58), z.literal(80)]);
+const paperSizeSchema = z.union([z.literal(58), z.literal(80), z.literal(100), z.literal(104)]);
 
 export const printerDisplaySchema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên máy in'),
   paperSize: paperSizeSchema,
 });
+
+const printMediaSchema = z.object({
+  type: z.enum([PrintMediaType.continuous, PrintMediaType.dieCut]),
+  paperSize: paperSizeSchema,
+  itemWidthMm: z.number().positive().optional(),
+  itemHeightMm: z.number().positive().optional(),
+  columns: z.number().int().min(1).optional(),
+  horizontalGapMm: z.number().min(0).optional(),
+  verticalGapMm: z.number().min(0).optional(),
+  cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
+});
+
+const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
 
 export type PrinterDisplayValues = z.infer<typeof printerDisplaySchema>;
 
@@ -49,11 +62,12 @@ const tsplDriverConfigSchema = z.object({
   renderMode: z.enum([TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont]),
   font: tsplFontConfigSchema.optional(),
   internalFont: tsplInternalFontConfigSchema.optional(),
-  labelHeightMm: z.number().positive().optional(),
+  media: printMediaSchema,
 });
 
 const escPosDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.escpos),
+  media: printMediaSchema,
 });
 
 const printerDriverConfigSchema = z.discriminatedUnion('type', [tsplDriverConfigSchema, escPosDriverConfigSchema]);
@@ -107,7 +121,7 @@ export const printerSchema = z
     device: printerDeviceSchema.optional(),
     lan: printerLanConfigSchema.optional(),
     identityKey: z.string().min(1),
-    paperSize: paperSizeSchema,
+    capabilities: printerCapabilitiesSchema,
     autoReconnect: z.boolean(),
     enabled: z.boolean(),
     createdAt: z.string(),

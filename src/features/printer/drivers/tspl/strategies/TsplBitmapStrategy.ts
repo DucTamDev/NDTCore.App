@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { TsplRenderMode } from '../../../types/printer.types';
+import { paperSizeOf, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder, DOTS_PER_MM } from '../TsplEncoder';
 import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperWidth';
@@ -22,10 +22,11 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { printer, printType, heightMm, documents } = context;
+    const { printType, heightMm, documents } = context;
+    const paperSize = paperSizeOf(context.driver);
     let bitmap;
     try {
-      bitmap = decodePngBase64ToMonochrome(documents.image as string, PAPER_IMAGE_WIDTH_PX[printer.paperSize]);
+      bitmap = decodePngBase64ToMonochrome(documents.image as string, PAPER_IMAGE_WIDTH_PX[paperSize]);
     } catch (error) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_IMAGE_INVALID,
@@ -40,6 +41,6 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
         message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
       });
     }
-    return new TsplEncoder().initialize(printer.paperSize, printType, heightMm).image(0, 0, bitmap).cut().encode();
+    return new TsplEncoder().initialize(paperSize, printType, heightMm).image(0, 0, bitmap).cut().encode();
   }
 }

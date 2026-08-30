@@ -53,6 +53,16 @@ describe('TsplEncoder', () => {
     expect(output).toContain('SIZE 72 mm, 40 mm');
   });
 
+  it('initialize(100) emits SIZE 96 mm for the 100mm paper size', () => {
+    const output = decode(new TsplEncoder().initialize(100).encode());
+    expect(output).toContain('SIZE 96 mm, 200 mm');
+  });
+
+  it('initialize(104) emits SIZE 104 mm for the 104mm paper size', () => {
+    const output = decode(new TsplEncoder().initialize(104).encode());
+    expect(output).toContain('SIZE 104 mm, 200 mm');
+  });
+
   it('text() emits a TEXT command with escaped quotes', () => {
     const output = decode(new TsplEncoder().text(10, 20, 'Máy in "A"').encode());
     expect(output).toContain('TEXT 10,20,"3",0,1,1,"Máy in \\"A\\""');

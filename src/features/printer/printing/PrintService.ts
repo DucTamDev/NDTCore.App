@@ -4,7 +4,7 @@ import { generateId } from '../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
 import { PrinterErrorCode } from '../types/PrinterError';
 import type { PrintType } from '../types/printConfiguration.types';
-import { PrinterDriverType, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
+import { paperSizeOf, PrinterDriverType, tsplRenderModeOf, TsplRenderMode } from '../types/printer.types';
 import type { PaperSize } from '../types/printer.types';
 import type { PrintDocuments } from '../types/driver.types';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../types/printJob.types';
@@ -28,7 +28,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
    */
   const imageDocumentPaperSize = (printType: PrintType): PaperSize | null => {
     const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === PrinterDriverType.tspl && tsplRenderModeOf(t.driver) === TsplRenderMode.bitmap);
-    return target ? target.printer.paperSize : null;
+    return target ? paperSizeOf(target.driver) : null;
   };
 
   const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {

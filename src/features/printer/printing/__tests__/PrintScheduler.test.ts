@@ -7,8 +7,8 @@ import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRen
 import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
-const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } };
+const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
@@ -18,7 +18,7 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
 
 const makePrinter = (overrides: Partial<Printer> = {}): Printer => ({
   id: 'p1', name: 'Máy in', drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
-  identityKey: 'lan:1.1.1.1:9100', paperSize: 80, autoReconnect: false, enabled: true, createdAt: 'x', updatedAt: 'x',
+  identityKey: 'lan:1.1.1.1:9100', capabilities: { cutter: false }, autoReconnect: false, enabled: true, createdAt: 'x', updatedAt: 'x',
   ...overrides,
 });
 

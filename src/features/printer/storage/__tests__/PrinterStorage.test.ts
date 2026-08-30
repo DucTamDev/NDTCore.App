@@ -6,11 +6,11 @@ import { PrintType } from '../../types/printConfiguration.types';
 const printer: Printer = {
   id: 'p1',
   name: 'Máy in',
-  drivers: [{ type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } }],
+  drivers: [{ type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } }],
   connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
-  paperSize: 80,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -31,6 +31,12 @@ describe('PrinterStorage', () => {
   it('savePrinters() then getPrinters() round-trips the list', () => {
     PrinterStorage.savePrinters([printer]);
     expect(PrinterStorage.getPrinters()).toEqual([printer]);
+  });
+
+  it('stamps the current storage version (4) after a save + read', () => {
+    PrinterStorage.savePrinters([printer]);
+    PrinterStorage.getPrinters();
+    expect(StorageService.getItem('printer.storageVersion')).toBe(4);
   });
 
   it('discards a legacy (pre-refactor) printer.list written under a missing/older storage version', () => {

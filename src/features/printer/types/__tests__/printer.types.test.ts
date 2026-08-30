@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, CutterMode, DriverSource, mediaOf, paperSizeOf, PrinterDriverType, PrinterStatus, PrintMediaType, tsplRenderModeOf, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
 import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
@@ -8,7 +8,7 @@ describe('printer domain types', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
     };
     const printer: Printer = {
       id: 'p1',
@@ -17,7 +17,7 @@ describe('printer domain types', () => {
       connectionType: ConnectionType.lan,
       lan: { ip: '192.168.1.50', port: 9100 },
       identityKey: 'lan:192.168.1.50:9100',
-      paperSize: 58,
+      capabilities: { cutter: false },
       autoReconnect: true,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -31,19 +31,32 @@ describe('printer domain types', () => {
       id: 'p1',
       name: 'Máy in đa năng',
       drivers: [
-        { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos } },
-        { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap } },
+        { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } },
+        { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } },
       ],
       connectionType: ConnectionType.usb,
       device: { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} },
       identityKey: 'usb:1155:22222',
-      paperSize: 80,
+      capabilities: { cutter: false },
       autoReconnect: false,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
     expect(printer.drivers).toHaveLength(2);
+  });
+
+  it('mediaOf/paperSizeOf đọc media của driver entry', () => {
+    const driver: PrinterDriver = {
+      type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label],
+      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 } },
+    };
+    expect(paperSizeOf(driver)).toBe(100);
+    expect(mediaOf(driver).columns).toBe(3);
+  });
+
+  it('CutterMode có đủ 3 giá trị', () => {
+    expect([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).toEqual(['none', 'per_job', 'per_row']);
   });
 
   it('a mock driver satisfies IPrinterDriver', () => {

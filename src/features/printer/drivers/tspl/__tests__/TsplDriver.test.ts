@@ -82,11 +82,13 @@ jest.mock('../../../services/PrinterLogger', () => ({
   },
 }));
 
+const MEDIA_58 = { type: 'continuous', paperSize: 58 } as const;
+
 const tsplDriverEntry: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: DriverSource.auto,
   contentTypes: [PrintType.Label],
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap },
+  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA_58 } },
 };
 
 /**
@@ -98,7 +100,7 @@ const tsplDriverEntry: PrinterDriver = {
  */
 const tsplTruetypeDriverEntry: PrinterDriver = {
   ...tsplDriverEntry,
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA_58 }, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
 };
 
 const lanPrinter: Printer = {
@@ -108,7 +110,7 @@ const lanPrinter: Printer = {
   connectionType: ConnectionType.lan,
   lan: { ip: '192.168.1.60', port: 9100 },
   identityKey: 'lan:192.168.1.60:9100',
-  paperSize: 58,
+  capabilities: { cutter: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -411,7 +413,7 @@ describe('TsplDriver', () => {
 
   it('print() truetype mode chưa cài font → ném TSPL_FONT_NOT_INSTALLED, KHÔNG ghi bytes', async () => {
     const driver = new TsplDriver();
-    const ttDriver: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype } };
+    const ttDriver: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA_58 } } };
     await driver.connect(lanPrinter, ttDriver);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
