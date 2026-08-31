@@ -1,4 +1,4 @@
-import type { IPrinterDriver } from '../types/driver.types';
+import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import type { TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
 import type { PrintMedia } from '../models/media/PrintMedia';

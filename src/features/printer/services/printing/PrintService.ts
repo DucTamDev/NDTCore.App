@@ -7,7 +7,7 @@ import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
 import type { PrintMedia } from '../../models/media/PrintMedia';
-import type { PrintDocuments } from '../../types/driver.types';
+import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../../models/printing/PrintJob';
 
 export type { PrintDocuments };

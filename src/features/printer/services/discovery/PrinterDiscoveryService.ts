@@ -1,9 +1,9 @@
-import type { IPrinterDriver } from '../../types/driver.types';
+import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { DriverSource, PrinterDriverType } from '../../types/printer.types';
 import type { Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
 import { PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
 import { PrinterLogger } from '../PrinterLogger';
-import { getDriverDefinition } from '../../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 
 /**
  * Thử `tspl` trước `escpos` — xem lý do ở lịch sử `discoverProtocol.ts`
@@ -67,7 +67,7 @@ export const createDiscoverDriver =
         if (cancelled) return;
         candidatesTried.push(type);
         const driver = registry[type];
-        const def = getDriverDefinition(type).defaultConfig;
+        const def = getDriverCapabilities(type).defaultConfig;
         const draftDriver: PrinterDriver = {
           type,
           source: DriverSource.auto,

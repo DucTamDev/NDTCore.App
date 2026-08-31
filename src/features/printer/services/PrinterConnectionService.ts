@@ -1,4 +1,4 @@
-import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../drivers/IPrinterDriver';
 import { PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { Printer, PrinterDriver } from '../types/printer.types';
 import type { PrintType } from '../models/printing/PrintType';

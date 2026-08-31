@@ -1,10 +1,10 @@
 import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
-import type { IPrinterDriver } from '../../../types/driver.types';
+import type { IPrinterDriver } from '../../../drivers/IPrinterDriver';
 import { ConnectionType, PrinterDriverType, PrinterStatus, type PrinterDriver } from '../../../types/printer.types';
 import { PrinterLogger } from '../../PrinterLogger';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makePrinter } from '../../../testing/printerFixtures';
-import { getDriverDefinition } from '../../../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../../../drivers/DriverCapabilities';
 
 jest.mock('../../PrinterLogger', () => ({
   PrinterLogger: {
@@ -61,15 +61,15 @@ describe('PrinterDiscoveryService', () => {
     const escposDriver = makeMockDriver();
     await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     const [, candidateDriver] = tsplDriver.connect.mock.calls[0] as [unknown, PrinterDriver];
-    expect(candidateDriver.config.media.paperSize).toBe(getDriverDefinition(PrinterDriverType.tspl).defaultConfig.media.paperSize);
+    expect(candidateDriver.config.media.paperSize).toBe(getDriverCapabilities(PrinterDriverType.tspl).defaultConfig.media.paperSize);
   });
 
   it('does not mutate the shared defaultConfig when building candidate media', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-    expect(getDriverDefinition(PrinterDriverType.tspl).defaultConfig.media.paperSize).toBe(80);
-    expect(getDriverDefinition(PrinterDriverType.escpos).defaultConfig.media.paperSize).toBe(80);
+    expect(getDriverCapabilities(PrinterDriverType.tspl).defaultConfig.media.paperSize).toBe(80);
+    expect(getDriverCapabilities(PrinterDriverType.escpos).defaultConfig.media.paperSize).toBe(80);
   });
 
   it('excludedDrivers removes a driver type from the candidate list even if it would have identified', async () => {

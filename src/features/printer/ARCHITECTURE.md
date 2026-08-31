@@ -695,7 +695,7 @@ interface IPrinterDriver {
 }
 ```
 
-Pseudocode gốc §23 là minh hoạ; signature chuẩn xem `types/driver.types.ts`.
+Pseudocode gốc §23 là minh hoạ; signature chuẩn xem `drivers/IPrinterDriver.ts`.
 Điểm khác với pseudocode:
 
 * **KHÔNG có `encode()`** — render TSPL nằm ở strategy (§27-30), ESC/POS ở builder (§111).
@@ -3783,7 +3783,7 @@ pseudocode làm regress hành vi thật. Nguồn: spec
 
 **D1 — `IPrinterDriver` §23 signature là minh hoạ.** §23 viết
 `scan(): Promise<PrinterDevice[]>`, `connect(printer)`,
-`onStatusChange(listener)`. Signature thật (`types/driver.types.ts`) giữ
+`onStatusChange(listener)`. Signature thật (`drivers/IPrinterDriver.ts`) giữ
 `scan(connectionType, onEvent): Unsubscribe` (stream Bluetooth ~12s, cần
 huỷ), `connect(printer, driver)` (1 printer ≤ 2 driver), `onStatusChange(printerId, cb)`
 (status theo từng printer). Chỉ đổi thật: bỏ `encode()` + `printType` bắt buộc.

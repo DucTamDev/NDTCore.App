@@ -1,6 +1,6 @@
 import { buildEscPosText } from '../EscPosTextBuilder';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
-import type { PrintDocuments } from '../../../types/driver.types';
+import type { PrintDocuments } from '../../IPrinterDriver';
 
 describe('buildEscPosText', () => {
   it('render text/line/row/table thành text', () => {

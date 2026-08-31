@@ -1,5 +1,5 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
-import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../../types/driver.types';
+import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
 import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
 import { mediaOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../types/printer.types';

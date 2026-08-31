@@ -1,4 +1,4 @@
-import type { IPrinterDriver } from '../types/driver.types';
+import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../types/printer.types';
 import { PrintType } from '../models/printing/PrintType';
 

@@ -5,7 +5,7 @@ import { PrinterRepository } from '../services/PrinterRepository';
 import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
-import { getDriverDefinition } from '../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../schemas/printerFormSchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
@@ -124,8 +124,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   /** TRỪ content type đã thuộc driver khác (invariant #3). */
   const addDriverToList = (type: PrinterDriverType, source: DriverSource): void => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
-    const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
-    const def = getDriverDefinition(type).defaultConfig;
+    const contentTypes = getDriverCapabilities(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
+    const def = getDriverCapabilities(type).defaultConfig;
     const entry: PrinterDriver = {
       type,
       source,

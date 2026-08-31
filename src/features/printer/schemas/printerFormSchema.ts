@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getDriverDefinition } from '../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import { CutterMode, PrintMediaType } from '../models/media/PrintMedia';
 import type { PrintMedia } from '../models/media/PrintMedia';
@@ -100,7 +100,7 @@ export const printerDriverSchema = z
     if (driver.config.type !== driver.type) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'config.type phải khớp với driver.type' });
     }
-    const allowed = getDriverDefinition(driver.type).contentTypes;
+    const allowed = getDriverCapabilities(driver.type).contentTypes;
     const invalid = driver.contentTypes.filter((ct) => !allowed.includes(ct));
     if (invalid.length > 0) {
       ctx.addIssue({

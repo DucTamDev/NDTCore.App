@@ -3,7 +3,7 @@ import { createPrinterConnectionService } from '../../PrinterConnectionService';
 import { createPrinterRepository } from '../../PrinterRepository';
 import { createResourceLock } from '../../PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
-import type { IPrinterDriver } from '../../../types/driver.types';
+import type { IPrinterDriver } from '../../../drivers/IPrinterDriver';
 import { ConnectionType, PrinterStatus, type Printer } from '../../../types/printer.types';
 import { PrintJobStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrintType } from '../../../models/printing/PrintType';

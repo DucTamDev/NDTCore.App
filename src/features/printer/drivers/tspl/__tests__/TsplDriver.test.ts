@@ -4,7 +4,7 @@ import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { PrintType } from '../../../models/printing/PrintType';
-import type { PrintDocuments } from '../../../types/driver.types';
+import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintDocument, PrintElement } from '../../../models/printing/PrintDocument';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 

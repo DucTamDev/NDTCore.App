@@ -1,5 +1,5 @@
 import type { PrinterError } from '../../errors/PrinterError';
-import type { PrintDocuments } from '../../types/driver.types';
+import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintType } from './PrintType';
 
 export const PrintJobStatus = {

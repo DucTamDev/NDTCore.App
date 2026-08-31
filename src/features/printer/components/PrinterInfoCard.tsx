@@ -9,7 +9,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { DriverMediaSection } from './DriverMediaSection';
 import { DriverRenderModeSection } from './DriverRenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
-import { getDriverDefinition } from '../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../models/printing/PrintType';
 import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
@@ -127,7 +127,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
             disabled={locked}
             onChange={(patch) => onChangeDriverMedia(driver.type, patch)}
           />
-          {getDriverDefinition(driver.type).contentTypes.map((contentType) => (
+          {getDriverCapabilities(driver.type).contentTypes.map((contentType) => (
             <AppSwitch
               key={contentType}
               label={contentTypeLabel[contentType]}

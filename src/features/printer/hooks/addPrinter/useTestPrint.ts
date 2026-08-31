@@ -4,7 +4,7 @@ import { PrinterConnectionService } from '../../services/PrinterConnectionServic
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
 import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
-import type { PrintDocuments } from '../../types/driver.types';
+import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintType } from '../../models/printing/PrintType';
 import { TsplRenderMode } from '../../types/printer.types';

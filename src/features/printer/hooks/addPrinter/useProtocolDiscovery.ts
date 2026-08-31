@@ -2,7 +2,7 @@ import { useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { DeviceScanService } from '../../services/DeviceScanService';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
-import { getDriverDefinition } from '../../drivers/driverDefinitions';
+import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { DiscoveryStage, type DiscoveryEvent } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType, DriverSource, PrinterDriverType } from '../../types/printer.types';
@@ -109,7 +109,7 @@ export const useProtocolDiscovery = ({
   const onChooseProtocol = (chosenProtocol: PrinterDriverType): void => {
     setConnectionState('connecting');
     setProtocolState('detecting');
-    const definitionConfig = getDriverDefinition(chosenProtocol).defaultConfig;
+    const definitionConfig = getDriverCapabilities(chosenProtocol).defaultConfig;
     const draftDriver: PrinterDriver = {
       type: chosenProtocol,
       source: DriverSource.manual,

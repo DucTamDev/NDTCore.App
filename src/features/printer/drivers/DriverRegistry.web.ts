@@ -1,4 +1,4 @@
-import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, Unsubscribe } from './IPrinterDriver';
 import { PrinterStatus } from '../types/printer.types';
 import type { PrinterDriverType } from '../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';

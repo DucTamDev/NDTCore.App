@@ -4,7 +4,7 @@ import { PrintMediaType } from '../models/media/PrintMedia';
 
 const DEFAULT_MEDIA = { type: PrintMediaType.continuous, paperSize: 80 } as const;
 
-export interface PrinterDriverDefinition {
+export interface DriverCapabilities {
   contentTypes: PrintType[];
   /** Config khởi tạo khi thêm 1 driver mới loại này — nguồn sự thật duy nhất, không viết tay rải rác ở nơi gọi. */
   defaultConfig: PrinterDriverConfig;
@@ -17,9 +17,9 @@ export interface PrinterDriverDefinition {
  * KHÔNG phải rule table theo vendor/model — cơ chế đó đã bị bỏ trước đây vì
  * không đáng tin (xem CLAUDE.md).
  */
-export const PRINTER_DRIVER_DEFINITIONS: Record<PrinterDriverType, PrinterDriverDefinition> = {
+export const DRIVER_CAPABILITIES: Record<PrinterDriverType, DriverCapabilities> = {
   escpos: { contentTypes: [PrintType.Receipt], defaultConfig: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA } } },
   tspl: { contentTypes: [PrintType.Receipt, PrintType.Label], defaultConfig: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...DEFAULT_MEDIA } } },
 };
 
-export const getDriverDefinition = (type: PrinterDriverType): PrinterDriverDefinition => PRINTER_DRIVER_DEFINITIONS[type];
+export const getDriverCapabilities = (type: PrinterDriverType): DriverCapabilities => DRIVER_CAPABILITIES[type];

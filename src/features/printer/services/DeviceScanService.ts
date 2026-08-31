@@ -1,4 +1,4 @@
-import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
+import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
 import { ConnectionType, PrinterDriverType } from '../types/printer.types';
 import type { DeviceScanEvent } from '../types/printer.types';
 import { LoggerService } from '../../../services/LoggerService';
