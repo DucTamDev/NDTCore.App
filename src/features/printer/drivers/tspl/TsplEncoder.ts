@@ -3,7 +3,7 @@ import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.ty
 import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_WIDTH_CHARS, PRINTABLE_WIDTH_MM } from '../../utils/paperWidth';
+import { DOTS_PER_MM, PAPER_WIDTH_CHARS, PRINTABLE_WIDTH_MM } from '../../utils/paperSize';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của

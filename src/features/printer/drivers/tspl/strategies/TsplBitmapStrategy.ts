@@ -3,7 +3,7 @@ import { PrintMediaType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../utils/cutter';
-import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperWidth';
+import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperSize';
 import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
 
 /**

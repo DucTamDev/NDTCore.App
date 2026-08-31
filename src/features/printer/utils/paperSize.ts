@@ -34,8 +34,3 @@ export const PAPER_IMAGE_WIDTH_PX: Record<PaperSize, number> = {
   100: 768,
   104: 832,
 };
-
-export const formatRow = (left: string, right: string, width: number): string => {
-  const gap = Math.max(1, width - left.length - right.length);
-  return `${left}${' '.repeat(gap)}${right}`;
-};

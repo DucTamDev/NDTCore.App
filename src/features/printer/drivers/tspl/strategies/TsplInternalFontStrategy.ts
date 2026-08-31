@@ -3,7 +3,7 @@ import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types'
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../utils/cutter';
-import { formatRow } from '../../../utils/paperWidth';
+import { formatRow } from '../../../utils/formatRow';
 
 /**
  * `documents.text` → lệnh `TEXT`/`BARCODE`/`QRCODE` dùng font NỘI BỘ của máy in

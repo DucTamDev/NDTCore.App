@@ -1,6 +1,6 @@
 import { PrintMediaType } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
-import { PRINTABLE_WIDTH_MM } from './paperWidth';
+import { PRINTABLE_WIDTH_MM } from './paperSize';
 
 /**
  * Hàng die-cut (`columns` con tem + gap ngang) có rộng hơn vùng in được của

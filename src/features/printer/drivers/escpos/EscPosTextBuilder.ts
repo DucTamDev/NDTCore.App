@@ -1,7 +1,8 @@
 import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { PaperSize } from '../../types/printer.types';
 import type { PrintDocuments } from '../../types/driver.types';
-import { PAPER_WIDTH_CHARS, formatRow } from '../../utils/paperWidth';
+import { PAPER_WIDTH_CHARS } from '../../utils/paperSize';
+import { formatRow } from '../../utils/formatRow';
 
 /**
  * `documents.text` → chuỗi text ESC/POS (có tag `<C>`/`<B>`…). THUẦN — không

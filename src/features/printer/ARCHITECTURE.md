@@ -2722,8 +2722,14 @@ MockPrinterAdapter
 # 113. Utility Responsibility
 
 ```text
-paperWidth.ts
-→ paper dimensions
+paperSize.ts
+→ paper-size dimension tables (chars/line, image px, printable mm, dots/mm)
+
+formatRow.ts
+→ căn 1 dòng "nhãn ... giá trị" cho đúng width ký tự
+
+mediaValidation.ts
+→ die-cut media hợp lệ (đủ field, vừa khổ giấy)
 
 monochromeBitmap.ts
 → RGBA → 1-bit
