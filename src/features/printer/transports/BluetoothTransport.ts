@@ -1,7 +1,7 @@
 import RNBluetoothClassic, { type BluetoothDevice } from 'react-native-bluetooth-classic';
 import { Buffer } from 'buffer';
 import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
-import { CONNECT_TIMEOUT_MS } from './transportConfig';
+import { CONNECT_TIMEOUT_MS } from './transport.config';
 
 export class BluetoothTransport {
   private device: BluetoothDevice | null = null;
