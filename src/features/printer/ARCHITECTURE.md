@@ -2634,10 +2634,10 @@ PrinterConnectionLock.ts
 DriverRegistry.ts
 → protocol → driver
 
-PrinterDiscoveryService.ts
+services/discovery/PrinterDiscoveryService.ts
 → protocol discovery
 
-PrinterResolver.ts
+services/discovery/PrinterResolver.ts
 → identityKey
 
 TsplDriver.ts

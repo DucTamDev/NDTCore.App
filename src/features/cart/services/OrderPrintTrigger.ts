@@ -1,4 +1,4 @@
-import { PrintService, type PrintDocuments } from '../../printer/printing/PrintService';
+import { PrintService, type PrintDocuments } from '../../printer/services/printing/PrintService';
 import { PrintResultStatus } from '../../printer/types/printJob.types';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';

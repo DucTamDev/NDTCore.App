@@ -2,7 +2,7 @@ import type { IPrinterDriver, Unsubscribe } from '../types/driver.types';
 import { ConnectionType, PrinterDriverType } from '../types/printer.types';
 import type { DeviceScanEvent } from '../types/printer.types';
 import { LoggerService } from '../../../services/LoggerService';
-import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from '../discovery/PrinterDiscoveryService';
+import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from './discovery/PrinterDiscoveryService';
 import { DriverRegistry } from '../drivers/DriverRegistry';
 
 /**

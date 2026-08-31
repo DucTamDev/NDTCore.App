@@ -1,12 +1,12 @@
 import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
-import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type PrinterDriver } from '../../types/printer.types';
-import { PrinterLogger } from '../../services/PrinterLogger';
-import { PrinterErrorCode } from '../../types/PrinterError';
-import { makePrinter } from '../../testing/printerFixtures';
-import { getDriverDefinition } from '../../definitions/PrinterDriverDefinitions';
+import type { IPrinterDriver } from '../../../types/driver.types';
+import { ConnectionType, PrinterDriverType, PrinterStatus, type PrinterDriver } from '../../../types/printer.types';
+import { PrinterLogger } from '../../PrinterLogger';
+import { PrinterErrorCode } from '../../../types/PrinterError';
+import { makePrinter } from '../../../testing/printerFixtures';
+import { getDriverDefinition } from '../../../drivers/driverDefinitions';
 
-jest.mock('../../services/PrinterLogger', () => ({
+jest.mock('../../PrinterLogger', () => ({
   PrinterLogger: {
     discoveryStarted: jest.fn(), discoveryCandidateRejected: jest.fn(), discoveryFailed: jest.fn(),
     protocolDetected: jest.fn(), protocolUnknown: jest.fn(),

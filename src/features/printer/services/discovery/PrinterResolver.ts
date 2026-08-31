@@ -1,5 +1,5 @@
-import { ConnectionType } from '../types/printer.types';
-import type { PrinterDevice, PrinterLanConfig, UsbRawDevice } from '../types/printer.types';
+import { ConnectionType } from '../../types/printer.types';
+import type { PrinterDevice, PrinterLanConfig, UsbRawDevice } from '../../types/printer.types';
 
 export interface ResolveIdentityKeyInput {
   connectionType: ConnectionType;

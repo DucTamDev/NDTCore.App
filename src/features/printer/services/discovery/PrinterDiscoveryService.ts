@@ -1,9 +1,9 @@
-import type { IPrinterDriver } from '../types/driver.types';
-import { DriverSource, PrinterDriverType } from '../types/printer.types';
-import type { Printer, PrinterDeviceInfo, PrinterDriver } from '../types/printer.types';
-import { PrinterErrorCode, type PrinterError } from '../types/PrinterError';
-import { PrinterLogger } from '../services/PrinterLogger';
-import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import type { IPrinterDriver } from '../../types/driver.types';
+import { DriverSource, PrinterDriverType } from '../../types/printer.types';
+import type { Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
+import { PrinterErrorCode, type PrinterError } from '../../types/PrinterError';
+import { PrinterLogger } from '../PrinterLogger';
+import { getDriverDefinition } from '../../drivers/driverDefinitions';
 
 /**
  * Thử `tspl` trước `escpos` — xem lý do ở lịch sử `discoverProtocol.ts`

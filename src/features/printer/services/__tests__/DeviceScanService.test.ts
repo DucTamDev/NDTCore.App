@@ -1,6 +1,6 @@
 import { createDeviceScanService } from '../DeviceScanService';
 import { ConnectionType } from '../../types/printer.types';
-import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
+import { DiscoveryStage } from '../discovery/PrinterDiscoveryService';
 import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));

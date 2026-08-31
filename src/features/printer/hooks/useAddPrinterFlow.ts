@@ -5,7 +5,7 @@ import { PrinterRepository } from '../services/PrinterRepository';
 import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
-import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import { getDriverDefinition } from '../drivers/driverDefinitions';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../schemas/printerFormSchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';

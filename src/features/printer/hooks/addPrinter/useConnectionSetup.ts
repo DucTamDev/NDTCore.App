@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterRepository } from '../../services/PrinterRepository';
 import { getCurrentWifiIp } from '../../services/NetworkInfoService';
-import { resolveIdentityKey } from '../../discovery/PrinterResolver';
+import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { USBPrinter } from '../../adapters/native/PrinterNativeModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../schemas/printerFormSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';

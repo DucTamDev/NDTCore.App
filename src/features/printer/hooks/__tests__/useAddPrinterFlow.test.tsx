@@ -5,7 +5,7 @@ import { PrinterRepository } from '../../services/PrinterRepository';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/DeviceScanService';
-import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
+import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 import type { Printer } from '../../types/printer.types';

@@ -1,10 +1,10 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
-import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../types/printJob.types';
-import { PrinterErrorCode } from '../../types/PrinterError';
-import { PrintType } from '../../types/printConfiguration.types';
-import { makeTsplDriverEntry } from '../../testing/printerFixtures';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../types/printJob.types';
+import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrintType } from '../../../types/printConfiguration.types';
+import { makeTsplDriverEntry } from '../../../testing/printerFixtures';
 
 const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', x: 0, y: 0 }] };
 const imageBase64 = 'base64...';

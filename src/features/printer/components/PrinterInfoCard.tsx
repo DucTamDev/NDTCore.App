@@ -9,7 +9,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { DriverMediaSection } from './DriverMediaSection';
 import { DriverRenderModeSection } from './DriverRenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
-import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import { getDriverDefinition } from '../drivers/driverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
 import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';

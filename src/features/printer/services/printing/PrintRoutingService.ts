@@ -1,6 +1,6 @@
-import type { Printer, PrinterDriver } from '../types/printer.types';
-import type { PrintType } from '../types/printConfiguration.types';
-import { PrinterRepository } from '../services/PrinterRepository';
+import type { Printer, PrinterDriver } from '../../types/printer.types';
+import type { PrintType } from '../../types/printConfiguration.types';
+import { PrinterRepository } from '../PrinterRepository';
 
 export interface PrintTarget {
   printer: Printer;

@@ -1,7 +1,7 @@
 import { createPrintRoutingService } from '../PrintRoutingService';
-import type { Printer } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
-import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../testing/printerFixtures';
+import type { Printer } from '../../../types/printer.types';
+import { PrintType } from '../../../types/printConfiguration.types';
+import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../../testing/printerFixtures';
 
 const escposDriver = makeEscPosDriverEntry();
 const tsplDriver = makeTsplDriverEntry();

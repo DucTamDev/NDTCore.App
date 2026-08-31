@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
+import { getDriverDefinition } from '../drivers/driverDefinitions';
 import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';

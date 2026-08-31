@@ -1,13 +1,13 @@
 import { createPrintScheduler } from '../PrintScheduler';
-import { createPrinterConnectionService } from '../../services/PrinterConnectionService';
-import { createPrinterRepository } from '../../services/PrinterRepository';
-import { createResourceLock } from '../../services/PrinterConnectionLock';
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
-import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, PrinterStatus, type Printer } from '../../types/printer.types';
-import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
-import { PrintType } from '../../types/printConfiguration.types';
-import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../testing/printerFixtures';
+import { createPrinterConnectionService } from '../../PrinterConnectionService';
+import { createPrinterRepository } from '../../PrinterRepository';
+import { createResourceLock } from '../../PrinterConnectionLock';
+import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
+import type { IPrinterDriver } from '../../../types/driver.types';
+import { ConnectionType, PrinterStatus, type Printer } from '../../../types/printer.types';
+import { PrintJobStatus, type PrintJob } from '../../../types/printJob.types';
+import { PrintType } from '../../../types/printConfiguration.types';
+import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../../testing/printerFixtures';
 
 const escposDriver = makeEscPosDriverEntry();
 const tsplDriver = makeTsplDriverEntry();

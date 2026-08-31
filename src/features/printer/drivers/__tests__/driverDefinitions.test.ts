@@ -1,4 +1,4 @@
-import { PRINTER_DRIVER_DEFINITIONS, getDriverDefinition } from '../PrinterDriverDefinitions';
+import { PRINTER_DRIVER_DEFINITIONS, getDriverDefinition } from '../driverDefinitions';
 import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
 
