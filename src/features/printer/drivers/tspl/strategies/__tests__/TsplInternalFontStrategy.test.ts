@@ -3,9 +3,10 @@ import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import type { PrintMedia } from '../../../../models/media/PrintMedia';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
-import type { Printer, PrinterDriver } from '../../../../types/printer.types';
+import type { Printer } from '../../../../types/printer.types';
+import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
 
 const printer: Printer = {
   id: 'p1', name: 'M', drivers: [], connectionType: 'lan' as Printer['connectionType'],

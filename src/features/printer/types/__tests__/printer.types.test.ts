@@ -1,5 +1,8 @@
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../models/printer/PrinterDriver';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
+import { type Printer } from '../printer.types';
 import { CutterMode } from '../../models/media/PrintMedia';
 import { PrintType } from '../../models/printing/PrintType';
 

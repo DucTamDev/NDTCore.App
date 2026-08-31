@@ -1,5 +1,7 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
-import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../models/printer/PrinterDriver';
+import { type Printer } from '../../types/printer.types';
 import { PrintType } from '../../models/printing/PrintType';
 import { makePrinter, makeTsplDriverEntry, makeEscPosDriverEntry } from '../../testing/printerFixtures';
 

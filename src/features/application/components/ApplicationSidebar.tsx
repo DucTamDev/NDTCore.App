@@ -6,7 +6,7 @@ import type { AppDispatch } from '../../../store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { usePrinterList } from '../../printer/hooks/usePrinterList';
 import { PrinterConnectionService } from '../../printer/services/PrinterConnectionService';
-import { PrinterStatus } from '../../printer/types/printer.types';
+import { PrinterStatus } from '../../printer/models/printer/PrinterStatus';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';
 import { storeCleared } from '../../store/store/storeSlice';

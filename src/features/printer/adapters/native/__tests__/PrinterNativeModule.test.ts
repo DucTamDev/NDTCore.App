@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native';
-import { ConnectionType } from '../../../types/printer.types';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
 
 // `ThermalPrinterAdapter` sống trong cùng file với 3 namespace, nên không mock
 // riêng namespace được — stub `NativeModules.RN*Printer` rồi lấy bản THẬT qua

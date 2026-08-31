@@ -1,10 +1,14 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { CutterMode } from '../../models/media/PrintMedia';
 import { mediaOf, paperSizeOf } from '../driverConfig';
-import { DeviceScanEventType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
+import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';

@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import { ConnectionType } from '../../types/printer.types';
-import type { PrinterDevice } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { UsbTransport } from '../../transports/UsbTransport';
 import {

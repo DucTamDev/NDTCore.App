@@ -1,5 +1,6 @@
 import type { IPrinterAdapter } from './IPrinterAdapter';
-import { ConnectionType, PrinterDriverType } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { NativeAdapter } from './native/NativeAdapter';
 import { LibraryAdapter } from './library/LibraryAdapter';
 

@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../media/cutter';

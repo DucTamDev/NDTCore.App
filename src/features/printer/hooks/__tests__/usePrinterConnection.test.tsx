@@ -5,7 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterConnection } from '../usePrinterConnection';
 import printerReducer from '../../store/printerSlice';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
-import { PrinterStatus } from '../../types/printer.types';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
 
 jest.mock('../../services/PrinterConnectionService', () => ({
   PrinterConnectionService: {

@@ -4,8 +4,8 @@ import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DeviceScanList } from './DeviceScanList';
-import { ConnectionType } from '../types/printer.types';
-import type { PrinterDevice } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../models/printer/PrinterDevice';
 
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;

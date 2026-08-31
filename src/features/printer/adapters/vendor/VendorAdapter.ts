@@ -1,5 +1,5 @@
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import type { ConnectionType, PrinterDevice } from '../../types/printer.types';
+import type { ConnectionType, PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 /**

@@ -2,7 +2,7 @@ import type { ITsplPrintStrategy } from './strategies/tsplStrategy.types';
 import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
 import { TsplTrueTypeStrategy } from './strategies/TsplTrueTypeStrategy';
 import { TsplInternalFontStrategy } from './strategies/TsplInternalFontStrategy';
-import { TsplRenderMode } from '../../types/printer.types';
+import { TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 /** `renderMode` → strategy. Nguồn resolve DUY NHẤT — `TsplDriver` không tự switch (§27-30, RULE 05). */

@@ -7,8 +7,10 @@ import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { USBPrinter } from '../../adapters/native/PrinterNativeModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../schemas/printerFormSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
-import { ConnectionType } from '../../types/printer.types';
-import type { Printer, PrinterDevice, PrinterDriver, UsbRawDevice } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 
 /**
  * Input cho {@link useConnectionSetup}. `getConnectionState`/`getProtocolState`

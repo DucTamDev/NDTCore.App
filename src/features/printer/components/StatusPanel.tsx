@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterDriverType, type PrinterDeviceInfo } from '../types/printer.types';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';

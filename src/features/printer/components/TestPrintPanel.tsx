@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterStatus } from '../types/printer.types';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
 
 interface TestPrintPanelProps {
   status: PrinterStatus;

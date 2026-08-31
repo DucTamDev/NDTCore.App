@@ -1,5 +1,5 @@
 import { DRIVER_CAPABILITIES, getDriverCapabilities } from '../DriverCapabilities';
-import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 
 describe('PrinterDriverDefinitions', () => {

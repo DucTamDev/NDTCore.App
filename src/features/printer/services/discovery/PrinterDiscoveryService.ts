@@ -1,6 +1,8 @@
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
-import { DriverSource, PrinterDriverType } from '../../types/printer.types';
-import type { Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
+import { DriverSource, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import { PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
 import { PrinterLogger } from '../PrinterLogger';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';

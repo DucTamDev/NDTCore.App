@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { PrinterStatus } from '../types/printer.types';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../types/printer.types';
 
 interface PrinterState {

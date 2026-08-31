@@ -1,7 +1,7 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { ensureBluetoothPermission } from '../PrinterPermissionService';
 import { PrinterLogger } from '../PrinterLogger';
-import { ConnectionType } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
 
 jest.mock('../PrinterLogger', () => ({
   PrinterLogger: {

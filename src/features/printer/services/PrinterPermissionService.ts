@@ -1,6 +1,6 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { PrinterLogger } from './PrinterLogger';
-import { ConnectionType } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
 
 async function requestModernBluetoothPermissions(): Promise<boolean> {
   const results = await PermissionsAndroid.requestMultiple([

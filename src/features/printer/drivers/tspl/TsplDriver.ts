@@ -1,9 +1,13 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { mediaOf } from '../driverConfig';
-import { DeviceScanEventType } from '../../types/printer.types';
-import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig } from '../../types/printer.types';
+import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDriver, TsplFontConfig } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import { TsplFontManager } from './TsplFontManager';
 import { resolveTsplStrategy } from './TsplStrategyRegistry';

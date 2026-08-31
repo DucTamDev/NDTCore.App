@@ -1,6 +1,6 @@
 import type { IPrinterDriver, Unsubscribe } from './IPrinterDriver';
-import { PrinterStatus } from '../types/printer.types';
-import type { PrinterDriverType } from '../types/printer.types';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
+import type { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 class WebUnsupportedDriver implements IPrinterDriver {

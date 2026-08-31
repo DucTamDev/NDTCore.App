@@ -12,9 +12,11 @@ import { TestPrintPanel } from './TestPrintPanel';
 import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../models/printing/PrintType';
-import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
+import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
-import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
+import type { ConnectionType, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 import type { PrintMedia } from '../models/media/PrintMedia';
 
 const connectionLabel: Record<ConnectionType, string> = {

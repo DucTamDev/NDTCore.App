@@ -2,9 +2,9 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppInput } from '../../../components/AppInput';
 import { AppSelect } from '../../../components/AppSelect';
-import { PrinterDriverType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { DEFAULT_TSPL_INTERNAL_FONT, tsplRenderModeOf } from '../drivers/driverConfig';
-import type { PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
+import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 
 const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
   bitmap: 'Bitmap — render nội dung thành ảnh (khuyến nghị)',

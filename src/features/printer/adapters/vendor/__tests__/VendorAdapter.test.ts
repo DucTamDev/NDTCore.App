@@ -1,5 +1,5 @@
 import { VendorAdapter } from '../VendorAdapter';
-import { ConnectionType } from '../../../types/printer.types';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 describe('VendorAdapter (skeleton)', () => {

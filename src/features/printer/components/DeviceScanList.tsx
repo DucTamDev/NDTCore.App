@@ -4,8 +4,8 @@ import { List, IconButton, Text } from 'react-native-paper';
 import { DeviceScanService } from '../services/DeviceScanService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import { DeviceScanEventType } from '../types/printer.types';
-import type { ConnectionType, PrinterDevice } from '../types/printer.types';
+import { DeviceScanEventType } from '../models/printer/PrinterDevice';
+import type { ConnectionType, PrinterDevice } from '../models/printer/PrinterDevice';
 
 export interface DeviceScanListProps {
   connectionType: ConnectionType;

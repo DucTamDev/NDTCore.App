@@ -1,5 +1,5 @@
 import { createMockUsbPrinterNativeBridge, createMockThermalPrinterAdapter } from '../MockPrinterAdapter';
-import { ConnectionType } from '../../../types/printer.types';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
 
 describe('MockPrinterAdapter', () => {
   it('createMockUsbPrinterNativeBridge resolves ensureUsbInitialized and printRawDataUsb', async () => {

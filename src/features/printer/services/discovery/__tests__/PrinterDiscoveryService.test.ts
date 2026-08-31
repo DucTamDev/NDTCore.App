@@ -1,6 +1,8 @@
 import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
 import type { IPrinterDriver } from '../../../drivers/IPrinterDriver';
-import { ConnectionType, PrinterDriverType, PrinterStatus, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { PrinterLogger } from '../../PrinterLogger';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makePrinter } from '../../../testing/printerFixtures';

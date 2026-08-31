@@ -1,4 +1,5 @@
-import type { ConnectionType, PrinterDevice, Printer, UsbRawDevice } from '../types/printer.types';
+import type { ConnectionType, PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
+import type { Printer } from '../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 /**

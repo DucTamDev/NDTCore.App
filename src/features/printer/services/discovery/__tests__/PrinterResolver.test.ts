@@ -1,6 +1,6 @@
 import { resolveIdentityKey } from '../PrinterResolver';
-import { ConnectionType } from '../../../types/printer.types';
-import type { PrinterDevice } from '../../../types/printer.types';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../../../models/printer/PrinterDevice';
 
 const usbDevice: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: {} };
 const btDevice: PrinterDevice = { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BT', rawDevice: {} };

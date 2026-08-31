@@ -7,8 +7,9 @@ import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintType } from '../../models/printing/PrintType';
-import { TsplRenderMode } from '../../types/printer.types';
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import { TsplRenderMode } from '../../models/printer/PrinterDriver';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrinterDisplayValues } from '../../schemas/printerFormSchema';
 import type { UseBillImageCapture } from '../useBillImageCapture';
 

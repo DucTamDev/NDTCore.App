@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import type { PrinterStatus } from '../types/printer.types';
+import type { PrinterStatus } from '../models/printer/PrinterStatus';
 
 const labelByStatus: Record<PrinterStatus, string> = {
   idle: 'Chưa kết nối',

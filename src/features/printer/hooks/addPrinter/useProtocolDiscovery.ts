@@ -5,8 +5,11 @@ import { PrinterConnectionService } from '../../services/PrinterConnectionServic
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { DiscoveryStage, type DiscoveryEvent } from '../../services/discovery/PrinterDiscoveryService';
-import { ConnectionType, DriverSource, PrinterDriverType } from '../../types/printer.types';
-import type { Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { LanConnectionValues } from '../../schemas/printerFormSchema';
 
 /**

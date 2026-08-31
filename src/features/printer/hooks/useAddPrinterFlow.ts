@@ -10,9 +10,13 @@ import { printerDisplaySchema, type PrinterDisplayValues } from '../schemas/prin
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
-import type { Printer, PrinterDriver, UsbRawDevice } from '../types/printer.types';
+import type { Printer } from '../types/printer.types';
+import type { PrinterDriver } from '../models/printer/PrinterDriver';
+import type { UsbRawDevice } from '../models/printer/PrinterDevice';
 import { dieCutMediaError } from '../media/validation';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';

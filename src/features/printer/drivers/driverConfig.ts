@@ -1,9 +1,5 @@
-import { PrinterDriverType } from '../types/printer.types';
-import type {
-  PrinterDriver,
-  TsplInternalFontConfig,
-  TsplRenderMode,
-} from '../types/printer.types';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { PrinterDriver, TsplInternalFontConfig, TsplRenderMode } from '../models/printer/PrinterDriver';
 import type { PaperSize, PrintMedia } from '../models/media/PrintMedia';
 
 /**

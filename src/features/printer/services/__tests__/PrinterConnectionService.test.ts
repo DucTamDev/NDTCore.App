@@ -2,7 +2,8 @@ import { createPrinterConnectionService } from '../PrinterConnectionService';
 import { createPrinterRepository } from '../PrinterRepository';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
-import { PrinterStatus, type Printer } from '../../types/printer.types';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
+import { type Printer } from '../../types/printer.types';
 import { PrintType } from '../../models/printing/PrintType';
 import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
 

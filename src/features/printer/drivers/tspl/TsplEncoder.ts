@@ -1,6 +1,6 @@
 import type { PrintMedia } from '../../models/media/PrintMedia';
 import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
-import { TsplCodepage } from '../../types/printer.types';
+import { TsplCodepage } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';

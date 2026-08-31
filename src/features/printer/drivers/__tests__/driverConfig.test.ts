@@ -1,6 +1,6 @@
 import { mediaOf, paperSizeOf, tsplRenderModeOf, DEFAULT_TSPL_INTERNAL_FONT } from '../driverConfig';
-import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
-import type { PrinterDriver } from '../../types/printer.types';
+import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import { PrintMediaType } from '../../models/media/PrintMedia';
 import { PrintType } from '../../models/printing/PrintType';
 

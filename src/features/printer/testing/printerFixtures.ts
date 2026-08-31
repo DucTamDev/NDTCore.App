@@ -1,5 +1,7 @@
-import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../types/printer.types';
-import type { Printer, PrinterDriver } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import type { Printer } from '../types/printer.types';
+import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import { PrintMediaType } from '../models/media/PrintMedia';
 import type { PrintMedia } from '../models/media/PrintMedia';
 import { PrintType } from '../models/printing/PrintType';

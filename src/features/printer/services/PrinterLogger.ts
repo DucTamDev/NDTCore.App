@@ -1,6 +1,7 @@
 import { LoggerService } from '../../../services/LoggerService';
 import type { PrinterErrorCode } from '../errors/PrinterError';
-import type { ConnectionType, PrinterDriverType } from '../types/printer.types';
+import type { ConnectionType } from '../models/printer/PrinterDevice';
+import type { PrinterDriverType } from '../models/printer/PrinterDriver';
 
 /**
  * Điểm log chuẩn hoá duy nhất cho printer module — mỗi hàm ứng với đúng 1

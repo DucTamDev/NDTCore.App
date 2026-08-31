@@ -7,7 +7,7 @@ import printerReducer, {
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import { PrinterStatus } from '../../types/printer.types';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { makePrinter } from '../../testing/printerFixtures';
 
 const printer = makePrinter({

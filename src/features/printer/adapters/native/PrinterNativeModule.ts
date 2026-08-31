@@ -1,5 +1,5 @@
 import { NativeModules, Platform } from 'react-native';
-import type { ConnectionType } from '../../types/printer.types';
+import type { ConnectionType } from '../../models/printer/PrinterDevice';
 import * as EPToolkit from './utils/EPToolkit';
 
 /**

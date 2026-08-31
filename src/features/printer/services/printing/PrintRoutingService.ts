@@ -1,4 +1,5 @@
-import type { Printer, PrinterDriver } from '../../types/printer.types';
+import type { Printer } from '../../types/printer.types';
+import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterRepository } from '../PrinterRepository';
 

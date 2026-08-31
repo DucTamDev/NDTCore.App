@@ -1,9 +1,10 @@
 import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
-import type { Printer, PrinterDriver } from '../../../../types/printer.types';
+import type { Printer } from '../../../../types/printer.types';
+import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
 import type { PrintMedia } from '../../../../models/media/PrintMedia';
 import { decodePngBase64ToMonochrome } from '../../../../utils/pngToMonochrome';
 

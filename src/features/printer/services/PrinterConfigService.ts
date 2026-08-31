@@ -1,6 +1,7 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
-import { PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
-import type { TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
+import type { TsplFontConfig, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 import type { PrintMedia } from '../models/media/PrintMedia';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../errors/PrinterError';
 import { PrinterLogger } from './PrinterLogger';

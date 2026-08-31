@@ -1,5 +1,7 @@
-import { ConnectionType, PrinterDriverType } from '../types/printer.types';
-import type { Printer, PrinterDevice, PrinterLanConfig } from '../types/printer.types';
+import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { Printer } from '../types/printer.types';
+import type { PrinterDevice, PrinterLanConfig } from '../models/printer/PrinterDevice';
 import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;

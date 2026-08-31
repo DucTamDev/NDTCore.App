@@ -4,7 +4,7 @@ import { generateId } from '../../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../../models/printing/PrintType';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import type { PrintType } from '../../models/printing/PrintType';
-import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
 import type { PrintMedia } from '../../models/media/PrintMedia';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';

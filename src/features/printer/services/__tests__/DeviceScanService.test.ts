@@ -1,5 +1,5 @@
 import { createDeviceScanService } from '../DeviceScanService';
-import { ConnectionType } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DiscoveryStage } from '../discovery/PrinterDiscoveryService';
 import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
 

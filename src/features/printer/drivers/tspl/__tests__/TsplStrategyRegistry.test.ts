@@ -1,5 +1,5 @@
 import { TsplStrategyRegistry, resolveTsplStrategy } from '../TsplStrategyRegistry';
-import { TsplRenderMode } from '../../../types/printer.types';
+import { TsplRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 describe('TsplStrategyRegistry', () => {

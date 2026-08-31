@@ -1,6 +1,9 @@
 import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
-import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
+import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { PrinterStatus } from '../../../models/printer/PrinterStatus';
+import { type Printer } from '../../../types/printer.types';
 import { paperSizeOf } from '../../driverConfig';
 import { PrintType } from '../../../models/printing/PrintType';
 import type { PrintDocuments } from '../../IPrinterDriver';

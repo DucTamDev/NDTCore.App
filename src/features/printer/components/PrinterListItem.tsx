@@ -5,7 +5,8 @@ import { usePrinterConnection } from '../hooks/usePrinterConnection';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../types/printer.types';
 

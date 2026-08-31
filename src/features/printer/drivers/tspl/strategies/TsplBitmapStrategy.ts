@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { TsplRenderMode } from '../../../types/printer.types';
+import { TsplRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrintMediaType } from '../../../models/media/PrintMedia';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';

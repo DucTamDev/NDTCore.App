@@ -3,7 +3,7 @@ import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { LoggerService } from '../../../../services/LoggerService';
-import type { TsplFontConfig } from '../../types/printer.types';
+import type { TsplFontConfig } from '../../models/printer/PrinterDriver';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 
 /** Font mặc định bundle sẵn trong app — chỉ 1 font ở phase này, xem spec §4/§10. */

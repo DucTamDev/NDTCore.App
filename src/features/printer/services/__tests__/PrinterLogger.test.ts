@@ -1,7 +1,8 @@
 import { LoggerService } from '../../../../services/LoggerService';
 import { PrinterLogger } from '../PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { ConnectionType, PrinterDriverType } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: {

@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from './IPrinterDriver';
-import type { PrinterDriverType } from '../types/printer.types';
+import type { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { EscPosDriver } from './escpos/EscPosDriver';
 import { TsplDriver } from './tspl/TsplDriver';
 

@@ -1,4 +1,5 @@
-import type { Printer, PrinterDriver, TsplRenderMode } from '../../../types/printer.types';
+import type { Printer } from '../../../types/printer.types';
+import type { PrinterDriver, TsplRenderMode } from '../../../models/printer/PrinterDriver';
 import type { PrintMedia } from '../../../models/media/PrintMedia';
 import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintType } from '../../../models/printing/PrintType';

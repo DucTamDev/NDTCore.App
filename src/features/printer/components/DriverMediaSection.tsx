@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
-import { PrinterDriverType } from '../types/printer.types';
+import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrintMediaType, type PaperSize, type PrintMedia } from '../models/media/PrintMedia';
 import { dieCutMediaError } from '../media/validation';
 

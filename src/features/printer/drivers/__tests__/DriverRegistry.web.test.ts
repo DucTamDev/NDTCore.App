@@ -1,6 +1,7 @@
 import { DriverRegistry } from '../DriverRegistry.web';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { ConnectionType, PrinterStatus } from '../../types/printer.types';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterStatus } from '../../models/printer/PrinterStatus';
 
 describe('DriverRegistry (web)', () => {
   it('registers both driver types', () => {
