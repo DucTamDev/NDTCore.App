@@ -3,16 +3,17 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Chip } from 'react-native-paper';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
 import { AppInput } from '../../../components/AppInput';
-import { AppSelect } from '../../../components/AppSelect';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { DriverMediaSection } from './DriverMediaSection';
+import { DriverRenderModeSection } from './DriverRenderModeSection';
+import { TestPrintPanel } from './TestPrintPanel';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { DriverSource, PrinterDriverType, PrinterStatus, TsplCodepage, TsplRenderMode } from '../types/printer.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../drivers/driverConfig';
+import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
+import { mediaOf } from '../drivers/driverConfig';
 import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -30,23 +31,6 @@ const contentTypeLabel: Record<PrintType, string> = {
   Receipt: 'In Hoá đơn',
   Label: 'In Tem',
 };
-
-const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
-  bitmap: 'Bitmap — render nội dung thành ảnh (khuyến nghị)',
-  truetype: 'Font TrueType — tải font .ttf lên máy in (thử nghiệm)',
-  internalfont: 'Font máy in — dùng font & codepage sẵn có của máy in (thử nghiệm)',
-};
-
-const tsplRenderModeOptions = [TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont].map((mode) => ({
-  label: tsplRenderModeLabel[mode],
-  value: mode,
-}));
-
-const tsplCodepageOptions = [
-  { label: 'UTF-8', value: TsplCodepage.utf8 },
-  { label: 'Windows-1258 (tiếng Việt)', value: TsplCodepage.cp1258 },
-  { label: 'Windows-1252 (Tây Âu)', value: TsplCodepage.cp1252 },
-];
 
 export interface PrinterInfoCardProps {
   control: Control<PrinterDisplayValues>;
@@ -151,70 +135,29 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
-          {driver.type === PrinterDriverType.tspl ? (
-            <View style={styles.tsplModeBlock}>
-              <AppSelect
-                label="Chế độ in TSPL"
-                value={tsplRenderModeOf(driver) ?? TsplRenderMode.bitmap}
-                onSelect={(value) => onSelectTsplRenderMode(value as TsplRenderMode)}
-                options={tsplRenderModeOptions}
-                disabled={locked || tsplFontPending}
-              />
-              {tsplRenderModeOf(driver) === TsplRenderMode.internalfont ? (
-                <>
-                  <AppSelect
-                    label="Bảng mã (Codepage)"
-                    value={
-                      (driver.config.type === PrinterDriverType.tspl && driver.config.internalFont?.codepage) ||
-                      DEFAULT_TSPL_INTERNAL_FONT.codepage
-                    }
-                    onSelect={(value) => onChangeTsplInternalFont({ codepage: value as TsplCodepage })}
-                    options={tsplCodepageOptions}
-                    disabled={locked}
-                  />
-                  <AppInput
-                    label="Tên font máy in"
-                    value={
-                      (driver.config.type === PrinterDriverType.tspl && driver.config.internalFont?.fontName) ||
-                      DEFAULT_TSPL_INTERNAL_FONT.fontName
-                    }
-                    onChangeText={(text) => onChangeTsplInternalFont({ fontName: text })}
-                    disabled={locked}
-                  />
-                </>
-              ) : null}
-            </View>
-          ) : null}
+          <DriverRenderModeSection
+            driver={driver}
+            disabled={locked}
+            tsplFontPending={tsplFontPending}
+            onSelectTsplRenderMode={onSelectTsplRenderMode}
+            onChangeTsplInternalFont={onChangeTsplInternalFont}
+          />
         </View>
       ))}
 
-      {hasTsplDriver ? (
-        <AppInput
-          label="Số hàng in thử"
-          keyboardType="numeric"
-          value={testPrintRowsText}
-          onChangeText={onTestPrintRowsChange}
-          disabled={locked}
-        />
-      ) : null}
-      <View style={styles.testPrintRow}>
-        <AppButton
-          label="In bill thử"
-          mode="outlined"
-          style={styles.testPrintButton}
-          disabled={status !== PrinterStatus.connected || !canPrint(PrintType.Receipt) || testPrintReceiptPending}
-          loading={testPrintReceiptPending}
-          onPress={onTestPrintReceipt}
-        />
-        <AppButton
-          label="In tem thử"
-          mode="outlined"
-          style={styles.testPrintButton}
-          disabled={status !== PrinterStatus.connected || !canPrint(PrintType.Label) || testPrintLabelPending}
-          loading={testPrintLabelPending}
-          onPress={onTestPrintLabel}
-        />
-      </View>
+      <TestPrintPanel
+        status={status}
+        hasTsplDriver={hasTsplDriver}
+        canPrintReceipt={canPrint(PrintType.Receipt)}
+        canPrintLabel={canPrint(PrintType.Label)}
+        testPrintRowsText={testPrintRowsText}
+        onTestPrintRowsChange={onTestPrintRowsChange}
+        testPrintReceiptPending={testPrintReceiptPending}
+        testPrintLabelPending={testPrintLabelPending}
+        onTestPrintReceipt={onTestPrintReceipt}
+        onTestPrintLabel={onTestPrintLabel}
+        disabled={locked}
+      />
       <AppButton label="Lưu máy in" disabled={saveDisabled} onPress={onSave} />
     </View>
   );
@@ -224,7 +167,4 @@ const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   driverCard: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
-  tsplModeBlock: { gap: 8 },
-  testPrintRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  testPrintButton: { flex: 1 },
 });
