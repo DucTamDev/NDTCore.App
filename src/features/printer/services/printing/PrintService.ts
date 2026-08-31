@@ -1,4 +1,5 @@
-import { PrintRoutingService, type PrintTarget } from './PrintRoutingService';
+import { PrintRoutingService } from './PrintRoutingService';
+import type { PrintTarget } from '../../models/printing/PrintTarget';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../../models/printing/PrintType';

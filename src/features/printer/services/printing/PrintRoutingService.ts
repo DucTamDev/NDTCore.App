@@ -1,12 +1,8 @@
-import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
+import type { PrintTarget } from '../../models/printing/PrintTarget';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 
-export interface PrintTarget {
-  printer: Printer;
-  driver: PrinterDriver;
-}
+export type { PrintTarget };
 
 interface PrintRoutingServiceDeps {
   getPrinters: typeof PrinterRepository.getPrinters;

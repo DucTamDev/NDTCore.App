@@ -40,7 +40,7 @@ const collectEvents = (
   });
 
 describe('PrinterDiscoveryService', () => {
-  // Draft `Printer` ĐẦY ĐỦ — `DiscoveryInput.draftPrinter` là 1 Printer thật
+  // Draft `Printer` ĐẦY ĐỦ — `DiscoverPrinterInput.draftPrinter` là 1 Printer thật
   // (do caller tự dựng), không phải mấy field rời rạc nữa.
   const baseDraftPrinter = makePrinter({ name: 'Máy in mới', drivers: [] });
   const baseInput = { draftPrinter: baseDraftPrinter };

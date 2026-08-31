@@ -1,5 +1,5 @@
 import { createPrintService, PrintService } from '../PrintService';
-import type { PrintTarget } from '../PrintRoutingService';
+import type { PrintTarget } from '../../../models/printing/PrintTarget';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { type Printer } from '../../../models/printer/Printer';

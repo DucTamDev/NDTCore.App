@@ -3,7 +3,7 @@ import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 import type { DeviceScanEvent } from '../../models/printer/PrinterDevice';
 import { LoggerService } from '../../../../services/LoggerService';
-import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from '../discovery/PrinterDiscoveryService';
+import { createDiscoverDriver, type DiscoveryEvent, type DiscoverPrinterInput } from '../discovery/PrinterDiscoveryService';
 import { DriverRegistry } from '../../drivers/DriverRegistry';
 
 /**
@@ -46,7 +46,7 @@ export const createDeviceScanService = (
     return getDriver(PrinterDriverType.tspl).scan(ConnectionType.lan, tapped);
   };
 
-  const discoverDriver = (input: DiscoveryInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
+  const discoverDriver = (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
 
   return { scanDevices, scanForConnectionType, discoverDriver };
 };

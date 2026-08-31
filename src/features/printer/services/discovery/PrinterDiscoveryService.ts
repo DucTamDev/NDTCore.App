@@ -32,7 +32,7 @@ export interface DiscoveryEvent {
   error?: PrinterError;
 }
 
-export interface DiscoveryInput {
+export interface DiscoverPrinterInput {
   /**
    * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, name, v.v.) do
    * caller (`useAddPrinterFlow.buildDraftPrinter()`) tự dựng — service này
@@ -50,7 +50,7 @@ export type Unsubscribe = () => void;
 
 export const createDiscoverDriver =
   (registry: Record<PrinterDriverType, IPrinterDriver>) =>
-  (input: DiscoveryInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => {
+  (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => {
     let cancelled = false;
 
     const run = async (): Promise<void> => {
