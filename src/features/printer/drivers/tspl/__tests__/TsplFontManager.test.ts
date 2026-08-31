@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { Buffer } from 'buffer';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 

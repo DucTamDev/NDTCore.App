@@ -3,10 +3,10 @@ import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
-import { PrintType } from '../../../types/printConfiguration.types';
+import { PrintType } from '../../../models/printing/PrintType';
 import type { PrintDocuments } from '../../../types/driver.types';
 import type { PrintDocument, PrintElement } from '../../../types/printDocument.types';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 // `../TsplFontManager` is automocked (no factory) below so `mock.instances`
 // reflects the real class shape — but automocking still `require`s the real

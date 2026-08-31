@@ -2,11 +2,11 @@ import { createPrintScheduler } from '../PrintScheduler';
 import { createPrinterConnectionService } from '../../PrinterConnectionService';
 import { createPrinterRepository } from '../../PrinterRepository';
 import { createResourceLock } from '../../PrinterConnectionLock';
-import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import type { IPrinterDriver } from '../../../types/driver.types';
 import { ConnectionType, PrinterStatus, type Printer } from '../../../types/printer.types';
 import { PrintJobStatus, type PrintJob } from '../../../types/printJob.types';
-import { PrintType } from '../../../types/printConfiguration.types';
+import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../../testing/printerFixtures';
 
 const escposDriver = makeEscPosDriverEntry();

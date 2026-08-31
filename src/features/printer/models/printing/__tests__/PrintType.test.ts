@@ -1,4 +1,4 @@
-import { PRINT_TYPE_LABELS, PrintType } from '../printConfiguration.types';
+import { PRINT_TYPE_LABELS, PrintType } from '../PrintType';
 
 describe('PRINT_TYPE_LABELS', () => {
   it('has a Vietnamese label for every PrintType', () => {

@@ -296,7 +296,7 @@ Codebase khai báo bằng const-object pattern:
 `export const PrintType = { Receipt: 'Receipt', Label: 'Label' } as const`
 kèm derived type `type PrintType = (typeof PrintType)[keyof typeof PrintType]`.
 Giá trị chuỗi `'Receipt' | 'Label'` không đổi — xem
-`types/printConfiguration.types.ts`.
+`models/printing/PrintType.ts`.
 
 Ví dụ:
 

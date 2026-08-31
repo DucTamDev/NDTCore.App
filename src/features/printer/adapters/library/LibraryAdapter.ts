@@ -2,7 +2,7 @@ import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
 import { ConnectionType } from '../../types/printer.types';
 import type { PrinterDevice } from '../../types/printer.types';
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
 import * as EPToolkit from '../native/utils/EPToolkit';

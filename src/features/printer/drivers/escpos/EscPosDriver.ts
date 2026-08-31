@@ -4,8 +4,8 @@ import { ConnectionType, CutterMode, PrinterDriverType, PrinterStatus } from '..
 import { mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
-import type { PrintType } from '../../types/printConfiguration.types';
-import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../types/PrinterError';
+import type { PrintType } from '../../models/printing/PrintType';
+import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';

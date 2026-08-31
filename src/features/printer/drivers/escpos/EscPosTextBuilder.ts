@@ -1,4 +1,4 @@
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import type { PaperSize } from '../../types/printer.types';
 import type { PrintDocuments } from '../../types/driver.types';
 import { PAPER_SIZE_SPECS } from '../../media/paperSpec';

@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../types/printer.types';
-import { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../models/printing/PrintType';
 
 /**
  * Fixture dùng chung cho 4 file test service (Repository/Connection/Config/

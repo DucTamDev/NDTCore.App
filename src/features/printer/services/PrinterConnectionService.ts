@@ -1,8 +1,8 @@
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../types/driver.types';
 import { PrinterDriverType, PrinterStatus } from '../types/printer.types';
 import type { Printer, PrinterDriver } from '../types/printer.types';
-import type { PrintType } from '../types/printConfiguration.types';
-import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
+import type { PrintType } from '../models/printing/PrintType';
+import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { DriverRegistry } from '../drivers/DriverRegistry';
 import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from './PrinterRepository';

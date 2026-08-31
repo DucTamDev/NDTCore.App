@@ -5,7 +5,7 @@ import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { PrintRowElement, PrintTextElement } from '../../../printer/types/printDocument.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
-import { PrintType } from '../../../printer/types/printConfiguration.types';
+import { PrintType } from '../../../printer/models/printing/PrintType';
 
 jest.mock('../../../printer/services/printing/PrintService');
 jest.mock('../../../../services/LoggerService');

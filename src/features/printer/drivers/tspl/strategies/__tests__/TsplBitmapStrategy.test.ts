@@ -1,8 +1,8 @@
 import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
-import { PrinterErrorCode } from '../../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
-import { PrintType } from '../../../../types/printConfiguration.types';
+import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer, PrinterDriver, PrintMedia } from '../../../../types/printer.types';
 import { decodePngBase64ToMonochrome } from '../../../../utils/pngToMonochrome';
 

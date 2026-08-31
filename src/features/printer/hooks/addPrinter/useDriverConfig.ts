@@ -2,10 +2,10 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DEFAULT_TSPL_FONT } from '../../drivers/tspl/TsplFontManager';
 import { DEFAULT_TSPL_INTERNAL_FONT } from '../../drivers/driverConfig';
-import { PrinterErrorException } from '../../types/PrinterError';
+import { PrinterErrorException } from '../../errors/PrinterError';
 import { PrinterDriverType, PrintMediaType, TsplRenderMode } from '../../types/printer.types';
 import type { PrintMedia, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../types/printer.types';
-import type { PrintType } from '../../types/printConfiguration.types';
+import type { PrintType } from '../../models/printing/PrintType';
 
 /**
  * Input cho {@link useDriverConfig}. `drivers`/`setDrivers` do coordinator sở

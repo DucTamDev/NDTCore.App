@@ -1,5 +1,5 @@
 import { PrinterDriverType, PrintMediaType, TsplRenderMode, type PrinterDriverConfig } from '../types/printer.types';
-import { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../models/printing/PrintType';
 
 const DEFAULT_MEDIA = { type: PrintMediaType.continuous, paperSize: 80 } as const;
 

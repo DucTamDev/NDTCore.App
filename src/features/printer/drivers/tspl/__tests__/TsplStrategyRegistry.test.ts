@@ -1,6 +1,6 @@
 import { TsplStrategyRegistry, resolveTsplStrategy } from '../TsplStrategyRegistry';
 import { TsplRenderMode } from '../../../types/printer.types';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 describe('TsplStrategyRegistry', () => {
   it('resolve bitmap → strategy có mode bitmap', () => {

@@ -1,5 +1,5 @@
 import { DriverRegistry } from '../DriverRegistry.web';
-import { PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterError';
 import { ConnectionType, PrinterStatus } from '../../types/printer.types';
 
 describe('DriverRegistry (web)', () => {

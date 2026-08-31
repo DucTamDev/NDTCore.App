@@ -1,5 +1,5 @@
-import type { PrinterError } from './PrinterError';
-import type { PrintType } from './printConfiguration.types';
+import type { PrinterError } from '../errors/PrinterError';
+import type { PrintType } from '../models/printing/PrintType';
 
 export const PrinterDriverType = {
   escpos: 'escpos',

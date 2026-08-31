@@ -1,6 +1,6 @@
 import type { Printer, PrinterDriver, PrintMedia, TsplRenderMode } from '../../../types/printer.types';
 import type { PrintDocuments } from '../../../types/driver.types';
-import type { PrintType } from '../../../types/printConfiguration.types';
+import type { PrintType } from '../../../models/printing/PrintType';
 
 /**
  * Input đã resolve đầy đủ cho 1 lần render TSPL. CONFIG-ONLY có chủ đích —

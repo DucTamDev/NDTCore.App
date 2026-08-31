@@ -2,7 +2,7 @@ import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../Pr
 import type { IPrinterDriver } from '../../../types/driver.types';
 import { ConnectionType, PrinterDriverType, PrinterStatus, type PrinterDriver } from '../../../types/printer.types';
 import { PrinterLogger } from '../../PrinterLogger';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makePrinter } from '../../../testing/printerFixtures';
 import { getDriverDefinition } from '../../../drivers/driverDefinitions';
 

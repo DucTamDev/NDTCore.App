@@ -1,5 +1,5 @@
 import { buildEscPosText } from '../EscPosTextBuilder';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 import type { PrintDocuments } from '../../../types/driver.types';
 
 describe('buildEscPosText', () => {

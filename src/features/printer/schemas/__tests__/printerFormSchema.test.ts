@@ -1,6 +1,6 @@
 import { lanConnectionSchema, printerDisplaySchema, printerDriverSchema, printerSchema } from '../printerFormSchema';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 import { makePrinter, makeTsplDriverEntry, makeEscPosDriverEntry } from '../../testing/printerFixtures';
 
 const MEDIA = { type: 'continuous', paperSize: 80 } as const;

@@ -1,6 +1,6 @@
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
-import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { CONNECT_TIMEOUT_MS } from './transport.config';
 
 /**

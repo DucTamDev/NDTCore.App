@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../driver.types';
 import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
-import { PrintType } from '../printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 
 describe('printer domain types', () => {
   it('accepts a fully-formed Printer with a single tspl driver for a LAN label printer', () => {

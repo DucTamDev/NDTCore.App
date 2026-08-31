@@ -1,6 +1,6 @@
 import type { PrintMedia } from '../../types/printer.types';
 import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
 import { DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../media/paperSpec';

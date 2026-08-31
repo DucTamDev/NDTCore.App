@@ -2,12 +2,12 @@ import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
 import { paperSizeOf } from '../../driverConfig';
-import { PrintType } from '../../../types/printConfiguration.types';
+import { PrintType } from '../../../models/printing/PrintType';
 import type { PrintDocuments } from '../../../types/driver.types';
 
 jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 import type { PrintDocument } from '../../../types/printDocument.types';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 // The library's real dist/index.d.ts (inspected after `npm install`) differs
 // from README-only assumptions: `connectPrinter()` takes positional args

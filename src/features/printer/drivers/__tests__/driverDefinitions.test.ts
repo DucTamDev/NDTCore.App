@@ -1,6 +1,6 @@
 import { PRINTER_DRIVER_DEFINITIONS, getDriverDefinition } from '../driverDefinitions';
 import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 
 describe('PrinterDriverDefinitions', () => {
   it('escpos only supports Receipt', () => {

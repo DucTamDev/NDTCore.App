@@ -1,5 +1,5 @@
 import type { Printer } from '../types/printer.types';
-import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { PrinterStorage } from '../storage/PrinterStorage';
 import { resolveIdentityKey } from './discovery/PrinterResolver';
 import { printerSchema } from '../schemas/printerFormSchema';

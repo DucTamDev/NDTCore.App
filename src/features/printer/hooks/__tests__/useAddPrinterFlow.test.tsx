@@ -7,7 +7,7 @@ import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/DeviceScanService';
 import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 import type { Printer } from '../../types/printer.types';
 
 jest.mock('../../services/PrinterRepository', () => ({

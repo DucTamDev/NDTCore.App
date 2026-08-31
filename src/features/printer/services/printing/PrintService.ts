@@ -1,9 +1,9 @@
 import { PrintRoutingService, type PrintTarget } from './PrintRoutingService';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../../utils/id';
-import { PRINT_TYPE_LABELS } from '../../types/printConfiguration.types';
-import { PrinterErrorCode } from '../../types/PrinterError';
-import type { PrintType } from '../../types/printConfiguration.types';
+import { PRINT_TYPE_LABELS } from '../../models/printing/PrintType';
+import { PrinterErrorCode } from '../../errors/PrinterError';
+import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
 import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
 import type { PrintMedia } from '../../types/printer.types';

@@ -1,5 +1,5 @@
 import type { ConnectionType, PrinterDevice, Printer, UsbRawDevice } from '../types/printer.types';
-import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 /**
  * Mục tiêu kết nối 1 máy in — phẳng theo `connectionType`, driver dựng từ

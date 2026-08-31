@@ -3,7 +3,7 @@ import { createPrinterRepository } from '../PrinterRepository';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer } from '../../types/printer.types';
-import { PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterError';
 import { PrinterLogger } from '../PrinterLogger';
 import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
 

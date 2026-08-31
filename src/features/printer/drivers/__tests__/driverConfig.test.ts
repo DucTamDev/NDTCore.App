@@ -1,7 +1,7 @@
 import { mediaOf, paperSizeOf, tsplRenderModeOf, DEFAULT_TSPL_INTERNAL_FONT } from '../driverConfig';
 import { DriverSource, PrinterDriverType, PrintMediaType, TsplRenderMode } from '../../types/printer.types';
 import type { PrinterDriver } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 
 describe('mediaOf / paperSizeOf', () => {
   it('đọc media của driver entry', () => {

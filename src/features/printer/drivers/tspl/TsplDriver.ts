@@ -4,14 +4,14 @@ import { ConnectionType, PrinterDriverType, PrinterStatus } from '../../types/pr
 import { mediaOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, TsplFontConfig } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import { PrintType } from '../../models/printing/PrintType';
 import { TsplFontManager } from './TsplFontManager';
 import { resolveTsplStrategy } from './TsplStrategyRegistry';
 import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
-import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 

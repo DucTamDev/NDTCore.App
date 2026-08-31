@@ -11,7 +11,7 @@ import { DriverRenderModeSection } from './DriverRenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
 import { getDriverDefinition } from '../drivers/driverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
-import { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../models/printing/PrintType';
 import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import { mediaOf } from '../drivers/driverConfig';
 import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';

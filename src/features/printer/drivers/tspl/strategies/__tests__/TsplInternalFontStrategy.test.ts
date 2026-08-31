@@ -2,9 +2,9 @@ import { TsplInternalFontStrategy } from '../TsplInternalFontStrategy';
 import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import type { PrintMedia } from '../../../../types/printer.types';
-import { PrinterErrorCode } from '../../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
-import { PrintType } from '../../../../types/printConfiguration.types';
+import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer, PrinterDriver } from '../../../../types/printer.types';
 
 const printer: Printer = {

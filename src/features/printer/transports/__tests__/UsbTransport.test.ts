@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { UsbTransport } from '../UsbTransport';
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 

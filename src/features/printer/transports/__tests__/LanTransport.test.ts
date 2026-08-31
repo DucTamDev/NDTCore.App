@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { LanTransport } from '../LanTransport';
-import { PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterError';
 
 type DataListener = (data: Buffer | string) => void;
 

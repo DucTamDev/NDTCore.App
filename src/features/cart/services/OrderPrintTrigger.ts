@@ -7,7 +7,7 @@ import { SERVICE_TYPE_LABELS } from '../types/cart.types';
 import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/types/printDocument.types';
-import { PrintType } from '../../printer/types/printConfiguration.types';
+import { PrintType } from '../../printer/models/printing/PrintType';
 import type { PrintMedia } from '../../printer/types/printer.types';
 
 interface BillItem {

@@ -1,6 +1,6 @@
 import { LibraryAdapter } from '../LibraryAdapter';
 import { ConnectionType } from '../../../types/printer.types';
-import { PrinterErrorCode } from '../../../types/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },

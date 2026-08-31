@@ -1,5 +1,5 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
-import { PrintType } from '../../../types/printConfiguration.types';
+import { PrintType } from '../../../models/printing/PrintType';
 import { PrintMediaType, CutterMode } from '../../../types/printer.types';
 import type { PrintMedia } from '../../../types/printer.types';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';

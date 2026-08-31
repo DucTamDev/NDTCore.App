@@ -1,6 +1,6 @@
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
 import type { ConnectionType, PrinterDevice } from '../../types/printer.types';
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 /**
  * `IPrinterAdapter` chạy qua **SDK do hãng máy in cung cấp** (vd binary blob,

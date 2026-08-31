@@ -1,6 +1,6 @@
 import { BluetoothTransport } from '../BluetoothTransport';
 import { Buffer } from 'buffer';
-import { PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterError';
 
 type ReceivedListener = (event: { data: string }) => void;
 

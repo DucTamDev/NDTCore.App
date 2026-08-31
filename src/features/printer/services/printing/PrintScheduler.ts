@@ -1,4 +1,4 @@
-import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
 import { PrinterConnectionService } from '../PrinterConnectionService';
 import { PrinterRepository } from '../PrinterRepository';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../PrinterConnectionLock';

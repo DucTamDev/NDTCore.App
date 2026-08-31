@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';
-import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
+import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { TsplFontConfig } from '../../types/printer.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';

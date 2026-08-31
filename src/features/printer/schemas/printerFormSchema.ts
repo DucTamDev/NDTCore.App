@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getDriverDefinition } from '../drivers/driverDefinitions';
 import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
-import { PrintType } from '../types/printConfiguration.types';
+import { PrintType } from '../models/printing/PrintType';
 import { dieCutRowOverflow } from '../media/validation';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
