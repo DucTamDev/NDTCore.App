@@ -1,7 +1,7 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow';
-import { PrinterRepository } from '../../services/PrinterRepository';
+import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/DeviceScanService';
@@ -11,7 +11,7 @@ import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../models/pr
 import { PrintType } from '../../models/printing/PrintType';
 import type { Printer } from '../../models/printer/Printer';
 
-jest.mock('../../services/PrinterRepository', () => ({
+jest.mock('../../storage/PrinterRepository', () => ({
   PrinterRepository: {
     getPrinters: jest.fn(() => []),
     addPrinter: jest.fn(),

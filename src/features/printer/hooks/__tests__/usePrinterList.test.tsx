@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterList, type UsePrinterList } from '../usePrinterList';
 import printerReducer from '../../store/printerSlice';
-import { PrinterRepository } from '../../services/PrinterRepository';
+import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import type { Printer } from '../../models/printer/Printer';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
@@ -12,7 +12,7 @@ import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
-jest.mock('../../services/PrinterRepository', () => ({
+jest.mock('../../storage/PrinterRepository', () => ({
   PrinterRepository: {
     getPrinters: jest.fn(() => []),
     setEnabled: jest.fn(),

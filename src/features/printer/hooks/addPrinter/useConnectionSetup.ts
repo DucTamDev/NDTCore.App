@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterRepository } from '../../services/PrinterRepository';
+import { PrinterRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../services/NetworkInfoService';
 import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { USBPrinter } from '../../adapters/native/PrinterNativeModule';

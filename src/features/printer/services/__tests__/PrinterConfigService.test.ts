@@ -1,5 +1,5 @@
 import { createPrinterConfigService } from '../PrinterConfigService';
-import { createPrinterRepository } from '../PrinterRepository';
+import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType } from '../../models/printer/PrinterDevice';

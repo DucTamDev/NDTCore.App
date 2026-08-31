@@ -1,6 +1,6 @@
 import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
 import { PrinterConnectionService } from '../PrinterConnectionService';
-import { PrinterRepository } from '../PrinterRepository';
+import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../PrinterConnectionLock';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 

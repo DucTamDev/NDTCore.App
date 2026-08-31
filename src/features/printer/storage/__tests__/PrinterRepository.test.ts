@@ -1,5 +1,5 @@
 import { createPrinterRepository } from '../PrinterRepository';
-import { PrinterStorage } from '../../storage/PrinterStorage';
+import { PrinterStorage } from '../PrinterStorage';
 import { type Printer } from '../../models/printer/Printer';
 import { basePrinter } from '../../testing/printerServiceTestKit';
 

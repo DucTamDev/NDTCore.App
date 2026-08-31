@@ -1,8 +1,9 @@
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
-import { PrinterStorage } from '../storage/PrinterStorage';
-import { resolveIdentityKey } from './discovery/PrinterResolver';
+import { PrinterStorage } from './PrinterStorage';
+import { resolveIdentityKey } from '../services/discovery/PrinterResolver';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
+import type { PrinterWriteInput } from './PrinterWriteInput';
 
 /**
  * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
@@ -38,19 +39,19 @@ export const createPrinterRepository = () => {
    * đã tự tính đúng, đây là lưới an toàn ở service layer, không phải nguồn sự
    * thật duy nhất).
    */
-  const withRecomputedIdentity = (printer: Printer): Printer => ({
+  const withRecomputedIdentity = (printer: PrinterWriteInput): Printer => ({
     ...printer,
     identityKey: resolveIdentityKey({ connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan }),
   });
 
-  const addPrinter = (printer: Printer): void => {
+  const addPrinter = (printer: PrinterWriteInput): void => {
     const withIdentity = withRecomputedIdentity(printer);
     printerSchema.parse(withIdentity);
     assertNoDuplicateIdentity(withIdentity);
     savePrinters([...getPrinters(), withIdentity]);
   };
 
-  const updatePrinter = (printer: Printer): void => {
+  const updatePrinter = (printer: PrinterWriteInput): void => {
     const withIdentity = withRecomputedIdentity(printer);
     printerSchema.parse(withIdentity);
     assertNoDuplicateIdentity(withIdentity);

@@ -2607,7 +2607,7 @@ Không gọi native trực tiếp.
 # 111. File Responsibility
 
 ```text
-services/PrinterRepository.ts
+storage/PrinterRepository.ts
 → CRUD + identity dedup + schema validation
 
 services/PrinterConnectionService.ts

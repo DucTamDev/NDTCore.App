@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterRepository } from '../services/PrinterRepository';
+import { PrinterRepository } from '../storage/PrinterRepository';
+import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
 import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
@@ -105,7 +106,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
    * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
    * (final-review finding #2).
    */
-  const buildDraftPrinter = (): Printer => {
+  const buildDraftPrinter = (): PrinterWriteInput => {
     const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     return {
     id: printerId,
@@ -117,7 +118,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
       lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
     },
-    identityKey: currentIdentityKey() ?? '',
+    identityKey: currentIdentityKey() ?? undefined,
     capabilities: initialValues?.capabilities ?? { cutter: false },
     drivers,
     autoReconnect,
@@ -125,6 +126,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     createdAt: initialValues?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     };
+  };
+
+  /**
+   * `useTestPrint`/`useProtocolDiscovery` cần `Printer` đủ (context sống cho
+   * driver.connect(), xem ghi chú trên `buildDraftPrinter`) — 2 nơi này gọi khi
+   * đã có device/LAN hợp lệ nên `currentIdentityKey()` luôn trả giá trị thật,
+   * `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế.
+   */
+  const buildFullDraftPrinter = (): Printer => {
+    const draft = buildDraftPrinter();
+    return { ...draft, identityKey: draft.identityKey ?? '' };
   };
 
   /** TRỪ content type đã thuộc driver khác (invariant #3). */
@@ -154,7 +166,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     );
   };
 
-  const testPrint = useTestPrint({ drivers, displayForm, buildDraftPrinter, captureBillImage });
+  const testPrint = useTestPrint({ drivers, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
   const driverConfig = useDriverConfig({
     printerId,
     drivers,
@@ -168,7 +180,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     connectionType,
     lanForm,
     discoveryUnsubscribeRef,
-    buildDraftPrinter,
+    buildDraftPrinter: buildFullDraftPrinter,
     addDriverToList,
     refreshUsbSerial: connectionSetup.refreshUsbSerial,
     prefillDisplayName,

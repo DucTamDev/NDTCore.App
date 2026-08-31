@@ -8,7 +8,7 @@ import { PrinterLogger } from './PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from '../drivers/DriverRegistry';
 import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
-import { PrinterRepository, type createPrinterRepository } from './PrinterRepository';
+import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 import type { TsplDriver } from '../drivers/tspl/TsplDriver';
 
 type ResourceLockLike = ReturnType<typeof createResourceLock>;

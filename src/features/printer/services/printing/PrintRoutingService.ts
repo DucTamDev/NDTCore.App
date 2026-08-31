@@ -1,7 +1,7 @@
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
-import { PrinterRepository } from '../PrinterRepository';
+import { PrinterRepository } from '../../storage/PrinterRepository';
 
 export interface PrintTarget {
   printer: Printer;
