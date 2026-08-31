@@ -205,20 +205,21 @@ Không dùng `PrinterConnectionService.print()` trực tiếp từ business feat
 
 # 6. PrinterService
 
-Printer management được fronted bởi 4 service tập trung dưới
-`src/features/printer/services/`, thay cho một facade `PrinterService` gộp:
+Printer management được fronted bởi 4 service tập trung, thay cho một facade
+`PrinterService` gộp — `PrinterRepository` nằm ở `storage/`, 3 service còn
+lại ở `services/` (`DeviceScanService` trong subfolder `services/device/`):
 
 ```text
-PrinterRepository
-→ CRUD + identity dedup + printerSchema.parse
+storage/PrinterRepository.ts
+→ CRUD + identity dedup + printerSchema.parse (`forms/addPrinter/PrinterSchema.ts`)
 
-PrinterConnectionService
+services/PrinterConnectionService.ts
 → connect / disconnect / reconnect / status / testPrint / print / draft
 
-PrinterConfigService
+services/PrinterConfigService.ts
 → installTsplFont / setTsplRenderMode / setTsplInternalFont / setDriverMedia
 
-DeviceScanService
+services/device/DeviceScanService.ts
 → scanDevices / scanForConnectionType / discoverDriver
 ```
 
@@ -383,6 +384,17 @@ hoặc:
 # 13. Printer Entity
 
 ```ts
+interface PrinterConnection {
+  type:
+    | 'usb'
+    | 'bluetooth'
+    | 'lan';
+
+  device?: PrinterDevice;
+
+  lan?: PrinterLanConfig;
+}
+
 interface Printer {
   id: string;
 
@@ -394,14 +406,7 @@ interface Printer {
 
   drivers: PrinterDriver[];
 
-  connectionType:
-    | 'usb'
-    | 'bluetooth'
-    | 'lan';
-
-  device?: PrinterDevice;
-
-  lan?: PrinterLanConfig;
+  connection: PrinterConnection;
 
   identityKey: string;
 
@@ -417,10 +422,18 @@ interface Printer {
 }
 ```
 
+Định nghĩa chuẩn ở `models/printer/Printer.ts` (kèm `PrinterConnection`,
+`models/printer/PrinterDevice.ts` cho `ConnectionType`/`PrinterDevice`/
+`PrinterLanConfig`, `models/printer/PrinterCapabilities.ts` cho
+`PrinterCapabilities`, `models/printer/PrinterDriver.ts` cho `PrinterDriver`).
+Storage version 5 gộp 3 field phẳng cũ `connectionType`/`device`/`lan` thành
+1 object `connection` lồng nhau — shape đổi không tương thích ngược, xem
+`storage/PrinterStorage.ts`.
+
 `capabilities` mô tả phần cứng máy in (vd có dao cắt hay không). Khổ giấy + layout
-(`media: PrintMedia`) KHÔNG nằm trên `Printer` — mỗi driver có `media` riêng trong
-`PrinterDriver.config`, vì cùng 1 máy in có thể chạy ESC/POS trên giấy cuộn và TSPL
-trên tem die-cut cùng lúc.
+(`media: PrintMedia`, xem `models/media/PrintMedia.ts`) KHÔNG nằm trên `Printer`
+— mỗi driver có `media` riêng trong `PrinterDriver.config`, vì cùng 1 máy in có
+thể chạy ESC/POS trên giấy cuộn và TSPL trên tem die-cut cùng lúc.
 
 ---
 
@@ -492,19 +505,19 @@ trên cùng physical printer.
 Nếu:
 
 ```text
-connectionType = usb
+connection.type = usb
 ```
 
 phải có:
 
 ```text
-device
+connection.device
 ```
 
 và không có:
 
 ```text
-lan
+connection.lan
 ```
 
 Tương tự Bluetooth.
@@ -512,19 +525,19 @@ Tương tự Bluetooth.
 LAN:
 
 ```text
-connectionType = lan
+connection.type = lan
 ```
 
 phải có:
 
 ```text
-lan
+connection.lan
 ```
 
 và không có:
 
 ```text
-device
+connection.device
 ```
 
 ---
@@ -1887,6 +1900,10 @@ interface PrintTarget {
 }
 ```
 
+Định nghĩa chuẩn ở `models/printing/PrintTarget.ts`, re-export lại từ
+`services/printing/PrintRoutingService.ts` để code gọi routing import ngắn
+gọn hơn.
+
 ---
 
 # 79. Example Routing
@@ -2038,6 +2055,8 @@ interface PrintJob {
   completedAt?: string;
 }
 ```
+
+Định nghĩa chuẩn (`PrintJob` + `PrintResult`) ở `models/printing/PrintJob.ts`.
 
 `driverType` **không** lưu trên job — `PrintScheduler` tự tra driver từ
 `printer + printType` (`resourceKeyFor`); thêm field là trùng nguồn sự thật.
@@ -2610,6 +2629,12 @@ Không gọi native trực tiếp.
 storage/PrinterRepository.ts
 → CRUD + identity dedup + schema validation
 
+storage/PrinterWriteInput.ts
+→ `PrinterWriteInput` (Printer, identityKey optional — repository tự tính nếu thiếu)
+
+errors/PrinterError.ts
+→ `PrinterErrorException` / `PrinterErrorCode` / `errorCodeOf` — error codes §101
+
 services/PrinterConnectionService.ts
 → connect / disconnect / reconnect / status / testPrint / print / draft
 
@@ -2619,20 +2644,29 @@ services/PrinterConfigService.ts
 services/device/DeviceScanService.ts
 → scanDevices / scanForConnectionType / discoverDriver
 
-PrintService.ts
+services/printing/PrintService.ts
 → production print entry point
 
-PrintRoutingService.ts
+services/printing/PrintRoutingService.ts
 → resolve print targets
 
-PrintScheduler.ts
+services/printing/PrintScheduler.ts
 → execute jobs
 
-PrinterConnectionLock.ts
+services/connection/PrinterConnectionLock.ts
 → native resource concurrency
 
-DriverRegistry.ts
+services/permission/PrinterPermissionService.ts
+→ runtime permission (Bluetooth/location) trước khi scan
+
+services/device/NetworkInfoService.ts
+→ LAN network info hỗ trợ discovery
+
+drivers/DriverRegistry.ts
 → protocol → driver
+
+drivers/DriverCapabilities.ts
+→ DRIVER_CAPABILITIES tĩnh theo PrinterDriverType (contentTypes + defaultConfig)
 
 services/discovery/PrinterDiscoveryService.ts
 → protocol discovery
@@ -2667,6 +2701,62 @@ BluetoothTransport.ts
 LanTransport.ts
 → TCP raw transport
 ```
+
+---
+
+# 111b. Models / Forms / Errors Layout
+
+Domain model, form (RHF + Zod) và error type tách theo 3 folder riêng, không
+gộp chung `types/`/`schemas/` như trước:
+
+```text
+models/
+ ├── printer/
+ │    ├── Printer.ts             → Printer, PrinterConnection
+ │    ├── PrinterDevice.ts       → ConnectionType, PrinterDevice, PrinterLanConfig,
+ │    │                            UsbRawDevice, PrinterDeviceInfo, DeviceScanEvent
+ │    ├── PrinterDriver.ts       → PrinterDriverType, DriverSource, TsplRenderMode,
+ │    │                            TsplCodepage, TsplFontConfig, TsplDriverConfig,
+ │    │                            EscPosDriverConfig, PrinterDriverConfig, PrinterDriver
+ │    ├── PrinterCapabilities.ts → PrinterCapabilities
+ │    └── PrinterStatus.ts       → PrinterStatus
+ │
+ ├── printing/
+ │    ├── PrintType.ts           → PrintType, PRINT_TYPE_LABELS
+ │    ├── PrintDocument.ts       → PrintElement (union), PrintDocument
+ │    ├── PrintJob.ts            → PrintJobStatus, PrintJob, PrintResultStatus, PrintResult
+ │    └── PrintTarget.ts         → PrintTarget (re-export lại từ PrintRoutingService.ts)
+ │
+ └── media/
+      └── PrintMedia.ts          → PaperSize, PrintMediaType, CutterMode, PrintMedia
+
+forms/addPrinter/
+ ├── LanConnectionSchema.ts      → lanConnectionSchema (Zod), LanConnectionValues
+ ├── PrinterDisplaySchema.ts     → printerDisplaySchema (Zod), PrinterDisplayValues
+ └── PrinterSchema.ts            → printerDriverSchema, printerSchema (Zod), PrinterValidated
+
+errors/PrinterError.ts          → PrinterErrorCode, PrinterError, PrinterErrorException, errorCodeOf
+```
+
+Nguyên tắc chia: `models/` chứa domain type đã lưu/luân chuyển trong hệ
+thống (đọc lẫn ghi); `forms/` chỉ chứa Zod schema + type state của RHF khi
+đang nhập liệu (chưa chắc hợp lệ); `errors/` là type/class lỗi dùng chung
+toàn feature. Xem thêm §111c bên dưới về quy ước hậu tố tên.
+
+---
+
+# 111c. Quy ước đặt tên
+
+| Hậu tố/vị trí | Ý nghĩa | Ví dụ |
+|---|---|---|
+| `*Props` | Input của 1 component | `PrinterInfoCardProps` |
+| `*Input` (hook/hàm) | Tham số 1 hàm/hook | `UseConnectionSetupInput`, `DiscoverPrinterInput` |
+| `*Values` | State form RHF trước khi lưu | `LanConnectionValues` |
+| Không hậu tố, ở `models/` | Domain model đã lưu — vừa là input khi ghi vừa là output khi đọc | `Printer`, `PrintMedia` |
+| `*WriteInput` | Input để tạo/sửa 1 model, khác model ở đúng field cần nới lỏng | `PrinterWriteInput` |
+| `*Result` | Giá trị trả về thật của 1 operation | `PrintResult` |
+| `*Event` | Event/callback stream | `DeviceScanEvent`, `DiscoveryEvent` |
+| `I` + tên | Contract để implement | `IPrinterDriver`, `IPrinterAdapter` |
 
 ---
 
@@ -3769,7 +3859,7 @@ RULE số hiện có ở §145 và ghi cách test:
 | **No Download During Print** | Font install MUST NEVER xảy ra trong `print` / `testPrint` / reconnect / retry. `DOWNLOAD` chỉ là explicit font-install op. | 13-17, 47 | spy `TsplFontManager.downloadFont` — assert không gọi trong mọi test print path |
 | **Strategy Purity** | `ITsplPrintStrategy` MUST NOT chạm storage / connection state / native / transport / printer I/O. | 12-14, 37, 118 | strategy file không import `transports/` / `adapters/` / `storage/` / `StorageService` |
 | **Driver Responsibility** | `TsplDriver` sở hữu connection lifecycle + orchestrate write, MUST NOT sở hữu document rendering. | 37, 43, 115 | như "Strategy Ownership" |
-| **Transport Responsibility** | `TsplTransport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | transport file không import `types/printDocument` / strategy / encoder |
+| **Transport Responsibility** | `TsplTransport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | transport file không import `models/printing/PrintDocument` / strategy / encoder |
 | **Configuration Is Source of Truth** | `renderMode` quyết định strategy. Runtime font availability MUST NOT âm thầm đổi renderMode đã cấu hình. | 19, 28, 130, 134 | không tồn tại code path đọc runtime state để chọn strategy |
 | **Explicit Failure** | Mọi điều kiện TSPL render invalid/unsupported MUST sinh `TSPL_*` code cụ thể + kết thúc job đó. | 12, 31, 42-43 | bảng test §11.1 (spec conformance) phủ từng code |
 
@@ -3800,7 +3890,7 @@ chỉ `savePrinters(...)` nếu printer đã trong storage; với draft thì
 
 **D4 — `PrintJob` giữ field ngoài §85.** §85 chỉ liệt kê
 `id, printerId, driverType, printType, documents, createdAt`. Shape thật
-(`types/printJob.types.ts`) giữ thêm `requestId` (failure isolation §128-129),
+(`models/printing/PrintJob.ts`) giữ thêm `requestId` (failure isolation §128-129),
 `status`, `retryCount`, `error?`, `startedAt?`, `completedAt?` (scheduler
 lifecycle §86, §94) và **bỏ** `driverType` (scheduler tự tra từ printer +
 printType). §85 doc đã cập nhật theo shape thật.

@@ -62,7 +62,7 @@ src/
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module
 ├── theme/                 # React Native Paper theme
-├── types/                 # ApiResponse dùng chung toàn app (PrinterError chuyển vào features/printer/types/ — chỉ printer dùng)
+├── types/                 # ApiResponse dùng chung toàn app (PrinterError chuyển vào features/printer/errors/ — chỉ printer dùng)
 └── utils/
 ```
 
@@ -82,7 +82,7 @@ Kiến trúc theo hướng driver, UI **không bao giờ** gọi thẳng SDK/nat
 UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrinterDriver impl → IPrinterAdapter → native / lib / vendor
 ```
 
-- **`types/driver.types.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `print`, `identify`. Mọi driver mới phải implement đủ interface này.
+- **`drivers/IPrinterDriver.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `print`, `identify`. Mọi driver mới phải implement đủ interface này.
 - **`adapters/IPrinterAdapter.ts`** — contract chung cho MỌI cách feature giao tiếp ra ngoài: `listDevices` / `connect` / `write` / `printText` / `read` / `disconnect` + `toConnectTarget(printer)`. 1 instance = 1 kết nối. 3 impl:
   - **`adapters/native/NativeAdapter`** — qua `PrinterNativeModule` (`RN{USB,BLE,Net}Printer`, code Kotlin/Java ở `android/app/src/main/java/com/ndtcorepos/thermalprinter/`; gốc copy từ `@poriyaalar/react-native-thermal-receipt-printer`, chỉ-Android). `read()` LUÔN `null` (native chỉ bulk-OUT). USB `write` chunk 16KB qua `UsbTransport`.
   - **`adapters/library/LibraryAdapter`** — qua `react-native-tcp-socket` (LAN) + `react-native-bluetooth-classic` (BT), bọc `LanTransport`/`BluetoothTransport`. `read()` đọc được → TSPL BLE/LAN cần adapter này cho `identify` `~!T`. Không USB.
