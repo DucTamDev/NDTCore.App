@@ -85,21 +85,24 @@ forms/addPrinter/
 ```
 `AddPrinterFormMapper` — **không tạo** (không có bước map thật sự khác `buildDraftPrinter()` đang làm; xem §8).
 
-## 8. `AddPrinterInput` — thêm đúng 1 chỗ, đúng vấn đề đã nêu
+## 8. `PrinterWriteInput` — thêm đúng 1 chỗ, đúng vấn đề đã nêu
 
 Vấn đề thật: `PrinterRepository.addPrinter(printer: Printer)`/`updatePrinter(printer: Printer)` nhận thẳng `Printer` — bên trong tự tính lại `identityKey` (không tin giá trị caller truyền, xem `withRecomputedIdentity`) trước khi `printerSchema.parse()`. Caller (`buildDraftPrinter()`) phải tự bịa `identityKey: ''`/tạm vì biết sẽ bị ghi đè — hơi lệch semantics "đây là Printer hoàn chỉnh" khi thực ra 1 field chưa đáng tin.
 
-**[CẬP NHẬT theo phản hồi user]** Đặt tại `services/AddPrinterInput.ts` (KHÔNG ở `models/printer/Printer.ts`) — `Printer` là model, `AddPrinterInput` là input của 1 operation cụ thể (Add/Edit), không trộn 2 trách nhiệm vào cùng file:
+**[CẬP NHẬT lần 2 theo phản hồi user]**
+- Đổi tên `AddPrinterInput` → `PrinterWriteInput` — tên cũ chỉ đúng 1 nửa vì type này dùng cho **cả `addPrinter` lẫn `updatePrinter`**, không chỉ "add".
+- Đặt tại `storage/PrinterWriteInput.ts` (KHÔNG ở `services/`) — vì hàm tiêu thụ nó (`PrinterRepository.addPrinter`/`updatePrinter`) đã chuyển sang `storage/` (§17). Đặt type cạnh hàm dùng nó, không cạnh 1 service không liên quan.
+
 ```ts
-// services/AddPrinterInput.ts
+// storage/PrinterWriteInput.ts
 import type { Printer } from '../models/printer/Printer';
 
-/** Input để tạo/sửa 1 printer — giống Printer nhưng identityKey là GIÁ TRỊ ĐỀ XUẤT, service tự tính lại (không tin caller). */
-export type AddPrinterInput = Omit<Printer, 'identityKey'> & { identityKey?: string };
+/** Input để tạo/sửa 1 printer — giống Printer nhưng identityKey là GIÁ TRỊ ĐỀ XUẤT, PrinterRepository tự tính lại (không tin caller). */
+export type PrinterWriteInput = Omit<Printer, 'identityKey'> & { identityKey?: string };
 ```
-`PrinterRepository.addPrinter`/`updatePrinter` đổi tham số từ `Printer` → `AddPrinterInput`, trả về `Printer` đã persist (hiện đang trả `void` — **giữ nguyên `void`**, không đổi thành return-Printer, ngoài phạm vi). `buildDraftPrinter()` trong `useAddPrinterFlow` đổi kiểu trả về từ `Printer` sang `AddPrinterInput` (bỏ được identityKey giả tạm).
+`PrinterRepository.addPrinter`/`updatePrinter` đổi tham số từ `Printer` → `PrinterWriteInput`, trả về `Printer` đã persist (hiện đang trả `void` — **giữ nguyên `void`**, không đổi thành return-Printer, ngoài phạm vi). `buildDraftPrinter()` trong `useAddPrinterFlow` đổi kiểu trả về từ `Printer` sang `PrinterWriteInput` (bỏ được identityKey giả tạm).
 
-Không có `AddPrinterResult` — `addPrinter`/`updatePrinter` vẫn throw lỗi (không đổi sang Result-object, xem §1 Non-goals).
+Không có `PrinterWriteResult` — `addPrinter`/`updatePrinter` vẫn throw lỗi (không đổi sang Result-object, xem §1 Non-goals).
 
 ## 9. `services/discovery/` — đổi tên Input/Result cho khớp thực tế
 
@@ -164,13 +167,13 @@ src/features/printer/
 │   │   └── PrintType.ts
 │   └── media/
 │       └── PrintMedia.ts
-├── services/                           # giữ cấu trúc hôm nay (printing/, discovery/, 8 service cốt lõi)
-│   └── AddPrinterInput.ts              # input Add/Edit — KHÔNG phải model, xem §8
+├── services/                           # dọn lại theo §17 — xem chi tiết dưới
 ├── drivers/
 │   ├── IPrinterDriver.ts               # đổi tên từ driver.types.ts
 │   ├── DriverCapabilities.ts           # đổi tên từ driverDefinitions.ts
 │   ├── driverConfig.ts / DriverRegistry.ts / escpos/ / tspl/   # giữ nguyên
-├── transports/ · adapters/ · storage/ · media/ · testing/ · store/  # giữ nguyên
+├── storage/                             # PrinterRepository chuyển vào đây — xem §17
+├── transports/ · adapters/ · media/ · testing/ · store/  # giữ nguyên
 ├── errors/
 │   └── PrinterError.ts
 ├── constants.ts
@@ -187,7 +190,7 @@ src/features/printer/
 | `*Input` (hook/hàm) | Tham số 1 hàm/hook | `UseConnectionSetupInput`, `DiscoverPrinterInput` |
 | `*Values` | State form RHF trước khi lưu | `LanConnectionValues` |
 | Không hậu tố, ở `models/` | Domain model đã lưu — vừa là input khi ghi vừa là output khi đọc | `Printer`, `PrintMedia` |
-| `*Input` (service, gắn với model) | Input để tạo/sửa 1 model, khác model ở đúng field cần nới lỏng | `AddPrinterInput` |
+| `*WriteInput` (service, gắn với model) | Input để tạo/sửa 1 model, khác model ở đúng field cần nới lỏng | `PrinterWriteInput` |
 | `*Result` | Giá trị trả về **thật sự** của 1 operation (không phải mọi hàm đều cần) | `PrintResult` |
 | `*Event` | Sự kiện phát ra qua callback/stream | `DeviceScanEvent`, `DiscoveryEvent` |
 | `I` + tên | Contract để implement (native TS/OOP convention, không phải "Interface" nhét cuối tên) | `IPrinterDriver`, `IPrinterAdapter` (đã có) |
@@ -207,7 +210,11 @@ Không dùng: `PrinterData`, `PrinterInfo`, `PrinterType` (đã dùng cho enum, 
 | `drivers/driverDefinitions.ts` | `drivers/DriverCapabilities.ts` | rename export |
 | `schemas/printerFormSchema.ts` | `forms/addPrinter/{LanConnectionSchema,PrinterDisplaySchema,PrinterSchema}.ts` | tách 3 |
 | `printing/PrintRoutingService.ts` (nội bộ `PrintTarget`) | interface `PrintTarget` → `models/printing/PrintTarget.ts` | file service giữ nguyên chỗ, chỉ export type ra |
-| (mới) | `services/AddPrinterInput.ts` | §8 — KHÔNG ở `models/` |
+| (mới) | `storage/PrinterWriteInput.ts` | §8 — KHÔNG ở `models/`, KHÔNG ở `services/` |
+| `services/PrinterRepository.ts` | `storage/PrinterRepository.ts` | §17 |
+| `services/PrinterConnectionLock.ts` | `services/connection/PrinterConnectionLock.ts` | §17 |
+| `services/PrinterPermissionService.ts` | `services/permission/PrinterPermissionService.ts` | §17 |
+| `services/DeviceScanService.ts`, `services/NetworkInfoService.ts` | `services/device/{DeviceScanService,NetworkInfoService}.ts` | §17 |
 | `types/printer.types.ts` (`PrinterCapabilities`) | `models/printer/PrinterCapabilities.ts` | tách riêng khỏi `Printer.ts` — khác `drivers/DriverCapabilities.ts` |
 
 **Không di chuyển:** `components/`, `hooks/`, `services/` (cấu trúc `printing/`+`discovery/`+8 service), `adapters/`, `transports/`, `storage/`, `media/` (rule), `testing/`, `store/` — những folder này **giữ nguyên vị trí**, chỉ sửa import + field access (`connectionType`→`connection.type` v.v.) theo shape mới.
@@ -219,11 +226,54 @@ Không dùng: `PrinterData`, `PrinterInfo`, `PrinterType` (đã dùng cho enum, 
 - File đổi **nội dung** (không chỉ import) do đổi field `connectionType/device/lan` → `connection.type/device/lan`: mọi nơi đọc/ghi trực tiếp field đó — `PrinterRepository` (identity recompute), `PrinterConnectionLock` (resourceKeyFor), `PrinterConnectionService`, discovery, `useAddPrinterFlow`+`useConnectionSetup`+`useProtocolDiscovery`, `printerFormSchema`/`PrinterSchema` (Zod schema cho `Printer` phải đổi shape), `printerFixtures.ts`, `printerServiceTestKit.ts`, MỌI test file dựng `Printer`/`basePrinter` (rất nhiều — mỗi service test file, hook test file). Đây là phần tốn công nhất, không phải sed đơn thuần — mỗi test fixture phải sửa tay.
 - `PrinterStorage.ts`: bump `CURRENT_STORAGE_VERSION` 4→5.
 
+## 17. `services/` + `storage/` — đợt dọn thứ 2 (sau khi đã nest `printing/`+`discovery/` vào `services/` hôm nay)
+
+**[CẬP NHẬT lần 2 theo phản hồi user]**
+
+`PrinterRepository.ts` chuyển từ `services/` → `storage/` — nó là tầng persistence (bọc trực tiếp `PrinterStorage.ts`), không phải "service" theo nghĩa orchestration. Đặt cạnh `PrinterStorage.ts` đúng bản chất hơn.
+
+`services/` tách thêm 3 nhóm nữa — `device/` (2 file, DeviceScanService+NetworkInfoService không trực tiếp là Printer mà là môi trường thiết bị/mạng), `connection/` (1 file, `PrinterConnectionLock.ts` — coordination primitive, tách biệt khỏi 2 Printer*Service), `permission/` (1 file, `PrinterPermissionService.ts` — quyền hệ thống, không phải cấu hình printer). **Ngoại lệ có chủ đích với nguyên tắc "không tạo folder 1 file"** đã áp dụng cho `config/`/`definitions/` trước đó trong buổi — ở đây user quyết định giữ `connection/`+`permission/` dù chỉ 1 file, ưu tiên rõ trách nhiệm hơn số lượng file/folder.
+
+`PrinterConfigService.ts`, `PrinterConnectionService.ts`, `PrinterLogger.ts` giữ **phẳng** trong `services/` (không vào subfolder `printer/` — tên file đã đủ rõ, không cần thêm 1 lớp lồng).
+
+```text
+services/
+├── PrinterConfigService.ts
+├── PrinterConnectionService.ts
+├── PrinterLogger.ts
+├── connection/
+│   └── PrinterConnectionLock.ts
+├── permission/
+│   └── PrinterPermissionService.ts
+├── device/
+│   ├── DeviceScanService.ts
+│   └── NetworkInfoService.ts
+├── discovery/
+│   ├── PrinterDiscoveryService.ts
+│   └── PrinterResolver.ts
+└── printing/
+    ├── PrintService.ts
+    ├── PrintRoutingService.ts
+    └── PrintScheduler.ts
+
+storage/
+├── PrinterRepository.ts
+├── PrinterWriteInput.ts    # xem §8 — type tham số addPrinter/updatePrinter
+└── PrinterStorage.ts
+```
+
+**Ảnh hưởng import:** mọi nơi `import { PrinterConnectionLock, resourceKeyFor, connectionResourceKey } from '../services/PrinterConnectionLock'` (hoặc `./PrinterConnectionLock`) → `.../services/connection/PrinterConnectionLock`; `ensureBluetoothPermission from '.../services/PrinterPermissionService'` → `.../services/permission/PrinterPermissionService`; `DeviceScanService`/`getCurrentWifiIp from NetworkInfoService` → `.../services/device/...`; mọi `PrinterRepository`/`resolveIdentityKey`... không đổi (không phải `PrinterRepository`, đó vẫn ở `discovery/`) — chỉ `PrinterRepository` chuyển sang `storage/PrinterRepository`.
+
 ## 16. Đã chốt (user duyệt 2026-08-31)
 
-Toàn bộ ruling §2/§3/§4/§7/§8/§9 được chấp nhận, kèm 2 điều chỉnh đã merge vào spec:
+Toàn bộ ruling §2/§3/§4/§7/§8/§9 được chấp nhận, cộng 2 đợt điều chỉnh đã merge vào spec:
+
+**Đợt 1:**
 - `PrinterCapabilities` tách file riêng `models/printer/PrinterCapabilities.ts` (không gộp vào `Printer.ts`) — phân biệt rõ với `drivers/DriverCapabilities.ts` (capability máy in vật lý ≠ capability driver/protocol).
-- `AddPrinterInput` đặt ở `services/AddPrinterInput.ts` (không phải `models/`) — `Printer` là model, `AddPrinterInput` là input 1 operation, không trộn trách nhiệm.
+
+**Đợt 2:**
+- `AddPrinterInput` → đổi tên `PrinterWriteInput`, đặt ở `storage/PrinterWriteInput.ts` (không phải `models/`, không phải `services/`) — cạnh `PrinterRepository.addPrinter`/`updatePrinter`, hàm thật sự dùng type này (§8).
+- `services/` tách thêm `device/`, `connection/`, `permission/`; `PrinterRepository.ts` chuyển sang `storage/` (§17).
 
 `components/` — không đổi tên prop/tổ chức lại; chỉ sửa nơi đọc trực tiếp `printer.connectionType`/`device`/`lan` (bắt buộc theo §11), không mở rộng thành 1 đợt dọn UI riêng.
 
