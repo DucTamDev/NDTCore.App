@@ -27,7 +27,7 @@ import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, PrintMediaType, TsplRenderMode } from '../types/printer.types';
 import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../utils/driverConfig';
 import type { PrintMedia, Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
-import { dieCutMediaError } from '../utils/mediaValidation';
+import { dieCutMediaError } from '../media/validation';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;

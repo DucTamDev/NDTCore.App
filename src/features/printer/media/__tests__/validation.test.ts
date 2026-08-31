@@ -1,4 +1,4 @@
-import { dieCutRowOverflow, dieCutMediaError } from '../mediaValidation';
+import { dieCutRowOverflow, dieCutMediaError } from '../validation';
 import { PrintMediaType } from '../../types/printer.types';
 import type { PrintMedia } from '../../types/printer.types';
 

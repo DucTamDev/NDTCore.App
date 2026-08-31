@@ -1,4 +1,4 @@
-import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paperSize';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paperSpec';
 
 describe('PAPER_SIZE_SPECS', () => {
   it('có đủ 4 khổ giấy', () => {

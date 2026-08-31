@@ -1,6 +1,6 @@
 import { PrintMediaType } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
-import { PAPER_SIZE_SPECS } from './paperSize';
+import { PAPER_SIZE_SPECS } from './paperSpec';
 
 /**
  * `null` nếu một hàng die-cut vừa vùng in được của khổ giấy (hoặc chưa đủ field

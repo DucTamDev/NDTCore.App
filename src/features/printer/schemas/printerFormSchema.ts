@@ -3,7 +3,7 @@ import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
 import { PrintType } from '../types/printConfiguration.types';
-import { dieCutRowOverflow } from '../utils/mediaValidation';
+import { dieCutRowOverflow } from '../media/validation';
 
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 

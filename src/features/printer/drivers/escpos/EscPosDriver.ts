@@ -12,7 +12,7 @@ import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
-import { resolveEffectiveCutterMode } from '../../utils/cutter';
+import { resolveEffectiveCutterMode } from '../../media/cutter';
 
 const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 

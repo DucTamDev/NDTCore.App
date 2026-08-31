@@ -2,7 +2,7 @@ import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.typ
 import { PrinterDriverType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
-import { resolveEffectiveCutterMode } from '../../../utils/cutter';
+import { resolveEffectiveCutterMode } from '../../../media/cutter';
 import { formatRow } from '../../../utils/formatRow';
 
 /**

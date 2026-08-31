@@ -75,7 +75,7 @@ export interface PrintMedia {
   columns?: number;
   horizontalGapMm?: number;
   verticalGapMm?: number;
-  /** die_cut ⇒ luôn `'none'`; continuous + `undefined` ⇒ `'per_job'`. Áp ràng buộc ở `utils/cutter.ts`. */
+  /** die_cut ⇒ luôn `'none'`; continuous + `undefined` ⇒ `'per_job'`. Áp ràng buộc ở `media/cutter.ts`. */
   cutterMode?: CutterMode;
 }
 
