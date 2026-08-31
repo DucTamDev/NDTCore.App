@@ -6,7 +6,7 @@ import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/P
 import { PrinterLogger } from '../services/PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../services/PrinterConnectionLock';
 import { PrinterStorage } from '../storage/PrinterStorage';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { printerSchema } from '../schemas/printerFormSchema';

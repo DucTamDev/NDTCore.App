@@ -1,6 +1,6 @@
 import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../types/PrinterError';
 import { PrinterService } from './PrinterService';
-import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../services/PrinterConnectionLock';
 import { PrintJobStatus, type PrintJob } from '../types/printJob.types';
 
 type PrinterServiceLike = Pick<typeof PrinterService, 'print' | 'getPrinters'>;

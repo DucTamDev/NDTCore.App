@@ -1,5 +1,5 @@
 import { createPrinterService } from '../PrinterService';
-import { createResourceLock } from '../PrinterConnectionLock';
+import { createResourceLock } from '../../services/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';

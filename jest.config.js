@@ -7,6 +7,6 @@ module.exports = {
   // Git worktrees live under .claude/worktrees/ inside this project's own
   // tree — without these, Jest also discovers/resolves their copies of the
   // same source files, colliding with this project's own modules.
-  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.claude/', '<rootDir>/.superpowers/'],
+  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.claude/', '<rootDir>/.superpowers/', 'printerServiceTestKit\\.ts$'],
   modulePathIgnorePatterns: ['<rootDir>/.claude/', '<rootDir>/.superpowers/'],
 };

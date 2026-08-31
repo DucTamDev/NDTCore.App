@@ -1,6 +1,6 @@
 import { createPrintScheduler } from '../PrintScheduler';
 import { createPrinterService } from '../PrinterService';
-import { createResourceLock } from '../PrinterConnectionLock';
+import { createResourceLock } from '../../services/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { IPrinterDriver } from '../../types/driver.types';
 import { ConnectionType, PrinterStatus, type Printer } from '../../types/printer.types';
