@@ -12,7 +12,7 @@ import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
 import { DriverSource, PrinterDriverType, PrinterStatus, TsplCodepage, TsplRenderMode } from '../types/printer.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../utils/driverConfig';
+import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../drivers/driverConfig';
 import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {

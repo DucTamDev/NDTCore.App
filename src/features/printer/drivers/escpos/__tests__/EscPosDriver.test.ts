@@ -1,7 +1,7 @@
 import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType, DriverSource, PrinterDriverType, PrinterStatus, type Printer, type PrinterDriver } from '../../../types/printer.types';
-import { paperSizeOf } from '../../../utils/driverConfig';
+import { paperSizeOf } from '../../driverConfig';
 import { PrintType } from '../../../types/printConfiguration.types';
 import type { PrintDocuments } from '../../../types/driver.types';
 

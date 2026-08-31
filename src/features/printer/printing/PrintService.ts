@@ -5,7 +5,7 @@ import { PRINT_TYPE_LABELS } from '../types/printConfiguration.types';
 import { PrinterErrorCode } from '../types/PrinterError';
 import type { PrintType } from '../types/printConfiguration.types';
 import { PrinterDriverType, TsplRenderMode } from '../types/printer.types';
-import { mediaOf, tsplRenderModeOf } from '../utils/driverConfig';
+import { mediaOf, tsplRenderModeOf } from '../drivers/driverConfig';
 import type { PrintMedia } from '../types/printer.types';
 import type { PrintDocuments } from '../types/driver.types';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../types/printJob.types';

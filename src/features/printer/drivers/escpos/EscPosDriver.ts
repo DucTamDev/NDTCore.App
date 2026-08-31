@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../../types/driver.types';
 import { ConnectionType, CutterMode, PrinterDriverType, PrinterStatus } from '../../types/printer.types';
-import { mediaOf, paperSizeOf } from '../../utils/driverConfig';
+import { mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../types/printer.types';
 import type { DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver } from '../../types/printer.types';
 import type { PrintType } from '../../types/printConfiguration.types';

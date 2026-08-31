@@ -5,7 +5,7 @@ import type { PrintType } from '../types/printConfiguration.types';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/PrinterError';
 import { PrinterLogger } from '../services/PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
-import { DriverRegistry } from './DriverRegistry';
+import { DriverRegistry } from '../drivers/DriverRegistry';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterStorage } from '../storage/PrinterStorage';
 import { resolveIdentityKey } from '../discovery/PrinterResolver';

@@ -25,7 +25,7 @@ import type { PrintDocuments } from '../types/driver.types';
 import type { PrintDocument } from '../types/printDocument.types';
 import { PrintType } from '../types/printConfiguration.types';
 import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, PrintMediaType, TsplRenderMode } from '../types/printer.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../utils/driverConfig';
+import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../drivers/driverConfig';
 import type { PrintMedia, Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
 import { dieCutMediaError } from '../media/validation';
 
