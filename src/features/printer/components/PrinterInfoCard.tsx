@@ -11,7 +11,8 @@ import { DriverMediaSection } from './DriverMediaSection';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
 import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../types/printConfiguration.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, DriverSource, mediaOf, PrinterDriverType, PrinterStatus, tsplRenderModeOf, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { DriverSource, PrinterDriverType, PrinterStatus, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../utils/driverConfig';
 import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
 
 const connectionLabel: Record<ConnectionType, string> = {

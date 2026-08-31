@@ -1,5 +1,5 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, CutterMode, DriverSource, mediaOf, paperSizeOf, PrinterDriverType, PrinterStatus, PrintMediaType, tsplRenderModeOf, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
 import { PrintType } from '../printConfiguration.types';
 
 describe('printer domain types', () => {
@@ -46,15 +46,6 @@ describe('printer domain types', () => {
     expect(printer.drivers).toHaveLength(2);
   });
 
-  it('mediaOf/paperSizeOf đọc media của driver entry', () => {
-    const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 } },
-    };
-    expect(paperSizeOf(driver)).toBe(100);
-    expect(mediaOf(driver).columns).toBe(3);
-  });
-
   it('CutterMode có đủ 3 giá trị', () => {
     expect([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).toEqual(['none', 'per_job', 'per_row']);
   });
@@ -71,16 +62,5 @@ describe('printer domain types', () => {
       identify: async () => null,
     };
     expect(driver.getStatus('p1')).toBe(PrinterStatus.idle);
-  });
-});
-
-describe('tsplRenderModeOf', () => {
-  const tspl = (renderMode: TsplRenderMode) => ({ type: PrinterDriverType.tspl, source: 'auto', contentTypes: [], config: { type: PrinterDriverType.tspl, renderMode } } as never);
-  it('trả renderMode đã cấu hình (không quan tâm fontInstalled)', () => {
-    expect(tsplRenderModeOf(tspl(TsplRenderMode.truetype))).toBe(TsplRenderMode.truetype);
-    expect(tsplRenderModeOf(tspl(TsplRenderMode.bitmap))).toBe(TsplRenderMode.bitmap);
-  });
-  it('trả null cho driver escpos', () => {
-    expect(tsplRenderModeOf({ type: PrinterDriverType.escpos, source: 'auto', contentTypes: [], config: { type: PrinterDriverType.escpos } } as never)).toBeNull();
   });
 });

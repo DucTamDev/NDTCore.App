@@ -2723,7 +2723,13 @@ MockPrinterAdapter
 
 ```text
 paperSize.ts
-→ paper-size dimension tables (chars/line, image px, printable mm, dots/mm)
+→ PAPER_SIZE_SPECS (printable mm / chars-per-line / image px theo khổ) + DOTS_PER_MM
+
+driverConfig.ts
+→ accessor thuần trên PrinterDriver.config: mediaOf / paperSizeOf / tsplRenderModeOf
+
+cutter.ts
+→ resolveEffectiveCutterMode (áp ràng buộc vật lý lên media.cutterMode)
 
 formatRow.ts
 → căn 1 dòng "nhãn ... giá trị" cho đúng width ký tự
