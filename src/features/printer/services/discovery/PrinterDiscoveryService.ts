@@ -34,7 +34,7 @@ export interface DiscoveryEvent {
 
 export interface DiscoverPrinterInput {
   /**
-   * Draft `Printer` ĐẦY ĐỦ (id, connectionType, device/lan, name, v.v.) do
+   * Draft `Printer` ĐẦY ĐỦ (id, connection, name, v.v.) do
    * caller (`useAddPrinterFlow.buildDraftPrinter()`) tự dựng — service này
    * KHÔNG tự tổng hợp draft từ các field rời rạc nữa, để tránh tạo ra 1 draft
    * thiếu field. `driver.connect()` lưu draft này làm context sống của driver.

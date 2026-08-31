@@ -2,7 +2,7 @@ import { DRIVER_CAPABILITIES, getDriverCapabilities } from '../DriverCapabilitie
 import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 
-describe('PrinterDriverDefinitions', () => {
+describe('DriverCapabilities', () => {
   it('escpos only supports Receipt', () => {
     expect(DRIVER_CAPABILITIES.escpos.contentTypes).toEqual([PrintType.Receipt]);
   });

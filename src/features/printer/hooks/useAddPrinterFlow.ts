@@ -100,7 +100,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
 
   /**
-   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connectionType/device/lan)
+   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connection)
    * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
    * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
    * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt

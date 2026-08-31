@@ -2725,7 +2725,7 @@ models/
  │    ├── PrintType.ts           → PrintType, PRINT_TYPE_LABELS
  │    ├── PrintDocument.ts       → PrintElement (union), PrintDocument
  │    ├── PrintJob.ts            → PrintJobStatus, PrintJob, PrintResultStatus, PrintResult
- │    └── PrintTarget.ts         → PrintTarget (re-export lại từ PrintRoutingService.ts)
+ │    └── PrintTarget.ts         → PrintTarget (định nghĩa gốc; re-export lại ở PrintRoutingService.ts)
  │
  └── media/
       └── PrintMedia.ts          → PaperSize, PrintMediaType, CutterMode, PrintMedia

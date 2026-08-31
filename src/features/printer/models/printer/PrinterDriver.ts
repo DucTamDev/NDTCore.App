@@ -78,7 +78,7 @@ export type PrinterDriverConfig = TsplDriverConfig | EscPosDriverConfig;
 export interface PrinterDriver {
   type: PrinterDriverType;
   source: DriverSource;
-  /** Tập con của `PrinterDriverDefinitions[type].contentTypes`, không giao với `contentTypes` của driver khác trên cùng `Printer` (enforce ở schema). */
+  /** Tập con của `DRIVER_CAPABILITIES[type].contentTypes`, không giao với `contentTypes` của driver khác trên cùng `Printer` (enforce ở schema). */
   contentTypes: PrintType[];
   config: PrinterDriverConfig;
 }
