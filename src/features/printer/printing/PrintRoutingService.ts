@@ -1,6 +1,6 @@
 import type { Printer, PrinterDriver } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
-import { PrinterService } from './PrinterService';
+import { PrinterRepository } from '../services/PrinterRepository';
 
 export interface PrintTarget {
   printer: Printer;
@@ -8,7 +8,7 @@ export interface PrintTarget {
 }
 
 interface PrintRoutingServiceDeps {
-  getPrinters: typeof PrinterService.getPrinters;
+  getPrinters: typeof PrinterRepository.getPrinters;
 }
 
 /**
@@ -31,4 +31,4 @@ export const createPrintRoutingService = (deps: PrintRoutingServiceDeps) => {
   return { resolveTargets };
 };
 
-export const PrintRoutingService = createPrintRoutingService({ getPrinters: PrinterService.getPrinters });
+export const PrintRoutingService = createPrintRoutingService({ getPrinters: PrinterRepository.getPrinters });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';
-import { PrinterService } from '../printing/PrinterService';
+import { DeviceScanService } from '../services/DeviceScanService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceScanEventType } from '../types/printer.types';
@@ -30,7 +30,7 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
     setErrorMessage(null);
     setDevices([]);
     let settled = false;
-    const unsubscribe = PrinterService.scanForConnectionType(connectionType, (event) => {
+    const unsubscribe = DeviceScanService.scanForConnectionType(connectionType, (event) => {
       if (settled) return;
       if (event.type === DeviceScanEventType.loading) setLoading(true);
       if (event.type === DeviceScanEventType.found || event.type === DeviceScanEventType.empty) {

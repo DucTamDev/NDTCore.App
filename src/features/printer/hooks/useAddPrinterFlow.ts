@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterService } from '../printing/PrinterService';
+import { PrinterRepository } from '../services/PrinterRepository';
+import { PrinterConnectionService } from '../services/PrinterConnectionService';
+import { PrinterConfigService } from '../services/PrinterConfigService';
+import { DeviceScanService } from '../services/DeviceScanService';
 import { DEFAULT_TSPL_FONT } from '../drivers/tspl/TsplFontManager';
 import { getCurrentWifiIp } from '../services/NetworkInfoService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../utils/sampleDocuments';
@@ -113,8 +116,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       setLiveStatus(PrinterStatus.idle);
       return undefined;
     }
-    setLiveStatus(PrinterService.getStatusForDriver(activeDriver.type, printerId));
-    const unsubscribes = drivers.map((d) => PrinterService.onStatusChangeForDriver(d.type, printerId, setLiveStatus));
+    setLiveStatus(PrinterConnectionService.getStatusForDriver(activeDriver.type, printerId));
+    const unsubscribes = drivers.map((d) => PrinterConnectionService.onStatusChangeForDriver(d.type, printerId, setLiveStatus));
     return () => unsubscribes.forEach((unsub) => unsub());
   }, [protocolState, drivers, printerId]);
 
@@ -125,7 +128,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && !savedRef.current) {
         current.drivers.forEach((d) => {
-          PrinterService.disconnectForDriver(d.type, printerId).catch(() => undefined);
+          PrinterConnectionService.disconnectForDriver(d.type, printerId).catch(() => undefined);
         });
       }
     }
@@ -141,7 +144,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     () => () => {
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && !savedRef.current) {
-        current.drivers.forEach((d) => PrinterService.disconnectForDriver(d.type, printerId).catch(() => undefined));
+        current.drivers.forEach((d) => PrinterConnectionService.disconnectForDriver(d.type, printerId).catch(() => undefined));
       }
     },
     [printerId],
@@ -170,7 +173,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       setIdentityErrorMessage(undefined);
       return;
     }
-    const collision = PrinterService.getPrinters().find((p) => p.id !== printerId && p.identityKey === key);
+    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.identityKey === key);
     setIdentityErrorMessage(
       collision ? `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.` : undefined,
     );
@@ -250,7 +253,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
 
   const startDiscovery = (): void => {
     resetDiscoveryFields('connecting');
-    discoveryUnsubscribeRef.current = PrinterService.discoverDriver(
+    discoveryUnsubscribeRef.current = DeviceScanService.discoverDriver(
       {
         draftPrinter: buildDraftPrinter(),
         excludedDrivers: drivers.map((d) => d.type),
@@ -314,7 +317,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     };
     const base = buildDraftPrinter();
     const draftPrinter: Printer = { ...base, drivers: [...base.drivers, draftDriver] };
-    PrinterService.connectDraft(draftPrinter, draftDriver)
+    PrinterConnectionService.connectDraft(draftPrinter, draftDriver)
       .then(() => {
         setConnectionState('connected');
         setProtocolState('identified');
@@ -406,7 +409,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
       setTsplFontPending(true);
       try {
-        await PrinterService.installTsplFont(printerId, font);
+        await PrinterConfigService.installTsplFont(printerId, font);
         updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } }));
       } catch (error) {
         setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
@@ -419,12 +422,12 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     if (mode === TsplRenderMode.internalfont) {
       const internalFont = tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT;
       updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.internalfont, internalFont }));
-      PrinterService.setTsplInternalFont(printerId, internalFont);
+      PrinterConfigService.setTsplInternalFont(printerId, internalFont);
       return;
     }
 
     updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.bitmap }));
-    PrinterService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
+    PrinterConfigService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
   };
 
   const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
@@ -438,7 +441,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     // Persist media ĐÃ MERGE (kể cả die_cut auto-fill), không phải raw patch:
     // với printer đang SỬA, `setDriverMedia` ghi thật ngay → raw `{ type: 'die_cut' }`
     // sẽ lưu media không hợp lệ nếu user thoát không Save (final-review Important 2).
-    PrinterService.setDriverMedia(printerId, driverType, media);
+    PrinterConfigService.setDriverMedia(printerId, driverType, media);
   };
 
   const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
@@ -446,7 +449,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
     const next = { ...(tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT), ...patch };
     updateTsplConfig((config) => ({ ...config, internalFont: next }));
-    PrinterService.setTsplInternalFont(printerId, next);
+    PrinterConfigService.setTsplInternalFont(printerId, next);
   };
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
@@ -471,7 +474,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     try {
       const documents = await resolveTestPrintDocuments(driver, sampleDocument);
       const options = printType === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
-      await PrinterService.testPrint(printer, driver, documents, printType, options);
+      await PrinterConnectionService.testPrint(printer, driver, documents, printType, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {
@@ -486,17 +489,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     if (drivers.length === 0) return;
     const printer = buildDraftPrinter();
     try {
-      if (initialValues) PrinterService.updatePrinter(printer);
-      else PrinterService.addPrinter(printer);
+      if (initialValues) PrinterRepository.updatePrinter(printer);
+      else PrinterRepository.addPrinter(printer);
     } catch (error) {
       setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
       return;
     }
     savedRef.current = true;
     if (liveStatus === PrinterStatus.connected) {
-      PrinterService.reconnect(printer.id).catch(() => undefined);
+      PrinterConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
-      PrinterService.connect(printer.id).catch(() => undefined);
+      PrinterConnectionService.connect(printer.id).catch(() => undefined);
     }
     onSaved();
   });

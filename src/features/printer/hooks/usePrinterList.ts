@@ -2,7 +2,8 @@ import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { LoggerService } from '../../../services/LoggerService';
-import { PrinterService } from '../printing/PrinterService';
+import { PrinterRepository } from '../services/PrinterRepository';
+import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
 import type { Printer } from '../types/printer.types';
 
@@ -33,7 +34,7 @@ export const usePrinterList = (): UsePrinterList => {
   const printers = useSelector((state: RootState) => selectPrinters(state));
 
   const reload = useCallback(() => {
-    const list = PrinterService.getPrinters();
+    const list = PrinterRepository.getPrinters();
     LoggerService.debug('usePrinterList.reload', {
       count: list.length,
       printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connectionType, drivers: p.drivers.map((d) => d.type), enabled: p.enabled ?? true })),
@@ -47,7 +48,7 @@ export const usePrinterList = (): UsePrinterList => {
 
   const setEnabled = useCallback(
     (printerId: string, enabled: boolean) => {
-      PrinterService.setEnabled(printerId, enabled);
+      PrinterRepository.setEnabled(printerId, enabled);
       dispatch(printerEnabledChanged({ printerId, enabled }));
     },
     [dispatch],
@@ -55,21 +56,21 @@ export const usePrinterList = (): UsePrinterList => {
 
   const remove = useCallback(
     (printerId: string) => {
-      PrinterService.removePrinter(printerId);
+      PrinterRepository.removePrinter(printerId);
       dispatch(printerRemoved(printerId));
     },
     [dispatch],
   );
 
   const connect = useCallback((printerId: string) => {
-    PrinterService.connect(printerId).catch(() => undefined);
+    PrinterConnectionService.connect(printerId).catch(() => undefined);
   }, []);
 
   // `disconnect` trả Promise để card "Xoá khi đang kết nối" chờ ngắt xong mới xoá.
-  const disconnect = useCallback((printerId: string) => PrinterService.disconnect(printerId).catch(() => undefined), []);
+  const disconnect = useCallback((printerId: string) => PrinterConnectionService.disconnect(printerId).catch(() => undefined), []);
 
   const reconnect = useCallback((printerId: string) => {
-    PrinterService.reconnect(printerId).catch(() => undefined);
+    PrinterConnectionService.reconnect(printerId).catch(() => undefined);
   }, []);
 
   return { printers, reload, setEnabled, remove, connect, disconnect, reconnect };

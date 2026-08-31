@@ -1,5 +1,6 @@
 import { createPrintScheduler } from '../PrintScheduler';
-import { createPrinterService } from '../PrinterService';
+import { createPrinterConnectionService } from '../../services/PrinterConnectionService';
+import { createPrinterRepository } from '../../services/PrinterRepository';
 import { createResourceLock } from '../../services/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../types/PrinterError';
 import type { IPrinterDriver } from '../../types/driver.types';
@@ -167,10 +168,11 @@ describe('PrintScheduler', () => {
     // và PrinterService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
     // multi-printer race lần trước không đủ (chỉ khoá được PrintScheduler).
     const lock = createResourceLock();
-    const printerService = createPrinterService({ escpos: escposIPrinterDriver, tspl: escposIPrinterDriver }, lock);
+    const repository = createPrinterRepository();
+    const printerService = createPrinterConnectionService({ escpos: escposIPrinterDriver, tspl: escposIPrinterDriver }, repository, lock);
     const printer: Printer = makePrinter({ id: 'receipt-1' });
-    printerService.addPrinter(printer);
-    const scheduler = createPrintScheduler(printerService, lock);
+    repository.addPrinter(printer);
+    const scheduler = createPrintScheduler({ print: printerService.print, getPrinters: repository.getPrinters }, lock);
 
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'order-job', printerId: printer.id })),

@@ -4,17 +4,23 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterList, type UsePrinterList } from '../usePrinterList';
 import printerReducer from '../../store/printerSlice';
-import { PrinterService } from '../../printing/PrinterService';
+import { PrinterRepository } from '../../services/PrinterRepository';
+import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import type { Printer } from '../../types/printer.types';
 import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
-jest.mock('../../printing/PrinterService', () => ({
-  PrinterService: {
-    getPrinters: jest.fn(),
+jest.mock('../../services/PrinterRepository', () => ({
+  PrinterRepository: {
+    getPrinters: jest.fn(() => []),
     setEnabled: jest.fn(),
     removePrinter: jest.fn(),
+  },
+}));
+
+jest.mock('../../services/PrinterConnectionService', () => ({
+  PrinterConnectionService: {
     connect: jest.fn(() => Promise.resolve()),
     disconnect: jest.fn(() => Promise.resolve()),
     reconnect: jest.fn(() => Promise.resolve()),
@@ -56,48 +62,48 @@ describe('usePrinterList', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('loads printers from PrinterService into the store on mount', () => {
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([printer()]);
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer()]);
     const { get } = render();
-    expect(PrinterService.getPrinters).toHaveBeenCalled();
+    expect(PrinterRepository.getPrinters).toHaveBeenCalled();
     expect(get().printers).toEqual([printer()]);
   });
 
   it('reload() re-reads storage into the store', () => {
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([]);
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
     const { get } = render();
     expect(get().printers).toEqual([]);
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
     act(() => get().reload());
     expect(get().printers).toHaveLength(2);
   });
 
   it('setEnabled() writes through PrinterService and updates the store', () => {
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([printer({ enabled: true })]);
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer({ enabled: true })]);
     const { get } = render();
     act(() => get().setEnabled('p1', false));
-    expect(PrinterService.setEnabled).toHaveBeenCalledWith('p1', false);
+    expect(PrinterRepository.setEnabled).toHaveBeenCalledWith('p1', false);
     expect(get().printers.find((p) => p.id === 'p1')?.enabled).toBe(false);
   });
 
   it('remove() writes through PrinterService and drops it from the store', () => {
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
     const { get } = render();
     act(() => get().remove('p1'));
-    expect(PrinterService.removePrinter).toHaveBeenCalledWith('p1');
+    expect(PrinterRepository.removePrinter).toHaveBeenCalledWith('p1');
     expect(get().printers.map((p) => p.id)).toEqual(['p2']);
   });
 
   it('connect/disconnect/reconnect delegate to PrinterService and swallow rejections', async () => {
-    (PrinterService.getPrinters as jest.Mock).mockReturnValue([]);
-    (PrinterService.connect as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
+    (PrinterConnectionService.connect as jest.Mock).mockRejectedValueOnce(new Error('boom'));
     const { get } = render();
     await act(async () => {
       get().connect('p1');
       await get().disconnect('p1');
       get().reconnect('p1');
     });
-    expect(PrinterService.connect).toHaveBeenCalledWith('p1');
-    expect(PrinterService.disconnect).toHaveBeenCalledWith('p1');
-    expect(PrinterService.reconnect).toHaveBeenCalledWith('p1');
+    expect(PrinterConnectionService.connect).toHaveBeenCalledWith('p1');
+    expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
+    expect(PrinterConnectionService.reconnect).toHaveBeenCalledWith('p1');
   });
 });
