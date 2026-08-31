@@ -3,34 +3,21 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterRepository } from '../services/PrinterRepository';
 import { PrinterConnectionService } from '../services/PrinterConnectionService';
-import { PrinterConfigService } from '../services/PrinterConfigService';
-import { DeviceScanService } from '../services/DeviceScanService';
-import { DEFAULT_TSPL_FONT } from '../drivers/tspl/TsplFontManager';
-import { getCurrentWifiIp } from '../services/NetworkInfoService';
-import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../utils/sampleDocuments';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
-import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { getDriverDefinition } from '../definitions/PrinterDriverDefinitions';
-import { USBPrinter } from '../adapters/native/PrinterNativeModule';
-import {
-  lanConnectionSchema,
-  printerDisplaySchema,
-  type LanConnectionValues,
-  type PrinterDisplayValues,
-} from '../schemas/printerFormSchema';
+import { printerDisplaySchema, type PrinterDisplayValues } from '../schemas/printerFormSchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
-import { DiscoveryStage, type DiscoveryEvent } from '../discovery/PrinterDiscoveryService';
-import { PrinterErrorException } from '../types/PrinterError';
-import type { PrintDocuments } from '../types/driver.types';
-import type { PrintDocument } from '../types/printDocument.types';
-import { PrintType } from '../types/printConfiguration.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, PrintMediaType, TsplRenderMode } from '../types/printer.types';
-import { DEFAULT_TSPL_INTERNAL_FONT, mediaOf, tsplRenderModeOf } from '../drivers/driverConfig';
-import type { PrintMedia, Printer, PrinterDevice, PrinterDeviceInfo, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig, UsbRawDevice } from '../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus } from '../types/printer.types';
+import { mediaOf } from '../drivers/driverConfig';
+import type { Printer, PrinterDriver, UsbRawDevice } from '../types/printer.types';
 import { dieCutMediaError } from '../media/validation';
+import { useConnectionSetup } from './addPrinter/useConnectionSetup';
+import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';
+import { useTestPrint } from './addPrinter/useTestPrint';
+import { useDriverConfig } from './addPrinter/useDriverConfig';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -58,46 +45,18 @@ export interface UseAddPrinterFlow {
  * cài font TrueType, in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ
  * còn render + wiring: mọi state machine (connection/protocol), side-effect vòng
  * đời kết nối và gọi `PrinterService` nằm ở đây.
+ *
+ * Coordinator sở hữu state chồng lấn (`drivers`, `displayForm`, `autoReconnect`,
+ * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
+ * `useConnectionSetup`, `useProtocolDiscovery`, `useTestPrint`, `useDriverConfig`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
-  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? ConnectionType.usb);
-  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.device);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [drivers, setDrivers] = useState<PrinterDriver[]>(initialValues?.drivers ?? []);
-  const [testPrintReceiptPending, setTestPrintReceiptPending] = useState(false);
-  const [testPrintLabelPending, setTestPrintLabelPending] = useState(false);
-  const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-  const [tsplFontPending, setTsplFontPending] = useState(false);
   const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.idle);
-  const [connectionDirty, setConnectionDirty] = useState(!initialValues);
-  const [testPrintRowsText, setTestPrintRowsText] = useState('1');
-
-  const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
-  const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
-  const [lastProtocol, setLastProtocol] = useState<PrinterDriverType | undefined>(initialValues?.drivers[0]?.type);
-  const [deviceInfo, setDeviceInfo] = useState<PrinterDeviceInfo | undefined>(undefined);
-  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
-  const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
-  const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
-  const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
-
-  const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
-  const savedRef = useRef(false);
-  const connectionRef = useRef<{ connectionState: ConnectionState; drivers: PrinterDriver[] }>({
-    connectionState: initialValues ? 'connected' : 'idle',
-    drivers: initialValues?.drivers ?? [],
-  });
-
-  const lanForm = useForm<LanConnectionValues>({
-    resolver: zodResolver(lanConnectionSchema),
-    defaultValues: {
-      lanIp: initialValues?.lan?.ip ?? '',
-      lanPort: initialValues?.lan?.port ? String(initialValues.lan.port) : '',
-    },
-  });
 
   const displayForm = useForm<PrinterDisplayValues>({
     resolver: zodResolver(printerDisplaySchema),
@@ -105,6 +64,115 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
       name: initialValues?.name ?? '',
     },
   });
+
+  const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
+  const savedRef = useRef(false);
+  const connectionRef = useRef<{ connectionState: ConnectionState; drivers: PrinterDriver[] }>({
+    connectionState: initialValues ? 'connected' : 'idle',
+    drivers: initialValues?.drivers ?? [],
+  });
+  // Bridge để `useConnectionSetup` đọc state của `useProtocolDiscovery` tại thời
+  // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con (guard reset-on-change
+  // trong onConnectionTypeChange/onSelectDevice/onLanIp*Change vẫn nguyên văn).
+  const discoveryRef = useRef<{
+    connectionState: ConnectionState;
+    protocolState: ProtocolState;
+    resetConnectionResult: () => void;
+  }>({
+    connectionState: initialValues ? 'connected' : 'idle',
+    protocolState: initialValues ? 'identified' : 'idle',
+    resetConnectionResult: () => undefined,
+  });
+
+  const connectionSetup = useConnectionSetup({
+    initialValues,
+    printerId,
+    drivers,
+    getConnectionState: () => discoveryRef.current.connectionState,
+    getProtocolState: () => discoveryRef.current.protocolState,
+    resetConnectionResult: () => discoveryRef.current.resetConnectionResult(),
+  });
+  const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
+
+  /**
+   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connectionType/device/lan)
+   * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
+   * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
+   * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
+   * (final-review finding #2).
+   */
+  const buildDraftPrinter = (): Printer => {
+    const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
+    return {
+    id: printerId,
+    name: displayForm.getValues('name') || 'Máy in mới',
+    vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
+    model: initialValues?.model ?? usbRaw?.productName ?? undefined,
+    connectionType,
+    device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
+    lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
+    identityKey: currentIdentityKey() ?? '',
+    capabilities: initialValues?.capabilities ?? { cutter: false },
+    drivers,
+    autoReconnect,
+    enabled: initialValues?.enabled ?? true,
+    createdAt: initialValues?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    };
+  };
+
+  /** TRỪ content type đã thuộc driver khác (invariant #3). */
+  const addDriverToList = (type: PrinterDriverType, source: DriverSource): void => {
+    const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
+    const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
+    const def = getDriverDefinition(type).defaultConfig;
+    const entry: PrinterDriver = {
+      type,
+      source,
+      contentTypes,
+      config: { ...def, media: { ...def.media } },
+    };
+    setDrivers((prev) => [...prev, entry]);
+  };
+
+  /**
+   * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn
+   * TRỐNG (user đã gõ thì giữ nguyên). Sau đó ô vẫn sửa được bình thường.
+   */
+  const prefillDisplayName = (deviceName?: string): void => {
+    if (displayForm.getValues('name')) return;
+    const lanIp = connectionType === ConnectionType.lan ? lanForm.getValues('lanIp') : undefined;
+    displayForm.setValue(
+      'name',
+      deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
+    );
+  };
+
+  const testPrint = useTestPrint({ drivers, displayForm, buildDraftPrinter, captureBillImage });
+  const driverConfig = useDriverConfig({
+    printerId,
+    drivers,
+    setDrivers,
+    setTestPrintErrorMessage: testPrint.setTestPrintErrorMessage,
+  });
+
+  const protocolDiscovery = useProtocolDiscovery({
+    initialValues,
+    drivers,
+    connectionType,
+    lanForm,
+    discoveryUnsubscribeRef,
+    buildDraftPrinter,
+    addDriverToList,
+    refreshUsbSerial: connectionSetup.refreshUsbSerial,
+    prefillDisplayName,
+  });
+  discoveryRef.current = {
+    connectionState: protocolDiscovery.connectionState,
+    protocolState: protocolDiscovery.protocolState,
+    resetConnectionResult: protocolDiscovery.resetConnectionResult,
+  };
+  const { connectionState, protocolState, deviceInfo, connectionDirty } = protocolDiscovery;
 
   useEffect(() => {
     connectionRef.current = { connectionState, drivers };
@@ -150,341 +218,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     [printerId],
   );
 
-  const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
-
-  /** Không cần biết protocol — xem `resolveIdentityKey`. */
-  const currentIdentityKey = (): string | null => {
-    try {
-      if (connectionType === ConnectionType.lan) {
-        const values = lanForm.getValues();
-        if (!lanConnectionSchema.safeParse(values).success) return null;
-        return resolveIdentityKey({ connectionType, lan: buildLan(values) });
-      }
-      if (!selectedDevice) return null;
-      return resolveIdentityKey({ connectionType, device: selectedDevice });
-    } catch {
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    const key = currentIdentityKey();
-    if (!key) {
-      setIdentityErrorMessage(undefined);
-      return;
-    }
-    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.identityKey === key);
-    setIdentityErrorMessage(
-      collision ? `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.` : undefined,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chạy lại khi connectionType/selectedDevice/lan form thay đổi, đọc qua currentIdentityKey() ở trên
-  }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
-
-  const resetDiscoveryFields = (nextConnectionState: ConnectionState): void => {
-    setConnectionState(nextConnectionState);
-    setProtocolState('idle');
-    setDeviceInfo(undefined);
-    setConnectionErrorMessage(undefined);
-    // Chỉ khoá Save khi ĐÂY LÀ driver đầu tiên (chưa có driver nào saveable) —
-    // 1 lượt dò driver thứ 2 thất bại không được lùi lại trạng thái saveable
-    // đã có từ driver đầu tiên (spec §5.1, coordinator review round 1).
-    if (drivers.length === 0) setConnectionDirty(true);
-  };
-
-  const resetConnectionResult = (): void => {
-    discoveryUnsubscribeRef.current?.();
-    discoveryUnsubscribeRef.current = null;
-    resetDiscoveryFields('idle');
-  };
-
-  /** TRỪ content type đã thuộc driver khác (invariant #3). */
-  const addDriverToList = (type: PrinterDriverType, source: DriverSource): void => {
-    const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
-    const contentTypes = getDriverDefinition(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
-    const def = getDriverDefinition(type).defaultConfig;
-    const entry: PrinterDriver = {
-      type,
-      source,
-      contentTypes,
-      config: { ...def, media: { ...def.media } },
-    };
-    setDrivers((prev) => [...prev, entry]);
-  };
-
-  /**
-   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connectionType/device/lan)
-   * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
-   * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
-   * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
-   * (final-review finding #2).
-   */
-  const buildDraftPrinter = (): Printer => {
-    const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
-    return {
-    id: printerId,
-    name: displayForm.getValues('name') || 'Máy in mới',
-    vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
-    model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-    connectionType,
-    device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
-    lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
-    identityKey: currentIdentityKey() ?? '',
-    capabilities: initialValues?.capabilities ?? { cutter: false },
-    drivers,
-    autoReconnect,
-    enabled: initialValues?.enabled ?? true,
-    createdAt: initialValues?.createdAt ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    };
-  };
-
-  /**
-   * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn
-   * TRỐNG (user đã gõ thì giữ nguyên). Sau đó ô vẫn sửa được bình thường.
-   */
-  const prefillDisplayName = (deviceName?: string): void => {
-    if (displayForm.getValues('name')) return;
-    const lanIp = connectionType === ConnectionType.lan ? lanForm.getValues('lanIp') : undefined;
-    displayForm.setValue(
-      'name',
-      deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
-    );
-  };
-
-  const startDiscovery = (): void => {
-    resetDiscoveryFields('connecting');
-    discoveryUnsubscribeRef.current = DeviceScanService.discoverDriver(
-      {
-        draftPrinter: buildDraftPrinter(),
-        excludedDrivers: drivers.map((d) => d.type),
-      },
-      (event: DiscoveryEvent) => {
-        if (event.stage === DiscoveryStage.identifying) {
-          setProtocolState('detecting');
-        } else if (event.stage === DiscoveryStage.identified && event.protocol) {
-          setConnectionState('connected');
-          setProtocolState('identified');
-          setLastProtocol(event.protocol);
-          setDeviceInfo(event.deviceInfo);
-          setConnectionDirty(false);
-          addDriverToList(event.protocol, DriverSource.auto);
-          refreshUsbSerial();
-          prefillDisplayName(event.deviceInfo?.deviceName);
-        } else if (event.stage === DiscoveryStage.unknown_protocol) {
-          setConnectionState('idle');
-          setProtocolState('unknown');
-        } else if (event.stage === DiscoveryStage.error) {
-          setConnectionState('error');
-          setProtocolState('idle');
-          setConnectionErrorMessage(event.error?.message);
-        }
-      },
-    );
-  };
-
-  const onConnectPress = (): void => {
-    if (connectionType === ConnectionType.lan) {
-      lanForm.handleSubmit(() => startDiscovery())();
-    } else {
-      startDiscovery();
-    }
-  };
-
-  /**
-   * `UsbDevice.serialNumber` chỉ đọc được sau khi user cấp quyền USB (bấm "Kết
-   * nối") — lúc scan trả `null`. Gọi lại enumerate sau khi connect thành công
-   * để identityKey pin thêm serial (`usb:<vid>:<pid>:<serial>`) thay vì chỉ `vid:pid`.
-   */
-  const refreshUsbSerial = async (): Promise<void> => {
-    if (connectionType !== ConnectionType.usb || !selectedDevice) return;
-    const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
-    if (raw.serialNumber) return;
-    const devices = await USBPrinter.getDeviceList().catch(() => []);
-    const rich = devices.find((d) => Number(d.vendor_id) === Number(raw.vendor_id) && Number(d.product_id) === Number(raw.product_id));
-    if (!rich?.serialNumber) return;
-    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber: rich.serialNumber } } : prev));
-  };
-
-  const onChooseProtocol = (chosenProtocol: PrinterDriverType): void => {
-    setConnectionState('connecting');
-    setProtocolState('detecting');
-    const definitionConfig = getDriverDefinition(chosenProtocol).defaultConfig;
-    const draftDriver: PrinterDriver = {
-      type: chosenProtocol,
-      source: DriverSource.manual,
-      contentTypes: [],
-      config: { ...definitionConfig, media: { ...definitionConfig.media } },
-    };
-    const base = buildDraftPrinter();
-    const draftPrinter: Printer = { ...base, drivers: [...base.drivers, draftDriver] };
-    PrinterConnectionService.connectDraft(draftPrinter, draftDriver)
-      .then(() => {
-        setConnectionState('connected');
-        setProtocolState('identified');
-        setLastProtocol(chosenProtocol);
-        setDeviceInfo(undefined);
-        setConnectionDirty(false);
-        addDriverToList(chosenProtocol, DriverSource.manual);
-        refreshUsbSerial();
-        prefillDisplayName();
-      })
-      .catch((error: { message: string }) => {
-        setConnectionState('error');
-        setProtocolState('idle');
-        setConnectionErrorMessage(error.message);
-      });
-  };
-
-  const onConnectionTypeChange = (value: ConnectionType): void => {
-    if (drivers.length > 0) return;
-    setConnectionType(value);
-    setSelectedDevice(undefined);
-    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
-  };
-
-  const onSelectDevice = (device: PrinterDevice): void => {
-    if (drivers.length > 0) return;
-    setSelectedDevice(device);
-    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
-  };
-
-  const onLanIpChange = (text: string): void => {
-    if (drivers.length > 0) return;
-    lanForm.setValue('lanIp', text);
-    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
-  };
-
-  const onLanPortChange = (text: string): void => {
-    if (drivers.length > 0) return;
-    lanForm.setValue('lanPort', text);
-    if (connectionState !== 'idle' || protocolState !== 'idle') resetConnectionResult();
-  };
-
-  const onFetchLanIp = async (): Promise<void> => {
-    setLanIpFetchError(undefined);
-    const ip = await getCurrentWifiIp();
-    if (!ip) {
-      setDetectedLanIp(null);
-      setLanIpFetchError('Không lấy được IP — kiểm tra đã kết nối WiFi chưa');
-      return;
-    }
-    setDetectedLanIp(ip);
-  };
-
-  const onAutoFillLanIp = (): void => {
-    if (!detectedLanIp) return;
-    onLanIpChange(detectedLanIp);
-  };
-
-  const onToggleContentType = (type: PrinterDriverType, contentType: PrintType, value: boolean): void => {
-    setDrivers((prev) =>
-      prev.map((d) => {
-        if (d.type !== type) return d;
-        const contentTypes = value ? [...d.contentTypes, contentType] : d.contentTypes.filter((ct) => ct !== contentType);
-        return { ...d, contentTypes };
-      }),
-    );
-  };
-
-  const updateTsplConfig = (fn: (config: TsplDriverConfig) => TsplDriverConfig): void => {
-    setDrivers((prev) =>
-      prev.map((d) =>
-        d.type === PrinterDriverType.tspl && d.config.type === PrinterDriverType.tspl ? { ...d, config: fn(d.config) } : d,
-      ),
-    );
-  };
-
-  /**
-   * Chọn chế độ render TSPL (`bitmap` / `truetype` / `internalfont`). `truetype`
-   * kéo theo bước cài font (`installTsplFont`) — thất bại thì KHÔNG đổi
-   * renderMode (spec §6/§7). `bitmap`/`internalfont` chỉ set config. Mọi nhánh
-   * persist đối xứng qua `PrinterService` — no-op nếu là draft chưa lưu, `Save`
-   * lo phần đó.
-   */
-  const onSelectTsplRenderMode = async (mode: TsplRenderMode): Promise<void> => {
-    const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
-
-    if (mode === TsplRenderMode.truetype) {
-      const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
-      setTsplFontPending(true);
-      try {
-        await PrinterConfigService.installTsplFont(printerId, font);
-        updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } }));
-      } catch (error) {
-        setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'Cài font TrueType thất bại — vẫn dùng chế độ Bitmap');
-      } finally {
-        setTsplFontPending(false);
-      }
-      return;
-    }
-
-    if (mode === TsplRenderMode.internalfont) {
-      const internalFont = tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT;
-      updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.internalfont, internalFont }));
-      PrinterConfigService.setTsplInternalFont(printerId, internalFont);
-      return;
-    }
-
-    updateTsplConfig((config) => ({ ...config, renderMode: TsplRenderMode.bitmap }));
-    PrinterConfigService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
-  };
-
-  const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
-    const entry = drivers.find((d) => d.type === driverType);
-    if (!entry) return;
-    let media = { ...entry.config.media, ...patch } as PrintMedia;
-    if (media.type === PrintMediaType.dieCut) {
-      media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
-    }
-    setDrivers((prev) => prev.map((d) => (d.type === driverType ? { ...d, config: { ...d.config, media } } : d)));
-    // Persist media ĐÃ MERGE (kể cả die_cut auto-fill), không phải raw patch:
-    // với printer đang SỬA, `setDriverMedia` ghi thật ngay → raw `{ type: 'die_cut' }`
-    // sẽ lưu media không hợp lệ nếu user thoát không Save (final-review Important 2).
-    PrinterConfigService.setDriverMedia(printerId, driverType, media);
-  };
-
-  const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
-    const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
-    const next = { ...(tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT), ...patch };
-    updateTsplConfig((config) => ({ ...config, internalFont: next }));
-    PrinterConfigService.setTsplInternalFont(printerId, next);
-  };
-
-  const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
-    if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) return { text: document };
-    const base64 = await captureBillImage(document, mediaOf(driver));
-    if (!base64) return { text: document };
-    return { text: document, image: base64 };
-  };
-
-  const runTestPrint = async (
-    setPending: (pending: boolean) => void,
-    printType: PrintType,
-    sampleDocument: PrintDocument,
-  ): Promise<void> => {
-    const driver = drivers.find((d) => d.contentTypes.includes(printType));
-    if (!driver) return;
-    const printer = buildDraftPrinter();
-    const valid = await displayForm.trigger();
-    if (!valid) return;
-    setPending(true);
-    setTestPrintErrorMessage(null);
-    try {
-      const documents = await resolveTestPrintDocuments(driver, sampleDocument);
-      const options = printType === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
-      await PrinterConnectionService.testPrint(printer, driver, documents, printType, options);
-    } catch (error) {
-      setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const onTestPrintReceipt = (): Promise<void> => runTestPrint(setTestPrintReceiptPending, PrintType.Receipt, buildSampleReceiptDocument());
-  const onTestPrintLabel = (): Promise<void> => runTestPrint(setTestPrintLabelPending, PrintType.Label, buildSampleLabelDocument());
-
   const onSave = displayForm.handleSubmit(() => {
     if (drivers.length === 0) return;
     const printer = buildDraftPrinter();
@@ -518,60 +251,60 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     showAddDriverHint: drivers.length > 0 && drivers.length < 2,
     hasEmptyContentTypeDriver,
     captureNode,
-    testPrintErrorMessage,
+    testPrintErrorMessage: testPrint.testPrintErrorMessage,
     saveErrorMessage,
-    clearTestPrintError: () => setTestPrintErrorMessage(null),
+    clearTestPrintError: () => testPrint.setTestPrintErrorMessage(null),
     clearSaveError: () => setSaveErrorMessage(null),
     connectionSection: {
       connectionType,
-      onConnectionTypeChange,
+      onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
       selectedDeviceId: selectedDevice?.deviceId,
-      onSelectDevice,
+      onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
       lanPort: lanForm.watch('lanPort'),
-      onLanIpChange,
-      onLanPortChange,
-      detectedLanIp,
-      lanIpFetchError,
-      onFetchLanIp,
-      onAutoFillLanIp,
+      onLanIpChange: connectionSetup.onLanIpChange,
+      onLanPortChange: connectionSetup.onLanPortChange,
+      detectedLanIp: connectionSetup.detectedLanIp,
+      lanIpFetchError: connectionSetup.lanIpFetchError,
+      onFetchLanIp: connectionSetup.onFetchLanIp,
+      onAutoFillLanIp: connectionSetup.onAutoFillLanIp,
       lanIpError: lanForm.formState.errors.lanIp?.message,
       lanPortError: lanForm.formState.errors.lanPort?.message,
       connectLabel,
       connectDisabled,
-      onConnectPress,
+      onConnectPress: protocolDiscovery.onConnectPress,
       disabled: drivers.length > 0,
     },
     statusPanel: {
       connectionState,
       protocolState,
-      protocol: lastProtocol,
+      protocol: protocolDiscovery.lastProtocol,
       deviceInfo,
-      errorMessage: connectionErrorMessage,
+      errorMessage: protocolDiscovery.connectionErrorMessage,
       excludedDrivers: drivers.map((d) => d.type),
-      onChooseProtocol,
+      onChooseProtocol: protocolDiscovery.onChooseProtocol,
     },
     infoCard: {
       control: displayForm.control,
       errors: displayForm.formState.errors,
       connectionType,
       drivers,
-      onToggleContentType,
+      onToggleContentType: driverConfig.onToggleContentType,
       deviceInfo,
       status: liveStatus,
       autoReconnect,
       onAutoReconnectChange: setAutoReconnect,
-      testPrintReceiptPending,
-      onTestPrintReceipt,
-      testPrintLabelPending,
-      onTestPrintLabel,
-      onSelectTsplRenderMode,
-      onChangeTsplInternalFont,
-      onChangeDriverMedia,
-      testPrintRowsText,
-      onTestPrintRowsChange: setTestPrintRowsText,
+      testPrintReceiptPending: testPrint.testPrintReceiptPending,
+      onTestPrintReceipt: testPrint.onTestPrintReceipt,
+      testPrintLabelPending: testPrint.testPrintLabelPending,
+      onTestPrintLabel: testPrint.onTestPrintLabel,
+      onSelectTsplRenderMode: driverConfig.onSelectTsplRenderMode,
+      onChangeTsplInternalFont: driverConfig.onChangeTsplInternalFont,
+      onChangeDriverMedia: driverConfig.onChangeDriverMedia,
+      testPrintRowsText: testPrint.testPrintRowsText,
+      onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       hasTsplDriver: drivers.some((d) => d.type === PrinterDriverType.tspl),
-      tsplFontPending,
+      tsplFontPending: driverConfig.tsplFontPending,
       onSave,
       saveDisabled:
         drivers.length === 0 ||
