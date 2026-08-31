@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { getDriverDefinition } from '../drivers/driverDefinitions';
-import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrintMediaType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
-import type { PrintMedia } from '../types/printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../types/printer.types';
+import { CutterMode, PrintMediaType } from '../models/media/PrintMedia';
+import type { PrintMedia } from '../models/media/PrintMedia';
 import { PrintType } from '../models/printing/PrintType';
 import { dieCutRowOverflow } from '../media/validation';
 

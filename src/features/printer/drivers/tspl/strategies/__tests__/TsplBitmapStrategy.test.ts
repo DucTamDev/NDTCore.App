@@ -3,7 +3,8 @@ import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../models/printing/PrintType';
-import type { Printer, PrinterDriver, PrintMedia } from '../../../../types/printer.types';
+import type { Printer, PrinterDriver } from '../../../../types/printer.types';
+import type { PrintMedia } from '../../../../models/media/PrintMedia';
 import { decodePngBase64ToMonochrome } from '../../../../utils/pngToMonochrome';
 
 jest.mock('../../../../utils/pngToMonochrome', () => {

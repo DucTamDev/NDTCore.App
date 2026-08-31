@@ -1,7 +1,7 @@
-import type { PrintDocument } from '../printDocument.types';
-import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../printJob.types';
-import { PrinterErrorCode } from '../../errors/PrinterError';
-import { PrintType } from '../../models/printing/PrintType';
+import type { PrintDocument } from '../PrintDocument';
+import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../PrintJob';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
+import { PrintType } from '../PrintType';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 

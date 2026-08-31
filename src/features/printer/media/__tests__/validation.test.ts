@@ -1,6 +1,6 @@
 import { dieCutRowOverflow, dieCutMediaError } from '../validation';
-import { PrintMediaType } from '../../types/printer.types';
-import type { PrintMedia } from '../../types/printer.types';
+import { PrintMediaType } from '../../models/media/PrintMedia';
+import type { PrintMedia } from '../../models/media/PrintMedia';
 
 const die = (o: Partial<PrintMedia>): PrintMedia => ({
   type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, ...o,

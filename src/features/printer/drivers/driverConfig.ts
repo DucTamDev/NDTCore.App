@@ -1,11 +1,10 @@
 import { PrinterDriverType } from '../types/printer.types';
 import type {
-  PaperSize,
   PrinterDriver,
-  PrintMedia,
   TsplInternalFontConfig,
   TsplRenderMode,
 } from '../types/printer.types';
+import type { PaperSize, PrintMedia } from '../models/media/PrintMedia';
 
 /**
  * `renderMode` đã cấu hình của driver TSPL — chỉ là ý định khai báo, không quan

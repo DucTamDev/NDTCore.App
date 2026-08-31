@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
-import { PrintMediaType, PrinterDriverType, type PaperSize, type PrintMedia } from '../types/printer.types';
+import { PrinterDriverType } from '../types/printer.types';
+import { PrintMediaType, type PaperSize, type PrintMedia } from '../models/media/PrintMedia';
 import { dieCutMediaError } from '../media/validation';
 
 const PAPER_SIZE_OPTIONS = [58, 80, 100, 104].map((n) => ({ label: `${n}mm`, value: String(n) }));

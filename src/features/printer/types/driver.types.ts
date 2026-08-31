@@ -1,5 +1,5 @@
 import type { ConnectionType, DeviceScanEvent, Printer, PrinterDeviceInfo, PrinterDriver, PrinterStatus } from './printer.types';
-import type { PrintDocument } from './printDocument.types';
+import type { PrintDocument } from '../models/printing/PrintDocument';
 import type { PrintType } from '../models/printing/PrintType';
 
 export type Unsubscribe = () => void;

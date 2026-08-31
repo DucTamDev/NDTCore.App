@@ -5,7 +5,7 @@ import { createResourceLock } from '../../PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import type { IPrinterDriver } from '../../../types/driver.types';
 import { ConnectionType, PrinterStatus, type Printer } from '../../../types/printer.types';
-import { PrintJobStatus, type PrintJob } from '../../../types/printJob.types';
+import { PrintJobStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../../testing/printerFixtures';
 

@@ -1,5 +1,5 @@
-import { PrintMediaType } from '../types/printer.types';
-import type { PrintMedia } from '../types/printer.types';
+import { PrintMediaType } from '../models/media/PrintMedia';
+import type { PrintMedia } from '../models/media/PrintMedia';
 import { PAPER_SIZE_SPECS } from './paperSpec';
 
 /**

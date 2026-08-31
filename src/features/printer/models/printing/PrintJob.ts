@@ -1,6 +1,6 @@
-import type { PrinterError } from '../errors/PrinterError';
-import type { PrintDocuments } from './driver.types';
-import type { PrintType } from '../models/printing/PrintType';
+import type { PrinterError } from '../../errors/PrinterError';
+import type { PrintDocuments } from '../../types/driver.types';
+import type { PrintType } from './PrintType';
 
 export const PrintJobStatus = {
   pending: 'pending',

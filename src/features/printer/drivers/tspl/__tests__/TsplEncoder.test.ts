@@ -1,7 +1,7 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintType } from '../../../models/printing/PrintType';
-import { PrintMediaType, CutterMode } from '../../../types/printer.types';
-import type { PrintMedia } from '../../../types/printer.types';
+import { PrintMediaType, CutterMode } from '../../../models/media/PrintMedia';
+import type { PrintMedia } from '../../../models/media/PrintMedia';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
 const CONT = (paperSize: PrintMedia['paperSize'] = 58): PrintMedia => ({ type: PrintMediaType.continuous, paperSize });

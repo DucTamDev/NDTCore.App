@@ -1,5 +1,5 @@
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import type { PaperSize } from '../../types/printer.types';
+import type { PaperSize } from '../../models/media/PrintMedia';
 import type { PrintDocuments } from '../../types/driver.types';
 import { PAPER_SIZE_SPECS } from '../../media/paperSpec';
 import { formatRow } from '../../utils/formatRow';

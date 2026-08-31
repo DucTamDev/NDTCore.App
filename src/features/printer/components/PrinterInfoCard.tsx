@@ -14,7 +14,8 @@ import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
 import { PrintType } from '../models/printing/PrintType';
 import { DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
 import { mediaOf } from '../drivers/driverConfig';
-import type { ConnectionType, PrintMedia, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
+import type { ConnectionType, PrinterDeviceInfo, PrinterDriver, TsplInternalFontConfig } from '../types/printer.types';
+import type { PrintMedia } from '../models/media/PrintMedia';
 
 const connectionLabel: Record<ConnectionType, string> = {
   usb: 'USB',

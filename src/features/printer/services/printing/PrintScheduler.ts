@@ -2,7 +2,7 @@ import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../.
 import { PrinterConnectionService } from '../PrinterConnectionService';
 import { PrinterRepository } from '../PrinterRepository';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../PrinterConnectionLock';
-import { PrintJobStatus, type PrintJob } from '../../types/printJob.types';
+import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 
 type PrintDispatchDeps = { print: typeof PrinterConnectionService.print; getPrinters: typeof PrinterRepository.getPrinters };
 type ResourceLockLike = ReturnType<typeof createResourceLock>;

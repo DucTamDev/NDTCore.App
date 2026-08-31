@@ -1,14 +1,14 @@
 import { PrintService, type PrintDocuments } from '../../printer/services/printing/PrintService';
-import { PrintResultStatus } from '../../printer/types/printJob.types';
+import { PrintResultStatus } from '../../printer/models/printing/PrintJob';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { formatDateTime, PAYMENT_METHOD_LABEL } from '../utils/billFormat';
 import { SERVICE_TYPE_LABELS } from '../types/cart.types';
 import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
 import type { StoreViewModel } from '../../store/types/store.types';
-import type { PrintDocument, PrintElement } from '../../printer/types/printDocument.types';
+import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintType } from '../../printer/models/printing/PrintType';
-import type { PrintMedia } from '../../printer/types/printer.types';
+import type { PrintMedia } from '../../printer/models/media/PrintMedia';
 
 interface BillItem {
   name: string;

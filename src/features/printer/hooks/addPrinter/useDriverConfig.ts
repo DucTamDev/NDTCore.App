@@ -3,8 +3,10 @@ import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DEFAULT_TSPL_FONT } from '../../drivers/tspl/TsplFontManager';
 import { DEFAULT_TSPL_INTERNAL_FONT } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
-import { PrinterDriverType, PrintMediaType, TsplRenderMode } from '../../types/printer.types';
-import type { PrintMedia, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../types/printer.types';
+import { PrinterDriverType, TsplRenderMode } from '../../types/printer.types';
+import type { PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../types/printer.types';
+import { PrintMediaType } from '../../models/media/PrintMedia';
+import type { PrintMedia } from '../../models/media/PrintMedia';
 import type { PrintType } from '../../models/printing/PrintType';
 
 /**

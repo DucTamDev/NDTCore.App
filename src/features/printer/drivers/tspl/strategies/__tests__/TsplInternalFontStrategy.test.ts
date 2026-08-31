@@ -1,7 +1,7 @@
 import { TsplInternalFontStrategy } from '../TsplInternalFontStrategy';
 import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
-import type { PrintMedia } from '../../../../types/printer.types';
+import type { PrintMedia } from '../../../../models/media/PrintMedia';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../types/printer.types';
 import { PrintType } from '../../../../models/printing/PrintType';

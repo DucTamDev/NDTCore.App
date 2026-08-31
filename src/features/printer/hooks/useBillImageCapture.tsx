@@ -3,9 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { BillImagePreview } from '../components/BillImagePreview';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../media/paperSpec';
-import type { PrintDocument } from '../types/printDocument.types';
-import type { PrintMedia } from '../types/printer.types';
-import { PrintMediaType } from '../types/printer.types';
+import type { PrintDocument } from '../models/printing/PrintDocument';
+import type { PrintMedia } from '../models/media/PrintMedia';
+import { PrintMediaType } from '../models/media/PrintMedia';
 
 export interface UseBillImageCapture {
   /** Render `{captureNode}` vào JSX của component gọi hook này — capture cần 1 View thật đã mount, không tự tạo tree được từ tầng service. */

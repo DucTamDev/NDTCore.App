@@ -1,5 +1,5 @@
 import { formatCurrency } from '../../../utils/formatCurrency';
-import type { PrintDocument, PrintElement } from '../types/printDocument.types';
+import type { PrintDocument, PrintElement } from '../models/printing/PrintDocument';
 
 /**
  * `document` cho "In bill thử"/"In tem thử" (`AddPrinterModal`, `PrinterInfoCard`) — trước đây

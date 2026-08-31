@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { PrintDocument, PrintElement } from '../types/printDocument.types';
+import type { PrintDocument, PrintElement } from '../models/printing/PrintDocument';
 
 export interface BillImagePreviewProps {
   document: PrintDocument;

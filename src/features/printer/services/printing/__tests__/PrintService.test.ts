@@ -1,7 +1,7 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
 import { ConnectionType, DriverSource, PrinterDriverType, TsplRenderMode, type Printer, type PrinterDriver } from '../../../types/printer.types';
-import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../types/printJob.types';
+import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { PrintType } from '../../../models/printing/PrintType';
 import { makeTsplDriverEntry } from '../../../testing/printerFixtures';

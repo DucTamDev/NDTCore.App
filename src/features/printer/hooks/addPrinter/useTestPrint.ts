@@ -5,7 +5,7 @@ import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../util
 import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../types/driver.types';
-import type { PrintDocument } from '../../types/printDocument.types';
+import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintType } from '../../models/printing/PrintType';
 import { TsplRenderMode } from '../../types/printer.types';
 import type { Printer, PrinterDriver } from '../../types/printer.types';

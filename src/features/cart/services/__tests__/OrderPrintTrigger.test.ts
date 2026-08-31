@@ -1,9 +1,9 @@
 import { buildReceiptDocument, buildReprintDocument, printReceipt } from '../OrderPrintTrigger';
 import { PrintService } from '../../../printer/services/printing/PrintService';
-import { PrintResultStatus } from '../../../printer/types/printJob.types';
+import { PrintResultStatus } from '../../../printer/models/printing/PrintJob';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
-import type { PrintRowElement, PrintTextElement } from '../../../printer/types/printDocument.types';
+import type { PrintRowElement, PrintTextElement } from '../../../printer/models/printing/PrintDocument';
 import type { StoreViewModel } from '../../../store/types/store.types';
 import { PrintType } from '../../../printer/models/printing/PrintType';
 

@@ -1,5 +1,6 @@
 import type { IPrinterDriver } from '../driver.types';
-import { ConnectionType, CutterMode, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../printer.types';
+import { CutterMode } from '../../models/media/PrintMedia';
 import { PrintType } from '../../models/printing/PrintType';
 
 describe('printer domain types', () => {

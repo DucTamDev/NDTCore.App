@@ -1,5 +1,6 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrintMediaType, TsplRenderMode } from '../../../types/printer.types';
+import { TsplRenderMode } from '../../../types/printer.types';
+import { PrintMediaType } from '../../../models/media/PrintMedia';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../media/cutter';
