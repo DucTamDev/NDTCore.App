@@ -24,9 +24,9 @@ export interface UsePrinterList extends PrinterListActions {
 
 /**
  * Nguồn đọc + ghi danh sách máy in cho tầng UI. Storage (MMKV qua
- * `PrinterService`) là nguồn sự thật; store Redux chỉ là bản cache để component
+ * `PrinterRepository`) là nguồn sự thật; store Redux chỉ là bản cache để component
  * subscribe reactive — cùng mô hình `usePrinterConnection` dùng cho trạng thái
- * kết nối. Component KHÔNG tự gọi `PrinterService` để ghi: mọi mutation đi qua
+ * kết nối. Component KHÔNG tự gọi `PrinterRepository` để ghi: mọi mutation đi qua
  * hook này để storage và store luôn đồng bộ trong 1 bước.
  */
 export const usePrinterList = (): UsePrinterList => {

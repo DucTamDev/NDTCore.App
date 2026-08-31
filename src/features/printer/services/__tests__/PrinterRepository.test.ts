@@ -1,7 +1,7 @@
 import { createPrinterRepository } from '../PrinterRepository';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { type Printer } from '../../types/printer.types';
-import { basePrinter } from './printerServiceTestKit';
+import { basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 

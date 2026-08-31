@@ -61,7 +61,7 @@ const render = () => {
 describe('usePrinterList', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('loads printers from PrinterService into the store on mount', () => {
+  it('loads printers from PrinterRepository into the store on mount', () => {
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer()]);
     const { get } = render();
     expect(PrinterRepository.getPrinters).toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe('usePrinterList', () => {
     expect(get().printers).toHaveLength(2);
   });
 
-  it('setEnabled() writes through PrinterService and updates the store', () => {
+  it('setEnabled() writes through PrinterRepository and updates the store', () => {
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer({ enabled: true })]);
     const { get } = render();
     act(() => get().setEnabled('p1', false));
@@ -85,7 +85,7 @@ describe('usePrinterList', () => {
     expect(get().printers.find((p) => p.id === 'p1')?.enabled).toBe(false);
   });
 
-  it('remove() writes through PrinterService and drops it from the store', () => {
+  it('remove() writes through PrinterRepository and drops it from the store', () => {
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
     const { get } = render();
     act(() => get().remove('p1'));
@@ -93,7 +93,7 @@ describe('usePrinterList', () => {
     expect(get().printers.map((p) => p.id)).toEqual(['p2']);
   });
 
-  it('connect/disconnect/reconnect delegate to PrinterService and swallow rejections', async () => {
+  it('connect/disconnect/reconnect delegate to PrinterConnectionService and swallow rejections', async () => {
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (PrinterConnectionService.connect as jest.Mock).mockRejectedValueOnce(new Error('boom'));
     const { get } = render();

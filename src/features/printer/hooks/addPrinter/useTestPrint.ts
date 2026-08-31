@@ -76,8 +76,6 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
     setTestPrintErrorMessage,
     testPrintRowsText,
     setTestPrintRowsText,
-    resolveTestPrintDocuments,
-    runTestPrint,
     onTestPrintReceipt,
     onTestPrintLabel,
     clearTestPrintError,

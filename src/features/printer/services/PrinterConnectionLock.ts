@@ -1,5 +1,5 @@
 import { ConnectionType, PrinterDriverType } from '../types/printer.types';
-import type { PrinterDevice, PrinterLanConfig } from '../types/printer.types';
+import type { Printer, PrinterDevice, PrinterLanConfig } from '../types/printer.types';
 import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;
@@ -38,8 +38,16 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
 };
 
 /**
+ * Tra resource key từ 1 `Printer` + driver cụ thể — helper dùng chung bởi
+ * `PrinterConnectionService` và `PrinterConfigService` (trước đây copy verbatim
+ * ở cả 2 file), chỉ là wrapper mỏng quanh `connectionResourceKey`.
+ */
+export const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
+  connectionResourceKey({ driverType, connectionType: printer.connectionType, device: printer.device, lan: printer.lan });
+
+/**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi
- * `PrintScheduler` (hàng đợi in) và `PrinterService.testPrint()` (thao tác
+ * `PrintScheduler` (hàng đợi in) và `PrinterConnectionService.testPrint()` (thao tác
  * thủ công "In thử"), để 2 đường gọi này không bao giờ chạm cùng 1 kết nối
  * native cùng lúc.
  */

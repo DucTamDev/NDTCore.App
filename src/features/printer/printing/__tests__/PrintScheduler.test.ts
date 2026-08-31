@@ -25,7 +25,7 @@ const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
   });
 
 describe('PrintScheduler', () => {
-  it('enqueue() resolves with status success when PrinterService.print resolves', async () => {
+  it('enqueue() resolves with status success when PrinterConnectionService.print resolves', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
@@ -33,7 +33,7 @@ describe('PrintScheduler', () => {
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and an PrinterError when PrinterService.print rejects', async () => {
+  it('enqueue() resolves with status failed and an PrinterError when PrinterConnectionService.print rejects', async () => {
     const printerService = {
       print: jest.fn().mockRejectedValue(new PrinterErrorException({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
@@ -145,7 +145,7 @@ describe('PrintScheduler', () => {
     expect(maxInFlight).toBe(2);
   });
 
-  it('serializes a scheduled print() job against a manual PrinterService.testPrint() call sharing the same lock', async () => {
+  it('serializes a scheduled print() job against a manual PrinterConnectionService.testPrint() call sharing the same lock', async () => {
     const order: string[] = [];
     const escposIPrinterDriver: IPrinterDriver = {
       scan: jest.fn().mockReturnValue(() => undefined),
@@ -165,7 +165,7 @@ describe('PrintScheduler', () => {
       identify: jest.fn().mockResolvedValue(null),
     };
     // Chung 1 lock — đây chính là cầu nối giữa PrintScheduler (đơn hàng thật)
-    // và PrinterService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
+    // và PrinterConnectionService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
     // multi-printer race lần trước không đủ (chỉ khoá được PrintScheduler).
     const lock = createResourceLock();
     const repository = createPrinterRepository();

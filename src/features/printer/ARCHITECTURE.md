@@ -199,74 +199,31 @@ Cart / Order
 PrintService
 ```
 
-Không dùng `PrinterService.print()` trực tiếp từ business feature.
+Không dùng `PrinterConnectionService.print()` trực tiếp từ business feature.
 
 ---
 
 # 6. PrinterService
 
-`PrinterService` là **Facade** của Printer Feature.
-
-Responsibility:
+Printer management được fronted bởi 4 service tập trung dưới
+`src/features/printer/services/`, thay cho một facade `PrinterService` gộp:
 
 ```text
-CRUD
-connect
-disconnect
-status
-discovery
-test print
-font installation
-manual driver selection
+PrinterRepository
+→ CRUD + identity dedup + printerSchema.parse
+
+PrinterConnectionService
+→ connect / disconnect / reconnect / status / testPrint / print / draft
+
+PrinterConfigService
+→ installTsplFont / setTsplRenderMode / setTsplInternalFont / setDriverMedia
+
+DeviceScanService
+→ scanDevices / scanForConnectionType / discoverDriver
 ```
 
-Ví dụ:
-
-```ts
-interface PrinterService {
-  getPrinters(): Printer[];
-
-  addPrinter(input: AddPrinterInput): Promise<Printer>;
-
-  updatePrinter(
-    printerId: string,
-    input: UpdatePrinterInput,
-  ): Promise<Printer>;
-
-  removePrinter(
-    printerId: string,
-  ): Promise<void>;
-
-  connect(
-    printerId: string,
-  ): Promise<void>;
-
-  disconnect(
-    printerId: string,
-  ): Promise<void>;
-
-  getStatus(
-    printerId: string,
-  ): PrinterStatus;
-
-  discoverDriver(
-    input: DiscoveryInput,
-    onEvent?: DiscoveryListener,
-  ): Promise<DiscoveryResult>;
-
-  testPrint(
-    printer: Printer,
-    driver: PrinterDriver,
-    documents: PrintDocuments,
-    printType: PrintType,
-  ): Promise<void>;
-
-  installTsplFont(
-    printerId: string,
-    config: TsplFontConfig,
-  ): Promise<void>;
-}
-```
+Connection lock singleton (`services/PrinterConnectionLock.ts`) được share bởi
+`PrinterConnectionService`, `PrinterConfigService`, và `PrintScheduler`.
 
 ---
 
@@ -2650,8 +2607,17 @@ Không gọi native trực tiếp.
 # 111. File Responsibility
 
 ```text
-PrinterService.ts
-→ public printer facade
+services/PrinterRepository.ts
+→ CRUD + identity dedup + schema validation
+
+services/PrinterConnectionService.ts
+→ connect / disconnect / reconnect / status / testPrint / print / draft
+
+services/PrinterConfigService.ts
+→ installTsplFont / setTsplRenderMode / setTsplInternalFont / setDriverMedia
+
+services/DeviceScanService.ts
+→ scanDevices / scanForConnectionType / discoverDriver
 
 PrintService.ts
 → production print entry point
@@ -2722,19 +2688,19 @@ MockPrinterAdapter
 # 113. Utility Responsibility
 
 ```text
-paperSize.ts
+media/paperSpec.ts
 → PAPER_SIZE_SPECS (printable mm / chars-per-line / image px theo khổ) + DOTS_PER_MM
 
-driverConfig.ts
+drivers/driverConfig.ts
 → accessor thuần trên PrinterDriver.config: mediaOf / paperSizeOf / tsplRenderModeOf
 
-cutter.ts
+media/cutter.ts
 → resolveEffectiveCutterMode (áp ràng buộc vật lý lên media.cutterMode)
 
 formatRow.ts
 → căn 1 dòng "nhãn ... giá trị" cho đúng width ký tự
 
-mediaValidation.ts
+media/validation.ts
 → die-cut media hợp lệ (đủ field, vừa khổ giấy)
 
 monochromeBitmap.ts

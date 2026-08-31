@@ -44,7 +44,7 @@ export interface UseAddPrinterFlow {
  * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
  * cài font TrueType, in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ
  * còn render + wiring: mọi state machine (connection/protocol), side-effect vòng
- * đời kết nối và gọi `PrinterService` nằm ở đây.
+ * đời kết nối và gọi các service máy in nằm ở đây.
  *
  * Coordinator sở hữu state chồng lấn (`drivers`, `displayForm`, `autoReconnect`,
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
@@ -167,6 +167,14 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     refreshUsbSerial: connectionSetup.refreshUsbSerial,
     prefillDisplayName,
   });
+  /**
+   * `useConnectionSetup` và `useProtocolDiscovery` phụ thuộc 2 chiều (connection
+   * cần connectionState/reset từ discovery; discovery cần connectionType/lanForm
+   * từ connection). Coordinator giữ `discoveryRef` làm cầu: gán trong render,
+   * `useConnectionSetup` đọc qua getter tại thời điểm event → luôn là giá trị
+   * render đã commit, tương đương closure gốc. Không tách được cycle mà không
+   * gộp 2 hook — chấp nhận cầu này.
+   */
   discoveryRef.current = {
     connectionState: protocolDiscovery.connectionState,
     protocolState: protocolDiscovery.protocolState,
@@ -253,7 +261,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     captureNode,
     testPrintErrorMessage: testPrint.testPrintErrorMessage,
     saveErrorMessage,
-    clearTestPrintError: () => testPrint.setTestPrintErrorMessage(null),
+    clearTestPrintError: testPrint.clearTestPrintError,
     clearSaveError: () => setSaveErrorMessage(null),
     connectionSection: {
       connectionType,

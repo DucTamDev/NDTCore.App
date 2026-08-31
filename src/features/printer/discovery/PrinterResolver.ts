@@ -11,7 +11,7 @@ export interface ResolveIdentityKeyInput {
  * Tính identityKey của 1 physical printer — CHỈ phụ thuộc connectionType +
  * device/lan, không phụ thuộc driver/protocol nào được gán (spec §6.1).
  * KHÔNG tự quyết định "có phải trùng lặp không" — so khớp với printer đã lưu
- * là việc của `printing/PrinterService.ts` (spec §6.2).
+ * là việc của `services/PrinterRepository.ts` (spec §6.2).
  *
  * USB: `usb:<vid>:<pid>[:<serial>]`. `deviceId` của `PrinterDevice` USB đã là
  * `"<vendor_id>:<product_id>"`. Serial (từ `USBPrinter.getDeviceList()`, cần quyền

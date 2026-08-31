@@ -143,9 +143,7 @@ export const useProtocolDiscovery = ({
     deviceInfo,
     connectionErrorMessage,
     connectionDirty,
-    resetDiscoveryFields,
     resetConnectionResult,
-    startDiscovery,
     onConnectPress,
     onChooseProtocol,
   };

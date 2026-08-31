@@ -4,11 +4,11 @@ import { PrinterRepository } from '../services/PrinterRepository';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../services/PrinterConnectionLock';
 import { PrintJobStatus, type PrintJob } from '../types/printJob.types';
 
-type PrinterServiceLike = { print: typeof PrinterConnectionService.print; getPrinters: typeof PrinterRepository.getPrinters };
+type PrintDispatchDeps = { print: typeof PrinterConnectionService.print; getPrinters: typeof PrinterRepository.getPrinters };
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
 
 export const createPrintScheduler = (
-  printerService: PrinterServiceLike,
+  printerService: PrintDispatchDeps,
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
   const toPrinterError = (error: unknown): PrinterError =>

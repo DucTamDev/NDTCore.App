@@ -5,7 +5,7 @@ import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer } from '../../types/printer.types';
 import { PrinterErrorCode } from '../../types/PrinterError';
 import { PrinterLogger } from '../PrinterLogger';
-import { makeMockDriver, tsplDriverEntry, basePrinter } from './printerServiceTestKit';
+import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -31,7 +31,7 @@ describe('PrinterConfigService', () => {
     const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, repository, lock);
-    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
+    const twoDriverPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry, tsplDriverEntry] };
     repository.addPrinter(twoDriverPrinter);
     const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
 

@@ -153,7 +153,7 @@ export const PrinterLogger = {
   /**
    * Font-install = op DOWNLOAD tường minh (§126). `connectionType` optional vì
    * `AddPrinterModal` gọi trên draft chưa lưu — lúc đó chưa có `Printer` object
-   * để lấy connectionType (xem `PrinterService.installTsplFont`).
+   * để lấy connectionType (xem `PrinterConfigService.installTsplFont`).
    */
   fontInstallSucceeded(params: { printerId: string; connectionType?: ConnectionType; durationMs: number }): void {
     LoggerService.info('printer.font-install.succeeded', withStdFields('font-install', 'success', params));

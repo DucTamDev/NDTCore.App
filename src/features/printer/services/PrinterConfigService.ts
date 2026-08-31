@@ -1,11 +1,11 @@
 import type { IPrinterDriver } from '../types/driver.types';
 import { PrinterDriverType, PrinterStatus, TsplRenderMode } from '../types/printer.types';
-import type { Printer, PrintMedia, TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
+import type { PrintMedia, TsplFontConfig, TsplInternalFontConfig } from '../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../types/PrinterError';
 import { PrinterLogger } from './PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from './PrinterRepository';
 import type { TsplDriver } from '../drivers/tspl/TsplDriver';
 
@@ -27,9 +27,6 @@ export const createPrinterConfigService = (
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
   const getDriver = (type: PrinterDriverType): IPrinterDriver => registry[type];
-
-  const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
-    connectionResourceKey({ driverType, connectionType: printer.connectionType, device: printer.device, lan: printer.lan });
 
   /**
    * Rơi về `printerId` nếu chưa lưu (flow thêm máy in mới trong

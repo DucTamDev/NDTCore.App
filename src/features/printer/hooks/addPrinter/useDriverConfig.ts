@@ -49,7 +49,7 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
    * Chọn chế độ render TSPL (`bitmap` / `truetype` / `internalfont`). `truetype`
    * kéo theo bước cài font (`installTsplFont`) — thất bại thì KHÔNG đổi
    * renderMode (spec §6/§7). `bitmap`/`internalfont` chỉ set config. Mọi nhánh
-   * persist đối xứng qua `PrinterService` — no-op nếu là draft chưa lưu, `Save`
+   * persist đối xứng qua `PrinterConfigService` — no-op nếu là draft chưa lưu, `Save`
    * lo phần đó.
    */
   const onSelectTsplRenderMode = async (mode: TsplRenderMode): Promise<void> => {
@@ -106,7 +106,6 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
   return {
     tsplFontPending,
     onToggleContentType,
-    updateTsplConfig,
     onSelectTsplRenderMode,
     onChangeDriverMedia,
     onChangeTsplInternalFont,

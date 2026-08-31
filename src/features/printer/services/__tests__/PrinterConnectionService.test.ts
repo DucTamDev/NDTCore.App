@@ -4,7 +4,7 @@ import { createResourceLock } from '../PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { PrinterStatus, type Printer } from '../../types/printer.types';
 import { PrintType } from '../../types/printConfiguration.types';
-import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from './printerServiceTestKit';
+import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 

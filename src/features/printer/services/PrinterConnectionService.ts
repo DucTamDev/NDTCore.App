@@ -4,7 +4,7 @@ import type { Printer, PrinterDriver } from '../types/printer.types';
 import type { PrintType } from '../types/printConfiguration.types';
 import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
 import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from './PrinterRepository';
 
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
@@ -24,9 +24,6 @@ export const createPrinterConnectionService = (
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
   const getDriver = (type: PrinterDriverType): IPrinterDriver => registry[type];
-
-  const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
-    connectionResourceKey({ driverType, connectionType: printer.connectionType, device: printer.device, lan: printer.lan });
 
   /**
    * Kết nối TẤT CẢ driver của printer, qua khoá tài nguyên riêng cho từng
@@ -114,7 +111,6 @@ export const createPrinterConnectionService = (
     getDriver(type).onStatusChange(printerId, callback);
 
   return {
-    resourceKeyFor,
     connect,
     disconnect,
     reconnect,

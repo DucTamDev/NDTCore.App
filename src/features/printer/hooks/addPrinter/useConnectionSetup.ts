@@ -139,9 +139,7 @@ export const useConnectionSetup = ({
 
   return {
     connectionType,
-    setConnectionType,
     selectedDevice,
-    setSelectedDevice,
     lanForm,
     detectedLanIp,
     lanIpFetchError,

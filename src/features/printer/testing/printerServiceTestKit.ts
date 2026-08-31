@@ -1,13 +1,13 @@
-import type { IPrinterDriver } from '../../types/driver.types';
-import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../../types/printer.types';
-import { PrintType } from '../../types/printConfiguration.types';
+import type { IPrinterDriver } from '../types/driver.types';
+import { ConnectionType, DriverSource, PrinterDriverType, PrinterStatus, TsplRenderMode, type Printer, type PrinterDriver } from '../types/printer.types';
+import { PrintType } from '../types/printConfiguration.types';
 
 /**
  * Fixture dùng chung cho 4 file test service (Repository/Connection/Config/
- * DeviceScan) — không phải test suite (Jest bỏ qua qua `testPathIgnorePatterns`).
+ * DeviceScan) — nằm ngoài `__tests__/` và không có đuôi `.test.` nên Jest bỏ qua.
  *
- * Shared fixtures for the 4 service test files — not a test suite (Jest skips
- * it via `testPathIgnorePatterns`).
+ * Shared fixtures for the 4 service test files — outside `__tests__/` with no
+ * `.test.` suffix, so Jest does not pick it up.
  */
 export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
