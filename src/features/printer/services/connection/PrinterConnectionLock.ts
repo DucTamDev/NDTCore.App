@@ -1,8 +1,8 @@
-import { ConnectionType } from '../models/printer/PrinterDevice';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import type { Printer } from '../models/printer/Printer';
-import type { PrinterDevice, PrinterLanConfig } from '../models/printer/PrinterDevice';
-import { LoggerService } from '../../../services/LoggerService';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import type { Printer } from '../../models/printer/Printer';
+import type { PrinterDevice, PrinterLanConfig } from '../../models/printer/PrinterDevice';
+import { LoggerService } from '../../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 

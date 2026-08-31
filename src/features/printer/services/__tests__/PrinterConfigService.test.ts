@@ -1,6 +1,6 @@
 import { createPrinterConfigService } from '../PrinterConfigService';
 import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { createResourceLock } from '../PrinterConnectionLock';
+import { createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';

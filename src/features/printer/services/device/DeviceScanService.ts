@@ -1,10 +1,10 @@
-import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
-import { ConnectionType } from '../models/printer/PrinterDevice';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import type { DeviceScanEvent } from '../models/printer/PrinterDevice';
-import { LoggerService } from '../../../services/LoggerService';
-import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from './discovery/PrinterDiscoveryService';
-import { DriverRegistry } from '../drivers/DriverRegistry';
+import type { IPrinterDriver, Unsubscribe } from '../../drivers/IPrinterDriver';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import type { DeviceScanEvent } from '../../models/printer/PrinterDevice';
+import { LoggerService } from '../../../../services/LoggerService';
+import { createDiscoverDriver, type DiscoveryEvent, type DiscoveryInput } from '../discovery/PrinterDiscoveryService';
+import { DriverRegistry } from '../../drivers/DriverRegistry';
 
 /**
  * Quét thiết bị + dò driver — chỉ cần `registry`, không đụng storage/lock.

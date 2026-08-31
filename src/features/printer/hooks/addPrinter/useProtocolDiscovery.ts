@@ -1,6 +1,6 @@
 import { useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { DeviceScanService } from '../../services/DeviceScanService';
+import { DeviceScanService } from '../../services/device/DeviceScanService';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';

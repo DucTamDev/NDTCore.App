@@ -6,7 +6,7 @@ import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { PrintType } from '../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 
 type ResourceLockLike = ReturnType<typeof createResourceLock>;

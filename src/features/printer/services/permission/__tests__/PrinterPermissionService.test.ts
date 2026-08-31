@@ -1,9 +1,9 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { ensureBluetoothPermission } from '../PrinterPermissionService';
-import { PrinterLogger } from '../PrinterLogger';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterLogger } from '../../PrinterLogger';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
 
-jest.mock('../PrinterLogger', () => ({
+jest.mock('../../PrinterLogger', () => ({
   PrinterLogger: {
     permissionDenied: jest.fn(),
   },

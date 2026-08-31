@@ -11,7 +11,7 @@ import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
-import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
+import { ensureBluetoothPermission } from '../../services/permission/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';

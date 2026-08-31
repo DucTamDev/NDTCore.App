@@ -4,7 +4,7 @@ import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow'
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import { PrinterConfigService } from '../../services/PrinterConfigService';
-import { DeviceScanService } from '../../services/DeviceScanService';
+import { DeviceScanService } from '../../services/device/DeviceScanService';
 import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
@@ -40,7 +40,7 @@ jest.mock('../../services/PrinterConfigService', () => ({
   },
 }));
 
-jest.mock('../../services/DeviceScanService', () => ({
+jest.mock('../../services/device/DeviceScanService', () => ({
   DeviceScanService: {
     discoverDriver: jest.fn(() => () => undefined),
   },
@@ -51,7 +51,7 @@ jest.mock('../useBillImageCapture', () => ({
   useBillImageCapture: () => ({ captureNode: null, captureBillImage: mockCaptureBillImage }),
 }));
 
-jest.mock('../../services/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
+jest.mock('../../services/device/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
 
 const savedTspl: Printer = {
   id: 'p1',

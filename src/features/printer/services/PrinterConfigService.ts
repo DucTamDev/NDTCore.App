@@ -7,7 +7,7 @@ import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../errors/
 import { PrinterLogger } from './PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
 import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './PrinterConnectionLock';
+import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 import type { TsplDriver } from '../drivers/tspl/TsplDriver';
 

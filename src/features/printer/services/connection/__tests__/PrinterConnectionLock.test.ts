@@ -1,6 +1,6 @@
 import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
-import { ConnectionType, type PrinterDevice, type PrinterLanConfig } from '../../models/printer/PrinterDevice';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { ConnectionType, type PrinterDevice, type PrinterLanConfig } from '../../../models/printer/PrinterDevice';
+import { PrinterDriverType } from '../../../models/printer/PrinterDriver';
 
 const btDevice: PrinterDevice = { deviceId: '00:11:22:33:44:55', displayName: 'x', rawDevice: {} };
 const lan: PrinterLanConfig = { ip: '192.168.1.50', port: 9100 };

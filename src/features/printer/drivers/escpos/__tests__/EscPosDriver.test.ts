@@ -63,7 +63,7 @@ jest.mock('../../../adapters/native/PrinterNativeModule', () => {
     },
   };
 });
-jest.mock('../../../services/PrinterPermissionService', () => ({
+jest.mock('../../../services/permission/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
 jest.mock('../../../services/PrinterLogger', () => ({
@@ -181,7 +181,7 @@ describe('EscPosDriver', () => {
   it('connect() over Bluetooth checks permission and connects with the device MAC address', async () => {
     const driver = new EscPosDriver();
     await driver.connect(blePrinter, escposDriverEntry);
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     const { BLEPrinter } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
@@ -193,7 +193,7 @@ describe('EscPosDriver', () => {
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
@@ -283,7 +283,7 @@ describe('EscPosDriver', () => {
   });
 
   it('scan("bluetooth") emits an error event when ensureBluetoothPermission itself rejects', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockRejectedValueOnce(new Error('permission check failed'));
@@ -476,7 +476,7 @@ describe('EscPosDriver', () => {
   });
 
   it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);

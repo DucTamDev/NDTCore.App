@@ -67,7 +67,7 @@ jest.mock('../../../transports/UsbTransport', () => ({
     close: jest.fn().mockResolvedValue(undefined),
   })),
 }));
-jest.mock('../../../services/PrinterPermissionService', () => ({
+jest.mock('../../../services/permission/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
 jest.mock('../../../services/PrinterLogger', () => ({
@@ -483,7 +483,7 @@ describe('TsplDriver', () => {
   it('connect() over Bluetooth checks permission before connecting', async () => {
     const driver = new TsplDriver();
     await driver.connect(bluetoothPrinter, tsplDriverEntry);
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
@@ -491,7 +491,7 @@ describe('TsplDriver', () => {
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
@@ -564,7 +564,7 @@ describe('TsplDriver', () => {
         if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
@@ -572,7 +572,7 @@ describe('TsplDriver', () => {
   });
 
   it('scan("bluetooth") emits an error and skips startDiscovery when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);

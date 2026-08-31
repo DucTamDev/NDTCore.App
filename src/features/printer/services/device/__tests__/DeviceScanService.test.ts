@@ -1,9 +1,9 @@
 import { createDeviceScanService } from '../DeviceScanService';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { DiscoveryStage } from '../discovery/PrinterDiscoveryService';
-import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
+import { makeMockDriver, basePrinter } from '../../../testing/printerServiceTestKit';
 
-jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+jest.mock('../../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
 describe('DeviceScanService', () => {
   it('scanForConnectionType(usb) forwards to the escpos driver scan', () => {

@@ -16,7 +16,7 @@ import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
-import { ensureBluetoothPermission } from '../../services/PrinterPermissionService';
+import { ensureBluetoothPermission } from '../../services/permission/PrinterPermissionService';
 import { PrinterLogger } from '../../services/PrinterLogger';
 
 const IDENTIFY_TIMEOUT_MS = 1000;

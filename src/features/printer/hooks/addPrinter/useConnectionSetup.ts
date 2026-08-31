@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterRepository } from '../../storage/PrinterRepository';
-import { getCurrentWifiIp } from '../../services/NetworkInfoService';
+import { getCurrentWifiIp } from '../../services/device/NetworkInfoService';
 import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { USBPrinter } from '../../adapters/native/PrinterNativeModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';

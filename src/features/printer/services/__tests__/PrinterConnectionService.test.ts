@@ -1,6 +1,6 @@
 import { createPrinterConnectionService } from '../PrinterConnectionService';
 import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { createResourceLock } from '../PrinterConnectionLock';
+import { createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';

@@ -222,7 +222,7 @@ DeviceScanService
 → scanDevices / scanForConnectionType / discoverDriver
 ```
 
-Connection lock singleton (`services/PrinterConnectionLock.ts`) được share bởi
+Connection lock singleton (`services/connection/PrinterConnectionLock.ts`) được share bởi
 `PrinterConnectionService`, `PrinterConfigService`, và `PrintScheduler`.
 
 ---
@@ -2616,7 +2616,7 @@ services/PrinterConnectionService.ts
 services/PrinterConfigService.ts
 → installTsplFont / setTsplRenderMode / setTsplInternalFont / setDriverMedia
 
-services/DeviceScanService.ts
+services/device/DeviceScanService.ts
 → scanDevices / scanForConnectionType / discoverDriver
 
 PrintService.ts
