@@ -1,7 +1,7 @@
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
 import { PrinterErrorException, PrinterErrorCode } from '../types/PrinterError';
-import { CONNECT_TIMEOUT_MS } from '../config/printerConfig';
+import { CONNECT_TIMEOUT_MS } from '../constants';
 
 /**
  * `react-native-tcp-socket` không export type `Socket` ở top-level (chỉ export
