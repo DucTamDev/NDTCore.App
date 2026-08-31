@@ -3,7 +3,7 @@ import { PrintMediaType, TsplRenderMode } from '../../../types/printer.types';
 import { PrinterErrorException, PrinterErrorCode } from '../../../types/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../utils/cutter';
-import { PAPER_IMAGE_WIDTH_PX } from '../../../utils/paperSize';
+import { PAPER_SIZE_SPECS } from '../../../utils/paperSize';
 import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
 
 /**
@@ -28,7 +28,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
     const paperSize = media.paperSize;
     const targetWidthPx = media.type === PrintMediaType.dieCut
       ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
-      : PAPER_IMAGE_WIDTH_PX[paperSize];
+      : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
     let bitmap;
     try {
       bitmap = decodePngBase64ToMonochrome(documents.image as string, targetWidthPx);

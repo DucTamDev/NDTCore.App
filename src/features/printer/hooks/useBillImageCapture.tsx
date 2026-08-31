@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { BillImagePreview } from '../components/BillImagePreview';
-import { PAPER_IMAGE_WIDTH_PX, DOTS_PER_MM } from '../utils/paperSize';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../utils/paperSize';
 import type { PrintDocument } from '../types/printDocument.types';
 import type { PrintMedia } from '../types/printer.types';
 import { PrintMediaType } from '../types/printer.types';
@@ -31,9 +31,9 @@ export interface UseBillImageCapture {
  * capture ngay ở lần đầu (đang chờ) kèm resize theo số đo tạm đó ra ảnh
  * trắng trơn hoặc lẫn nội dung/kích thước của lần chụp trước. Hệ quả: ảnh
  * xuất ra theo pixel vật lý thật của máy (dp × devicePixelRatio), gấp 2-3
- * lần kích thước `PAPER_IMAGE_WIDTH_PX` mà `TsplEncoder`/`monochromeBitmap`
+ * lần kích thước `PAPER_SIZE_SPECS[...].imageWidthPx` mà `TsplEncoder`/`monochromeBitmap`
  * giả định — bù lại bằng cách resize RGBA đã decode xuống đúng
- * `PAPER_IMAGE_WIDTH_PX` trong `decodePngBase64ToMonochrome()`
+ * `PAPER_SIZE_SPECS[...].imageWidthPx` trong `decodePngBase64ToMonochrome()`
  * (`pngToMonochrome.ts`), không phụ thuộc timing của layout.
  */
 export const useBillImageCapture = (): UseBillImageCapture => {
@@ -48,7 +48,7 @@ export const useBillImageCapture = (): UseBillImageCapture => {
         const widthPx =
           media.type === PrintMediaType.dieCut
             ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
-            : PAPER_IMAGE_WIDTH_PX[media.paperSize];
+            : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
         setPending({ document, widthPx });
       }),
     [],

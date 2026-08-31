@@ -1,36 +1,22 @@
 import type { PaperSize } from '../types/printer.types';
 
-/** 203dpi — mật độ dot chuẩn máy in nhiệt TSPL (8 dot/mm). */
+/** 203 dpi ≈ 8 dot/mm — mật độ dot chuẩn của máy in nhiệt. Dùng để đổi mm ↔ dot. */
 export const DOTS_PER_MM = 8;
 
-/**
- * mm in được thật theo khổ đầu in (`@ DOTS_PER_MM`). Số cho 100/104 là tạm —
- * verify khi có phần cứng (spec 2026-08-30). Dùng cho lệnh `SIZE` (TSPL) và
- * validate die-cut vừa khổ giấy.
- */
-export const PRINTABLE_WIDTH_MM: Record<PaperSize, number> = { 58: 50, 80: 72, 100: 96, 104: 104 };
+interface PaperSizeSpec {
+  printableWidthMm: number;
+  charsPerLine: number;
+  imageWidthPx: number;
+}
 
 /**
- * Số ký tự/dòng ước lượng theo khổ giấy, dùng font mặc định (Font A) của máy
- * in ESC/POS — 32 ký tự cho 58mm, 48 ký tự cho 80mm là quy ước phổ biến của
- * máy in nhiệt POS, không đọc được từ driver/SDK nên phải hardcode theo khổ
- * giấy thay vì đo thật.
+ * Thông số cứng theo khổ giấy — không đọc được từ máy in nên hardcode theo quy
+ * ước POS phổ biến. Thêm khổ mới = thêm 1 dòng. Số cho 100/104 là tạm, chưa
+ * verify trên phần cứng (spec 2026-08-30).
  */
-export const PAPER_WIDTH_CHARS: Record<PaperSize, number> = {
-  58: 32,
-  80: 48,
-  100: 64,
-  104: 69,
-};
-
-/**
- * Chiều rộng ảnh bill (px) theo khổ giấy — dùng khi render bill thành ảnh
- * cho TSPL (`useBillImageCapture`). 576px cho 80mm khớp quy ước đã dùng ở
- * bill web (`build-bill-canvas.util.ts`); 384px cho 58mm theo cùng tỷ lệ.
- */
-export const PAPER_IMAGE_WIDTH_PX: Record<PaperSize, number> = {
-  58: 384,
-  80: 576,
-  100: 768,
-  104: 832,
+export const PAPER_SIZE_SPECS: Record<PaperSize, PaperSizeSpec> = {
+  58: { printableWidthMm: 50, charsPerLine: 32, imageWidthPx: 384 },
+  80: { printableWidthMm: 72, charsPerLine: 48, imageWidthPx: 576 },
+  100: { printableWidthMm: 96, charsPerLine: 64, imageWidthPx: 768 },
+  104: { printableWidthMm: 104, charsPerLine: 69, imageWidthPx: 832 },
 };

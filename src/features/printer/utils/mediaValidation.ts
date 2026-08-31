@@ -1,6 +1,6 @@
 import { PrintMediaType } from '../types/printer.types';
 import type { PrintMedia } from '../types/printer.types';
-import { PRINTABLE_WIDTH_MM } from './paperSize';
+import { PAPER_SIZE_SPECS } from './paperSize';
 
 /**
  * `null` nếu một hàng die-cut vừa vùng in được của khổ giấy (hoặc chưa đủ field
@@ -25,7 +25,7 @@ export const dieCutRowOverflow = (media: PrintMedia): string | null => {
   const gapsWidthTotalMm = (media.columns - 1) * media.horizontalGapMm;
   const requiredWidthMm = itemsWidthTotalMm + gapsWidthTotalMm;
 
-  const printableWidthMm = PRINTABLE_WIDTH_MM[media.paperSize];
+  const printableWidthMm = PAPER_SIZE_SPECS[media.paperSize].printableWidthMm;
 
   if (requiredWidthMm <= printableWidthMm) {
     return null;

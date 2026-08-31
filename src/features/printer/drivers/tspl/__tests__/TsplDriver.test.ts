@@ -35,7 +35,7 @@ const tinyPngBase64 = (): string => {
   return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 1, 0, [], true))).toString('base64');
 };
 
-/** 2x2 (aspect vuông) — sau khi chuẩn hoá về `PAPER_IMAGE_WIDTH_PX[58]` (384px), chiều cao ra 384px, vượt `LABEL_HEIGHT_MM * DOTS_PER_MM` (240px). */
+/** 2x2 (aspect vuông) — sau khi chuẩn hoá về `PAPER_SIZE_SPECS[58].imageWidthPx` (384px), chiều cao ra 384px, vượt `LABEL_HEIGHT_MM * DOTS_PER_MM` (240px). */
 const squarePngBase64 = (): string => {
   const rgba = new Uint8Array([0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]); // 2x2, toàn đen
   return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 2, 0, [], true))).toString('base64');
@@ -387,7 +387,7 @@ describe('TsplDriver', () => {
     const asAscii = Array.from(bytes.slice(0, 200)).map((b) => String.fromCharCode(b)).join('');
     const bitmapStart = asAscii.indexOf('BITMAP');
     expect(bitmapStart).toBeGreaterThan(-1);
-    // `TsplDriver` chuẩn hoá mọi ảnh về đúng `PAPER_IMAGE_WIDTH_PX[58]`
+    // `TsplDriver` chuẩn hoá mọi ảnh về đúng `PAPER_SIZE_SPECS[58].imageWidthPx`
     // (384px, xem `decodePngBase64ToMonochrome`) bất kể kích thước gốc — ảnh
     // test rộng 2px bị scale lên 384px (widthBytes = ceil(384/8) = 48), cao
     // tương ứng theo tỉ lệ (1px * 384/2 = 192px). `documents.image` là base64

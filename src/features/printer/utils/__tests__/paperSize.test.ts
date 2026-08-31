@@ -1,18 +1,21 @@
-import { PAPER_WIDTH_CHARS, PAPER_IMAGE_WIDTH_PX } from '../paperSize';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paperSize';
 
-describe('PAPER_WIDTH_CHARS', () => {
-  it('maps 58mm to 32 characters', () => {
-    expect(PAPER_WIDTH_CHARS[58]).toBe(32);
+describe('PAPER_SIZE_SPECS', () => {
+  it('có đủ 4 khổ giấy', () => {
+    expect(Object.keys(PAPER_SIZE_SPECS).map(Number).sort((a, b) => a - b)).toEqual([58, 80, 100, 104]);
   });
 
-  it('maps 80mm to 48 characters', () => {
-    expect(PAPER_WIDTH_CHARS[80]).toBe(48);
+  it('58mm: 50mm in được, 32 ký tự/dòng, ảnh 384px', () => {
+    expect(PAPER_SIZE_SPECS[58]).toEqual({ printableWidthMm: 50, charsPerLine: 32, imageWidthPx: 384 });
+  });
+
+  it('80mm: 72mm in được, 48 ký tự/dòng, ảnh 576px', () => {
+    expect(PAPER_SIZE_SPECS[80]).toEqual({ printableWidthMm: 72, charsPerLine: 48, imageWidthPx: 576 });
   });
 });
 
-describe('PAPER_IMAGE_WIDTH_PX', () => {
-  it('maps 58mm to 384px and 80mm to 576px', () => {
-    expect(PAPER_IMAGE_WIDTH_PX[58]).toBe(384);
-    expect(PAPER_IMAGE_WIDTH_PX[80]).toBe(576);
+describe('DOTS_PER_MM', () => {
+  it('là 8 (203 dpi)', () => {
+    expect(DOTS_PER_MM).toBe(8);
   });
 });

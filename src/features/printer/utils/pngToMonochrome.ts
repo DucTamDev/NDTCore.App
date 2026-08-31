@@ -6,7 +6,7 @@ import { rgbaToMonochromeBitmap, type MonochromeBitmap } from './monochromeBitma
  * Thu nhỏ RGBA (nearest-neighbor) về đúng `targetWidthPx`, giữ tỉ lệ —
  * `react-native-view-shot` chụp theo pixel vật lý thật của máy (dp ×
  * devicePixelRatio), không phải dp, nên ảnh decode được thường lớn hơn
- * `targetWidthPx` (khớp `PAPER_IMAGE_WIDTH_PX`) 2-3 lần trên máy pixelRatio
+ * `targetWidthPx` (khớp `PAPER_SIZE_SPECS[...].imageWidthPx`) 2-3 lần trên máy pixelRatio
  * cao. Làm ở đây (thuần JS, dựa trên kích thước ảnh đã decode) thay vì nhờ
  * `captureRef({width, height})` vì option đó cần đọc `onLayout` — 1 sự kiện
  * có thể bắn nhiều lần với kích thước tạm trước khi `Text` con đo xong,

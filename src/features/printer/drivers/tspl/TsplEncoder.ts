@@ -3,7 +3,7 @@ import { CutterMode, PrintMediaType, TsplCodepage } from '../../types/printer.ty
 import { PrintType } from '../../types/printConfiguration.types';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_WIDTH_CHARS, PRINTABLE_WIDTH_MM } from '../../utils/paperSize';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../utils/paperSize';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -116,19 +116,18 @@ export const columnOffsets = (media: PrintMedia): number[] => {
 };
 
 /**
- * Số ký tự/dòng cho nội dung TEXT: die_cut → ước lượng theo `itemWidthMm`
- * (tỉ lệ với `PAPER_WIDTH_CHARS`/`PRINTABLE_WIDTH_MM` của khổ giấy); continuous
- * → `PAPER_WIDTH_CHARS[paperSize]` như cũ. `line`/`row` element dùng số này để
- * không tràn qua cột die-cut kế bên.
- *
- * Per-column character width for TEXT content: die_cut estimates from
- * `itemWidthMm`; continuous keeps the full paper char count.
+ * Số ký tự/dòng cho nội dung TEXT — để `line`/`row` không tràn qua cột kế bên.
+ * die_cut ước lượng theo tỉ lệ `itemWidthMm` trên bề rộng in được; continuous
+ * dùng cả khổ giấy.
  */
 export const contentWidthChars = (media: PrintMedia): number => {
-  if (media.type !== PrintMediaType.dieCut) return PAPER_WIDTH_CHARS[media.paperSize];
-  const full = PAPER_WIDTH_CHARS[media.paperSize];
-  const ratio = (media.itemWidthMm ?? 0) / PRINTABLE_WIDTH_MM[media.paperSize];
-  return Math.max(1, Math.floor(full * ratio));
+  const spec = PAPER_SIZE_SPECS[media.paperSize];
+  if (media.type !== PrintMediaType.dieCut) {
+    return spec.charsPerLine;
+  }
+
+  const dieCutWidthRatio = (media.itemWidthMm ?? 0) / spec.printableWidthMm;
+  return Math.max(1, Math.floor(spec.charsPerLine * dieCutWidthRatio));
 };
 
 export class TsplEncoder {
@@ -174,7 +173,7 @@ export class TsplEncoder {
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
       this.pushLine(`GAP ${media.verticalGapMm ?? 0} mm, 0 mm`);
     } else {
-      this.pushLine(`SIZE ${PRINTABLE_WIDTH_MM[media.paperSize]} mm, ${heightMm} mm`);
+      this.pushLine(`SIZE ${PAPER_SIZE_SPECS[media.paperSize].printableWidthMm} mm, ${heightMm} mm`);
       this.pushLine('GAP 0 mm, 0 mm');
     }
     this.pushLine(`CODEPAGE ${codepage}`);

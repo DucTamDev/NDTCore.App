@@ -60,7 +60,7 @@ export const buildSampleReceiptDocument = (): PrintDocument => ({
  * Tem (nhãn sản phẩm) khổ giấy rời thường chỉ cao ~30mm — khác hẳn bill/hoá
  * đơn (giấy cuộn dài). Layout đầy đủ kiểu bill (nhiều `row`/`line`) render
  * thành ảnh sẽ cao hơn khổ giấy thật, tràn qua ranh giới tem kế tiếp và in
- * hỏng (lệch/đen ở cuối tem) — xem `PAPER_IMAGE_WIDTH_PX`/`TsplEncoder.initialize()`
+ * hỏng (lệch/đen ở cuối tem) — xem `PAPER_SIZE_SPECS[...].imageWidthPx`/`TsplEncoder.initialize()`
  * (khai báo `SIZE ..., 30 mm`). Tem mẫu vì vậy chỉ in tên sản phẩm — đúng
  * mục đích thật của 1 tem dán (dán lên món để nhận diện), không phải bản
  * rút gọn của bill.
