@@ -1,7 +1,7 @@
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../drivers/IPrinterDriver';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { PrintType } from '../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';

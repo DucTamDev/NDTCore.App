@@ -1,5 +1,6 @@
 import { createPrintRoutingService } from '../PrintRoutingService';
-import type { Printer } from '../../../types/printer.types';
+import type { Printer } from '../../../models/printer/Printer';
+import { ConnectionType } from '../../../models/printer/PrinterDevice';
 import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../../testing/printerFixtures';
 
@@ -11,7 +12,7 @@ const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer =>
     id,
     name: id,
     drivers: [escposDriver],
-    lan: { ip: '1.1.1.1', port: 9100 },
+    connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } },
     identityKey: `lan:1.1.1.1:9100-${id}`,
     createdAt: 'x',
     updatedAt: 'x',

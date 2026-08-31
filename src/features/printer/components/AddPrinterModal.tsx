@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Modal, Portal } from 'react-native-paper';
 import { AddPrinterForm } from './AddPrinterForm';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 /**
  * Wrapper mỏng bọc `AddPrinterForm` trong `Modal` — chỉ dùng trên tablet.

@@ -1,6 +1,6 @@
 import { createPrinterRepository } from '../PrinterRepository';
 import { PrinterStorage } from '../../storage/PrinterStorage';
-import { type Printer } from '../../types/printer.types';
+import { type Printer } from '../../models/printer/Printer';
 import { basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
@@ -48,7 +48,7 @@ describe('PrinterRepository', () => {
 
   it('setEnabled() updates enabled for that printer only', () => {
     const repository = createPrinterRepository();
-    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', lan: { ip: '1.1.1.2', port: 9100 } };
+    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.2', port: 9100 } } };
     repository.addPrinter(basePrinter);
     repository.addPrinter(second);
     repository.setEnabled('p1', false);

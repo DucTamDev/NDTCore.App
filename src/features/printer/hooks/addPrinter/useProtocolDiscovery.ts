@@ -7,10 +7,10 @@ import type { ConnectionState, ProtocolState } from '../../components/StatusPane
 import { DiscoveryStage, type DiscoveryEvent } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType } from '../../models/printer/PrinterDriver';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
-import type { LanConnectionValues } from '../../schemas/printerFormSchema';
+import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
  * Input cho {@link useProtocolDiscovery}. Callback (`buildDraftPrinter`,

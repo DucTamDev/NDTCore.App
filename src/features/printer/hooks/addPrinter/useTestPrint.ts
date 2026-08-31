@@ -8,9 +8,9 @@ import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintType } from '../../models/printing/PrintType';
 import { TsplRenderMode } from '../../models/printer/PrinterDriver';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
-import type { PrinterDisplayValues } from '../../schemas/printerFormSchema';
+import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
 import type { UseBillImageCapture } from '../useBillImageCapture';
 
 /**

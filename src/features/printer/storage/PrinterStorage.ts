@@ -1,5 +1,5 @@
 import { StorageService } from '../../../services/StorageService';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 const PRINTER_LIST_KEY = 'printer.list';
 const PRINTER_DEFAULT_ID_KEY = 'printer.defaultId';
@@ -16,7 +16,10 @@ const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
 // v4: bỏ Printer.paperSize + TsplDriverConfig.labelHeightMm, thay bằng
 //     PrinterDriver.config.media (PrintMedia) + Printer.capabilities.
 //     Shape Printer đổi không tương thích ngược → reset (không migrate).
-const CURRENT_STORAGE_VERSION = 4;
+// v5: gộp Printer.connectionType/device/lan (3 field phẳng) thành
+//     Printer.connection: { type, device, lan } (1 object lồng nhau) — shape
+//     đổi không tương thích ngược → reset (không migrate).
+const CURRENT_STORAGE_VERSION = 5;
 
 /**
  * Xoá `printer.list`/`printer.defaultId` (key cũ, `isDefault` đã bị bỏ —

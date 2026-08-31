@@ -5,7 +5,7 @@ import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { type Printer } from '../../types/printer.types';
+import { type Printer } from '../../models/printer/Printer';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { PrinterLogger } from '../PrinterLogger';
 import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';

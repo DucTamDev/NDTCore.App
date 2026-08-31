@@ -2717,7 +2717,7 @@ sampleDocuments.ts
 
 # 114. Schema Responsibility
 
-`printerFormSchema.ts` enforce:
+`forms/addPrinter/PrinterSchema.ts` enforce:
 
 ```text
 driver count

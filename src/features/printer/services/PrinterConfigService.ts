@@ -61,7 +61,7 @@ export const createPrinterConfigService = (
     const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
     // `connectionType` chỉ có khi printer đã lưu; draft (flow AddPrinterModal)
     // chưa có `Printer` object nên để `undefined` — logger nhận optional.
-    const connectionType = printer?.connectionType;
+    const connectionType = printer?.connection.type;
     // Đo trọn op DOWNLOAD (kể cả connect/disconnect do chính hàm này mở).
     const startedAt = Date.now();
 

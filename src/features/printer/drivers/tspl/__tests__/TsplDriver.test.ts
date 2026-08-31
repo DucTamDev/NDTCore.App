@@ -5,7 +5,7 @@ import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
-import { type Printer } from '../../../types/printer.types';
+import { type Printer } from '../../../models/printer/Printer';
 import { PrintType } from '../../../models/printing/PrintType';
 import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintDocument, PrintElement } from '../../../models/printing/PrintDocument';
@@ -110,8 +110,7 @@ const lanPrinter: Printer = {
   id: 'label-1',
   name: 'Máy in tem',
   drivers: [tsplDriverEntry],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '192.168.1.60', port: 9100 },
+  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.60', port: 9100 } },
   identityKey: 'lan:192.168.1.60:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -123,25 +122,19 @@ const lanPrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'label-usb',
-  connectionType: ConnectionType.usb,
-  lan: undefined,
-  device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
+  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } },
 };
 
 const usbPrinterNoDevice: Printer = {
   ...lanPrinter,
   id: 'label-usb-nodevice',
-  connectionType: ConnectionType.usb,
-  lan: undefined,
-  device: undefined,
+  connection: { type: ConnectionType.usb, device: undefined },
 };
 
 const bluetoothPrinter: Printer = {
   ...lanPrinter,
   id: 'label-bt',
-  connectionType: ConnectionType.bluetooth,
-  lan: undefined,
-  device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} },
+  connection: { type: ConnectionType.bluetooth, device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} } },
 };
 
 const sampleDocuments: PrintDocuments = {

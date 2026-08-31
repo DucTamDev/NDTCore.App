@@ -1,5 +1,5 @@
 import type { ConnectionType, DeviceScanEvent, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrintDocument } from '../models/printing/PrintDocument';

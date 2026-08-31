@@ -2,7 +2,7 @@ import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../PrintRoutingService';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
-import { type Printer } from '../../../types/printer.types';
+import { type Printer } from '../../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { PrintType } from '../../../models/printing/PrintType';
@@ -15,7 +15,7 @@ const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: Dr
 const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
-  id, name: id, drivers: [escposDriver], connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 },
+  id, name: id, drivers: [escposDriver], connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } },
   identityKey: `lan:1.1.1.1:9100-${id}`, capabilities: { cutter: false }, autoReconnect: false, enabled: true,
   createdAt: 'x', updatedAt: 'x', ...overrides,
 });

@@ -6,7 +6,7 @@ import { useAddPrinterFlow } from '../hooks/useAddPrinterFlow';
 import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 /**
  * Nội dung form Thêm/Sửa máy in — không có `Modal`/`Portal`.

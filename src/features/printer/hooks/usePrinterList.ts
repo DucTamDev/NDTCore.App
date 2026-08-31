@@ -5,7 +5,7 @@ import { LoggerService } from '../../../services/LoggerService';
 import { PrinterRepository } from '../services/PrinterRepository';
 import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 /** Thao tác trên 1 máy in đã lưu — bó vào 1 object để không phải khoan 5 callback qua từng lớp component. */
 export interface PrinterListActions {
@@ -37,7 +37,7 @@ export const usePrinterList = (): UsePrinterList => {
     const list = PrinterRepository.getPrinters();
     LoggerService.debug('usePrinterList.reload', {
       count: list.length,
-      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connectionType, drivers: p.drivers.map((d) => d.type), enabled: p.enabled ?? true })),
+      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connection.type, drivers: p.drivers.map((d) => d.type), enabled: p.enabled ?? true })),
     });
     dispatch(printersLoaded(list));
   }, [dispatch]);

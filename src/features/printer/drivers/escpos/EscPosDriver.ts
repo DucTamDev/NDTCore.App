@@ -7,7 +7,7 @@ import { CutterMode } from '../../models/media/PrintMedia';
 import { mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
@@ -87,7 +87,7 @@ export class EscPosDriver implements IPrinterDriver {
     this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
     try {
-      if (printer.connectionType === ConnectionType.bluetooth) {
+      if (printer.connection.type === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
         if (!granted) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
       }
@@ -96,19 +96,19 @@ export class EscPosDriver implements IPrinterDriver {
       await adapter.connect(toConnectTarget(printer));
 
       this.adapters.set(printer.id, adapter);
-      this.connectedTypes.set(printer.id, printer.connectionType);
+      this.connectedTypes.set(printer.id, printer.connection.type);
       this.contexts.set(printer.id, { printer, driver });
 
-      const previousOwner = this.activeByType.get(printer.connectionType);
+      const previousOwner = this.activeByType.get(printer.connection.type);
       if (previousOwner && previousOwner !== printer.id) {
         this.setStatus(previousOwner, PrinterStatus.disconnected);
       }
-      this.activeByType.set(printer.connectionType, printer.id);
+      this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -171,7 +171,7 @@ export class EscPosDriver implements IPrinterDriver {
   async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
     try {
-      const isStaleOwner = this.activeByType.get(printer.connectionType) !== printer.id;
+      const isStaleOwner = this.activeByType.get(printer.connection.type) !== printer.id;
       if (!this.adapters.has(printer.id) || isStaleOwner) {
         await this.connect(printer, driver);
       }

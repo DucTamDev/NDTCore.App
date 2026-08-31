@@ -5,10 +5,10 @@ import { PrinterRepository } from '../../services/PrinterRepository';
 import { getCurrentWifiIp } from '../../services/NetworkInfoService';
 import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { USBPrinter } from '../../adapters/native/PrinterNativeModule';
-import { lanConnectionSchema, type LanConnectionValues } from '../../schemas/printerFormSchema';
+import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 
@@ -39,8 +39,8 @@ export const useConnectionSetup = ({
   getProtocolState,
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
-  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connectionType ?? ConnectionType.usb);
-  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.device);
+  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.usb);
+  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.connection.device);
   const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
   const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
   const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
@@ -48,8 +48,8 @@ export const useConnectionSetup = ({
   const lanForm = useForm<LanConnectionValues>({
     resolver: zodResolver(lanConnectionSchema),
     defaultValues: {
-      lanIp: initialValues?.lan?.ip ?? '',
-      lanPort: initialValues?.lan?.port ? String(initialValues.lan.port) : '',
+      lanIp: initialValues?.connection.lan?.ip ?? '',
+      lanPort: initialValues?.connection.lan?.port ? String(initialValues.connection.lan.port) : '',
     },
   });
 

@@ -1,8 +1,8 @@
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { PrinterStorage } from '../storage/PrinterStorage';
 import { resolveIdentityKey } from './discovery/PrinterResolver';
-import { printerSchema } from '../schemas/printerFormSchema';
+import { printerSchema } from '../forms/addPrinter/PrinterSchema';
 
 /**
  * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
@@ -32,14 +32,15 @@ export const createPrinterRepository = () => {
   };
 
   /**
-   * Tính lại `identityKey` từ chính `connectionType`/`device`/`lan` của
-   * printer — KHÔNG tin thẳng giá trị caller truyền vào (defense-in-depth,
-   * cùng triết lý với `printerSchema.parse()` bên dưới: UI đã tự tính đúng,
-   * đây là lưới an toàn ở service layer, không phải nguồn sự thật duy nhất).
+   * Tính lại `identityKey` từ chính `connection.type`/`connection.device`/
+   * `connection.lan` của printer — KHÔNG tin thẳng giá trị caller truyền vào
+   * (defense-in-depth, cùng triết lý với `printerSchema.parse()` bên dưới: UI
+   * đã tự tính đúng, đây là lưới an toàn ở service layer, không phải nguồn sự
+   * thật duy nhất).
    */
   const withRecomputedIdentity = (printer: Printer): Printer => ({
     ...printer,
-    identityKey: resolveIdentityKey({ connectionType: printer.connectionType, device: printer.device, lan: printer.lan }),
+    identityKey: resolveIdentityKey({ connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan }),
   });
 
   const addPrinter = (printer: Printer): void => {

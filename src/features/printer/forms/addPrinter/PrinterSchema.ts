@@ -1,36 +1,13 @@
 import { z } from 'zod';
-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
-import { ConnectionType } from '../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
-import { CutterMode, PrintMediaType } from '../models/media/PrintMedia';
-import type { PrintMedia } from '../models/media/PrintMedia';
-import { PrintType } from '../models/printing/PrintType';
-import { dieCutRowOverflow } from '../media/validation';
-
-const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-
-const isValidIpv4 = (value: string): boolean => {
-  if (!ipv4Regex.test(value)) return false;
-  return value.split('.').every((segment) => Number(segment) >= 0 && Number(segment) <= 255);
-};
-
-const isValidPort = (value: string): boolean => {
-  const port = Number(value);
-  return value.length > 0 && !Number.isNaN(port) && port >= 1 && port <= 65535;
-};
-
-export const lanConnectionSchema = z.object({
-  lanIp: z.string().refine(isValidIpv4, 'Địa chỉ IP không hợp lệ'),
-  lanPort: z.string().refine(isValidPort, 'Cổng không hợp lệ (1-65535)'),
-});
-
-export type LanConnectionValues = z.infer<typeof lanConnectionSchema>;
+import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
+import type { PrintMedia } from '../../models/media/PrintMedia';
+import { PrintType } from '../../models/printing/PrintType';
+import { dieCutRowOverflow } from '../../media/validation';
 
 const paperSizeSchema = z.union([z.literal(58), z.literal(80), z.literal(100), z.literal(104)]);
-
-export const printerDisplaySchema = z.object({
-  name: z.string().min(1, 'Vui lòng nhập tên máy in'),
-});
 
 const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
 
@@ -58,8 +35,6 @@ const printMediaSchema = z
   });
 
 const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
-
-export type PrinterDisplayValues = z.infer<typeof printerDisplaySchema>;
 
 const printContentTypeSchema = z.enum([PrintType.Receipt, PrintType.Label]);
 
@@ -125,6 +100,12 @@ const printerLanConfigSchema = z.object({
   port: z.number(),
 });
 
+const printerConnectionSchema = z.object({
+  type: z.enum([ConnectionType.usb, ConnectionType.bluetooth, ConnectionType.lan]),
+  device: printerDeviceSchema.optional(),
+  lan: printerLanConfigSchema.optional(),
+});
+
 /**
  * Safety net ở service layer (invariant #2, #3, #10, #13, spec §8), KHÔNG
  * thay thế validation UI (UI đã tự ngăn phần lớn state không hợp lệ trước
@@ -137,9 +118,7 @@ export const printerSchema = z
     vendor: z.string().optional(),
     model: z.string().optional(),
     drivers: z.array(printerDriverSchema).min(1).max(2),
-    connectionType: z.enum([ConnectionType.usb, ConnectionType.bluetooth, ConnectionType.lan]),
-    device: printerDeviceSchema.optional(),
-    lan: printerLanConfigSchema.optional(),
+    connection: printerConnectionSchema,
     identityKey: z.string().min(1),
     capabilities: printerCapabilitiesSchema,
     autoReconnect: z.boolean(),
@@ -148,15 +127,15 @@ export const printerSchema = z
     updatedAt: z.string(),
   })
   .superRefine((printer, ctx) => {
-    if (printer.connectionType === ConnectionType.lan) {
-      if (!printer.lan) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connectionType lan bắt buộc phải có lan' });
-      if (printer.device) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connectionType lan không được có device' });
+    if (printer.connection.type === ConnectionType.lan) {
+      if (!printer.connection.lan) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan bắt buộc phải có connection.lan' });
+      if (printer.connection.device) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan không được có connection.device' });
     } else {
-      if (!printer.device) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connectionType ${printer.connectionType} bắt buộc phải có device` });
+      if (!printer.connection.device) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connection.type ${printer.connection.type} bắt buộc phải có connection.device` });
       }
-      if (printer.lan) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connectionType ${printer.connectionType} không được có lan` });
+      if (printer.connection.lan) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connection.type ${printer.connection.type} không được có connection.lan` });
       }
     }
 

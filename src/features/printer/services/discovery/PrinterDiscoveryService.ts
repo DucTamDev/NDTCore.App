@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { DriverSource, PrinterDriverType } from '../../models/printer/PrinterDriver';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import { PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
@@ -57,7 +57,7 @@ export const createDiscoverDriver =
       const startedAt = Date.now();
       const { draftPrinter } = input;
       const printerId = draftPrinter.id;
-      const connectionType = draftPrinter.connectionType;
+      const connectionType = draftPrinter.connection.type;
       const excluded = new Set(input.excludedDrivers ?? []);
       const candidates = CANDIDATE_ORDER.filter((type) => Boolean(registry[type]) && !excluded.has(type));
       const candidatesTried: PrinterDriverType[] = [];

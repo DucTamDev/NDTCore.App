@@ -9,7 +9,7 @@ import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 
 jest.mock('../../services/PrinterRepository', () => ({
   PrinterRepository: {
@@ -64,8 +64,7 @@ const savedTspl: Printer = {
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
     },
   ],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '10.0.0.5', port: 9100 },
+  connection: { type: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } },
   identityKey: 'lan:10.0.0.5:9100',
   capabilities: { cutter: false },
   autoReconnect: true,
@@ -148,7 +147,12 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved });
     await act(async () => { await get().infoCard.onSave(); });
     expect(PrinterRepository.updatePrinter).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'p1', connectionType: ConnectionType.lan, capabilities: { cutter: false }, drivers: expect.any(Array) }),
+      expect.objectContaining({
+        id: 'p1',
+        connection: expect.objectContaining({ type: ConnectionType.lan }),
+        capabilities: { cutter: false },
+        drivers: expect.any(Array),
+      }),
     );
     const saved = (PrinterRepository.updatePrinter as jest.Mock).mock.calls[0][0] as Printer;
     expect(saved.capabilities.cutter).toBe(false);

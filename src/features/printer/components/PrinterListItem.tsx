@@ -8,7 +8,7 @@ import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 export interface PrinterListItemProps {
   printer: Printer;
@@ -16,7 +16,7 @@ export interface PrinterListItemProps {
   onEdit: (printer: Printer) => void;
 }
 
-const connectionLabel: Record<Printer['connectionType'], string> = {
+const connectionLabel: Record<Printer['connection']['type'], string> = {
   usb: 'USB',
   bluetooth: 'Bluetooth',
   lan: 'LAN',
@@ -36,7 +36,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const enabled = printer.enabled ?? true;
   const drivers = printer.drivers.map((d) => protocolLabel[d.type]).join(' + ');
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connectionType], drivers, `Khổ ${printer.drivers[0]?.config.media.paperSize ?? '?'}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connection.type], drivers, `Khổ ${printer.drivers[0]?.config.media.paperSize ?? '?'}mm`, model].filter(Boolean).join(' · ');
 
   // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — interaction
   // của chính card (dialog xác nhận của nó), không phải business logic.

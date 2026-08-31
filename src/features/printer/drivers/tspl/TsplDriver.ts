@@ -6,7 +6,7 @@ import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { mediaOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
-import type { Printer } from '../../types/printer.types';
+import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver, TsplFontConfig } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import { TsplFontManager } from './TsplFontManager';
@@ -103,19 +103,19 @@ export class TsplDriver implements IPrinterDriver {
     this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
     try {
-      if (printer.connectionType === ConnectionType.bluetooth) {
+      if (printer.connection.type === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
         if (!granted) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
       }
-      const adapter = resolvePrinterAdapter(PrinterDriverType.tspl, printer.connectionType);
+      const adapter = resolvePrinterAdapter(PrinterDriverType.tspl, printer.connection.type);
       await adapter.connect(toConnectTarget(printer));
       this.connections.set(printer.id, adapter);
       this.contexts.set(printer.id, { printer, driver });
       this.setStatus(printer.id, PrinterStatus.connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connectionType, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }

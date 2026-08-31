@@ -6,7 +6,7 @@ import { PrinterConnectionService } from '../services/PrinterConnectionService';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { getDriverCapabilities } from '../drivers/DriverCapabilities';
-import { printerDisplaySchema, type PrinterDisplayValues } from '../schemas/printerFormSchema';
+import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
@@ -14,7 +14,7 @@ import { ConnectionType } from '../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { UsbRawDevice } from '../models/printer/PrinterDevice';
 import { dieCutMediaError } from '../media/validation';
@@ -112,9 +112,11 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     name: displayForm.getValues('name') || 'Máy in mới',
     vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
     model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-    connectionType,
-    device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
-    lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
+    connection: {
+      type: connectionType,
+      device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
+      lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
+    },
     identityKey: currentIdentityKey() ?? '',
     capabilities: initialValues?.capabilities ?? { cutter: false },
     drivers,

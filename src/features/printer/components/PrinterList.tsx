@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { EmptyState } from '../../../components/EmptyState';
 import { PrinterListItem } from './PrinterListItem';
 import type { PrinterListActions } from '../hooks/usePrinterList';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 export interface PrinterListProps {
   printers: Printer[];

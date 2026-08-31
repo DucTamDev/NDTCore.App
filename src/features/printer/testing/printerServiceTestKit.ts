@@ -2,7 +2,7 @@ import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { ConnectionType } from '../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import { type Printer } from '../types/printer.types';
+import { type Printer } from '../models/printer/Printer';
 import { PrintType } from '../models/printing/PrintType';
 
 /**
@@ -31,8 +31,7 @@ export const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in hóa đơn quầy 1',
   drivers: [escposDriverEntry],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '192.168.1.10', port: 9100 },
+  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.10', port: 9100 } },
   identityKey: 'lan:192.168.1.10:9100',
   capabilities: { cutter: false },
   autoReconnect: false,

@@ -1,6 +1,6 @@
 import { ConnectionType } from '../models/printer/PrinterDevice';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 import type { PrinterDevice, PrinterLanConfig } from '../models/printer/PrinterDevice';
 import { LoggerService } from '../../../services/LoggerService';
 
@@ -45,7 +45,7 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
  * ở cả 2 file), chỉ là wrapper mỏng quanh `connectionResourceKey`.
  */
 export const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
-  connectionResourceKey({ driverType, connectionType: printer.connectionType, device: printer.device, lan: printer.lan });
+  connectionResourceKey({ driverType, connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan });
 
 /**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi

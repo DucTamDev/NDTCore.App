@@ -7,7 +7,7 @@ import { usePrinterList } from '../hooks/usePrinterList';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
 import { AddPrinterForm } from './AddPrinterForm';
-import type { Printer } from '../types/printer.types';
+import type { Printer } from '../models/printer/Printer';
 
 export const PrinterManagementPanel: React.FC = () => {
   const { printers, reload, ...actions } = usePrinterList();

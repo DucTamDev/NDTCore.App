@@ -5,12 +5,12 @@ import type { PrintMedia } from '../../../../models/media/PrintMedia';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
-import type { Printer } from '../../../../types/printer.types';
+import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
 
 const printer: Printer = {
-  id: 'p1', name: 'M', drivers: [], connectionType: 'lan' as Printer['connectionType'],
-  lan: { ip: '1.2.3.4', port: 9100 }, identityKey: 'k', capabilities: { cutter: false },
+  id: 'p1', name: 'M', drivers: [], connection: { type: 'lan' as Printer['connection']['type'], lan: { ip: '1.2.3.4', port: 9100 } },
+  identityKey: 'k', capabilities: { cutter: false },
   autoReconnect: false, enabled: true, createdAt: '', updatedAt: '',
 };
 const MEDIA = { type: 'continuous', paperSize: 80 } as const;

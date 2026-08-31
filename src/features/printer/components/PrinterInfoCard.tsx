@@ -10,7 +10,7 @@ import { DriverMediaSection } from './DriverMediaSection';
 import { DriverRenderModeSection } from './DriverRenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
 import { getDriverCapabilities } from '../drivers/DriverCapabilities';
-import type { PrinterDisplayValues } from '../schemas/printerFormSchema';
+import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import { PrintType } from '../models/printing/PrintType';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';

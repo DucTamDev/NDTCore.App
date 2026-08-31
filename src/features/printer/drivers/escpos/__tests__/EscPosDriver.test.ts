@@ -3,7 +3,7 @@ import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
-import { type Printer } from '../../../types/printer.types';
+import { type Printer } from '../../../models/printer/Printer';
 import { paperSizeOf } from '../../driverConfig';
 import { PrintType } from '../../../models/printing/PrintType';
 import type { PrintDocuments } from '../../IPrinterDriver';
@@ -82,8 +82,7 @@ const lanPrinter: Printer = {
   id: 'receipt-lan',
   name: 'Máy in hoá đơn',
   drivers: [escposDriverEntry],
-  connectionType: ConnectionType.lan,
-  lan: { ip: '192.168.1.50', port: 9100 },
+  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.50', port: 9100 } },
   identityKey: 'lan:192.168.1.50:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -95,17 +94,13 @@ const lanPrinter: Printer = {
 const blePrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-ble',
-  connectionType: ConnectionType.bluetooth,
-  lan: undefined,
-  device: { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BLE', rawDevice: {} },
+  connection: { type: ConnectionType.bluetooth, device: { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BLE', rawDevice: {} } },
 };
 
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-usb',
-  connectionType: ConnectionType.usb,
-  lan: undefined,
-  device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendor_id: 1155, product_id: 22222 } },
+  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } },
 };
 
 const sampleDocuments: PrintDocuments = { text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] } };
@@ -178,7 +173,7 @@ describe('EscPosDriver', () => {
 
   it('identify() over USB always returns null', async () => {
     const driver = new EscPosDriver();
-    const usbPrinterHere: Printer = { ...lanPrinter, id: 'receipt-usb', connectionType: ConnectionType.usb, lan: undefined, device: { deviceId: '1155:22222', displayName: 'USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } };
+    const usbPrinterHere: Printer = { ...lanPrinter, id: 'receipt-usb', connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } } };
     await driver.connect(usbPrinterHere, escposDriverEntry);
     expect(await driver.identify(usbPrinterHere.id)).toBeNull();
   });
@@ -351,8 +346,8 @@ describe('EscPosDriver', () => {
 
   it('connecting printer B on the same connectionType as already-connected printer A flips A to disconnected', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
 
     await driver.connect(printerA, escposDriverEntry);
     expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
@@ -364,8 +359,8 @@ describe('EscPosDriver', () => {
 
   it('does not flip printer A to disconnected when connecting printer B on the same connectionType fails validation', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
-    const printerBInvalid: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: undefined };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
+    const printerBInvalid: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: undefined } };
 
     await driver.connect(printerA, escposDriverEntry);
     expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
@@ -378,8 +373,8 @@ describe('EscPosDriver', () => {
 
   it('testPrint() reconnects instead of taking the stale fast path when another printer has taken over the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
 
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
@@ -406,7 +401,7 @@ describe('EscPosDriver', () => {
 
   it('connect() logs connectFailed on failure', async () => {
     const driver = new EscPosDriver();
-    const badPrinter: Printer = { ...lanPrinter, id: 'receipt-bad', lan: undefined };
+    const badPrinter: Printer = { ...lanPrinter, id: 'receipt-bad', connection: { ...lanPrinter.connection, lan: undefined } };
     await expect(driver.connect(badPrinter, escposDriverEntry)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
@@ -516,8 +511,8 @@ describe('EscPosDriver', () => {
 
   it('disconnect() does not call the native closeConn() for a printer that no longer owns the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
 
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
@@ -625,8 +620,8 @@ describe('EscPosDriver', () => {
 
   it('print() throws PRINTER_NOT_CONNECTED when the printer is no longer the active owner of the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', lan: { ip: '192.168.1.50', port: 9100 } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', lan: { ip: '192.168.1.51', port: 9100 } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
     const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
