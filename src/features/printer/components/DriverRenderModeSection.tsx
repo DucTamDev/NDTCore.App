@@ -7,9 +7,9 @@ import { DEFAULT_TSPL_INTERNAL_FONT, tsplRenderModeOf } from '../drivers/driverC
 import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 
 const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
-  bitmap: 'Bitmap — render nội dung thành ảnh (khuyến nghị)',
-  truetype: 'Font TrueType — tải font .ttf lên máy in (thử nghiệm)',
-  internalfont: 'Font máy in — dùng font & codepage sẵn có của máy in (thử nghiệm)',
+  bitmap: 'Bitmap (có dấu)',
+  truetype: 'TrueType (thử nghiệm)',
+  internalfont: 'Mặc định máy in',
 };
 
 const tsplRenderModeOptions = [TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont].map((mode) => ({
