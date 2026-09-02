@@ -348,7 +348,13 @@ public class USBPrinterAdapter implements PrinterAdapter {
 
         final String rawData = data;
         Log.v(LOG_TAG, "start to print raw data");
-        boolean isConnected = openConnection();
+        // `keepConnection=true` ở lần gọi TRƯỚC đã cố tình không đóng kết nối để
+        // chunk này dùng tiếp — mở lại (đóng + mở + claimInterface) ở đây làm mất
+        // tác dụng của `keepConnection` phía JS (UsbTransport.ts chia payload lớn,
+        // vd cài font TrueType ~145KB, thành nhiều chunk, kỳ vọng 1 phiên bulk-transfer
+        // liên tục). Đóng-mở lại quá nhanh giữa các chunk khiến thiết bị USB không kịp
+        // ổn định, chunk sau `bulkTransfer` trả -1 (quan sát thực tế qua logcat).
+        boolean isConnected = (mUsbDeviceConnection != null && mEndPoint != null) || openConnection();
         if (!isConnected) {
             errorCallback.invoke("failed to connected to device");
             return;

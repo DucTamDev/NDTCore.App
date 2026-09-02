@@ -12,6 +12,14 @@ const errorMessage = (error: unknown): string => (error instanceof Error ? error
  * hoặc bitmap dài phải chia. Gửi từng chunk với `keepConnection=true` — máy in
  * TSPL đệm input thành 1 luồng, `DOWNLOAD` đọc đúng `byteCount` đã khai báo bất
  * kể chia mấy lần.
+ *
+ * ĐÃ THỬ chunk nhỏ hơn (4000, không bội số 512) + nghỉ giữa các chunk để né
+ * `USB_DEVICE_DETACHED` khi cài font TrueType (~145KB) — KHÔNG có tác dụng: máy
+ * in vẫn rớt khỏi bus sau ~16-20KB tổng dữ liệu bất kể chia chunk kiểu gì hay
+ * nghỉ bao lâu (so log: fail ở chunk 2/9×16KB ~ chunk 6/37×4000B — cùng ~16-20KB
+ * đã gửi). Kết luận: giới hạn buffer `DOWNLOAD` của FIRMWARE máy in (~16-20KB),
+ * không phải vấn đề timing/kích thước chunk ở tầng USB — đừng thử lại hướng này.
+ * Giữ nguyên 16KB cho các lệnh ghi khác (bitmap/bill) vốn hoạt động bình thường.
  */
 const USB_WRITE_CHUNK_BYTES = 16 * 1024;
 
