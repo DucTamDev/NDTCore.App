@@ -18,7 +18,7 @@ export interface AddPrinterFormProps {
   initialValues?: Printer;
   onSaved: () => void;
   onBack: () => void;
-  /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng (điện thoại — header ứng dụng đã có "← Quản lý máy in"). Mặc định hiện — bắt buộc với `AddPrinterModal` vì đó là cách duy nhất đóng modal. */
+  /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng (điện thoại — header ứng dụng đã có "← Thiết lập máy in"). Mặc định hiện — bắt buộc với `AddPrinterModal` vì đó là cách duy nhất đóng modal. */
   showBackButton?: boolean;
 }
 

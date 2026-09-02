@@ -11,7 +11,7 @@ export interface ApplicationMenuItem {
 export const DEFAULT_TABLET_MENU_KEY: ApplicationMenuKey = 'printer';
 
 export const applicationMenuItems: ApplicationMenuItem[] = [
-  { key: 'printer', icon: 'printer', label: 'Quản lý máy in', group: 'device' },
+  { key: 'printer', icon: 'printer', label: 'Thiết lập máy in', group: 'device' },
   { key: 'scanner', icon: 'barcode-scan', label: 'Máy quét mã vạch', group: 'device', disabled: true },
   { key: 'orderHistory', icon: 'receipt-text-clock-outline', label: 'Đơn hàng hôm nay', group: 'app' },
   { key: 'account', icon: 'account', label: 'Tài khoản', group: 'app', disabled: true },

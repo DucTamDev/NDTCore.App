@@ -9,7 +9,7 @@ describe('getApplicationView', () => {
 
     it('shows the selected section with its label as the header title', () => {
       const view = getApplicationView('phone', 'printer');
-      expect(view).toEqual({ isTablet: false, activeSection: 'printer', headerTitle: 'Quản lý máy in' });
+      expect(view).toEqual({ isTablet: false, activeSection: 'printer', headerTitle: 'Thiết lập máy in' });
     });
   });
 

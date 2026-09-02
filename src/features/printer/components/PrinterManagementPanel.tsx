@@ -63,7 +63,7 @@ export const PrinterManagementPanel: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text variant="titleSmall">Quản lý máy in</Text>
+        <Text variant="titleSmall">Thiết lập máy in</Text>
         <AppButton label="Thêm máy in" onPress={openAdd} />
       </View>
 
