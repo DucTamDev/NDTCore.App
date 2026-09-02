@@ -204,16 +204,24 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     connectionRef.current = { connectionState, drivers };
   }, [connectionState, drivers]);
 
+  /**
+   * Bám theo `drivers` (driver đã CONFIRM kết nối — chỉ vào list qua
+   * `addDriverToList` sau khi identify thành công), không bám `protocolState`.
+   * `protocolState` phản ánh trạng thái của LƯỢT DÒ HIỆN TẠI (vd bấm "Kết nối
+   * lại" để dò thêm driver thứ 2) — 1 lượt dò thêm thất bại (`unknown_protocol`)
+   * không được phép làm mất trạng thái "đang kết nối" thật của driver đầu đã
+   * xác nhận trước đó, nếu không nút "In thử" bị khoá oan dù máy vẫn kết nối.
+   */
   useEffect(() => {
     const activeDriver = drivers[0];
-    if (protocolState !== 'identified' || !activeDriver) {
+    if (!activeDriver) {
       setLiveStatus(PrinterStatus.idle);
       return undefined;
     }
     setLiveStatus(PrinterConnectionService.getStatusForDriver(activeDriver.type, printerId));
     const unsubscribes = drivers.map((d) => PrinterConnectionService.onStatusChangeForDriver(d.type, printerId, setLiveStatus));
     return () => unsubscribes.forEach((unsub) => unsub());
-  }, [protocolState, drivers, printerId]);
+  }, [drivers, printerId]);
 
   useEffect(() => {
     if (!visible) {
