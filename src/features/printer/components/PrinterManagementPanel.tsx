@@ -48,7 +48,14 @@ export const PrinterManagementPanel: React.FC = () => {
   if (isPhone && mode === 'form') {
     return (
       <View style={styles.phoneForm}>
-        <AddPrinterForm key={formKey} visible initialValues={editingPrinter} onSaved={onSaved} onBack={backToList} />
+        <AddPrinterForm
+          key={formKey}
+          visible
+          initialValues={editingPrinter}
+          onSaved={onSaved}
+          onBack={backToList}
+          showBackButton={false}
+        />
       </View>
     );
   }
@@ -77,6 +84,6 @@ export const PrinterManagementPanel: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
-  phoneForm: { flex: 1 },
+  phoneForm: { flex: 1, padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

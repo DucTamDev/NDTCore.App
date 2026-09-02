@@ -18,15 +18,23 @@ export interface AddPrinterFormProps {
   initialValues?: Printer;
   onSaved: () => void;
   onBack: () => void;
+  /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng (điện thoại — header ứng dụng đã có "← Quản lý máy in"). Mặc định hiện — bắt buộc với `AddPrinterModal` vì đó là cách duy nhất đóng modal. */
+  showBackButton?: boolean;
 }
 
-export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({ visible, initialValues, onSaved, onBack }) => {
+export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
+  visible,
+  initialValues,
+  onSaved,
+  onBack,
+  showBackButton = true,
+}) => {
   const flow = useAddPrinterFlow({ visible, initialValues, onSaved });
 
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <AppButton mode="text" label="‹ Quay lại" onPress={onBack} />
+        {showBackButton ? <AppButton mode="text" label="‹ Quay lại" onPress={onBack} /> : null}
         <Text variant="titleMedium">{flow.title}</Text>
       </View>
 
