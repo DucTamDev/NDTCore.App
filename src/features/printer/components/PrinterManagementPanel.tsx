@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, BackHandler } from 'react-native';
-import { Text } from 'react-native-paper';
+import { SegmentedButtons, Text } from 'react-native-paper';
 import { AppButton } from '../../../components/AppButton';
 import { useLayoutMode } from '../../../hooks/useLayoutMode';
 import { usePrinterList } from '../hooks/usePrinterList';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
 import { AddPrinterForm } from './AddPrinterForm';
+import { PrintType, PRINT_TYPE_LABELS } from '../models/printing/PrintType';
 import type { Printer } from '../models/printer/Printer';
 
 export const PrinterManagementPanel: React.FC = () => {
@@ -14,6 +15,7 @@ export const PrinterManagementPanel: React.FC = () => {
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
   const [addSessionId, setAddSessionId] = useState(0);
+  const [activeTab, setActiveTab] = useState<PrintType>(PrintType.Receipt);
   const isPhone = useLayoutMode() === 'phone';
 
   const openAdd = (): void => {
@@ -44,6 +46,8 @@ export const PrinterManagementPanel: React.FC = () => {
   }, [isPhone, mode]);
 
   const formKey = editingPrinter?.id ?? `add-${addSessionId}`;
+  // Chỉ Thêm mới (không Sửa) mới mang purpose — Sửa giữ nguyên content type đã lưu.
+  const purpose = editingPrinter ? undefined : activeTab;
 
   if (isPhone && mode === 'form') {
     return (
@@ -55,19 +59,30 @@ export const PrinterManagementPanel: React.FC = () => {
           onSaved={onSaved}
           onBack={backToList}
           showBackButton={false}
+          purpose={purpose}
         />
       </View>
     );
   }
 
+  const printersForTab = printers.filter((p) => p.drivers.some((d) => d.contentTypes.includes(activeTab)));
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text variant="titleSmall">Thiết lập máy in</Text>
-        <AppButton label="Thêm máy in" onPress={openAdd} />
-      </View>
+      <Text variant="titleSmall">Thiết lập máy in</Text>
 
-      <PrinterList printers={printers} actions={actions} onEdit={openEdit} />
+      <SegmentedButtons
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as PrintType)}
+        buttons={[
+          { value: PrintType.Receipt, label: PRINT_TYPE_LABELS.Receipt },
+          { value: PrintType.Label, label: PRINT_TYPE_LABELS.Label },
+        ]}
+      />
+
+      <AppButton label={`+ Thêm máy in ${PRINT_TYPE_LABELS[activeTab]}`} onPress={openAdd} />
+
+      <PrinterList printers={printersForTab} actions={actions} onEdit={openEdit} />
 
       {!isPhone && (
         <AddPrinterModal
@@ -76,6 +91,7 @@ export const PrinterManagementPanel: React.FC = () => {
           initialValues={editingPrinter}
           onDismiss={backToList}
           onSaved={onSaved}
+          purpose={purpose}
         />
       )}
     </View>
@@ -85,5 +101,4 @@ export const PrinterManagementPanel: React.FC = () => {
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
   phoneForm: { flex: 1, padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
