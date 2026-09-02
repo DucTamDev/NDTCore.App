@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Modal, Portal } from 'react-native-paper';
 import { AddPrinterForm } from './AddPrinterForm';
+import type { PrintType } from '../models/printing/PrintType';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -13,12 +14,14 @@ export interface AddPrinterModalProps {
   initialValues?: Printer;
   onDismiss: () => void;
   onSaved: () => void;
+  /** Mục đích khi THÊM MỚI (tab Hoá đơn/Tem đang mở ở màn danh sách) — bỏ qua khi Sửa. */
+  purpose?: PrintType;
 }
 
-export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved }) => (
+export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved, purpose }) => (
   <Portal>
     <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.container}>
-      <AddPrinterForm visible={visible} initialValues={initialValues} onSaved={onSaved} onBack={onDismiss} />
+      <AddPrinterForm visible={visible} initialValues={initialValues} onSaved={onSaved} onBack={onDismiss} purpose={purpose} />
     </Modal>
   </Portal>
 );

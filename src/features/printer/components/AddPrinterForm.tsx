@@ -6,6 +6,7 @@ import { useAddPrinterFlow } from '../hooks/useAddPrinterFlow';
 import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
+import { PRINT_TYPE_LABELS, type PrintType } from '../models/printing/PrintType';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -20,6 +21,8 @@ export interface AddPrinterFormProps {
   onBack: () => void;
   /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng (điện thoại — header ứng dụng đã có "← Thiết lập máy in"). Mặc định hiện — bắt buộc với `AddPrinterModal` vì đó là cách duy nhất đóng modal. */
   showBackButton?: boolean;
+  /** Mục đích khi THÊM MỚI (tab Hoá đơn/Tem đang mở ở màn danh sách) — bỏ qua khi Sửa. */
+  purpose?: PrintType;
 }
 
 export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
@@ -28,8 +31,9 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
   onSaved,
   onBack,
   showBackButton = true,
+  purpose,
 }) => {
-  const flow = useAddPrinterFlow({ visible, initialValues, onSaved });
+  const flow = useAddPrinterFlow({ visible, initialValues, onSaved, purpose });
 
   return (
     <View style={styles.root}>
@@ -53,6 +57,12 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
         {flow.hasEmptyContentTypeDriver ? (
           <Text variant="bodySmall" style={styles.identityError}>
             Mỗi driver phải nhận in ít nhất 1 loại nội dung (Hoá đơn/Tem) — chọn ở phần bên dưới trước khi lưu.
+          </Text>
+        ) : null}
+
+        {flow.hasPurposeMismatchDriver && purpose ? (
+          <Text variant="bodySmall" style={styles.addDriverHint}>
+            Driver vừa thêm không hỗ trợ in {PRINT_TYPE_LABELS[purpose]} — vẫn dùng được cho loại nội dung khác.
           </Text>
         ) : null}
 
