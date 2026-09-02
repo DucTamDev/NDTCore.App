@@ -179,7 +179,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         testPrintLabelPending={testPrintLabelPending}
         onTestPrintReceipt={onTestPrintReceipt}
         onTestPrintLabel={onTestPrintLabel}
-        disabled={locked}
       />
       <AppButton label="Lưu máy in" disabled={saveDisabled} onPress={onSave} />
     </View>

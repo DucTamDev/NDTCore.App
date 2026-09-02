@@ -157,6 +157,7 @@ describe('useAddPrinterFlow', () => {
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     expect(get().infoCard.drivers[0].contentTypes).toEqual([PrintType.Receipt]);
     expect(get().hasPurposeMismatchDriver).toBe(true);
+    expect(get().infoCard.saveDisabled).toBe(false);
   });
 
   it('không có purpose (Sửa máy in) → hasPurposeMismatchDriver luôn false', () => {

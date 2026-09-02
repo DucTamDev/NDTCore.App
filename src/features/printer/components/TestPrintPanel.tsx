@@ -11,7 +11,6 @@ interface TestPrintPanelProps {
   testPrintLabelPending: boolean;
   onTestPrintReceipt: () => void;
   onTestPrintLabel: () => void;
-  disabled: boolean;
 }
 
 export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({
@@ -22,7 +21,6 @@ export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({
   testPrintLabelPending,
   onTestPrintReceipt,
   onTestPrintLabel,
-  disabled: _disabled,
 }) => (
   <View style={styles.testPrintRow}>
     <AppButton

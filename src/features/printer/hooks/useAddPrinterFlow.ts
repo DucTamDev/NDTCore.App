@@ -42,6 +42,8 @@ export interface UseAddPrinterFlow {
   hasEmptyContentTypeDriver: boolean;
   /** true khi có `purpose` (thêm mới, chọn từ tab) nhưng driver vừa kết nối KHÔNG THỂ phục vụ purpose đó (vd ESC/POS ở tab Tem). Không chặn Save. */
   hasPurposeMismatchDriver: boolean;
+  /** true khi ít nhất 1 driver có cấu hình die-cut không hợp lệ (`dieCutMediaError`) — field này CHẶN Save (xem `saveDisabled`) nhưng nằm trong "Cài đặt nâng cao" đã thu gọn nên cần cảnh báo riêng ngoài accordion. */
+  hasDieCutMediaError: boolean;
   infoCard: PrinterInfoCardProps;
   captureNode: ReactNode;
   testPrintErrorMessage: string | null;
@@ -292,12 +294,16 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
     Boolean(identityErrorMessage);
   const hasEmptyContentTypeDriver = drivers.some((d) => d.contentTypes.length === 0);
   /**
-   * true khi có `purpose` (thêm mới, chọn tab) nhưng ít nhất 1 driver đã
-   * kết nối KHÔNG THỂ phục vụ `purpose` đó — vd ESC/POS ở tab Tem (ESC/POS
-   * chỉ nhận Hoá đơn, xem `DriverCapabilities.ts`). Không chặn Save.
+   * true khi có `purpose` (thêm mới, chọn tab) nhưng KHÔNG driver nào đã
+   * kết nối đang PHỤC VỤ `purpose` đó (xét `contentTypes` thực tế đang bật
+   * của từng driver, không phải capability tĩnh) — vd chỉ có ESC/POS ở tab
+   * Tem (ESC/POS chỉ nhận Hoá đơn, xem `DriverCapabilities.ts`). Tự tắt
+   * ngay khi có driver khác đã phục vụ đúng loại (dò thêm driver, hoặc
+   * user tự bật content type bằng switch) — không chặn Save.
    */
   const hasPurposeMismatchDriver =
-    purpose != null && drivers.some((d) => !getDriverCapabilities(d.type).contentTypes.includes(purpose));
+    purpose != null && drivers.length > 0 && !drivers.some((d) => d.contentTypes.includes(purpose));
+  const hasDieCutMediaError = drivers.some((d) => dieCutMediaError(mediaOf(d)) != null);
 
   return {
     title: initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in',
@@ -305,6 +311,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
     showAddDriverHint: drivers.length > 0 && drivers.length < 2,
     hasEmptyContentTypeDriver,
     hasPurposeMismatchDriver,
+    hasDieCutMediaError,
     captureNode,
     testPrintErrorMessage: testPrint.testPrintErrorMessage,
     saveErrorMessage,

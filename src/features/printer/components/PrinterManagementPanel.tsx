@@ -73,6 +73,7 @@ export const PrinterManagementPanel: React.FC = () => {
 
       <SegmentedButtons
         value={activeTab}
+        // value chỉ có thể là PrintType.Receipt/PrintType.Label (2 button cố định ở dưới) — cast an toàn.
         onValueChange={(value) => setActiveTab(value as PrintType)}
         buttons={[
           { value: PrintType.Receipt, label: PRINT_TYPE_LABELS.Receipt },

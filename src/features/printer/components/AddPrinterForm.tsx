@@ -66,6 +66,12 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
           </Text>
         ) : null}
 
+        {flow.hasDieCutMediaError ? (
+          <Text variant="bodySmall" style={styles.identityError}>
+            Cấu hình die-cut chưa hợp lệ (khổ giấy/số cột/khoảng cách) — mở "Cài đặt nâng cao" để sửa trước khi lưu.
+          </Text>
+        ) : null}
+
         <PrinterInfoCard {...flow.infoCard} />
         {flow.captureNode}
       </ScrollView>
