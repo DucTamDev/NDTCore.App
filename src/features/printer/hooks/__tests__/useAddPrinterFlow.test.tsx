@@ -142,6 +142,28 @@ describe('useAddPrinterFlow', () => {
     expect(get().statusPanel.protocolState).toBe('unknown');
   });
 
+  it('purpose=Label prefill chỉ bật Tem cho driver TSPL mới thêm (không tự bật cả Hoá đơn)', () => {
+    const { get } = render({ visible: true, onSaved: jest.fn(), purpose: PrintType.Label });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.identified, protocol: PrinterDriverType.tspl }));
+    expect(get().infoCard.drivers[0].contentTypes).toEqual([PrintType.Label]);
+    expect(get().hasPurposeMismatchDriver).toBe(false);
+  });
+
+  it('purpose=Label + driver ESC/POS (không hỗ trợ Tem) → giữ contentTypes mặc định + báo mismatch', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn(), purpose: PrintType.Label });
+    act(() => get().connectionSection.onConnectPress());
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
+    expect(get().infoCard.drivers[0].contentTypes).toEqual([PrintType.Receipt]);
+    expect(get().hasPurposeMismatchDriver).toBe(true);
+  });
+
+  it('không có purpose (Sửa máy in) → hasPurposeMismatchDriver luôn false', () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
+    expect(get().hasPurposeMismatchDriver).toBe(false);
+  });
+
   it('onSave (edit) calls PrinterRepository.updatePrinter with the full draft', async () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved });

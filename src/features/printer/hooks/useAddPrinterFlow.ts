@@ -14,6 +14,7 @@ import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
 import { ConnectionType } from '../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrintType } from '../models/printing/PrintType';
 import { mediaOf } from '../drivers/driverConfig';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
@@ -28,6 +29,8 @@ export interface UseAddPrinterFlowInput {
   visible: boolean;
   initialValues?: Printer;
   onSaved: () => void;
+  /** Mục đích khi THÊM MỚI (tab Hoá đơn/Tem đang mở ở màn danh sách) — dùng để prefill content type mặc định cho driver mới thêm vào. Bỏ qua hoàn toàn khi Sửa (`initialValues` có giá trị). */
+  purpose?: PrintType;
 }
 
 export interface UseAddPrinterFlow {
@@ -37,6 +40,8 @@ export interface UseAddPrinterFlow {
   statusPanel: StatusPanelProps;
   showAddDriverHint: boolean;
   hasEmptyContentTypeDriver: boolean;
+  /** true khi có `purpose` (thêm mới, chọn từ tab) nhưng driver vừa kết nối KHÔNG THỂ phục vụ purpose đó (vd ESC/POS ở tab Tem). Không chặn Save. */
+  hasPurposeMismatchDriver: boolean;
   infoCard: PrinterInfoCardProps;
   captureNode: ReactNode;
   testPrintErrorMessage: string | null;
@@ -55,7 +60,7 @@ export interface UseAddPrinterFlow {
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
  * `useConnectionSetup`, `useProtocolDiscovery`, `useTestPrint`, `useDriverConfig`.
  */
-export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
+export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [drivers, setDrivers] = useState<PrinterDriver[]>(initialValues?.drivers ?? []);
@@ -139,10 +144,18 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     return { ...draft, identityKey: draft.identityKey ?? '' };
   };
 
-  /** TRỪ content type đã thuộc driver khác (invariant #3). */
+  /**
+   * TRỪ content type đã thuộc driver khác (invariant #3). Khi thêm mới có
+   * `purpose` (chọn từ tab Hoá đơn/Tem) và driver này hỗ trợ được `purpose`
+   * đó → chỉ prefill đúng `purpose`, không tự bật thêm loại khác mà user
+   * chưa hỏi tới. Driver không hỗ trợ `purpose` (vd ESC/POS ở tab Tem) →
+   * giữ hành vi cũ (mọi content type driver hỗ trợ, trừ đã bị claim) —
+   * `hasPurposeMismatchDriver` báo cho UI biết để cảnh báo.
+   */
   const addDriverToList = (type: PrinterDriverType, source: DriverSource): void => {
     const alreadyClaimed = new Set(drivers.flatMap((d) => d.contentTypes));
-    const contentTypes = getDriverCapabilities(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
+    const capable = getDriverCapabilities(type).contentTypes.filter((ct) => !alreadyClaimed.has(ct));
+    const contentTypes = purpose && capable.includes(purpose) ? [purpose] : capable;
     const def = getDriverCapabilities(type).defaultConfig;
     const entry: PrinterDriver = {
       type,
@@ -278,12 +291,20 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved }: UseAddPri
     drivers.length >= 2 ||
     Boolean(identityErrorMessage);
   const hasEmptyContentTypeDriver = drivers.some((d) => d.contentTypes.length === 0);
+  /**
+   * true khi có `purpose` (thêm mới, chọn tab) nhưng ít nhất 1 driver đã
+   * kết nối KHÔNG THỂ phục vụ `purpose` đó — vd ESC/POS ở tab Tem (ESC/POS
+   * chỉ nhận Hoá đơn, xem `DriverCapabilities.ts`). Không chặn Save.
+   */
+  const hasPurposeMismatchDriver =
+    purpose != null && drivers.some((d) => !getDriverCapabilities(d.type).contentTypes.includes(purpose));
 
   return {
     title: initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in',
     identityErrorMessage,
     showAddDriverHint: drivers.length > 0 && drivers.length < 2,
     hasEmptyContentTypeDriver,
+    hasPurposeMismatchDriver,
     captureNode,
     testPrintErrorMessage: testPrint.testPrintErrorMessage,
     saveErrorMessage,
