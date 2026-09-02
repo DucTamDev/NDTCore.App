@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Chip } from 'react-native-paper';
+import { Text, Chip, List } from 'react-native-paper';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
 import { AppInput } from '../../../components/AppInput';
 import { AppSwitch } from '../../../components/AppSwitch';
@@ -92,6 +92,8 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   saveDisabled,
   locked,
 }) => {
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
+
   const claimedElsewhere = (type: PrinterDriverType, contentType: PrintType): boolean =>
     drivers.some((d) => d.type !== type && d.contentTypes.includes(contentType));
 
@@ -115,20 +117,12 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         <PrinterStatusBadge status={status} />
       </View>
 
-      <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
-
       {drivers.map((driver) => (
         <View key={driver.type} style={styles.driverCard}>
           <View style={styles.row}>
             <Chip>{`Driver: ${protocolLabel[driver.type]}`}</Chip>
             <Chip>{driver.source === DriverSource.auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
           </View>
-          <DriverMediaSection
-            driverType={driver.type}
-            media={mediaOf(driver)}
-            disabled={locked}
-            onChange={(patch) => onChangeDriverMedia(driver.type, patch)}
-          />
           {getDriverCapabilities(driver.type).contentTypes.map((contentType) => (
             <AppSwitch
               key={contentType}
@@ -138,23 +132,49 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               disabled={locked || (!driver.contentTypes.includes(contentType) && claimedElsewhere(driver.type, contentType))}
             />
           ))}
-          <DriverRenderModeSection
-            driver={driver}
-            disabled={locked}
-            tsplFontPending={tsplFontPending}
-            onSelectTsplRenderMode={onSelectTsplRenderMode}
-            onChangeTsplInternalFont={onChangeTsplInternalFont}
-          />
         </View>
       ))}
 
+      <List.Accordion
+        title="Cài đặt nâng cao"
+        expanded={advancedExpanded}
+        onPress={() => setAdvancedExpanded((v) => !v)}
+        style={styles.advancedAccordion}
+      >
+        <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
+        {drivers.map((driver) => (
+          <View key={driver.type} style={styles.advancedDriverBlock}>
+            {drivers.length > 1 ? <Text variant="labelSmall">{protocolLabel[driver.type]}</Text> : null}
+            <DriverMediaSection
+              driverType={driver.type}
+              media={mediaOf(driver)}
+              disabled={locked}
+              onChange={(patch) => onChangeDriverMedia(driver.type, patch)}
+            />
+            <DriverRenderModeSection
+              driver={driver}
+              disabled={locked}
+              tsplFontPending={tsplFontPending}
+              onSelectTsplRenderMode={onSelectTsplRenderMode}
+              onChangeTsplInternalFont={onChangeTsplInternalFont}
+            />
+          </View>
+        ))}
+        {hasTsplDriver ? (
+          <AppInput
+            label="Số hàng in thử"
+            keyboardType="numeric"
+            value={testPrintRowsText}
+            onChangeText={onTestPrintRowsChange}
+            disabled={locked}
+          />
+        ) : null}
+      </List.Accordion>
+
       <TestPrintPanel
         status={status}
-        hasTsplDriver={hasTsplDriver}
         canPrintReceipt={canPrint(PrintType.Receipt)}
         canPrintLabel={canPrint(PrintType.Label)}
-        testPrintRowsText={testPrintRowsText}
-        onTestPrintRowsChange={onTestPrintRowsChange}
         testPrintReceiptPending={testPrintReceiptPending}
         testPrintLabelPending={testPrintLabelPending}
         onTestPrintReceipt={onTestPrintReceipt}
@@ -170,4 +190,6 @@ const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   driverCard: { gap: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
+  advancedAccordion: { paddingHorizontal: 0 },
+  advancedDriverBlock: { gap: 8, marginBottom: 12 },
 });
