@@ -60,20 +60,18 @@ thermalprinter/
 │   ├── usb/UsbPrinterDiscovery.java
 │   └── bluetooth/BluetoothPrinterDiscovery.java
 ├── permission/
-│   ├── IUsbPermission.java
-│   └── UsbPermission.java
+│   └── UsbPermission.java          # class cụ thể, không có interface — chỉ USB cần, 1 implementation
 ├── transport/
 │   ├── IPrinterTransport.java
 │   ├── usb/UsbPrinterTransport.java
 │   ├── bluetooth/BluetoothPrinterTransport.java
 │   └── network/NetworkPrinterTransport.java
-├── error/
-│   ├── PrinterErrorCode.java
-│   ├── PrinterException.java
-│   └── (subclass exceptions theo nhu cầu implementation thực tế)
-└── constants/
-    └── PrinterConstants.java          # (+ Usb/Bluetooth/Network nếu cần tách)
+└── error/
+    ├── PrinterErrorCode.java
+    └── PrinterException.java
 ```
+
+Không có package `constants/` riêng — các hằng số (`ACTION_USB_PERMISSION`, bulk-transfer timeout...) là `private static final` ngay trong class dùng chúng, chỉ có đúng 1 nơi dùng mỗi hằng số. `enum` là từ khoá reserved trong Java nên package chứa enum đặt tên `enums` (không phải `enum` như tài liệu tham chiếu ban đầu).
 
 File cũ bị xoá toàn bộ sau khi migrate xong: `RNBLEPrinterModule.java`, `RNNetPrinterModule.java`, `RNUSBPrinterModule.java`, `RNPrinterModule.java`, `RNPrinterPackage.java`, cả thư mục `adapter/`.
 
@@ -82,7 +80,10 @@ File cũ bị xoá toàn bộ sau khi migrate xong: `RNBLEPrinterModule.java`, `
 `ThermalPrinterModule` (`getName() = "ThermalPrinterModule"`) export:
 
 ```java
-void init(Callback successCallback, Callback errorCallback);
+void init(String connectionType, Callback successCallback, Callback errorCallback);
+// connectionType: "usb" | "bluetooth" | "lan" — khác tài liệu tham chiếu (không có tham số này)
+// vì 3 loại kết nối có side-effect init khác nhau (USB đăng ký BroadcastReceiver,
+// Bluetooth chỉ kiểm tra adapter enabled, LAN no-op) nhưng giờ chung 1 module.
 
 void getDeviceList(String connectionType, Callback successCallback, Callback errorCallback);
 // connectionType: "usb" | "bluetooth"  (LAN không discovery, giữ nguyên hiện trạng)
@@ -94,19 +95,22 @@ void connectPrinter(ReadableMap connection, Callback successCallback, Callback e
 
 void closeConn(String connectionType);
 
-void printRawData(ReadableMap connection, String base64Data, Boolean keepConnection,
+void printRawData(String connectionType, String base64Data, Boolean keepConnection,
                    Callback successCallback, Callback errorCallback);
+// Nhận connectionType (không phải full connection map) — transport đã tự nhớ
+// target từ lần connectPrinter() gần nhất, giống hệt hành vi cũ (printRawData
+// cũ cũng không có tham số định danh thiết bị).
 ```
 
 `printImageData`, `printQrCode`, `printImageBase64` — **không export**.
 
 ### 4.3 JS bridge changes
 
-`PrinterNativeModule.ts` (và mọi call site: `UsbTransport.ts`, `NativeAdapter.ts`, `useConnectionSetup.ts`, `PrinterResolver.ts`):
+`PrinterNativeModule.ts` — chỉ file này cần sửa. `USBPrinter`/`BLEPrinter`/`NetPrinter` namespace (public export) giữ nguyên chữ ký y hệt, chỉ đổi implementation bên trong để gọi `ThermalPrinterModule` thay vì module riêng — nên **mọi call site khác đều KHÔNG cần sửa**: `UsbTransport.ts`, `NativeAdapter.ts`, `useConnectionSetup.ts`, `PrinterResolver.ts` chỉ gọi qua namespace, không đụng `NativeModules` trực tiếp.
 
-- Đổi `NativeModules.RNUSBPrinter/RNBLEPrinter/RNNetPrinter` → `NativeModules.ThermalPrinterModule` duy nhất.
-- 3 namespace `USBPrinter`/`BLEPrinter`/`NetPrinter` hiện có (public export, dùng ở nhiều nơi trong `src/features/printer`) **giữ nguyên làm JS-level namespace** để không phải sửa toàn bộ call site — chỉ đổi implementation bên trong mỗi namespace để gọi `ThermalPrinterModule` với `connection` map tương ứng thay vì gọi module riêng. Đây là ranh giới tương đương "existing public API ổn định" ở phía JS, giống nguyên tắc native ở tài liệu gốc.
-- Cập nhật test: `PrinterNativeModule.test.ts`, `NativeAdapter.test.ts`, `UsbTransport.test.ts` (mock `NativeModules.ThermalPrinterModule` thay vì 3 module riêng).
+- Đổi `NativeModules.RNUSBPrinter/RNBLEPrinter/RNNetPrinter` (đường Android) → `NativeModules.ThermalPrinterModule` duy nhất.
+- Nhánh `Platform.OS === 'ios'` trong `BLEPrinter.printText`/`NetPrinter.printText` vẫn gọi thẳng `NativeModules.RNBLEPrinter`/`NativeModules.RNNetPrinter` (native iOS chưa implement, ngoài phạm vi — xem §5) — không route qua `ThermalPrinterModule`.
+- Cập nhật test: `PrinterNativeModule.test.ts` (mock `NativeModules.ThermalPrinterModule`, giữ stub `RNBLEPrinter`/`RNNetPrinter` cho nhánh iOS vì Jest RN preset mặc định `Platform.OS='ios'`) + `jest.setup.js`. `NativeAdapter.test.ts`/`UsbTransport.test.ts` không cần sửa (mock ở mức namespace, không đổi).
 
 ## 5. Behavior phải giữ nguyên (không phải cơ hội "tiện sửa luôn")
 
