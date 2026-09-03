@@ -129,3 +129,15 @@ void printRawData(ReadableMap connection, String base64Data, Boolean keepConnect
 - Không đổi iOS.
 - Không thêm LAN discovery (mDNS/broadcast) — vẫn nhập host/port thủ công.
 - Không thêm error code nào ngoài những gì implementation thực sự cần để phân biệt case.
+
+## 8. Chuẩn code sạch (acceptance criteria, theo yêu cầu user)
+
+Đây là tiêu chí bắt buộc khi review PR của refactor này, không chỉ là "để package structure đúng là xong":
+
+- **Mỗi file 1 trách nhiệm, đúng ranh giới package ở §4.1** — không tái diễn kiểu `USBPrinterAdapter` 696 dòng gộp discovery + permission + connect + write + image rendering. Nếu 1 class vượt quá 1 trách nhiệm rõ ràng khi implement, đó là dấu hiệu thiếu 1 class/layer, không phải chấp nhận cho qua.
+- **Xoá sạch, không giữ song song "để phòng hờ"**: `adapter/`, `RNBLEPrinterModule.java`, `RNNetPrinterModule.java`, `RNUSBPrinterModule.java`, `RNPrinterModule.java`, `RNPrinterPackage.java` phải bị xoá hẳn sau khi migrate xong — không comment-out, không đổi tên thành `*.old.java`, không để cả 2 kiến trúc cùng tồn tại quá 1 PR.
+- **Comment chỉ khi WHY không rõ** (theo quy ước gốc của repo) — giữ lại các comment giải thích hành vi đặc biệt đã ghi nhận ở §5 (`keepConnection`, timing permission USB) vì đó là WHY thật sự không hiển nhiên; không viết comment tả lại WHAT code đã tự nói rõ qua tên hàm/biến.
+- **Không unused import/field/method** — biên dịch không warning thừa; xoá luôn code chết được liệt kê ở §2 (UtilsImage, zxing QR encode, getBitmapFromURL, các block bulk-transfer ảnh lặp lại) chứ không chỉ ngừng gọi tới chúng.
+- **Đặt tên đúng vai trò kiến trúc** (`*Transport`, `*Discovery`, `*Permission`, `*Exception`, `*Resolver`) — tránh tên mơ hồ kiểu `Utils`/`Helper`/`Manager` cho logic nghiệp vụ cụ thể của layer đó.
+- **`PrinterErrorCode` tối giản** — chỉ chứa case implementation thực sự phát sinh và cần phân biệt (nhắc lại từ §7, vì đây là lỗi thường gặp nhất khi copy taxonomy mẫu từ tài liệu tham chiếu).
+- **Không tạo abstraction/interface không có giá trị kiến trúc hoặc test** (`IPrinterTransport`, `IPrinterDiscovery`, `IUsbPermission` có giá trị vì có nhiều implementation theo connection type — không nhân rộng pattern này cho chỗ chỉ có 1 implementation duy nhất).
