@@ -2246,7 +2246,9 @@ const mkNativeModule = () => ({
 // Global Constraints trong plan). Jest preset RN mặc định Platform.OS='ios'
 // nên nhánh này chạy trong test dù app thật chạy Android — giữ stub tối
 // thiểu để không throw, KHÔNG đụng tới vì ngoài phạm vi refactor (Android-only).
-const mkLegacyIosStub = () => ({ printRawData: jest.fn() });
+const mkLegacyIosStub = () => ({
+  printRawData: jest.fn((_text: unknown, _opts: unknown, cbOk?: (m: string) => void) => cbOk?.('ok')),
+});
 
 const originals = {
   ThermalPrinterModule: NativeModules.ThermalPrinterModule,
