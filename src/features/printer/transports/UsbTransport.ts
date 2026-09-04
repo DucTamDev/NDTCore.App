@@ -24,8 +24,8 @@ const errorMessage = (error: unknown): string => (error instanceof Error ? error
 const USB_WRITE_CHUNK_BYTES = 16 * 1024;
 
 /**
- * Transport TSPL-qua-USB, dùng chung native module `RNUSBPrinter` với
- * `ThermalReceiptDriver` (escpos) — xem `UsbPrinterNative.ts` cho lý do cần
+ * Transport TSPL-qua-USB, dùng chung native module `ThermalPrinterModule` với
+ * `ThermalReceiptDriver` (escpos) — xem `PrinterNativeModule.ts` cho lý do cần
  * memoize `init()` dùng chung. Không có khả năng đọc phản hồi (chỉ có
  * bulk-OUT endpoint ở tầng native), nên không có `readOnce()` như
  * `LanTransport`/`BluetoothTransport` — `TsplDriver.identify()` đã tự loại

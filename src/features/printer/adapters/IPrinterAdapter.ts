@@ -24,7 +24,7 @@ export interface PrinterPrintTextOptions {
 /**
  * Contract chung cho MỌI cách feature máy in giao tiếp ra ngoài, phân theo
  * nguồn cơ chế:
- * - `native`  — native module tự viết (`PrinterNativeModule` → `RN*Printer`)
+ * - `native`  — native module tự viết (`PrinterNativeModule` → `ThermalPrinterModule`)
  * - `library` — thư viện npm (`react-native-tcp-socket` / `-bluetooth-classic`)
  * - `vendor`  — SDK do hãng máy in cung cấp
  *

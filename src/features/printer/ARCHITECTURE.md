@@ -129,7 +129,7 @@ Không được:
 ```text
 Cart
  ↓
-RNUSBPrinter
+ThermalPrinterModule
 ```
 
 Không được:
@@ -2767,7 +2767,7 @@ ThermalPrinterAdapter
 → ESC/POS vendor SDK boundary
 
 PrinterNativeModule
-→ RNUSBPrinter raw USB boundary
+→ ThermalPrinterModule raw USB boundary
 
 MockPrinterAdapter
 → unit-test double

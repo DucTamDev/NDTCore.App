@@ -16,7 +16,7 @@ import {
 
 /**
  * `IPrinterAdapter` chạy qua native module tự viết (`PrinterNativeModule` →
- * `RN{USB,BLE,Net}Printer`, code Kotlin/Java ở `com.ndtcorepos.thermalprinter`).
+ * `ThermalPrinterModule`, code Kotlin/Java ở `com.ndtcorepos.thermalprinter`).
  *
  * Giới hạn: native module KHÔNG expose `read` → `read()` luôn trả `null`. USB
  * còn dùng `UsbTransport` (chunk 16KB) cho `write`.
@@ -32,7 +32,7 @@ export class NativeAdapter implements IPrinterAdapter {
 
   async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
     if (connectionType === ConnectionType.lan) return [];
-    // `RN*Printer.getDeviceList` NPE nếu chưa `init()` (native `adapter` == null).
+    // `ThermalPrinterModule.getDeviceList` NPE nếu chưa `init()` (native `adapter` == null).
     await ensureNativeInitialized(connectionType);
     if (connectionType === ConnectionType.bluetooth) {
       const devices = await BLEPrinter.getDeviceList();

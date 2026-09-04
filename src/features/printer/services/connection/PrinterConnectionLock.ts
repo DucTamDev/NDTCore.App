@@ -17,9 +17,9 @@ export interface ConnectionResourceKeyInput {
  * Resource key phải phản ánh đúng RANH GIỚI CONCURRENCY THẬT của lớp bên
  * dưới, không phải định danh vật lý của printer (spec §9, invariant #14):
  *
- * - USB: `RNUSBPrinter` là native module singleton dùng chung giữa CẢ 2
+ * - USB: `ThermalPrinterModule` là native module singleton dùng chung giữa CẢ 2
  *   driver — 1 key toàn cục `"usb"` bất kể protocol.
- * - ESC/POS qua Bluetooth/LAN: native module RN*Printer (qua
+ * - ESC/POS qua Bluetooth/LAN: native module `ThermalPrinterModule` (qua
  *   `adapters/native/PrinterNativeModule`) giữ đúng 1 kết nối / namespace,
  *   singleton TOÀN CỤC theo connectionType — KHÔNG theo
  *   device. Thu hẹp xuống per-device sẽ tái tạo lại bug multi-printer đã

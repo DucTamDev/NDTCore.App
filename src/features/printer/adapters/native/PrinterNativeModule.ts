@@ -98,15 +98,9 @@ type SuccessCallback = (message?: string) => void;
 type ErrorCallback = (error: Error) => void;
 
 const defaultTextOptions: PrinterOptions = { beep: false, cut: false, tailingLine: false, encoding: 'UTF8' };
-const defaultBillOptions: PrinterOptions = { beep: true, cut: true, tailingLine: true, encoding: 'UTF8' };
 
 const textTo64Buffer = (text: string, opts: PrinterOptions): string => {
   const options = { ...defaultTextOptions, ...opts };
-  return EPToolkit.exchange_text(text, options).toString('base64').replace('G0AcJhxD/xsy', '');
-};
-
-const billTo64Buffer = (text: string, opts: PrinterOptions): string => {
-  const options = { ...defaultBillOptions, ...opts };
   return EPToolkit.exchange_text(text, options).toString('base64').replace('G0AcJhxD/xsy', '');
 };
 
@@ -153,14 +147,6 @@ export const USBPrinter = {
       'usb',
       textTo64Buffer(text, opts),
       opts?.keepConnection,
-      (msg: string) => cbSuccess?.(msg),
-      (error: Error) => cbErr?.(error),
-    ),
-
-  printBill: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): void =>
-    ThermalPrinterModule.printRawData(
-      'usb',
-      billTo64Buffer(text, opts),
       (msg: string) => cbSuccess?.(msg),
       (error: Error) => cbErr?.(error),
     ),
