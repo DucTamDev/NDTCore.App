@@ -1,0 +1,72 @@
+package com.ndtcorepos.thermalprinter.discovery.usb;
+
+import android.content.Context;
+import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+import android.hardware.usb.UsbManager;
+
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.ndtcorepos.thermalprinter.discovery.IPrinterDiscovery;
+import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
+import com.ndtcorepos.thermalprinter.error.PrinterException;
+import com.ndtcorepos.thermalprinter.model.PrinterDevice;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class UsbPrinterDiscovery implements IPrinterDiscovery {
+
+    private final UsbManager usbManager;
+
+    public UsbPrinterDiscovery(ReactApplicationContext context) {
+        this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+    }
+
+    @Override
+    public List<PrinterDevice> discover() throws PrinterException {
+        if (usbManager == null) {
+            throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "USBManager is not available");
+        }
+
+        List<PrinterDevice> devices = new ArrayList<>();
+        for (UsbDevice device : usbManager.getDeviceList().values()) {
+            if (isPrintableUsbDevice(device)) {
+                devices.add(new UsbPrinterDevice(device));
+            }
+        }
+        return devices;
+    }
+
+    /** Dùng lại ở UsbPrinterTransport để resolve UsbDevice theo vendorId/productId. */
+    public static boolean isPrintableUsbDevice(UsbDevice device) {
+        if (device == null || device.getVendorId() < 0 || device.getProductId() < 0) {
+            return false;
+        }
+        return findBulkOutInterface(device) != null;
+    }
+
+    public static UsbInterface findBulkOutInterface(UsbDevice device) {
+        if (device == null) return null;
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            UsbInterface usbInterface = device.getInterface(i);
+            if (findBulkOutEndpoint(usbInterface) != null) {
+                return usbInterface;
+            }
+        }
+        return null;
+    }
+
+    public static UsbEndpoint findBulkOutEndpoint(UsbInterface usbInterface) {
+        if (usbInterface == null) return null;
+        for (int i = 0; i < usbInterface.getEndpointCount(); i++) {
+            UsbEndpoint endpoint = usbInterface.getEndpoint(i);
+            if (endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK
+                    && endpoint.getDirection() == UsbConstants.USB_DIR_OUT) {
+                return endpoint;
+            }
+        }
+        return null;
+    }
+}
