@@ -23,7 +23,7 @@
 - Không thêm Java unit test — không có test Java nào hiện tại, I/O hardware thật giá trị test thấp. Mỗi task Java verify bằng compile (`.\gradlew.bat compileDebugJavaWithJavac`, chạy từ `android/`). Task cuối cùng verify bằng thiết bị thật.
 - Không tạo interface cho implementation duy nhất: `UsbPermission` là **class cụ thể**, không có `IUsbPermission` (khác tài liệu tham chiếu — chỉ USB cần permission, 1 implementation, không có test double nào cần).
 - Không tạo package `constants/` riêng — các hằng số (`ACTION_USB_PERMISSION`, bulk-transfer timeout...) là `private static final` ngay trong class dùng chúng, vì mỗi hằng số chỉ có đúng 1 nơi dùng.
-- **Phát hiện ngoài phạm vi (không sửa trong refactor này)**: `BLEPrinterDevice.toRNWritableMap()` hiện trả field `address`/`deviceName`, nhưng type TS `IBLEPrinter` khai báo `inner_mac_address`/`device_name` — sai lệch có sẵn từ trước (khả năng cao khiến `NativeAdapter.listDevices('bluetooth')` luôn trả `deviceId`/`displayName` là `undefined` trong thực tế). Port giữ nguyên field name hiện tại (`address`/`deviceName`) ở `BluetoothPrinterDevice.toWritableMap()`, KHÔNG đổi thành `inner_mac_address`/`device_name` — đây là bug có sẵn, báo lại cho user sau khi xong plan này, không tự sửa vì ngoài phạm vi đã duyệt.
+- **Sửa sau final review (2026-09-04)**: bản nháp gốc của plan này khẳng định `BLEPrinterDevice.toRNWritableMap()` (code đã commit) trả field `address`/`deviceName` (không khớp `IBLEPrinter`), và yêu cầu port giữ nguyên như vậy. Khẳng định đó SAI — `git show b7a3447:.../adapter/BLEPrinterDevice.java` cho thấy code đã commit trả đúng `inner_mac_address`/`device_name`, khớp hoàn toàn với `IBLEPrinter`. Nguyên nhân: lúc brainstorm, tôi đọc file ở working tree đang có sửa dở CHƯA COMMIT (camelCase) thay vì bản đã commit — nhầm sửa dở đó thành "code hiện tại". Tương tự với `UsbPrinterDevice`: field đúng theo commit là `device_name`/`device_id`/`vendor_id`/`product_id` (snake_case), không phải camelCase như nháp gốc. Final whole-branch review (dispatch model opus) phát hiện đây là 2 bug Critical (C1, C2) — đã sửa lại toàn bộ code trong plan (Task 4/5) về đúng field name khớp commit b7a3447, và sửa cả code thật đã implement. Không có bug "có sẵn" nào ở đây — lỗi hoàn toàn từ quá trình viết plan.
 
 ---
 
@@ -443,10 +443,10 @@ public final class UsbPrinterDevice implements PrinterDevice {
     }
 
     private void putDeviceInfo(WritableMap map) {
-        map.putString("deviceName", device.getDeviceName());
-        map.putInt("deviceId", device.getDeviceId());
-        map.putInt("vendorId", device.getVendorId());
-        map.putInt("productId", device.getProductId());
+        map.putString("device_name", device.getDeviceName());
+        map.putInt("device_id", device.getDeviceId());
+        map.putInt("vendor_id", device.getVendorId());
+        map.putInt("product_id", device.getProductId());
 
         putStringOrNull(map, "manufacturerName", device.getManufacturerName());
         putStringOrNull(map, "productName", device.getProductName());
@@ -796,7 +796,7 @@ public final class BluetoothPrinterDeviceId extends PrinterDeviceId {
 
 - [ ] **Step 2: Tạo `discovery/bluetooth/BluetoothPrinterDevice.java`**
 
-Field name giữ nguyên `address`/`deviceName` như code cũ (`adapter/BLEPrinterDevice.java`) — xem ghi chú "Phát hiện ngoài phạm vi" ở Global Constraints, không đổi thành `inner_mac_address`/`device_name`.
+**Sửa sau final review (2026-09-04):** field name đúng theo code cũ thật (`git show b7a3447:.../adapter/BLEPrinterDevice.java`) là `inner_mac_address`/`device_name` — khớp chính xác với type TS `IBLEPrinter`. Bản nháp task này trước đó dùng nhầm `address`/`deviceName` (đọc từ working tree có sửa dở CHƯA COMMIT tại thời điểm brainstorm, không phải bản đã commit mà worktree refactor thực sự branch ra từ đó) — đây là lỗi thật trong plan (2 bug Critical C1/C2 từ final whole-branch review), không phải bug có sẵn trong code đã commit. Đã sửa lại đúng.
 
 ```java
 package com.ndtcorepos.thermalprinter.discovery.bluetooth;
@@ -826,8 +826,8 @@ public final class BluetoothPrinterDevice implements PrinterDevice {
     @Override
     public WritableMap toWritableMap() {
         WritableMap map = Arguments.createMap();
-        map.putString("address", device.getAddress());
-        map.putString("deviceName", getDeviceNameSafely());
+        map.putString("inner_mac_address", device.getAddress());
+        map.putString("device_name", getDeviceNameSafely());
         return map;
     }
 
@@ -2399,4 +2399,4 @@ Expected: log theo format `operation=... connection=... bytes=... durationMs=...
 
 ## Ghi chú sau khi hoàn thành plan
 
-Sau khi xong Task 14, báo lại user bug có sẵn phát hiện trong lúc port (xem Global Constraints — `BLEPrinterDevice` field name `address`/`deviceName` không khớp type TS `inner_mac_address`/`device_name`) để user quyết định có sửa ở 1 task/PR riêng hay không — refactor này chủ động KHÔNG tự sửa.
+Không có bug có sẵn nào cần báo lại — xem "Sửa sau final review (2026-09-04)" ở Global Constraints: claim ban đầu về field-name mismatch trong `BLEPrinterDevice` là do tôi đọc nhầm working tree chưa commit lúc brainstorm, không phải bug thật trong code đã commit. Đã sửa lại đúng field name trong cả plan và code implement.
