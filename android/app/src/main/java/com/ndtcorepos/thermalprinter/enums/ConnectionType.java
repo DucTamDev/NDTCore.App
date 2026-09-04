@@ -15,10 +15,6 @@ public enum ConnectionType {
         this.wireValue = wireValue;
     }
 
-    public String getWireValue() {
-        return wireValue;
-    }
-
     public static ConnectionType fromWireValue(String wireValue) {
         for (ConnectionType type : values()) {
             if (type.wireValue.equals(wireValue)) {

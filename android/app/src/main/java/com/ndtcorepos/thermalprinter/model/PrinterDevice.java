@@ -8,6 +8,5 @@ import com.facebook.react.bridge.WritableMap;
  * (vd `UsbPrinterDevice` trong `discovery.usb`).
  */
 public interface PrinterDevice {
-    PrinterDeviceId getPrinterDeviceId();
     WritableMap toWritableMap();
 }
