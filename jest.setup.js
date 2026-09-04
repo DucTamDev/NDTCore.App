@@ -85,7 +85,6 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
     closeConn: jest.fn().mockResolvedValue(undefined),
     printText: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
     printBill: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
-    printImageBase64: jest.fn().mockImplementation((_data, _opts, cbSuccess) => cbSuccess?.('ok')),
   });
   const USBPrinter = namespace();
   const BLEPrinter = namespace();
@@ -108,12 +107,12 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
 });
 
 // PrinterNativeModule.test.ts dùng requireActual để test bản THẬT (ensureUsbInitialized,
-// namespace) — cần NativeModules.RNUSBPrinter tồn tại vì RN jest preset không có.
+// namespace) — cần NativeModules.ThermalPrinterModule tồn tại vì RN jest preset không có.
 {
   const { NativeModules } = require('react-native');
-  NativeModules.RNUSBPrinter = {
-    ...NativeModules.RNUSBPrinter,
-    init: jest.fn((cbSuccess) => cbSuccess?.()),
-    printRawData: jest.fn((_d, _k, cbSuccess) => cbSuccess?.('ok')),
+  NativeModules.ThermalPrinterModule = {
+    ...NativeModules.ThermalPrinterModule,
+    init: jest.fn((_connectionType, cbSuccess) => cbSuccess?.()),
+    printRawData: jest.fn((_connectionType, _d, _k, cbSuccess) => cbSuccess?.('ok')),
   };
 }

@@ -2,26 +2,37 @@ import { NativeModules } from 'react-native';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
 
 // `ThermalPrinterAdapter` sống trong cùng file với 3 namespace, nên không mock
-// riêng namespace được — stub `NativeModules.RN*Printer` rồi lấy bản THẬT qua
-// requireActual (bỏ qua mock toàn cục ở jest.setup.js).
-const mkNative = () => ({
-  init: jest.fn((cbOk: () => void) => cbOk()),
-  getDeviceList: jest.fn((cbOk: (d: unknown[]) => void) => cbOk([])),
+// riêng namespace được — stub `NativeModules.ThermalPrinterModule` rồi lấy bản
+// THẬT qua requireActual (bỏ qua mock toàn cục ở jest.setup.js).
+const mkNativeModule = () => ({
+  init: jest.fn((_connectionType: string, cbOk: () => void) => cbOk()),
+  getDeviceList: jest.fn((_connectionType: string, cbOk: (d: unknown[]) => void) => cbOk([])),
   connectPrinter: jest.fn(),
   closeConn: jest.fn(),
-  printRawData: jest.fn((_data: unknown, _keep: unknown, cbOk?: (m: string) => void) => cbOk?.('ok')),
+  printRawData: jest.fn(
+    (_connectionType: string, _data: unknown, _keep: unknown, cbOk?: (m: string) => void) => cbOk?.('ok'),
+  ),
+});
+
+// Nhánh iOS trong BLEPrinter/NetPrinter.printText gọi thẳng
+// NativeModules.RNBLEPrinter/RNNetPrinter (native iOS chưa implement — xem
+// Global Constraints trong plan). Jest preset RN mặc định Platform.OS='ios'
+// nên nhánh này chạy trong test dù app thật chạy Android — giữ stub tối
+// thiểu để không throw, KHÔNG đụng tới vì ngoài phạm vi refactor (Android-only).
+const mkLegacyIosStub = () => ({
+  printRawData: jest.fn((_text: unknown, _opts: unknown, cbOk?: (m: string) => void) => cbOk?.('ok')),
 });
 
 const originals = {
-  RNUSBPrinter: NativeModules.RNUSBPrinter,
+  ThermalPrinterModule: NativeModules.ThermalPrinterModule,
   RNBLEPrinter: NativeModules.RNBLEPrinter,
   RNNetPrinter: NativeModules.RNNetPrinter,
 };
 
 beforeEach(() => {
-  NativeModules.RNUSBPrinter = mkNative();
-  NativeModules.RNBLEPrinter = mkNative();
-  NativeModules.RNNetPrinter = mkNative();
+  NativeModules.ThermalPrinterModule = mkNativeModule();
+  NativeModules.RNBLEPrinter = mkLegacyIosStub();
+  NativeModules.RNNetPrinter = mkLegacyIosStub();
 });
 afterEach(() => {
   Object.assign(NativeModules, originals);
@@ -53,7 +64,7 @@ describe('ThermalPrinterAdapter', () => {
 
   it('printTextAsync rejects when the native module invokes the error callback', async () => {
     NativeModules.RNNetPrinter.printRawData = jest.fn(
-      (_data: unknown, _keep: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) => cbErr?.(new Error('boom')),
+      (_text: unknown, _opts: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) => cbErr?.(new Error('boom')),
     );
     const { ThermalPrinterAdapter } = loadReal();
     await expect(
@@ -68,11 +79,12 @@ describe('ThermalPrinterAdapter', () => {
 });
 
 describe('ensureUsbInitialized', () => {
-  it('gọi RNUSBPrinter.init() đúng 1 lần dù được gọi nhiều lần (memoize)', async () => {
+  it('gọi ThermalPrinterModule.init("usb", ...) đúng 1 lần dù được gọi nhiều lần (memoize)', async () => {
     const { ensureUsbInitialized } = loadReal();
     await ensureUsbInitialized();
     await ensureUsbInitialized();
-    expect(NativeModules.RNUSBPrinter.init).toHaveBeenCalledTimes(1);
+    expect(NativeModules.ThermalPrinterModule.init).toHaveBeenCalledTimes(1);
+    expect(NativeModules.ThermalPrinterModule.init).toHaveBeenCalledWith('usb', expect.any(Function), expect.any(Function));
   });
 });
 
@@ -80,7 +92,8 @@ describe('printRawDataUsb', () => {
   it('resolve khi native gọi success callback', async () => {
     const { printRawDataUsb } = loadReal();
     await expect(printRawDataUsb('QUI=', true)).resolves.toBeUndefined();
-    expect(NativeModules.RNUSBPrinter.printRawData).toHaveBeenCalledWith(
+    expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith(
+      'usb',
       'QUI=',
       true,
       expect.any(Function),
@@ -89,8 +102,9 @@ describe('printRawDataUsb', () => {
   });
 
   it('reject khi native gọi error callback', async () => {
-    NativeModules.RNUSBPrinter.printRawData = jest.fn(
-      (_data: unknown, _keep: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) => cbErr?.(new Error('USB fail')),
+    NativeModules.ThermalPrinterModule.printRawData = jest.fn(
+      (_connectionType: string, _data: unknown, _keep: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) =>
+        cbErr?.(new Error('USB fail')),
     );
     const { printRawDataUsb } = loadReal();
     await expect(printRawDataUsb('QUI=', true)).rejects.toThrow('USB fail');
