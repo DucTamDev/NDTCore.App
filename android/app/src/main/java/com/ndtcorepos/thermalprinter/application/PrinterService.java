@@ -44,17 +44,7 @@ public final class PrinterService {
     }
 
     public void connect(PrinterConnection connection) throws PrinterException {
-        ConnectionType type;
-        if (connection instanceof PrinterConnection.Usb) {
-            type = ConnectionType.USB;
-        } else if (connection instanceof PrinterConnection.Bluetooth) {
-            type = ConnectionType.BLUETOOTH;
-        } else if (connection instanceof PrinterConnection.Lan) {
-            type = ConnectionType.LAN;
-        } else {
-            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION, "Unsupported connection: " + connection);
-        }
-        resolveTransport(type).connect(connection);
+        resolveTransport(connection.type()).connect(connection);
     }
 
     public WriteResult write(ConnectionType type, PrinterData data, boolean keepConnection) throws PrinterException {
