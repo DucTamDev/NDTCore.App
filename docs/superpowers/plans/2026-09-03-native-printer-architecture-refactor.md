@@ -1323,6 +1323,7 @@ public final class UsbPrinterTransport implements IPrinterTransport {
         usbInterface = null;
         endpoint = null;
         connection = null;
+        usbDevice = null;
     }
 
     @Override
@@ -1331,6 +1332,8 @@ public final class UsbPrinterTransport implements IPrinterTransport {
     }
 }
 ```
+
+> **Post-review fix (2026-09-04):** the code above was corrected after Task 8's review found `disconnect()` originally left `usbDevice` set. Since `disconnect()` also runs as the `onDeviceDetached` callback (physical unplug), a stale `usbDevice` would make `connect()`'s early-return branch reuse the pre-unplug `UsbDevice` object on replug of the same vendor/product printer — `usbManager.openDevice(usbDevice)` on that stale object is likely to fail. Old code avoided this via a `deviceTurnedOff` flag forcing a fresh `getDeviceList()` scan; nulling `usbDevice` here achieves the same effect more directly (the early-return branch's `usbDevice != null` check now fails after any disconnect, forcing `connect()` to re-scan). See ledger "Task 8 review (2026-09-04)".
 
 - [ ] **Step 2: Verify compiles**
 
