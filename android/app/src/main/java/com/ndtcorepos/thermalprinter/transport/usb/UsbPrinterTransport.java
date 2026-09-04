@@ -146,6 +146,7 @@ public final class UsbPrinterTransport implements IPrinterTransport {
         usbInterface = null;
         endpoint = null;
         connection = null;
+        usbDevice = null;
     }
 
     @Override
