@@ -19,12 +19,20 @@ public final class PrinterService {
 
     private static final String TAG = "PrinterService";
 
-    private final TransportResolver transportResolver;
+    private final Map<ConnectionType, IPrinterTransport> transports;
     private final Map<ConnectionType, IPrinterDiscovery> discoveries;
 
-    public PrinterService(TransportResolver transportResolver, Map<ConnectionType, IPrinterDiscovery> discoveries) {
-        this.transportResolver = transportResolver;
+    public PrinterService(Map<ConnectionType, IPrinterTransport> transports, Map<ConnectionType, IPrinterDiscovery> discoveries) {
+        this.transports = transports;
         this.discoveries = discoveries;
+    }
+
+    private IPrinterTransport resolveTransport(ConnectionType type) throws PrinterException {
+        IPrinterTransport transport = transports.get(type);
+        if (transport == null) {
+            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION, "Unsupported connection type: " + type);
+        }
+        return transport;
     }
 
     public List<IPrinterDevice> discover(ConnectionType type) throws PrinterException {
@@ -46,12 +54,12 @@ public final class PrinterService {
         } else {
             throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION, "Unsupported connection: " + connection);
         }
-        transportResolver.resolve(type).connect(connection);
+        resolveTransport(type).connect(connection);
     }
 
     public WriteResult write(ConnectionType type, PrinterData data, boolean keepConnection) throws PrinterException {
         long startedAt = SystemClock.elapsedRealtime();
-        IPrinterTransport transport = transportResolver.resolve(type);
+        IPrinterTransport transport = resolveTransport(type);
 
         transport.write(data);
         if (!keepConnection) {
@@ -64,6 +72,6 @@ public final class PrinterService {
     }
 
     public void disconnect(ConnectionType type) throws PrinterException {
-        transportResolver.resolve(type).disconnect();
+        resolveTransport(type).disconnect();
     }
 }

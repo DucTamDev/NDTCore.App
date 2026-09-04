@@ -33,6 +33,6 @@ public final class PrinterServiceFactory {
         discoveries.put(ConnectionType.USB, new UsbPrinterDiscovery(context));
         discoveries.put(ConnectionType.BLUETOOTH, new BluetoothPrinterDiscovery());
 
-        return new PrinterService(new TransportResolver(transports), discoveries);
+        return new PrinterService(transports, discoveries);
     }
 }
