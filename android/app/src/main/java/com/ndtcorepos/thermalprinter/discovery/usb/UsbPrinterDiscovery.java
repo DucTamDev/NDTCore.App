@@ -11,7 +11,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.ndtcorepos.thermalprinter.discovery.IPrinterDiscovery;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.model.PrinterDevice;
+import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,12 +25,12 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
     }
 
     @Override
-    public List<PrinterDevice> discover() throws PrinterException {
+    public List<IPrinterDevice> discover() throws PrinterException {
         if (usbManager == null) {
             throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "USBManager is not available");
         }
 
-        List<PrinterDevice> devices = new ArrayList<>();
+        List<IPrinterDevice> devices = new ArrayList<>();
         for (UsbDevice device : usbManager.getDeviceList().values()) {
             if (isPrintableUsbDevice(device)) {
                 devices.add(new UsbPrinterDevice(device));

@@ -45,9 +45,13 @@ public final class UsbPrinterTransport implements IPrinterTransport {
      * (USBPrinterAdapter.selectDevice), không sửa timing.
      */
     @Override
-    public void connect(PrinterConnection connection) throws PrinterException {
-        int vendorId = connection.getUsbVendorId();
-        int productId = connection.getUsbProductId();
+    public void connect(PrinterConnection target) throws PrinterException {
+        if (!(target instanceof PrinterConnection.Usb usb)) {
+            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION,
+                    "UsbPrinterTransport chỉ nhận PrinterConnection.Usb");
+        }
+        int vendorId = usb.vendorId();
+        int productId = usb.productId();
 
         if (usbDevice != null && usbDevice.getVendorId() == vendorId && usbDevice.getProductId() == productId) {
             if (!permission.hasPermission(usbDevice)) {

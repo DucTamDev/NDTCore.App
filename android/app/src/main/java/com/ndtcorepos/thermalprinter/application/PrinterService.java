@@ -9,7 +9,7 @@ import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
 import com.ndtcorepos.thermalprinter.model.PrinterConnection;
 import com.ndtcorepos.thermalprinter.model.PrinterData;
-import com.ndtcorepos.thermalprinter.model.PrinterDevice;
+import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
 import com.ndtcorepos.thermalprinter.transport.IPrinterTransport;
 
 import java.util.List;
@@ -27,7 +27,7 @@ public final class PrinterService {
         this.discoveries = discoveries;
     }
 
-    public List<PrinterDevice> discover(ConnectionType type) throws PrinterException {
+    public List<IPrinterDevice> discover(ConnectionType type) throws PrinterException {
         IPrinterDiscovery discovery = discoveries.get(type);
         if (discovery == null) {
             throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION, "Discovery not supported for: " + type);
@@ -36,7 +36,17 @@ public final class PrinterService {
     }
 
     public void connect(PrinterConnection connection) throws PrinterException {
-        transportResolver.resolve(connection.getType()).connect(connection);
+        ConnectionType type;
+        if (connection instanceof PrinterConnection.Usb) {
+            type = ConnectionType.USB;
+        } else if (connection instanceof PrinterConnection.Bluetooth) {
+            type = ConnectionType.BLUETOOTH;
+        } else if (connection instanceof PrinterConnection.Lan) {
+            type = ConnectionType.LAN;
+        } else {
+            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION, "Unsupported connection: " + connection);
+        }
+        transportResolver.resolve(type).connect(connection);
     }
 
     public WriteResult write(ConnectionType type, PrinterData data, boolean keepConnection) throws PrinterException {

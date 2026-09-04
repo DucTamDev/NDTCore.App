@@ -8,9 +8,9 @@ import android.hardware.usb.UsbInterface;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
-import com.ndtcorepos.thermalprinter.model.PrinterDevice;
+import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
 
-public final class UsbPrinterDevice implements PrinterDevice {
+public final class UsbPrinterDevice implements IPrinterDevice {
 
     private final UsbDevice device;
 

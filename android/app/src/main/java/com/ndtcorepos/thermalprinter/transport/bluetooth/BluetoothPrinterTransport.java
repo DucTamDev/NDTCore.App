@@ -24,8 +24,12 @@ public final class BluetoothPrinterTransport implements IPrinterTransport {
     private int pendingDrainBytes = -1;
 
     @Override
-    public void connect(PrinterConnection connection) throws PrinterException {
-        String address = connection.getBluetoothAddress();
+    public void connect(PrinterConnection target) throws PrinterException {
+        if (!(target instanceof PrinterConnection.Bluetooth bluetooth)) {
+            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION,
+                    "BluetoothPrinterTransport chỉ nhận PrinterConnection.Bluetooth");
+        }
+        String address = bluetooth.address();
 
         if (device != null && device.getAddress().equals(address) && isConnected()) {
             return;
@@ -39,16 +43,16 @@ public final class BluetoothPrinterTransport implements IPrinterTransport {
             throw new PrinterException(PrinterErrorCode.CONNECTION_FAILED, "Bluetooth is not enabled");
         }
 
-        BluetoothDevice target = findBondedDevice(adapter, address);
-        if (target == null) {
+        BluetoothDevice bondedDevice = findBondedDevice(adapter, address);
+        if (bondedDevice == null) {
             throw new PrinterException(PrinterErrorCode.DEVICE_NOT_FOUND,
                     "Can not find the specified printing device, please pair it in system Bluetooth settings first.");
         }
 
         disconnect();
         try {
-            BluetoothSocket newSocket = openSocket(target);
-            this.device = target;
+            BluetoothSocket newSocket = openSocket(bondedDevice);
+            this.device = bondedDevice;
             this.socket = newSocket;
         } catch (IOException e) {
             throw new PrinterException(PrinterErrorCode.CONNECTION_FAILED, "Failed to connect bluetooth printer: " + e.getMessage(), e);

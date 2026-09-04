@@ -15,9 +15,13 @@ public final class NetworkPrinterTransport implements IPrinterTransport {
     private Socket socket;
 
     @Override
-    public void connect(PrinterConnection connection) throws PrinterException {
-        String host = connection.getLanHost();
-        int port = connection.getLanPort();
+    public void connect(PrinterConnection target) throws PrinterException {
+        if (!(target instanceof PrinterConnection.Lan lan)) {
+            throw new PrinterException(PrinterErrorCode.UNSUPPORTED_CONNECTION,
+                    "NetworkPrinterTransport chỉ nhận PrinterConnection.Lan");
+        }
+        String host = lan.host();
+        int port = lan.port();
 
         if (isConnected() && socket.getInetAddress().getHostAddress().equals(host) && socket.getPort() == port) {
             return;

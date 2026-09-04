@@ -4,9 +4,9 @@ import android.bluetooth.BluetoothDevice;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
-import com.ndtcorepos.thermalprinter.model.PrinterDevice;
+import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
 
-public final class BluetoothPrinterDevice implements PrinterDevice {
+public final class BluetoothPrinterDevice implements IPrinterDevice {
 
     private final BluetoothDevice device;
 

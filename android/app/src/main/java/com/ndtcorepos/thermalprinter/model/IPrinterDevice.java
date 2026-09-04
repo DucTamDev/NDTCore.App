@@ -7,6 +7,6 @@ import com.facebook.react.bridge.WritableMap;
  * implementation cụ thể sống cùng discovery class tạo ra nó
  * (vd `UsbPrinterDevice` trong `discovery.usb`).
  */
-public interface PrinterDevice {
+public interface IPrinterDevice {
     WritableMap toWritableMap();
 }
