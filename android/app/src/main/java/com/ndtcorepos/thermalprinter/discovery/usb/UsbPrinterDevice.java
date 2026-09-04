@@ -9,29 +9,16 @@ import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.ndtcorepos.thermalprinter.model.PrinterDevice;
-import com.ndtcorepos.thermalprinter.model.PrinterDeviceId;
 
 public final class UsbPrinterDevice implements PrinterDevice {
 
     private final UsbDevice device;
-    private final UsbPrinterDeviceId deviceId;
 
     public UsbPrinterDevice(UsbDevice device) {
         if (device == null) {
             throw new IllegalArgumentException("USB device must not be null");
         }
         this.device = device;
-        this.deviceId = UsbPrinterDeviceId.valueOf(device.getVendorId(), device.getProductId());
-    }
-
-    @Override
-    public PrinterDeviceId getPrinterDeviceId() {
-        return deviceId;
-    }
-
-    /** Native-only access. Do not expose UsbDevice directly to React Native. */
-    public UsbDevice getUsbDevice() {
-        return device;
     }
 
     @Override
@@ -44,10 +31,10 @@ public final class UsbPrinterDevice implements PrinterDevice {
     }
 
     private void putDeviceInfo(WritableMap map) {
-        map.putString("deviceName", device.getDeviceName());
-        map.putInt("deviceId", device.getDeviceId());
-        map.putInt("vendorId", device.getVendorId());
-        map.putInt("productId", device.getProductId());
+        map.putString("device_name", device.getDeviceName());
+        map.putInt("device_id", device.getDeviceId());
+        map.putInt("vendor_id", device.getVendorId());
+        map.putInt("product_id", device.getProductId());
 
         putStringOrNull(map, "manufacturerName", device.getManufacturerName());
         putStringOrNull(map, "productName", device.getProductName());
