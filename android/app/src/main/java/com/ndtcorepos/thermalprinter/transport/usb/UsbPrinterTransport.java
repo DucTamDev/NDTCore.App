@@ -83,8 +83,14 @@ public final class UsbPrinterTransport implements IPrinterTransport {
             throw new PrinterException(PrinterErrorCode.CONNECTION_FAILED, "Failed to connect to device");
         }
 
+        UsbDeviceConnection activeConnection = connection;
+        UsbEndpoint activeEndpoint = endpoint;
+        if (activeConnection == null || activeEndpoint == null) {
+            throw new PrinterException(PrinterErrorCode.CONNECTION_FAILED, "USB connection lost");
+        }
+
         byte[] bytes = data.getBytes();
-        int result = connection.bulkTransfer(endpoint, bytes, bytes.length, BULK_TRANSFER_TIMEOUT_MS);
+        int result = activeConnection.bulkTransfer(activeEndpoint, bytes, bytes.length, BULK_TRANSFER_TIMEOUT_MS);
         Log.i(TAG, "bulkTransfer result=" + result);
         if (result < 0) {
             throw new PrinterException(PrinterErrorCode.WRITE_FAILED, "USB print failed");

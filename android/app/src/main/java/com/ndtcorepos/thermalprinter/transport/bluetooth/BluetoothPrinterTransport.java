@@ -48,7 +48,6 @@ public final class BluetoothPrinterTransport implements IPrinterTransport {
         disconnect();
         try {
             BluetoothSocket newSocket = openSocket(target);
-            newSocket.connect();
             this.device = target;
             this.socket = newSocket;
         } catch (IOException e) {
@@ -67,10 +66,18 @@ public final class BluetoothPrinterTransport implements IPrinterTransport {
     }
 
     private BluetoothSocket openSocket(BluetoothDevice target) throws IOException {
+        BluetoothSocket socket = target.createRfcommSocketToServiceRecord(SPP_UUID);
         try {
-            return target.createRfcommSocketToServiceRecord(SPP_UUID);
+            socket.connect();
+            return socket;
         } catch (IOException e) {
-            return target.createRfcommSocketToServiceRecord(SPP_UUID);
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
+            BluetoothSocket retrySocket = target.createRfcommSocketToServiceRecord(SPP_UUID);
+            retrySocket.connect();
+            return retrySocket;
         }
     }
 
