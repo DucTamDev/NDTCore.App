@@ -201,7 +201,7 @@ public void reconnect(String printerId, Promise promise);
 @ReactMethod
 public void disconnect(String printerId, Promise promise);
 
-/** Không còn tham số keepConnection — write() không bao giờ tự disconnect. */
+/** Ghi dữ liệu thô tới printer — kết nối được giữ nguyên, chỉ đóng khi gọi disconnect(). */
 @ReactMethod
 public void writeByBase64(String printerId, String base64Data, Promise promise);
 
