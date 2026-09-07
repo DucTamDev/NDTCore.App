@@ -642,6 +642,15 @@ public final class PrinterManager {
     public PrinterCapabilities getCapabilities(String printerId);
 
     /**
+     * Trạng thái kết nối sống hiện tại của printer — nguồn sự thật thật sự,
+     * không phải giá trị JS tự suy luận.
+     *
+     * @param printerId id cần tra cứu
+     * @return trạng thái hiện tại, null nếu printerId không có trong Registry
+     */
+    public PrinterState getConnectionState(String printerId);
+
+    /**
      * Đưa 1 lệnh ghi vào hàng đợi FIFO của printer này.
      *
      * @param printerId printer đích
@@ -942,6 +951,17 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void getPrinterCapabilities(String printerId, Promise promise);
 
     /**
+     * Lấy trạng thái kết nối sống hiện tại của 1 printer — nguồn sự thật
+     * thật sự, để JS xác thực thay vì tự suy luận qua kết quả các lệnh
+     * đã gọi trước đó.
+     *
+     * @param printerId id printer cần tra cứu
+     * @param promise promise nhận trạng thái hiện tại (tên PrinterState)
+     */
+    @ReactMethod
+    public void getConnectionState(String printerId, Promise promise);
+
+    /**
      * Huỷ 1 job còn đang chờ trong hàng đợi.
      *
      * @param jobId id job cần huỷ
@@ -1080,6 +1100,13 @@ status thật qua lệnh ESC/POS, việc đó thuộc tầng driver JS).
 - **Không đổi**: `useAddPrinterFlow.ts` (cách sinh `printerId` giữ nguyên — mục 3),
   `PrintScheduler.ts`, `PrinterConnectionLock.ts`, `resourceKey` — theo đúng quyết định ở
   mục 1.
+
+`getConnectionState` (mục 8, 11) là method MỚI, chưa có consumer bắt buộc trong plan lần
+này — `PrinterConnectionService`/`usePrinterConnection.ts` (tầng thống nhất theo dõi status
+cho cả native lẫn `LibraryAdapter`, xem `ARCHITECTURE.md`) tiếp tục dùng cơ chế suy luận
+hiện tại, không bắt buộc đổi sang query native ngay. Việc dùng `getConnectionState` để xác
+thực trạng thái cho riêng nhánh native (thay vì suy luận) là cải tiến để lại cho 1 spec
+sau — phạm vi cross-cutting cả `LibraryAdapter`, vượt ngoài native printer layer.
 
 ---
 
