@@ -602,8 +602,9 @@ public final class PrinterManager {
      *
      * @param type loại kết nối cần quét
      * @return danh sách printer tìm thấy — rỗng nếu không có discovery cho loại này (LAN)
+     * @throws PrinterException DISCOVERY_FAILED nếu hệ thống USB/Bluetooth không sẵn sàng
      */
-    public List<PrinterInfo> discover(ConnectionType type);
+    public List<PrinterInfo> discover(ConnectionType type) throws PrinterException;
 
     /**
      * Kết nối tới printer theo printerId (JS truyền vào) + info.
@@ -824,8 +825,8 @@ print). Retry (nếu cần) là quyết định của JS, thực hiện bằng c
 
 ```text
 NONE, INVALID_ARGUMENT, PRINTER_NOT_FOUND, PRINTER_BUSY,
-PERMISSION_DENIED, PERMISSION_REQUIRED, CONNECTION_FAILED, CONNECTION_TIMEOUT,
-NOT_CONNECTED, WRITE_FAILED, WRITE_TIMEOUT, USB_DEVICE_NOT_FOUND,
+PERMISSION_DENIED, PERMISSION_REQUIRED, DISCOVERY_FAILED, CONNECTION_FAILED,
+CONNECTION_TIMEOUT, NOT_CONNECTED, WRITE_FAILED, WRITE_TIMEOUT, USB_DEVICE_NOT_FOUND,
 USB_ENDPOINT_NOT_FOUND, USB_INTERFACE_CLAIM_FAILED, BLUETOOTH_DEVICE_NOT_FOUND,
 BLUETOOTH_CONNECTION_FAILED, NETWORK_CONNECTION_FAILED, NETWORK_TIMEOUT,
 JOB_CANCELLED, UNSUPPORTED_CONNECTION, UNKNOWN_ERROR
@@ -1031,8 +1032,9 @@ public interface IPrinterDiscovery {
      * Quét thiết bị khả dụng.
      *
      * @return danh sách printer tìm thấy
+     * @throws PrinterException DISCOVERY_FAILED nếu hệ thống USB/Bluetooth không sẵn sàng
      */
-    List<PrinterInfo> discover();
+    List<PrinterInfo> discover() throws PrinterException;
 }
 ```
 
