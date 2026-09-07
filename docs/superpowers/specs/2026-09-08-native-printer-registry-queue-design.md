@@ -160,7 +160,7 @@ android/app/src/main/java/com/ndtcorepos/thermalprinter/
 │   ├── PrinterPermissionException.java
 │   ├── PrinterWriteException.java
 │   └── PrinterTimeoutException.java
-├── error/PrinterErrorCode.java        (giữ chỗ hiện tại, mở rộng danh sách — mục 12)
+├── error/PrinterErrorCode.java        (giữ chỗ hiện tại, mở rộng danh sách — mục 10)
 └── permission/UsbPermission.java      (giữ nguyên, không đổi)
 ```
 
@@ -181,7 +181,9 @@ nguyên logic — chỉ đổi kiểu trả về (`IPrinterDevice` → `PrinterI
 ## 5. `PrinterInfo`, `PrinterCapabilities`, `PrinterState`, `PrinterResult`
 
 ```java
-/** Metadata bất biến mô tả 1 printer. */
+/**
+ * Metadata bất biến mô tả 1 printer.
+ */
 public final class PrinterInfo {
     /** ID định danh printer trong Registry. */
     private final String printerId;
@@ -208,7 +210,9 @@ public final class PrinterInfo {
 quan tâm của native (mục 3).
 
 ```java
-/** Khả năng của printer mà native có thể quan sát được — không mô tả protocol. */
+/**
+ * Khả năng của printer mà native có thể quan sát được — không mô tả protocol.
+ */
 public final class PrinterCapabilities {
     /** Có ghi raw bytes được không (native luôn biết — luôn SUPPORTED nếu connect thành công). */
     private final CapabilityState rawWrite;
@@ -220,7 +224,9 @@ public final class PrinterCapabilities {
     private final CapabilityState printerStatus;
 }
 
-/** Mức độ chắc chắn của 1 capability đã detect. */
+/**
+ * Mức độ chắc chắn của 1 capability đã detect.
+ */
 public enum CapabilityState {
     /** Chắc chắn hỗ trợ. */
     SUPPORTED,
@@ -232,7 +238,9 @@ public enum CapabilityState {
 ```
 
 ```java
-/** Vòng đời 1 printer trong Registry. */
+/**
+ * Vòng đời 1 printer trong Registry.
+ */
 public enum PrinterState {
     /** Đã có trong Registry, chưa mở kết nối thật. */
     REGISTERED,
@@ -255,14 +263,31 @@ Transition hợp lệ: `REGISTERED → CONNECTING → {CONNECTED | ERROR}`,
 `CONNECTED` mà không qua `CONNECTING`.
 
 ```java
-/** Kết quả 1 thao tác native (connect/disconnect/...), không kèm dữ liệu nghiệp vụ. */
+/**
+ * Kết quả 1 thao tác native (connect/disconnect/...), không kèm dữ liệu nghiệp vụ.
+ */
 public final class PrinterResult {
     private final boolean success;
     private final PrinterErrorCode errorCode;
     private final String message;
     private final long durationMs;
 
+    /**
+     * Tạo kết quả thành công.
+     *
+     * @param durationMs thời gian thực hiện thao tác (mili-giây)
+     * @return kết quả thành công
+     */
     public static PrinterResult success(long durationMs);
+
+    /**
+     * Tạo kết quả thất bại.
+     *
+     * @param errorCode mã lỗi
+     * @param message thông điệp lỗi
+     * @param durationMs thời gian thực hiện thao tác (mili-giây)
+     * @return kết quả thất bại
+     */
     public static PrinterResult failure(PrinterErrorCode errorCode, String message, long durationMs);
 }
 ```
@@ -277,19 +302,37 @@ Khác code hiện tại (`model/PrinterConnection.java` là sealed interface **c
 từng implementation, gán 1 lần lúc khởi tạo.
 
 ```java
-/** Lifecycle của 1 kênh giao tiếp với printer — không ghi dữ liệu. */
+/**
+ * Lifecycle của 1 kênh giao tiếp với printer — không ghi dữ liệu.
+ */
 public interface PrinterConnection {
-    /** Mở kênh giao tiếp. */
+
+    /**
+     * Mở kênh giao tiếp.
+     */
     CompletableFuture<PrinterResult> open();
-    /** Đóng kênh giao tiếp — gọi nhiều lần không lỗi (idempotent). */
+
+    /**
+     * Đóng kênh giao tiếp — gọi nhiều lần không lỗi (idempotent).
+     */
     CompletableFuture<PrinterResult> close();
-    /** Kênh có đang mở không. */
+
+    /**
+     * Kênh có đang mở không.
+     */
     boolean isOpen();
 }
 
-/** Ghi raw bytes trên 1 kênh đã mở. */
+/**
+ * Ghi raw bytes trên 1 kênh đã mở.
+ */
 public interface PrinterWriter {
-    /** Ghi bytes — ném lỗi nếu kênh chưa mở hoặc ghi thất bại. */
+
+    /**
+     * Ghi bytes — ném lỗi nếu kênh chưa mở hoặc ghi thất bại.
+     *
+     * @param data dữ liệu cần ghi
+     */
     CompletableFuture<PrinterResult> write(byte[] data);
 }
 ```
@@ -297,7 +340,9 @@ public interface PrinterWriter {
 ### `UsbConnection` / `UsbWriter` / `UsbEndpointResolver`
 
 ```java
-/** Quản lý vòng đời kết nối USB — permission, mở/đóng UsbDeviceConnection, claim interface. */
+/**
+ * Quản lý vòng đời kết nối USB — permission, mở/đóng UsbDeviceConnection, claim interface.
+ */
 public final class UsbConnection implements PrinterConnection {
     private final UsbManager usbManager;
     private final UsbPermission permission;
@@ -307,22 +352,53 @@ public final class UsbConnection implements PrinterConnection {
     private UsbDeviceConnection connection;
     private UsbInterface claimedInterface;
 
-    @Override public CompletableFuture<PrinterResult> open();
-    @Override public CompletableFuture<PrinterResult> close();
-    @Override public boolean isOpen();
+    /**
+     * Mở kết nối USB — xin permission nếu chưa có, sau đó claim interface.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> open();
+
+    /**
+     * Đóng kết nối USB và release interface.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> close();
+
+    /**
+     * Kết nối USB có đang mở không.
+     */
+    @Override
+    public boolean isOpen();
 }
 
-/** Ghi bytes qua bulk OUT endpoint USB. */
+/**
+ * Ghi bytes qua bulk OUT endpoint USB.
+ */
 public final class UsbWriter implements PrinterWriter {
     private final UsbConnection connection;
     private final UsbEndpointResolver endpointResolver;
 
-    @Override public CompletableFuture<PrinterResult> write(byte[] data);
+    /**
+     * Ghi bytes qua bulk transfer.
+     *
+     * @param data dữ liệu cần ghi
+     */
+    @Override
+    public CompletableFuture<PrinterResult> write(byte[] data);
 }
 
-/** Tìm bulk OUT endpoint hợp lệ để ghi dữ liệu tới printer. */
+/**
+ * Tìm bulk OUT endpoint hợp lệ để ghi dữ liệu tới printer.
+ */
 public final class UsbEndpointResolver {
-    /** Trả về endpoint OUT — ném PrinterException(USB_ENDPOINT_NOT_FOUND) nếu không có. */
+
+    /**
+     * Tìm endpoint dùng để gửi dữ liệu tới printer.
+     *
+     * @param device thiết bị USB
+     * @return endpoint OUT đã resolve
+     * @throws PrinterException USB_ENDPOINT_NOT_FOUND khi không tìm thấy endpoint hợp lệ
+     */
     public UsbEndpoint resolve(UsbDevice device);
 }
 ```
@@ -335,43 +411,91 @@ không block thread bằng `Thread.sleep`.
 ### `BluetoothConnection` / `BluetoothWriter`
 
 ```java
-/** Quản lý vòng đời socket RFCOMM Bluetooth. */
+/**
+ * Quản lý vòng đời socket RFCOMM Bluetooth.
+ */
 public final class BluetoothConnection implements PrinterConnection {
     private final String address;
     private BluetoothSocket socket;
 
-    @Override public CompletableFuture<PrinterResult> open();
-    @Override public CompletableFuture<PrinterResult> close();
-    @Override public boolean isOpen();
+    /**
+     * Mở socket RFCOMM tới địa chỉ Bluetooth đã cấu hình.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> open();
+
+    /**
+     * Đóng socket Bluetooth.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> close();
+
+    /**
+     * Socket có đang kết nối không.
+     */
+    @Override
+    public boolean isOpen();
 }
 
-/** Ghi bytes qua OutputStream của socket Bluetooth. */
+/**
+ * Ghi bytes qua OutputStream của socket Bluetooth.
+ */
 public final class BluetoothWriter implements PrinterWriter {
     private final BluetoothConnection connection;
 
-    @Override public CompletableFuture<PrinterResult> write(byte[] data);
+    /**
+     * Ghi bytes rồi flush OutputStream.
+     *
+     * @param data dữ liệu cần ghi
+     */
+    @Override
+    public CompletableFuture<PrinterResult> write(byte[] data);
 }
 ```
 
 ### `NetConnection` / `NetWriter`
 
 ```java
-/** Quản lý vòng đời kết nối TCP tới printer mạng. */
+/**
+ * Quản lý vòng đời kết nối TCP tới printer mạng.
+ */
 public final class NetConnection implements PrinterConnection {
     private final String host;
     private final int port;
     private Socket socket;
 
-    @Override public CompletableFuture<PrinterResult> open();
-    @Override public CompletableFuture<PrinterResult> close();
-    @Override public boolean isOpen();
+    /**
+     * Mở socket TCP tới host/port đã cấu hình.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> open();
+
+    /**
+     * Đóng socket TCP.
+     */
+    @Override
+    public CompletableFuture<PrinterResult> close();
+
+    /**
+     * Socket có đang kết nối không.
+     */
+    @Override
+    public boolean isOpen();
 }
 
-/** Ghi bytes qua OutputStream TCP. */
+/**
+ * Ghi bytes qua OutputStream TCP.
+ */
 public final class NetWriter implements PrinterWriter {
     private final NetConnection connection;
 
-    @Override public CompletableFuture<PrinterResult> write(byte[] data);
+    /**
+     * Ghi bytes rồi flush OutputStream.
+     *
+     * @param data dữ liệu cần ghi
+     */
+    @Override
+    public CompletableFuture<PrinterResult> write(byte[] data);
 }
 ```
 
@@ -380,31 +504,60 @@ public final class NetWriter implements PrinterWriter {
 ## 7. `PrinterDevice` — điều phối Connection + Writer cho 1 printer
 
 ```java
-/** Đại diện 1 printer cụ thể — điều phối connection/writer, không tự biết protocol. */
+/**
+ * Đại diện 1 printer cụ thể — điều phối connection/writer, không tự biết protocol.
+ */
 public interface PrinterDevice {
-    /** Metadata của printer này. */
+
+    /**
+     * Metadata của printer này.
+     */
     PrinterInfo getInfo();
-    /** Trạng thái vòng đời hiện tại. */
+
+    /**
+     * Trạng thái vòng đời hiện tại.
+     */
     PrinterState getState();
-    /** Đang kết nối không. */
+
+    /**
+     * Đang kết nối không.
+     */
     boolean isConnected();
-    /** Mở kết nối — idempotent nếu đã CONNECTED. */
+
+    /**
+     * Mở kết nối — idempotent nếu đã CONNECTED.
+     */
     CompletableFuture<PrinterResult> connect();
-    /** Đóng kết nối — idempotent nếu đã DISCONNECTED. */
+
+    /**
+     * Đóng kết nối — idempotent nếu đã DISCONNECTED.
+     */
     CompletableFuture<PrinterResult> disconnect();
-    /** Ghi raw bytes — ném NOT_CONNECTED nếu chưa kết nối (không tự động connect lại). */
+
+    /**
+     * Ghi raw bytes — không tự động connect lại nếu chưa kết nối.
+     *
+     * @param data dữ liệu cần ghi
+     * @throws PrinterException NOT_CONNECTED nếu chưa kết nối
+     */
     CompletableFuture<PrinterResult> write(byte[] data);
 }
 ```
 
 ```java
-/** PrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter. */
+/**
+ * PrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter.
+ */
 public final class UsbPrinterDevice implements PrinterDevice { }
 
-/** PrinterDevice cho kết nối Bluetooth — phối hợp BluetoothConnection + BluetoothWriter. */
+/**
+ * PrinterDevice cho kết nối Bluetooth — phối hợp BluetoothConnection + BluetoothWriter.
+ */
 public final class BluetoothPrinterDevice implements PrinterDevice { }
 
-/** PrinterDevice cho kết nối LAN — phối hợp NetConnection + NetWriter. */
+/**
+ * PrinterDevice cho kết nối LAN — phối hợp NetConnection + NetWriter.
+ */
 public final class NetPrinterDevice implements PrinterDevice { }
 ```
 
@@ -416,15 +569,37 @@ Mỗi implementation tự cập nhật `PrinterState` (field nội bộ) theo tr
 ## 8. `PrinterRegistry` / `PrinterManager`
 
 ```java
-/** Registry thread-safe các printer đang được native quản lý, khoá theo printerId. */
+/**
+ * Registry thread-safe các printer đang được native quản lý, khoá theo printerId.
+ */
 public final class PrinterRegistry {
-    /** Tìm printer theo id — null nếu chưa có. */
+
+    /**
+     * Tìm printer theo id.
+     *
+     * @param printerId id cần tìm
+     * @return printer tương ứng, null nếu chưa có
+     */
     public PrinterDevice get(String printerId);
-    /** Thêm/thay thế printer trong registry. */
+
+    /**
+     * Thêm/thay thế printer trong registry.
+     *
+     * @param printerId khoá đăng ký
+     * @param device printer cần lưu
+     */
     public void put(String printerId, PrinterDevice device);
-    /** Xoá printer khỏi registry. */
+
+    /**
+     * Xoá printer khỏi registry.
+     *
+     * @param printerId id cần xoá
+     */
     public void remove(String printerId);
-    /** Tất cả printer đang quản lý. */
+
+    /**
+     * Tất cả printer đang quản lý.
+     */
     public List<PrinterDevice> getAll();
 }
 ```
@@ -435,37 +610,77 @@ trữ, không tự tạo device:
 
 ```java
 public final class PrinterManager {
+
     /**
      * Kết nối tới printer theo printerId (đã được bridge đảm bảo không null) + info.
      *
      * <p>Registry chưa có printerId này → tạo PrinterDevice mới theo
      * info.connectionType, put vào Registry, rồi connect(). Đã có → dùng lại
      * PrinterDevice hiện có (idempotent nếu đã CONNECTED).</p>
+     *
+     * @param printerId khoá đăng ký trong Registry
+     * @param info thông tin kết nối
      */
     public CompletableFuture<PrinterResult> connect(String printerId, PrinterInfo info);
 
-    /** Kết nối lại — lỗi PRINTER_NOT_FOUND nếu printerId không có trong Registry. */
+    /**
+     * Kết nối lại 1 printer đã có trong Registry.
+     *
+     * @param printerId id cần kết nối lại
+     * @throws PrinterException PRINTER_NOT_FOUND nếu printerId không có trong Registry
+     */
     public CompletableFuture<PrinterResult> reconnect(String printerId);
 
-    /** Đóng kết nối — lỗi PRINTER_NOT_FOUND nếu printerId không có trong Registry. */
+    /**
+     * Đóng kết nối tới 1 printer.
+     *
+     * @param printerId id cần ngắt kết nối
+     * @throws PrinterException PRINTER_NOT_FOUND nếu printerId không có trong Registry
+     */
     public CompletableFuture<PrinterResult> disconnect(String printerId);
 
-    /** Metadata printer đã đăng ký — null nếu không tìm thấy. */
+    /**
+     * Metadata của 1 printer đã đăng ký.
+     *
+     * @param printerId id cần tra cứu
+     * @return metadata tương ứng, null nếu không tìm thấy
+     */
     public PrinterInfo getInfo(String printerId);
 
-    /** Capability đã detect cho printer — null nếu không tìm thấy. */
+    /**
+     * Capability đã detect cho 1 printer.
+     *
+     * @param printerId id cần tra cứu
+     * @return capability tương ứng, null nếu không tìm thấy
+     */
     public PrinterCapabilities getCapabilities(String printerId);
 
-    /** Đưa 1 lệnh ghi vào hàng đợi FIFO của printer này. */
+    /**
+     * Đưa 1 lệnh ghi vào hàng đợi FIFO của printer này.
+     *
+     * @param printerId printer đích
+     * @param data dữ liệu cần ghi
+     */
     public CompletableFuture<PrintJobResult> write(String printerId, byte[] data);
 
-    /** Huỷ 1 job còn PENDING trong hàng đợi — false nếu job không tồn tại/đã chạy. */
+    /**
+     * Huỷ 1 job còn PENDING trong hàng đợi.
+     *
+     * @param jobId id job cần huỷ
+     * @return true nếu huỷ thành công, false nếu job không tồn tại/đã chạy
+     */
     public boolean cancelJob(String jobId);
 
-    /** Trạng thái hàng đợi hiện tại của 1 printer. */
+    /**
+     * Trạng thái hàng đợi hiện tại của 1 printer.
+     *
+     * @param printerId id cần tra cứu
+     */
     public QueueStatus getQueueStatus(String printerId);
 
-    /** Đóng tất cả kết nối + tắt mọi executor — gọi khi RN module bị huỷ. */
+    /**
+     * Đóng tất cả kết nối và tắt mọi executor — gọi khi RN module bị huỷ.
+     */
     public void shutdown();
 }
 ```
@@ -486,48 +701,97 @@ FIFO của `PrinterQueue` (theo `printerId`) là đủ để đảm bảo tuần
 song giữa các printer khác nhau.
 
 ```java
-/** 1 lệnh ghi đã được đưa vào hàng đợi. */
+/**
+ * 1 lệnh ghi đã được đưa vào hàng đợi.
+ */
 public final class PrintJob {
+    /** ID định danh job. */
     private final String jobId;
+    /** Printer đích. */
     private final String printerId;
+    /** Dữ liệu cần ghi. */
     private final byte[] data;
+    /** Thời điểm job được tạo. */
     private final long createdAt;
 }
 
-/** Kết quả cuối cùng của 1 PrintJob. */
+/**
+ * Kết quả cuối cùng của 1 PrintJob.
+ */
 public final class PrintJobResult {
+    /** ID job tương ứng. */
     private final String jobId;
+    /** Printer đích. */
     private final String printerId;
+    /** Job có thành công không. */
     private final boolean success;
+    /** Mã lỗi — null nếu thành công. */
     private final PrinterErrorCode errorCode;
+    /** Thông điệp lỗi — null nếu thành công. */
     private final String message;
+    /** Thời gian thực thi (mili-giây). */
     private final long durationMs;
 }
 
-/** Hàng đợi FIFO cho 1 printer — chạy trên 1 single-thread executor riêng. */
+/**
+ * Hàng đợi FIFO cho 1 printer — chạy trên 1 single-thread executor riêng.
+ */
 public final class PrinterQueue {
     private final String printerId;
     private final ExecutorService executor; // Executors.newSingleThreadExecutor()
 
-    /** Thêm job vào cuối hàng đợi — thực thi đúng thứ tự FIFO. */
+    /**
+     * Thêm job vào cuối hàng đợi — thực thi đúng thứ tự FIFO.
+     *
+     * @param job job cần thực thi
+     */
     public CompletableFuture<PrintJobResult> enqueue(PrintJob job);
-    /** Huỷ job — chỉ thành công nếu job còn PENDING (chưa tới lượt chạy). */
+
+    /**
+     * Huỷ job — chỉ thành công nếu job còn PENDING (chưa tới lượt chạy).
+     *
+     * @param jobId id job cần huỷ
+     * @return true nếu huỷ thành công
+     */
     public boolean cancel(String jobId);
-    /** Số job đang chờ + trạng thái job đang chạy (nếu có). */
+
+    /**
+     * Số job đang chờ và job đang chạy (nếu có).
+     */
     public QueueStatus status();
-    /** Đóng executor — không nhận job mới. */
+
+    /**
+     * Đóng executor — không nhận job mới.
+     */
     public void shutdown();
 }
 
-/** Trạng thái hàng đợi tại 1 thời điểm. */
+/**
+ * Trạng thái hàng đợi tại 1 thời điểm.
+ */
 public final class QueueStatus {
+    /** Số job đang chờ. */
     private final int pendingCount;
-    private final String runningJobId; // null nếu queue đang rảnh
+    /** ID job đang chạy — null nếu queue đang rảnh. */
+    private final String runningJobId;
 }
 
-/** Map printerId → PrinterQueue, tạo lười khi có job đầu tiên cho 1 printerId. */
+/**
+ * Map printerId → PrinterQueue, tạo lười khi có job đầu tiên cho 1 printerId.
+ */
 public final class PrinterQueueManager {
+
+    /**
+     * Lấy queue của 1 printer, tạo mới nếu chưa có.
+     *
+     * @param printerId printer cần lấy queue
+     * @return queue tương ứng
+     */
     public PrinterQueue getOrCreate(String printerId);
+
+    /**
+     * Đóng tất cả queue đang quản lý.
+     */
     public void shutdownAll();
 }
 ```
@@ -562,23 +826,41 @@ Không có `PRINTER_ALREADY_REGISTERED` — `connect()` idempotent (tạo mới 
 nhân tạo ở phiên bản này).
 
 ```java
-/** Gốc exception của tầng native printer — luôn mang errorCode + printerId liên quan. */
+/**
+ * Gốc exception của tầng native printer — luôn mang errorCode và printerId liên quan.
+ */
 public class PrinterException extends Exception {
+    /** Mã lỗi chuẩn hoá. */
     private final PrinterErrorCode code;
-    private final String printerId; // null nếu lỗi không gắn với 1 printer cụ thể (vd input sai)
+    /** Printer liên quan — null nếu lỗi không gắn với 1 printer cụ thể (vd input sai). */
+    private final String printerId;
+
+    /**
+     * Mã lỗi của exception này.
+     *
+     * @return mã lỗi
+     */
     public PrinterErrorCode getCode();
 }
 
-/** Lỗi khi mở/đóng kết nối. */
+/**
+ * Lỗi khi mở/đóng kết nối.
+ */
 public class PrinterConnectionException extends PrinterException { }
 
-/** Lỗi liên quan permission Android (USB). */
+/**
+ * Lỗi liên quan permission Android (USB).
+ */
 public class PrinterPermissionException extends PrinterException { }
 
-/** Lỗi khi ghi dữ liệu. */
+/**
+ * Lỗi khi ghi dữ liệu.
+ */
 public class PrinterWriteException extends PrinterException { }
 
-/** Vượt quá thời gian chờ (connect/write/socket). */
+/**
+ * Vượt quá thời gian chờ (connect/write/socket).
+ */
 public class PrinterTimeoutException extends PrinterException { }
 ```
 
@@ -590,10 +872,17 @@ map `PrinterException`/`PrinterErrorCode` sang `promise.reject(code.name(), mess
 ## 11. Bridge (`PrinterModule.java`)
 
 ```java
-/** RN bridge duy nhất cho printer — Promise boundary, sinh printerId cho printer mới. */
+/**
+ * RN bridge duy nhất cho printer — Promise boundary, sinh printerId cho printer mới.
+ */
 public final class PrinterModule extends ReactContextBaseJavaModule {
 
-    /** Liệt kê thiết bị khả dụng cho 1 loại kết nối. */
+    /**
+     * Liệt kê thiết bị khả dụng cho 1 loại kết nối.
+     *
+     * @param type loại kết nối ("usb"/"bluetooth"/"lan")
+     * @param promise promise nhận danh sách PrinterInfo
+     */
     @ReactMethod
     public void discoverPrinters(String type, Promise promise);
 
@@ -603,35 +892,77 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
      * <p>`printer.printerId` rỗng/null → sinh UUID mới, tạo printer, trả
      * printerId đó trong kết quả. Có sẵn → dùng nguyên giá trị, idempotent
      * nếu đã kết nối.</p>
+     *
+     * @param printer thông tin kết nối (printerId tuỳ chọn, type + field theo loại)
+     * @param promise promise nhận { printerId } khi thành công
      */
     @ReactMethod
     public void connect(ReadableMap printer, Promise promise);
 
-    /** Kết nối lại — lỗi nếu printerId không còn trong Registry (đã qua vòng đời process khác). */
+    /**
+     * Kết nối lại 1 printer đã có trong Registry.
+     *
+     * @param printerId id printer cần kết nối lại
+     * @param promise promise nhận kết quả kết nối
+     */
     @ReactMethod
     public void reconnect(String printerId, Promise promise);
 
-    /** Đóng kết nối tới printer. */
+    /**
+     * Đóng kết nối tới printer.
+     *
+     * @param printerId id printer cần ngắt kết nối
+     * @param promise promise nhận kết quả ngắt kết nối
+     */
     @ReactMethod
     public void disconnect(String printerId, Promise promise);
 
-    /** Giải mã Base64 rồi ghi raw bytes — kết nối được giữ nguyên, chỉ đóng khi gọi disconnect(). */
+    /**
+     * Giải mã Base64 rồi ghi raw bytes tới printer.
+     *
+     * <p>Kết nối được giữ nguyên sau khi ghi — chỉ đóng khi gọi
+     * {@code disconnect()} tường minh.</p>
+     *
+     * @param printerId id printer đích
+     * @param base64Data dữ liệu đã encode Base64
+     * @param promise promise nhận kết quả ghi
+     */
     @ReactMethod
     public void writeByBase64(String printerId, String base64Data, Promise promise);
 
-    /** Lấy metadata của 1 printer đã đăng ký. */
+    /**
+     * Lấy metadata của 1 printer đã đăng ký.
+     *
+     * @param printerId id printer cần tra cứu
+     * @param promise promise nhận metadata
+     */
     @ReactMethod
     public void getPrinterInfo(String printerId, Promise promise);
 
-    /** Lấy capability native đã detect cho 1 printer. */
+    /**
+     * Lấy capability native đã detect cho 1 printer.
+     *
+     * @param printerId id printer cần tra cứu
+     * @param promise promise nhận capability
+     */
     @ReactMethod
     public void getPrinterCapabilities(String printerId, Promise promise);
 
-    /** Huỷ 1 job còn đang chờ trong hàng đợi. */
+    /**
+     * Huỷ 1 job còn đang chờ trong hàng đợi.
+     *
+     * @param jobId id job cần huỷ
+     * @param promise promise nhận kết quả huỷ
+     */
     @ReactMethod
     public void cancelPrintJob(String jobId, Promise promise);
 
-    /** Lấy trạng thái hàng đợi hiện tại của 1 printer. */
+    /**
+     * Lấy trạng thái hàng đợi hiện tại của 1 printer.
+     *
+     * @param printerId id printer cần tra cứu
+     * @param promise promise nhận trạng thái hàng đợi
+     */
     @ReactMethod
     public void getQueueStatus(String printerId, Promise promise);
 }
@@ -671,8 +1002,16 @@ Architecture lifecycle hook) gọi khi module bị huỷ: đóng tất cả `Pri
 ## 13. Discovery & Capability Detection
 
 ```java
-/** Tìm các printer khả dụng cho 1 loại kết nối. */
+/**
+ * Tìm các printer khả dụng cho 1 loại kết nối.
+ */
 public interface IPrinterDiscovery {
+
+    /**
+     * Quét thiết bị khả dụng.
+     *
+     * @return danh sách printer tìm thấy
+     */
     List<PrinterInfo> discover();
 }
 ```
@@ -686,13 +1025,33 @@ Discovery **không** connect printer — chỉ trả về `PrinterInfo`, việc 
 `PrinterDevice.connect()` sau đó.
 
 ```java
-/** Phát hiện capability quan sát được từ native — không suy đoán, không biết protocol. */
+/**
+ * Phát hiện capability quan sát được từ native — không suy đoán, không biết protocol.
+ */
 public interface CapabilityDetector {
+
+    /**
+     * Phát hiện capability cho 1 printer.
+     *
+     * @param info metadata printer
+     * @return capability đã detect
+     */
     PrinterCapabilities detect(PrinterInfo info);
 }
 
+/**
+ * CapabilityDetector cho printer USB.
+ */
 public final class UsbCapabilityDetector implements CapabilityDetector { }
+
+/**
+ * CapabilityDetector cho printer Bluetooth.
+ */
 public final class BluetoothCapabilityDetector implements CapabilityDetector { }
+
+/**
+ * CapabilityDetector cho printer LAN.
+ */
 public final class NetCapabilityDetector implements CapabilityDetector { }
 ```
 
@@ -735,7 +1094,10 @@ status thật qua lệnh ESC/POS, việc đó thuộc tầng driver JS).
 
 ## 16. Comment convention (áp dụng khi implement)
 
-Javadoc public API: 1 dòng, nói đúng chức năng hiện tại — không nhắc gì đến version cũ,
-không so sánh "trước đây"/"không còn". Chỉ viết thêm 1-2 dòng giải thích khi có 1 ràng buộc
-hoặc hành vi thật sự không hiển nhiên nếu chỉ đọc tên method (vd lý do permission USB bất
-đồng bộ ở mục 6, lý do không tự động retry ở mục 9).
+Javadoc public API viết theo format ở các code block trên: khối `/** ... */` nhiều dòng,
+câu đầu nói đúng chức năng hiện tại (không nhắc version cũ, không so sánh "trước
+đây"/"không còn"), có `@param` cho từng tham số và `@return`/`@throws` khi method trả giá
+trị có ý nghĩa cần giải thích thêm hoặc ném lỗi cụ thể. Field dùng comment 1 dòng
+`/** ... */` ngay trên khai báo. Chỉ viết thêm đoạn `<p>...</p>` khi có 1 ràng buộc hoặc
+hành vi thật sự không hiển nhiên nếu chỉ đọc tên method (vd lý do permission USB bất đồng
+bộ ở mục 6, lý do không tự động retry ở mục 9).
