@@ -138,15 +138,23 @@ android/app/src/main/java/com/ndtcorepos/thermalprinter/
 │   ├── BluetoothCapabilityDetector.java
 │   └── NetCapabilityDetector.java
 ├── enums/ConnectionType.java          (giữ nguyên — usb/bluetooth/lan)
+├── error/
+│   ├── PrinterErrorCode.java          (giữ chỗ hiện tại, mở rộng danh sách — mục 10)
+│   └── PrinterException.java          (giữ nguyên — root exception, không đổi package)
 ├── exception/
-│   ├── PrinterException.java
 │   ├── PrinterConnectionException.java
 │   ├── PrinterPermissionException.java
 │   ├── PrinterWriteException.java
 │   └── PrinterTimeoutException.java
-├── error/PrinterErrorCode.java        (giữ chỗ hiện tại, mở rộng danh sách — mục 10)
 └── permission/UsbPermission.java      (giữ nguyên, không đổi)
 ```
+
+`PrinterException` (root) **giữ nguyên vị trí** ở package `error/` — không di chuyển sang
+`exception/`. Lý do: `module/PrinterErrorResult.java` (giữ nguyên, không đổi) import
+`error.PrinterException`; nếu di chuyển sẽ phải sửa `PrinterErrorResult` và mọi call site
+cùng lúc một cách không cần thiết. 4 exception con (`exception/`) `extends
+com.ndtcorepos.thermalprinter.error.PrinterException` — subclass khác package base class là
+hợp lệ, không cần base class cùng package.
 
 **Xoá hoàn toàn**: `model/PrinterConnection.java` (sealed interface data cũ),
 `model/IPrinterDevice.java`, `transport/IPrinterTransport.java`,
@@ -837,24 +845,20 @@ Không có `PRINTER_ALREADY_REGISTERED` — `connect()` idempotent (tạo mới 
 `PrinterQueue` không giới hạn kích thước (số lệnh in của 1 cửa hàng nhỏ, không cần giới hạn
 nhân tạo ở phiên bản này).
 
-```java
-/**
- * Gốc exception của tầng native printer — luôn mang errorCode và printerId liên quan.
- */
-public class PrinterException extends Exception {
-    /** Mã lỗi chuẩn hoá. */
-    private final PrinterErrorCode code;
-    /** Printer liên quan — null nếu lỗi không gắn với 1 printer cụ thể (vd input sai). */
-    private final String printerId;
+`error/PrinterException.java` **giữ nguyên như hiện tại** — không đổi field/constructor:
 
-    /**
-     * Mã lỗi của exception này.
-     *
-     * @return mã lỗi
-     */
+```java
+public class PrinterException extends Exception {
+    private final PrinterErrorCode code;
+    // constructor (code, message) / (code, message, cause) — không đổi
     public PrinterErrorCode getCode();
 }
+```
 
+4 exception con (package `exception/`, `extends error.PrinterException`) chỉ khai báo
+constructor pass-through, không thêm field:
+
+```java
 /**
  * Lỗi khi mở/đóng kết nối.
  */
