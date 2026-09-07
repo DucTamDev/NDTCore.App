@@ -598,6 +598,14 @@ trữ, không tự tạo device:
 public final class PrinterManager {
 
     /**
+     * Quét thiết bị khả dụng cho 1 loại kết nối.
+     *
+     * @param type loại kết nối cần quét
+     * @return danh sách printer tìm thấy — rỗng nếu không có discovery cho loại này (LAN)
+     */
+    public List<PrinterInfo> discover(ConnectionType type);
+
+    /**
      * Kết nối tới printer theo printerId (JS truyền vào) + info.
      *
      * <p>Registry chưa có printerId này → tạo PrinterDevice mới theo
