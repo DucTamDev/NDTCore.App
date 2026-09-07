@@ -66,43 +66,27 @@ Connection/Writer → Android API`. Không có chiều ngược (Android API kh�
 
 ## 3. `printerId` — nguồn sinh & vòng đời
 
-**Native là nơi sinh `printerId` cho printer mới**, JS chỉ nhận lại và lưu — đây là điểm
-mấu chốt khác với mọi ID khác trong app (job/request id JS tự sinh qua `generateId()`).
+**JS là nơi sinh `printerId` duy nhất** (như mọi ID khác trong app — `generateId()`),
+native không bao giờ tự sinh id. `useAddPrinterFlow.ts` giữ nguyên cách sinh
+`printerId` hiện tại (`useMemo(() => initialValues?.id ?? generateId(), ...)`, ngay khi mở
+flow "Thêm máy in", trước cả lần `connect()` đầu tiên) — không cần sửa thứ tự flow.
 
 ```text
-Máy in MỚI (JS chưa có id — initialValues rỗng trong useAddPrinterFlow):
-  JS  → PrinterModule.connect({ printerId: null, type, vendorId, productId, ... })
-  Bridge → printerId null/rỗng → generate UUID mới ("printerId đã sinh")
-  Bridge → PrinterManager.connect(printerId đã sinh, info)
-  Manager → registry chưa có key này → tạo PrinterDevice mới → registry.put(...)
-  Thành công → Bridge resolve Promise với { printerId: "<uuid-mới>", ... }
-  JS  → dùng printerId này cho toàn bộ phần còn lại của flow (testPrint, discovery...);
-        lúc bấm "Lưu" → PrinterRepository.addPrinter({ id: printerId, ... })
-
-Máy in ĐÃ LƯU (initialValues.id có sẵn, hoặc reconnect sau này):
-  JS  → PrinterModule.connect({ printerId: "<id-đã-lưu>", type, vendorId, productId, ... })
-  Bridge → printerId có sẵn → dùng nguyên giá trị này, KHÔNG generate mới
-  Manager → registry.get(id):
-              có rồi → idempotent, dùng lại PrinterDevice hiện có
-              chưa có (vd sau khi app bị kill, Registry rỗng) → tạo mới NGAY DƯỚI key đó
+JS  → PrinterModule.connect({ printerId: "<id JS đã có sẵn>", type, vendorId, productId, ... })
+Bridge → PrinterManager.connect(printerId, info)
+Manager → registry.get(printerId):
+            có rồi → idempotent, dùng lại PrinterDevice hiện có
+            chưa có (lần đầu, hoặc sau khi app bị kill — Registry rỗng) → tạo
+            PrinterDevice mới, registry.put(printerId, device)
 ```
 
-Quy tắc: việc kiểm tra null/rỗng và generate UUID nằm ở **`PrinterModule` (bridge)**, không
-phải `PrinterManager` — `PrinterManager.connect(String printerId, PrinterInfo info)` luôn
-nhận `printerId` cụ thể, không bao giờ null. Lý do đặt ở bridge: sinh ID là mối quan tâm của
-hợp đồng JS-native (client cần 1 ID để dùng lại), không phải logic nghiệp vụ của
-`PrinterManager`.
+`PrinterManager.connect(String printerId, PrinterInfo info)` luôn nhận `printerId` cụ thể,
+không bao giờ null — bridge không có bước generate/validate id nào, chỉ truyền thẳng
+xuống.
 
-Nếu `connect()` thất bại (permission denied/device not found/...) thì **không** tạo entry
-trong Registry dù đã generate UUID — UUID đó bị bỏ, không trả về, không rò rỉ vào Registry.
-
-`printerId` sinh ở native **không liên quan `identityKey`**. `identityKey` (fingerprint từ
+`printerId` **không liên quan `identityKey`**. `identityKey` (fingerprint từ
 `vendorId:productId:serial` / `mac` / `host:port`, dùng để JS tự chống trùng khi lưu máy in)
 là khái niệm thuần JS — native không tính, không biết, không cần biết.
-
-Hệ quả JS: `useAddPrinterFlow.ts` không còn tự `generateId()` cho `printerId` trước khi gọi
-native — với printer mới, `printerId` chỉ có được SAU khi `connect()` đầu tiên resolve
-thành công.
 
 ---
 
@@ -242,8 +226,6 @@ public enum CapabilityState {
  * Vòng đời 1 printer trong Registry.
  */
 public enum PrinterState {
-    /** Đã có trong Registry, chưa mở kết nối thật. */
-    REGISTERED,
     /** Đang mở kết nối. */
     CONNECTING,
     /** Đã kết nối, sẵn sàng ghi. */
@@ -257,10 +239,14 @@ public enum PrinterState {
 }
 ```
 
-Transition hợp lệ: `REGISTERED → CONNECTING → {CONNECTED | ERROR}`,
-`CONNECTED → DISCONNECTING → DISCONNECTED`, `ERROR`/`DISCONNECTED → CONNECTING` (retry qua
-`connect()`/`reconnect()`). Không có transition nào quay lại từ `DISCONNECTED` sang
-`CONNECTED` mà không qua `CONNECTING`.
+Không có state `REGISTERED` — `PrinterDevice` chỉ được tạo trong `Registry` ngay tại thời
+điểm `connect()` được gọi (mục 3), không có bước "đăng ký" tách rời việc mở kết nối, nên
+state đầu tiên của 1 device luôn là `CONNECTING`.
+
+Transition hợp lệ: `CONNECTING → {CONNECTED | ERROR}`, `CONNECTED → DISCONNECTING →
+DISCONNECTED`, `ERROR`/`DISCONNECTED → CONNECTING` (retry qua `connect()`/`reconnect()`).
+Không có transition nào quay lại từ `DISCONNECTED` sang `CONNECTED` mà không qua
+`CONNECTING`.
 
 ```java
 /**
@@ -612,7 +598,7 @@ trữ, không tự tạo device:
 public final class PrinterManager {
 
     /**
-     * Kết nối tới printer theo printerId (đã được bridge đảm bảo không null) + info.
+     * Kết nối tới printer theo printerId (JS truyền vào) + info.
      *
      * <p>Registry chưa có printerId này → tạo PrinterDevice mới theo
      * info.connectionType, put vào Registry, rồi connect(). Đã có → dùng lại
@@ -889,12 +875,11 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     /**
      * Kết nối tới printer theo thông tin truyền vào.
      *
-     * <p>`printer.printerId` rỗng/null → sinh UUID mới, tạo printer, trả
-     * printerId đó trong kết quả. Có sẵn → dùng nguyên giá trị, idempotent
-     * nếu đã kết nối.</p>
+     * <p>Idempotent theo printerId — gọi lại khi đã CONNECTED không mở thêm
+     * kết nối mới.</p>
      *
-     * @param printer thông tin kết nối (printerId tuỳ chọn, type + field theo loại)
-     * @param promise promise nhận { printerId } khi thành công
+     * @param printer thông tin kết nối (printerId bắt buộc, type + field theo loại)
+     * @param promise promise nhận kết quả kết nối
      */
     @ReactMethod
     public void connect(ReadableMap printer, Promise promise);
@@ -968,16 +953,15 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
 }
 ```
 
-`connect` — input map (theo `type`):
+`connect` — input map (theo `type`), `printerId` luôn do JS truyền vào:
 
 ```text
-USB:       { printerId?: string, type: "usb", vendorId: number, productId: number }
-Bluetooth: { printerId?: string, type: "bluetooth", address: string }
-LAN:       { printerId?: string, type: "lan", host: string, port: number }
+USB:       { printerId: string, type: "usb", vendorId: number, productId: number }
+Bluetooth: { printerId: string, type: "bluetooth", address: string }
+LAN:       { printerId: string, type: "lan", host: string, port: number }
 ```
 
-`connect` — resolve value: `{ printerId: string }` (giá trị truyền vào nếu có, giá trị mới
-sinh nếu không). Không có `registerPrinter`/`unregisterPrinter` riêng.
+Không có `registerPrinter`/`unregisterPrinter` riêng.
 
 `getName()` tiếp tục trả `"ThermalPrinterModule"` — tên module phía JS không đổi.
 
@@ -1083,12 +1067,11 @@ status thật qua lệnh ESC/POS, việc đó thuộc tầng driver JS).
   thay vì `connectionType`; bỏ `keepConnection` khỏi `PrinterPrintTextOptions` và khỏi
   `printRawDataUsb/Bluetooth/Lan`.
 - `IPrinterAdapter.ts`: `PrinterPrintTextOptions` bỏ field `keepConnection`.
-- `NativeAdapter.ts`: đổi call site theo API mới.
-- `useAddPrinterFlow.ts`: bỏ việc tự `generateId()` cho `printerId` trước khi connect (máy
-  in mới) — `printerId` lấy từ response của lệnh `connect()` đầu tiên; giữ nguyên
-  `initialValues?.id` khi sửa máy in đã lưu.
-- **Không đổi**: `PrintScheduler.ts`, `PrinterConnectionLock.ts`, `resourceKey` — theo đúng
-  quyết định ở mục 1.
+- `NativeAdapter.ts`: đổi call site theo API mới, truyền `printerId` (đã có sẵn từ
+  `useAddPrinterFlow.ts`/`Printer.id`) vào `connect`/`reconnect`/`disconnect`/`writeByBase64`.
+- **Không đổi**: `useAddPrinterFlow.ts` (cách sinh `printerId` giữ nguyên — mục 3),
+  `PrintScheduler.ts`, `PrinterConnectionLock.ts`, `resourceKey` — theo đúng quyết định ở
+  mục 1.
 
 ---
 
