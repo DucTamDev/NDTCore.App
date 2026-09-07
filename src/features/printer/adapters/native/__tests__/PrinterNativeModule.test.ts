@@ -5,13 +5,11 @@ import { ConnectionType } from '../../../models/printer/PrinterDevice';
 // riêng namespace được — stub `NativeModules.ThermalPrinterModule` rồi lấy bản
 // THẬT qua requireActual (bỏ qua mock toàn cục ở jest.setup.js).
 const mkNativeModule = () => ({
-  init: jest.fn((_connectionType: string, cbOk: () => void) => cbOk()),
-  getDeviceList: jest.fn((_connectionType: string, cbOk: (d: unknown[]) => void) => cbOk([])),
-  connectPrinter: jest.fn(),
-  closeConn: jest.fn(),
-  printRawData: jest.fn(
-    (_connectionType: string, _data: unknown, _keep: unknown, cbOk?: (m: string) => void) => cbOk?.('ok'),
-  ),
+  init: jest.fn().mockResolvedValue(null),
+  getDeviceList: jest.fn().mockResolvedValue([]),
+  connect: jest.fn().mockResolvedValue({}),
+  disconnect: jest.fn().mockResolvedValue(null),
+  writeByBase64: jest.fn().mockResolvedValue('Print SuccessFully'),
 });
 
 // Nhánh iOS trong BLEPrinter/NetPrinter.printText gọi thẳng
@@ -79,34 +77,46 @@ describe('ThermalPrinterAdapter', () => {
 });
 
 describe('ensureUsbInitialized', () => {
-  it('gọi ThermalPrinterModule.init("usb", ...) đúng 1 lần dù được gọi nhiều lần (memoize)', async () => {
+  it('gọi ThermalPrinterModule.init("usb") đúng 1 lần dù được gọi nhiều lần (memoize)', async () => {
     const { ensureUsbInitialized } = loadReal();
     await ensureUsbInitialized();
     await ensureUsbInitialized();
     expect(NativeModules.ThermalPrinterModule.init).toHaveBeenCalledTimes(1);
-    expect(NativeModules.ThermalPrinterModule.init).toHaveBeenCalledWith('usb', expect.any(Function), expect.any(Function));
+    expect(NativeModules.ThermalPrinterModule.init).toHaveBeenCalledWith('usb');
   });
 });
 
 describe('printRawDataUsb', () => {
-  it('resolve khi native gọi success callback', async () => {
+  it('resolve khi native resolve thành công, gọi writeByBase64 (không phải printRawData)', async () => {
     const { printRawDataUsb } = loadReal();
-    await expect(printRawDataUsb('QUI=', true)).resolves.toBeUndefined();
-    expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith(
-      'usb',
-      'QUI=',
-      true,
-      expect.any(Function),
-      expect.any(Function),
-    );
+    await expect(printRawDataUsb('QUI=', true)).resolves.toBe('Print SuccessFully');
+    expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('usb', 'QUI=', true);
   });
 
-  it('reject khi native gọi error callback', async () => {
-    NativeModules.ThermalPrinterModule.printRawData = jest.fn(
-      (_connectionType: string, _data: unknown, _keep: unknown, _cbOk?: () => void, cbErr?: (e: Error) => void) =>
-        cbErr?.(new Error('USB fail')),
-    );
+  it('reject với structured error (code + message) khi native reject', async () => {
+    const rejection = Object.assign(new Error('USB fail'), { code: 'WRITE_FAILED' });
+    NativeModules.ThermalPrinterModule.writeByBase64 = jest.fn().mockRejectedValue(rejection);
     const { printRawDataUsb } = loadReal();
-    await expect(printRawDataUsb('QUI=', true)).rejects.toThrow('USB fail');
+    await expect(printRawDataUsb('QUI=', true)).rejects.toMatchObject({ code: 'WRITE_FAILED', message: 'USB fail' });
+  });
+});
+
+describe('USBPrinter.connectPrinter', () => {
+  it('gọi native connect (không phải connectPrinter) với đúng connection map', async () => {
+    const { USBPrinter } = loadReal();
+    await USBPrinter.connectPrinter(1234, 5678);
+    expect(NativeModules.ThermalPrinterModule.connect).toHaveBeenCalledWith({
+      type: 'usb',
+      vendorId: 1234,
+      productId: 5678,
+    });
+  });
+});
+
+describe('USBPrinter.closeConn', () => {
+  it('gọi native disconnect (không phải closeConn)', async () => {
+    const { USBPrinter } = loadReal();
+    await USBPrinter.closeConn();
+    expect(NativeModules.ThermalPrinterModule.disconnect).toHaveBeenCalledWith('usb');
   });
 });

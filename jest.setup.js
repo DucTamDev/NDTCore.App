@@ -83,8 +83,7 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
     getDeviceList: jest.fn().mockResolvedValue([]),
     connectPrinter: jest.fn().mockResolvedValue(undefined),
     closeConn: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
-    printBill: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
+    printText: jest.fn().mockResolvedValue(undefined),
   });
   const USBPrinter = namespace();
   const BLEPrinter = namespace();
@@ -112,7 +111,7 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
   const { NativeModules } = require('react-native');
   NativeModules.ThermalPrinterModule = {
     ...NativeModules.ThermalPrinterModule,
-    init: jest.fn((_connectionType, cbSuccess) => cbSuccess?.()),
-    printRawData: jest.fn((_connectionType, _d, _k, cbSuccess) => cbSuccess?.('ok')),
+    init: jest.fn().mockResolvedValue(null),
+    writeByBase64: jest.fn().mockResolvedValue('ok'),
   };
 }
