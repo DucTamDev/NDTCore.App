@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Đổi `ThermalPrinterModule` (native Android RN module) từ `Callback` pair sang `Promise` cho cả 5 `@ReactMethod`, thêm cấu trúc lỗi (`code` + `message`) qua model `PrinterErrorResult`, và đổi tên 3 method cho rõ nghĩa: `connectPrinter`→`openConnect`, `closeConn`→`disconnect`, `printRawData`→`writeByBase64`.
+**Goal:** Đổi `ThermalPrinterModule` (native Android RN module) từ `Callback` pair sang `Promise` cho cả 5 `@ReactMethod`, thêm cấu trúc lỗi (`code` + `message`) qua model `PrinterErrorResult`, và đổi tên 3 method cho rõ nghĩa: `connectPrinter`→`connect`, `closeConn`→`disconnect`, `printRawData`→`writeByBase64`.
 
 **Architecture:** `ThermalPrinterModule` nhận `Promise` làm tham số cuối thay vì `Callback successCallback, Callback errorCallback`; mọi catch-block gọi qua `PrinterErrorResult.from(e).rejectTo(promise)` thay vì rải `code.name()`/message string trực tiếp. Phía JS, `PrinterNativeModule.ts` bỏ hết boilerplate `new Promise((resolve, reject) => nativeCall(..., resolve, reject))` — gọi thẳng native method (đã tự trả `Promise` thật) — nhưng **giữ nguyên tên export JS** (`USBPrinter.connectPrinter`, `.closeConn`, `printText`, `printRawDataUsb/Bluetooth/Lan`) nên không phải sửa `NativeAdapter.ts`/`UsbTransport.ts`.
 
@@ -14,7 +14,7 @@
 
 - Không có Java unit test trong project này — verify Java bằng `compileDebugJavaWithJavac` (từ `android/`, `JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"`).
 - `PrinterErrorResult` đặt ở package `module/` (KHÔNG phải `error/`) — vì nó import `com.facebook.react.bridge.Promise`, 1 kiểu RN bridge; nguyên tắc kiến trúc là RN bridge type chỉ tồn tại trong package `module/`.
-- Tên method native đổi (`connectPrinter`→`openConnect`, `closeConn`→`disconnect`, `printRawData`→`writeByBase64`), nhưng **tên export JS namespace giữ nguyên** (`USBPrinter.connectPrinter`, `.closeConn`, `printText`, `printRawDataUsb`/`printRawDataBluetooth`/`printRawDataLan`) — chỉ đổi implementation bên trong gọi tên native mới.
+- Tên method native đổi (`connectPrinter`→`connect`, `closeConn`→`disconnect`, `printRawData`→`writeByBase64`), nhưng **tên export JS namespace giữ nguyên** (`USBPrinter.connectPrinter`, `.closeConn`, `printText`, `printRawDataUsb`/`printRawDataBluetooth`/`printRawDataLan`) — chỉ đổi implementation bên trong gọi tên native mới.
 - Nhánh iOS (`Platform.OS === 'ios'` trong `BLEPrinter.printText`/`NetPrinter.printText`, gọi `NativeModules.RNBLEPrinter`/`RNNetPrinter`) **không đổi tên gọi native** (vẫn `.printRawData(...)`, module khác, ngoài phạm vi) — nhưng PHẢI trả về `Promise` thật (bọc bằng `new Promise` quanh callback hiện có) vì `printText` đổi kiểu trả về thành `Promise<void>` trên toàn bộ 3 namespace.
 - Base branch: `refactor/printer-solid-naming` (đã push, chưa merge) — nhánh hiện tại `refactor/printer-bridge-promise` đã rẽ từ đó.
 
@@ -157,7 +157,7 @@ git commit -m "feat: add PrinterErrorResult — centralized error-to-Promise-rej
 
 **Interfaces:**
 - Consumes: `PrinterErrorResult` (Task 2), `PrinterErrorCode` (Task 1)
-- Produces: RN method mới — `init(String, Promise)`, `getDeviceList(String, Promise)`, `openConnect(ReadableMap, Promise)` (cũ `connectPrinter`), `disconnect(String, Promise)` (cũ `closeConn`), `writeByBase64(String, String, Boolean, Promise)` (cũ `printRawData`). Dùng ở Task 4 (JS bridge phải gọi đúng 5 tên này).
+- Produces: RN method mới — `init(String, Promise)`, `getDeviceList(String, Promise)`, `connect(ReadableMap, Promise)` (cũ `connectPrinter`), `disconnect(String, Promise)` (cũ `closeConn`), `writeByBase64(String, String, Boolean, Promise)` (cũ `printRawData`). Dùng ở Task 4 (JS bridge phải gọi đúng 5 tên này).
 
 - [ ] **Step 1: Viết lại toàn bộ `ThermalPrinterModule.java`**
 
@@ -257,9 +257,9 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
         }
     }
 
-    /** RN method name: `openConnect` (cũ: `connectPrinter`). */
+    /** RN method name: `connect` (cũ: `connectPrinter`). */
     @ReactMethod
-    public void openConnect(ReadableMap connection, Promise promise) {
+    public void connect(ReadableMap connection, Promise promise) {
         try {
             printerService.connect(toPrinterConnection(connection));
             promise.resolve(Arguments.createMap());
@@ -337,7 +337,7 @@ git commit -m "refactor: ThermalPrinterModule Callback -> Promise, đổi tên c
 - Modify: `src/features/printer/adapters/native/PrinterNativeModule.ts`
 
 **Interfaces:**
-- Consumes: `NativeModules.ThermalPrinterModule.{init, getDeviceList, openConnect, disconnect, writeByBase64}` (Task 3) — mỗi hàm giờ tự trả về `Promise` thật (JS không truyền callback/Promise arg).
+- Consumes: `NativeModules.ThermalPrinterModule.{init, getDeviceList, connect, disconnect, writeByBase64}` (Task 3) — mỗi hàm giờ tự trả về `Promise` thật (JS không truyền callback/Promise arg).
 - Produces: **Không đổi tên export** — `USBPrinter`, `BLEPrinter`, `NetPrinter` (mỗi namespace: `init`, `getDeviceList`, `connectPrinter`, `closeConn`, `printText` — tất cả đổi return type thành `Promise<...>` thay vì `void`), `ThermalPrinterAdapter`, `ensureNativeInitialized`, `ensureUsbInitialized`, `printRawDataUsb`, `printRawDataBluetooth`, `printRawDataLan`. Mọi call site khác (`UsbTransport.ts`, `NativeAdapter.ts`, `useConnectionSetup.ts`, `PrinterResolver.ts`) KHÔNG cần sửa.
 
 - [ ] **Step 1: Viết lại toàn bộ nội dung file**
@@ -359,7 +359,7 @@ import * as EPToolkit from './utils/EPToolkit';
  * Native dùng `Promise` (không phải Callback pair) — JS gọi thẳng, không
  * cần tự bọc `new Promise(...)`. Tên method native khác tên export JS ở 3
  * chỗ (RN Promise API rõ nghĩa hơn khi không còn ràng buộc theo tên gốc
- * upstream): `connectPrinter` (JS) → `openConnect` (native), `closeConn`
+ * upstream): `connectPrinter` (JS) → `connect` (native), `closeConn`
  * (JS) → `disconnect` (native), `printRawData`-liên-quan (JS) →
  * `writeByBase64` (native). Lỗi native reject dạng `(code, message)` —
  * RN tự đóng gói thành JS `Error` có `.code`/`.message`.
@@ -497,7 +497,7 @@ export const USBPrinter = {
   getDeviceList: (): Promise<IUSBPrinter[]> => ThermalPrinterModule.getDeviceList('usb'),
 
   connectPrinter: (vendorId: number, productId: number): Promise<IUSBPrinter> =>
-    ThermalPrinterModule.openConnect({ type: 'usb', vendorId, productId }),
+    ThermalPrinterModule.connect({ type: 'usb', vendorId, productId }),
 
   closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('usb'),
 
@@ -516,7 +516,7 @@ export const BLEPrinter = {
   getDeviceList: (): Promise<IBLEPrinter[]> => ThermalPrinterModule.getDeviceList('bluetooth'),
 
   connectPrinter: (inner_mac_address: string): Promise<IBLEPrinter> =>
-    ThermalPrinterModule.openConnect({ type: 'bluetooth', innerAddress: inner_mac_address }),
+    ThermalPrinterModule.connect({ type: 'bluetooth', innerAddress: inner_mac_address }),
 
   closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('bluetooth'),
 
@@ -557,7 +557,7 @@ export const NetPrinter = {
   getDeviceList: (): Promise<INetPrinter[]> => ThermalPrinterModule.getDeviceList('lan'),
 
   connectPrinter: (host: string, port: number): Promise<INetPrinter> =>
-    ThermalPrinterModule.openConnect({ type: 'lan', host, port }),
+    ThermalPrinterModule.connect({ type: 'lan', host, port }),
 
   closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('lan'),
 
@@ -757,7 +757,7 @@ import { ConnectionType } from '../../../models/printer/PrinterDevice';
 const mkNativeModule = () => ({
   init: jest.fn().mockResolvedValue(null),
   getDeviceList: jest.fn().mockResolvedValue([]),
-  openConnect: jest.fn().mockResolvedValue({}),
+  connect: jest.fn().mockResolvedValue({}),
   disconnect: jest.fn().mockResolvedValue(null),
   writeByBase64: jest.fn().mockResolvedValue('Print SuccessFully'),
 });
@@ -852,10 +852,10 @@ describe('printRawDataUsb', () => {
 });
 
 describe('USBPrinter.connectPrinter', () => {
-  it('gọi native openConnect (không phải connectPrinter) với đúng connection map', async () => {
+  it('gọi native connect (không phải connectPrinter) với đúng connection map', async () => {
     const { USBPrinter } = loadReal();
     await USBPrinter.connectPrinter(1234, 5678);
-    expect(NativeModules.ThermalPrinterModule.openConnect).toHaveBeenCalledWith({
+    expect(NativeModules.ThermalPrinterModule.connect).toHaveBeenCalledWith({
       type: 'usb',
       vendorId: 1234,
       productId: 5678,
@@ -895,4 +895,4 @@ git commit -m "test: cập nhật test cho ThermalPrinterModule Promise API + t�
 
 - **Spec coverage**: §4.1 (PrinterErrorResult) → Task 2. §4.2 (khôi phục getCode/INVALID_ARGUMENT) → Task 1. §4.3 (mapping lỗi + đổi tên method) → Task 3. §4.4 (chữ ký 5 method) → Task 3. §4.5 (JS side) → Task 4. §4.6 (test) → Task 5. §5 (behavior giữ nguyên) → ghi chú rải trong Task 3/4. Đủ.
 - **Placeholder scan**: không còn "TBD"/"TODO"/mô tả suông không kèm code.
-- **Type consistency**: `PrinterErrorResult.rejectTo(Promise)` (Task 2) khớp cách gọi ở Task 3 (`new PrinterErrorResult(...).rejectTo(promise)` / `PrinterErrorResult.from(e).rejectTo(promise)`). Tên method native trong Task 3 (`openConnect`/`disconnect`/`writeByBase64`) khớp chính xác với lệnh gọi trong Task 4 (`ThermalPrinterModule.openConnect(...)`/`.disconnect(...)`/`.writeByBase64(...)`). Tên export JS (`USBPrinter.connectPrinter`/`.closeConn`/`printText`/`printRawDataUsb` etc.) không đổi giữa Task 4 và Task 5's test assertions.
+- **Type consistency**: `PrinterErrorResult.rejectTo(Promise)` (Task 2) khớp cách gọi ở Task 3 (`new PrinterErrorResult(...).rejectTo(promise)` / `PrinterErrorResult.from(e).rejectTo(promise)`). Tên method native trong Task 3 (`connect`/`disconnect`/`writeByBase64`) khớp chính xác với lệnh gọi trong Task 4 (`ThermalPrinterModule.connect(...)`/`.disconnect(...)`/`.writeByBase64(...)`). Tên export JS (`USBPrinter.connectPrinter`/`.closeConn`/`printText`/`printRawDataUsb` etc.) không đổi giữa Task 4 và Task 5's test assertions.

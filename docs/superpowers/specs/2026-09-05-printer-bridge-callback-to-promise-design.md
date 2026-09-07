@@ -6,7 +6,7 @@ Branch: (mới, tách từ `refactor/printer-solid-naming` sau khi PR đó xong,
 
 ## 1. Goal
 
-`ThermalPrinterModule` hiện dùng cặp `Callback successCallback, Callback errorCallback` cho mọi `@ReactMethod` (trừ `closeConn` vốn `void`, không báo kết quả). Đổi cả 5 method sang `com.facebook.react.bridge.Promise` — cơ chế chuẩn RN khuyến nghị cho code mới, map thẳng sang JS `Promise` thật (không cần JS tự bọc `new Promise(...)` thủ công như hiện tại), có cấu trúc lỗi rõ ràng (`code` + `message`) thay vì chỉ 1 message string. Đợt này cũng đổi tên 3 method native cho rõ nghĩa hơn: `connectPrinter` → `openConnect`, `closeConn` → `disconnect`, `printRawData` → `writeByBase64`.
+`ThermalPrinterModule` hiện dùng cặp `Callback successCallback, Callback errorCallback` cho mọi `@ReactMethod` (trừ `closeConn` vốn `void`, không báo kết quả). Đổi cả 5 method sang `com.facebook.react.bridge.Promise` — cơ chế chuẩn RN khuyến nghị cho code mới, map thẳng sang JS `Promise` thật (không cần JS tự bọc `new Promise(...)` thủ công như hiện tại), có cấu trúc lỗi rõ ràng (`code` + `message`) thay vì chỉ 1 message string. Đợt này cũng đổi tên 3 method native cho rõ nghĩa hơn: `connectPrinter` → `connect`, `closeConn` → `disconnect`, `printRawData` → `writeByBase64`.
 
 ## 2. Bối cảnh
 
@@ -34,7 +34,7 @@ init: (): Promise<void> =>
 2. **Vẫn dùng `resolve()`/`reject()` chuẩn Promise** (không đổi sang model "luôn resolve, tự chứa success/fail bên trong" — JS `try/catch`/`.catch()` hoạt động tự nhiên).
 3. **Lỗi phải có cấu trúc** (`code` + `message`), không phải chỉ 1 string message như hiện tại.
 4. **Không rải `promise.reject(code.name(), message)` trực tiếp trong từng method** — tập trung vào 1 model `PrinterErrorResult`, mỗi catch-block chỉ gọi `PrinterErrorResult.from(e).rejectTo(promise)`.
-5. **Đổi tên 3 method native cho rõ nghĩa**: `connectPrinter` → `openConnect`, `closeConn` → `disconnect`, `printRawData` → `writeByBase64` (`init`/`getDeviceList` giữ nguyên tên). Đây là tên method Java (`@ReactMethod`) — cũng là tên JS gọi trực tiếp lên `NativeModules.ThermalPrinterModule`. **Tên namespace JS bên ngoài (`USBPrinter.connectPrinter(...)`, `USBPrinter.closeConn()`, `printText`, `printRawDataUsb`/`Bluetooth`/`Lan`) giữ nguyên** — chỉ phần implementation bên trong các hàm đó đổi sang gọi tên native mới, đúng nguyên tắc "public JS namespace signature không đổi" đã giữ xuyên suốt 2 đợt refactor trước.
+5. **Đổi tên 3 method native cho rõ nghĩa**: `connectPrinter` → `connect`, `closeConn` → `disconnect`, `printRawData` → `writeByBase64` (`init`/`getDeviceList` giữ nguyên tên). Đây là tên method Java (`@ReactMethod`) — cũng là tên JS gọi trực tiếp lên `NativeModules.ThermalPrinterModule`. **Tên namespace JS bên ngoài (`USBPrinter.connectPrinter(...)`, `USBPrinter.closeConn()`, `printText`, `printRawDataUsb`/`Bluetooth`/`Lan`) giữ nguyên** — chỉ phần implementation bên trong các hàm đó đổi sang gọi tên native mới, đúng nguyên tắc "public JS namespace signature không đổi" đã giữ xuyên suốt 2 đợt refactor trước.
 6. **Triển khai gộp 1 lần** — cả 5 method + `PrinterNativeModule.ts` sửa cùng 1 đợt, không tách nhỏ theo từng method.
 
 ## 4. Thiết kế chi tiết
@@ -90,8 +90,8 @@ public final class PrinterErrorResult {
 | `getDeviceList` | `PrinterException` từ `printerService.discover()` | `e.getCode()` |
 | `getDeviceList` | Danh sách rỗng | `DEVICE_NOT_FOUND` |
 | `getDeviceList` | `fromWireValue` ném `IllegalArgumentException` | `UNSUPPORTED_CONNECTION` |
-| `openConnect` (cũ: `connectPrinter`) | `PrinterException` từ `printerService.connect()` | `e.getCode()` |
-| `openConnect` (cũ: `connectPrinter`) | `toPrinterConnection()` — `fromWireValue` ném `IllegalArgumentException` | `UNSUPPORTED_CONNECTION` |
+| `connect` (cũ: `connectPrinter`) | `PrinterException` từ `printerService.connect()` | `e.getCode()` |
+| `connect` (cũ: `connectPrinter`) | `toPrinterConnection()` — `fromWireValue` ném `IllegalArgumentException` | `UNSUPPORTED_CONNECTION` |
 | `disconnect` (cũ: `closeConn`) | `PrinterException` từ `printerService.disconnect()` (thực tế không throw vì `IPrinterTransport.disconnect()` không `throws`, nhưng `resolveTransport()` bên trong `PrinterService.disconnect()` có `throws PrinterException`) | `e.getCode()` |
 | `disconnect` (cũ: `closeConn`) | `fromWireValue` ném `IllegalArgumentException` | `UNSUPPORTED_CONNECTION` |
 | `writeByBase64` (cũ: `printRawData`) | `fromWireValue` ném `IllegalArgumentException` | `UNSUPPORTED_CONNECTION` |
@@ -129,7 +129,7 @@ public void writeByBase64(String connectionType, String base64Data, Boolean keep
 ```java
 void init(String connectionType, Promise promise)
 void getDeviceList(String connectionType, Promise promise)
-void openConnect(ReadableMap connection, Promise promise)          // cũ: connectPrinter
+void connect(ReadableMap connection, Promise promise)          // cũ: connectPrinter
 void disconnect(String connectionType, Promise promise)            // cũ: closeConn
 void writeByBase64(String connectionType, String base64Data, Boolean keepConnection, Promise promise)  // cũ: printRawData
 ```
@@ -147,7 +147,7 @@ init: (): Promise<void> => ThermalPrinterModule.init('usb'),
 getDeviceList: (): Promise<IUSBPrinter[]> => ThermalPrinterModule.getDeviceList('usb'),
 
 connectPrinter: (vendorId: number, productId: number): Promise<IUSBPrinter> =>
-  ThermalPrinterModule.openConnect({ type: 'usb', vendorId, productId }),   // gọi openConnect, không phải connectPrinter
+  ThermalPrinterModule.connect({ type: 'usb', vendorId, productId }),   // gọi connect, không phải connectPrinter
 
 closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('usb'),     // gọi disconnect, không phải closeConn
 ```
@@ -216,15 +216,15 @@ printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback
 Có 2 tầng mock khác nhau trong `jest.setup.js`, dễ nhầm lẫn — chỉ tầng thứ 2 mới đổi tên method:
 
 1. **Mock cấp module** (`jest.mock('.../PrinterNativeModule', () => ({ USBPrinter: {...}, ... }))`) — namespace giả mô phỏng đúng **tên export JS** (`init`/`getDeviceList`/`connectPrinter`/`closeConn`/`printText`) — **KHÔNG đổi tên** ở tầng này (export JS không đổi). Chỉ đổi shape return từ callback-style (`jest.fn().mockImplementation((_t, _o, cbSuccess) => cbSuccess?.('ok'))`) sang Promise-style (`jest.fn().mockResolvedValue(...)`), và xoá key `printBill` (dead code sót lại từ trước, `PrinterNativeModule.ts` không còn export này).
-2. **Stub `NativeModules.ThermalPrinterModule`** (chỉ dùng cho `PrinterNativeModule.test.ts` qua `requireActual`, mô phỏng NATIVE thật) — đây mới là chỗ đổi tên method: `connectPrinter`/`closeConn`/`printRawData` → `openConnect`/`disconnect`/`writeByBase64`, và đổi từ callback-invoking (`jest.fn((...args, cbOk) => cbOk(...))`) sang `jest.fn().mockResolvedValue(...)`/`mockRejectedValue(...)`.
+2. **Stub `NativeModules.ThermalPrinterModule`** (chỉ dùng cho `PrinterNativeModule.test.ts` qua `requireActual`, mô phỏng NATIVE thật) — đây mới là chỗ đổi tên method: `connectPrinter`/`closeConn`/`printRawData` → `connect`/`disconnect`/`writeByBase64`, và đổi từ callback-invoking (`jest.fn((...args, cbOk) => cbOk(...))`) sang `jest.fn().mockResolvedValue(...)`/`mockRejectedValue(...)`.
 
-`PrinterNativeModule.test.ts`: assertion đổi từ `expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith('usb', ..., expect.any(Function), expect.any(Function))` sang `expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('usb', ...)` (không còn callback args, đổi tên method) + `await expect(...).resolves`/`.rejects.toMatchObject({ code: '...' })`. Thêm test mới xác nhận `USBPrinter.connectPrinter(...)` gọi đúng `openConnect` (không phải `connectPrinter`) và `USBPrinter.closeConn()` gọi đúng `disconnect` (không phải `closeConn`) ở tầng native — đây chính là lớp test bảo vệ cho việc đổi tên, tránh lặp lại kiểu lỗi field-name/method-name từng xảy ra ở refactor trước.
+`PrinterNativeModule.test.ts`: assertion đổi từ `expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith('usb', ..., expect.any(Function), expect.any(Function))` sang `expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('usb', ...)` (không còn callback args, đổi tên method) + `await expect(...).resolves`/`.rejects.toMatchObject({ code: '...' })`. Thêm test mới xác nhận `USBPrinter.connectPrinter(...)` gọi đúng `connect` (không phải `connectPrinter`) và `USBPrinter.closeConn()` gọi đúng `disconnect` (không phải `closeConn`) ở tầng native — đây chính là lớp test bảo vệ cho việc đổi tên, tránh lặp lại kiểu lỗi field-name/method-name từng xảy ra ở refactor trước.
 
 `NativeAdapter.test.ts`/`UsbTransport.test.ts`: không cần sửa (dùng mock cấp module ở trên, tên export JS không đổi — như đã xác nhận ở đợt refactor JS bridge trước).
 
 ## 5. Behavior giữ nguyên / ngoài phạm vi
 
-- `openConnect` (cũ `connectPrinter`) tiếp tục `resolve` bằng map rỗng (không phải thông tin thiết bị thật dù TS khai `Promise<IUSBPrinter>`) — sai lệch có sẵn từ trước khi có refactor này, không sửa (ngoài phạm vi đổi cơ chế bridge).
+- `connect` (cũ `connectPrinter`) tiếp tục `resolve` bằng map rỗng (không phải thông tin thiết bị thật dù TS khai `Promise<IUSBPrinter>`) — sai lệch có sẵn từ trước khi có refactor này, không sửa (ngoài phạm vi đổi cơ chế bridge).
 - iOS branch (`NativeModules.RNBLEPrinter`/`RNNetPrinter`) không đổi — module khác, không liên quan `ThermalPrinterModule`.
 - Không đổi threading của `writeByBase64` (vẫn `new Thread(...)`).
 - Không đổi logic nghiệp vụ ở `PrinterService`/transport/discovery — chỉ đổi cơ chế báo kết quả qua bridge + tên method.
