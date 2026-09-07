@@ -676,6 +676,14 @@ Registry lẫn mở kết nối thật; `disconnect()` là đủ để dọn khi
 (Registry giữ entry ở trạng thái `DISCONNECTED`, không tốn tài nguyên đáng kể với số lượng
 máy in nhỏ của 1 cửa hàng).
 
+`connect()` **không tự so sánh** `info` truyền vào với `info` đã lưu từ lần tạo device
+trước đó cho cùng `printerId` — nếu device đã tồn tại, dùng lại nguyên trạng
+(idempotent theo mục 3), bỏ qua `info` mới. JS đã tự track trạng thái kết nối
+(`usePrinterConnection.ts`/Redux) và tự gọi `disconnect(printerId)` trước khi `connect()`
+lại với thông số mới khi sửa máy in (`useAddPrinterFlow.ts` đã gọi
+`PrinterConnectionService.disconnectForDriver(...)` lúc cleanup) — native không cần
+validate chéo giữa các lần gọi.
+
 ---
 
 ## 9. Queue — 1 queue/printerId, không `ResourceLock` riêng
