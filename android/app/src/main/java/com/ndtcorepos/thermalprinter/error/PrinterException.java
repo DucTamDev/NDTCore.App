@@ -15,4 +15,7 @@ public class PrinterException extends Exception {
         this.code = code;
     }
 
+    public PrinterErrorCode getCode() {
+        return code;
+    }
 }
