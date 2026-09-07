@@ -6,15 +6,22 @@ import * as EPToolkit from './utils/EPToolkit';
  * Lớp JS của native module `ThermalPrinterModule`
  * (`com.ndtcorepos.thermalprinter.module`, code ở
  * `android/app/src/main/java/com/ndtcorepos/thermalprinter/`) — chỉ Android.
- * 1 native module duy nhất cho cả 3 loại kết nối (khác bản cũ: 3 module rời
- * `RNUSBPrinter`/`RNBLEPrinter`/`RNNetPrinter`) — mọi lệnh nhận thêm tham số
- * `connectionType` ("usb"/"bluetooth"/"lan") để native route đúng transport.
- * 3 namespace JS (`USBPrinter`/`BLEPrinter`/`NetPrinter`) giữ nguyên để không
- * phải sửa call site khác trong `src/features/printer`.
+ * Mỗi lệnh nhận thêm tham số `connectionType` ("usb"/"bluetooth"/"lan") để
+ * native route đúng transport. 3 namespace JS (`USBPrinter`/`BLEPrinter`/
+ * `NetPrinter`) giữ nguyên tên export để không phải sửa call site khác
+ * trong `src/features/printer`.
+ *
+ * Native dùng `Promise` (không phải Callback pair) — JS gọi thẳng, không
+ * cần tự bọc `new Promise(...)`. Tên method native khác tên export JS ở 3
+ * chỗ (RN Promise API rõ nghĩa hơn khi không còn ràng buộc theo tên gốc
+ * upstream): `connectPrinter` (JS) → `connect` (native), `closeConn`
+ * (JS) → `disconnect` (native), `printRawData`-liên-quan (JS) →
+ * `writeByBase64` (native). Lỗi native reject dạng `(code, message)` —
+ * RN tự đóng gói thành JS `Error` có `.code`/`.message`.
  *
  * Gốc: copy từ `@poriyaalar/react-native-thermal-receipt-printer` `dist/index.js`,
  * chuyển sang TS. Pipeline `printText` → `EPToolkit.exchange_text` → base64 →
- * native `printRawData`.
+ * native `writeByBase64`.
  *
  * Lược bỏ so với bản gốc: `NetPrinterEventEmitter` + enum sự kiện scan (app
  * không dùng), `exchange_image` (Jimp không chạy trong RN), `printImageData`/
@@ -117,133 +124,123 @@ const textPreprocessingIOS = (text: string): { text: string; opts: { beep: boole
   opts: { beep: true, cut: true },
 });
 
+/**
+ * Gọi native `writeByBase64`, đồng thời hỗ trợ `cbSuccess`/`cbErr` optional
+ * (tương thích call site cũ dùng callback) trong lúc vẫn trả `Promise` thật.
+ */
+const writeByBase64 = (
+  connectionType: 'usb' | 'bluetooth' | 'lan',
+  base64Data: string,
+  keepConnection: boolean | undefined,
+  cbSuccess?: SuccessCallback,
+  cbErr?: ErrorCallback,
+): Promise<void> => {
+  const result: Promise<void> = ThermalPrinterModule.writeByBase64(connectionType, base64Data, keepConnection);
+  if (cbSuccess || cbErr) {
+    result.then(
+      (msg) => cbSuccess?.(msg as unknown as string),
+      (error: Error) => cbErr?.(error),
+    );
+  }
+  return result;
+};
+
 /** Namespace kết nối + in qua USB. / USB connect + print namespace. */
 export const USBPrinter = {
-  init: (): Promise<void> =>
-    new Promise((resolve, reject) => ThermalPrinterModule.init('usb', () => resolve(), (error: Error) => reject(error))),
+  init: (): Promise<void> => ThermalPrinterModule.init('usb'),
 
-  getDeviceList: (): Promise<IUSBPrinter[]> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.getDeviceList('usb', (printers: IUSBPrinter[]) => resolve(printers), (error: Error) => reject(error)),
-    ),
+  getDeviceList: (): Promise<IUSBPrinter[]> => ThermalPrinterModule.getDeviceList('usb'),
 
   connectPrinter: (vendorId: number, productId: number): Promise<IUSBPrinter> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.connectPrinter(
-        { type: 'usb', vendorId, productId },
-        (printer: IUSBPrinter) => resolve(printer),
-        (error: Error) => reject(error),
-      ),
-    ),
+    ThermalPrinterModule.connect({ type: 'usb', vendorId, productId }),
 
-  closeConn: (): Promise<void> =>
-    new Promise((resolve) => {
-      ThermalPrinterModule.closeConn('usb');
-      resolve();
-    }),
+  closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('usb'),
 
-  printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): void =>
-    ThermalPrinterModule.printRawData(
-      'usb',
-      textTo64Buffer(text, opts),
-      opts?.keepConnection,
-      (msg: string) => cbSuccess?.(msg),
-      (error: Error) => cbErr?.(error),
-    ),
+  printText: (
+    text: string,
+    opts: PrinterOptions = {},
+    cbSuccess?: SuccessCallback,
+    cbErr?: ErrorCallback,
+  ): Promise<void> => writeByBase64('usb', textTo64Buffer(text, opts), opts?.keepConnection, cbSuccess, cbErr),
 };
 
 /** Namespace kết nối + in qua Bluetooth. / Bluetooth connect + print namespace. */
 export const BLEPrinter = {
-  init: (): Promise<void> =>
-    new Promise((resolve, reject) => ThermalPrinterModule.init('bluetooth', () => resolve(), (error: Error) => reject(error))),
+  init: (): Promise<void> => ThermalPrinterModule.init('bluetooth'),
 
-  getDeviceList: (): Promise<IBLEPrinter[]> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.getDeviceList('bluetooth', (printers: IBLEPrinter[]) => resolve(printers), (error: Error) => reject(error)),
-    ),
+  getDeviceList: (): Promise<IBLEPrinter[]> => ThermalPrinterModule.getDeviceList('bluetooth'),
 
   connectPrinter: (inner_mac_address: string): Promise<IBLEPrinter> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.connectPrinter(
-        { type: 'bluetooth', innerAddress: inner_mac_address },
-        (printer: IBLEPrinter) => resolve(printer),
-        (error: Error) => reject(error),
-      ),
-    ),
+    ThermalPrinterModule.connect({ type: 'bluetooth', innerAddress: inner_mac_address }),
 
-  closeConn: (): Promise<void> =>
-    new Promise((resolve) => {
-      ThermalPrinterModule.closeConn('bluetooth');
-      resolve();
-    }),
+  closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('bluetooth'),
 
-  printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): void => {
+  printText: (
+    text: string,
+    opts: PrinterOptions = {},
+    cbSuccess?: SuccessCallback,
+    cbErr?: ErrorCallback,
+  ): Promise<void> => {
     if (Platform.OS === 'ios') {
-      // Native iOS chưa implement (xem Global Constraints trong plan) — giữ
-      // nguyên hành vi cũ, không route qua ThermalPrinterModule (Android-only).
+      // Native iOS chưa implement (module khác, ngoài phạm vi Android-only
+      // refactor này) — giữ nguyên lệnh gọi native cũ, chỉ bọc thêm Promise
+      // để chữ ký hàm nhất quán trên mọi platform.
       const processed = textPreprocessingIOS(text);
-      NativeModules.RNBLEPrinter.printRawData(
-        processed.text,
-        processed.opts,
-        (msg: string) => cbSuccess?.(msg),
-        (error: Error) => cbErr?.(error),
-      );
-      return;
+      return new Promise((resolve, reject) => {
+        NativeModules.RNBLEPrinter.printRawData(
+          processed.text,
+          processed.opts,
+          (msg: string) => {
+            cbSuccess?.(msg);
+            resolve();
+          },
+          (error: Error) => {
+            cbErr?.(error);
+            reject(error);
+          },
+        );
+      });
     }
-    ThermalPrinterModule.printRawData(
-      'bluetooth',
-      textTo64Buffer(text, opts),
-      opts?.keepConnection,
-      (msg: string) => cbSuccess?.(msg),
-      (error: Error) => cbErr?.(error),
-    );
+    return writeByBase64('bluetooth', textTo64Buffer(text, opts), opts?.keepConnection, cbSuccess, cbErr);
   },
 };
 
 /** Namespace kết nối + in qua LAN. / LAN connect + print namespace. */
 export const NetPrinter = {
-  init: (): Promise<void> =>
-    new Promise((resolve, reject) => ThermalPrinterModule.init('lan', () => resolve(), (error: Error) => reject(error))),
+  init: (): Promise<void> => ThermalPrinterModule.init('lan'),
 
-  getDeviceList: (): Promise<INetPrinter[]> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.getDeviceList('lan', (printers: INetPrinter[]) => resolve(printers), (error: Error) => reject(error)),
-    ),
+  getDeviceList: (): Promise<INetPrinter[]> => ThermalPrinterModule.getDeviceList('lan'),
 
   connectPrinter: (host: string, port: number): Promise<INetPrinter> =>
-    new Promise((resolve, reject) =>
-      ThermalPrinterModule.connectPrinter(
-        { type: 'lan', host, port },
-        (printer: INetPrinter) => resolve(printer),
-        (error: Error) => reject(error),
-      ),
-    ),
+    ThermalPrinterModule.connect({ type: 'lan', host, port }),
 
-  closeConn: (): Promise<void> =>
-    new Promise((resolve) => {
-      ThermalPrinterModule.closeConn('lan');
-      resolve();
-    }),
+  closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('lan'),
 
-  printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): void => {
+  printText: (
+    text: string,
+    opts: PrinterOptions = {},
+    cbSuccess?: SuccessCallback,
+    cbErr?: ErrorCallback,
+  ): Promise<void> => {
     if (Platform.OS === 'ios') {
       // Native iOS chưa implement — giữ nguyên hành vi cũ (xem BLEPrinter.printText).
       const processed = textPreprocessingIOS(text);
-      NativeModules.RNNetPrinter.printRawData(
-        processed.text,
-        processed.opts,
-        (msg: string) => cbSuccess?.(msg),
-        (error: Error) => cbErr?.(error),
-      );
-      return;
+      return new Promise((resolve, reject) => {
+        NativeModules.RNNetPrinter.printRawData(
+          processed.text,
+          processed.opts,
+          (msg: string) => {
+            cbSuccess?.(msg);
+            resolve();
+          },
+          (error: Error) => {
+            cbErr?.(error);
+            reject(error);
+          },
+        );
+      });
     }
-    ThermalPrinterModule.printRawData(
-      'lan',
-      textTo64Buffer(text, opts),
-      opts?.keepConnection,
-      (msg: string) => cbSuccess?.(msg),
-      (error: Error) => cbErr?.(error),
-    );
+    return writeByBase64('lan', textTo64Buffer(text, opts), opts?.keepConnection, cbSuccess, cbErr);
   },
 };
 
@@ -279,32 +276,18 @@ export const ensureUsbInitialized = (): Promise<void> => ensureNativeInitialized
  * (giao thức byte thô).
  */
 export const printRawDataUsb = (base64Data: string, keepConnection: boolean): Promise<void> =>
-  new Promise((resolve, reject) => {
-    ThermalPrinterModule.printRawData(
-      'usb',
-      base64Data,
-      keepConnection,
-      () => resolve(),
-      (error: Error) => reject(error),
-    );
-  });
+  writeByBase64('usb', base64Data, keepConnection);
 
 /** Ghi byte thô (base64) qua Bluetooth — không encode. */
 export const printRawDataBluetooth = (base64Data: string, keepConnection: boolean): Promise<void> =>
-  new Promise((resolve, reject) => {
-    ThermalPrinterModule.printRawData('bluetooth', base64Data, keepConnection, () => resolve(), (error: Error) => reject(error));
-  });
+  writeByBase64('bluetooth', base64Data, keepConnection);
 
 /** Ghi byte thô (base64) qua LAN — không encode. */
 export const printRawDataLan = (base64Data: string, keepConnection: boolean): Promise<void> =>
-  new Promise((resolve, reject) => {
-    ThermalPrinterModule.printRawData('lan', base64Data, keepConnection, () => resolve(), (error: Error) => reject(error));
-  });
+  writeByBase64('lan', base64Data, keepConnection);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Boundary cho `EscPosDriver`: chọn namespace theo connectionType + chuẩn hoá
-// `printText()` (callback) thành Promise (spec §2.3 — ngoại lệ pragmatic: gộp
-// connect+encode+write theo connectionType thay vì đi qua `Transport` chung).
+// Boundary cho `EscPosDriver`: chọn namespace theo connectionType.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Tuỳ chọn `printText` cho `EscPosDriver`. / `printText` options for `EscPosDriver`. */
@@ -334,14 +317,8 @@ export const ThermalPrinterAdapter = {
    */
   namespaceFor: <T extends ConnectionType>(connectionType: T): ThermalPrinterNamespaceMap[T] => namespaces[connectionType],
 
+  /** `printText` giờ tự trả `Promise` thật — không cần bọc callback nữa. */
   printTextAsync(connectionType: ConnectionType, text: string, options: ThermalPrinterPrintTextOptions): Promise<void> {
-    return new Promise((resolve, reject) => {
-      ThermalPrinterAdapter.namespaceFor(connectionType).printText(
-        text,
-        options,
-        () => resolve(),
-        (error: Error) => reject(error),
-      );
-    });
+    return ThermalPrinterAdapter.namespaceFor(connectionType).printText(text, options);
   },
 };
