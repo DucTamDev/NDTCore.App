@@ -183,6 +183,10 @@ public final class PrinterInfo {
     private final ConnectionType connectionType;
     /** Tên hiển thị (từ hệ điều hành khi discovery, có thể null khi connect thủ công). */
     private final String name;
+    /** Tên nhà sản xuất USB — null nếu không phải USB/không đọc được. JS dùng cho `Printer.vendor`. */
+    private final String manufacturerName;
+    /** Tên sản phẩm USB — null nếu không phải USB/không đọc được. JS dùng cho `Printer.model`. */
+    private final String productName;
     /** VID USB — null nếu không phải USB. */
     private final Integer vendorId;
     /** PID USB — null nếu không phải USB. */
