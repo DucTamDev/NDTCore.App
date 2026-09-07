@@ -150,32 +150,77 @@ connectPrinter: (vendorId: number, productId: number): Promise<IUSBPrinter> =>
   ThermalPrinterModule.openConnect({ type: 'usb', vendorId, productId }),   // gọi openConnect, không phải connectPrinter
 
 closeConn: (): Promise<void> => ThermalPrinterModule.disconnect('usb'),     // gọi disconnect, không phải closeConn
-
-printText: (text: string, opts: PrinterOptions = {}): Promise<void> =>
-  ThermalPrinterModule.writeByBase64('usb', textTo64Buffer(text, opts), opts?.keepConnection),  // gọi writeByBase64, không phải printRawData
 ```
 
-Tương tự cho `BLEPrinter`/`NetPrinter` (giữ nhánh iOS `Platform.OS === 'ios'` gọi `NativeModules.RNBLEPrinter`/`RNNetPrinter` y nguyên — module đó không đổi, ngoài phạm vi). `printRawDataUsb`/`printRawDataBluetooth`/`printRawDataLan` (tên export JS giữ nguyên) cũng đổi bên trong sang gọi `ThermalPrinterModule.writeByBase64(...)`.
+`printRawDataUsb`/`printRawDataBluetooth`/`printRawDataLan` (tên export JS giữ nguyên) và cả 3 `printText` (USB/BLE/Net) đều cuối cùng gọi `ThermalPrinterModule.writeByBase64(...)` — rút thành 1 helper JS dùng chung thay vì lặp lại 6 lần:
 
-**Lưu ý chữ ký thay đổi**: `printText`/`printRawData*` hiện có tham số `cbSuccess?`/`cbErr?` optional ở cuối (dùng ở vài call site) — vì trả `Promise` thật, các tham số callback rời này **không còn cần thiết**, nhưng để tránh phải sửa toàn bộ call site trong `NativeAdapter.ts` (nơi đang gọi `USBPrinter.printText(text, options, () => resolve(), (error) => reject(error))` theo kiểu callback), **giữ nguyên chữ ký JS-level có `cbSuccess?`/`cbErr?`** — bên trong implementation gọi `.then(cbSuccess)`/`.catch(cbErr)` khi có truyền, đồng thời vẫn return Promise. Cụ thể:
+```ts
+/**
+ * Gọi native `writeByBase64`, đồng thời hỗ trợ `cbSuccess`/`cbErr` optional
+ * (tương thích call site cũ dùng callback) trong lúc vẫn trả `Promise` thật.
+ */
+const writeByBase64 = (
+  connectionType: 'usb' | 'bluetooth' | 'lan',
+  base64Data: string,
+  keepConnection: boolean | undefined,
+  cbSuccess?: SuccessCallback,
+  cbErr?: ErrorCallback,
+): Promise<void> => {
+  const result: Promise<void> = ThermalPrinterModule.writeByBase64(connectionType, base64Data, keepConnection);
+  if (cbSuccess || cbErr) {
+    result.then((msg) => cbSuccess?.(msg as unknown as string), (error: Error) => cbErr?.(error));
+  }
+  return result;
+};
+```
+
+`printText` (USB — không có nhánh iOS) gọi thẳng helper trên:
+
+```ts
+printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): Promise<void> =>
+  writeByBase64('usb', textTo64Buffer(text, opts), opts?.keepConnection, cbSuccess, cbErr),
+```
+
+`printRawDataUsb`/`Bluetooth`/`Lan` cũng gọi thẳng helper, bỏ hết phần `new Promise(...)` thủ công:
+
+```ts
+export const printRawDataUsb = (base64Data: string, keepConnection: boolean): Promise<void> =>
+  writeByBase64('usb', base64Data, keepConnection);
+```
+
+**`printText` của `BLEPrinter`/`NetPrinter` có nhánh iOS — nhánh này giữ nguyên lệnh gọi native (`NativeModules.RNBLEPrinter`/`RNNetPrinter`, method `printRawData`, không đổi tên, module khác ngoài phạm vi) nhưng PHẢI tự bọc `new Promise(...)` quanh callback hiện có**, vì `printText` khai `Promise<void>` áp dụng cho CẢ 2 platform — nếu nhánh iOS không trả gì (như code hiện tại), `await`/`.then()` ở phía gọi sẽ nhận `undefined` thay vì 1 Promise thật trên iOS, vỡ hợp đồng kiểu:
 
 ```ts
 printText: (text: string, opts: PrinterOptions = {}, cbSuccess?: SuccessCallback, cbErr?: ErrorCallback): Promise<void> => {
-  const result = ThermalPrinterModule.writeByBase64('usb', textTo64Buffer(text, opts), opts?.keepConnection);
-  if (cbSuccess || cbErr) {
-    result.then(() => cbSuccess?.(), (e) => cbErr?.(e));
+  if (Platform.OS === 'ios') {
+    const processed = textPreprocessingIOS(text);
+    return new Promise((resolve, reject) => {
+      NativeModules.RNBLEPrinter.printRawData(
+        processed.text,
+        processed.opts,
+        (msg: string) => { cbSuccess?.(msg); resolve(); },
+        (error: Error) => { cbErr?.(error); reject(error); },
+      );
+    });
   }
-  return result;
+  return writeByBase64('bluetooth', textTo64Buffer(text, opts), opts?.keepConnection, cbSuccess, cbErr);
 },
 ```
+
+**Lưu ý giá trị resolve**: native `writeByBase64` `resolve()` bằng string `"Print SuccessFully"`, không phải `undefined` — các hàm JS khai `Promise<void>` nhưng thực tế resolve với giá trị đó. Không call site nào (`NativeAdapter.ts`, `UsbTransport.ts`) đọc giá trị resolve, chỉ `await` để biết hoàn tất — nên không cần bọc thêm `.then(() => undefined)` để "làm sạch" giá trị, giữ đơn giản.
 
 → **Không cần sửa `NativeAdapter.ts`/`UsbTransport.ts`** (đúng nguyên tắc "public JS namespace signature không đổi" đã giữ xuyên suốt cả 2 đợt refactor trước — chỉ đổi tên method native, không đổi tên export JS).
 
 ### 4.6 Test
 
-- `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` đổi từ `jest.fn((...args, cbOk) => cbOk(...))` sang `jest.fn().mockResolvedValue(...)`, và đổi tên key mock từ `connectPrinter`/`closeConn`/`printRawData` sang `openConnect`/`disconnect`/`writeByBase64`.
-- `PrinterNativeModule.test.ts`: assertion đổi từ `expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith('usb', ..., expect.any(Function), expect.any(Function))` sang `expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('usb', ...)` (không còn callback args, đổi tên method) + `await expect(...).resolves`/`.rejects.toMatchObject({ code: '...' })`.
-- `NativeAdapter.test.ts`/`UsbTransport.test.ts`: không cần sửa (mock ở mức namespace `USBPrinter`/`BLEPrinter`/`NetPrinter`, không đổi tên — như đã xác nhận ở đợt refactor JS bridge trước).
+Có 2 tầng mock khác nhau trong `jest.setup.js`, dễ nhầm lẫn — chỉ tầng thứ 2 mới đổi tên method:
+
+1. **Mock cấp module** (`jest.mock('.../PrinterNativeModule', () => ({ USBPrinter: {...}, ... }))`) — namespace giả mô phỏng đúng **tên export JS** (`init`/`getDeviceList`/`connectPrinter`/`closeConn`/`printText`) — **KHÔNG đổi tên** ở tầng này (export JS không đổi). Chỉ đổi shape return từ callback-style (`jest.fn().mockImplementation((_t, _o, cbSuccess) => cbSuccess?.('ok'))`) sang Promise-style (`jest.fn().mockResolvedValue(...)`), và xoá key `printBill` (dead code sót lại từ trước, `PrinterNativeModule.ts` không còn export này).
+2. **Stub `NativeModules.ThermalPrinterModule`** (chỉ dùng cho `PrinterNativeModule.test.ts` qua `requireActual`, mô phỏng NATIVE thật) — đây mới là chỗ đổi tên method: `connectPrinter`/`closeConn`/`printRawData` → `openConnect`/`disconnect`/`writeByBase64`, và đổi từ callback-invoking (`jest.fn((...args, cbOk) => cbOk(...))`) sang `jest.fn().mockResolvedValue(...)`/`mockRejectedValue(...)`.
+
+`PrinterNativeModule.test.ts`: assertion đổi từ `expect(NativeModules.ThermalPrinterModule.printRawData).toHaveBeenCalledWith('usb', ..., expect.any(Function), expect.any(Function))` sang `expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('usb', ...)` (không còn callback args, đổi tên method) + `await expect(...).resolves`/`.rejects.toMatchObject({ code: '...' })`. Thêm test mới xác nhận `USBPrinter.connectPrinter(...)` gọi đúng `openConnect` (không phải `connectPrinter`) và `USBPrinter.closeConn()` gọi đúng `disconnect` (không phải `closeConn`) ở tầng native — đây chính là lớp test bảo vệ cho việc đổi tên, tránh lặp lại kiểu lỗi field-name/method-name từng xảy ra ở refactor trước.
+
+`NativeAdapter.test.ts`/`UsbTransport.test.ts`: không cần sửa (dùng mock cấp module ở trên, tên export JS không đổi — như đã xác nhận ở đợt refactor JS bridge trước).
 
 ## 5. Behavior giữ nguyên / ngoài phạm vi
 
