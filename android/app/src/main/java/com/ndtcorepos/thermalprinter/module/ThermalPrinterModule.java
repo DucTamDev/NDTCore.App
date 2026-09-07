@@ -4,7 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.util.Base64;
 
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -14,6 +14,7 @@ import com.facebook.react.bridge.WritableArray;
 import com.ndtcorepos.thermalprinter.application.PrinterService;
 import com.ndtcorepos.thermalprinter.application.PrinterServiceFactory;
 import com.ndtcorepos.thermalprinter.enums.ConnectionType;
+import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
 import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
 import com.ndtcorepos.thermalprinter.model.PrinterConnection;
@@ -23,7 +24,7 @@ import com.ndtcorepos.thermalprinter.permission.UsbPermission;
 import java.util.List;
 
 /**
- * RN bridge duy nhất cho printer — Callback boundary. Từ PrinterService trở
+ * RN bridge duy nhất cho printer — Promise boundary. Từ PrinterService trở
  * xuống không còn biết React Native tồn tại (return/throw PrinterException).
  */
 public class ThermalPrinterModule extends ReactContextBaseJavaModule {
@@ -44,7 +45,7 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void init(String connectionType, Callback successCallback, Callback errorCallback) {
+    public void init(String connectionType, Promise promise) {
         try {
             ConnectionType type = ConnectionType.fromWireValue(connectionType);
             if (type == ConnectionType.USB) {
@@ -55,70 +56,88 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
             } else if (type == ConnectionType.BLUETOOTH) {
                 BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
                 if (adapter == null) {
-                    errorCallback.invoke("No bluetooth adapter available");
+                    new PrinterErrorResult(PrinterErrorCode.CONNECTION_FAILED, "No bluetooth adapter available").rejectTo(promise);
                     return;
                 }
                 if (!adapter.isEnabled()) {
-                    errorCallback.invoke("bluetooth adapter is not enabled");
+                    new PrinterErrorResult(PrinterErrorCode.CONNECTION_FAILED, "bluetooth adapter is not enabled").rejectTo(promise);
                     return;
                 }
             }
-            successCallback.invoke();
+            promise.resolve(null);
+        } catch (IllegalArgumentException e) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         } catch (Exception e) {
-            errorCallback.invoke(e.getMessage());
+            new PrinterErrorResult(PrinterErrorCode.CONNECTION_FAILED, e.getMessage()).rejectTo(promise);
         }
     }
 
     @ReactMethod
-    public void getDeviceList(String connectionType, Callback successCallback, Callback errorCallback) {
+    public void getDeviceList(String connectionType, Promise promise) {
         try {
             ConnectionType type = ConnectionType.fromWireValue(connectionType);
             List<IPrinterDevice> devices = printerService.discover(type);
             if (devices.isEmpty()) {
-                errorCallback.invoke("No Device Found");
+                new PrinterErrorResult(PrinterErrorCode.DEVICE_NOT_FOUND, "No Device Found").rejectTo(promise);
                 return;
             }
             WritableArray result = Arguments.createArray();
             for (IPrinterDevice device : devices) {
                 result.pushMap(device.toWritableMap());
             }
-            successCallback.invoke(result);
+            promise.resolve(result);
         } catch (PrinterException e) {
-            errorCallback.invoke(e.getMessage());
+            PrinterErrorResult.from(e).rejectTo(promise);
+        } catch (IllegalArgumentException e) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         }
     }
 
+    /** RN method name: `connect` (cũ: `connectPrinter`). */
     @ReactMethod
-    public void connectPrinter(ReadableMap connection, Callback successCallback, Callback errorCallback) {
+    public void connect(ReadableMap connection, Promise promise) {
         try {
             printerService.connect(toPrinterConnection(connection));
-            successCallback.invoke(Arguments.createMap());
+            promise.resolve(Arguments.createMap());
         } catch (PrinterException e) {
-            errorCallback.invoke(e.getMessage());
+            PrinterErrorResult.from(e).rejectTo(promise);
+        } catch (IllegalArgumentException e) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         }
     }
 
+    /** RN method name: `disconnect` (cũ: `closeConn`). */
     @ReactMethod
-    public void closeConn(String connectionType) {
+    public void disconnect(String connectionType, Promise promise) {
         try {
             printerService.disconnect(ConnectionType.fromWireValue(connectionType));
-        } catch (PrinterException ignored) {
+            promise.resolve(null);
+        } catch (PrinterException e) {
+            PrinterErrorResult.from(e).rejectTo(promise);
+        } catch (IllegalArgumentException e) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         }
     }
 
+    /** RN method name: `writeByBase64` (cũ: `printRawData`). */
     @ReactMethod
-    public void printRawData(String connectionType, String base64Data, Boolean keepConnection,
-            Callback successCallback, Callback errorCallback) {
+    public void writeByBase64(String connectionType, String base64Data, Boolean keepConnection, Promise promise) {
+        ConnectionType type;
+        try {
+            type = ConnectionType.fromWireValue(connectionType);
+        } catch (IllegalArgumentException e) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
+            return;
+        }
         new Thread(() -> {
             try {
-                ConnectionType type = ConnectionType.fromWireValue(connectionType);
                 byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
                 printerService.write(type, new PrinterData(bytes), keepConnection);
-                successCallback.invoke("Print SuccessFully");
+                promise.resolve("Print SuccessFully");
             } catch (PrinterException e) {
-                errorCallback.invoke(e.getMessage());
+                PrinterErrorResult.from(e).rejectTo(promise);
             } catch (IllegalArgumentException e) {
-                errorCallback.invoke("Invalid base64 data: " + e.getMessage());
+                new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid base64 data: " + e.getMessage()).rejectTo(promise);
             }
         }).start();
     }
