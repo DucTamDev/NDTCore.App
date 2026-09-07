@@ -137,7 +137,9 @@ public class ThermalPrinterModule extends ReactContextBaseJavaModule {
             } catch (PrinterException e) {
                 PrinterErrorResult.from(e).rejectTo(promise);
             } catch (IllegalArgumentException e) {
-                new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid base64 data: " + e.getMessage()).rejectTo(promise);
+                new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid print data: " + e.getMessage()).rejectTo(promise);
+            } catch (Exception e) {
+                new PrinterErrorResult(PrinterErrorCode.WRITE_FAILED, e.getMessage()).rejectTo(promise);
             }
         }).start();
     }
