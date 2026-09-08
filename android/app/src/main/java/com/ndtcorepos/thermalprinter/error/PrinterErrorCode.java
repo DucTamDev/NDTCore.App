@@ -1,15 +1,37 @@
 package com.ndtcorepos.thermalprinter.error;
 
-/** Chỉ giữ code thực sự phát sinh khi port lại logic cũ — không thêm code "phòng khi cần sau này". */
 public enum PrinterErrorCode {
+    NONE,
     INVALID_ARGUMENT,
     UNSUPPORTED_CONNECTION,
 
     DEVICE_NOT_FOUND,
     DEVICE_NOT_CONNECTED,
 
+    PRINTER_NOT_FOUND,
+    PRINTER_BUSY,
+
+    PERMISSION_DENIED,
+    PERMISSION_REQUIRED,
+
     DISCOVERY_FAILED,
     CONNECTION_FAILED,
+    CONNECTION_TIMEOUT,
 
-    WRITE_FAILED
+    NOT_CONNECTED,
+    WRITE_FAILED,
+    WRITE_TIMEOUT,
+
+    USB_DEVICE_NOT_FOUND,
+    USB_ENDPOINT_NOT_FOUND,
+    USB_INTERFACE_CLAIM_FAILED,
+
+    BLUETOOTH_DEVICE_NOT_FOUND,
+    BLUETOOTH_CONNECTION_FAILED,
+
+    NETWORK_CONNECTION_FAILED,
+    NETWORK_TIMEOUT,
+
+    JOB_CANCELLED,
+    UNKNOWN_ERROR
 }
