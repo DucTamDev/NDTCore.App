@@ -7,6 +7,7 @@ import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError'
  * `Printer` (xem `toConnectTarget`). Adapter chỉ đọc field khớp `connectionType`.
  */
 export interface PrinterConnectTarget {
+  printerId: string;
   connectionType: ConnectionType;
   lan?: { ip: string; port: number };
   bluetooth?: { deviceId: string };
@@ -15,7 +16,6 @@ export interface PrinterConnectTarget {
 
 /** Tuỳ chọn khi để adapter tự encode ESC/POS (`printText`). */
 export interface PrinterPrintTextOptions {
-  keepConnection: boolean;
   cut: boolean;
   tailingLine: boolean;
   encoding: 'UTF8';
@@ -67,13 +67,13 @@ export interface IPrinterAdapter {
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
   if (printer.connection.type === 'lan') {
     if (!printer.connection.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-    return { connectionType: printer.connection.type, lan: { ip: printer.connection.lan.ip, port: printer.connection.lan.port } };
+    return { printerId: printer.id, connectionType: printer.connection.type, lan: { ip: printer.connection.lan.ip, port: printer.connection.lan.port } };
   }
   if (printer.connection.type === 'bluetooth') {
     if (!printer.connection.device) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
-    return { connectionType: printer.connection.type, bluetooth: { deviceId: printer.connection.device.deviceId } };
+    return { printerId: printer.id, connectionType: printer.connection.type, bluetooth: { deviceId: printer.connection.device.deviceId } };
   }
   const raw = printer.connection.device?.rawDevice as unknown as UsbRawDevice | undefined;
   if (!raw) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-  return { connectionType: printer.connection.type, usb: { vendorId: Number(raw.vendor_id), productId: Number(raw.product_id) } };
+  return { printerId: printer.id, connectionType: printer.connection.type, usb: { vendorId: Number(raw.vendorId), productId: Number(raw.productId) } };
 };

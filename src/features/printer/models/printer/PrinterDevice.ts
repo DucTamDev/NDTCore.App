@@ -15,20 +15,16 @@ export interface PrinterDevice {
 }
 
 /**
- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — 1 phần tử
- * `IUSBPrinter` từ `USBPrinter.getDeviceList()`. `vendor_id`/`product_id` luôn
- * có; các field enrichment optional (`serialNumber` cần quyền USB Android 10+).
+ * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — khớp
+ * `PrinterInfoDto` từ native (`vendorId`/`productId` luôn có; `serialNumber`
+ * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
  */
 export interface UsbRawDevice {
-  vendor_id: number | string;
-  product_id: number | string;
+  vendorId: number;
+  productId: number;
   manufacturerName?: string | null;
   productName?: string | null;
   serialNumber?: string | null;
-  version?: string | null;
-  interfaces?: unknown[];
-  hasBulkInEndpoint?: boolean;
-  hasBulkOutEndpoint?: boolean;
 }
 
 export interface PrinterLanConfig {
