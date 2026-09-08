@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class UsbWriter implements PrinterWriter {
 
-    private static final String TAG = "UsbWriter";
+    private static final String LOG_SOURCE = "UsbWriter";
     private static final int BULK_TRANSFER_TIMEOUT_MS = 100000;
 
     private final UsbConnection connection;
@@ -47,7 +47,7 @@ public final class UsbWriter implements PrinterWriter {
         try {
             UsbEndpoint endpoint = endpointResolver.resolveEndpoint(claimedInterface);
             int result = deviceConnection.bulkTransfer(endpoint, data, data.length, BULK_TRANSFER_TIMEOUT_MS);
-            Log.i(TAG, "bulkTransfer result=" + result);
+            Log.i(LOG_SOURCE, "bulk transfer result: " + result);
             if (result < 0) {
                 return CompletableFuture.failedFuture(new PrinterWriteException(PrinterErrorCode.WRITE_FAILED, "USB bulk transfer failed"));
             }

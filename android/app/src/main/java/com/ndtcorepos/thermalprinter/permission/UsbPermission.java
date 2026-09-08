@@ -24,7 +24,7 @@ import java.util.Map;
  */
 public final class UsbPermission {
 
-    private static final String TAG = "UsbPermission";
+    private static final String LOG_SOURCE = "UsbPermission";
     private static final String ACTION_USB_PERMISSION = "com.ndtcorepos.thermalprinter.USB_PERMISSION";
 
     private final ReactApplicationContext context;
@@ -68,7 +68,7 @@ public final class UsbPermission {
         } else {
             context.registerReceiver(receiver, filter);
         }
-        Log.v(TAG, "USB permission receiver registered");
+        Log.v(LOG_SOURCE, "receiver registered");
     }
 
     public boolean hasPermission(UsbDevice device) {
@@ -85,7 +85,7 @@ public final class UsbPermission {
             String action = intent.getAction();
             if (ACTION_USB_PERMISSION.equals(action)) {
                 boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
-                Log.v(TAG, "permission result granted=" + granted);
+                Log.v(LOG_SOURCE, "permission result: granted=" + granted);
                 if (!granted) {
                     Toast.makeText(ctx, "User refuses to obtain USB device permissions", Toast.LENGTH_LONG).show();
                 }
