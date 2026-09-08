@@ -9,9 +9,10 @@ import android.hardware.usb.UsbManager;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.ndtcorepos.thermalprinter.discovery.IPrinterDiscovery;
+import com.ndtcorepos.thermalprinter.enums.ConnectionType;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
+import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,21 +26,37 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
     }
 
     @Override
-    public List<IPrinterDevice> discover() throws PrinterException {
+    public List<PrinterInfo> discover() throws PrinterException {
         if (usbManager == null) {
             throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "USBManager is not available");
         }
 
-        List<IPrinterDevice> devices = new ArrayList<>();
+        List<PrinterInfo> devices = new ArrayList<>();
         for (UsbDevice device : usbManager.getDeviceList().values()) {
             if (isPrintableUsbDevice(device)) {
-                devices.add(new UsbPrinterDevice(device));
+                devices.add(toPrinterInfo(device));
             }
         }
         return devices;
     }
 
-    /** Dùng lại ở UsbPrinterTransport để resolve UsbDevice theo vendorId/productId. */
+    private PrinterInfo toPrinterInfo(UsbDevice device) {
+        String name = device.getProductName() != null ? device.getProductName()
+                : device.getManufacturerName() != null ? device.getManufacturerName()
+                : device.getDeviceName();
+        return new PrinterInfo(null, ConnectionType.USB, name, device.getManufacturerName(), device.getProductName(),
+                device.getVendorId(), device.getProductId(), getSerialNumberSafely(device), null, null, null);
+    }
+
+    private String getSerialNumberSafely(UsbDevice device) {
+        try {
+            return device.getSerialNumber();
+        } catch (SecurityException ignored) {
+            return null;
+        }
+    }
+
+    /** Dùng lại ở UsbConnection để resolve UsbDevice theo vendorId/productId. */
     public static boolean isPrintableUsbDevice(UsbDevice device) {
         if (device == null || device.getVendorId() < 0 || device.getProductId() < 0) {
             return false;

@@ -4,9 +4,10 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 
 import com.ndtcorepos.thermalprinter.discovery.IPrinterDiscovery;
+import com.ndtcorepos.thermalprinter.enums.ConnectionType;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.model.IPrinterDevice;
+import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,7 @@ import java.util.Set;
 public final class BluetoothPrinterDiscovery implements IPrinterDiscovery {
 
     @Override
-    public List<IPrinterDevice> discover() throws PrinterException {
+    public List<PrinterInfo> discover() throws PrinterException {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter == null) {
             throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "No bluetooth adapter available");
@@ -24,10 +25,10 @@ public final class BluetoothPrinterDiscovery implements IPrinterDiscovery {
             throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "Bluetooth is not enabled");
         }
 
-        List<IPrinterDevice> devices = new ArrayList<>();
+        List<PrinterInfo> devices = new ArrayList<>();
         Set<BluetoothDevice> bonded = adapter.getBondedDevices();
         for (BluetoothDevice device : bonded) {
-            devices.add(new BluetoothPrinterDevice(device));
+            devices.add(new PrinterInfo(null, ConnectionType.BLUETOOTH, device.getName(), null, null, null, null, null, device.getAddress(), null, null));
         }
         return devices;
     }
