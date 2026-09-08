@@ -58,6 +58,7 @@ export const dieCutMediaError = (media: PrintMedia): string | null => {
   }
 
   const missingFields = DIE_CUT_REQUIRED_FIELDS.filter((field) => media[field] == null);
+
   if (missingFields.length > 0) {
     return `Giấy die-cut cần đủ: ${missingFields.join(', ')}`;
   }

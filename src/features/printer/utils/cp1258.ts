@@ -66,14 +66,18 @@ const PRECOMPOSED: Readonly<Record<string, readonly number[]>> = {
  */
 export const encodeCp1258 = (text: string): number[] => {
   const bytes: number[] = [];
+
   for (const char of text) {
     const mapped = PRECOMPOSED[char];
+
     if (mapped) {
       bytes.push(...mapped);
       continue;
     }
+
     const codePoint = char.codePointAt(0) ?? 0;
     bytes.push(codePoint <= LATIN1_MAX ? codePoint : QUESTION_MARK);
   }
+
   return bytes;
 };

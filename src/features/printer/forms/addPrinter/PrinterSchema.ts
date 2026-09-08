@@ -23,15 +23,25 @@ const printMediaSchema = z
     cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
   })
   .superRefine((m, ctx) => {
-    if (m.type !== PrintMediaType.dieCut) return;
-    for (const f of DIE_CUT_REQUIRED) {
-      if (m[f] === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `Giấy die-cut cần ${f}` });
+    if (m.type !== PrintMediaType.dieCut) {
+      return;
     }
+
+    for (const f of DIE_CUT_REQUIRED) {
+      if (m[f] === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `Giấy die-cut cần ${f}` });
+      }
+    }
+
     if (m.cutterMode && m.cutterMode !== CutterMode.none) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
     }
+
     const overflow = dieCutRowOverflow(m as PrintMedia);
-    if (overflow) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
+
+    if (overflow) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
+    }
   });
 
 const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
@@ -76,14 +86,17 @@ export const printerDriverSchema = z
     if (driver.config.type !== driver.type) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'config.type phải khớp với driver.type' });
     }
+
     const allowed = getDriverCapabilities(driver.type).contentTypes;
     const invalid = driver.contentTypes.filter((ct) => !allowed.includes(ct));
+
     if (invalid.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Driver ${driver.type} không hỗ trợ content type: ${invalid.join(', ')}`,
       });
     }
+
     if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintMediaType.continuous) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['config', 'media', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
@@ -128,8 +141,13 @@ export const printerSchema = z
   })
   .superRefine((printer, ctx) => {
     if (printer.connection.type === ConnectionType.lan) {
-      if (!printer.connection.lan) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan bắt buộc phải có connection.lan' });
-      if (printer.connection.device) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan không được có connection.device' });
+      if (!printer.connection.lan) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan bắt buộc phải có connection.lan' });
+      }
+
+      if (printer.connection.device) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan không được có connection.device' });
+      }
     } else {
       if (!printer.connection.device) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connection.type ${printer.connection.type} bắt buộc phải có connection.device` });
