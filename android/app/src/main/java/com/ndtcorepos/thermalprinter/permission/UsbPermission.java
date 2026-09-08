@@ -13,6 +13,9 @@ import android.widget.Toast;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * USB runtime permission (Android yêu cầu cấp quyền theo từng UsbDevice) +
  * phát hiện thiết bị bị rút qua BroadcastReceiver. Không biết gì về bulk
@@ -27,15 +30,25 @@ public final class UsbPermission {
     private final ReactApplicationContext context;
     private final UsbManager usbManager;
     private PendingIntent permissionIntent;
-    private Runnable onDeviceDetached;
+    private final Map<String, Runnable> deviceDetachListeners = new HashMap<>();
 
     public UsbPermission(ReactApplicationContext context) {
         this.context = context;
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
     }
 
-    public void setOnDeviceDetached(Runnable listener) {
-        this.onDeviceDetached = listener;
+    /** Đăng ký callback rút thiết bị theo (vendorId, productId) — một UsbPermission được nhiều UsbConnection dùng chung nên phải phân biệt theo thiết bị thay vì một Runnable duy nhất. */
+    public void registerDeviceDetachListener(int vendorId, int productId, Runnable listener) {
+        deviceDetachListeners.put(deviceKey(vendorId, productId), listener);
+    }
+
+    /** Gỡ callback rút thiết bị theo (vendorId, productId) — gọi khi UsbConnection đóng chủ động để không giữ listener treo mãi. */
+    public void unregisterDeviceDetachListener(int vendorId, int productId) {
+        deviceDetachListeners.remove(deviceKey(vendorId, productId));
+    }
+
+    private static String deviceKey(int vendorId, int productId) {
+        return vendorId + ":" + productId;
     }
 
     public void register() {
@@ -78,10 +91,24 @@ public final class UsbPermission {
                 }
             } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
                 Toast.makeText(ctx, "USB device has been turned off", Toast.LENGTH_LONG).show();
-                if (onDeviceDetached != null) {
-                    onDeviceDetached.run();
+                // Có thể có nhiều UsbConnection cùng lúc (không còn chỉ 1 kết nối USB active như trước) —
+                // phải đọc EXTRA_DEVICE để biết đúng thiết bị nào vừa rút rồi chỉ gọi listener của thiết bị đó.
+                UsbDevice detached = getDetachedDevice(intent);
+                if (detached != null) {
+                    Runnable listener = deviceDetachListeners.get(deviceKey(detached.getVendorId(), detached.getProductId()));
+                    if (listener != null) {
+                        listener.run();
+                    }
                 }
             }
         }
     };
+
+    @SuppressWarnings("deprecation")
+    private static UsbDevice getDetachedDevice(Intent intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
+        }
+        return intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+    }
 }

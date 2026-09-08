@@ -37,6 +37,9 @@ public final class UsbConnection implements PrinterConnection {
         this.endpointResolver = endpointResolver;
         this.vendorId = vendorId;
         this.productId = productId;
+        // close() vốn đã idempotent và làm đúng việc cần làm khi mất kết nối vật lý
+        // (release interface, đóng connection, null hoá field) nên tái dùng luôn làm handler rút thiết bị.
+        this.permission.registerDeviceDetachListener(vendorId, productId, this::close);
     }
 
     /**
@@ -146,6 +149,7 @@ public final class UsbConnection implements PrinterConnection {
         claimedInterface = null;
         deviceConnection = null;
         usbDevice = null;
+        permission.unregisterDeviceDetachListener(vendorId, productId);
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
