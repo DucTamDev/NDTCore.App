@@ -40,6 +40,7 @@ export class BluetoothTransport {
     if (!this.device) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: 'Thiết bị Bluetooth chưa được kết nối' });
     }
+
     await this.device.write(Buffer.from(bytes).toString('base64'), 'base64');
   }
 
@@ -53,6 +54,7 @@ export class BluetoothTransport {
         resolve(null);
         return;
       }
+
       const subscription = this.device.onDataReceived((event) => {
         clearTimeout(timer);
         subscription.remove();

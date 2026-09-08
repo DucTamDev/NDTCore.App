@@ -18,6 +18,19 @@ interface PrintServiceDeps {
   scheduler: Pick<typeof PrintScheduler, 'enqueue'>;
 }
 
+/** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
+const resolveResultStatus = (successCount: number, total: number): PrintResultStatus => {
+  if (successCount === total) {
+    return PrintResultStatus.success;
+  }
+
+  if (successCount === 0) {
+    return PrintResultStatus.failed;
+  }
+
+  return PrintResultStatus.partialFailure;
+};
+
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
    * `PrintMedia` cần để render ảnh cho `printType` này, hoặc `null` nếu
@@ -36,6 +49,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
 
   const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
     const targets = deps.routing.resolveTargets(printType);
+
     if (targets.length === 0) {
       return {
         status: PrintResultStatus.noAvailablePrinter,
@@ -43,6 +57,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
         error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
       };
     }
+
     const requestId = generateId();
     const jobs: PrintJob[] = await Promise.all(
       targets.map(({ printer }) =>
@@ -59,7 +74,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
       ),
     );
     const successCount = jobs.filter((job) => job.status === PrintJobStatus.success).length;
-    const status = successCount === jobs.length ? PrintResultStatus.success : successCount === 0 ? PrintResultStatus.failed : PrintResultStatus.partialFailure;
+    const status = resolveResultStatus(successCount, jobs.length);
     return { status, jobs };
   };
 

@@ -21,15 +21,21 @@ export interface ResolveIdentityKeyInput {
  */
 export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
   if (input.connectionType === ConnectionType.lan) {
-    if (!input.lan) throw new Error('Thiếu cấu hình IP/Port để tính identityKey cho kết nối LAN');
+    if (!input.lan) {
+      throw new Error('Thiếu cấu hình IP/Port để tính identityKey cho kết nối LAN');
+    }
+
     return `lan:${input.lan.ip}:${input.lan.port}`;
   }
+
   if (!input.device) {
     throw new Error(`Thiếu thiết bị để tính identityKey cho kết nối ${input.connectionType}`);
   }
+
   if (input.connectionType === ConnectionType.bluetooth) {
     return `bluetooth:mac:${input.device.deviceId}`;
   }
+
   const serial = (input.device.rawDevice as unknown as UsbRawDevice | undefined)?.serialNumber;
   return serial ? `usb:${input.device.deviceId}:${serial}` : `usb:${input.device.deviceId}`;
 };

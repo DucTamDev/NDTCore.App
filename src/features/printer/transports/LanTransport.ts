@@ -28,20 +28,29 @@ export class LanTransport {
       // callback đó chạy trước khi `timer` được gán, để lại 1 timer mồ côi
       // không bao giờ bị huỷ.
       const timer = setTimeout(() => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
+
         settled = true;
         socket.destroy();
         this.socket = null;
         reject(new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_TIMEOUT, message: 'Kết nối LAN quá thời gian chờ' }));
       }, timeoutMs);
       const socket = TcpSocket.createConnection({ host: ip, port }, () => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
+
         settled = true;
         clearTimeout(timer);
         resolve();
       });
       socket.on('error', (error: Error) => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
+
         settled = true;
         clearTimeout(timer);
         // Socket 'error' lúc connect = từ chối kết nối / host không tới được —
@@ -57,6 +66,7 @@ export class LanTransport {
     if (!this.socket) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: 'LAN socket chưa được kết nối' });
     }
+
     this.socket.write(bytes);
   }
 
@@ -70,6 +80,7 @@ export class LanTransport {
         resolve(null);
         return;
       }
+
       const socket = this.socket;
       const onData = (data: Buffer | string): void => {
         clearTimeout(timer);

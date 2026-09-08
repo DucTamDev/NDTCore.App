@@ -17,11 +17,19 @@ interface PrintRoutingServiceDeps {
 export const createPrintRoutingService = (deps: PrintRoutingServiceDeps) => {
   const resolveTargets = (printType: PrintType): PrintTarget[] => {
     const targets: PrintTarget[] = [];
+
     for (const printer of deps.getPrinters()) {
-      if (!printer.enabled) continue;
+      if (!printer.enabled) {
+        continue;
+      }
+
       const driver = printer.drivers.find((d) => d.contentTypes.includes(printType));
-      if (driver) targets.push({ printer, driver });
+
+      if (driver) {
+        targets.push({ printer, driver });
+      }
     }
+
     return targets;
   };
 

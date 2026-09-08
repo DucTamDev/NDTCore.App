@@ -44,9 +44,11 @@ export class UsbTransport {
     if (!this.printerId) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'UsbTransport chưa connect' });
     }
+
     const totalChunks = Math.max(1, Math.ceil(bytes.length / USB_WRITE_CHUNK_BYTES));
     LoggerService.debug('UsbTransport.write', { totalBytes: bytes.length, totalChunks, chunkSize: USB_WRITE_CHUNK_BYTES });
     let index = 0;
+
     try {
       for (let offset = 0; offset < bytes.length; offset += USB_WRITE_CHUNK_BYTES) {
         const chunk = bytes.subarray(offset, offset + USB_WRITE_CHUNK_BYTES);
@@ -61,7 +63,10 @@ export class UsbTransport {
   }
 
   async close(): Promise<void> {
-    if (!this.printerId) return;
+    if (!this.printerId) {
+      return;
+    }
+
     try {
       await ThermalPrinterModule.disconnect(this.printerId);
     } catch (error) {

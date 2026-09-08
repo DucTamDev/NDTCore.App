@@ -23,7 +23,11 @@ export const createPrintScheduler = (
    */
   const resourceKeyFor = (job: PrintJob): string => {
     const printer = printerService.getPrinters().find((p) => p.id === job.printerId);
-    if (!printer) return job.printerId;
+
+    if (!printer) {
+      return job.printerId;
+    }
+
     const driver = printer.drivers.find((d) => d.contentTypes.includes(job.printType)) ?? printer.drivers[0];
     return connectionResourceKey({ driverType: driver.type, connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan });
   };

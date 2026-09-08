@@ -38,7 +38,11 @@ export const createPrinterConfigService = (
    */
   const resourceKeyForTsplPrinterId = (printerId: string): string => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
-    if (!printer) return printerId;
+
+    if (!printer) {
+      return printerId;
+    }
+
     return resourceKeyFor(printer, PrinterDriverType.tspl);
   };
 
@@ -141,7 +145,11 @@ export const createPrinterConfigService = (
   const setTsplRenderMode = (printerId: string, renderMode: TsplRenderMode): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
     const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) return;
+
+    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) {
+      return;
+    }
+
     repository.savePrinters(
       repository.getPrinters().map((p) =>
         p.id !== printerId
@@ -168,7 +176,11 @@ export const createPrinterConfigService = (
   const setTsplInternalFont = (printerId: string, internalFont: TsplInternalFontConfig): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
     const tsplEntry = printer?.drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) return;
+
+    if (!printer || !tsplEntry || tsplEntry.config.type !== PrinterDriverType.tspl) {
+      return;
+    }
+
     repository.savePrinters(
       repository.getPrinters().map((p) =>
         p.id !== printerId
@@ -196,7 +208,11 @@ export const createPrinterConfigService = (
     const printers = repository.getPrinters();
     const printer = printers.find((p) => p.id === printerId);
     const entry = printer?.drivers.find((d) => d.type === driverType);
-    if (!printer || !entry) return;
+
+    if (!printer || !entry) {
+      return;
+    }
+
     repository.savePrinters(
       printers.map((p) =>
         p.id !== printerId ? p : {

@@ -66,7 +66,10 @@ export const createDiscoverDriver =
       PrinterLogger.discoveryStarted({ printerId, connectionType, candidates });
 
       for (const type of candidates) {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
+
         candidatesTried.push(type);
         const driver = registry[type];
         const def = getDriverCapabilities(type).defaultConfig;
@@ -104,17 +107,23 @@ export const createDiscoverDriver =
         await disconnectQuietly();
       }
 
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
+
       if (candidates.length === 0 || connectFailures === candidates.length) {
         onEvent({ stage: DiscoveryStage.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' } });
         PrinterLogger.discoveryFailed({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
         return;
       }
+
       onEvent({ stage: DiscoveryStage.unknown_protocol });
       PrinterLogger.protocolUnknown({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
     };
 
     run();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   };

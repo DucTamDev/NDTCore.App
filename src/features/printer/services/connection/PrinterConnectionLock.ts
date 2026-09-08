@@ -29,13 +29,26 @@ export interface ConnectionResourceKeyInput {
  *   per-connection, cho phép 2 máy TSPL khác nhau in song song thật.
  */
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
-  if (input.connectionType === ConnectionType.usb) return 'usb';
-  if (input.driverType === PrinterDriverType.escpos) return `escpos:${input.connectionType}`;
+  if (input.connectionType === ConnectionType.usb) {
+    return 'usb';
+  }
+
+  if (input.driverType === PrinterDriverType.escpos) {
+    return `escpos:${input.connectionType}`;
+  }
+
   if (input.connectionType === ConnectionType.bluetooth) {
-    if (!input.device) throw new Error('Thiếu device để tính resource key cho TSPL qua Bluetooth');
+    if (!input.device) {
+      throw new Error('Thiếu device để tính resource key cho TSPL qua Bluetooth');
+    }
+
     return `tspl:bluetooth:${input.device.deviceId}`;
   }
-  if (!input.lan) throw new Error('Thiếu lan để tính resource key cho TSPL qua LAN');
+
+  if (!input.lan) {
+    throw new Error('Thiếu lan để tính resource key cho TSPL qua LAN');
+  }
+
   return `tspl:lan:${input.lan.ip}:${input.lan.port}`;
 };
 
@@ -58,8 +71,12 @@ export const createResourceLock = () => {
   const processing = new Set<string>();
 
   const processQueue = async (key: string): Promise<void> => {
-    if (processing.has(key)) return;
+    if (processing.has(key)) {
+      return;
+    }
+
     processing.add(key);
+
     try {
       const queue = queues.get(key);
       while (queue && queue.length > 0) {
@@ -75,7 +92,10 @@ export const createResourceLock = () => {
 
   const runExclusive = <T>(key: string, task: () => Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {
-      if (!queues.has(key)) queues.set(key, []);
+      if (!queues.has(key)) {
+        queues.set(key, []);
+      }
+
       queues.get(key)?.push(() => task().then(resolve, reject));
       // `processQueue` tự nuốt lỗi từng task (mỗi task đã `.then(resolve, reject)`
       // về promise ngoài) nên `.catch` này gần như không bao giờ chạy — chỉ để
