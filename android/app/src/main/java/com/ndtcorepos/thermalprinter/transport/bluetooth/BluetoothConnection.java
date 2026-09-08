@@ -66,6 +66,9 @@ public final class BluetoothConnection implements PrinterConnection {
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
+    /**
+     * Tìm thiết bị đã pair khớp địa chỉ trong danh sách bonded devices của Android.
+     */
     private BluetoothDevice findBondedDevice(BluetoothAdapter adapter) {
         Set<BluetoothDevice> bonded = adapter.getBondedDevices();
 
@@ -78,6 +81,11 @@ public final class BluetoothConnection implements PrinterConnection {
         return null;
     }
 
+    /**
+     * Mở BluetoothSocket RFCOMM qua createRfcommSocketToServiceRecord/connect
+     * của Android; thử lại 1 lần với socket mới nếu lần connect() đầu thất
+     * bại (một số máy in Bluetooth cần retry mới bắt tay được).
+     */
     private BluetoothSocket openSocket(BluetoothDevice target) throws IOException {
         BluetoothSocket newSocket = target.createRfcommSocketToServiceRecord(SPP_UUID);
 

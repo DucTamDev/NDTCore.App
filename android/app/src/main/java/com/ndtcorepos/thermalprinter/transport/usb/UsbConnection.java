@@ -78,6 +78,9 @@ public final class UsbConnection implements PrinterConnection {
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
+    /**
+     * Tìm thiết bị USB khớp vendorId/productId hiện có qua UsbManager của Android.
+     */
     private UsbDevice findCandidate() {
         if (usbManager == null) {
             return null;
@@ -92,6 +95,9 @@ public final class UsbConnection implements PrinterConnection {
         return null;
     }
 
+    /**
+     * Mở UsbDeviceConnection và claim interface qua UsbManager của Android.
+     */
     private void claim(UsbDevice device) throws PrinterConnectionException {
         UsbInterface usbInterface = endpointResolver.resolveInterface(device);
         UsbDeviceConnection newConnection = usbManager.openDevice(device);

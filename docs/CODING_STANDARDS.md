@@ -446,6 +446,60 @@ Không comment lại điều code đã nói rõ. Chỉ comment khi có lý do bu
 
 ### Rule 14.2 — Do not comment obvious code
 
+### Rule 14.3 — Comment at function boundary, not per Android API call
+
+Function trực tiếp dùng Android Framework API nên có Javadoc mô tả **trách
+nhiệm Android/platform** của function (enumerate devices, open hardware
+resource, claim/release resource, register/unregister listener, request
+permission, xử lý tương thích SDK level...) — đặt comment ở function, không
+rải comment trên từng dòng API call bên trong. Comment viết bằng **tiếng
+Việt**, nhất quán với toàn bộ comment còn lại trong codebase.
+
+```java
+/**
+ * Tìm thiết bị máy in USB hiện có qua UsbManager của Android.
+ */
+private UsbDevice findCandidate() {
+    if (usbManager == null) {
+        return null;
+    }
+
+    for (UsbDevice candidate : usbManager.getDeviceList().values()) {
+        if (candidate.getVendorId() == vendorId
+                && candidate.getProductId() == productId
+                && UsbPrinterDiscovery.isPrintableUsbDevice(candidate)) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+```
+
+Không phải mọi function đụng Android API đều bắt buộc có Javadoc:
+
+```text
+Function trực tiếp dùng Android API
+        │
+        ├── Function responsibility cần giải thích
+        │       → Comment/Javadoc
+        │
+        └── Behavior đã hoàn toàn rõ từ tên + code
+                → Không cần comment
+```
+
+Ví dụ **không cần** comment vì tên + code đã đủ rõ, không tự gọi Android API:
+
+```java
+private boolean isOpen() {
+    return deviceConnection != null && claimedInterface != null;
+}
+
+UsbDeviceConnection getDeviceConnection() {
+    return deviceConnection;
+}
+```
+
 ---
 
 ## 15. Formatting
@@ -567,3 +621,4 @@ private void handleDeviceDetached(Intent intent) {
 18. Use `LOG_SOURCE` for Android logging; do not use `TAG`.
 19. Comments should explain **why**, not obvious **what**.
 20. Prefer maintainable and debuggable code over clever or overly compact code.
+21. Comment functions that directly use Android APIs at the function level (Android/platform responsibility) — not on individual API calls; skip when the name + code already make it obvious.

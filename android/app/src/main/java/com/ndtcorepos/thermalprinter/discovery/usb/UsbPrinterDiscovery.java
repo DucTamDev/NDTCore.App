@@ -75,6 +75,11 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
         return device.getDeviceName();
     }
 
+    /**
+     * Đọc serial number qua UsbDevice.getSerialNumber() — từ Android 10 trở
+     * lên, API này ném SecurityException nếu app chưa có quyền USB, nên phải
+     * bọc try/catch và coi như không có serial thay vì làm hỏng cả lần quét.
+     */
     private String getSerialNumberSafely(UsbDevice device) {
         try {
             return device.getSerialNumber();

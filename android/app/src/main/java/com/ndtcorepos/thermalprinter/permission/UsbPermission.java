@@ -103,6 +103,9 @@ public final class UsbPermission {
         }
     };
 
+    /**
+     * Đọc kết quả cấp quyền USB từ Intent do hệ thống Android gửi lại sau khi user phản hồi dialog.
+     */
     private void handlePermissionResult(Context ctx, Intent intent) {
         boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
         Log.v(LOG_SOURCE, "permission result: granted=" + granted);
@@ -141,6 +144,10 @@ public final class UsbPermission {
         listener.run();
     }
 
+    /**
+     * Đọc UsbDevice đính kèm trong Intent rút thiết bị — API lấy Parcelable
+     * đổi chữ ký giữa các SDK level nên phải rẽ nhánh theo Build.VERSION.
+     */
     @SuppressWarnings("deprecation")
     private static UsbDevice getDetachedDevice(Intent intent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

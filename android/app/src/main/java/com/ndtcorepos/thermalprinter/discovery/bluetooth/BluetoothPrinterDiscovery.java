@@ -58,6 +58,12 @@ public final class BluetoothPrinterDiscovery implements IPrinterDiscovery {
                 null);
     }
 
+    /**
+     * Đọc tên thiết bị qua BluetoothDevice.getName() — từ Android 12 trở
+     * lên, API này ném SecurityException nếu app chưa có quyền
+     * BLUETOOTH_CONNECT, nên phải bọc try/catch và coi như không có tên
+     * thay vì làm hỏng cả lần quét.
+     */
     private String getDeviceNameSafely(BluetoothDevice device) {
         try {
             return device.getName();
