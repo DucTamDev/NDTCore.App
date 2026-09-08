@@ -13,9 +13,8 @@ import com.facebook.react.bridge.WritableMap;
 
 import com.ndtcorepos.thermalprinter.enums.ConnectionType;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
+import com.ndtcorepos.thermalprinter.error.PrinterErrorResult;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.helper.PrinterErrorResultHelper;
-import com.ndtcorepos.thermalprinter.model.PrinterErrorResult;
 import com.ndtcorepos.thermalprinter.permission.UsbPermission;
 import com.ndtcorepos.thermalprinter.printer.PrinterCapabilities;
 import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
@@ -65,9 +64,9 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
             }
             promise.resolve(result);
         } catch (PrinterException e) {
-            PrinterErrorResultHelper.rejectTo(promise, PrinterErrorResultHelper.from(e));
+            PrinterErrorResult.from(e).rejectTo(promise);
         } catch (IllegalArgumentException e) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()));
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         }
     }
 
@@ -104,7 +103,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
                 }
             });
         } catch (IllegalArgumentException e) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()));
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
         }
     }
 
@@ -164,18 +163,18 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
         try {
             bytes = Base64.decode(base64Data, Base64.DEFAULT);
         } catch (IllegalArgumentException e) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid base64 data: " + e.getMessage()));
+            new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid base64 data: " + e.getMessage()).rejectTo(promise);
             return;
         }
         if (bytes.length == 0) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Print data must not be empty"));
+            new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Print data must not be empty").rejectTo(promise);
             return;
         }
         printerManager.write(printerId, bytes).thenAccept(result -> {
             if (result.success()) {
                 promise.resolve("Print SuccessFully");
             } else {
-                PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(result.errorCode(), result.message()));
+                new PrinterErrorResult(result.errorCode(), result.message()).rejectTo(promise);
             }
         });
     }
@@ -190,7 +189,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void getPrinterInfo(String printerId, Promise promise) {
         PrinterInfo info = printerManager.getInfo(printerId);
         if (info == null) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId));
+            new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
         promise.resolve(toWritableMap(info));
@@ -206,7 +205,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void getPrinterCapabilities(String printerId, Promise promise) {
         PrinterCapabilities capabilities = printerManager.getCapabilities(printerId);
         if (capabilities == null) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId));
+            new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
         WritableMap map = Arguments.createMap();
@@ -227,7 +226,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void getConnectionState(String printerId, Promise promise) {
         PrinterState state = printerManager.getConnectionState(printerId);
         if (state == null) {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId));
+            new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
         promise.resolve(state.name());
@@ -298,9 +297,9 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     private void rejectAsync(Throwable error, Promise promise) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
         if (cause instanceof PrinterException printerException) {
-            PrinterErrorResultHelper.rejectTo(promise, PrinterErrorResultHelper.from(printerException));
+            PrinterErrorResult.from(printerException).rejectTo(promise);
         } else {
-            PrinterErrorResultHelper.rejectTo(promise, new PrinterErrorResult(PrinterErrorCode.UNKNOWN_ERROR, cause.getMessage()));
+            new PrinterErrorResult(PrinterErrorCode.UNKNOWN_ERROR, cause.getMessage()).rejectTo(promise);
         }
     }
 
