@@ -30,7 +30,9 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
     const targetWidthPx = media.type === PrintMediaType.dieCut
       ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
+
     let bitmap;
+
     try {
       bitmap = decodePngBase64ToMonochrome(documents.image as string, targetWidthPx);
     } catch (error) {
@@ -40,15 +42,22 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
         cause: error,
       });
     }
+
     const maxHeightPx = heightMm * DOTS_PER_MM;
+
     if (bitmap.heightPx > maxHeightPx) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE,
         message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
       });
     }
+
     const encoder = new TsplEncoder().initialize(media, printType);
-    for (const dx of columnOffsets(media)) encoder.image(dx, 0, bitmap);
+
+    for (const dx of columnOffsets(media)) {
+      encoder.image(dx, 0, bitmap);
+    }
+
     return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();
   }
 }

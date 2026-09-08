@@ -14,7 +14,13 @@ export const resolvePrinterAdapter = (
   driverType: PrinterDriverType,
   connectionType: ConnectionType,
 ): IPrinterAdapter => {
-  if (driverType === PrinterDriverType.escpos) return new NativeAdapter();
-  if (connectionType === ConnectionType.usb) return new NativeAdapter();
+  if (driverType === PrinterDriverType.escpos) {
+    return new NativeAdapter();
+  }
+
+  if (connectionType === ConnectionType.usb) {
+    return new NativeAdapter();
+  }
+
   return new LibraryAdapter();
 };

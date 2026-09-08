@@ -90,8 +90,14 @@ export { DOTS_PER_MM };
  * item height or the default; continuous Receipt → the wide safety ceiling.
  */
 export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): number => {
-  if (media.type === PrintMediaType.dieCut) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
-  if (printType === PrintType.Label) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  if (media.type === PrintMediaType.dieCut) {
+    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  }
+
+  if (printType === PrintType.Label) {
+    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  }
+
   return CONTINUOUS_HEIGHT_MM;
 };
 
@@ -111,7 +117,10 @@ export const columnPitchDots = (media: PrintMedia): number =>
  * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
  */
 export const columnOffsets = (media: PrintMedia): number[] => {
-  if (media.type !== PrintMediaType.dieCut) return [0];
+  if (media.type !== PrintMediaType.dieCut) {
+    return [0];
+  }
+
   const pitch = columnPitchDots(media);
   return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
 };
@@ -168,6 +177,7 @@ export class TsplEncoder {
   initialize(media: PrintMedia, printType: PrintType = PrintType.Receipt, codepage: TsplCodepage = TsplCodepage.utf8): this {
     this.codepage = codepage;
     const heightMm = resolveSizeHeightMm(media, printType);
+
     if (media.type === PrintMediaType.dieCut) {
       const columns = media.columns ?? 1;
       const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
@@ -177,6 +187,7 @@ export class TsplEncoder {
       this.pushLine(`SIZE ${PAPER_SIZE_SPECS[media.paperSize].printableWidthMm} mm, ${heightMm} mm`);
       this.pushLine('GAP 0 mm, 0 mm');
     }
+
     this.pushLine(`CODEPAGE ${codepage}`);
     this.pushLine('CLS');
     return this;
@@ -202,10 +213,12 @@ export class TsplEncoder {
    */
   text(x: number, y: number, content: string, fontName: string = '3'): this {
     const escaped = content.replace(/"/g, '\\"');
+
     if (this.codepage === TsplCodepage.utf8) {
       this.pushLine(`TEXT ${x},${y},"${fontName}",0,1,1,"${escaped}"`);
       return this;
     }
+
     const contentBytes = this.codepage === TsplCodepage.cp1258 ? encodeCp1258(escaped) : encodeSingleByte(escaped);
     this.bytes.push(...encodeSingleByte(`TEXT ${x},${y},"${fontName}",0,1,1,"`), ...contentBytes, ...encodeSingleByte('"\r\n'));
     return this;
@@ -244,8 +257,11 @@ export class TsplEncoder {
     // byte, spread từng đó phần tử làm argument cho `push()` vừa chậm vừa có
     // thể vượt giới hạn số argument của JS engine (Hermes). Vòng lặp thường
     // luôn an toàn và tuyến tính bất kể kích thước mảng.
-    // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
-    for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i] ^ 0xff);
+    for (let i = 0; i < bitmap.bits.length; i += 1) {
+      // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
+      this.bytes.push(bitmap.bits[i] ^ 0xff);
+    }
+
     this.bytes.push(...encodeUtf8('\r\n'));
     return this;
   }
@@ -264,9 +280,17 @@ export class TsplEncoder {
    * `SET CUTTER` (or `SET CUTTER OFF` for `none`) then `PRINT rows,1`.
    */
   cut(rows: number, mode: CutterMode): this {
-    if (mode === CutterMode.none) this.pushLine('SET CUTTER OFF');
-    else if (mode === CutterMode.perRow) this.pushLine('SET CUTTER 1');
-    else this.pushLine(`SET CUTTER ${rows}`);
+    switch (mode) {
+      case CutterMode.none:
+        this.pushLine('SET CUTTER OFF');
+        break;
+      case CutterMode.perRow:
+        this.pushLine('SET CUTTER 1');
+        break;
+      default:
+        this.pushLine(`SET CUTTER ${rows}`);
+    }
+
     this.pushLine(`PRINT ${rows},1`);
     return this;
   }

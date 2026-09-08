@@ -53,7 +53,10 @@ export class TsplFontManager {
         payloadTotal: payload.length,
       });
     } catch (error) {
-      if (error instanceof PrinterErrorException) throw error;
+      if (error instanceof PrinterErrorException) {
+        throw error;
+      }
+
       throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_INVALID, message: `Không đọc được file font "${font.fileName}" từ assets` });
     }
 

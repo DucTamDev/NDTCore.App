@@ -42,8 +42,12 @@ export class NativeAdapter implements IPrinterAdapter {
   private usb?: UsbTransport;
 
   async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
-    if (connectionType === ConnectionType.lan) return [];
+    if (connectionType === ConnectionType.lan) {
+      return [];
+    }
+
     const devices = await ThermalPrinterModule.discoverPrinters(connectionType);
+
     return devices.map((d) => ({
       deviceId: connectionType === ConnectionType.bluetooth ? (d.address ?? '') : `${d.vendorId}:${d.productId}`,
       displayName: d.name ?? '',
@@ -54,27 +58,46 @@ export class NativeAdapter implements IPrinterAdapter {
   async connect(target: PrinterConnectTarget): Promise<void> {
     this.connectionType = target.connectionType;
     this.printerId = target.printerId;
+
     if (target.connectionType === ConnectionType.usb) {
-      if (!target.usb) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
+      if (!target.usb) {
+        throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
+      }
+
       this.usb = new UsbTransport();
       await this.usb.connect(target.printerId, target.usb.vendorId, target.usb.productId);
       return;
     }
+
     if (target.connectionType === ConnectionType.bluetooth) {
-      if (!target.bluetooth) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+      if (!target.bluetooth) {
+        throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
+      }
+
       await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'bluetooth', address: target.bluetooth.deviceId });
       return;
     }
-    if (!target.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
+
+    if (!target.lan) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
+    }
+
     await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'lan', host: target.lan.ip, port: target.lan.port });
   }
 
   async write(bytes: Uint8Array): Promise<void> {
     if (this.connectionType === ConnectionType.usb) {
-      if (!this.usb) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in USB chưa kết nối' });
+      if (!this.usb) {
+        throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in USB chưa kết nối' });
+      }
+
       return this.usb.write(bytes);
     }
-    if (!this.printerId) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+
+    if (!this.printerId) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+    }
+
     const base64 = Buffer.from(bytes).toString('base64');
     await ThermalPrinterModule.writeByBase64(this.printerId, base64);
   }
@@ -83,18 +106,30 @@ export class NativeAdapter implements IPrinterAdapter {
     if (!this.connectionType) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
     }
+
     if (Platform.OS === 'ios' && this.connectionType !== ConnectionType.usb) {
-      // Native iOS chưa implement (module khác, ngoài phạm vi Android-only) —
-      // giữ nguyên lệnh gọi native cũ (RNBLEPrinter/RNNetPrinter), không liên
-      // quan tới printerId của kiến trúc Android mới.
-      const legacyModule = this.connectionType === ConnectionType.bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
-      const processed = textPreprocessingIOS(text);
-      return new Promise((resolve, reject) => {
-        legacyModule.printRawData(processed.text, processed.opts, () => resolve(), (error: Error) => reject(error));
-      });
+      return this.printTextLegacyIOS(text);
     }
-    if (!this.printerId) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+
+    if (!this.printerId) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+    }
+
     await ThermalPrinterModule.writeByBase64(this.printerId, textTo64Base64(text, options));
+  }
+
+  /**
+   * Native iOS chưa implement (module khác, ngoài phạm vi Android-only) —
+   * giữ nguyên lệnh gọi native cũ (RNBLEPrinter/RNNetPrinter), không liên
+   * quan tới printerId của kiến trúc Android mới.
+   */
+  private printTextLegacyIOS(text: string): Promise<void> {
+    const legacyModule = this.connectionType === ConnectionType.bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
+    const processed = textPreprocessingIOS(text);
+
+    return new Promise((resolve, reject) => {
+      legacyModule.printRawData(processed.text, processed.opts, () => resolve(), (error: Error) => reject(error));
+    });
   }
 
   /** Native module chỉ có bulk-OUT — không đọc được phản hồi. */
@@ -107,7 +142,11 @@ export class NativeAdapter implements IPrinterAdapter {
       await this.usb?.close();
       return;
     }
-    if (!this.printerId) return;
+
+    if (!this.printerId) {
+      return;
+    }
+
     await ThermalPrinterModule.disconnect(this.printerId);
   }
 }

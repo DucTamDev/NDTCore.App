@@ -45,51 +45,75 @@ export class EscPosDriver implements IPrinterDriver {
       onEvent({ type: DeviceScanEventType.empty });
       return () => undefined;
     }
+
     if (connectionType === ConnectionType.usb && Platform.OS !== 'android') {
       onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
+
     let cancelled = false;
     onEvent({ type: DeviceScanEventType.loading });
     const startedAt = Date.now();
+
     const run = async (): Promise<void> => {
       try {
         if (connectionType === ConnectionType.bluetooth) {
           const granted = await ensureBluetoothPermission();
-          if (cancelled) return;
+
+          if (cancelled) {
+            return;
+          }
+
           if (!granted) {
             onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
             return;
           }
         }
+
         const devices = await new NativeAdapter().listDevices(connectionType);
-        if (cancelled) return;
+
+        if (cancelled) {
+          return;
+        }
+
         LoggerService.debug('EscPosDriver.scan: devices', { connectionType, devices });
         onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
         PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
+
         const message = error instanceof Error ? error.message : String(error);
+
         if (/no device found/i.test(message)) {
           onEvent({ type: DeviceScanEventType.empty });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
           return;
         }
+
         onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message } });
         PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
       }
     };
+
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }
 
   async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.connecting);
     const startedAt = Date.now();
+
     try {
       if (printer.connection.type === ConnectionType.bluetooth) {
         const granted = await ensureBluetoothPermission();
-        if (!granted) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
+
+        if (!granted) {
+          throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' });
+        }
       }
 
       const adapter = new NativeAdapter();
@@ -100,9 +124,11 @@ export class EscPosDriver implements IPrinterDriver {
       this.contexts.set(printer.id, { printer, driver });
 
       const previousOwner = this.activeByType.get(printer.connection.type);
+
       if (previousOwner && previousOwner !== printer.id) {
         this.setStatus(previousOwner, PrinterStatus.disconnected);
       }
+
       this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
@@ -117,18 +143,25 @@ export class EscPosDriver implements IPrinterDriver {
     this.setStatus(printerId, PrinterStatus.disconnecting);
     const connectionType = this.connectedTypes.get(printerId);
     const isActiveOwner = Boolean(connectionType) && this.activeByType.get(connectionType!) === printerId;
+
     try {
-      if (isActiveOwner) await this.adapters.get(printerId)?.disconnect();
+      if (isActiveOwner) {
+        await this.adapters.get(printerId)?.disconnect();
+      }
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
-      if (isActiveOwner) this.activeByType.delete(connectionType!);
+      if (isActiveOwner) {
+        this.activeByType.delete(connectionType!);
+      }
+
       this.adapters.delete(printerId);
       this.connectedTypes.delete(printerId);
       this.contexts.delete(printerId);
     }
+
     this.setStatus(printerId, PrinterStatus.disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
@@ -144,10 +177,13 @@ export class EscPosDriver implements IPrinterDriver {
     const context = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     const adapter = this.adapters.get(printerId);
+
     if (!context || !connectionType || !adapter || this.activeByType.get(connectionType) !== printerId) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
+
     const startedAt = Date.now();
+
     try {
       await this.sendDocuments(adapter, context.driver, documents);
       PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
@@ -162,7 +198,10 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {
-    if (!this.listeners.has(printerId)) this.listeners.set(printerId, new Set());
+    if (!this.listeners.has(printerId)) {
+      this.listeners.set(printerId, new Set());
+    }
+
     this.listeners.get(printerId)?.add(callback);
     return () => this.listeners.get(printerId)?.delete(callback);
   }
@@ -170,13 +209,20 @@ export class EscPosDriver implements IPrinterDriver {
   /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
   async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
+
     try {
       const isStaleOwner = this.activeByType.get(printer.connection.type) !== printer.id;
+
       if (!this.adapters.has(printer.id) || isStaleOwner) {
         await this.connect(printer, driver);
       }
+
       const adapter = this.adapters.get(printer.id);
-      if (!adapter) return;
+
+      if (!adapter) {
+        return;
+      }
+
       await this.sendDocuments(adapter, driver, documents);
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
     } catch (error) {
@@ -192,7 +238,11 @@ export class EscPosDriver implements IPrinterDriver {
    */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
-    if (!connectionType || connectionType === ConnectionType.usb) return null;
+
+    if (!connectionType || connectionType === ConnectionType.usb) {
+      return null;
+    }
+
     return this.adapters.has(printerId) ? {} : null;
   }
 }

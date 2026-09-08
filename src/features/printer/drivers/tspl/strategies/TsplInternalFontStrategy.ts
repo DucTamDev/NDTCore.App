@@ -20,6 +20,7 @@ export class TsplInternalFontStrategy implements ITsplPrintStrategy {
 
   validate(context: TsplStrategyContext): void {
     const { config } = context.driver;
+
     if (config.type !== PrinterDriverType.tspl || config.renderMode !== TsplRenderMode.internalfont || !config.internalFont) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED,
@@ -30,37 +31,48 @@ export class TsplInternalFontStrategy implements ITsplPrintStrategy {
 
   encode(context: TsplStrategyContext): Uint8Array {
     const { driver, documents, printType, media, rows } = context;
+
     if (driver.config.type !== PrinterDriverType.tspl || !driver.config.internalFont) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED,
         message: 'Thiếu cấu hình font máy in.',
       });
     }
+
     const { fontName, codepage } = driver.config.internalFont;
     const paperWidth = contentWidthChars(media);
     const encoder = new TsplEncoder().initialize(media, printType, codepage);
+
     for (const dx of columnOffsets(media)) {
       for (const element of documents.text.elements) {
-        if (element.type === 'text') {
-          encoder.text(element.x + dx, element.y, element.content, fontName);
-        } else if (element.type === 'line') {
-          encoder.text(element.x + dx, element.y, '-'.repeat(paperWidth), fontName);
-        } else if (element.type === 'table') {
-          element.rows.forEach((row, i) => encoder.text(element.x + dx, element.y + i * 20, row.join('  '), fontName));
-        } else if (element.type === 'row') {
-          encoder.text(element.x + dx, element.y, formatRow(element.left, element.right, paperWidth), fontName);
-        } else if (element.type === 'barcode') {
-          encoder.barcode(element.x + dx, element.y, element.content);
-        } else if (element.type === 'qrCode') {
-          encoder.qrcode(element.x + dx, element.y, element.content);
-        } else {
-          throw new PrinterErrorException({
-            code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
-            message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}`,
-          });
+        switch (element.type) {
+          case 'text':
+            encoder.text(element.x + dx, element.y, element.content, fontName);
+            break;
+          case 'line':
+            encoder.text(element.x + dx, element.y, '-'.repeat(paperWidth), fontName);
+            break;
+          case 'table':
+            element.rows.forEach((row, i) => encoder.text(element.x + dx, element.y + i * 20, row.join('  '), fontName));
+            break;
+          case 'row':
+            encoder.text(element.x + dx, element.y, formatRow(element.left, element.right, paperWidth), fontName);
+            break;
+          case 'barcode':
+            encoder.barcode(element.x + dx, element.y, element.content);
+            break;
+          case 'qrCode':
+            encoder.qrcode(element.x + dx, element.y, element.content);
+            break;
+          default:
+            throw new PrinterErrorException({
+              code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
+              message: `Loại nội dung in không được hỗ trợ: ${(element as { type: string }).type}`,
+            });
         }
       }
     }
+
     return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();
   }
 }
