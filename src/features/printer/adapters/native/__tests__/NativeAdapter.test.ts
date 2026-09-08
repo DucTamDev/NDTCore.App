@@ -1,34 +1,42 @@
+import { Platform } from 'react-native';
 import { NativeAdapter } from '../NativeAdapter';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
+
+// `NativeAdapter.printText` có nhánh iOS gọi thẳng NativeModules.RN*Printer cũ
+// (native iOS chưa implement kiến trúc printerId mới — ngoài phạm vi Android-only,
+// xem NativeAdapter.ts). Jest preset RN mặc định Platform.OS='ios' — ép 'android'
+// để test đúng nhánh ThermalPrinterModule thật sự chạy trên thiết bị.
+const originalPlatformOS = Platform.OS;
+beforeAll(() => {
+  Platform.OS = 'android';
+});
+afterAll(() => {
+  Platform.OS = originalPlatformOS;
+});
 
 jest.mock('../../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
 }));
 
-jest.mock('../PrinterNativeModule', () => {
-  const ns = (overrides: Record<string, unknown> = {}) => ({
-    init: jest.fn().mockResolvedValue(undefined),
-    getDeviceList: jest.fn().mockResolvedValue([]),
-    connectPrinter: jest.fn().mockResolvedValue({ device_name: 'X' }),
-    closeConn: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn((_t: string, _o: unknown, cbOk?: () => void) => cbOk?.()),
-    ...overrides,
-  });
-  return {
-    USBPrinter: ns(),
-    BLEPrinter: ns(),
-    NetPrinter: ns(),
-    ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
-    ensureNativeInitialized: jest.fn().mockResolvedValue(undefined),
-    printRawDataUsb: jest.fn().mockResolvedValue(undefined),
-    printRawDataBluetooth: jest.fn().mockResolvedValue(undefined),
-    printRawDataLan: jest.fn().mockResolvedValue(undefined),
-    ThermalPrinterAdapter: { printTextAsync: jest.fn().mockResolvedValue(undefined) },
-  };
-});
+jest.mock('../PrinterNativeModule', () => ({
+  ThermalPrinterModule: {
+    discoverPrinters: jest.fn().mockResolvedValue([]),
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    writeByBase64: jest.fn().mockResolvedValue('ok'),
+  },
+}));
 
-const mod = () => jest.requireMock('../PrinterNativeModule');
+const mod = () =>
+  jest.requireMock('../PrinterNativeModule') as {
+    ThermalPrinterModule: {
+      discoverPrinters: jest.Mock;
+      connect: jest.Mock;
+      disconnect: jest.Mock;
+      writeByBase64: jest.Mock;
+    };
+  };
 
 describe('NativeAdapter', () => {
   afterEach(() => jest.clearAllMocks());
@@ -39,44 +47,45 @@ describe('NativeAdapter', () => {
 
   it('listDevices(lan) trả [] mà không gọi native', async () => {
     await expect(new NativeAdapter().listDevices(ConnectionType.lan)).resolves.toEqual([]);
+    expect(mod().ThermalPrinterModule.discoverPrinters).not.toHaveBeenCalled();
   });
 
-  it('listDevices(bluetooth) map inner_mac_address -> deviceId', async () => {
-    mod().BLEPrinter.getDeviceList.mockResolvedValueOnce([{ device_name: 'BT', inner_mac_address: 'AA:BB' }]);
+  it('listDevices(bluetooth) map address -> deviceId, name -> displayName', async () => {
+    mod().ThermalPrinterModule.discoverPrinters.mockResolvedValueOnce([{ address: 'AA:BB', name: 'BT' }]);
     const devices = await new NativeAdapter().listDevices(ConnectionType.bluetooth);
-    expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { device_name: 'BT', inner_mac_address: 'AA:BB' } }]);
+    expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { address: 'AA:BB', name: 'BT' } }]);
   });
 
-  it('listDevices init native trước getDeviceList (tránh NPE native adapter==null)', async () => {
-    await new NativeAdapter().listDevices(ConnectionType.usb);
-    expect(mod().ensureNativeInitialized).toHaveBeenCalledWith(ConnectionType.usb);
-    await new NativeAdapter().listDevices(ConnectionType.bluetooth);
-    expect(mod().ensureNativeInitialized).toHaveBeenCalledWith(ConnectionType.bluetooth);
+  it('listDevices(usb) map vendorId:productId -> deviceId', async () => {
+    mod().ThermalPrinterModule.discoverPrinters.mockResolvedValueOnce([{ vendorId: 1155, productId: 22222, name: 'X' }]);
+    const devices = await new NativeAdapter().listDevices(ConnectionType.usb);
+    expect(devices).toEqual([{ deviceId: '1155:22222', displayName: 'X', rawDevice: { vendorId: 1155, productId: 22222, name: 'X' } }]);
   });
 
-  it('connect(lan) init rồi NetPrinter.connectPrinter(ip, port)', async () => {
+  it('connect(lan) gọi ThermalPrinterModule.connect với printerId + host/port', async () => {
     const adapter = new NativeAdapter();
-    await adapter.connect({ connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
-    expect(mod().ensureNativeInitialized).toHaveBeenCalledWith(ConnectionType.lan);
-    expect(mod().NetPrinter.connectPrinter).toHaveBeenCalledWith('10.0.0.5', 9100);
+    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
+    expect(mod().ThermalPrinterModule.connect).toHaveBeenCalledWith({ printerId: 'p1', type: 'lan', host: '10.0.0.5', port: 9100 });
   });
 
-  it('printText(lan) đi qua ThermalPrinterAdapter.printTextAsync', async () => {
+  it('connect(bluetooth) gọi ThermalPrinterModule.connect với printerId + address', async () => {
     const adapter = new NativeAdapter();
-    await adapter.connect({ connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
-    await adapter.printText('<C>hi</C>', { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' });
-    expect(mod().ThermalPrinterAdapter.printTextAsync).toHaveBeenCalledWith(
-      ConnectionType.lan,
-      '<C>hi</C>',
-      expect.objectContaining({ keepConnection: true }),
-    );
+    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.bluetooth, bluetooth: { deviceId: 'AA:BB' } });
+    expect(mod().ThermalPrinterModule.connect).toHaveBeenCalledWith({ printerId: 'p1', type: 'bluetooth', address: 'AA:BB' });
   });
 
-  it('write(bluetooth) base64 -> printRawDataBluetooth', async () => {
+  it('printText(lan) encode ESC/POS rồi gửi qua writeByBase64 với printerId', async () => {
     const adapter = new NativeAdapter();
-    await adapter.connect({ connectionType: ConnectionType.bluetooth, bluetooth: { deviceId: 'AA:BB' } });
+    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
+    await adapter.printText('<C>hi</C>', { cut: true, tailingLine: true, encoding: 'UTF8' });
+    expect(mod().ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('p1', expect.any(String));
+  });
+
+  it('write(bluetooth) base64-encodes bytes rồi gửi qua writeByBase64 với printerId', async () => {
+    const adapter = new NativeAdapter();
+    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.bluetooth, bluetooth: { deviceId: 'AA:BB' } });
     await adapter.write(new Uint8Array([0x41, 0x42]));
-    expect(mod().printRawDataBluetooth).toHaveBeenCalledWith('QUI=', true);
+    expect(mod().ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('p1', 'QUI=');
   });
 
   it('read() luôn null (native không đọc được)', async () => {
@@ -84,15 +93,15 @@ describe('NativeAdapter', () => {
   });
 
   it('connect(usb) thiếu target.usb -> VALIDATION_ERROR', async () => {
-    await expect(new NativeAdapter().connect({ connectionType: ConnectionType.usb })).rejects.toMatchObject({
+    await expect(new NativeAdapter().connect({ printerId: 'p1', connectionType: ConnectionType.usb })).rejects.toMatchObject({
       code: PrinterErrorCode.VALIDATION_ERROR,
     });
   });
 
-  it('disconnect(lan) gọi NetPrinter.closeConn', async () => {
+  it('disconnect(lan) gọi ThermalPrinterModule.disconnect với printerId', async () => {
     const adapter = new NativeAdapter();
-    await adapter.connect({ connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
+    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } });
     await adapter.disconnect();
-    expect(mod().NetPrinter.closeConn).toHaveBeenCalled();
+    expect(mod().ThermalPrinterModule.disconnect).toHaveBeenCalledWith('p1');
   });
 });

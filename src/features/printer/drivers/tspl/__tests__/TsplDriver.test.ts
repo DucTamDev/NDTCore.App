@@ -122,7 +122,7 @@ const lanPrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'label-usb',
-  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendor_id: 1155, product_id: 22222 } } },
+  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendorId: 1155, productId: 22222 } } },
 };
 
 const usbPrinterNoDevice: Printer = {
@@ -206,15 +206,15 @@ describe('TsplDriver', () => {
     expect(driver.getStatus(usbPrinterNoDevice.id)).toBe(PrinterStatus.error);
   });
 
-  it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers', async () => {
+  it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);
     const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
     const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { connect: jest.Mock };
-    expect(instance.connect).toHaveBeenCalledWith(1155, 22222);
+    expect(instance.connect).toHaveBeenCalledWith(usbPrinter.id, 1155, 22222);
   });
 
-  it('connect() over USB reads vendor_id/product_id from the scanned rawDevice as numbers and transitions to connected', async () => {
+  it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers and transitions to connected', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);
     expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.connected);

@@ -13,12 +13,12 @@ describe('VendorAdapter (skeleton)', () => {
 
   it('connect / write / printText ném PRINTER_UNSUPPORTED_CONNECTION', async () => {
     const adapter = new VendorAdapter();
-    await expect(adapter.connect({ connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } })).rejects.toMatchObject({
+    await expect(adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } })).rejects.toMatchObject({
       code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
     });
     await expect(adapter.write(new Uint8Array([1]))).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
     await expect(
-      adapter.printText('x', { keepConnection: true, cut: true, tailingLine: true, encoding: 'UTF8' }),
+      adapter.printText('x', { cut: true, tailingLine: true, encoding: 'UTF8' }),
     ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 

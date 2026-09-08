@@ -1,19 +1,13 @@
-import { createMockUsbPrinterNativeBridge, createMockThermalPrinterAdapter } from '../MockPrinterAdapter';
-import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { createMockThermalPrinterModule } from '../MockPrinterAdapter';
 
 describe('MockPrinterAdapter', () => {
-  it('createMockUsbPrinterNativeBridge resolves ensureUsbInitialized and printRawDataUsb', async () => {
-    const mock = createMockUsbPrinterNativeBridge();
-    await expect(mock.ensureUsbInitialized()).resolves.toBeUndefined();
-    await expect(mock.printRawDataUsb('AAAA', true)).resolves.toBeUndefined();
-  });
-
-  it('createMockThermalPrinterAdapter returns a namespace stub with init/getDeviceList/connectPrinter/closeConn', async () => {
-    const mock = createMockThermalPrinterAdapter();
-    const namespace = mock.namespaceFor(ConnectionType.lan);
-    await expect(namespace.init()).resolves.toBeUndefined();
-    await expect(namespace.getDeviceList()).resolves.toEqual([]);
-    await expect(namespace.connectPrinter()).resolves.toEqual({ device_name: 'Mock' });
-    await expect(namespace.closeConn()).resolves.toBeUndefined();
+  it('createMockThermalPrinterModule trả stub cho toàn bộ method của ThermalPrinterModule', async () => {
+    const mock = createMockThermalPrinterModule();
+    await expect(mock.discoverPrinters('usb' as never)).resolves.toEqual([]);
+    await expect(mock.connect({} as never)).resolves.toBeUndefined();
+    await expect(mock.disconnect('p1')).resolves.toBeUndefined();
+    await expect(mock.writeByBase64('p1', 'QUI=')).resolves.toBe('ok');
+    await expect(mock.getConnectionState('p1')).resolves.toBe('CONNECTED');
+    await expect(mock.getQueueStatus('p1')).resolves.toEqual({ pendingCount: 0, runningJobId: null });
   });
 });

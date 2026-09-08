@@ -73,45 +73,32 @@ jest.mock('react-native-view-shot', () => ({
 }));
 
 // Lớp JS của native module RN*Printer (adapters/native/PrinterNativeModule)
-// gọi thẳng NativeModules.RN*Printer ở tầng namespace, nên bất kỳ test nào
+// gọi thẳng NativeModules.ThermalPrinterModule, nên bất kỳ test nào
 // transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
 // đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
 // UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
-jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
-  const namespace = () => ({
-    init: jest.fn().mockResolvedValue(undefined),
-    getDeviceList: jest.fn().mockResolvedValue([]),
-    connectPrinter: jest.fn().mockResolvedValue(undefined),
-    closeConn: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockResolvedValue(undefined),
-  });
-  const USBPrinter = namespace();
-  const BLEPrinter = namespace();
-  const NetPrinter = namespace();
-  const namespaces = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
-  return {
-    USBPrinter,
-    BLEPrinter,
-    NetPrinter,
-    ThermalPrinterAdapter: {
-      namespaceFor: (connectionType) => namespaces[connectionType],
-      printTextAsync: jest.fn().mockResolvedValue(undefined),
-    },
-    ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
-    ensureNativeInitialized: jest.fn().mockResolvedValue(undefined),
-    printRawDataUsb: jest.fn().mockResolvedValue(undefined),
-    printRawDataBluetooth: jest.fn().mockResolvedValue(undefined),
-    printRawDataLan: jest.fn().mockResolvedValue(undefined),
-  };
-});
+jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => ({
+  ThermalPrinterModule: {
+    discoverPrinters: jest.fn().mockResolvedValue([]),
+    connect: jest.fn().mockResolvedValue(undefined),
+    reconnect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    writeByBase64: jest.fn().mockResolvedValue('Print SuccessFully'),
+    getPrinterInfo: jest.fn().mockResolvedValue(undefined),
+    getPrinterCapabilities: jest.fn().mockResolvedValue(undefined),
+    getConnectionState: jest.fn().mockResolvedValue('CONNECTED'),
+    cancelPrintJob: jest.fn().mockResolvedValue(false),
+    getQueueStatus: jest.fn().mockResolvedValue({ pendingCount: 0, runningJobId: null }),
+  },
+}));
 
-// PrinterNativeModule.test.ts dùng requireActual để test bản THẬT (ensureUsbInitialized,
-// namespace) — cần NativeModules.ThermalPrinterModule tồn tại vì RN jest preset không có.
+// PrinterNativeModule.test.ts dùng requireActual để test bản THẬT — cần
+// NativeModules.ThermalPrinterModule tồn tại vì RN jest preset không có.
 {
   const { NativeModules } = require('react-native');
   NativeModules.ThermalPrinterModule = {
     ...NativeModules.ThermalPrinterModule,
-    init: jest.fn().mockResolvedValue(null),
+    connect: jest.fn().mockResolvedValue(undefined),
     writeByBase64: jest.fn().mockResolvedValue('ok'),
   };
 }

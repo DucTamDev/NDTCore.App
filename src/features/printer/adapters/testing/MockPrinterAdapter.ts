@@ -3,17 +3,15 @@
  * test tự viết lại `jest.fn()` boilerplate cho từng adapter. KHÔNG dùng cho
  * production code (chỉ import được từ file test, phụ thuộc global `jest`).
  */
-export const createMockUsbPrinterNativeBridge = () => ({
-  ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
-  printRawDataUsb: jest.fn().mockResolvedValue(undefined),
-});
-
-export const createMockThermalPrinterAdapter = () => ({
-  namespaceFor: jest.fn().mockReturnValue({
-    init: jest.fn().mockResolvedValue(undefined),
-    getDeviceList: jest.fn().mockResolvedValue([]),
-    connectPrinter: jest.fn().mockResolvedValue({ device_name: 'Mock' }),
-    closeConn: jest.fn().mockResolvedValue(undefined),
-  }),
-  printTextAsync: jest.fn().mockResolvedValue(undefined),
+export const createMockThermalPrinterModule = () => ({
+  discoverPrinters: jest.fn().mockResolvedValue([]),
+  connect: jest.fn().mockResolvedValue(undefined),
+  reconnect: jest.fn().mockResolvedValue(undefined),
+  disconnect: jest.fn().mockResolvedValue(undefined),
+  writeByBase64: jest.fn().mockResolvedValue('ok'),
+  getPrinterInfo: jest.fn().mockResolvedValue(undefined),
+  getPrinterCapabilities: jest.fn().mockResolvedValue(undefined),
+  getConnectionState: jest.fn().mockResolvedValue('CONNECTED'),
+  cancelPrintJob: jest.fn().mockResolvedValue(false),
+  getQueueStatus: jest.fn().mockResolvedValue({ pendingCount: 0, runningJobId: null }),
 });
