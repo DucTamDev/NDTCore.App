@@ -28,10 +28,13 @@ export async function ensureBluetoothPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') {
     return true;
   }
+
   const granted =
     Platform.Version >= 31 ? await requestModernBluetoothPermissions() : await requestLegacyBluetoothPermission();
+
   if (!granted) {
     PrinterLogger.permissionDenied({ connectionType: ConnectionType.bluetooth });
   }
+
   return granted;
 }

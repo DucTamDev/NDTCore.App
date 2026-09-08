@@ -7,12 +7,16 @@ import NetInfo from '@react-native-community/netinfo';
  */
 export async function getCurrentWifiIp(): Promise<string | null> {
   const state = await NetInfo.fetch();
+
   if (state.type !== 'wifi' || !state.isConnected) {
     return null;
   }
+
   const ipAddress = (state.details as { ipAddress?: string } | null)?.ipAddress;
+
   if (!ipAddress || ipAddress === '0.0.0.0') {
     return null;
   }
+
   return ipAddress;
 }

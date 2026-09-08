@@ -73,16 +73,20 @@ export const createPrinterConnectionService = (
   const print = async (printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> => {
     const printer = repository.findOrThrow(printerId);
     const driverEntry = printer.drivers.find((d) => d.contentTypes.includes(printType));
+
     if (!driverEntry) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.NO_AVAILABLE_PRINTER,
         message: `Máy in ${printerId} không có driver nào nhận in ${printType}`,
       });
     }
+
     const driver = getDriver(driverEntry.type);
+
     if (driver.getStatus(printerId) !== PrinterStatus.connected) {
       await driver.connect(printer, driverEntry);
     }
+
     await driver.print(printerId, documents, printType);
   };
 
