@@ -83,26 +83,55 @@ public final class UsbPermission {
         @Override
         public void onReceive(Context ctx, Intent intent) {
             String action = intent.getAction();
+
             if (ACTION_USB_PERMISSION.equals(action)) {
-                boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
-                Log.v(LOG_SOURCE, "permission result: granted=" + granted);
-                if (!granted) {
-                    Toast.makeText(ctx, "User refuses to obtain USB device permissions", Toast.LENGTH_LONG).show();
-                }
-            } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
-                Toast.makeText(ctx, "USB device has been turned off", Toast.LENGTH_LONG).show();
-                // Có thể có nhiều UsbConnection cùng lúc (không còn chỉ 1 kết nối USB active như trước) —
-                // phải đọc EXTRA_DEVICE để biết đúng thiết bị nào vừa rút rồi chỉ gọi listener của thiết bị đó.
-                UsbDevice detached = getDetachedDevice(intent);
-                if (detached != null) {
-                    Runnable listener = deviceDetachListeners.get(deviceKey(detached.getVendorId(), detached.getProductId()));
-                    if (listener != null) {
-                        listener.run();
-                    }
-                }
+                handlePermissionResult(ctx, intent);
+                return;
+            }
+
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                handleDeviceDetached(ctx, intent);
             }
         }
     };
+
+    private void handlePermissionResult(Context ctx, Intent intent) {
+        boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+        Log.v(LOG_SOURCE, "permission result: granted=" + granted);
+
+        if (granted) {
+            return;
+        }
+
+        Toast.makeText(ctx, "User refuses to obtain USB device permissions", Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * Có thể có nhiều UsbConnection cùng lúc (không còn chỉ 1 kết nối USB
+     * active như trước) — phải đọc EXTRA_DEVICE để biết đúng thiết bị nào
+     * vừa rút rồi chỉ gọi listener của thiết bị đó.
+     */
+    private void handleDeviceDetached(Context ctx, Intent intent) {
+        Toast.makeText(ctx, "USB device has been turned off", Toast.LENGTH_LONG).show();
+
+        UsbDevice device = getDetachedDevice(intent);
+
+        if (device == null) {
+            return;
+        }
+
+        int vendorId = device.getVendorId();
+        int productId = device.getProductId();
+
+        String key = deviceKey(vendorId, productId);
+        Runnable listener = deviceDetachListeners.get(key);
+
+        if (listener == null) {
+            return;
+        }
+
+        listener.run();
+    }
 
     @SuppressWarnings("deprecation")
     private static UsbDevice getDetachedDevice(Intent intent) {
