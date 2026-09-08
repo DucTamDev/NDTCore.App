@@ -24,7 +24,7 @@ import com.ndtcorepos.thermalprinter.queue.QueueStatus;
 import java.util.List;
 
 /**
- * RN bridge duy nhất cho printer — Promise boundary, sinh printerId cho printer mới.
+ * RN bridge duy nhất cho printer — Promise boundary.
  */
 public final class PrinterModule extends ReactContextBaseJavaModule {
 

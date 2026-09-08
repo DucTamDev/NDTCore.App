@@ -21,9 +21,19 @@ public final class PrinterQueue {
     private final String printerId;
     private final PrinterRegistry registry;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final Map<String, Future<?>> pendingFutures = new ConcurrentHashMap<>();
+    private final Map<String, PendingJob> pendingJobs = new ConcurrentHashMap<>();
     private final AtomicInteger pendingCount = new AtomicInteger(0);
     private volatile String runningJobId;
+
+    /**
+     * Job đã submit nhưng chưa chạy — giữ cả handle của executor lẫn future
+     * trả về cho caller, để cancel() hoàn tất được future đó thay vì bỏ treo.
+     *
+     * @param submitted handle executor trả về, dùng để chặn job chạy
+     * @param resultFuture future đã trao cho caller ở enqueue()
+     */
+    private record PendingJob(Future<?> submitted, CompletableFuture<PrintJobResult> resultFuture) {
+    }
 
     public PrinterQueue(String printerId, PrinterRegistry registry) {
         this.printerId = printerId;
@@ -39,13 +49,13 @@ public final class PrinterQueue {
         pendingCount.incrementAndGet();
         CompletableFuture<PrintJobResult> resultFuture = new CompletableFuture<>();
         Future<?> submitted = executor.submit(() -> runJob(job, resultFuture));
-        pendingFutures.put(job.jobId(), submitted);
+        pendingJobs.put(job.jobId(), new PendingJob(submitted, resultFuture));
         return resultFuture;
     }
 
     private void runJob(PrintJob job, CompletableFuture<PrintJobResult> resultFuture) {
         pendingCount.decrementAndGet();
-        pendingFutures.remove(job.jobId());
+        pendingJobs.remove(job.jobId());
         runningJobId = job.jobId();
         long startedAt = System.currentTimeMillis();
         try {
@@ -76,17 +86,22 @@ public final class PrinterQueue {
     /**
      * Huỷ job — chỉ thành công nếu job còn PENDING (chưa tới lượt chạy).
      *
+     * <p>Khi huỷ được, future đã trả cho caller ở enqueue() được hoàn tất
+     * bằng JOB_CANCELLED — job không bao giờ chạy nên runJob() không còn cơ
+     * hội hoàn tất nó, để nguyên sẽ treo promise phía JS.</p>
+     *
      * @param jobId id job cần huỷ
      * @return true nếu huỷ thành công
      */
     public boolean cancel(String jobId) {
-        Future<?> future = pendingFutures.remove(jobId);
-        if (future == null) {
+        PendingJob pending = pendingJobs.remove(jobId);
+        if (pending == null) {
             return false;
         }
-        boolean cancelled = future.cancel(false);
+        boolean cancelled = pending.submitted().cancel(false);
         if (cancelled) {
             pendingCount.decrementAndGet();
+            pending.resultFuture().complete(PrintJobResult.failure(jobId, printerId, PrinterErrorCode.JOB_CANCELLED, "Job cancelled", 0));
         }
         return cancelled;
     }
