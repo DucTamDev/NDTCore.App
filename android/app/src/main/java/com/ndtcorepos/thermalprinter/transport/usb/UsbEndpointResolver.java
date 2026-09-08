@@ -22,9 +22,11 @@ public final class UsbEndpointResolver {
      */
     public UsbInterface resolveInterface(UsbDevice device) throws PrinterConnectionException {
         UsbInterface usbInterface = UsbPrinterDiscovery.findBulkOutInterface(device);
+
         if (usbInterface == null) {
             throw new PrinterConnectionException(PrinterErrorCode.USB_ENDPOINT_NOT_FOUND, "USB device has no bulk OUT endpoint");
         }
+
         return usbInterface;
     }
 
@@ -37,9 +39,11 @@ public final class UsbEndpointResolver {
      */
     public UsbEndpoint resolveEndpoint(UsbInterface usbInterface) throws PrinterConnectionException {
         UsbEndpoint endpoint = UsbPrinterDiscovery.findBulkOutEndpoint(usbInterface);
+
         if (endpoint == null) {
             throw new PrinterConnectionException(PrinterErrorCode.USB_ENDPOINT_NOT_FOUND, "USB interface has no bulk OUT endpoint");
         }
+
         return endpoint;
     }
 }

@@ -57,29 +57,40 @@ public final class PrinterQueue {
         pendingCount.decrementAndGet();
         pendingJobs.remove(job.jobId());
         runningJobId = job.jobId();
+
         long startedAt = System.currentTimeMillis();
+
         try {
             PrinterDevice device = registry.get(job.printerId());
+
             if (device == null) {
-                resultFuture.complete(PrintJobResult.failure(job.jobId(), job.printerId(), PrinterErrorCode.PRINTER_NOT_FOUND,
-                        "Printer not found: " + job.printerId(), System.currentTimeMillis() - startedAt));
+                long durationMs = System.currentTimeMillis() - startedAt;
+                PrintJobResult result = PrintJobResult.failure(job.jobId(), job.printerId(), PrinterErrorCode.PRINTER_NOT_FOUND,
+                        "Printer not found: " + job.printerId(), durationMs);
+                resultFuture.complete(result);
                 return;
             }
+
             device.write(job.data()).get();
-            resultFuture.complete(PrintJobResult.success(job.jobId(), job.printerId(), System.currentTimeMillis() - startedAt));
-        } catch (Exception e) {
-            resultFuture.complete(PrintJobResult.failure(job.jobId(), job.printerId(), errorCodeOf(e), e.getMessage(),
-                    System.currentTimeMillis() - startedAt));
+
+            long durationMs = System.currentTimeMillis() - startedAt;
+            resultFuture.complete(PrintJobResult.success(job.jobId(), job.printerId(), durationMs));
+        } catch (Exception exception) {
+            long durationMs = System.currentTimeMillis() - startedAt;
+            PrintJobResult result = PrintJobResult.failure(job.jobId(), job.printerId(), errorCodeOf(exception), exception.getMessage(), durationMs);
+            resultFuture.complete(result);
         } finally {
             runningJobId = null;
         }
     }
 
-    private PrinterErrorCode errorCodeOf(Exception e) {
-        Throwable cause = e.getCause() != null ? e.getCause() : e;
+    private PrinterErrorCode errorCodeOf(Exception exception) {
+        Throwable cause = exception.getCause() != null ? exception.getCause() : exception;
+
         if (cause instanceof PrinterException printerException) {
             return printerException.getCode();
         }
+
         return PrinterErrorCode.UNKNOWN_ERROR;
     }
 
@@ -95,15 +106,23 @@ public final class PrinterQueue {
      */
     public boolean cancel(String jobId) {
         PendingJob pending = pendingJobs.remove(jobId);
+
         if (pending == null) {
             return false;
         }
+
         boolean cancelled = pending.submitted().cancel(false);
-        if (cancelled) {
-            pendingCount.decrementAndGet();
-            pending.resultFuture().complete(PrintJobResult.failure(jobId, printerId, PrinterErrorCode.JOB_CANCELLED, "Job cancelled", 0));
+
+        if (!cancelled) {
+            return false;
         }
-        return cancelled;
+
+        pendingCount.decrementAndGet();
+
+        PrintJobResult result = PrintJobResult.failure(jobId, printerId, PrinterErrorCode.JOB_CANCELLED, "Job cancelled", 0);
+        pending.resultFuture().complete(result);
+
+        return true;
     }
 
     /**

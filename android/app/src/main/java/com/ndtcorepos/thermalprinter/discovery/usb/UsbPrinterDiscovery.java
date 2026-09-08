@@ -17,6 +17,9 @@ import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Quét thiết bị USB có bulk OUT endpoint và dựng PrinterInfo tương ứng.
+ */
 public final class UsbPrinterDiscovery implements IPrinterDiscovery {
 
     private final UsbManager usbManager;
@@ -32,20 +35,44 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
         }
 
         List<PrinterInfo> devices = new ArrayList<>();
+
         for (UsbDevice device : usbManager.getDeviceList().values()) {
             if (isPrintableUsbDevice(device)) {
                 devices.add(toPrinterInfo(device));
             }
         }
+
         return devices;
     }
 
     private PrinterInfo toPrinterInfo(UsbDevice device) {
-        String name = device.getProductName() != null ? device.getProductName()
-                : device.getManufacturerName() != null ? device.getManufacturerName()
-                : device.getDeviceName();
-        return new PrinterInfo(null, ConnectionType.USB, name, device.getManufacturerName(), device.getProductName(),
-                device.getVendorId(), device.getProductId(), getSerialNumberSafely(device), null, null, null);
+        String name = resolveDisplayName(device);
+        String serialNumber = getSerialNumberSafely(device);
+
+        return new PrinterInfo(
+                null,
+                ConnectionType.USB,
+                name,
+                device.getManufacturerName(),
+                device.getProductName(),
+                device.getVendorId(),
+                device.getProductId(),
+                serialNumber,
+                null,
+                null,
+                null);
+    }
+
+    private String resolveDisplayName(UsbDevice device) {
+        if (device.getProductName() != null) {
+            return device.getProductName();
+        }
+
+        if (device.getManufacturerName() != null) {
+            return device.getManufacturerName();
+        }
+
+        return device.getDeviceName();
     }
 
     private String getSerialNumberSafely(UsbDevice device) {
@@ -61,22 +88,30 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
         if (device == null || device.getVendorId() < 0 || device.getProductId() < 0) {
             return false;
         }
+
         return findBulkOutInterface(device) != null;
     }
 
     public static UsbInterface findBulkOutInterface(UsbDevice device) {
-        if (device == null) return null;
+        if (device == null) {
+            return null;
+        }
+
         for (int i = 0; i < device.getInterfaceCount(); i++) {
             UsbInterface usbInterface = device.getInterface(i);
             if (findBulkOutEndpoint(usbInterface) != null) {
                 return usbInterface;
             }
         }
+
         return null;
     }
 
     public static UsbEndpoint findBulkOutEndpoint(UsbInterface usbInterface) {
-        if (usbInterface == null) return null;
+        if (usbInterface == null) {
+            return null;
+        }
+
         for (int i = 0; i < usbInterface.getEndpointCount(); i++) {
             UsbEndpoint endpoint = usbInterface.getEndpoint(i);
             if (endpoint.getType() == UsbConstants.USB_ENDPOINT_XFER_BULK
@@ -84,6 +119,7 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
                 return endpoint;
             }
         }
+
         return null;
     }
 }

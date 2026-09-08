@@ -36,50 +36,60 @@ public final class BluetoothConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> open() {
         long startedAt = System.currentTimeMillis();
+
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+
         if (adapter == null) {
             return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.CONNECTION_FAILED, "No bluetooth adapter available"));
         }
+
         if (!adapter.isEnabled()) {
             return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.CONNECTION_FAILED, "Bluetooth is not enabled"));
         }
 
         BluetoothDevice bondedDevice = findBondedDevice(adapter);
+
         if (bondedDevice == null) {
-            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.BLUETOOTH_DEVICE_NOT_FOUND,
-                    "Can not find the specified printing device, please pair it in system Bluetooth settings first."));
+            String message = "Can not find the specified printing device, please pair it in system Bluetooth settings first.";
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.BLUETOOTH_DEVICE_NOT_FOUND, message));
         }
 
         closeQuietly();
+
         try {
             this.socket = openSocket(bondedDevice);
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.BLUETOOTH_CONNECTION_FAILED,
-                    "Failed to connect bluetooth printer: " + e.getMessage(), e));
+        } catch (IOException exception) {
+            String message = "Failed to connect bluetooth printer: " + exception.getMessage();
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.BLUETOOTH_CONNECTION_FAILED, message, exception));
         }
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
     private BluetoothDevice findBondedDevice(BluetoothAdapter adapter) {
         Set<BluetoothDevice> bonded = adapter.getBondedDevices();
+
         for (BluetoothDevice candidate : bonded) {
             if (candidate.getAddress().equals(address)) {
                 return candidate;
             }
         }
+
         return null;
     }
 
     private BluetoothSocket openSocket(BluetoothDevice target) throws IOException {
         BluetoothSocket newSocket = target.createRfcommSocketToServiceRecord(SPP_UUID);
+
         try {
             newSocket.connect();
             return newSocket;
-        } catch (IOException e) {
+        } catch (IOException firstAttemptFailure) {
             try {
                 newSocket.close();
             } catch (IOException ignored) {
             }
+
             BluetoothSocket retrySocket = target.createRfcommSocketToServiceRecord(SPP_UUID);
             retrySocket.connect();
             return retrySocket;
@@ -114,18 +124,21 @@ public final class BluetoothConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> close() {
         long startedAt = System.currentTimeMillis();
+
         if (socket != null && pendingDrainBytes >= 0) {
             sleepForDrain(pendingDrainBytes);
             pendingDrainBytes = -1;
         }
+
         closeQuietly();
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
     private void sleepForDrain(int bytes) {
         try {
             Thread.sleep(bytes <= 2000 ? 100 : bytes / 5);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
     }

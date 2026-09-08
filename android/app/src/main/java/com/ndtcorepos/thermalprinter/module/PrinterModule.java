@@ -20,6 +20,7 @@ import com.ndtcorepos.thermalprinter.printer.PrinterCapabilities;
 import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 import com.ndtcorepos.thermalprinter.printer.PrinterManager;
 import com.ndtcorepos.thermalprinter.printer.PrinterState;
+import com.ndtcorepos.thermalprinter.queue.PrintJobResult;
 import com.ndtcorepos.thermalprinter.queue.QueueStatus;
 
 import java.util.List;
@@ -54,19 +55,23 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void discoverPrinters(String type, Promise promise) {
         try {
             ConnectionType connectionType = ConnectionType.fromWireValue(type);
+
             if (connectionType == ConnectionType.USB) {
                 ensureUsbPermissionRegistered();
             }
+
             List<PrinterInfo> devices = printerManager.discover(connectionType);
             WritableArray result = Arguments.createArray();
+
             for (PrinterInfo info : devices) {
                 result.pushMap(toWritableMap(info));
             }
+
             promise.resolve(result);
-        } catch (PrinterException e) {
-            PrinterErrorResult.from(e).rejectTo(promise);
-        } catch (IllegalArgumentException e) {
-            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
+        } catch (PrinterException exception) {
+            PrinterErrorResult.from(exception).rejectTo(promise);
+        } catch (IllegalArgumentException exception) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, exception.getMessage()).rejectTo(promise);
         }
     }
 
@@ -91,28 +96,72 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
         try {
             String printerId = printer.getString("printerId");
             ConnectionType type = ConnectionType.fromWireValue(printer.getString("type"));
+
             if (type == ConnectionType.USB) {
                 ensureUsbPermissionRegistered();
             }
+
             PrinterInfo info = toPrinterInfo(printerId, type, printer);
-            printerManager.connect(printerId, info).whenComplete((result, error) -> {
-                if (error != null) {
-                    rejectAsync(error, promise);
-                } else {
-                    promise.resolve(Arguments.createMap());
-                }
-            });
-        } catch (IllegalArgumentException e) {
-            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, e.getMessage()).rejectTo(promise);
+            printerManager.connect(printerId, info)
+                    .whenComplete((result, error) -> resolveOrReject(promise, error, Arguments.createMap()));
+        } catch (IllegalArgumentException exception) {
+            new PrinterErrorResult(PrinterErrorCode.UNSUPPORTED_CONNECTION, exception.getMessage()).rejectTo(promise);
         }
     }
 
     private PrinterInfo toPrinterInfo(String printerId, ConnectionType type, ReadableMap map) {
         return switch (type) {
-            case USB -> new PrinterInfo(printerId, type, null, null, null, map.getInt("vendorId"), map.getInt("productId"), null, null, null, null);
-            case BLUETOOTH -> new PrinterInfo(printerId, type, null, null, null, null, null, null, map.getString("address"), null, null);
-            case LAN -> new PrinterInfo(printerId, type, null, null, null, null, null, null, null, map.getString("host"), map.getInt("port"));
+            case USB -> new PrinterInfo(
+                    printerId,
+                    type,
+                    null,
+                    null,
+                    null,
+                    map.getInt("vendorId"),
+                    map.getInt("productId"),
+                    null,
+                    null,
+                    null,
+                    null);
+            case BLUETOOTH -> new PrinterInfo(
+                    printerId,
+                    type,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    map.getString("address"),
+                    null,
+                    null);
+            case LAN -> new PrinterInfo(
+                    printerId,
+                    type,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    map.getString("host"),
+                    map.getInt("port"));
         };
+    }
+
+    /**
+     * Resolve promise với successValue nếu error null, ngược lại reject theo
+     * PrinterException gốc — dùng chung cho connect/reconnect/disconnect vì
+     * cả 3 xử lý CompletableFuture<PrinterResult> giống hệt nhau.
+     */
+    private void resolveOrReject(Promise promise, Throwable error, Object successValue) {
+        if (error != null) {
+            rejectAsync(error, promise);
+            return;
+        }
+
+        promise.resolve(successValue);
     }
 
     /**
@@ -123,13 +172,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void reconnect(String printerId, Promise promise) {
-        printerManager.reconnect(printerId).whenComplete((result, error) -> {
-            if (error != null) {
-                rejectAsync(error, promise);
-            } else {
-                promise.resolve(null);
-            }
-        });
+        printerManager.reconnect(printerId).whenComplete((result, error) -> resolveOrReject(promise, error, null));
     }
 
     /**
@@ -140,13 +183,7 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void disconnect(String printerId, Promise promise) {
-        printerManager.disconnect(printerId).whenComplete((result, error) -> {
-            if (error != null) {
-                rejectAsync(error, promise);
-            } else {
-                promise.resolve(null);
-            }
-        });
+        printerManager.disconnect(printerId).whenComplete((result, error) -> resolveOrReject(promise, error, null));
     }
 
     /**
@@ -160,23 +197,30 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void writeByBase64(String printerId, String base64Data, Promise promise) {
         byte[] bytes;
+
         try {
             bytes = Base64.decode(base64Data, Base64.DEFAULT);
-        } catch (IllegalArgumentException e) {
-            new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Invalid base64 data: " + e.getMessage()).rejectTo(promise);
+        } catch (IllegalArgumentException exception) {
+            String message = "Invalid base64 data: " + exception.getMessage();
+            new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, message).rejectTo(promise);
             return;
         }
+
         if (bytes.length == 0) {
             new PrinterErrorResult(PrinterErrorCode.INVALID_ARGUMENT, "Print data must not be empty").rejectTo(promise);
             return;
         }
-        printerManager.write(printerId, bytes).thenAccept(result -> {
-            if (result.success()) {
-                promise.resolve("Print SuccessFully");
-            } else {
-                new PrinterErrorResult(result.errorCode(), result.message()).rejectTo(promise);
-            }
-        });
+
+        printerManager.write(printerId, bytes).thenAccept(result -> resolveOrRejectWrite(promise, result));
+    }
+
+    private void resolveOrRejectWrite(Promise promise, PrintJobResult result) {
+        if (!result.success()) {
+            new PrinterErrorResult(result.errorCode(), result.message()).rejectTo(promise);
+            return;
+        }
+
+        promise.resolve("Print SuccessFully");
     }
 
     /**
@@ -188,10 +232,12 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void getPrinterInfo(String printerId, Promise promise) {
         PrinterInfo info = printerManager.getInfo(printerId);
+
         if (info == null) {
             new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
+
         promise.resolve(toWritableMap(info));
     }
 
@@ -204,15 +250,18 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void getPrinterCapabilities(String printerId, Promise promise) {
         PrinterCapabilities capabilities = printerManager.getCapabilities(printerId);
+
         if (capabilities == null) {
             new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
+
         WritableMap map = Arguments.createMap();
         map.putString("rawWrite", capabilities.rawWrite().name());
         map.putString("paperStatus", capabilities.paperStatus().name());
         map.putString("coverStatus", capabilities.coverStatus().name());
         map.putString("printerStatus", capabilities.printerStatus().name());
+
         promise.resolve(map);
     }
 
@@ -225,10 +274,12 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void getConnectionState(String printerId, Promise promise) {
         PrinterState state = printerManager.getConnectionState(printerId);
+
         if (state == null) {
             new PrinterErrorResult(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId).rejectTo(promise);
             return;
         }
+
         promise.resolve(state.name());
     }
 
@@ -253,12 +304,10 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
     public void getQueueStatus(String printerId, Promise promise) {
         QueueStatus status = printerManager.getQueueStatus(printerId);
         WritableMap map = Arguments.createMap();
+
         map.putInt("pendingCount", status.pendingCount());
-        if (status.runningJobId() == null) {
-            map.putNull("runningJobId");
-        } else {
-            map.putString("runningJobId", status.runningJobId());
-        }
+        putStringOrNull(map, "runningJobId", status.runningJobId());
+
         promise.resolve(map);
     }
 
@@ -296,11 +345,13 @@ public final class PrinterModule extends ReactContextBaseJavaModule {
 
     private void rejectAsync(Throwable error, Promise promise) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
+
         if (cause instanceof PrinterException printerException) {
             PrinterErrorResult.from(printerException).rejectTo(promise);
-        } else {
-            new PrinterErrorResult(PrinterErrorCode.UNKNOWN_ERROR, cause.getMessage()).rejectTo(promise);
+            return;
         }
+
+        new PrinterErrorResult(PrinterErrorCode.UNKNOWN_ERROR, cause.getMessage()).rejectTo(promise);
     }
 
     @Override

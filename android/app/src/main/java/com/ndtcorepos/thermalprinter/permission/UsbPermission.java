@@ -37,12 +37,19 @@ public final class UsbPermission {
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
     }
 
-    /** Đăng ký callback rút thiết bị theo (vendorId, productId) — một UsbPermission được nhiều UsbConnection dùng chung nên phải phân biệt theo thiết bị thay vì một Runnable duy nhất. */
+    /**
+     * Đăng ký callback rút thiết bị theo (vendorId, productId) — một
+     * UsbPermission được nhiều UsbConnection dùng chung nên phải phân biệt
+     * theo thiết bị thay vì một Runnable duy nhất.
+     */
     public void registerDeviceDetachListener(int vendorId, int productId, Runnable listener) {
         deviceDetachListeners.put(deviceKey(vendorId, productId), listener);
     }
 
-    /** Gỡ callback rút thiết bị theo (vendorId, productId) — gọi khi UsbConnection đóng chủ động để không giữ listener treo mãi. */
+    /**
+     * Gỡ callback rút thiết bị theo (vendorId, productId) — gọi khi
+     * UsbConnection đóng chủ động để không giữ listener treo mãi.
+     */
     public void unregisterDeviceDetachListener(int vendorId, int productId) {
         deviceDetachListeners.remove(deviceKey(vendorId, productId));
     }
@@ -68,6 +75,7 @@ public final class UsbPermission {
         } else {
             context.registerReceiver(receiver, filter);
         }
+
         Log.v(LOG_SOURCE, "receiver registered");
     }
 

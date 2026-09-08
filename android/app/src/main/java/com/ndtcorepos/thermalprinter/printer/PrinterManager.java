@@ -17,6 +17,7 @@ import com.ndtcorepos.thermalprinter.error.PrinterException;
 import com.ndtcorepos.thermalprinter.permission.UsbPermission;
 import com.ndtcorepos.thermalprinter.queue.PrintJob;
 import com.ndtcorepos.thermalprinter.queue.PrintJobResult;
+import com.ndtcorepos.thermalprinter.queue.PrinterQueue;
 import com.ndtcorepos.thermalprinter.queue.PrinterQueueManager;
 import com.ndtcorepos.thermalprinter.queue.QueueStatus;
 import com.ndtcorepos.thermalprinter.transport.bluetooth.BluetoothConnection;
@@ -190,7 +191,7 @@ public final class PrinterManager {
      * @param printerId id cần tra cứu
      */
     public QueueStatus getQueueStatus(String printerId) {
-        var queue = queueManager.getIfExists(printerId);
+        PrinterQueue queue = queueManager.getIfExists(printerId);
         return queue == null ? new QueueStatus(0, null) : queue.status();
     }
 

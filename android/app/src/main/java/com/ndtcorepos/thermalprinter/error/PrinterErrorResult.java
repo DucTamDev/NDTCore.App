@@ -17,8 +17,8 @@ public final class PrinterErrorResult {
         this.message = message;
     }
 
-    public static PrinterErrorResult from(PrinterException e) {
-        return new PrinterErrorResult(e.getCode(), e.getMessage());
+    public static PrinterErrorResult from(PrinterException exception) {
+        return new PrinterErrorResult(exception.getCode(), exception.getMessage());
     }
 
     public void rejectTo(Promise promise) {

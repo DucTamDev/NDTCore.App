@@ -54,11 +54,14 @@ public final class UsbConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> open() {
         long startedAt = System.currentTimeMillis();
+
         UsbDevice candidate = findCandidate();
+
         if (candidate == null) {
-            return CompletableFuture.failedFuture(new PrinterConnectionException(
-                    PrinterErrorCode.USB_DEVICE_NOT_FOUND, "Can not find USB device vendorId=" + vendorId + " productId=" + productId));
+            String message = "Can not find USB device vendorId=" + vendorId + " productId=" + productId;
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.USB_DEVICE_NOT_FOUND, message));
         }
+
         this.usbDevice = candidate;
 
         if (!permission.hasPermission(candidate)) {
@@ -68,9 +71,10 @@ public final class UsbConnection implements PrinterConnection {
 
         try {
             claim(candidate);
-        } catch (PrinterConnectionException e) {
-            return CompletableFuture.failedFuture(e);
+        } catch (PrinterConnectionException exception) {
+            return CompletableFuture.failedFuture(exception);
         }
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
@@ -78,6 +82,7 @@ public final class UsbConnection implements PrinterConnection {
         if (usbManager == null) {
             return null;
         }
+
         for (UsbDevice candidate : usbManager.getDeviceList().values()) {
             if (candidate.getVendorId() == vendorId && candidate.getProductId() == productId
                     && UsbPrinterDiscovery.isPrintableUsbDevice(candidate)) {
@@ -90,13 +95,16 @@ public final class UsbConnection implements PrinterConnection {
     private void claim(UsbDevice device) throws PrinterConnectionException {
         UsbInterface usbInterface = endpointResolver.resolveInterface(device);
         UsbDeviceConnection newConnection = usbManager.openDevice(device);
+
         if (newConnection == null) {
             throw new PrinterConnectionException(PrinterErrorCode.CONNECTION_FAILED, "Failed to open USB connection");
         }
+
         if (!newConnection.claimInterface(usbInterface, true)) {
             newConnection.close();
             throw new PrinterConnectionException(PrinterErrorCode.USB_INTERFACE_CLAIM_FAILED, "Failed to claim USB interface");
         }
+
         this.deviceConnection = newConnection;
         this.claimedInterface = usbInterface;
     }
@@ -109,13 +117,15 @@ public final class UsbConnection implements PrinterConnection {
         if (isOpen()) {
             return true;
         }
+
         if (usbDevice == null || !permission.hasPermission(usbDevice)) {
             return false;
         }
+
         try {
             claim(usbDevice);
             return true;
-        } catch (PrinterConnectionException e) {
+        } catch (PrinterConnectionException exception) {
             return false;
         }
     }
@@ -134,22 +144,29 @@ public final class UsbConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> close() {
         long startedAt = System.currentTimeMillis();
-        if (deviceConnection != null) {
-            if (claimedInterface != null) {
-                try {
-                    deviceConnection.releaseInterface(claimedInterface);
-                } catch (Exception ignored) {
-                }
+
+        // Best-effort cleanup — device có thể đã mất kết nối vật lý nên
+        // releaseInterface/close có thể tự ném lỗi, không ảnh hưởng tới việc
+        // vẫn phải null hoá field bên dưới để connection coi như đã đóng.
+        if (deviceConnection != null && claimedInterface != null) {
+            try {
+                deviceConnection.releaseInterface(claimedInterface);
+            } catch (Exception ignored) {
             }
+        }
+
+        if (deviceConnection != null) {
             try {
                 deviceConnection.close();
             } catch (Exception ignored) {
             }
         }
+
         claimedInterface = null;
         deviceConnection = null;
         usbDevice = null;
         permission.unregisterDeviceDetachListener(vendorId, productId);
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 

@@ -29,18 +29,22 @@ public final class BluetoothWriter implements PrinterWriter {
     @Override
     public CompletableFuture<PrinterResult> write(byte[] data) {
         long startedAt = System.currentTimeMillis();
+
         if (!connection.isOpen()) {
-            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NOT_CONNECTED,
-                    "Bluetooth connection is not built, may be you forgot to connect"));
+            String message = "Bluetooth connection is not built, may be you forgot to connect";
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NOT_CONNECTED, message));
         }
+
         try {
             OutputStream out = connection.getOutputStream();
             out.write(data);
             out.flush();
             connection.markPendingDrain(data.length);
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(new PrinterWriteException(PrinterErrorCode.WRITE_FAILED, "Failed to write data: " + e.getMessage(), e));
+        } catch (IOException exception) {
+            String message = "Failed to write data: " + exception.getMessage();
+            return CompletableFuture.failedFuture(new PrinterWriteException(PrinterErrorCode.WRITE_FAILED, message, exception));
         }
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 }

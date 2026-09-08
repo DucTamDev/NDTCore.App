@@ -1,5 +1,9 @@
 package com.ndtcorepos.thermalprinter.error;
 
+/**
+ * Mã lỗi chuẩn hoá cho toàn bộ tầng native printer — dùng làm code của
+ * Promise.reject(code, message) ở bridge.
+ */
 public enum PrinterErrorCode {
     NONE,
     INVALID_ARGUMENT,

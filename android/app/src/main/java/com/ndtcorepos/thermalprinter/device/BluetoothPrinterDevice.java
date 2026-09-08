@@ -45,7 +45,9 @@ public final class BluetoothPrinterDevice implements PrinterDevice {
         if (isConnected()) {
             return CompletableFuture.completedFuture(PrinterResult.success(0));
         }
+
         state = PrinterState.CONNECTING;
+
         return connection.open().whenComplete((result, error) -> state = error == null ? PrinterState.CONNECTED : PrinterState.ERROR);
     }
 
@@ -54,7 +56,9 @@ public final class BluetoothPrinterDevice implements PrinterDevice {
         if (state == PrinterState.DISCONNECTED) {
             return CompletableFuture.completedFuture(PrinterResult.success(0));
         }
+
         state = PrinterState.DISCONNECTING;
+
         return connection.close().whenComplete((result, error) -> state = PrinterState.DISCONNECTED);
     }
 

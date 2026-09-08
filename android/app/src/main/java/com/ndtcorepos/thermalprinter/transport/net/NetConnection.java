@@ -30,18 +30,23 @@ public final class NetConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> open() {
         long startedAt = System.currentTimeMillis();
+
         closeQuietly();
+
         try {
             Socket newSocket = new Socket(host, port);
+
             if (!newSocket.isConnected()) {
-                return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NETWORK_CONNECTION_FAILED,
-                        "Unable to build connection with host: " + host + ", port: " + port));
+                String message = "Unable to build connection with host: " + host + ", port: " + port;
+                return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NETWORK_CONNECTION_FAILED, message));
             }
+
             this.socket = newSocket;
-        } catch (IOException e) {
-            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NETWORK_CONNECTION_FAILED,
-                    "Failed to connect printer: " + e.getMessage(), e));
+        } catch (IOException exception) {
+            String message = "Failed to connect printer: " + exception.getMessage();
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NETWORK_CONNECTION_FAILED, message, exception));
         }
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
@@ -65,7 +70,9 @@ public final class NetConnection implements PrinterConnection {
     @Override
     public CompletableFuture<PrinterResult> close() {
         long startedAt = System.currentTimeMillis();
+
         closeQuietly();
+
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }
 
