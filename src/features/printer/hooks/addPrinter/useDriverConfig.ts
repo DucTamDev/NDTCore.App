@@ -32,7 +32,10 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
   const onToggleContentType = (type: PrinterDriverType, contentType: PrintType, value: boolean): void => {
     setDrivers((prev) =>
       prev.map((d) => {
-        if (d.type !== type) return d;
+        if (d.type !== type) {
+          return d;
+        }
+
         const contentTypes = value ? [...d.contentTypes, contentType] : d.contentTypes.filter((ct) => ct !== contentType);
         return { ...d, contentTypes };
       }),
@@ -56,7 +59,10 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
    */
   const onSelectTsplRenderMode = async (mode: TsplRenderMode): Promise<void> => {
     const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
+
+    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) {
+      return;
+    }
 
     if (mode === TsplRenderMode.truetype) {
       const font = tsplDriverEntry.config.font ?? DEFAULT_TSPL_FONT;
@@ -85,11 +91,17 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
 
   const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
     const entry = drivers.find((d) => d.type === driverType);
-    if (!entry) return;
+
+    if (!entry) {
+      return;
+    }
+
     let media = { ...entry.config.media, ...patch } as PrintMedia;
+
     if (media.type === PrintMediaType.dieCut) {
       media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
     }
+
     setDrivers((prev) => prev.map((d) => (d.type === driverType ? { ...d, config: { ...d.config, media } } : d)));
     // Persist media ĐÃ MERGE (kể cả die_cut auto-fill), không phải raw patch:
     // với printer đang SỬA, `setDriverMedia` ghi thật ngay → raw `{ type: 'die_cut' }`
@@ -99,7 +111,11 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
 
   const onChangeTsplInternalFont = (patch: Partial<TsplInternalFontConfig>): void => {
     const tsplDriverEntry = drivers.find((d) => d.type === PrinterDriverType.tspl);
-    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) return;
+
+    if (!tsplDriverEntry || tsplDriverEntry.config.type !== PrinterDriverType.tspl) {
+      return;
+    }
+
     const next = { ...(tsplDriverEntry.config.internalFont ?? DEFAULT_TSPL_INTERNAL_FONT), ...patch };
     updateTsplConfig((config) => ({ ...config, internalFont: next }));
     PrinterConfigService.setTsplInternalFont(printerId, next);

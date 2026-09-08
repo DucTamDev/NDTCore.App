@@ -18,7 +18,11 @@ export const createPrinterRepository = () => {
 
   const findOrThrow = (printerId: string): Printer => {
     const found = getPrinters().find((p) => p.id === printerId);
-    if (!found) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+
+    if (!found) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+    }
+
     return found;
   };
 

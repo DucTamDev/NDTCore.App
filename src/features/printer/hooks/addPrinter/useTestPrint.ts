@@ -36,9 +36,16 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
-    if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) return { text: document };
+    if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) {
+      return { text: document };
+    }
+
     const base64 = await captureBillImage(document, mediaOf(driver));
-    if (!base64) return { text: document };
+
+    if (!base64) {
+      return { text: document };
+    }
+
     return { text: document, image: base64 };
   };
 
@@ -48,10 +55,18 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
     sampleDocument: PrintDocument,
   ): Promise<void> => {
     const driver = drivers.find((d) => d.contentTypes.includes(printType));
-    if (!driver) return;
+
+    if (!driver) {
+      return;
+    }
+
     const printer = buildDraftPrinter();
     const valid = await displayForm.trigger();
-    if (!valid) return;
+
+    if (!valid) {
+      return;
+    }
+
     setPending(true);
     setTestPrintErrorMessage(null);
     try {

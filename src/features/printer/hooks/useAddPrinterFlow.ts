@@ -52,6 +52,19 @@ export interface UseAddPrinterFlow {
   clearSaveError: () => void;
 }
 
+/** Nhãn nút "Kết nối" theo `connectionState` hiện tại. */
+const resolveConnectLabel = (connectionState: ConnectionState): string => {
+  if (connectionState === 'connecting') {
+    return 'Đang kết nối...';
+  }
+
+  if (connectionState === 'connected') {
+    return 'Kết nối lại';
+  }
+
+  return 'Kết nối';
+};
+
 /**
  * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
  * cài font TrueType, in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ
@@ -116,22 +129,22 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   const buildDraftPrinter = (): PrinterWriteInput => {
     const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     return {
-    id: printerId,
-    name: displayForm.getValues('name') || 'Máy in mới',
-    vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
-    model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-    connection: {
-      type: connectionType,
-      device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
-      lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
-    },
-    identityKey: currentIdentityKey() ?? undefined,
-    capabilities: initialValues?.capabilities ?? { cutter: false },
-    drivers,
-    autoReconnect,
-    enabled: initialValues?.enabled ?? true,
-    createdAt: initialValues?.createdAt ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+      id: printerId,
+      name: displayForm.getValues('name') || 'Máy in mới',
+      vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
+      model: initialValues?.model ?? usbRaw?.productName ?? undefined,
+      connection: {
+        type: connectionType,
+        device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
+        lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
+      },
+      identityKey: currentIdentityKey() ?? undefined,
+      capabilities: initialValues?.capabilities ?? { cutter: false },
+      drivers,
+      autoReconnect,
+      enabled: initialValues?.enabled ?? true,
+      createdAt: initialValues?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   };
 
@@ -173,7 +186,10 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
    * TRỐNG (user đã gõ thì giữ nguyên). Sau đó ô vẫn sửa được bình thường.
    */
   const prefillDisplayName = (deviceName?: string): void => {
-    if (displayForm.getValues('name')) return;
+    if (displayForm.getValues('name')) {
+      return;
+    }
+
     const lanIp = connectionType === ConnectionType.lan ? lanForm.getValues('lanIp') : undefined;
     displayForm.setValue(
       'name',
@@ -268,11 +284,18 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   );
 
   const onSave = displayForm.handleSubmit(() => {
-    if (drivers.length === 0) return;
+    if (drivers.length === 0) {
+      return;
+    }
+
     const printer = buildDraftPrinter();
+
     try {
-      if (initialValues) PrinterRepository.updatePrinter(printer);
-      else PrinterRepository.addPrinter(printer);
+      if (initialValues) {
+        PrinterRepository.updatePrinter(printer);
+      } else {
+        PrinterRepository.addPrinter(printer);
+      }
     } catch (error) {
       setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
       return;
@@ -286,7 +309,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
     onSaved();
   });
 
-  const connectLabel = connectionState === 'connecting' ? 'Đang kết nối...' : connectionState === 'connected' ? 'Kết nối lại' : 'Kết nối';
+  const connectLabel = resolveConnectLabel(connectionState);
   const connectDisabled =
     connectionState === 'connecting' ||
     (connectionType !== ConnectionType.lan && !selectedDevice) ||

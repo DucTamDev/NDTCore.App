@@ -61,7 +61,9 @@ export const useProtocolDiscovery = ({
     // Chỉ khoá Save khi ĐÂY LÀ driver đầu tiên (chưa có driver nào saveable) —
     // 1 lượt dò driver thứ 2 thất bại không được lùi lại trạng thái saveable
     // đã có từ driver đầu tiên (spec §5.1, coordinator review round 1).
-    if (drivers.length === 0) setConnectionDirty(true);
+    if (drivers.length === 0) {
+      setConnectionDirty(true);
+    }
   };
 
   const resetConnectionResult = (): void => {
@@ -78,24 +80,35 @@ export const useProtocolDiscovery = ({
         excludedDrivers: drivers.map((d) => d.type),
       },
       (event: DiscoveryEvent) => {
-        if (event.stage === DiscoveryStage.identifying) {
-          setProtocolState('detecting');
-        } else if (event.stage === DiscoveryStage.identified && event.protocol) {
-          setConnectionState('connected');
-          setProtocolState('identified');
-          setLastProtocol(event.protocol);
-          setDeviceInfo(event.deviceInfo);
-          setConnectionDirty(false);
-          addDriverToList(event.protocol, DriverSource.auto);
-          refreshUsbSerial();
-          prefillDisplayName(event.deviceInfo?.deviceName);
-        } else if (event.stage === DiscoveryStage.unknown_protocol) {
-          setConnectionState('idle');
-          setProtocolState('unknown');
-        } else if (event.stage === DiscoveryStage.error) {
-          setConnectionState('error');
-          setProtocolState('idle');
-          setConnectionErrorMessage(event.error?.message);
+        switch (event.stage) {
+          case DiscoveryStage.identifying:
+            setProtocolState('detecting');
+            break;
+          case DiscoveryStage.identified:
+            if (!event.protocol) {
+              break;
+            }
+
+            setConnectionState('connected');
+            setProtocolState('identified');
+            setLastProtocol(event.protocol);
+            setDeviceInfo(event.deviceInfo);
+            setConnectionDirty(false);
+            addDriverToList(event.protocol, DriverSource.auto);
+            refreshUsbSerial();
+            prefillDisplayName(event.deviceInfo?.deviceName);
+            break;
+          case DiscoveryStage.unknown_protocol:
+            setConnectionState('idle');
+            setProtocolState('unknown');
+            break;
+          case DiscoveryStage.error:
+            setConnectionState('error');
+            setProtocolState('idle');
+            setConnectionErrorMessage(event.error?.message);
+            break;
+          default:
+            break;
         }
       },
     );

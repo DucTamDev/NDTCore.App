@@ -29,7 +29,11 @@ const CURRENT_STORAGE_VERSION = 5;
  */
 const resetIfOutdated = (): void => {
   const storedVersion = StorageService.getItem<number>(PRINTER_STORAGE_VERSION_KEY) ?? 0;
-  if (storedVersion === CURRENT_STORAGE_VERSION) return;
+
+  if (storedVersion === CURRENT_STORAGE_VERSION) {
+    return;
+  }
+
   StorageService.removeItem(PRINTER_LIST_KEY);
   StorageService.removeItem(PRINTER_DEFAULT_ID_KEY);
   StorageService.setItem(PRINTER_STORAGE_VERSION_KEY, CURRENT_STORAGE_VERSION);
