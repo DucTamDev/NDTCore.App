@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { TsplRenderMode } from '../../../models/printer/PrinterDriver';
+import { PrintRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrintPaperType } from '../../../models/paper/PrintPaperConfig';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
@@ -12,7 +12,7 @@ import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
  * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
  */
 export class TsplBitmapStrategy implements ITsplPrintStrategy {
-  readonly mode = TsplRenderMode.bitmap;
+  readonly mode = PrintRenderMode.bitmap;
 
   validate(context: TsplStrategyContext): void {
     if (!context.documents.image) {

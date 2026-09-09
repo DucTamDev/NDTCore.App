@@ -1,7 +1,7 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../../../models/printing/PrintTarget';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, PrintRenderMode, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { type Printer } from '../../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
@@ -12,7 +12,7 @@ const textDocument = { elements: [{ type: 'text' as const, content: 'text-doc', 
 const imageBase64 = 'base64...';
 
 const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
-const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
+const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
   id, name: id, drivers: [escposDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 },
@@ -88,7 +88,7 @@ describe('PrintService.imageDocumentMedia', () => {
       type: PrinterDriverType.escpos,
       source: DriverSource.auto,
       contentTypes: [PrintType.Receipt],
-      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
+      config: { type: PrinterDriverType.escpos, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [escposBitmapDriver] }), driver: escposBitmapDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual({ type: 'continuous', paperSize: 58 });
@@ -105,7 +105,7 @@ describe('PrintService.imageDocumentMedia', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeDriver] }), driver: truetypeDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
@@ -116,7 +116,7 @@ describe('PrintService.imageDocumentMedia', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 } },
+      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 58 } },
     };
     const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [truetypeNotInstalledDriver] }), driver: truetypeNotInstalledDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
@@ -127,7 +127,7 @@ describe('PrintService.imageDocumentMedia', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Receipt],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 58 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
     };
     const deps = makeDeps(
       [

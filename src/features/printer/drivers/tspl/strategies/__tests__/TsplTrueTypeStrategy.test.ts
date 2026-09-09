@@ -3,7 +3,7 @@ import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
@@ -17,9 +17,9 @@ const MEDIA = { type: 'continuous', paperSize: 80 } as const;
 const withConfig = (config: PrinterDriver['config']): PrinterDriver => ({
   type: PrinterDriverType.tspl, source: 'auto' as PrinterDriver['source'], contentTypes: [PrintType.Receipt], config,
 });
-const installed = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
-const notInstalled = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: false } });
-const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA } });
+const installed = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
+const notInstalled = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: false } });
+const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { ...MEDIA } });
 
 const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
   printer, driver,
@@ -30,7 +30,7 @@ const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
 describe('TsplTrueTypeStrategy', () => {
   const s = new TsplTrueTypeStrategy();
 
-  it('mode === truetype', () => expect(s.mode).toBe(TsplRenderMode.truetype));
+  it('mode === truetype', () => expect(s.mode).toBe(PrintRenderMode.truetype));
 
   it('validate ném TSPL_FONT_NOT_INSTALLED khi fontInstalled=false', () => {
     try { s.validate(ctx(notInstalled)); } catch (e) { expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED }); }
@@ -53,7 +53,7 @@ describe('TsplTrueTypeStrategy', () => {
 
   it('die_cut 2 cột → mỗi element xuất hiện 2 lần, lần 2 tại x = element.x + pitch', () => {
     const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as const;
-    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
     const dieCtx: TsplStrategyContext = {
       printer, driver: dieCutDriver,
       documents: { text: { elements: [{ type: 'text', content: 'A', x: 10, y: 0 }] } },
@@ -69,7 +69,7 @@ describe('TsplTrueTypeStrategy', () => {
     const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as PrintPaperConfig;
     const width = contentWidthChars(dieCut);
     expect(width).toBeLessThan(64); // < PAPER_SIZE_SPECS[100].charsPerLine, tức không tràn cột
-    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });
     const dieCtx: TsplStrategyContext = {
       printer, driver: dieCutDriver,
       documents: { text: { elements: [

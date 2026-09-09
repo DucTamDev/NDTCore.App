@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, EscPosRenderMode, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, PrintRenderMode, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { type Printer } from '../../../models/printer/Printer';
 import { paperSizeOf } from '../../driverConfig';
@@ -47,7 +47,7 @@ const escposDriverEntry58: PrinterDriver = { ...escposDriverEntry, config: { typ
 
 const escposBitmapDriverEntry: PrinterDriver = {
   ...escposDriverEntry,
-  config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
+  config: { type: PrinterDriverType.escpos, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
 };
 
 /**
@@ -212,7 +212,7 @@ describe('EscPosDriver', () => {
   it('sendDocuments bitmap mode: cutterMode = none → không phát cut_bytes cuối payload', async () => {
     const noCutBitmapEntry: PrinterDriver = {
       ...escposBitmapDriverEntry,
-      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80, cutterMode: 'none' } },
+      config: { type: PrinterDriverType.escpos, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80, cutterMode: 'none' } },
     };
     const driver = new EscPosDriver();
     await driver.connect({ ...lanPrinter, drivers: [noCutBitmapEntry] }, noCutBitmapEntry);

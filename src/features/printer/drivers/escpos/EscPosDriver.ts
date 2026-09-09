@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { EscPosRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { CutterMode } from '../../models/paper/PrintPaperConfig';
 import { escPosRenderModeOf, mediaOf, paperSizeOf } from '../driverConfig';
@@ -170,7 +170,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   private async sendDocuments(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
-    if (escPosRenderModeOf(driver) === EscPosRenderMode.bitmap) {
+    if (escPosRenderModeOf(driver) === PrintRenderMode.bitmap) {
       await this.sendBitmap(adapter, driver, documents);
       return;
     }

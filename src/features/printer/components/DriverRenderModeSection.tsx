@@ -2,9 +2,9 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppInput } from '../../../components/AppInput';
 import { AppSelect } from '../../../components/AppSelect';
-import { EscPosRenderMode, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { PrintRenderMode, PrinterDriverType, TsplCodepage } from '../models/printer/PrinterDriver';
 import { DEFAULT_TSPL_INTERNAL_FONT, escPosRenderModeOf, tsplRenderModeOf } from '../drivers/driverConfig';
-import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
+import type { EscPosRenderMode, PrinterDriver, TsplInternalFontConfig, TsplRenderMode } from '../models/printer/PrinterDriver';
 
 const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
   bitmap: 'Bitmap (có dấu)',
@@ -12,7 +12,7 @@ const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
   internalfont: 'Mặc định máy in',
 };
 
-const tsplRenderModeOptions = [TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont].map((mode) => ({
+const tsplRenderModeOptions = [PrintRenderMode.bitmap, PrintRenderMode.truetype, PrintRenderMode.internalfont].map((mode) => ({
   label: tsplRenderModeLabel[mode],
   value: mode,
 }));
@@ -24,11 +24,11 @@ const tsplCodepageOptions = [
 ];
 
 const escPosRenderModeLabel: Record<EscPosRenderMode, string> = {
-  text: 'Văn bản (nhanh, cần đúng codepage)',
+  encoder: 'Văn bản (nhanh, cần đúng codepage)',
   bitmap: 'Bitmap (chậm hơn, đúng mọi máy)',
 };
 
-const escPosRenderModeOptions = [EscPosRenderMode.text, EscPosRenderMode.bitmap].map((mode) => ({
+const escPosRenderModeOptions = [PrintRenderMode.encoder, PrintRenderMode.bitmap].map((mode) => ({
   label: escPosRenderModeLabel[mode],
   value: mode,
 }));
@@ -55,7 +55,7 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
       <View style={styles.tsplModeBlock}>
         <AppSelect
           label="Chế độ in ESC/POS"
-          value={escPosRenderModeOf(driver) ?? EscPosRenderMode.text}
+          value={escPosRenderModeOf(driver) ?? PrintRenderMode.encoder}
           onSelect={(value) => onSelectEscPosRenderMode(value as EscPosRenderMode)}
           options={escPosRenderModeOptions}
           disabled={disabled}
@@ -71,12 +71,12 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
     <View style={styles.tsplModeBlock}>
       <AppSelect
         label="Chế độ in TSPL"
-        value={tsplRenderModeOf(driver) ?? TsplRenderMode.bitmap}
+        value={tsplRenderModeOf(driver) ?? PrintRenderMode.bitmap}
         onSelect={(value) => onSelectTsplRenderMode(value as TsplRenderMode)}
         options={tsplRenderModeOptions}
         disabled={disabled || tsplFontPending}
       />
-      {tsplRenderModeOf(driver) === TsplRenderMode.internalfont ? (
+      {tsplRenderModeOf(driver) === PrintRenderMode.internalfont ? (
         <>
           <AppSelect
             label="Bảng mã (Codepage)"

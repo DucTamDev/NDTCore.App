@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { ConnectionType } from '../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../models/printer/PrinterDriver';
+import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { type Printer } from '../models/printer/Printer';
 import { PrintType } from '../models/printing/PrintType';
@@ -25,7 +25,7 @@ export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> =
 });
 
 export const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
-export const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
+export const tsplDriverEntry: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 export const basePrinter: Printer = {
   id: 'p1',

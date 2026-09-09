@@ -7,7 +7,7 @@ import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/device/DeviceScanService';
 import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { DriverSource, PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { Printer } from '../../models/printer/Printer';
 
@@ -62,7 +62,7 @@ const savedTspl: Printer = {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
+      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
     },
   ],
   connection: { type: ConnectionType.lan, host: '10.0.0.5', port: 9100 },
@@ -83,7 +83,7 @@ const savedEscpos: Printer = {
       type: PrinterDriverType.escpos,
       source: DriverSource.auto,
       contentTypes: [PrintType.Receipt],
-      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.text, media: { type: 'continuous', paperSize: 80 } },
+      config: { type: PrinterDriverType.escpos, renderMode: PrintRenderMode.encoder, media: { type: 'continuous', paperSize: 80 } },
     },
   ],
 };
@@ -208,32 +208,32 @@ describe('useAddPrinterFlow', () => {
 
   it('onSelectTsplRenderMode(bitmap) drops to bitmap and persists symmetrically', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.bitmap); });
-    expect(PrinterConfigService.setTsplRenderMode).toHaveBeenCalledWith('p1', TsplRenderMode.bitmap);
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(PrintRenderMode.bitmap); });
+    expect(PrinterConfigService.setTsplRenderMode).toHaveBeenCalledWith('p1', PrintRenderMode.bitmap);
     const tspl = get().infoCard.drivers[0];
-    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.bitmap);
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(PrintRenderMode.bitmap);
   });
 
   it('onSelectTsplRenderMode(internalfont) sets config + persists via setTsplInternalFont', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.internalfont); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(PrintRenderMode.internalfont); });
     expect(PrinterConfigService.setTsplInternalFont).toHaveBeenCalledWith('p1', { codepage: '1258', fontName: '3' });
     const tspl = get().infoCard.drivers[0];
-    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.internalfont);
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(PrintRenderMode.internalfont);
   });
 
   it('onSelectEscPosRenderMode(bitmap) sets config + persists via setEscPosRenderMode', async () => {
     const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn() });
-    act(() => { get().infoCard.onSelectEscPosRenderMode(EscPosRenderMode.bitmap); });
-    expect(PrinterConfigService.setEscPosRenderMode).toHaveBeenCalledWith('p2', EscPosRenderMode.bitmap);
+    act(() => { get().infoCard.onSelectEscPosRenderMode(PrintRenderMode.bitmap); });
+    expect(PrinterConfigService.setEscPosRenderMode).toHaveBeenCalledWith('p2', PrintRenderMode.bitmap);
     const escpos = get().infoCard.drivers[0];
-    expect(escpos.config.type === PrinterDriverType.escpos && escpos.config.renderMode).toBe(EscPosRenderMode.bitmap);
+    expect(escpos.config.type === PrinterDriverType.escpos && escpos.config.renderMode).toBe(PrintRenderMode.bitmap);
   });
 
   it('runTestPrint(Receipt) ở chế độ ESC/POS bitmap gọi captureBillImage với media của driver trước khi test print', async () => {
     const bitmapEscpos: Printer = {
       ...savedEscpos,
-      drivers: [{ ...savedEscpos.drivers[0], config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
+      drivers: [{ ...savedEscpos.drivers[0], config: { type: PrinterDriverType.escpos, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
     };
     const { get } = render({ visible: true, initialValues: bitmapEscpos, onSaved: jest.fn() });
     await act(async () => { await get().infoCard.onTestPrintReceipt(); });
@@ -255,7 +255,7 @@ describe('useAddPrinterFlow', () => {
 
   it('onChangeTsplInternalFont merges a patch and re-persists', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.internalfont); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(PrintRenderMode.internalfont); });
     await act(async () => { get().infoCard.onChangeTsplInternalFont({ fontName: 'TSS24.BF2' }); });
     expect(PrinterConfigService.setTsplInternalFont).toHaveBeenLastCalledWith('p1', { codepage: '1258', fontName: 'TSS24.BF2' });
   });
@@ -405,7 +405,7 @@ describe('useAddPrinterFlow', () => {
 
   it('runTestPrint(Label) ở chế độ bitmap gọi captureBillImage với media của driver (die_cut)', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.bitmap); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(PrintRenderMode.bitmap); });
     await act(async () => { get().infoCard.onChangeDriverMedia(PrinterDriverType.tspl, { type: 'die_cut' }); });
     await act(async () => { await get().infoCard.onTestPrintLabel(); });
     expect(mockCaptureBillImage).toHaveBeenCalledWith(
@@ -424,13 +424,13 @@ describe('useAddPrinterFlow', () => {
   it('onSelectTsplRenderMode(truetype) installs the font and flips config to truetype', async () => {
     const bitmapTspl: Printer = {
       ...savedTspl,
-      drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
+      drivers: [{ ...savedTspl.drivers[0], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
     };
     const { get } = render({ visible: true, initialValues: bitmapTspl, onSaved: jest.fn() });
-    await act(async () => { await get().infoCard.onSelectTsplRenderMode(TsplRenderMode.truetype); });
+    await act(async () => { await get().infoCard.onSelectTsplRenderMode(PrintRenderMode.truetype); });
     expect(PrinterConfigService.installTsplFont).toHaveBeenCalledWith('p1', expect.objectContaining({ fileName: expect.any(String) }));
     const tspl = get().infoCard.drivers[0];
-    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.truetype);
+    expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(PrintRenderMode.truetype);
     expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.font?.fontInstalled).toBe(true);
   });
 });

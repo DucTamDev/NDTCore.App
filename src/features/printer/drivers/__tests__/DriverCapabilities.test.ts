@@ -1,5 +1,5 @@
 import { DRIVER_CAPABILITIES, getDriverCapabilities } from '../DriverCapabilities';
-import { EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 
 describe('DriverCapabilities', () => {
@@ -16,10 +16,10 @@ describe('DriverCapabilities', () => {
   });
 
   it('escpos default config is { type: escpos, renderMode: text, media: continuous 80 }', () => {
-    expect(DRIVER_CAPABILITIES.escpos.defaultConfig).toEqual({ type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.text, media: { type: 'continuous', paperSize: 80 } });
+    expect(DRIVER_CAPABILITIES.escpos.defaultConfig).toEqual({ type: PrinterDriverType.escpos, renderMode: PrintRenderMode.encoder, media: { type: 'continuous', paperSize: 80 } });
   });
 
   it('tspl default config is { type: tspl, renderMode: bitmap, media: continuous 80 }', () => {
-    expect(DRIVER_CAPABILITIES.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } });
+    expect(DRIVER_CAPABILITIES.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } });
   });
 });

@@ -3,7 +3,7 @@ import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
@@ -17,9 +17,9 @@ const MEDIA = { type: 'continuous', paperSize: 80 } as const;
 const withConfig = (config: PrinterDriver['config']): PrinterDriver => ({
   type: PrinterDriverType.tspl, source: 'auto' as PrinterDriver['source'], contentTypes: [PrintType.Receipt], config,
 });
-const configured = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
-const missing = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA } });
-const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA } });
+const configured = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
+const missing = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.internalfont, media: { ...MEDIA } });
+const bitmapMode = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { ...MEDIA } });
 
 const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
   printer, driver,
@@ -30,7 +30,7 @@ const ctx = (driver: PrinterDriver): TsplStrategyContext => ({
 describe('TsplInternalFontStrategy', () => {
   const s = new TsplInternalFontStrategy();
 
-  it('mode === internalfont', () => expect(s.mode).toBe(TsplRenderMode.internalfont));
+  it('mode === internalfont', () => expect(s.mode).toBe(PrintRenderMode.internalfont));
 
   it('validate ném TSPL_RENDER_MODE_UNSUPPORTED khi thiếu internalFont', () => {
     try { s.validate(ctx(missing)); } catch (e) { expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED }); }
@@ -62,14 +62,14 @@ describe('TsplInternalFontStrategy', () => {
   });
 
   it('encode dùng CODEPAGE UTF-8 khi codepage là UTF-8', () => {
-    const utf8 = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: 'UTF-8', fontName: '3' } });
+    const utf8 = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.internalfont, media: { ...MEDIA }, internalFont: { codepage: 'UTF-8', fontName: '3' } });
     const ascii = Array.from(s.encode(ctx(utf8))).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('CODEPAGE UTF-8');
   });
 
   it('die_cut 2 cột → mỗi element xuất hiện 2 lần, lần 2 tại x = element.x + pitch', () => {
     const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as const;
-    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...dieCut }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.internalfont, media: { ...dieCut }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
     const dieCtx: TsplStrategyContext = {
       printer, driver: dieCutDriver,
       documents: { text: { elements: [{ type: 'text', content: 'A', x: 10, y: 0 }] } },
@@ -85,7 +85,7 @@ describe('TsplInternalFontStrategy', () => {
     const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as PrintPaperConfig;
     const width = contentWidthChars(dieCut);
     expect(width).toBeLessThan(64);
-    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.internalfont, media: { ...dieCut }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
+    const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.internalfont, media: { ...dieCut }, internalFont: { codepage: '1258', fontName: 'TSS24.BF2' } });
     const dieCtx: TsplStrategyContext = {
       printer, driver: dieCutDriver,
       documents: { text: { elements: [

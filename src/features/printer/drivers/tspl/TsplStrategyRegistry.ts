@@ -2,14 +2,15 @@ import type { ITsplPrintStrategy } from './strategies/tsplStrategy.types';
 import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
 import { TsplTrueTypeStrategy } from './strategies/TsplTrueTypeStrategy';
 import { TsplInternalFontStrategy } from './strategies/TsplInternalFontStrategy';
-import { TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { PrintRenderMode } from '../../models/printer/PrinterDriver';
+import type { TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 /** `renderMode` → strategy. Nguồn resolve DUY NHẤT — `TsplDriver` không tự switch (§27-30, RULE 05). */
 export const TsplStrategyRegistry: Record<TsplRenderMode, ITsplPrintStrategy> = {
-  [TsplRenderMode.bitmap]: new TsplBitmapStrategy(),
-  [TsplRenderMode.truetype]: new TsplTrueTypeStrategy(),
-  [TsplRenderMode.internalfont]: new TsplInternalFontStrategy(),
+  [PrintRenderMode.bitmap]: new TsplBitmapStrategy(),
+  [PrintRenderMode.truetype]: new TsplTrueTypeStrategy(),
+  [PrintRenderMode.internalfont]: new TsplInternalFontStrategy(),
 };
 
 export const resolveTsplStrategy = (mode: TsplRenderMode): ITsplPrintStrategy => {

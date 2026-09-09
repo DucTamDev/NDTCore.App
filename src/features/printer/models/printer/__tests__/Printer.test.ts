@@ -1,5 +1,5 @@
 import { ConnectionType } from '../PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../PrinterDriver';
+import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../PrinterDriver';
 import { type Printer } from '../Printer';
 import { PrintType } from '../../printing/PrintType';
 
@@ -9,7 +9,7 @@ describe('Printer domain type', () => {
       type: PrinterDriverType.tspl,
       source: DriverSource.auto,
       contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
+      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
     };
     const printer: Printer = {
       id: 'p1',
@@ -32,7 +32,7 @@ describe('Printer domain type', () => {
       name: 'Máy in đa năng',
       drivers: [
         { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } },
-        { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } },
+        { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } },
       ],
       connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 },
       identityKey: 'usb:1155:22222',

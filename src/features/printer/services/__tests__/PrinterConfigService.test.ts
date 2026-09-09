@@ -3,7 +3,7 @@ import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrinterErrorCode } from '../../errors/PrinterError';
@@ -125,7 +125,7 @@ describe('PrinterConfigService', () => {
     await service.installTsplFont(tsplPrinter.id, font);
 
     const savedTspl = repository.getPrinters().find((p) => p.id === tsplPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.tspl)!;
-    expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } });
+    expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } });
   });
 
   it('setTsplRenderMode() persists renderMode=bitmap for a saved TSPL printer (symmetric with the TrueType toggle-off)', () => {
@@ -136,22 +136,22 @@ describe('PrinterConfigService', () => {
       drivers: [
         {
           ...tsplDriverEntry,
-          config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
+          config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: true } },
         },
       ],
     };
     repository.addPrinter(tsplPrinter);
 
-    service.setTsplRenderMode(tsplPrinter.id, TsplRenderMode.bitmap);
+    service.setTsplRenderMode(tsplPrinter.id, PrintRenderMode.bitmap);
 
     const savedTspl = repository.getPrinters().find((p) => p.id === tsplPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.tspl)!;
-    expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, font: { fontInstalled: true } });
+    expect(savedTspl.config).toMatchObject({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, font: { fontInstalled: true } });
   });
 
   it('setTsplRenderMode() is a no-op for a draft (unsaved) printer', () => {
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, repository, createResourceLock());
-    expect(() => service.setTsplRenderMode('draft-not-saved', TsplRenderMode.bitmap)).not.toThrow();
+    expect(() => service.setTsplRenderMode('draft-not-saved', PrintRenderMode.bitmap)).not.toThrow();
     expect(repository.getPrinters()).toEqual([]);
   });
 
@@ -161,16 +161,16 @@ describe('PrinterConfigService', () => {
     const escposPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry] };
     repository.addPrinter(escposPrinter);
 
-    service.setEscPosRenderMode(escposPrinter.id, EscPosRenderMode.bitmap);
+    service.setEscPosRenderMode(escposPrinter.id, PrintRenderMode.bitmap);
 
     const savedEscpos = repository.getPrinters().find((p) => p.id === escposPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.escpos)!;
-    expect(savedEscpos.config).toMatchObject({ type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap });
+    expect(savedEscpos.config).toMatchObject({ type: PrinterDriverType.escpos, renderMode: PrintRenderMode.bitmap });
   });
 
   it('setEscPosRenderMode() is a no-op for a draft (unsaved) printer', () => {
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, repository, createResourceLock());
-    expect(() => service.setEscPosRenderMode('draft-not-saved', EscPosRenderMode.bitmap)).not.toThrow();
+    expect(() => service.setEscPosRenderMode('draft-not-saved', PrintRenderMode.bitmap)).not.toThrow();
     expect(repository.getPrinters()).toEqual([]);
   });
 
@@ -185,7 +185,7 @@ describe('PrinterConfigService', () => {
     const savedTspl = repository.getPrinters().find((p) => p.id === tsplPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.tspl)!;
     expect(savedTspl.config).toMatchObject({
       type: PrinterDriverType.tspl,
-      renderMode: TsplRenderMode.internalfont,
+      renderMode: PrintRenderMode.internalfont,
       internalFont: { codepage: '1258', fontName: 'TSS24.BF2' },
     });
   });

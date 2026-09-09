@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrinterDriverType, TsplRenderMode } from '../../../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../paper/cutter';
@@ -14,12 +14,12 @@ import { formatRow } from '../../../utils/formatRow';
  * `driver.config` — không phải runtime font detection (spec §12).
  */
 export class TsplTrueTypeStrategy implements ITsplPrintStrategy {
-  readonly mode = TsplRenderMode.truetype;
+  readonly mode = PrintRenderMode.truetype;
 
   validate(context: TsplStrategyContext): void {
     const { config } = context.driver;
 
-    if (config.type !== PrinterDriverType.tspl || config.renderMode !== TsplRenderMode.truetype || !config.font?.fontInstalled) {
+    if (config.type !== PrinterDriverType.tspl || config.renderMode !== PrintRenderMode.truetype || !config.font?.fontInstalled) {
       throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED, message: 'Chưa cài font TrueType cho máy in này — bật lại công tắc "In bằng font TrueType" để cài.' });
     }
   }

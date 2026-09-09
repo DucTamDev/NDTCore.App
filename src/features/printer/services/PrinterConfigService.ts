@@ -1,7 +1,7 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
-import { PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import type { EscPosRenderMode, TsplFontConfig, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
+import type { EscPosRenderMode, TsplFontConfig, TsplInternalFontConfig, TsplRenderMode } from '../models/printer/PrinterDriver';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../errors/PrinterError';
 import { PrinterLogger } from './PrinterLogger';
@@ -120,7 +120,7 @@ export const createPrinterConfigService = (
                 drivers: p.drivers.map((d) =>
                   d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
                     ? d
-                    : { ...d, config: { ...d.config, renderMode: TsplRenderMode.truetype, font: { ...font, fontInstalled: true } } },
+                    : { ...d, config: { ...d.config, renderMode: PrintRenderMode.truetype, font: { ...font, fontInstalled: true } } },
                 ),
               },
         ),
@@ -190,7 +190,7 @@ export const createPrinterConfigService = (
               drivers: p.drivers.map((d) =>
                 d.type !== PrinterDriverType.tspl || d.config.type !== PrinterDriverType.tspl
                   ? d
-                  : { ...d, config: { ...d.config, renderMode: TsplRenderMode.internalfont, internalFont } },
+                  : { ...d, config: { ...d.config, renderMode: PrintRenderMode.internalfont, internalFont } },
               ),
             },
       ),

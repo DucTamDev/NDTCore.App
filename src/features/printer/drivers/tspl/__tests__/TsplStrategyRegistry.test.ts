@@ -1,16 +1,16 @@
 import { TsplStrategyRegistry, resolveTsplStrategy } from '../TsplStrategyRegistry';
-import { TsplRenderMode } from '../../../models/printer/PrinterDriver';
+import { PrintRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 describe('TsplStrategyRegistry', () => {
   it('resolve bitmap → strategy có mode bitmap', () => {
-    expect(resolveTsplStrategy(TsplRenderMode.bitmap).mode).toBe(TsplRenderMode.bitmap);
+    expect(resolveTsplStrategy(PrintRenderMode.bitmap).mode).toBe(PrintRenderMode.bitmap);
   });
   it('resolve truetype → strategy có mode truetype', () => {
-    expect(resolveTsplStrategy(TsplRenderMode.truetype).mode).toBe(TsplRenderMode.truetype);
+    expect(resolveTsplStrategy(PrintRenderMode.truetype).mode).toBe(PrintRenderMode.truetype);
   });
   it('resolve internalfont → strategy có mode internalfont', () => {
-    expect(resolveTsplStrategy(TsplRenderMode.internalfont).mode).toBe(TsplRenderMode.internalfont);
+    expect(resolveTsplStrategy(PrintRenderMode.internalfont).mode).toBe(PrintRenderMode.internalfont);
   });
   it('registry có đúng 3 key', () => {
     expect(Object.keys(TsplStrategyRegistry).sort()).toEqual(['bitmap', 'internalfont', 'truetype']);

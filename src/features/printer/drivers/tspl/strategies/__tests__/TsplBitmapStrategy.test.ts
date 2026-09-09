@@ -1,7 +1,7 @@
 import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
@@ -37,7 +37,7 @@ const driver: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: 'auto' as PrinterDriver['source'],
   contentTypes: [PrintType.Receipt],
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
+  config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
 };
 
 const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
@@ -53,7 +53,7 @@ const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
 describe('TsplBitmapStrategy', () => {
   const s = new TsplBitmapStrategy();
 
-  it('mode === bitmap', () => expect(s.mode).toBe(TsplRenderMode.bitmap));
+  it('mode === bitmap', () => expect(s.mode).toBe(PrintRenderMode.bitmap));
 
   it('validate ném IMAGE_REQUIRED khi thiếu documents.image', () => {
     expect(() => s.validate(ctx({ documents: { text: { elements: [] } } }))).toThrow();

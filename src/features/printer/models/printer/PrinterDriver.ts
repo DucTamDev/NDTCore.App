@@ -15,16 +15,26 @@ export const DriverSource = {
 
 export type DriverSource = (typeof DriverSource)[keyof typeof DriverSource];
 
-export const TsplRenderMode = {
-  /** Render nội dung thành ảnh rồi gửi lệnh `BITMAP` — hành vi đã verify trên phần cứng. */
+/**
+ * Chiến lược render dùng chung cho MỌI protocol — độc lập với `PrinterDriverType`
+ * (ARCHITECTURE.md §14: "Rendering strategy là configuration của print
+ * operation"). Không phải mọi driver dùng hết 4 giá trị: ESC/POS chỉ nhận
+ * `encoder`/`bitmap` (schema ràng buộc), TSPL chỉ nhận `bitmap`/`truetype`/
+ * `internalfont` — driver nào cũng chỉ đọc field mình cần từ `PrinterDriverConfig`,
+ * xem `EscPosDriverConfig`/`TsplDriverConfig` bên dưới.
+ */
+export const PrintRenderMode = {
+  /** Encode trực tiếp qua bộ encoder riêng của protocol, không rasterize — ESC/POS: `EPToolkit` (cần máy in hỗ trợ đúng codepage CP1258). */
+  encoder: 'encoder',
+  /** Render nội dung thành ảnh rồi gửi lệnh bitmap của protocol — TSPL: lệnh `BITMAP` (đã verify trên phần cứng); ESC/POS: lệnh `GS v 0`. Chậm hơn `encoder` nhưng hiển thị đúng trên mọi máy bất kể codepage. */
   bitmap: 'bitmap',
-  /** `DOWNLOAD` 1 font `.ttf` lên máy in rồi in bằng lệnh `TEXT` — thử nghiệm. */
+  /** TSPL only — `DOWNLOAD` 1 font `.ttf` lên máy in rồi in bằng lệnh `TEXT` — thử nghiệm. */
   truetype: 'truetype',
-  /** In bằng font resident + `CODEPAGE` sẵn có của máy in — thử nghiệm, chỉ chạy nếu firmware hỗ trợ codepage tiếng Việt (XP-420B không). */
+  /** TSPL only — in bằng font resident + `CODEPAGE` sẵn có của máy in — thử nghiệm, chỉ chạy nếu firmware hỗ trợ codepage tiếng Việt (XP-420B không). */
   internalfont: 'internalfont',
 } as const;
 
-export type TsplRenderMode = (typeof TsplRenderMode)[keyof typeof TsplRenderMode];
+export type PrintRenderMode = (typeof PrintRenderMode)[keyof typeof PrintRenderMode];
 
 export const TsplCodepage = {
   utf8: 'UTF-8',
@@ -58,6 +68,9 @@ export interface TsplInternalFontConfig {
   fontName: string;
 }
 
+/** TSPL không dùng `'encoder'` (luôn phải chọn 1 trong 3 chiến lược render text) — thu hẹp từ `PrintRenderMode` để `Record<TsplRenderMode, ...>` (strategy table, label map) vẫn exhaustive. */
+export type TsplRenderMode = Exclude<PrintRenderMode, typeof PrintRenderMode.encoder>;
+
 export interface TsplDriverConfig {
   type: 'tspl';
   renderMode: TsplRenderMode;
@@ -68,18 +81,12 @@ export interface TsplDriverConfig {
   media: PrintPaperConfig;
 }
 
-export const EscPosRenderMode = {
-  /** Encode text tiếng Việt qua `EPToolkit` — nhanh, cần máy in hỗ trợ đúng codepage CP1258. */
-  text: 'text',
-  /** Render nội dung thành ảnh rồi gửi lệnh `GS v 0` — chậm hơn, hiển thị đúng trên mọi máy bất kể codepage. */
-  bitmap: 'bitmap',
-} as const;
-
-export type EscPosRenderMode = (typeof EscPosRenderMode)[keyof typeof EscPosRenderMode];
+/** ESC/POS chỉ có 2 chiến lược (không có font tuỳ chỉnh/font resident như TSPL) — thu hẹp từ `PrintRenderMode`, cùng lý do với `TsplRenderMode`. */
+export type EscPosRenderMode = Exclude<PrintRenderMode, typeof PrintRenderMode.truetype | typeof PrintRenderMode.internalfont>;
 
 export interface EscPosDriverConfig {
   type: 'escpos';
-  /** `undefined` ⇒ coi như `'text'` — giữ tương thích ngược printer đã lưu trước khi có field này. */
+  /** `undefined` ⇒ coi như `'encoder'` — giữ tương thích ngược printer đã lưu trước khi có field này. */
   renderMode?: EscPosRenderMode;
   media: PrintPaperConfig;
 }

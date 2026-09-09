@@ -1,8 +1,8 @@
 import { ConnectionType } from '../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { DriverSource, PrinterDriverType, PrintRenderMode } from '../models/printer/PrinterDriver';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
-import type { PrinterDriver } from '../models/printer/PrinterDriver';
+import type { PrinterDriver, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrintType } from '../models/printing/PrintType';
@@ -32,7 +32,7 @@ export const makeTsplDriverEntry = (o: DriverEntryOverride & { renderMode?: Tspl
     ...rest,
     config: {
       type: PrinterDriverType.tspl,
-      renderMode: renderMode ?? TsplRenderMode.bitmap,
+      renderMode: renderMode ?? PrintRenderMode.bitmap,
       media: { ...DEFAULT_MEDIA, ...media },
     },
   };

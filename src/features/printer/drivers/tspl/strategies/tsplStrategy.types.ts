@@ -1,5 +1,5 @@
 import type { Printer } from '../../../models/printer/Printer';
-import type { PrinterDriver, TsplRenderMode } from '../../../models/printer/PrinterDriver';
+import type { PrinterDriver, PrintRenderMode } from '../../../models/printer/PrinterDriver';
 import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintType } from '../../../models/printing/PrintType';
@@ -22,7 +22,7 @@ export interface TsplStrategyContext {
 }
 
 export interface ITsplPrintStrategy {
-  readonly mode: TsplRenderMode;
+  readonly mode: PrintRenderMode;
   /** Ném `PrinterErrorException` (TSPL_*) nếu context không đủ điều kiện. KHÔNG trả bool, KHÔNG fallback. */
   validate(context: TsplStrategyContext): void;
   /** Thuần: context → raw TSPL bytes. */

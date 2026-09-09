@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { DriverSource, PrintRenderMode, PrinterDriverType, TsplCodepage } from '../../models/printer/PrinterDriver';
 import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
@@ -61,7 +61,7 @@ const tsplInternalFontConfigSchema = z.object({
 
 const tsplDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.tspl),
-  renderMode: z.enum([TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont]),
+  renderMode: z.enum([PrintRenderMode.bitmap, PrintRenderMode.truetype, PrintRenderMode.internalfont]),
   font: tsplFontConfigSchema.optional(),
   internalFont: tsplInternalFontConfigSchema.optional(),
   media: printMediaSchema,
@@ -69,7 +69,7 @@ const tsplDriverConfigSchema = z.object({
 
 const escPosDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.escpos),
-  renderMode: z.enum([EscPosRenderMode.text, EscPosRenderMode.bitmap]).optional(),
+  renderMode: z.enum([PrintRenderMode.encoder, PrintRenderMode.bitmap]).optional(),
   media: printMediaSchema,
 });
 

@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrinterDriverType, TsplRenderMode } from '../../../models/printer/PrinterDriver';
+import { PrinterDriverType, PrintRenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, columnOffsets, contentWidthChars } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../paper/cutter';
@@ -16,12 +16,12 @@ import { formatRow } from '../../../utils/formatRow';
  * dấu — người dùng tự chuyển về `bitmap`.
  */
 export class TsplInternalFontStrategy implements ITsplPrintStrategy {
-  readonly mode = TsplRenderMode.internalfont;
+  readonly mode = PrintRenderMode.internalfont;
 
   validate(context: TsplStrategyContext): void {
     const { config } = context.driver;
 
-    if (config.type !== PrinterDriverType.tspl || config.renderMode !== TsplRenderMode.internalfont || !config.internalFont) {
+    if (config.type !== PrinterDriverType.tspl || config.renderMode !== PrintRenderMode.internalfont || !config.internalFont) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED,
         message: 'Chưa cấu hình font máy in (codepage / tên font) cho chế độ "Font máy in".',

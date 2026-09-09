@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { type Printer } from '../../../models/printer/Printer';
 import { PrintType } from '../../../models/printing/PrintType';
@@ -91,7 +91,7 @@ const tsplDriverEntry: PrinterDriver = {
   type: PrinterDriverType.tspl,
   source: DriverSource.auto,
   contentTypes: [PrintType.Label],
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA_58 } },
+  config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { ...MEDIA_58 } },
 };
 
 /**
@@ -103,7 +103,7 @@ const tsplDriverEntry: PrinterDriver = {
  */
 const tsplTruetypeDriverEntry: PrinterDriver = {
   ...tsplDriverEntry,
-  config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA_58 }, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
+  config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA_58 }, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
 };
 
 const lanPrinter: Printer = {
@@ -446,7 +446,7 @@ describe('TsplDriver', () => {
 
   it('print() truetype mode chưa cài font → ném TSPL_FONT_NOT_INSTALLED, KHÔNG ghi bytes', async () => {
     const driver = new TsplDriver();
-    const ttDriver: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...MEDIA_58 } } };
+    const ttDriver: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA_58 } } };
     await driver.connect(lanPrinter, ttDriver);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
