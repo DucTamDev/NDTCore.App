@@ -24,7 +24,7 @@ const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in',
   drivers: [escposDriver],
-  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.10', port: 9100 } },
+  connection: { type: ConnectionType.lan, host: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -138,28 +138,24 @@ describe('printerSchema', () => {
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 
-  it('rejects connection.type lan with a device set (invariant #13)', () => {
-    const printer: Printer = { ...basePrinter, connection: { ...basePrinter.connection, device: { deviceId: 'x', displayName: 'x', rawDevice: {} } } };
-    expect(printerSchema.safeParse(printer).success).toBe(false);
-  });
-
-  it('rejects connection.type lan with no lan config (invariant #13)', () => {
-    const printer: Printer = { ...basePrinter, connection: { ...basePrinter.connection, lan: undefined } };
-    expect(printerSchema.safeParse(printer).success).toBe(false);
-  });
-
-  it('rejects connection.type usb with a lan config set (invariant #13)', () => {
-    const printer: Printer = {
-      ...basePrinter,
-      connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'x', rawDevice: {} }, lan: undefined },
-    };
+  /**
+   * `PrinterConnection` là discriminated union (invariant #13 giờ được TypeScript
+   * + `z.discriminatedUnion` enforce cấu trúc, không còn cross-field check thủ
+   * công cho "lan có device"/"usb có lan" — những trạng thái đó nay không thể
+   * biểu diễn được nữa, không cần test runtime-reject riêng).
+   */
+  it('accepts connection.type usb với đúng field usb (vendorId/productId)', () => {
+    const printer: Printer = { ...basePrinter, connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 } };
     expect(printerSchema.safeParse(printer).success).toBe(true);
-    const invalid: Printer = { ...printer, connection: { ...printer.connection, lan: { ip: '1.1.1.1', port: 9100 } } };
-    expect(printerSchema.safeParse(invalid).success).toBe(false);
   });
 
-  it('rejects connection.type usb with no device set (invariant #13)', () => {
-    const printer: Printer = { ...basePrinter, connection: { type: ConnectionType.usb, lan: undefined } };
+  it('accepts connection.type bluetooth với đúng field bluetooth (deviceId)', () => {
+    const printer: Printer = { ...basePrinter, connection: { type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:55' } };
+    expect(printerSchema.safeParse(printer).success).toBe(true);
+  });
+
+  it('rejects connection thiếu field bắt buộc của variant (usb thiếu productId)', () => {
+    const printer = { ...basePrinter, connection: { type: ConnectionType.usb, vendorId: 1155 } };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 });

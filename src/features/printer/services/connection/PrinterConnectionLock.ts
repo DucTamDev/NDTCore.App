@@ -1,16 +1,14 @@
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDevice, PrinterLanConfig } from '../../models/printer/PrinterDevice';
+import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import { LoggerService } from '../../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 
 export interface ConnectionResourceKeyInput {
   driverType: PrinterDriverType;
-  connectionType: ConnectionType;
-  device?: PrinterDevice;
-  lan?: PrinterLanConfig;
+  connection: PrinterConnection;
 }
 
 /**
@@ -29,27 +27,21 @@ export interface ConnectionResourceKeyInput {
  *   per-connection, cho phép 2 máy TSPL khác nhau in song song thật.
  */
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
-  if (input.connectionType === ConnectionType.usb) {
+  const { connection, driverType } = input;
+
+  if (connection.type === ConnectionType.usb) {
     return 'usb';
   }
 
-  if (input.driverType === PrinterDriverType.escpos) {
-    return `escpos:${input.connectionType}`;
+  if (driverType === PrinterDriverType.escpos) {
+    return `escpos:${connection.type}`;
   }
 
-  if (input.connectionType === ConnectionType.bluetooth) {
-    if (!input.device) {
-      throw new Error('Thiếu device để tính resource key cho TSPL qua Bluetooth');
-    }
-
-    return `tspl:bluetooth:${input.device.deviceId}`;
+  if (connection.type === ConnectionType.bluetooth) {
+    return `tspl:bluetooth:${connection.deviceId}`;
   }
 
-  if (!input.lan) {
-    throw new Error('Thiếu lan để tính resource key cho TSPL qua LAN');
-  }
-
-  return `tspl:lan:${input.lan.ip}:${input.lan.port}`;
+  return `tspl:lan:${connection.host}:${connection.port}`;
 };
 
 /**
@@ -58,7 +50,7 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
  * ở cả 2 file), chỉ là wrapper mỏng quanh `connectionResourceKey`.
  */
 export const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
-  connectionResourceKey({ driverType, connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan });
+  connectionResourceKey({ driverType, connection: printer.connection });
 
 /**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi

@@ -27,11 +27,6 @@ export interface UsbRawDevice {
   serialNumber?: string | null;
 }
 
-export interface PrinterLanConfig {
-  ip: string;
-  port: number;
-}
-
 export interface PrinterDeviceInfo {
   deviceName?: string;
   vendor?: string;

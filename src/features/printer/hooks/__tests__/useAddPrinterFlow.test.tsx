@@ -65,7 +65,7 @@ const savedTspl: Printer = {
       config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
     },
   ],
-  connection: { type: ConnectionType.lan, lan: { ip: '10.0.0.5', port: 9100 } },
+  connection: { type: ConnectionType.lan, host: '10.0.0.5', port: 9100 },
   identityKey: 'lan:10.0.0.5:9100',
   capabilities: { cutter: false },
   autoReconnect: true,

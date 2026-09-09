@@ -73,7 +73,7 @@ const lanPrinter: Printer = {
   id: 'receipt-lan',
   name: 'Máy in hoá đơn',
   drivers: [escposDriverEntry],
-  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.50', port: 9100 } },
+  connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 },
   identityKey: 'lan:192.168.1.50:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -85,13 +85,13 @@ const lanPrinter: Printer = {
 const blePrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-ble',
-  connection: { type: ConnectionType.bluetooth, device: { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BLE', rawDevice: {} } },
+  connection: { type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:55', name: 'Máy in BLE' },
 };
 
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'receipt-usb',
-  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in USB', rawDevice: { vendorId: 1155, productId: 22222 } } },
+  connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 },
 };
 
 const sampleDocuments: PrintDocuments = { text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] } };
@@ -392,8 +392,8 @@ describe('EscPosDriver', () => {
 
   it('connecting printer B on the same connectionType as already-connected printer A flips A to disconnected', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { type: ConnectionType.lan, host: '192.168.1.51', port: 9100 } };
 
     await driver.connect(printerA, escposDriverEntry);
     expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
@@ -403,15 +403,18 @@ describe('EscPosDriver', () => {
     expect(driver.getStatus(printerB.id)).toBe(PrinterStatus.connected);
   });
 
-  it('does not flip printer A to disconnected when connecting printer B on the same connectionType fails validation', async () => {
+  it('does not flip printer A to disconnected when connecting printer B on the same connectionType fails to connect natively', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
-    const printerBInvalid: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: undefined } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { type: ConnectionType.lan, host: '192.168.1.51', port: 9100 } };
 
     await driver.connect(printerA, escposDriverEntry);
     expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
 
-    await expect(driver.connect(printerBInvalid, escposDriverEntry)).rejects.toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
+    const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { connect: jest.Mock } };
+    ThermalPrinterModule.connect.mockRejectedValueOnce(new Error('native connect failed'));
+
+    await expect(driver.connect(printerB, escposDriverEntry)).rejects.toThrow();
     // printer A must still be reported as connected — the failed attempt on B
     // never touched the native connection, so A's real state is unchanged.
     expect(driver.getStatus(printerA.id)).toBe(PrinterStatus.connected);
@@ -419,8 +422,8 @@ describe('EscPosDriver', () => {
 
   it('testPrint() reconnects instead of taking the stale fast path when another printer has taken over the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { type: ConnectionType.lan, host: '192.168.1.51', port: 9100 } };
 
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
@@ -447,17 +450,18 @@ describe('EscPosDriver', () => {
 
   it('connect() logs connectFailed on failure', async () => {
     const driver = new EscPosDriver();
-    const badPrinter: Printer = { ...lanPrinter, id: 'receipt-bad', connection: { ...lanPrinter.connection, lan: undefined } };
-    await expect(driver.connect(badPrinter, escposDriverEntry)).rejects.toThrow();
+    const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { connect: jest.Mock } };
+    ThermalPrinterModule.connect.mockRejectedValueOnce(new Error('native connect failed'));
+    await expect(driver.connect(lanPrinter, escposDriverEntry)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
       expect.objectContaining({
-        printerId: badPrinter.id,
+        printerId: lanPrinter.id,
         protocol: PrinterDriverType.escpos,
         connectionType: ConnectionType.lan,
-        errorCode: PrinterErrorCode.VALIDATION_ERROR,
+        errorCode: PrinterErrorCode.UNKNOWN_ERROR,
       }),
     );
   });
@@ -554,8 +558,8 @@ describe('EscPosDriver', () => {
 
   it('disconnect() does not call the native disconnect() for a printer that no longer owns the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { type: ConnectionType.lan, host: '192.168.1.51', port: 9100 } };
 
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
@@ -661,8 +665,8 @@ describe('EscPosDriver', () => {
 
   it('print() throws PRINTER_NOT_CONNECTED when the printer is no longer the active owner of the shared connection', async () => {
     const driver = new EscPosDriver();
-    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.50', port: 9100 } } };
-    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { ...lanPrinter.connection, lan: { ip: '192.168.1.51', port: 9100 } } };
+    const printerA: Printer = { ...lanPrinter, id: 'receipt-lan-a', connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 } };
+    const printerB: Printer = { ...lanPrinter, id: 'receipt-lan-b', connection: { type: ConnectionType.lan, host: '192.168.1.51', port: 9100 } };
     await driver.connect(printerA, escposDriverEntry);
     await driver.connect(printerB, escposDriverEntry);
     const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };

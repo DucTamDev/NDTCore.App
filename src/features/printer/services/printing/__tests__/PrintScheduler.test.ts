@@ -22,7 +22,7 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
 
 const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
   makePrinterFixture({
-    name: 'Máy in', connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
+    name: 'Máy in', connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
     ...overrides,
   });
 
@@ -100,8 +100,8 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'label-1', drivers: [tsplDriver], connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } } }),
-      makePrinter({ id: 'label-2', drivers: [tsplDriver], connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.2', port: 9100 } } }),
+      makePrinter({ id: 'label-1', drivers: [tsplDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'label-2', drivers: [tsplDriver], connection: { type: ConnectionType.lan, host: '1.1.1.2', port: 9100 } }),
     ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
@@ -124,10 +124,10 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } } }),
+      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 } }),
       makePrinter({
         id: 'label-bt', drivers: [tsplDriver],
-        connection: { type: ConnectionType.bluetooth, device: { deviceId: 'd1', displayName: 'Label BT', rawDevice: {} } },
+        connection: { type: ConnectionType.bluetooth, deviceId: 'd1' },
       }),
     ];
     const printerService = {

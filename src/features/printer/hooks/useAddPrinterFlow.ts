@@ -20,6 +20,8 @@ import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { UsbRawDevice } from '../models/printer/PrinterDevice';
 import { dieCutMediaError } from '../paper/validation';
+import { buildBluetoothConnection, buildLanConnection, buildUsbConnection } from '../services/discovery/PrinterResolver';
+import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';
 import { useTestPrint } from './addPrinter/useTestPrint';
@@ -126,6 +128,29 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
    * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
    * (final-review finding #2).
    */
+  /**
+   * `buildDraftPrinter()` được gọi làm context TẠM cho `driver.connect()` ngay
+   * từ lượt discovery đầu tiên (`onConnectPress` → `startDiscovery`), trước cả
+   * khi có kết quả — với usb/bluetooth có thể chưa có `selectedDevice` tại
+   * thời điểm đó (nút "Kết nối" thật đã khoá qua `connectDisabled`, nhưng
+   * `buildDraftPrinter` vẫn được gọi nội bộ). Placeholder rỗng ở đây KHÔNG
+   * BAO GIỜ được lưu — `currentIdentityKey()` trả `null` cho trạng thái này
+   * (`identityKey: undefined` trên draft), và draft sẽ được dựng lại với
+   * `selectedDevice` thật ngay khi discovery xác nhận protocol.
+   */
+  const buildConnection = (): PrinterConnection => {
+    if (connectionType === ConnectionType.lan) {
+      const { ip, port } = buildLan(lanForm.getValues());
+      return buildLanConnection(ip, port);
+    }
+
+    if (selectedDevice) {
+      return connectionType === ConnectionType.usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+    }
+
+    return connectionType === ConnectionType.usb ? { type: ConnectionType.usb, vendorId: 0, productId: 0 } : { type: ConnectionType.bluetooth, deviceId: '' };
+  };
+
   const buildDraftPrinter = (): PrinterWriteInput => {
     const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     return {
@@ -133,11 +158,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
       name: displayForm.getValues('name') || 'Máy in mới',
       vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
       model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-      connection: {
-        type: connectionType,
-        device: connectionType === ConnectionType.lan ? undefined : selectedDevice,
-        lan: connectionType === ConnectionType.lan ? buildLan(lanForm.getValues()) : undefined,
-      },
+      connection: buildConnection(),
       identityKey: currentIdentityKey() ?? undefined,
       capabilities: initialValues?.capabilities ?? { cutter: false },
       drivers,

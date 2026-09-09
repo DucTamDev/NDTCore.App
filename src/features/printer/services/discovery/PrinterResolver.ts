@@ -1,41 +1,72 @@
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import type { PrinterDevice, PrinterLanConfig, UsbRawDevice } from '../../models/printer/PrinterDevice';
-
-export interface ResolveIdentityKeyInput {
-  connectionType: ConnectionType;
-  device?: PrinterDevice;
-  lan?: PrinterLanConfig;
-}
+import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
+import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnection, UsbPrinterConnection } from '../../models/printer/PrinterConnection';
 
 /**
- * Tính identityKey của 1 physical printer — CHỈ phụ thuộc connectionType +
- * device/lan, không phụ thuộc driver/protocol nào được gán (spec §6.1).
- * KHÔNG tự quyết định "có phải trùng lặp không" — so khớp với printer đã lưu
- * là việc của `storage/PrinterRepository.ts` (spec §6.2).
- *
- * USB: `usb:<vid>:<pid>[:<serial>]`. `deviceId` của `PrinterDevice` USB đã là
- * `"<vendor_id>:<product_id>"`. Serial (từ `USBPrinter.getDeviceList()`, cần quyền
- * USB — có sau khi user "Kết nối") pin thêm vào để rút/cắm lại đổi bus path
- * (`/dev/bus/usb/001/010` → `.../011`) vẫn nhận ra cùng máy. Không có serial thì
- * chỉ `vid:pid` — KHÔNG phân biệt được 2 máy cùng model cắm cùng lúc.
+ * Dựng `UsbPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan — đọc
+ * `vendorId`/`productId`/`serialNumber` từ `rawDevice` MỘT LẦN ở đây, thay vì
+ * để mọi nơi dùng (`toConnectTarget`, resource key, identity key) tự đọc lại
+ * `rawDevice` (kiểu `Record<string, unknown>` không an toàn).
  */
-export const resolveIdentityKey = (input: ResolveIdentityKeyInput): string => {
-  if (input.connectionType === ConnectionType.lan) {
-    if (!input.lan) {
-      throw new Error('Thiếu cấu hình IP/Port để tính identityKey cho kết nối LAN');
-    }
+export const buildUsbConnection = (device: PrinterDevice): UsbPrinterConnection => {
+  const raw = device.rawDevice as unknown as UsbRawDevice;
+  const connection: UsbPrinterConnection = { type: ConnectionType.usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
+  return raw.serialNumber ? { ...connection, serialNumber: raw.serialNumber } : connection;
+};
 
-    return `lan:${input.lan.ip}:${input.lan.port}`;
+/** Dựng `BluetoothPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan. */
+export const buildBluetoothConnection = (device: PrinterDevice): BluetoothPrinterConnection => {
+  const connection: BluetoothPrinterConnection = { type: ConnectionType.bluetooth, deviceId: device.deviceId };
+  return device.displayName ? { ...connection, name: device.displayName } : connection;
+};
+
+/** Dựng `LanPrinterConnection` từ IP/port đã nhập (form Add Printer). */
+export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: ConnectionType.lan, host, port });
+
+/**
+ * Chiều ngược lại `buildUsbConnection`/`buildBluetoothConnection` — dựng lại
+ * `PrinterDevice`-shape để seed `selectedDevice` state lúc SỬA 1 printer đã
+ * lưu (connection không đổi trong lúc sửa, chỉ cần feed lại đúng
+ * `vendorId`/`productId`/`serialNumber`/`deviceId` khi `buildDraftPrinter()`
+ * dựng lại connection lúc Save). Không phải dữ liệu scan thật nên
+ * `displayName` để rỗng khi không có `name` (Bluetooth) — không dùng để hiển
+ * thị, chỉ để round-trip lại đúng connection.
+ */
+export const deviceFromConnection = (connection: PrinterConnection): PrinterDevice | undefined => {
+  if (connection.type === ConnectionType.usb) {
+    const rawDevice: UsbRawDevice = { vendorId: connection.vendorId, productId: connection.productId, serialNumber: connection.serialNumber };
+    return { deviceId: `${connection.vendorId}:${connection.productId}`, displayName: '', rawDevice: rawDevice as unknown as Record<string, unknown> };
   }
 
-  if (!input.device) {
-    throw new Error(`Thiếu thiết bị để tính identityKey cho kết nối ${input.connectionType}`);
+  if (connection.type === ConnectionType.bluetooth) {
+    return { deviceId: connection.deviceId, displayName: connection.name ?? '', rawDevice: {} };
   }
 
-  if (input.connectionType === ConnectionType.bluetooth) {
-    return `bluetooth:mac:${input.device.deviceId}`;
+  return undefined;
+};
+
+/**
+ * Tính identityKey của 1 physical printer — CHỈ phụ thuộc `PrinterConnection`,
+ * không phụ thuộc driver/protocol nào được gán (spec §6.1). KHÔNG tự quyết
+ * định "có phải trùng lặp không" — so khớp với printer đã lưu là việc của
+ * `storage/PrinterRepository.ts` (spec §6.2).
+ *
+ * USB: `usb:<vendorId>:<productId>[:<serialNumber>]`. Serial (từ
+ * `USBPrinter.getDeviceList()`, cần quyền USB — có sau khi user "Kết nối") pin
+ * thêm vào để rút/cắm lại đổi bus path vẫn nhận ra cùng máy. Không có serial
+ * thì chỉ `vendorId:productId` — KHÔNG phân biệt được 2 máy cùng model cắm
+ * cùng lúc.
+ */
+export const resolveIdentityKey = (connection: PrinterConnection): string => {
+  if (connection.type === ConnectionType.lan) {
+    return `lan:${connection.host}:${connection.port}`;
   }
 
-  const serial = (input.device.rawDevice as unknown as UsbRawDevice | undefined)?.serialNumber;
-  return serial ? `usb:${input.device.deviceId}:${serial}` : `usb:${input.device.deviceId}`;
+  if (connection.type === ConnectionType.bluetooth) {
+    return `bluetooth:mac:${connection.deviceId}`;
+  }
+
+  return connection.serialNumber
+    ? `usb:${connection.vendorId}:${connection.productId}:${connection.serialNumber}`
+    : `usb:${connection.vendorId}:${connection.productId}`;
 };

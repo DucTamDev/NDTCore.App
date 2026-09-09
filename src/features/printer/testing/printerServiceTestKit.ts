@@ -31,7 +31,7 @@ export const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in hóa đơn quầy 1',
   drivers: [escposDriverEntry],
-  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.10', port: 9100 } },
+  connection: { type: ConnectionType.lan, host: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
   capabilities: { cutter: false },
   autoReconnect: false,

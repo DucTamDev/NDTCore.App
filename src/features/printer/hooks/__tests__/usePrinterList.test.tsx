@@ -32,7 +32,7 @@ const printer = (over: Partial<Printer> = {}): Printer =>
   makePrinter({
     name: 'M1',
     drivers: [],
-    connection: { type: ConnectionType.lan, lan: { ip: '1.2.3.4', port: 9100 } },
+    connection: { type: ConnectionType.lan, host: '1.2.3.4', port: 9100 },
     identityKey: 'lan:1.2.3.4:9100',
     createdAt: '',
     updatedAt: '',

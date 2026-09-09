@@ -19,7 +19,13 @@ const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
 // v5: gộp Printer.connectionType/device/lan (3 field phẳng) thành
 //     Printer.connection: { type, device, lan } (1 object lồng nhau) — shape
 //     đổi không tương thích ngược → reset (không migrate).
-const CURRENT_STORAGE_VERSION = 5;
+// v6: Printer.connection đổi từ { type, device?, lan? } (field optional dùng
+//     chung, cho phép trạng thái vô nghĩa) sang discriminated union theo
+//     `type` — mỗi variant khai field phẳng riêng (`UsbPrinterConnection.vendorId/
+//     productId/serialNumber`, `BluetoothPrinterConnection.deviceId/name`,
+//     `LanPrinterConnection.host/port`, đổi tên `ip` → `host`) — shape đổi
+//     không tương thích ngược → reset (không migrate), xem ARCHITECTURE.md §7.
+const CURRENT_STORAGE_VERSION = 6;
 
 /**
  * Xoá `printer.list`/`printer.defaultId` (key cũ, `isDefault` đã bị bỏ —

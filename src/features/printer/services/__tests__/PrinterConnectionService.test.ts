@@ -189,8 +189,8 @@ describe('PrinterConnectionService', () => {
     const tsplDriver = makeMockDriver();
     const repository = createPrinterRepository();
     const service = createPrinterConnectionService({ escpos: escposDriver, tspl: tsplDriver }, repository, createResourceLock());
-    const auto: Printer = { ...basePrinter, id: 'p-auto', autoReconnect: true, enabled: true, identityKey: 'lan:1.1.1.1:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.1', port: 9100 } } };
-    const manual: Printer = { ...basePrinter, id: 'p-manual', autoReconnect: false, enabled: true, identityKey: 'lan:1.1.1.2:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.2', port: 9100 } } };
+    const auto: Printer = { ...basePrinter, id: 'p-auto', autoReconnect: true, enabled: true, identityKey: 'lan:1.1.1.1:9100', connection: { type: 'lan', host: '1.1.1.1', port: 9100 } };
+    const manual: Printer = { ...basePrinter, id: 'p-manual', autoReconnect: false, enabled: true, identityKey: 'lan:1.1.1.2:9100', connection: { type: 'lan', host: '1.1.1.2', port: 9100 } };
     repository.addPrinter(auto);
     repository.addPrinter(manual);
     service.reconnectAutoPrinters();
@@ -256,7 +256,7 @@ describe('PrinterConnectionService', () => {
     });
     const repository = createPrinterRepository();
     const service = createPrinterConnectionService({ escpos: escposDriver, tspl: makeMockDriver() }, repository, createResourceLock());
-    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.2', port: 9100 } } };
+    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { type: 'lan', host: '1.1.1.2', port: 9100 } };
     repository.addPrinter(basePrinter);
     repository.addPrinter(second);
     await Promise.all([service.connect(basePrinter.id), service.connect(second.id)]);

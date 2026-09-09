@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../services/device/NetworkInfoService';
-import { resolveIdentityKey } from '../../services/discovery/PrinterResolver';
+import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection, resolveIdentityKey } from '../../services/discovery/PrinterResolver';
 import { ThermalPrinterModule } from '../../adapters/native/PrinterNativeModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
@@ -40,7 +40,9 @@ export const useConnectionSetup = ({
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.usb);
-  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(initialValues?.connection.device);
+  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(
+    initialValues ? deviceFromConnection(initialValues.connection) : undefined,
+  );
   const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
   const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
   const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
@@ -48,8 +50,8 @@ export const useConnectionSetup = ({
   const lanForm = useForm<LanConnectionValues>({
     resolver: zodResolver(lanConnectionSchema),
     defaultValues: {
-      lanIp: initialValues?.connection.lan?.ip ?? '',
-      lanPort: initialValues?.connection.lan?.port ? String(initialValues.connection.lan.port) : '',
+      lanIp: initialValues?.connection.type === ConnectionType.lan ? initialValues.connection.host : '',
+      lanPort: initialValues?.connection.type === ConnectionType.lan ? String(initialValues.connection.port) : '',
     },
   });
 
@@ -65,14 +67,16 @@ export const useConnectionSetup = ({
           return null;
         }
 
-        return resolveIdentityKey({ connectionType, lan: buildLan(values) });
+        const { ip, port } = buildLan(values);
+        return resolveIdentityKey(buildLanConnection(ip, port));
       }
 
       if (!selectedDevice) {
         return null;
       }
 
-      return resolveIdentityKey({ connectionType, device: selectedDevice });
+      const connection = connectionType === ConnectionType.usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+      return resolveIdentityKey(connection);
     } catch {
       return null;
     }

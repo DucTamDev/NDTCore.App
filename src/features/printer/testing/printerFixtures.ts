@@ -1,6 +1,7 @@
 import { ConnectionType } from '../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
-import type { Printer, PrinterConnection } from '../models/printer/Printer';
+import type { Printer } from '../models/printer/Printer';
+import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
@@ -37,7 +38,7 @@ export const makeTsplDriverEntry = (o: DriverEntryOverride & { renderMode?: Tspl
   };
 };
 
-const DEFAULT_CONNECTION: PrinterConnection = { type: ConnectionType.lan, lan: { ip: '192.168.1.10', port: 9100 } };
+const DEFAULT_CONNECTION: PrinterConnection = { type: ConnectionType.lan, host: '192.168.1.10', port: 9100 };
 
 export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   id: 'p1',

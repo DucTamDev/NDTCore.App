@@ -15,7 +15,7 @@ const escposDriver: PrinterDriver = { type: PrinterDriverType.escpos, source: Dr
 const tsplDriver: PrinterDriver = { type: PrinterDriverType.tspl, source: DriverSource.auto, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } };
 
 const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer => ({
-  id, name: id, drivers: [escposDriver], connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } },
+  id, name: id, drivers: [escposDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 },
   identityKey: `lan:1.1.1.1:9100-${id}`, capabilities: { cutter: false }, autoReconnect: false, enabled: true,
   createdAt: 'x', updatedAt: 'x', ...overrides,
 });

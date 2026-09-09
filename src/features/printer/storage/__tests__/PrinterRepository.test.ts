@@ -48,7 +48,7 @@ describe('PrinterRepository', () => {
 
   it('setEnabled() updates enabled for that printer only', () => {
     const repository = createPrinterRepository();
-    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.2', port: 9100 } } };
+    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { type: 'lan', host: '1.1.1.2', port: 9100 } };
     repository.addPrinter(basePrinter);
     repository.addPrinter(second);
     repository.setEnabled('p1', false);

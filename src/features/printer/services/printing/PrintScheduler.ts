@@ -29,7 +29,7 @@ export const createPrintScheduler = (
     }
 
     const driver = printer.drivers.find((d) => d.contentTypes.includes(job.printType)) ?? printer.drivers[0];
-    return connectionResourceKey({ driverType: driver.type, connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan });
+    return connectionResourceKey({ driverType: driver.type, connection: printer.connection });
   };
 
   const enqueue = (job: PrintJob): Promise<PrintJob> =>

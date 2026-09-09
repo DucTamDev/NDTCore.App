@@ -110,7 +110,7 @@ const lanPrinter: Printer = {
   id: 'label-1',
   name: 'Máy in tem',
   drivers: [tsplDriverEntry],
-  connection: { type: ConnectionType.lan, lan: { ip: '192.168.1.60', port: 9100 } },
+  connection: { type: ConnectionType.lan, host: '192.168.1.60', port: 9100 },
   identityKey: 'lan:192.168.1.60:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -122,19 +122,13 @@ const lanPrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'label-usb',
-  connection: { type: ConnectionType.usb, device: { deviceId: '1155:22222', displayName: 'Máy in tem USB', rawDevice: { vendorId: 1155, productId: 22222 } } },
-};
-
-const usbPrinterNoDevice: Printer = {
-  ...lanPrinter,
-  id: 'label-usb-nodevice',
-  connection: { type: ConnectionType.usb, device: undefined },
+  connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 },
 };
 
 const bluetoothPrinter: Printer = {
   ...lanPrinter,
   id: 'label-bt',
-  connection: { type: ConnectionType.bluetooth, device: { deviceId: '00:11:22:33:44:66', displayName: 'Máy in tem BT', rawDevice: {} } },
+  connection: { type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:66', name: 'Máy in tem BT' },
 };
 
 const sampleDocuments: PrintDocuments = {
@@ -200,10 +194,16 @@ describe('TsplDriver', () => {
     ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED });
   });
 
-  it('connect() over USB rejects with VALIDATION_ERROR when no device was chosen', async () => {
+  it('connect() over USB rejects and sets status error when UsbTransport.connect() fails', async () => {
     const driver = new TsplDriver();
-    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
-    expect(driver.getStatus(usbPrinterNoDevice.id)).toBe(PrinterStatus.error);
+    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
+    UsbTransport.mockImplementationOnce(() => ({
+      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
+      write: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    }));
+    await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
+    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.error);
   });
 
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers', async () => {
@@ -513,12 +513,18 @@ describe('TsplDriver', () => {
 
   it('connect() logs connectFailed on failure', async () => {
     const driver = new TsplDriver();
-    await expect(driver.connect(usbPrinterNoDevice, tsplDriverEntry)).rejects.toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
+    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
+    UsbTransport.mockImplementationOnce(() => ({
+      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
+      write: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    }));
+    await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.usb }),
+      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -546,12 +552,18 @@ describe('TsplDriver', () => {
 
   it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
     const driver = new TsplDriver();
-    await expect(driver.testPrint(usbPrinterNoDevice, tsplDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
+    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
+    UsbTransport.mockImplementationOnce(() => ({
+      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
+      write: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    }));
+    await expect(driver.testPrint(usbPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinterNoDevice.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.VALIDATION_ERROR }),
+      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 

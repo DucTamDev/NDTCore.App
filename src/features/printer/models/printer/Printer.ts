@@ -1,12 +1,6 @@
 import type { PrinterDriver } from './PrinterDriver';
 import type { PrinterCapabilities } from './PrinterCapabilities';
-import type { ConnectionType, PrinterDevice, PrinterLanConfig } from './PrinterDevice';
-
-export interface PrinterConnection {
-  type: ConnectionType;
-  device?: PrinterDevice;
-  lan?: PrinterLanConfig;
-}
+import type { PrinterConnection } from './PrinterConnection';
 
 export interface Printer {
   id: string;

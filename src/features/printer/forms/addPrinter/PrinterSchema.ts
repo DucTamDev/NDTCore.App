@@ -103,22 +103,30 @@ export const printerDriverSchema = z
     }
   });
 
-const printerDeviceSchema = z.object({
-  deviceId: z.string(),
-  displayName: z.string(),
-  rawDevice: z.record(z.unknown()),
+const usbPrinterConnectionSchema = z.object({
+  type: z.literal(ConnectionType.usb),
+  vendorId: z.number(),
+  productId: z.number(),
+  serialNumber: z.string().optional(),
 });
 
-const printerLanConfigSchema = z.object({
-  ip: z.string(),
+const bluetoothPrinterConnectionSchema = z.object({
+  type: z.literal(ConnectionType.bluetooth),
+  deviceId: z.string(),
+  name: z.string().optional(),
+});
+
+const lanPrinterConnectionSchema = z.object({
+  type: z.literal(ConnectionType.lan),
+  host: z.string(),
   port: z.number(),
 });
 
-const printerConnectionSchema = z.object({
-  type: z.enum([ConnectionType.usb, ConnectionType.bluetooth, ConnectionType.lan]),
-  device: printerDeviceSchema.optional(),
-  lan: printerLanConfigSchema.optional(),
-});
+const printerConnectionSchema = z.discriminatedUnion('type', [
+  usbPrinterConnectionSchema,
+  bluetoothPrinterConnectionSchema,
+  lanPrinterConnectionSchema,
+]);
 
 /**
  * Safety net ở service layer (invariant #2, #3, #10, #13, spec §8), KHÔNG
@@ -141,23 +149,6 @@ export const printerSchema = z
     updatedAt: z.string(),
   })
   .superRefine((printer, ctx) => {
-    if (printer.connection.type === ConnectionType.lan) {
-      if (!printer.connection.lan) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan bắt buộc phải có connection.lan' });
-      }
-
-      if (printer.connection.device) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'connection.type lan không được có connection.device' });
-      }
-    } else {
-      if (!printer.connection.device) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connection.type ${printer.connection.type} bắt buộc phải có connection.device` });
-      }
-      if (printer.connection.lan) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `connection.type ${printer.connection.type} không được có connection.lan` });
-      }
-    }
-
     const seenContentTypes = new Set<string>();
     for (const driver of printer.drivers) {
       for (const contentType of driver.contentTypes) {

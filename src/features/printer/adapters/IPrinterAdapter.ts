@@ -1,6 +1,5 @@
-import type { ConnectionType, PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
+import type { ConnectionType, PrinterDevice } from '../models/printer/PrinterDevice';
 import type { Printer } from '../models/printer/Printer';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 /**
  * Mục tiêu kết nối 1 máy in — phẳng theo `connectionType`, driver dựng từ
@@ -61,31 +60,20 @@ export interface IPrinterAdapter {
 }
 
 /**
- * Dựng `PrinterConnectTarget` từ `Printer` — ném `VALIDATION_ERROR` nếu thiếu
- * cấu hình cho `connectionType` tương ứng.
+ * Dựng `PrinterConnectTarget` từ `Printer` — `printer.connection` là
+ * discriminated union nên không còn trạng thái thiếu cấu hình để validate ở
+ * đây (khác bản cũ dùng field optional dùng chung).
  */
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
-  if (printer.connection.type === 'lan') {
-    if (!printer.connection.lan) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-    }
+  const { connection } = printer;
 
-    return { printerId: printer.id, connectionType: printer.connection.type, lan: { ip: printer.connection.lan.ip, port: printer.connection.lan.port } };
+  if (connection.type === 'lan') {
+    return { printerId: printer.id, connectionType: connection.type, lan: { ip: connection.host, port: connection.port } };
   }
 
-  if (printer.connection.type === 'bluetooth') {
-    if (!printer.connection.device) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
-    }
-
-    return { printerId: printer.id, connectionType: printer.connection.type, bluetooth: { deviceId: printer.connection.device.deviceId } };
+  if (connection.type === 'bluetooth') {
+    return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
   }
 
-  const raw = printer.connection.device?.rawDevice as unknown as UsbRawDevice | undefined;
-
-  if (!raw) {
-    throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-  }
-
-  return { printerId: printer.id, connectionType: printer.connection.type, usb: { vendorId: Number(raw.vendorId), productId: Number(raw.productId) } };
+  return { printerId: printer.id, connectionType: connection.type, usb: { vendorId: connection.vendorId, productId: connection.productId } };
 };

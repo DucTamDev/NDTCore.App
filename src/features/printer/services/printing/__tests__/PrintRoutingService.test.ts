@@ -12,7 +12,7 @@ const makePrinter = (id: string, overrides: Partial<Printer> = {}): Printer =>
     id,
     name: id,
     drivers: [escposDriver],
-    connection: { type: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } },
+    connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 },
     identityKey: `lan:1.1.1.1:9100-${id}`,
     createdAt: 'x',
     updatedAt: 'x',

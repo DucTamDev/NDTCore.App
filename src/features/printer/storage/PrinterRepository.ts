@@ -37,15 +37,14 @@ export const createPrinterRepository = () => {
   };
 
   /**
-   * Tính lại `identityKey` từ chính `connection.type`/`connection.device`/
-   * `connection.lan` của printer — KHÔNG tin thẳng giá trị caller truyền vào
-   * (defense-in-depth, cùng triết lý với `printerSchema.parse()` bên dưới: UI
-   * đã tự tính đúng, đây là lưới an toàn ở service layer, không phải nguồn sự
-   * thật duy nhất).
+   * Tính lại `identityKey` từ chính `printer.connection` — KHÔNG tin thẳng
+   * giá trị caller truyền vào (defense-in-depth, cùng triết lý với
+   * `printerSchema.parse()` bên dưới: UI đã tự tính đúng, đây là lưới an toàn
+   * ở service layer, không phải nguồn sự thật duy nhất).
    */
   const withRecomputedIdentity = (printer: PrinterWriteInput): Printer => ({
     ...printer,
-    identityKey: resolveIdentityKey({ connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan }),
+    identityKey: resolveIdentityKey(printer.connection),
   });
 
   const addPrinter = (printer: PrinterWriteInput): void => {
