@@ -52,6 +52,39 @@ Implementation phải tuân thủ contract này.
 
 ---
 
+# 0a. Related Documents
+
+Tài liệu này là **contract tổng hợp** — chi tiết quyết định/lý do đằng sau
+mỗi phần nằm ở spec gốc tương ứng. Danh sách theo chủ đề (thư mục
+`docs/superpowers/specs/`):
+
+**Kiến trúc nền tảng**
+- [2026-08-26 — Architecture Refactor Design](../../../docs/superpowers/specs/2026-08-26-printer-architecture-refactor-design.md)
+- [2026-08-28 — Architecture Conformance Refactor](../../../docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md) — nguồn của toàn bộ "Documented Deviations" bên dưới
+- [2026-08-31 — Model/Forms/Services Reorg](../../../docs/superpowers/specs/2026-08-31-printer-feature-model-reorg.md) (§111b/§111c)
+- [2026-08-31 — Module restructure proposal](../../../docs/superpowers/specs/2026-08-31-printer-module-restructure-proposal.md)
+
+**TSPL rendering**
+- [2026-08-27 — TSPL TrueType Font](../../../docs/superpowers/specs/2026-08-27-tspl-truetype-font-design.md) (§39-53, D7)
+- [2026-08-30 — Die-Cut Render + Cutter (SP-B)](../../../docs/superpowers/specs/2026-08-30-tspl-die-cut-render-design.md)
+
+**PrintMedia**
+- [2026-08-30 — PrintMedia Domain (SP-A)](../../../docs/superpowers/specs/2026-08-30-print-media-domain-design.md) — quyết định gốc "media theo driver", **bị đảo ngược** bởi spec 2026-09-09 dưới đây
+- [2026-08-30 — Printer Media UI + Add-Printer Screen (SP-C)](../../../docs/superpowers/specs/2026-08-30-printer-media-ui-design.md)
+- [2026-09-02 — Setup tabs + Cài đặt nâng cao](../../../docs/superpowers/specs/2026-09-02-printer-setup-tabs-and-advanced-section-design.md)
+
+**Native Android layer**
+- [2026-09-03 — Native Printer Architecture Refactor](../../../docs/superpowers/specs/2026-09-03-native-printer-architecture-refactor-design.md)
+- [2026-09-05 — Native Printer Bridge: Callback → Promise](../../../docs/superpowers/specs/2026-09-05-printer-bridge-callback-to-promise-design.md)
+- [2026-09-08 — Native Android Printer Layer v2 (Registry + Queue)](../../../docs/superpowers/specs/2026-09-08-native-printer-registry-queue-design.md)
+- Coding style riêng cho tầng Java: [`docs/CODING_STANDARDS.md`](../../../docs/CODING_STANDARDS.md); tầng TypeScript: [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md)
+
+**Đang chờ implement (xem §0b)**
+- [2026-09-09 — PrintMedia thuộc về Printer, không thuộc Driver](../../../docs/superpowers/specs/2026-09-09-printer-media-ownership-design.md)
+- [2026-09-09 — ESC/POS Bitmap Printing](../../../docs/superpowers/specs/2026-09-09-escpos-bitmap-printing-design.md)
+
+---
+
 # 0b. Pending Architectural Changes (spec đã duyệt, CHƯA implement)
 
 Hai spec dưới đây đã được thiết kế + commit vào
@@ -61,8 +94,8 @@ media, không có `EscPosRenderMode`, error code `TSPL_IMAGE_*`) — không
 sửa trước theo spec để tránh tài liệu nói sai với code đang chạy. Cập nhật
 mục này (xoá dòng tương ứng) ngay khi mỗi spec được implement xong.
 
-**1. `2026-09-09-printer-media-ownership-design.md`** — đảo ngược quyết định
-"media theo từng driver" (từng chốt ở `2026-08-30-print-media-domain-design.md`).
+**1. [`2026-09-09-printer-media-ownership-design.md`](../../../docs/superpowers/specs/2026-09-09-printer-media-ownership-design.md)** — đảo ngược quyết định
+"media theo từng driver" (từng chốt ở [`2026-08-30-print-media-domain-design.md`](../../../docs/superpowers/specs/2026-08-30-print-media-domain-design.md)).
 Dời `media: PrintMedia` từ `TsplDriverConfig`/`EscPosDriverConfig` lên
 `Printer.media` (top-level) — 1 máy in vật lý chỉ có 1 loại giấy nạp tại 1
 thời điểm, không thể 2 driver có 2 media khác nhau cùng lúc. Ảnh hưởng §13
@@ -70,7 +103,7 @@ thời điểm, không thể 2 driver có 2 media khác nhau cùng lúc. Ảnh h
 (models layout), `mediaOf()`/`paperSizeOf()` (§113) đổi input từ
 `PrinterDriver` sang `Printer`. Bump storage version.
 
-**2. `2026-09-09-escpos-bitmap-printing-design.md`** (phụ thuộc spec #1) —
+**2. [`2026-09-09-escpos-bitmap-printing-design.md`](../../../docs/superpowers/specs/2026-09-09-escpos-bitmap-printing-design.md)** (phụ thuộc spec #1) —
 thêm `EscPosRenderMode: 'text' | 'bitmap'` cho ESC/POS, dùng lệnh Epson
 chuẩn `GS v 0`, tái dùng nguyên pipeline capture/rasterize đã có cho TSPL
 bitmap (§31-38). Ảnh hưởng §14 (`EscPosDriverConfig.renderMode`), §101
@@ -2560,7 +2593,7 @@ errorCode
 
 `resourceKey` **KHÔNG** log — với TSPL LAN nó là `tspl:lan:<ip>:<port>`,
 chứa IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
-concurrency mà không lộ IP (xem `PrinterLogger.ts`, spec §12.6).
+concurrency mà không lộ IP (xem `PrinterLogger.ts`, [spec conformance §12.6](../../../docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md), và D6 bên dưới).
 
 ---
 
@@ -3914,8 +3947,7 @@ RULE số hiện có ở §145 và ghi cách test:
 # Documented Deviations
 
 Các chỗ ARCHITECTURE.md không thể theo 100% literal vì tự mâu thuẫn hoặc
-pseudocode làm regress hành vi thật. Nguồn: spec
-`docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md` §12.
+pseudocode làm regress hành vi thật. Nguồn: [spec Architecture Conformance §12](../../../docs/superpowers/specs/2026-08-28-printer-architecture-conformance-design.md).
 
 **D1 — `IPrinterDriver` §23 signature là minh hoạ.** §23 viết
 `scan(): Promise<PrinterDevice[]>`, `connect(printer)`,
@@ -3952,8 +3984,9 @@ nhận tên "TSPL_" hơi rộng nghĩa để bám §101 100%.
 cập nhật.
 
 **D7 — TrueType chưa xác nhận phần cứng.** Cú pháp `DOWNLOAD` +
-`TEXT "<font>"` theo TSPL2 phổ biến, **chưa test máy thật** (kế thừa spec
-2026-08-27 §2). No-fallback nghĩa là nếu cú pháp sai trên firmware cụ thể →
+`TEXT "<font>"` theo TSPL2 phổ biến, **chưa test máy thật** (kế thừa
+[spec TSPL TrueType Font §2](../../../docs/superpowers/specs/2026-08-27-tspl-truetype-font-design.md)).
+No-fallback nghĩa là nếu cú pháp sai trên firmware cụ thể →
 in fail thật (trước đây fallback bitmap che được). User phải test phần cứng
 trước khi bật TrueType ở production.
 
