@@ -1,5 +1,5 @@
-import { PrintMediaType } from '../models/media/PrintMedia';
-import type { PrintMedia } from '../models/media/PrintMedia';
+import { PrintPaperType } from '../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PAPER_SIZE_SPECS } from './paperSpec';
 
 /**
@@ -7,8 +7,8 @@ import { PAPER_SIZE_SPECS } from './paperSpec';
  * để tính, hoặc là giấy cuộn); ngược lại trả message tiếng Việt. Dùng chung cho
  * `printMediaSchema` (chặn Save) và `PrinterInfoCard` (cảnh báo inline).
  */
-export const dieCutRowOverflow = (media: PrintMedia): string | null => {
-  if (media.type !== PrintMediaType.dieCut) {
+export const dieCutRowOverflow = (media: PrintPaperConfig): string | null => {
+  if (media.type !== PrintPaperType.dieCut) {
     return null;
   }
 
@@ -38,7 +38,7 @@ export const dieCutRowOverflow = (media: PrintMedia): string | null => {
   );
 };
 
-const DIE_CUT_REQUIRED_FIELDS: (keyof PrintMedia)[] = [
+const DIE_CUT_REQUIRED_FIELDS: (keyof PrintPaperConfig)[] = [
   'itemWidthMm',
   'itemHeightMm',
   'columns',
@@ -52,8 +52,8 @@ const DIE_CUT_REQUIRED_FIELDS: (keyof PrintMedia)[] = [
  * `printMediaSchema` (schema thêm issue theo từng `path`; hàm này gộp thành 1
  * message để `saveDisabled` + cảnh báo inline dùng).
  */
-export const dieCutMediaError = (media: PrintMedia): string | null => {
-  if (media.type !== PrintMediaType.dieCut) {
+export const dieCutMediaError = (media: PrintPaperConfig): string | null => {
+  if (media.type !== PrintPaperType.dieCut) {
     return null;
   }
 

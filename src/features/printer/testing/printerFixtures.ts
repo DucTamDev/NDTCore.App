@@ -2,14 +2,14 @@ import { ConnectionType } from '../models/printer/PrinterDevice';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
 import type { Printer, PrinterConnection } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
-import { PrintMediaType } from '../models/media/PrintMedia';
-import type { PrintMedia } from '../models/media/PrintMedia';
+import { PrintPaperType } from '../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrintType } from '../models/printing/PrintType';
 
-export const DEFAULT_MEDIA: PrintMedia = { type: PrintMediaType.continuous, paperSize: 80 };
+export const DEFAULT_MEDIA: PrintPaperConfig = { type: PrintPaperType.continuous, paperSize: 80 };
 
 /** Override phần metadata của 1 `PrinterDriver` — `config` được factory tự dựng (dùng `media`/`renderMode`), không nhận qua đây. */
-type DriverEntryOverride = Partial<Omit<PrinterDriver, 'config'>> & { media?: Partial<PrintMedia> };
+type DriverEntryOverride = Partial<Omit<PrinterDriver, 'config'>> & { media?: Partial<PrintPaperConfig> };
 
 export const makeEscPosDriverEntry = (o: DriverEntryOverride = {}): PrinterDriver => {
   const { media, ...rest } = o;

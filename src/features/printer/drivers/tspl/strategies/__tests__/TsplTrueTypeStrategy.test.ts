@@ -1,7 +1,7 @@
 import { TsplTrueTypeStrategy } from '../TsplTrueTypeStrategy';
 import { contentWidthChars } from '../../TsplEncoder';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
-import type { PrintMedia } from '../../../../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/PrinterDriver';
 import { PrintType } from '../../../../models/printing/PrintType';
@@ -66,7 +66,7 @@ describe('TsplTrueTypeStrategy', () => {
   });
 
   it('die_cut: line/row element dùng contentWidthChars (không phải bề rộng cả tờ giấy) và cũng nhân theo cột với offset +dx', () => {
-    const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as PrintMedia;
+    const dieCut = { type: 'die_cut', paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3 } as PrintPaperConfig;
     const width = contentWidthChars(dieCut);
     expect(width).toBeLessThan(64); // < PAPER_SIZE_SPECS[100].charsPerLine, tức không tràn cột
     const dieCutDriver = withConfig({ type: PrinterDriverType.tspl, renderMode: TsplRenderMode.truetype, media: { ...dieCut }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } });

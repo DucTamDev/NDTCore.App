@@ -19,7 +19,7 @@ import { mediaOf } from '../drivers/driverConfig';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { UsbRawDevice } from '../models/printer/PrinterDevice';
-import { dieCutMediaError } from '../media/validation';
+import { dieCutMediaError } from '../paper/validation';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';
 import { useTestPrint } from './addPrinter/useTestPrint';

@@ -6,7 +6,7 @@ import { PRINT_TYPE_LABELS } from '../../models/printing/PrintType';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import type { PrintType } from '../../models/printing/PrintType';
 import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
-import type { PrintMedia } from '../../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../../models/printing/PrintJob';
 
@@ -32,7 +32,7 @@ const resolveResultStatus = (successCount: number, total: number): PrintResultSt
 
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
-   * `PrintMedia` cần để render ảnh cho `printType` này, hoặc `null` nếu
+   * `PrintPaperConfig` cần để render ảnh cho `printType` này, hoặc `null` nếu
    * không có target nào (TSPL hoặc ESC/POS) đang cấu hình `renderMode:
    * 'bitmap'`. Target TSPL cấu hình `'truetype'`/`'internalfont'` không cần
    * ảnh — strategy tương ứng dùng thẳng `documents.text`, bỏ qua
@@ -42,7 +42,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
    * — capture theo `media` để máy die-cut chụp đúng bề rộng tem
    * (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
-  const imageDocumentMedia = (printType: PrintType): PrintMedia | null => {
+  const imageDocumentMedia = (printType: PrintType): PrintPaperConfig | null => {
     const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => usesBitmapRenderMode(t.driver));
     return target ? mediaOf(target.driver) : null;
   };

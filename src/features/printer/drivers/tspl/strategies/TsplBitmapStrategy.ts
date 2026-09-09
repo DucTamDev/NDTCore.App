@@ -1,10 +1,10 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
 import { TsplRenderMode } from '../../../models/printer/PrinterDriver';
-import { PrintMediaType } from '../../../models/media/PrintMedia';
+import { PrintPaperType } from '../../../models/paper/PrintPaperConfig';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
-import { resolveEffectiveCutterMode } from '../../../media/cutter';
-import { PAPER_SIZE_SPECS } from '../../../media/paperSpec';
+import { resolveEffectiveCutterMode } from '../../../paper/cutter';
+import { PAPER_SIZE_SPECS } from '../../../paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
 
 /**
@@ -27,7 +27,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
     const { printType, media, rows, documents } = context;
     const heightMm = resolveSizeHeightMm(media, printType);
     const paperSize = media.paperSize;
-    const targetWidthPx = media.type === PrintMediaType.dieCut
+    const targetWidthPx = media.type === PrintPaperType.dieCut
       ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
 

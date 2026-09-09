@@ -2,7 +2,7 @@ import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { EscPosRenderMode, TsplFontConfig, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
-import type { PrintMedia } from '../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../errors/PrinterError';
 import { PrinterLogger } from './PrinterLogger';
 import { LoggerService } from '../../../services/LoggerService';
@@ -204,7 +204,7 @@ export const createPrinterConfigService = (
    * nó khi Save. Với printer đang SỬA, đây là 1 lần ghi thật ngay → caller phải
    * truyền media ĐÃ MERGE (không phải raw patch) để không lưu media dở dang.
    */
-  const setDriverMedia = (printerId: string, driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
+  const setDriverMedia = (printerId: string, driverType: PrinterDriverType, patch: Partial<PrintPaperConfig>): void => {
     const printers = repository.getPrinters();
     const printer = printers.find((p) => p.id === printerId);
     const entry = printer?.drivers.find((d) => d.type === driverType);

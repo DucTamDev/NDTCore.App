@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../../models/printer/PrinterDriver';
-import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
-import type { PrintMedia } from '../../models/media/PrintMedia';
+import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
-import { dieCutRowOverflow } from '../../media/validation';
+import { dieCutRowOverflow } from '../../paper/validation';
 
 const paperSizeSchema = z.union([z.literal(58), z.literal(80), z.literal(100), z.literal(104)]);
 
@@ -13,7 +13,7 @@ const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalG
 
 const printMediaSchema = z
   .object({
-    type: z.enum([PrintMediaType.continuous, PrintMediaType.dieCut]),
+    type: z.enum([PrintPaperType.continuous, PrintPaperType.dieCut]),
     paperSize: paperSizeSchema,
     itemWidthMm: z.number().positive().optional(),
     itemHeightMm: z.number().positive().optional(),
@@ -23,7 +23,7 @@ const printMediaSchema = z
     cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
   })
   .superRefine((m, ctx) => {
-    if (m.type !== PrintMediaType.dieCut) {
+    if (m.type !== PrintPaperType.dieCut) {
       return;
     }
 
@@ -37,7 +37,7 @@ const printMediaSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
     }
 
-    const overflow = dieCutRowOverflow(m as PrintMedia);
+    const overflow = dieCutRowOverflow(m as PrintPaperConfig);
 
     if (overflow) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
@@ -98,7 +98,7 @@ export const printerDriverSchema = z
       });
     }
 
-    if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintMediaType.continuous) {
+    if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintPaperType.continuous) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['config', 'media', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
   });

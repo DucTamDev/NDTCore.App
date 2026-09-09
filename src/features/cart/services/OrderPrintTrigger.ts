@@ -8,7 +8,7 @@ import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '..
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintType } from '../../printer/models/printing/PrintType';
-import type { PrintMedia } from '../../printer/models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../printer/models/paper/PrintPaperConfig';
 
 interface BillItem {
   name: string;
@@ -159,7 +159,7 @@ export const buildReprintDocument = (order: OrderDetail, store: StoreViewModel |
 export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
 /** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG theo `media` cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
-export type CaptureBillImage = (document: PrintDocument, media: PrintMedia) => Promise<string | null>;
+export type CaptureBillImage = (document: PrintDocument, media: PrintPaperConfig) => Promise<string | null>;
 
 /**
  * Chỉ render + chụp ảnh khi thật sự có máy in TSPL bitmap-mode được gán cho

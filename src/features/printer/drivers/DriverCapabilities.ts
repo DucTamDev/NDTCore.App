@@ -1,8 +1,8 @@
 import { EscPosRenderMode, PrinterDriverType, TsplRenderMode, type PrinterDriverConfig } from '../models/printer/PrinterDriver';
 import { PrintType } from '../models/printing/PrintType';
-import { PrintMediaType } from '../models/media/PrintMedia';
+import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 
-const DEFAULT_MEDIA = { type: PrintMediaType.continuous, paperSize: 80 } as const;
+const DEFAULT_MEDIA = { type: PrintPaperType.continuous, paperSize: 80 } as const;
 
 export interface DriverCapabilities {
   contentTypes: PrintType[];

@@ -1,10 +1,10 @@
-import type { PrintMedia } from '../../models/media/PrintMedia';
-import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
+import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import { TsplCodepage } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../media/paperSpec';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -80,8 +80,8 @@ export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
  * Declared height for `SIZE`: die_cut → item height; continuous Label →
  * item height or the default; continuous Receipt → the wide safety ceiling.
  */
-export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): number => {
-  if (media.type === PrintMediaType.dieCut) {
+export const resolveSizeHeightMm = (media: PrintPaperConfig, printType: PrintType): number => {
+  if (media.type === PrintPaperType.dieCut) {
     return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
   }
 
@@ -98,7 +98,7 @@ export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): nu
  *
  * Centre-to-centre pitch between two die-cut columns, in dots.
  */
-export const columnPitchDots = (media: PrintMedia): number =>
+export const columnPitchDots = (media: PrintPaperConfig): number =>
   ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
 
 /**
@@ -107,8 +107,8 @@ export const columnPitchDots = (media: PrintMedia): number =>
  *
  * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
  */
-export const columnOffsets = (media: PrintMedia): number[] => {
-  if (media.type !== PrintMediaType.dieCut) {
+export const columnOffsets = (media: PrintPaperConfig): number[] => {
+  if (media.type !== PrintPaperType.dieCut) {
     return [0];
   }
 
@@ -121,9 +121,9 @@ export const columnOffsets = (media: PrintMedia): number[] => {
  * die_cut ước lượng theo tỉ lệ `itemWidthMm` trên bề rộng in được; continuous
  * dùng cả khổ giấy.
  */
-export const contentWidthChars = (media: PrintMedia): number => {
+export const contentWidthChars = (media: PrintPaperConfig): number => {
   const spec = PAPER_SIZE_SPECS[media.paperSize];
-  if (media.type !== PrintMediaType.dieCut) {
+  if (media.type !== PrintPaperType.dieCut) {
     return spec.charsPerLine;
   }
 
@@ -165,11 +165,11 @@ export class TsplEncoder {
    * `SIZE`/`GAP` follow `media.type`: die_cut declares the full row width and
    * senses the vertical gap; continuous always emits `GAP 0,0`.
    */
-  initialize(media: PrintMedia, printType: PrintType = PrintType.Receipt, codepage: TsplCodepage = TsplCodepage.utf8): this {
+  initialize(media: PrintPaperConfig, printType: PrintType = PrintType.Receipt, codepage: TsplCodepage = TsplCodepage.utf8): this {
     this.codepage = codepage;
     const heightMm = resolveSizeHeightMm(media, printType);
 
-    if (media.type === PrintMediaType.dieCut) {
+    if (media.type === PrintPaperType.dieCut) {
       const columns = media.columns ?? 1;
       const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);

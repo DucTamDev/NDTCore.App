@@ -5,7 +5,7 @@ import { PrinterDriverType, TsplRenderMode } from '../../../../models/printer/Pr
 import { PrintType } from '../../../../models/printing/PrintType';
 import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
-import type { PrintMedia } from '../../../../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
 import { decodePngBase64ToMonochrome } from '../../../../utils/pngToMonochrome';
 
 jest.mock('../../../../utils/pngToMonochrome', () => {
@@ -13,9 +13,9 @@ jest.mock('../../../../utils/pngToMonochrome', () => {
   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
 });
 
-const MEDIA: PrintMedia = { type: 'continuous', paperSize: 80 };
+const MEDIA: PrintPaperConfig = { type: 'continuous', paperSize: 80 };
 
-const DIE_CUT: PrintMedia = { type: 'die_cut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+const DIE_CUT: PrintPaperConfig = { type: 'die_cut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
 
 // PNG 4x4 trắng hợp lệ, base64 (không data: prefix)
 const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAEAQMAAACTPww9AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAA/wAAG/+NIgAAAAJ0Uk5TAAB2k804AAAAC0lEQVR4nGNggAAAAAgAAbdYc5UAAAAASUVORK5CYII=';

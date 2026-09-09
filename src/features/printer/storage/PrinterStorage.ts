@@ -14,7 +14,7 @@ const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
 // v3: identityKey USB = `usb:<vid>:<pid>[:<serial>]` (serial từ USBPrinter.getDeviceList()).
 // Format đổi so với v1 (`usb:device:...`) và v2 (`usb:serial:...`) → reset.
 // v4: bỏ Printer.paperSize + TsplDriverConfig.labelHeightMm, thay bằng
-//     PrinterDriver.config.media (PrintMedia) + Printer.capabilities.
+//     PrinterDriver.config.media (PrintPaperConfig) + Printer.capabilities.
 //     Shape Printer đổi không tương thích ngược → reset (không migrate).
 // v5: gộp Printer.connectionType/device/lan (3 field phẳng) thành
 //     Printer.connection: { type, device, lan } (1 object lồng nhau) — shape

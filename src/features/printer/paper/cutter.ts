@@ -1,5 +1,5 @@
-import { CutterMode, PrintMediaType } from '../models/media/PrintMedia';
-import type { PrintMedia } from '../models/media/PrintMedia';
+import { CutterMode, PrintPaperType } from '../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 
 /**
  * Chế độ cắt THỰC THI sau khi áp ràng buộc vật lý:
@@ -15,5 +15,5 @@ import type { PrintMedia } from '../models/media/PrintMedia';
  * - continuous: `media.cutterMode ?? 'per_job'` (keeps current ESC/POS
  *   behaviour; only an explicit `'none'` disables the cut).
  */
-export const resolveEffectiveCutterMode = (media: PrintMedia): CutterMode =>
-  media.type === PrintMediaType.dieCut ? CutterMode.none : (media.cutterMode ?? CutterMode.perJob);
+export const resolveEffectiveCutterMode = (media: PrintPaperConfig): CutterMode =>
+  media.type === PrintPaperType.dieCut ? CutterMode.none : (media.cutterMode ?? CutterMode.perJob);

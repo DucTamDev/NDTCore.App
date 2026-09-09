@@ -1,6 +1,6 @@
 import { EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
 import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
-import type { PaperSize, PrintMedia } from '../models/media/PrintMedia';
+import type { PaperSize, PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 
 /**
  * `renderMode` đã cấu hình của driver TSPL — chỉ là ý định khai báo, không quan
@@ -11,7 +11,7 @@ import type { PaperSize, PrintMedia } from '../models/media/PrintMedia';
 export const tsplRenderModeOf = (driver: PrinterDriver): TsplRenderMode | null =>
   driver.config.type === PrinterDriverType.tspl ? driver.config.renderMode : null;
 
-export const mediaOf = (driver: PrinterDriver): PrintMedia => driver.config.media;
+export const mediaOf = (driver: PrinterDriver): PrintPaperConfig => driver.config.media;
 
 export const paperSizeOf = (driver: PrinterDriver): PaperSize => driver.config.media.paperSize;
 

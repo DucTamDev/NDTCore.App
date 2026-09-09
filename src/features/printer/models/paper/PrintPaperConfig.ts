@@ -1,12 +1,12 @@
 export type PaperSize = 58 | 80 | 100 | 104;
 
-export const PrintMediaType = {
+export const PrintPaperType = {
   /** Giấy cuộn liên tục — không khe/răng cưa vật lý. */
   continuous: 'continuous',
   /** Giấy tem rời có khe (die-cut / pre-cut), có thể nhiều cột. */
   dieCut: 'die_cut',
 } as const;
-export type PrintMediaType = (typeof PrintMediaType)[keyof typeof PrintMediaType];
+export type PrintPaperType = (typeof PrintPaperType)[keyof typeof PrintPaperType];
 
 export const CutterMode = {
   none: 'none',
@@ -23,14 +23,14 @@ export type CutterMode = (typeof CutterMode)[keyof typeof CutterMode];
  * `itemWidthMm`/`itemHeightMm`/`columns`/gap chỉ có nghĩa (và schema bắt buộc)
  * khi `type === 'die_cut'`.
  */
-export interface PrintMedia {
-  type: PrintMediaType;
+export interface PrintPaperConfig {
+  type: PrintPaperType;
   paperSize: PaperSize;
   itemWidthMm?: number;
   itemHeightMm?: number;
   columns?: number;
   horizontalGapMm?: number;
   verticalGapMm?: number;
-  /** die_cut ⇒ luôn `'none'`; continuous + `undefined` ⇒ `'per_job'`. Áp ràng buộc ở `media/cutter.ts`. */
+  /** die_cut ⇒ luôn `'none'`; continuous + `undefined` ⇒ `'per_job'`. Áp ràng buộc ở `paper/cutter.ts`. */
   cutterMode?: CutterMode;
 }

@@ -1,6 +1,6 @@
 import type { Printer } from '../../../models/printer/Printer';
 import type { PrinterDriver, TsplRenderMode } from '../../../models/printer/PrinterDriver';
-import type { PrintMedia } from '../../../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintType } from '../../../models/printing/PrintType';
 
@@ -16,7 +16,7 @@ export interface TsplStrategyContext {
   documents: PrintDocuments;
   printType: PrintType;
   /** = `mediaOf(driver)`. Nguồn cho `SIZE`/`GAP`/`SET CUTTER`/layout cột. */
-  media: PrintMedia;
+  media: PrintPaperConfig;
   /** Số hàng die-cut cần in (>= 1). Continuous: số bản sao. */
   rows: number;
 }

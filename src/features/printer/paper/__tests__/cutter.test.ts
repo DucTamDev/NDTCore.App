@@ -1,11 +1,11 @@
 import { resolveEffectiveCutterMode } from '../cutter';
-import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
-import type { PrintMedia } from '../../models/media/PrintMedia';
+import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 
-const dieCut = (cutterMode?: CutterMode): PrintMedia => ({
-  type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, cutterMode,
+const dieCut = (cutterMode?: CutterMode): PrintPaperConfig => ({
+  type: PrintPaperType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, cutterMode,
 });
-const continuous = (cutterMode?: CutterMode): PrintMedia => ({ type: PrintMediaType.continuous, paperSize: 80, cutterMode });
+const continuous = (cutterMode?: CutterMode): PrintPaperConfig => ({ type: PrintPaperType.continuous, paperSize: 80, cutterMode });
 
 describe('resolveEffectiveCutterMode', () => {
   it('die_cut → luôn none, bất kể cutterMode', () => {

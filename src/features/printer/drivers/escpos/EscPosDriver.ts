@@ -3,7 +3,7 @@ import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { EscPosRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { CutterMode } from '../../models/media/PrintMedia';
+import { CutterMode } from '../../models/paper/PrintPaperConfig';
 import { escPosRenderModeOf, mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
@@ -18,9 +18,9 @@ import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
-import { resolveEffectiveCutterMode } from '../../media/cutter';
+import { resolveEffectiveCutterMode } from '../../paper/cutter';
 import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
-import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../media/paperSpec';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
 
 const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 

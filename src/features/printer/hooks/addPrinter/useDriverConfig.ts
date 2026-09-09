@@ -5,8 +5,8 @@ import { DEFAULT_TSPL_INTERNAL_FONT } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import type { EscPosRenderMode, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../models/printer/PrinterDriver';
-import { PrintMediaType } from '../../models/media/PrintMedia';
-import type { PrintMedia } from '../../models/media/PrintMedia';
+import { PrintPaperType } from '../../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import type { PrintType } from '../../models/printing/PrintType';
 
 /**
@@ -104,16 +104,16 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
     PrinterConfigService.setEscPosRenderMode(printerId, mode);
   };
 
-  const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
+  const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintPaperConfig>): void => {
     const entry = drivers.find((d) => d.type === driverType);
 
     if (!entry) {
       return;
     }
 
-    let media = { ...entry.config.media, ...patch } as PrintMedia;
+    let media = { ...entry.config.media, ...patch } as PrintPaperConfig;
 
-    if (media.type === PrintMediaType.dieCut) {
+    if (media.type === PrintPaperType.dieCut) {
       media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
     }
 

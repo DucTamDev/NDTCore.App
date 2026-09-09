@@ -4,20 +4,20 @@ import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import { PrintMediaType, type PaperSize, type PrintMedia } from '../models/media/PrintMedia';
-import { dieCutMediaError } from '../media/validation';
+import { PrintPaperType, type PaperSize, type PrintPaperConfig } from '../models/paper/PrintPaperConfig';
+import { dieCutMediaError } from '../paper/validation';
 
 const PAPER_SIZE_OPTIONS = [58, 80, 100, 104].map((n) => ({ label: `${n}mm`, value: String(n) }));
 const MEDIA_TYPE_OPTIONS = [
-  { label: 'Giấy cuộn liên tục', value: PrintMediaType.continuous },
-  { label: 'Die-cut (tem rời, nhiều cột)', value: PrintMediaType.dieCut },
+  { label: 'Giấy cuộn liên tục', value: PrintPaperType.continuous },
+  { label: 'Die-cut (tem rời, nhiều cột)', value: PrintPaperType.dieCut },
 ];
 
 export interface DriverMediaSectionProps {
   driverType: PrinterDriverType;
-  media: PrintMedia;
+  media: PrintPaperConfig;
   disabled: boolean;
-  onChange: (patch: Partial<PrintMedia>) => void;
+  onChange: (patch: Partial<PrintPaperConfig>) => void;
 }
 
 const parseNum = (t: string): number | undefined => (t.trim() === '' ? undefined : Number(t));
@@ -25,7 +25,7 @@ const numStr = (n: number | undefined): string => (n == null ? '' : String(n));
 
 export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverType, media, disabled, onChange }) => {
   const isTspl = driverType === PrinterDriverType.tspl;
-  const isDieCut = media.type === PrintMediaType.dieCut;
+  const isDieCut = media.type === PrintPaperType.dieCut;
   const mediaError = dieCutMediaError(media);
   return (
     <View style={styles.block}>
@@ -41,7 +41,7 @@ export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverTy
           <AppSelect
             label="Loại giấy"
             value={media.type}
-            onSelect={(v) => onChange({ type: v as PrintMedia['type'] })}
+            onSelect={(v) => onChange({ type: v as PrintPaperConfig['type'] })}
             options={MEDIA_TYPE_OPTIONS}
             disabled={disabled}
           />

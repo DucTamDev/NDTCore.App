@@ -1,7 +1,7 @@
 import { escPosRenderModeOf, mediaOf, paperSizeOf, tsplRenderModeOf, usesBitmapRenderMode, DEFAULT_TSPL_INTERNAL_FONT } from '../driverConfig';
 import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
-import { PrintMediaType } from '../../models/media/PrintMedia';
+import { PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
 
 describe('mediaOf / paperSizeOf', () => {
@@ -13,7 +13,7 @@ describe('mediaOf / paperSizeOf', () => {
       config: {
         type: PrinterDriverType.tspl,
         renderMode: TsplRenderMode.bitmap,
-        media: { type: PrintMediaType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 },
+        media: { type: PrintPaperType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 },
       },
     };
     expect(paperSizeOf(driver)).toBe(100);

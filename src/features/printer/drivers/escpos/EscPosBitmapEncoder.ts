@@ -1,5 +1,5 @@
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
-import { CutterMode } from '../../models/media/PrintMedia';
+import { CutterMode } from '../../models/paper/PrintPaperConfig';
 
 const INIT_PRINTER_BYTES = [0x1b, 0x40]; // ESC @
 const CUT_BYTES = [0x1b, 0x6d]; // khớp hành vi cắt ESC/POS text-mode hiện tại (EPToolkit.cut_bytes)

@@ -18,7 +18,7 @@ import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
 import type { ConnectionType, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
-import type { PrintMedia } from '../models/media/PrintMedia';
+import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 
 const connectionLabel: Record<ConnectionType, string> = {
   usb: 'USB',
@@ -57,7 +57,7 @@ export interface PrinterInfoCardProps {
   /** Cập nhật 1 phần cấu hình font máy in (`renderMode: 'internalfont'`). */
   onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
   /** Cập nhật `media` per-driver (khổ giấy, loại giấy, kích thước die-cut). Wire UI ở Task 4. */
-  onChangeDriverMedia: (driverType: PrinterDriverType, patch: Partial<PrintMedia>) => void;
+  onChangeDriverMedia: (driverType: PrinterDriverType, patch: Partial<PrintPaperConfig>) => void;
   /** Số hàng die-cut cho "In tem thử" — giữ dạng text để nhập dở. */
   testPrintRowsText: string;
   onTestPrintRowsChange: (text: string) => void;

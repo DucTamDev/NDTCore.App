@@ -1,12 +1,12 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintType } from '../../../models/printing/PrintType';
-import { PrintMediaType, CutterMode } from '../../../models/media/PrintMedia';
-import type { PrintMedia } from '../../../models/media/PrintMedia';
+import { PrintPaperType, CutterMode } from '../../../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
-const CONT = (paperSize: PrintMedia['paperSize'] = 58): PrintMedia => ({ type: PrintMediaType.continuous, paperSize });
-const DIE = (): PrintMedia => ({
-  type: PrintMediaType.dieCut,
+const CONT = (paperSize: PrintPaperConfig['paperSize'] = 58): PrintPaperConfig => ({ type: PrintPaperType.continuous, paperSize });
+const DIE = (): PrintPaperConfig => ({
+  type: PrintPaperType.dieCut,
   paperSize: 100,
   itemWidthMm: 30,
   itemHeightMm: 20,

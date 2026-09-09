@@ -1,4 +1,4 @@
-import type { PrintMedia } from '../media/PrintMedia';
+import type { PrintPaperConfig } from '../paper/PrintPaperConfig';
 import type { PrintType } from '../printing/PrintType';
 
 export const PrinterDriverType = {
@@ -65,7 +65,7 @@ export interface TsplDriverConfig {
   font?: TsplFontConfig;
   /** Chỉ có khi renderMode từng được đặt `'internalfont'`. */
   internalFont?: TsplInternalFontConfig;
-  media: PrintMedia;
+  media: PrintPaperConfig;
 }
 
 export const EscPosRenderMode = {
@@ -81,7 +81,7 @@ export interface EscPosDriverConfig {
   type: 'escpos';
   /** `undefined` ⇒ coi như `'text'` — giữ tương thích ngược printer đã lưu trước khi có field này. */
   renderMode?: EscPosRenderMode;
-  media: PrintMedia;
+  media: PrintPaperConfig;
 }
 
 export type PrinterDriverConfig = TsplDriverConfig | EscPosDriverConfig;

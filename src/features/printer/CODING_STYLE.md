@@ -16,7 +16,7 @@ Mỗi class/interface/type chỉ có **một responsibility rõ ràng**.
 Printer
 PrinterDriver
 PrinterConnection
-PrintMedia
+PrintPaperConfig
 PrinterCapabilities
 ```
 
@@ -39,7 +39,7 @@ Utils
 ConfigData
 
 // Ưu tiên
-PrintMedia
+PrintPaperConfig
 PrinterConnection
 PrinterCapabilities
 PrintRoutingService
@@ -183,7 +183,7 @@ width
 timeout
 ```
 
-Đã áp dụng nhất quán trong `PrintMedia`/`paperSpec.ts` — giữ khi thêm field mới.
+Đã áp dụng nhất quán trong `PrintPaperConfig`/`paperSpec.ts` — giữ khi thêm field mới.
 
 ---
 
@@ -211,7 +211,7 @@ const name = printer.name;
  * Giấy vật lý đang nạp trong máy in — thuộc Printer, KHÔNG thuộc driver.
  * Không mô tả behavior driver hay routing.
  */
-export interface PrintMedia { ... }
+export interface PrintPaperConfig { ... }
 ```
 
 ### 10.4 Field chỉ comment khi tên+type chưa đủ rõ
