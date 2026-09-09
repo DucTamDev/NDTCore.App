@@ -1,13 +1,8 @@
 /**
- * Thông tin kết nối đã LƯU của 1 `Printer` — khác `PrinterDevice`
- * (models/printer/PrinterDevice.ts) là kết quả SCAN tạm thời trước khi user
- * chọn; xem doc comment đầu file đó cho vòng đời 3 giai đoạn đầy đủ (scan →
- * connection → identify).
- *
- * Discriminated union theo `type` — mỗi variant chỉ khai field khớp đúng
- * connection type đó, không có field optional dùng chung (ARCHITECTURE.md §7).
- * TypeScript/Zod tự loại trừ trạng thái vô nghĩa (vd `usb` mà thiếu
- * `vendorId`) thay vì phải validate bằng tay ở nơi dùng.
+ * Thông tin kết nối đã lưu của 1 `Printer` — khác `PrinterDevice`
+ * (PrinterDevice.ts) là kết quả scan tạm thời. Discriminated union theo
+ * `type` để loại trừ trạng thái vô nghĩa (vd `usb` thiếu `vendorId`) ở
+ * compile-time thay vì validate tay.
  */
 export interface UsbPrinterConnection {
   type: 'usb';
