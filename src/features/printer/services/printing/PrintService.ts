@@ -5,8 +5,7 @@ import { generateId } from '../../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../../models/printing/PrintType';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import type { PrintType } from '../../models/printing/PrintType';
-import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
-import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
+import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
 import type { PrintMedia } from '../../models/media/PrintMedia';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../../models/printing/PrintJob';
@@ -34,16 +33,17 @@ const resolveResultStatus = (successCount: number, total: number): PrintResultSt
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
    * `PrintMedia` cần để render ảnh cho `printType` này, hoặc `null` nếu
-   * không có target nào tspl đang cấu hình `renderMode: 'bitmap'`. Target
-   * cấu hình `'truetype'` không cần ảnh — `TsplTrueTypeStrategy` dùng thẳng
-   * `documents.text`, bỏ qua `documents.image` hoàn toàn (nếu font chưa cài
-   * xong thì strategy tự ném lỗi in, không phải việc tầng này né tránh).
-   * Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi có giá
-   * trị trả về — capture theo `media` để máy die-cut chụp đúng bề rộng tem
+   * không có target nào (TSPL hoặc ESC/POS) đang cấu hình `renderMode:
+   * 'bitmap'`. Target TSPL cấu hình `'truetype'`/`'internalfont'` không cần
+   * ảnh — strategy tương ứng dùng thẳng `documents.text`, bỏ qua
+   * `documents.image` hoàn toàn (nếu font/cấu hình chưa sẵn sàng thì
+   * strategy tự ném lỗi in, không phải việc tầng này né tránh). Nơi gọi
+   * (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi có giá trị trả về
+   * — capture theo `media` để máy die-cut chụp đúng bề rộng tem
    * (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
   const imageDocumentMedia = (printType: PrintType): PrintMedia | null => {
-    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => t.driver.type === PrinterDriverType.tspl && tsplRenderModeOf(t.driver) === TsplRenderMode.bitmap);
+    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => usesBitmapRenderMode(t.driver));
     return target ? mediaOf(target.driver) : null;
   };
 

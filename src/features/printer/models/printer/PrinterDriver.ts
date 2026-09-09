@@ -68,8 +68,19 @@ export interface TsplDriverConfig {
   media: PrintMedia;
 }
 
+export const EscPosRenderMode = {
+  /** Encode text tiếng Việt qua `EPToolkit` — nhanh, cần máy in hỗ trợ đúng codepage CP1258. */
+  text: 'text',
+  /** Render nội dung thành ảnh rồi gửi lệnh `GS v 0` — chậm hơn, hiển thị đúng trên mọi máy bất kể codepage. */
+  bitmap: 'bitmap',
+} as const;
+
+export type EscPosRenderMode = (typeof EscPosRenderMode)[keyof typeof EscPosRenderMode];
+
 export interface EscPosDriverConfig {
   type: 'escpos';
+  /** `undefined` ⇒ coi như `'text'` — giữ tương thích ngược printer đã lưu trước khi có field này. */
+  renderMode?: EscPosRenderMode;
   media: PrintMedia;
 }
 

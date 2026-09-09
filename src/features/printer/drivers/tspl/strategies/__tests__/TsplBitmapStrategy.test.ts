@@ -55,12 +55,12 @@ describe('TsplBitmapStrategy', () => {
 
   it('mode === bitmap', () => expect(s.mode).toBe(TsplRenderMode.bitmap));
 
-  it('validate ném TSPL_IMAGE_REQUIRED khi thiếu documents.image', () => {
+  it('validate ném IMAGE_REQUIRED khi thiếu documents.image', () => {
     expect(() => s.validate(ctx({ documents: { text: { elements: [] } } }))).toThrow();
     try {
       s.validate(ctx({ documents: { text: { elements: [] } } }));
     } catch (e) {
-      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_REQUIRED });
+      expect(e).toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
     }
   });
 
@@ -93,16 +93,16 @@ describe('TsplBitmapStrategy', () => {
     expect(decodePngBase64ToMonochrome).toHaveBeenCalledWith(TINY_PNG, 240);
   });
 
-  it('encode ném TSPL_IMAGE_INVALID khi base64 không phải PNG', () => {
+  it('encode ném IMAGE_INVALID khi base64 không phải PNG', () => {
     expect(() => s.encode(ctx({ documents: { text: { elements: [] }, image: 'bm90LWEtcG5n' } }))).toThrow();
     try {
       s.encode(ctx({ documents: { text: { elements: [] }, image: 'bm90LWEtcG5n' } }));
     } catch (e) {
-      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_INVALID });
+      expect(e).toMatchObject({ code: PrinterErrorCode.IMAGE_INVALID });
     }
   });
 
-  it('encode ném TSPL_IMAGE_TOO_LARGE khi ảnh cao hơn resolveSizeHeightMm(media)*DOTS_PER_MM', () => {
+  it('encode ném IMAGE_TOO_LARGE khi ảnh cao hơn resolveSizeHeightMm(media)*DOTS_PER_MM', () => {
     // itemHeightMm cực nhỏ + Label để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
     const tiny: Partial<TsplStrategyContext> = {
       media: { type: 'continuous', paperSize: 80, itemHeightMm: 0.01 },
@@ -112,7 +112,7 @@ describe('TsplBitmapStrategy', () => {
     try {
       s.encode(ctx(tiny));
     } catch (e) {
-      expect(e).toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE });
+      expect(e).toMatchObject({ code: PrinterErrorCode.IMAGE_TOO_LARGE });
     }
   });
 });

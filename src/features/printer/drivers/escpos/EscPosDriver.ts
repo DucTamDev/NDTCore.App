@@ -1,10 +1,10 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { EscPosRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { CutterMode } from '../../models/media/PrintMedia';
-import { mediaOf, paperSizeOf } from '../driverConfig';
+import { escPosRenderModeOf, mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
@@ -17,7 +17,10 @@ import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
+import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
 import { resolveEffectiveCutterMode } from '../../media/cutter';
+import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../media/paperSpec';
 
 const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 
@@ -167,9 +170,46 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   private async sendDocuments(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
+    if (escPosRenderModeOf(driver) === EscPosRenderMode.bitmap) {
+      await this.sendBitmap(adapter, driver, documents);
+      return;
+    }
+
     const cut = resolveEffectiveCutterMode(mediaOf(driver)) !== CutterMode.none;
     const text = buildEscPosText(paperSizeOf(driver), documents);
     await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
+  }
+
+  /**
+   * ESC/POS media luôn `continuous` (schema cấm die-cut cho ESC/POS) — không
+   * cần lặp theo cột như TSPL die-cut, đơn giản hơn hẳn theo đúng lý do vật lý.
+   */
+  private async sendBitmap(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
+    if (!documents.image) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_REQUIRED, message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.' });
+    }
+
+    const media = mediaOf(driver);
+    const targetWidthPx = PAPER_SIZE_SPECS[paperSizeOf(driver)].imageWidthPx;
+
+    let bitmap;
+
+    try {
+      bitmap = decodePngBase64ToMonochrome(documents.image, targetWidthPx);
+    } catch (error) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_INVALID, message: 'Ảnh bill không hợp lệ (không giải mã được PNG).', cause: error });
+    }
+
+    const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
+
+    if (bitmap.heightPx > maxHeightPx) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_TOO_LARGE, message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.` });
+    }
+
+    const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(media));
+    // KHÔNG dùng adapter.printText() — cần chunk qua UsbTransport như TSPL bitmap
+    // (printText() trên USB gọi thẳng writeByBase64 không chunk, bill dài dễ vượt 1 lần transfer).
+    await adapter.write(bytes);
   }
 
   /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */

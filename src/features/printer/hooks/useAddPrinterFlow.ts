@@ -384,6 +384,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
       testPrintLabelPending: testPrint.testPrintLabelPending,
       onTestPrintLabel: testPrint.onTestPrintLabel,
       onSelectTsplRenderMode: driverConfig.onSelectTsplRenderMode,
+      onSelectEscPosRenderMode: driverConfig.onSelectEscPosRenderMode,
       onChangeTsplInternalFont: driverConfig.onChangeTsplInternalFont,
       onChangeDriverMedia: driverConfig.onChangeDriverMedia,
       testPrintRowsText: testPrint.testPrintRowsText,

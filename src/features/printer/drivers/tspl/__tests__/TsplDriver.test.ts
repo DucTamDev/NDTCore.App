@@ -392,12 +392,12 @@ describe('TsplDriver', () => {
     expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
   });
 
-  it('print() rejects with TSPL_IMAGE_TOO_LARGE when the image is taller than the declared label height', async () => {
+  it('print() rejects with IMAGE_TOO_LARGE when the image is taller than the declared label height', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await expect(
       driver.print(lanPrinter.id, { text: sampleDocuments.text, image: squarePngBase64() }, PrintType.Label),
-    ).rejects.toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE });
+    ).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_TOO_LARGE });
   });
 
   it('print() does NOT reject the same oversized-for-Label image when printing a Receipt (continuous paper, no fixed label height)', async () => {
@@ -417,18 +417,18 @@ describe('TsplDriver', () => {
     });
   });
 
-  it('print() bitmap mode: thiếu documents.image → ném TSPL_IMAGE_REQUIRED, KHÔNG ghi bytes, log printFailed (RULE 33)', async () => {
+  it('print() bitmap mode: thiếu documents.image → ném IMAGE_REQUIRED, KHÔNG ghi bytes, log printFailed (RULE 33)', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.TSPL_IMAGE_REQUIRED });
+    await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
     expect(instance.write).not.toHaveBeenCalled();
     const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.TSPL_IMAGE_REQUIRED }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.IMAGE_REQUIRED }),
     );
   });
 

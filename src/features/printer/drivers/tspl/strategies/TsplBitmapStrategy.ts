@@ -17,7 +17,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
   validate(context: TsplStrategyContext): void {
     if (!context.documents.image) {
       throw new PrinterErrorException({
-        code: PrinterErrorCode.TSPL_IMAGE_REQUIRED,
+        code: PrinterErrorCode.IMAGE_REQUIRED,
         message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.',
       });
     }
@@ -37,7 +37,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
       bitmap = decodePngBase64ToMonochrome(documents.image as string, targetWidthPx);
     } catch (error) {
       throw new PrinterErrorException({
-        code: PrinterErrorCode.TSPL_IMAGE_INVALID,
+        code: PrinterErrorCode.IMAGE_INVALID,
         message: 'Ảnh bill không hợp lệ (không giải mã được PNG).',
         cause: error,
       });
@@ -47,7 +47,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
 
     if (bitmap.heightPx > maxHeightPx) {
       throw new PrinterErrorException({
-        code: PrinterErrorCode.TSPL_IMAGE_TOO_LARGE,
+        code: PrinterErrorCode.IMAGE_TOO_LARGE,
         message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — dùng giấy dài hơn hoặc rút gọn nội dung.`,
       });
     }

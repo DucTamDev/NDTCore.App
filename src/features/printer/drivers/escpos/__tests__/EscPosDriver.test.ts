@@ -1,9 +1,10 @@
+import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { EscPosDriver } from '../EscPosDriver';
 import { buildEscPosText } from '../EscPosTextBuilder';
 import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, EscPosRenderMode, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { type Printer } from '../../../models/printer/Printer';
 import { paperSizeOf } from '../../driverConfig';
@@ -43,6 +44,30 @@ const bytesOf = (base64: string): Buffer => Buffer.from(base64, 'base64');
 const escposDriverEntry: PrinterDriver = { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } };
 
 const escposDriverEntry58: PrinterDriver = { ...escposDriverEntry, config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 58 } } };
+
+const escposBitmapDriverEntry: PrinterDriver = {
+  ...escposDriverEntry,
+  config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } },
+};
+
+/**
+ * `forbidPlte: true` tránh 1 bug encoder `upng-js` ở ảnh 2 màu cực nhỏ (xem
+ * cùng lý do trong `TsplDriver.test.ts`) — không phải rủi ro production, ảnh
+ * bill thật lớn/phức tạp hơn hẳn ngưỡng lỗi này.
+ */
+const tinyPngBase64 = (): string => {
+  const rgba = new Uint8Array([0, 0, 0, 255, 255, 255, 255, 255]); // 2x1: đen, trắng
+  return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 1, 0, [], true))).toString('base64');
+};
+
+/** 2x6 (cao gấp 3 rộng) — sau khi chuẩn hoá về `PAPER_SIZE_SPECS[80].imageWidthPx` (576px), chiều cao ra 1728px, vượt `CONTINUOUS_HEIGHT_MM * DOTS_PER_MM` (1600px). */
+const tallPngBase64 = (): string => {
+  const rgba = new Uint8Array(2 * 6 * 4).fill(0);
+  for (let i = 3; i < rgba.length; i += 4) {
+    rgba[i] = 255; // alpha
+  }
+  return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 6, 0, [], true))).toString('base64');
+};
 
 const lanPrinter: Printer = {
   id: 'receipt-lan',
@@ -138,6 +163,64 @@ describe('EscPosDriver', () => {
     await driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt);
     const [, base64] = ThermalPrinterModule.writeByBase64.mock.calls[0] as [string, string];
     expect(bytesOf(base64).includes(Buffer.from([27, 109]))).toBe(false); // cut_bytes absent
+  });
+
+  it('sendDocuments bitmap mode: thiếu documents.image → ném IMAGE_REQUIRED, KHÔNG gọi writeByBase64', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [escposBitmapDriverEntry] }, escposBitmapDriverEntry);
+    const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { writeByBase64: jest.Mock } };
+    await expect(driver.print(lanPrinter.id, { text: sampleDocuments.text }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
+    expect(ThermalPrinterModule.writeByBase64).not.toHaveBeenCalled();
+  });
+
+  it('sendDocuments bitmap mode: PNG hỏng → ném IMAGE_INVALID', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [escposBitmapDriverEntry] }, escposBitmapDriverEntry);
+    await expect(
+      driver.print(lanPrinter.id, { text: sampleDocuments.text, image: 'not-a-real-png' }, PrintType.Receipt),
+    ).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_INVALID });
+  });
+
+  it('sendDocuments bitmap mode: ảnh quá cao (sau khi chuẩn hoá theo paperSize) → ném IMAGE_TOO_LARGE', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [escposBitmapDriverEntry] }, escposBitmapDriverEntry);
+    await expect(
+      driver.print(lanPrinter.id, { text: sampleDocuments.text, image: tallPngBase64() }, PrintType.Receipt),
+    ).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_TOO_LARGE });
+  });
+
+  it('sendDocuments bitmap mode: ảnh hợp lệ → gửi lệnh GS v 0 qua adapter.write() (writeByBase64), KHÔNG dùng printText()', async () => {
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [escposBitmapDriverEntry] }, escposBitmapDriverEntry);
+    const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { writeByBase64: jest.Mock } };
+    await driver.print(lanPrinter.id, { text: sampleDocuments.text, image: tinyPngBase64() }, PrintType.Receipt);
+    expect(ThermalPrinterModule.writeByBase64).toHaveBeenCalledTimes(1);
+    const [printerId, base64] = ThermalPrinterModule.writeByBase64.mock.calls[0] as [string, string];
+    expect(printerId).toBe(lanPrinter.id);
+    const bytes = bytesOf(base64);
+    // ESC @ rồi GS v 0 (m=0), không phải text ESC/POS encode qua EPToolkit —
+    // printText() không bao giờ phát ra byte 0x1d,0x76,0x30.
+    expect(bytes.subarray(0, 2)).toEqual(Buffer.from([0x1b, 0x40]));
+    expect(bytes.subarray(2, 6)).toEqual(Buffer.from([0x1d, 0x76, 0x30, 0x00]));
+    // eslint-disable-next-line no-bitwise -- intentional low-byte/high-byte reconstruction of a little-endian field
+    const widthBytes = bytes[6] | (bytes[7] << 8);
+    expect(widthBytes).toBe(72); // ceil(PAPER_SIZE_SPECS[80].imageWidthPx / 8) = ceil(576/8)
+    // media.cutterMode undefined trên continuous → resolveEffectiveCutterMode = perJob → có cut_bytes cuối payload.
+    expect(bytes.subarray(bytes.length - 2)).toEqual(Buffer.from([0x1b, 0x6d]));
+  });
+
+  it('sendDocuments bitmap mode: cutterMode = none → không phát cut_bytes cuối payload', async () => {
+    const noCutBitmapEntry: PrinterDriver = {
+      ...escposBitmapDriverEntry,
+      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80, cutterMode: 'none' } },
+    };
+    const driver = new EscPosDriver();
+    await driver.connect({ ...lanPrinter, drivers: [noCutBitmapEntry] }, noCutBitmapEntry);
+    const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { writeByBase64: jest.Mock } };
+    await driver.print(lanPrinter.id, { text: sampleDocuments.text, image: tinyPngBase64() }, PrintType.Receipt);
+    const [, base64] = ThermalPrinterModule.writeByBase64.mock.calls[0] as [string, string];
+    const bytes = bytesOf(base64);
+    expect(bytes.includes(Buffer.from([0x1b, 0x6d]))).toBe(false);
   });
 
   it('identify() over USB always returns null', async () => {

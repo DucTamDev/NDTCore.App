@@ -1,4 +1,4 @@
-import { PrinterDriverType, TsplRenderMode, type PrinterDriverConfig } from '../models/printer/PrinterDriver';
+import { EscPosRenderMode, PrinterDriverType, TsplRenderMode, type PrinterDriverConfig } from '../models/printer/PrinterDriver';
 import { PrintType } from '../models/printing/PrintType';
 import { PrintMediaType } from '../models/media/PrintMedia';
 
@@ -18,7 +18,7 @@ export interface DriverCapabilities {
  * không đáng tin (xem CLAUDE.md).
  */
 export const DRIVER_CAPABILITIES: Record<PrinterDriverType, DriverCapabilities> = {
-  escpos: { contentTypes: [PrintType.Receipt], defaultConfig: { type: PrinterDriverType.escpos, media: { ...DEFAULT_MEDIA } } },
+  escpos: { contentTypes: [PrintType.Receipt], defaultConfig: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.text, media: { ...DEFAULT_MEDIA } } },
   tspl: { contentTypes: [PrintType.Receipt, PrintType.Label], defaultConfig: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...DEFAULT_MEDIA } } },
 };
 

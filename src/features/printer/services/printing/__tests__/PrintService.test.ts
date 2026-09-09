@@ -1,7 +1,7 @@
 import { createPrintService, PrintService } from '../PrintService';
 import type { PrintTarget } from '../../../models/printing/PrintTarget';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { type Printer } from '../../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../../models/printing/PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
@@ -81,6 +81,17 @@ describe('PrintService.imageDocumentMedia', () => {
   it('returns null when the only target uses escpos', () => {
     const deps = makeDeps([{ printer: makePrinter('p1'), driver: escposDriver }], () => { throw new Error('unused'); });
     expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
+  });
+
+  it('returns the media of the escpos target when it is in bitmap mode (usesBitmapRenderMode generalizes beyond tspl)', () => {
+    const escposBitmapDriver: PrinterDriver = {
+      type: PrinterDriverType.escpos,
+      source: DriverSource.auto,
+      contentTypes: [PrintType.Receipt],
+      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
+    };
+    const deps = makeDeps([{ printer: makePrinter('p1', { drivers: [escposBitmapDriver] }), driver: escposBitmapDriver }], () => { throw new Error('unused'); });
+    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual({ type: 'continuous', paperSize: 58 });
   });
 
   it('returns the media of the tspl target when it is in bitmap mode', () => {

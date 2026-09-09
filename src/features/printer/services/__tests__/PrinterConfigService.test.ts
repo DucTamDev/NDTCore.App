@@ -3,7 +3,7 @@ import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrinterErrorCode } from '../../errors/PrinterError';
@@ -152,6 +152,25 @@ describe('PrinterConfigService', () => {
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, repository, createResourceLock());
     expect(() => service.setTsplRenderMode('draft-not-saved', TsplRenderMode.bitmap)).not.toThrow();
+    expect(repository.getPrinters()).toEqual([]);
+  });
+
+  it('setEscPosRenderMode() persists renderMode=bitmap for a saved ESC/POS printer', () => {
+    const repository = createPrinterRepository();
+    const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, repository, createResourceLock());
+    const escposPrinter: Printer = { ...basePrinter, drivers: [escposDriverEntry] };
+    repository.addPrinter(escposPrinter);
+
+    service.setEscPosRenderMode(escposPrinter.id, EscPosRenderMode.bitmap);
+
+    const savedEscpos = repository.getPrinters().find((p) => p.id === escposPrinter.id)!.drivers.find((d) => d.type === PrinterDriverType.escpos)!;
+    expect(savedEscpos.config).toMatchObject({ type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap });
+  });
+
+  it('setEscPosRenderMode() is a no-op for a draft (unsaved) printer', () => {
+    const repository = createPrinterRepository();
+    const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: makeMockDriver() }, repository, createResourceLock());
+    expect(() => service.setEscPosRenderMode('draft-not-saved', EscPosRenderMode.bitmap)).not.toThrow();
     expect(repository.getPrinters()).toEqual([]);
   });
 

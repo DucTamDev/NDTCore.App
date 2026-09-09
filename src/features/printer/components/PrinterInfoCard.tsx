@@ -13,6 +13,7 @@ import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import { PrintType } from '../models/printing/PrintType';
 import { DriverSource, PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
+import type { EscPosRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
 import type { ConnectionType, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
@@ -51,6 +52,8 @@ export interface PrinterInfoCardProps {
   onTestPrintLabel: () => void;
   /** Chỉ có ý nghĩa khi có driver type 'tspl'. `truetype` kéo theo `installTsplFont`. */
   onSelectTsplRenderMode: (mode: TsplRenderMode) => void;
+  /** Chỉ có ý nghĩa khi có driver type 'escpos'. Không có bước cài đặt nào (khác truetype). */
+  onSelectEscPosRenderMode: (mode: EscPosRenderMode) => void;
   /** Cập nhật 1 phần cấu hình font máy in (`renderMode: 'internalfont'`). */
   onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
   /** Cập nhật `media` per-driver (khổ giấy, loại giấy, kích thước die-cut). Wire UI ở Task 4. */
@@ -82,6 +85,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   testPrintLabelPending,
   onTestPrintLabel,
   onSelectTsplRenderMode,
+  onSelectEscPosRenderMode,
   onChangeTsplInternalFont,
   onChangeDriverMedia,
   testPrintRowsText,
@@ -156,6 +160,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
               disabled={locked}
               tsplFontPending={tsplFontPending}
               onSelectTsplRenderMode={onSelectTsplRenderMode}
+              onSelectEscPosRenderMode={onSelectEscPosRenderMode}
               onChangeTsplInternalFont={onChangeTsplInternalFont}
             />
           </View>

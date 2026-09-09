@@ -4,7 +4,7 @@ import { TsplCodepage } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../media/paperSpec';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../media/paperSpec';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -69,16 +69,7 @@ const encodeSingleByte = (text: string): number[] => {
  */
 export const DEFAULT_LABEL_HEIGHT_MM = 30;
 
-/**
- * Chiều cao "khai báo" cho `SIZE` khi in Hoá đơn (`PrintType.Receipt`) — giấy
- * cuộn liên tục không có khe vật lý thật nên không có khái niệm "khổ giấy"
- * cần khớp cảm biến như Tem; con số này chỉ là ngưỡng an toàn rộng rãi
- * (không phải giới hạn phần cứng thật) để tránh 1 document lỗi/vô hạn vòng
- * lặp tạo ra bitmap khổng lồ, KHÔNG nhằm giới hạn 1 hoá đơn bình thường.
- */
-export const CONTINUOUS_HEIGHT_MM = 200;
-
-export { DOTS_PER_MM };
+export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
 
 /**
  * Chiều cao khai báo cho `SIZE`:

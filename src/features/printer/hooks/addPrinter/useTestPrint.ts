@@ -2,12 +2,11 @@ import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
-import { mediaOf, tsplRenderModeOf } from '../../drivers/driverConfig';
+import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintType } from '../../models/printing/PrintType';
-import { TsplRenderMode } from '../../models/printer/PrinterDriver';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
@@ -36,7 +35,7 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
   const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
-    if (tsplRenderModeOf(driver) !== TsplRenderMode.bitmap) {
+    if (!usesBitmapRenderMode(driver)) {
       return { text: document };
     }
 

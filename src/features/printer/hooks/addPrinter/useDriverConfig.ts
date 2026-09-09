@@ -4,7 +4,7 @@ import { DEFAULT_TSPL_FONT } from '../../drivers/tspl/TsplFontManager';
 import { DEFAULT_TSPL_INTERNAL_FONT } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import { PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
-import type { PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../models/printer/PrinterDriver';
+import type { EscPosRenderMode, PrinterDriver, TsplDriverConfig, TsplInternalFontConfig } from '../../models/printer/PrinterDriver';
 import { PrintMediaType } from '../../models/media/PrintMedia';
 import type { PrintMedia } from '../../models/media/PrintMedia';
 import type { PrintType } from '../../models/printing/PrintType';
@@ -89,6 +89,21 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
     PrinterConfigService.setTsplRenderMode(printerId, TsplRenderMode.bitmap);
   };
 
+  /**
+   * Chọn chế độ render ESC/POS (`text` / `bitmap`) — không có bước cài đặt
+   * nào (khác TSPL truetype), chỉ set config + persist đối xứng.
+   */
+  const onSelectEscPosRenderMode = (mode: EscPosRenderMode): void => {
+    setDrivers((prev) =>
+      prev.map((d) =>
+        d.type === PrinterDriverType.escpos && d.config.type === PrinterDriverType.escpos
+          ? { ...d, config: { ...d.config, renderMode: mode } }
+          : d,
+      ),
+    );
+    PrinterConfigService.setEscPosRenderMode(printerId, mode);
+  };
+
   const onChangeDriverMedia = (driverType: PrinterDriverType, patch: Partial<PrintMedia>): void => {
     const entry = drivers.find((d) => d.type === driverType);
 
@@ -125,6 +140,7 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
     tsplFontPending,
     onToggleContentType,
     onSelectTsplRenderMode,
+    onSelectEscPosRenderMode,
     onChangeDriverMedia,
     onChangeTsplInternalFont,
   };

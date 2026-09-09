@@ -1,6 +1,6 @@
 import { printerDriverSchema, printerSchema } from '../PrinterSchema';
 import { ConnectionType } from '../../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { type Printer } from '../../../models/printer/Printer';
 import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter, makeTsplDriverEntry, makeEscPosDriverEntry } from '../../../testing/printerFixtures';
@@ -46,6 +46,25 @@ describe('printerDriverSchema', () => {
   it('rejects a driver whose config.type does not match driver.type', () => {
     const mismatched = { ...escposDriver, config: { type: PrinterDriverType.tspl, renderMode: TsplRenderMode.bitmap, media: { ...MEDIA } } };
     expect(printerDriverSchema.safeParse(mismatched).success).toBe(false);
+  });
+
+  it('accepts an escpos driver without renderMode (undefined ⇒ text, tương thích ngược)', () => {
+    expect(printerDriverSchema.safeParse(escposDriver).success).toBe(true);
+  });
+
+  it('accepts an escpos driver with renderMode text', () => {
+    const driver: PrinterDriver = { ...escposDriver, config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.text, media: { ...MEDIA } } };
+    expect(printerDriverSchema.safeParse(driver).success).toBe(true);
+  });
+
+  it('accepts an escpos driver with renderMode bitmap', () => {
+    const driver: PrinterDriver = { ...escposDriver, config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { ...MEDIA } } };
+    expect(printerDriverSchema.safeParse(driver).success).toBe(true);
+  });
+
+  it('rejects an escpos driver with an invalid renderMode value', () => {
+    const driver = { ...escposDriver, config: { type: PrinterDriverType.escpos, renderMode: 'internalfont', media: { ...MEDIA } } };
+    expect(printerDriverSchema.safeParse(driver).success).toBe(false);
   });
 
   it('accepts a tspl driver with renderMode bitmap and no font', () => {

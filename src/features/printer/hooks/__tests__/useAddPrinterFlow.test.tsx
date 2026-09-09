@@ -7,7 +7,7 @@ import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/device/DeviceScanService';
 import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { Printer } from '../../models/printer/Printer';
 
@@ -36,6 +36,7 @@ jest.mock('../../services/PrinterConfigService', () => ({
     installTsplFont: jest.fn(() => Promise.resolve()),
     setTsplRenderMode: jest.fn(),
     setTsplInternalFont: jest.fn(),
+    setEscPosRenderMode: jest.fn(),
     setDriverMedia: jest.fn(),
   },
 }));
@@ -71,6 +72,20 @@ const savedTspl: Printer = {
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const savedEscpos: Printer = {
+  ...savedTspl,
+  id: 'p2',
+  name: 'Máy hoá đơn',
+  drivers: [
+    {
+      type: PrinterDriverType.escpos,
+      source: DriverSource.auto,
+      contentTypes: [PrintType.Receipt],
+      config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.text, media: { type: 'continuous', paperSize: 80 } },
+    },
+  ],
 };
 
 let capturedDiscoveryHandler: ((event: unknown) => void) | undefined;
@@ -205,6 +220,37 @@ describe('useAddPrinterFlow', () => {
     expect(PrinterConfigService.setTsplInternalFont).toHaveBeenCalledWith('p1', { codepage: '1258', fontName: '3' });
     const tspl = get().infoCard.drivers[0];
     expect(tspl.config.type === PrinterDriverType.tspl && tspl.config.renderMode).toBe(TsplRenderMode.internalfont);
+  });
+
+  it('onSelectEscPosRenderMode(bitmap) sets config + persists via setEscPosRenderMode', async () => {
+    const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn() });
+    act(() => { get().infoCard.onSelectEscPosRenderMode(EscPosRenderMode.bitmap); });
+    expect(PrinterConfigService.setEscPosRenderMode).toHaveBeenCalledWith('p2', EscPosRenderMode.bitmap);
+    const escpos = get().infoCard.drivers[0];
+    expect(escpos.config.type === PrinterDriverType.escpos && escpos.config.renderMode).toBe(EscPosRenderMode.bitmap);
+  });
+
+  it('runTestPrint(Receipt) ở chế độ ESC/POS bitmap gọi captureBillImage với media của driver trước khi test print', async () => {
+    const bitmapEscpos: Printer = {
+      ...savedEscpos,
+      drivers: [{ ...savedEscpos.drivers[0], config: { type: PrinterDriverType.escpos, renderMode: EscPosRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } }],
+    };
+    const { get } = render({ visible: true, initialValues: bitmapEscpos, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onTestPrintReceipt(); });
+    expect(mockCaptureBillImage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'continuous', paperSize: 80 }));
+    expect(PrinterConnectionService.testPrint).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p2' }),
+      expect.objectContaining({ type: PrinterDriverType.escpos }),
+      expect.objectContaining({ text: expect.anything() }),
+      PrintType.Receipt,
+      undefined,
+    );
+  });
+
+  it('runTestPrint(Receipt) ở chế độ ESC/POS text KHÔNG gọi captureBillImage', async () => {
+    const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn() });
+    await act(async () => { await get().infoCard.onTestPrintReceipt(); });
+    expect(mockCaptureBillImage).not.toHaveBeenCalled();
   });
 
   it('onChangeTsplInternalFont merges a patch and re-persists', async () => {

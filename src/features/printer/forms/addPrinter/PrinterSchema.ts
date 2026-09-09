@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
-import { DriverSource, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../../models/printer/PrinterDriver';
+import { DriverSource, EscPosRenderMode, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../../models/printer/PrinterDriver';
 import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
 import type { PrintMedia } from '../../models/media/PrintMedia';
 import { PrintType } from '../../models/printing/PrintType';
@@ -69,6 +69,7 @@ const tsplDriverConfigSchema = z.object({
 
 const escPosDriverConfigSchema = z.object({
   type: z.literal(PrinterDriverType.escpos),
+  renderMode: z.enum([EscPosRenderMode.text, EscPosRenderMode.bitmap]).optional(),
   media: printMediaSchema,
 });
 

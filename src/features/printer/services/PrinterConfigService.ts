@@ -1,7 +1,7 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { PrinterDriverType, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import type { TsplFontConfig, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
+import type { EscPosRenderMode, TsplFontConfig, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 import type { PrintMedia } from '../models/media/PrintMedia';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../errors/PrinterError';
 import { PrinterLogger } from './PrinterLogger';
@@ -225,7 +225,38 @@ export const createPrinterConfigService = (
     );
   };
 
-  return { installTsplFont, setTsplRenderMode, setTsplInternalFont, setDriverMedia };
+  /**
+   * Persist `renderMode` cho ESC/POS driver của 1 printer ĐÃ LƯU — đối xứng
+   * với `setTsplRenderMode`, nhưng không có bước "install" nào (bitmap
+   * ESC/POS không cài gì lên máy in, chỉ đổi cách encode ở JS). Printer chưa
+   * lưu (draft) → no-op: modal Add mang state vào `buildDraftPrinter()` lúc
+   * Save.
+   */
+  const setEscPosRenderMode = (printerId: string, renderMode: EscPosRenderMode): void => {
+    const printer = repository.getPrinters().find((p) => p.id === printerId);
+    const entry = printer?.drivers.find((d) => d.type === PrinterDriverType.escpos);
+
+    if (!printer || !entry || entry.config.type !== PrinterDriverType.escpos) {
+      return;
+    }
+
+    repository.savePrinters(
+      repository.getPrinters().map((p) =>
+        p.id !== printerId
+          ? p
+          : {
+              ...p,
+              drivers: p.drivers.map((d) =>
+                d.type !== PrinterDriverType.escpos || d.config.type !== PrinterDriverType.escpos
+                  ? d
+                  : { ...d, config: { ...d.config, renderMode } },
+              ),
+            },
+      ),
+    );
+  };
+
+  return { installTsplFont, setTsplRenderMode, setTsplInternalFont, setEscPosRenderMode, setDriverMedia };
 };
 
 export const PrinterConfigService = createPrinterConfigService(DriverRegistry, PrinterRepository, PrinterConnectionLock);

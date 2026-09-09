@@ -2,8 +2,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppInput } from '../../../components/AppInput';
 import { AppSelect } from '../../../components/AppSelect';
-import { PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
-import { DEFAULT_TSPL_INTERNAL_FONT, tsplRenderModeOf } from '../drivers/driverConfig';
+import { EscPosRenderMode, PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
+import { DEFAULT_TSPL_INTERNAL_FONT, escPosRenderModeOf, tsplRenderModeOf } from '../drivers/driverConfig';
 import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 
 const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
@@ -23,12 +23,23 @@ const tsplCodepageOptions = [
   { label: 'Windows-1252 (Tây Âu)', value: TsplCodepage.cp1252 },
 ];
 
+const escPosRenderModeLabel: Record<EscPosRenderMode, string> = {
+  text: 'Văn bản (nhanh, cần đúng codepage)',
+  bitmap: 'Bitmap (chậm hơn, đúng mọi máy)',
+};
+
+const escPosRenderModeOptions = [EscPosRenderMode.text, EscPosRenderMode.bitmap].map((mode) => ({
+  label: escPosRenderModeLabel[mode],
+  value: mode,
+}));
+
 interface DriverRenderModeSectionProps {
   driver: PrinterDriver;
   disabled: boolean;
   tsplFontPending: boolean;
   onSelectTsplRenderMode: (mode: TsplRenderMode) => void;
   onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
+  onSelectEscPosRenderMode: (mode: EscPosRenderMode) => void;
 }
 
 export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = ({
@@ -37,7 +48,22 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
   tsplFontPending,
   onSelectTsplRenderMode,
   onChangeTsplInternalFont,
+  onSelectEscPosRenderMode,
 }) => {
+  if (driver.type === PrinterDriverType.escpos) {
+    return (
+      <View style={styles.tsplModeBlock}>
+        <AppSelect
+          label="Chế độ in ESC/POS"
+          value={escPosRenderModeOf(driver) ?? EscPosRenderMode.text}
+          onSelect={(value) => onSelectEscPosRenderMode(value as EscPosRenderMode)}
+          options={escPosRenderModeOptions}
+          disabled={disabled}
+        />
+      </View>
+    );
+  }
+
   if (driver.type !== PrinterDriverType.tspl) {
     return null;
   }
