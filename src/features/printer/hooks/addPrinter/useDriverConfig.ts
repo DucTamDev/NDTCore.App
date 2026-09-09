@@ -90,7 +90,7 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
   };
 
   /**
-   * Chọn chế độ render ESC/POS (`text` / `bitmap`) — không có bước cài đặt
+   * Chọn chế độ render ESC/POS (`encoder` / `bitmap`) — không có bước cài đặt
    * nào (khác TSPL truetype), chỉ set config + persist đối xứng.
    */
   const onSelectEscPosRenderMode = (mode: EscPosRenderMode): void => {

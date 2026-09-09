@@ -122,19 +122,12 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
 
   /**
-   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connection)
-   * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
-   * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
-   * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
-   * (final-review finding #2).
-   */
-  /**
-   * `buildDraftPrinter()` được gọi làm context TẠM cho `driver.connect()` ngay
-   * từ lượt discovery đầu tiên (`onConnectPress` → `startDiscovery`), trước cả
-   * khi có kết quả — với usb/bluetooth có thể chưa có `selectedDevice` tại
-   * thời điểm đó (nút "Kết nối" thật đã khoá qua `connectDisabled`, nhưng
-   * `buildDraftPrinter` vẫn được gọi nội bộ). Placeholder rỗng ở đây KHÔNG
-   * BAO GIỜ được lưu — `currentIdentityKey()` trả `null` cho trạng thái này
+   * `buildDraftPrinter()` (dưới) được gọi làm context TẠM cho `driver.connect()`
+   * ngay từ lượt discovery đầu tiên (`onConnectPress` → `startDiscovery`),
+   * trước cả khi có kết quả — với usb/bluetooth có thể chưa có `selectedDevice`
+   * tại thời điểm đó (nút "Kết nối" thật đã khoá qua `connectDisabled`, nhưng
+   * `buildDraftPrinter` vẫn được gọi nội bộ). Placeholder rỗng ở đây KHÔNG BAO
+   * GIỜ được lưu — `currentIdentityKey()` trả `null` cho trạng thái này
    * (`identityKey: undefined` trên draft), và draft sẽ được dựng lại với
    * `selectedDevice` thật ngay khi discovery xác nhận protocol.
    */
@@ -148,9 +141,18 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
       return connectionType === ConnectionType.usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
     }
 
-    return connectionType === ConnectionType.usb ? { type: ConnectionType.usb, vendorId: 0, productId: 0 } : { type: ConnectionType.bluetooth, deviceId: '' };
+    return connectionType === ConnectionType.usb
+      ? { type: ConnectionType.usb, vendorId: 0, productId: 0 }
+      : { type: ConnectionType.bluetooth, deviceId: '' };
   };
 
+  /**
+   * `draftPrinter` truyền cho discovery phải ĐẦY ĐỦ (không chỉ id/connection)
+   * — driver.connect() lưu nó làm context sống của driver ngay cả khi discovery
+   * thành công (context không bị clear ở nhánh 'identified'), nên thiếu field
+   * (vd `media`) sẽ làm 1 lần in thật xảy ra đồng thời dùng phải context cụt
+   * (final-review finding #2).
+   */
   const buildDraftPrinter = (): PrinterWriteInput => {
     const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     return {

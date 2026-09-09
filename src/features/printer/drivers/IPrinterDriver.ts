@@ -18,10 +18,7 @@ export interface PrintDocuments {
   image?: string;
 }
 
-/**
- * Tuỳ chọn in bổ sung, không phụ thuộc protocol. Task 2 mới wire vào TSPL.
- * Additional print options, protocol-agnostic. Wired into TSPL in Task 2.
- */
+/** Tuỳ chọn in bổ sung, không phụ thuộc protocol — chỉ TSPL đọc `rows` (die-cut). */
 export interface PrintOptions {
   /** Số HÀNG die-cut cần in (mỗi hàng = `media.columns` con tem). Default 1. Bỏ qua khi media continuous ở đường routing; `testPrint` dùng để in thử grid. */
   rows?: number;

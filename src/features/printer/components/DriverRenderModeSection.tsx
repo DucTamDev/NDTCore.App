@@ -52,7 +52,7 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
 }) => {
   if (driver.type === PrinterDriverType.escpos) {
     return (
-      <View style={styles.tsplModeBlock}>
+      <View style={styles.renderModeBlock}>
         <AppSelect
           label="Chế độ in ESC/POS"
           value={escPosRenderModeOf(driver) ?? PrintRenderMode.encoder}
@@ -68,7 +68,7 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
     return null;
   }
   return (
-    <View style={styles.tsplModeBlock}>
+    <View style={styles.renderModeBlock}>
       <AppSelect
         label="Chế độ in TSPL"
         value={tsplRenderModeOf(driver) ?? PrintRenderMode.bitmap}
@@ -104,5 +104,5 @@ export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = (
 };
 
 const styles = StyleSheet.create({
-  tsplModeBlock: { gap: 8 },
+  renderModeBlock: { gap: 8 },
 });

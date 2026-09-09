@@ -56,7 +56,7 @@ export interface PrinterInfoCardProps {
   onSelectEscPosRenderMode: (mode: EscPosRenderMode) => void;
   /** Cập nhật 1 phần cấu hình font máy in (`renderMode: 'internalfont'`). */
   onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
-  /** Cập nhật `media` per-driver (khổ giấy, loại giấy, kích thước die-cut). Wire UI ở Task 4. */
+  /** Cập nhật `media` per-driver (khổ giấy, loại giấy, kích thước die-cut). */
   onChangeDriverMedia: (driverType: PrinterDriverType, patch: Partial<PrintPaperConfig>) => void;
   /** Số hàng die-cut cho "In tem thử" — giữ dạng text để nhập dở. */
   testPrintRowsText: string;

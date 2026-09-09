@@ -10,7 +10,7 @@ export interface Printer {
   /** `1..2` phần tử (escpos + tspl) — enforce ở schema. */
   drivers: PrinterDriver[];
   connection: PrinterConnection;
-  /** Chỉ phụ thuộc connection, không phụ thuộc driver — xem `services/discovery/PrinterResolver.ts`. */
+  /** Chỉ phụ thuộc connection, không phụ thuộc driver — xem `discovery/PrinterResolver.ts`. */
   identityKey: string;
   capabilities: PrinterCapabilities;
   autoReconnect: boolean;

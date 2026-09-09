@@ -6,10 +6,11 @@ import { type Printer } from '../models/printer/Printer';
 import { PrintType } from '../models/printing/PrintType';
 
 /**
- * Fixture dùng chung cho 4 file test service (Repository/Connection/Config/
- * DeviceScan) — nằm ngoài `__tests__/` và không có đuôi `.test.` nên Jest bỏ qua.
+ * Fixture dùng chung cho các file test service (Repository/Connection/
+ * PrinterPrintService/Config/DeviceScan) — nằm ngoài `__tests__/` và không có
+ * đuôi `.test.` nên Jest bỏ qua.
  *
- * Shared fixtures for the 4 service test files — outside `__tests__/` with no
+ * Shared fixtures for the service test files — outside `__tests__/` with no
  * `.test.` suffix, so Jest does not pick it up.
  */
 export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
