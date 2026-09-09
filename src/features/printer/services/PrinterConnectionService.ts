@@ -1,10 +1,8 @@
-import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../drivers/IPrinterDriver';
+import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
-import type { PrintType } from '../models/printing/PrintType';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { DriverRegistry } from '../drivers/DriverRegistry';
 import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from './connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
@@ -13,12 +11,15 @@ type ResourceLockLike = ReturnType<typeof createResourceLock>;
 type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
 
 /**
- * Các thao tác kết nối/in trên máy in ĐÃ LƯU và draft chưa lưu — mọi lệnh
- * đụng kết nối native chạy qua `lock` để không interleave trên cùng resource.
+ * Connection lifecycle trên máy in ĐÃ LƯU và draft chưa lưu — mọi lệnh đụng
+ * kết nối native chạy qua `lock` để không interleave trên cùng resource. Print
+ * dispatch (`print`/`testPrint`) nằm ở `PrinterPrintService` (anh em cùng
+ * cấp, không phải service này) — xem `printing/PrinterPrintService.ts`.
  *
- * Connection/print operations on saved printers and unsaved drafts — every
- * command touching a native connection runs through `lock` so calls never
- * interleave on the same resource.
+ * Connection lifecycle for saved printers and unsaved drafts — every command
+ * touching a native connection runs through `lock` so calls never interleave
+ * on the same resource. Print dispatch lives in the sibling
+ * `PrinterPrintService`, not here.
  */
 export const createPrinterConnectionService = (
   registry: Record<PrinterDriverType, IPrinterDriver> = DriverRegistry,
@@ -66,30 +67,6 @@ export const createPrinterConnectionService = (
       });
   };
 
-  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType, options));
-  };
-
-  const print = async (printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> => {
-    const printer = repository.findOrThrow(printerId);
-    const driverEntry = printer.drivers.find((d) => d.contentTypes.includes(printType));
-
-    if (!driverEntry) {
-      throw new PrinterErrorException({
-        code: PrinterErrorCode.NO_AVAILABLE_PRINTER,
-        message: `Máy in ${printerId} không có driver nào nhận in ${printType}`,
-      });
-    }
-
-    const driver = getDriver(driverEntry.type);
-
-    if (driver.getStatus(printerId) !== PrinterStatus.connected) {
-      await driver.connect(printer, driverEntry);
-    }
-
-    await driver.print(printerId, documents, printType);
-  };
-
   const connectDraft = async (printer: Printer, driver: PrinterDriver): Promise<void> => {
     await getDriver(driver.type).connect(printer, driver);
   };
@@ -121,8 +98,6 @@ export const createPrinterConnectionService = (
     disconnect,
     reconnect,
     reconnectAutoPrinters,
-    testPrint,
-    print,
     connectDraft,
     disconnectForDriver,
     getStatus,

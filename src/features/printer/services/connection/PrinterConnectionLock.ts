@@ -54,7 +54,7 @@ export const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType):
 
 /**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi
- * `PrintScheduler` (hàng đợi in) và `PrinterConnectionService.testPrint()` (thao tác
+ * `PrintScheduler` (hàng đợi in) và `PrinterPrintService.testPrint()` (thao tác
  * thủ công "In thử"), để 2 đường gọi này không bao giờ chạm cùng 1 kết nối
  * native cùng lúc.
  */

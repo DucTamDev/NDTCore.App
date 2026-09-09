@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { PrinterConnectionService } from '../../services/PrinterConnectionService';
+import { PrinterPrintService } from '../../services/printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
 import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
@@ -26,7 +26,7 @@ export interface UseTestPrintInput {
 /**
  * In thử (hoá đơn / tem) trong luồng Thêm/Sửa máy in: dựng document mẫu, ở chế
  * độ TSPL bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
- * `PrinterConnectionService.testPrint` cho driver khớp content type.
+ * `PrinterPrintService.testPrint` cho driver khớp content type.
  */
 export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
   const [testPrintReceiptPending, setTestPrintReceiptPending] = useState(false);
@@ -71,7 +71,7 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
     try {
       const documents = await resolveTestPrintDocuments(driver, sampleDocument);
       const options = printType === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
-      await PrinterConnectionService.testPrint(printer, driver, documents, printType, options);
+      await PrinterPrintService.testPrint(printer, driver, documents, printType, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {

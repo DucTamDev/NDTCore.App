@@ -3,6 +3,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../services/PrinterConnectionService';
+import { PrinterPrintService } from '../../services/printing/PrinterPrintService';
 import { PrinterConfigService } from '../../services/PrinterConfigService';
 import { DeviceScanService } from '../../services/device/DeviceScanService';
 import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
@@ -27,6 +28,11 @@ jest.mock('../../services/PrinterConnectionService', () => ({
     connectDraft: jest.fn(() => Promise.resolve()),
     connect: jest.fn(() => Promise.resolve()),
     reconnect: jest.fn(() => Promise.resolve()),
+  },
+}));
+
+jest.mock('../../services/printing/PrinterPrintService', () => ({
+  PrinterPrintService: {
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -238,7 +244,7 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, initialValues: bitmapEscpos, onSaved: jest.fn() });
     await act(async () => { await get().infoCard.onTestPrintReceipt(); });
     expect(mockCaptureBillImage).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'continuous', paperSize: 80 }));
-    expect(PrinterConnectionService.testPrint).toHaveBeenCalledWith(
+    expect(PrinterPrintService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p2' }),
       expect.objectContaining({ type: PrinterDriverType.escpos }),
       expect.objectContaining({ text: expect.anything() }),
@@ -384,10 +390,10 @@ describe('useAddPrinterFlow', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it('runTestPrint routes the sample document to PrinterConnectionService.testPrint for the matching driver', async () => {
+  it('runTestPrint routes the sample document to PrinterPrintService.testPrint for the matching driver', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
     await act(async () => { await get().infoCard.onTestPrintLabel(); });
-    expect(PrinterConnectionService.testPrint).toHaveBeenCalledWith(
+    expect(PrinterPrintService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1' }),
       expect.objectContaining({ type: PrinterDriverType.tspl }),
       expect.objectContaining({ text: expect.anything() }),
@@ -418,7 +424,7 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn() });
     await act(async () => { get().infoCard.onTestPrintRowsChange('3'); });
     await act(async () => { await get().infoCard.onTestPrintLabel(); });
-    expect(PrinterConnectionService.testPrint).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), PrintType.Label, { rows: 3 });
+    expect(PrinterPrintService.testPrint).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), PrintType.Label, { rows: 3 });
   });
 
   it('onSelectTsplRenderMode(truetype) installs the font and flips config to truetype', async () => {

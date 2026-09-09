@@ -1,10 +1,10 @@
 import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../../errors/PrinterError';
-import { PrinterConnectionService } from '../PrinterConnectionService';
+import { PrinterPrintService } from './PrinterPrintService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 
-type PrintDispatchDeps = { print: typeof PrinterConnectionService.print; getPrinters: typeof PrinterRepository.getPrinters };
+type PrintDispatchDeps = { print: typeof PrinterPrintService.print; getPrinters: typeof PrinterRepository.getPrinters };
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
 
 export const createPrintScheduler = (
@@ -59,6 +59,6 @@ export const createPrintScheduler = (
 };
 
 export const PrintScheduler = createPrintScheduler({
-  print: PrinterConnectionService.print,
+  print: PrinterPrintService.print,
   getPrinters: PrinterRepository.getPrinters,
 });
