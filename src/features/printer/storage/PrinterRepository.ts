@@ -1,7 +1,7 @@
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { PrinterStorage } from './PrinterStorage';
-import { resolveIdentityKey } from '../services/discovery/PrinterResolver';
+import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
 import type { PrinterWriteInput } from './PrinterWriteInput';
 

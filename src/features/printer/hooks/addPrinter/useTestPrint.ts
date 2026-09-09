@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { PrinterPrintService } from '../../services/printing/PrinterPrintService';
+import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
 import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';

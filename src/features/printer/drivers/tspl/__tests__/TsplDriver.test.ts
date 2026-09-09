@@ -67,10 +67,10 @@ jest.mock('../../../transports/UsbTransport', () => ({
     close: jest.fn().mockResolvedValue(undefined),
   })),
 }));
-jest.mock('../../../services/permission/PrinterPermissionService', () => ({
+jest.mock('../../../permissions/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
-jest.mock('../../../services/PrinterLogger', () => ({
+jest.mock('../../../logging/PrinterLogger', () => ({
   PrinterLogger: {
     scanCompleted: jest.fn(),
     scanFailed: jest.fn(),
@@ -171,7 +171,7 @@ describe('TsplDriver', () => {
     await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
@@ -424,7 +424,7 @@ describe('TsplDriver', () => {
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
     await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
     expect(instance.write).not.toHaveBeenCalled();
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
@@ -436,7 +436,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
@@ -483,7 +483,7 @@ describe('TsplDriver', () => {
   it('connect() over Bluetooth checks permission before connecting', async () => {
     const driver = new TsplDriver();
     await driver.connect(bluetoothPrinter, tsplDriverEntry);
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
@@ -491,7 +491,7 @@ describe('TsplDriver', () => {
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
@@ -503,7 +503,7 @@ describe('TsplDriver', () => {
   it('connect() logs connectSucceeded on success', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
@@ -520,7 +520,7 @@ describe('TsplDriver', () => {
       close: jest.fn().mockResolvedValue(undefined),
     }));
     await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
@@ -532,7 +532,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.disconnect(lanPrinter.id);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl });
@@ -542,7 +542,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.testPrint(lanPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
@@ -559,7 +559,7 @@ describe('TsplDriver', () => {
       close: jest.fn().mockResolvedValue(undefined),
     }));
     await expect(driver.testPrint(usbPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toThrow();
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
@@ -576,7 +576,7 @@ describe('TsplDriver', () => {
         if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
@@ -584,7 +584,7 @@ describe('TsplDriver', () => {
   });
 
   it('scan("bluetooth") emits an error and skips startDiscovery when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);

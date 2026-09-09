@@ -2,11 +2,11 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow';
 import { PrinterRepository } from '../../storage/PrinterRepository';
-import { PrinterConnectionService } from '../../services/PrinterConnectionService';
-import { PrinterPrintService } from '../../services/printing/PrinterPrintService';
-import { PrinterConfigService } from '../../services/PrinterConfigService';
-import { DeviceScanService } from '../../services/device/DeviceScanService';
-import { DiscoveryStage } from '../../services/discovery/PrinterDiscoveryService';
+import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+import { PrinterPrintService } from '../../printing/PrinterPrintService';
+import { PrinterConfigService } from '../../management/PrinterConfigService';
+import { DeviceScanService } from '../../discovery/DeviceScanService';
+import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/PrinterDevice';
 import { DriverSource, PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
@@ -20,7 +20,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
   },
 }));
 
-jest.mock('../../services/PrinterConnectionService', () => ({
+jest.mock('../../connection/PrinterConnectionService', () => ({
   PrinterConnectionService: {
     getStatusForDriver: jest.fn(() => 'idle'),
     onStatusChangeForDriver: jest.fn(() => () => undefined),
@@ -31,13 +31,13 @@ jest.mock('../../services/PrinterConnectionService', () => ({
   },
 }));
 
-jest.mock('../../services/printing/PrinterPrintService', () => ({
+jest.mock('../../printing/PrinterPrintService', () => ({
   PrinterPrintService: {
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
 
-jest.mock('../../services/PrinterConfigService', () => ({
+jest.mock('../../management/PrinterConfigService', () => ({
   PrinterConfigService: {
     installTsplFont: jest.fn(() => Promise.resolve()),
     setTsplRenderMode: jest.fn(),
@@ -47,7 +47,7 @@ jest.mock('../../services/PrinterConfigService', () => ({
   },
 }));
 
-jest.mock('../../services/device/DeviceScanService', () => ({
+jest.mock('../../discovery/DeviceScanService', () => ({
   DeviceScanService: {
     discoverDriver: jest.fn(() => () => undefined),
   },
@@ -58,7 +58,7 @@ jest.mock('../useBillImageCapture', () => ({
   useBillImageCapture: () => ({ captureNode: null, captureBillImage: mockCaptureBillImage }),
 }));
 
-jest.mock('../../services/device/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
+jest.mock('../../discovery/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
 
 const savedTspl: Printer = {
   id: 'p1',

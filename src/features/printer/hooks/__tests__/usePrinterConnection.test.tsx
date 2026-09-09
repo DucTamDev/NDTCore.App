@@ -4,10 +4,10 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterConnection } from '../usePrinterConnection';
 import printerReducer from '../../store/printerSlice';
-import { PrinterConnectionService } from '../../services/PrinterConnectionService';
+import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 
-jest.mock('../../services/PrinterConnectionService', () => ({
+jest.mock('../../connection/PrinterConnectionService', () => ({
   PrinterConnectionService: {
     getStatus: jest.fn(),
     onStatusChange: jest.fn(),

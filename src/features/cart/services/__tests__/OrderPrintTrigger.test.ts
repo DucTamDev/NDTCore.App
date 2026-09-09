@@ -1,5 +1,5 @@
 import { buildReceiptDocument, buildReprintDocument, printReceipt } from '../OrderPrintTrigger';
-import { PrintService } from '../../../printer/services/printing/PrintService';
+import { PrintService } from '../../../printer/printing/PrintService';
 import { PrintResultStatus } from '../../../printer/models/printing/PrintJob';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
@@ -7,7 +7,7 @@ import type { PrintRowElement, PrintTextElement } from '../../../printer/models/
 import type { StoreViewModel } from '../../../store/types/store.types';
 import { PrintType } from '../../../printer/models/printing/PrintType';
 
-jest.mock('../../../printer/services/printing/PrintService');
+jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
 
 const item: CartItem = {

@@ -5,7 +5,7 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { usePrinterList } from '../../printer/hooks/usePrinterList';
-import { PrinterConnectionService } from '../../printer/services/PrinterConnectionService';
+import { PrinterConnectionService } from '../../printer/connection/PrinterConnectionService';
 import { PrinterStatus } from '../../printer/models/printer/PrinterStatus';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';

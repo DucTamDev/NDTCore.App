@@ -27,10 +27,10 @@ jest.mock('../../../adapters/native/PrinterNativeModule', () => ({
     writeByBase64: jest.fn().mockResolvedValue('ok'),
   },
 }));
-jest.mock('../../../services/permission/PrinterPermissionService', () => ({
+jest.mock('../../../permissions/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
-jest.mock('../../../services/PrinterLogger', () => ({
+jest.mock('../../../logging/PrinterLogger', () => ({
   PrinterLogger: {
     scanCompleted: jest.fn(), scanFailed: jest.fn(), connectSucceeded: jest.fn(), connectFailed: jest.fn(),
     disconnectSucceeded: jest.fn(), disconnectFailed: jest.fn(), testPrintSucceeded: jest.fn(), testPrintFailed: jest.fn(),
@@ -232,7 +232,7 @@ describe('EscPosDriver', () => {
   it('connect() over Bluetooth checks permission and connects with the device MAC address', async () => {
     const driver = new EscPosDriver();
     await driver.connect(blePrinter, escposDriverEntry);
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
@@ -244,7 +244,7 @@ describe('EscPosDriver', () => {
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
@@ -284,7 +284,7 @@ describe('EscPosDriver', () => {
     await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
     expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
 
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
@@ -334,7 +334,7 @@ describe('EscPosDriver', () => {
   });
 
   it('scan("bluetooth") emits an error event when ensureBluetoothPermission itself rejects', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockRejectedValueOnce(new Error('permission check failed'));
@@ -440,7 +440,7 @@ describe('EscPosDriver', () => {
   it('connect() logs connectSucceeded on success', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
@@ -453,7 +453,7 @@ describe('EscPosDriver', () => {
     const { ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as { ThermalPrinterModule: { connect: jest.Mock } };
     ThermalPrinterModule.connect.mockRejectedValueOnce(new Error('native connect failed'));
     await expect(driver.connect(lanPrinter, escposDriverEntry)).rejects.toThrow();
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
@@ -470,7 +470,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     await driver.disconnect(lanPrinter.id);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: PrinterDriverType.escpos });
@@ -483,7 +483,7 @@ describe('EscPosDriver', () => {
         if (event.type !== DeviceScanEventType.loading) resolve();
       });
     });
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { scanCompleted: jest.Mock };
     };
     expect(PrinterLogger.scanCompleted).toHaveBeenCalledWith(
@@ -505,7 +505,7 @@ describe('EscPosDriver', () => {
       });
     });
     expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.error]);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { scanFailed: jest.Mock };
     };
     expect(PrinterLogger.scanFailed).toHaveBeenCalledWith(
@@ -517,7 +517,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     await driver.testPrint(lanPrinter, escposDriverEntry, sampleDocuments, PrintType.Receipt);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
@@ -526,13 +526,13 @@ describe('EscPosDriver', () => {
   });
 
   it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
-    const { ensureBluetoothPermission } = jest.requireMock('../../../services/permission/PrinterPermissionService') as {
+    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new EscPosDriver();
     await expect(driver.testPrint(blePrinter, escposDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
@@ -548,7 +548,7 @@ describe('EscPosDriver', () => {
     await driver.connect(lanPrinter, escposDriverEntry);
     ThermalPrinterModule.writeByBase64.mockRejectedValueOnce(new Error('print failed'));
     await expect(driver.testPrint(lanPrinter, escposDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toThrow('print failed');
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
@@ -677,7 +677,7 @@ describe('EscPosDriver', () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter, escposDriverEntry);
     await driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] }), PrintType.Receipt);
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
@@ -695,7 +695,7 @@ describe('EscPosDriver', () => {
     await expect(
       driver.print(lanPrinter.id, asDocuments({ elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] }), PrintType.Receipt),
     ).rejects.toThrow('print failed');
-    const { PrinterLogger } = jest.requireMock('../../../services/PrinterLogger') as {
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(

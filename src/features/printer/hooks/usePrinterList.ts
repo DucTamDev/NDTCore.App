@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { LoggerService } from '../../../services/LoggerService';
 import { PrinterRepository } from '../storage/PrinterRepository';
-import { PrinterConnectionService } from '../services/PrinterConnectionService';
+import { PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
 import type { Printer } from '../models/printer/Printer';
 

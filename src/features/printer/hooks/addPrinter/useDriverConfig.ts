@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { PrinterConfigService } from '../../services/PrinterConfigService';
+import { PrinterConfigService } from '../../management/PrinterConfigService';
 import { DEFAULT_TSPL_FONT } from '../../drivers/tspl/TsplFontManager';
 import { DEFAULT_TSPL_INTERNAL_FONT } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';

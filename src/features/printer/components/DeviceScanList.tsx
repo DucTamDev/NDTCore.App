@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';
-import { DeviceScanService } from '../services/device/DeviceScanService';
+import { DeviceScanService } from '../discovery/DeviceScanService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceScanEventType } from '../models/printer/PrinterDevice';
