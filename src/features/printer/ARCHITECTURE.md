@@ -40,16 +40,6 @@ Tài liệu mô tả:
 
 Implementation phải tuân thủ contract này.
 
-> **Cập nhật 2026-08 — tầng `IPrinterAdapter`.** ESC/POS và TSPL giờ đi qua
-> `adapters/IPrinterAdapter` (`listDevices`/`connect`/`write`/`printText`/`read`/
-> `disconnect`) thay vì gọi thẳng namespace/transport. 3 impl theo nguồn cơ chế:
-> `NativeAdapter` (native module RN\*Printer), `LibraryAdapter` (tcp-socket /
-> bluetooth-classic, bọc `LanTransport`/`BluetoothTransport`), `VendorAdapter`
-> (skeleton). `resolvePrinterAdapter(driverType, connectionType)`: ESC/POS →
-> Native; TSPL/USB → Native; TSPL/BLE-LAN → Library. `transports/*Transport` giữ
-> nguyên làm building-block nội bộ của adapter. Các mục nói "ESC/POS vendor
-> library" / "TsplTransport" bên dưới mô tả trạng thái trước thay đổi này.
-
 ---
 
 # 0a. Related Documents
@@ -138,49 +128,80 @@ Printer Feature chỉ cung cấp printer capability cho các feature khác.
 # 3. High-Level Architecture
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                        Application                           │
-│                                                              │
-│  Printer Management       Cart       Order       Kitchen     │
-└───────────────┬──────────────┬───────────────┬──────────────┘
-                │              │               │
-                │              │               │
-                ▼              ▼               ▼
-        PrinterService     PrintService     PrintService
-                │              │
-                │              ▼
-                │       PrintRoutingService
-                │              │
-                │              ▼
-                │       PrintScheduler
-                │              │
-                │              ▼
-                │    PrinterConnectionLock
-                │              │
-                ▼              ▼
-        DriverRegistry    Printer Drivers
-                │              │
-                │        ┌─────┴─────┐
-                │        ▼           ▼
-                │    TsplDriver   EscPosDriver
-                │        │
-                │        ▼
-                │   TSPL Strategy
-                │    ┌────┴────┐
-                │    ▼         ▼
-                │ Bitmap     TrueType
-                │
-                ▼
-          Transport Layer
-          ┌─────┼─────┐
-          ▼     ▼     ▼
-         USB    BT    LAN
-          │     │     │
-          └─────┼─────┘
-                ▼
-           Native Layer
-                ▼
-             Printer
+┌────────────────────────────────────────────────────────────────────┐
+│                           Application                              │
+│                                                                    │
+│  Printer Management        Cart        Order        Kitchen        │
+└──────────────┬───────────────┬──────────────┬───────────────┬──────┘
+               │               │              │               │
+               ▼               │              │               │
+       ┌───────────────┐       │              │               │
+       │ PrinterService│       │              │               │
+       └───────┬───────┘       │              │               │
+               │               │              │               │
+               │               └──────────────┴───────────────┘
+               │                              │
+               │                              ▼
+               │                    ┌──────────────────┐
+               │                    │   PrintService   │
+               │                    └────────┬─────────┘
+               │                             │
+               │                             ▼
+               │                    ┌───────────────────┐
+               │                    │PrintRoutingService│
+               │                    └────────┬──────────┘
+               │                             │
+               │                             ▼
+               │                    ┌──────────────────┐
+               │                    │  PrintScheduler  │
+               │                    └────────┬─────────┘
+               │                             │
+               │                             ▼
+               │                    ┌──────────────────┐
+               │                    │PrinterConnection │
+               │                    │      Lock        │
+               │                    └────────┬─────────┘
+               │                             │
+               └─────────────────────────────┤
+                                             ▼
+                                  ┌────────────────────┐
+                                  │      Printer       │
+                                  │     Execution      │
+                                  └─────────┬──────────┘
+                                            │
+                                  ┌─────────┴─────────┐
+                                  ▼                   ▼
+                           ┌─────────────┐     ┌─────────────┐
+                           │ TsplDriver  │     │EscPosDriver │
+                           └──────┬──────┘     └──────┬──────┘
+                                  │                   │
+                                  │                   │
+                                  ▼                   ▼
+                           ┌────────────────────────────────┐
+                           │       Render / Encode          │
+                           │                                │
+                           │  Encoder   Bitmap   TrueType   │
+                           └────────────────┬───────────────┘
+                                            │
+                                            ▼
+                                  Protocol-specific bytes
+                                            │
+                                            ▼
+                                  ┌──────────────────┐
+                                  │    Transport     │
+                                  ├──────────────────┤
+                                  │ USB              │
+                                  │ Bluetooth        │
+                                  │ LAN              │
+                                  └────────┬─────────┘
+                                           │
+                                           ▼
+                                  ┌──────────────────┐
+                                  │   Native Layer   │
+                                  └────────┬─────────┘
+                                           │
+                                           ▼
+                                       Printer
 ```
 
 ---
@@ -1580,27 +1601,36 @@ raw bytes
 
 # 61. Adapter Boundary
 
-ESC/POS sử dụng vendor thermal printer library.
+Cả ESC/POS lẫn TSPL đi qua **cùng 1 contract** `IPrinterAdapter`
+(`listDevices`/`connect`/`write`/`printText`/`read`/`disconnect`) — không
+còn "ESC/POS dùng vendor library, TSPL dùng transport riêng" như thiết kế
+cũ (xem D2 lịch sử, đã resolve).
 
 ```text
-EscPosDriver
-    ↓
-ThermalPrinterAdapter
-    ↓
-Vendor Library
-    ↓
-Native
+EscPosDriver              TsplDriver
+      │                        │
+      └───────────┬────────────┘
+                   ▼
+        resolvePrinterAdapter(driverType, connectionType)
+                   │
+      ┌────────────┼────────────────┐
+      ▼            ▼                ▼
+NativeAdapter  LibraryAdapter   VendorAdapter
+      │            │            (skeleton — mọi
+      ▼            ▼             I/O throw
+PrinterNativeModule  transports/*Transport   PRINTER_UNSUPPORTED_
+(RN native module)   (tcp-socket /            CONNECTION)
+      │              bluetooth-classic)
+      ▼                   │
+   Native                 ▼
+                    Socket / Bluetooth API
 ```
 
-TSPL sử dụng raw transport.
-
-```text
-TsplDriver
-    ↓
-Transport
-    ↓
-Native
-```
+Quy tắc resolve (`resolvePrinterAdapter`): ESC/POS → luôn `NativeAdapter`;
+TSPL/USB → `NativeAdapter`; TSPL/Bluetooth-LAN → `LibraryAdapter`.
+`transports/{Usb,Bluetooth,Lan}Transport` là building-block nội bộ của
+adapter (không phải thứ driver gọi trực tiếp) — `UsbTransport` còn tự chunk
+16KB/lần cho USB bulk transfer.
 
 ---
 
@@ -1610,11 +1640,12 @@ Chỉ các module sau được phép biết native:
 
 ```text
 PrinterNativeModule
-ThermalPrinterAdapter
-Transport implementations
+NativeAdapter
+Transport implementations (UsbTransport / BluetoothTransport / LanTransport)
 ```
 
-Các layer phía trên không được import native modules.
+Các layer phía trên (`EscPosDriver`, `TsplDriver`, `LibraryAdapter`,
+`VendorAdapter`) không được import native modules.
 
 ---
 
@@ -2836,11 +2867,27 @@ toàn feature. Xem thêm §111c bên dưới về quy ước hậu tố tên.
 # 112. Adapter Responsibility
 
 ```text
-ThermalPrinterAdapter
-→ ESC/POS vendor SDK boundary
+IPrinterAdapter
+→ contract chung: listDevices / connect / write / printText / read / disconnect
+
+resolvePrinterAdapter(driverType, connectionType)
+→ chọn đúng 1 trong 3 implementation dưới đây — nguồn resolve DUY NHẤT
+
+NativeAdapter
+→ qua PrinterNativeModule (RN native module) — ESC/POS mọi connectionType,
+  TSPL/USB. canRead = false (native chỉ bulk-OUT)
+
+LibraryAdapter
+→ qua react-native-tcp-socket / react-native-bluetooth-classic, bọc
+  LanTransport/BluetoothTransport — TSPL/Bluetooth-LAN. canRead = true
+  (cần cho TsplDriver.identify() dò `~!T`)
+
+VendorAdapter
+→ skeleton cho SDK hãng máy in — chưa tích hợp, mọi I/O throw
+  PRINTER_UNSUPPORTED_CONNECTION
 
 PrinterNativeModule
-→ ThermalPrinterModule raw USB boundary
+→ lớp JS mỏng của native module ThermalPrinterModule (raw USB/BT/LAN boundary)
 
 MockPrinterAdapter
 → unit-test double
@@ -3938,7 +3985,7 @@ RULE số hiện có ở §145 và ghi cách test:
 | **No Download During Print** | Font install MUST NEVER xảy ra trong `print` / `testPrint` / reconnect / retry. `DOWNLOAD` chỉ là explicit font-install op. | 13-17, 47 | spy `TsplFontManager.downloadFont` — assert không gọi trong mọi test print path |
 | **Strategy Purity** | `ITsplPrintStrategy` MUST NOT chạm storage / connection state / native / transport / printer I/O. | 12-14, 37, 118 | strategy file không import `transports/` / `adapters/` / `storage/` / `StorageService` |
 | **Driver Responsibility** | `TsplDriver` sở hữu connection lifecycle + orchestrate write, MUST NOT sở hữu document rendering. | 37, 43, 115 | như "Strategy Ownership" |
-| **Transport Responsibility** | `TsplTransport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | transport file không import `models/printing/PrintDocument` / strategy / encoder |
+| **Transport Responsibility** | `IPrinterAdapter`/`transports/*Transport` nhận raw bytes + truyền đi. MUST NOT hiểu document / font / renderMode / strategy. | 35, 138 | adapter/transport file không import `models/printing/PrintDocument` / strategy / encoder |
 | **Configuration Is Source of Truth** | `renderMode` quyết định strategy. Runtime font availability MUST NOT âm thầm đổi renderMode đã cấu hình. | 19, 28, 130, 134 | không tồn tại code path đọc runtime state để chọn strategy |
 | **Explicit Failure** | Mọi điều kiện TSPL render invalid/unsupported MUST sinh `TSPL_*` code cụ thể + kết thúc job đó. | 12, 31, 42-43 | bảng test §11.1 (spec conformance) phủ từng code |
 
@@ -3956,9 +4003,10 @@ pseudocode làm regress hành vi thật. Nguồn: [spec Architecture Conformance
 huỷ), `connect(printer, driver)` (1 printer ≤ 2 driver), `onStatusChange(printerId, cb)`
 (status theo từng printer). Chỉ đổi thật: bỏ `encode()` + `printType` bắt buộc.
 
-**D2 — `EscPosDriver` không đi qua `Transport`.** §56-61 mô tả Transport
-chung; ESC/POS dùng thư viện vendor gộp connect+encode+write (§61 cũng thừa
-nhận). Giữ ngoại lệ pragmatic. `EscPosTextBuilder` thuần chỉ phục vụ test.
+**D2 — [ĐÃ RESOLVE, xem §61].** Trước đây ESC/POS dùng thư viện vendor
+gộp connect+encode+write, không đi qua `Transport` chung như TSPL — đã thay
+bằng `IPrinterAdapter` dùng chung cho cả 2 driver (§61). `EscPosTextBuilder`
+vẫn thuần chỉ phục vụ test (không đổi).
 
 **D3 — Font persist khi Add-flow (§46 bước "Persist state").** §46/§126 giả
 định printer đã tồn tại trong storage. Trong `AddPrinterModal` (thêm mới),
