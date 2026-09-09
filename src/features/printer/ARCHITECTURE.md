@@ -52,6 +52,38 @@ Implementation phải tuân thủ contract này.
 
 ---
 
+# 0b. Pending Architectural Changes (spec đã duyệt, CHƯA implement)
+
+Hai spec dưới đây đã được thiết kế + commit vào
+`docs/superpowers/specs/`, **chưa áp dụng vào code**. Các mục §13, §14,
+§101, §111b bên dưới vẫn mô tả đúng trạng thái CODE HIỆN TẠI (per-driver
+media, không có `EscPosRenderMode`, error code `TSPL_IMAGE_*`) — không
+sửa trước theo spec để tránh tài liệu nói sai với code đang chạy. Cập nhật
+mục này (xoá dòng tương ứng) ngay khi mỗi spec được implement xong.
+
+**1. `2026-09-09-printer-media-ownership-design.md`** — đảo ngược quyết định
+"media theo từng driver" (từng chốt ở `2026-08-30-print-media-domain-design.md`).
+Dời `media: PrintMedia` từ `TsplDriverConfig`/`EscPosDriverConfig` lên
+`Printer.media` (top-level) — 1 máy in vật lý chỉ có 1 loại giấy nạp tại 1
+thời điểm, không thể 2 driver có 2 media khác nhau cùng lúc. Ảnh hưởng §13
+(Printer Entity), §14 (PrinterDriver Entity — bỏ `media` khỏi config), §111b
+(models layout), `mediaOf()`/`paperSizeOf()` (§113) đổi input từ
+`PrinterDriver` sang `Printer`. Bump storage version.
+
+**2. `2026-09-09-escpos-bitmap-printing-design.md`** (phụ thuộc spec #1) —
+thêm `EscPosRenderMode: 'text' | 'bitmap'` cho ESC/POS, dùng lệnh Epson
+chuẩn `GS v 0`, tái dùng nguyên pipeline capture/rasterize đã có cho TSPL
+bitmap (§31-38). Ảnh hưởng §14 (`EscPosDriverConfig.renderMode`), §101
+(đổi tên `TSPL_IMAGE_REQUIRED`/`TSPL_IMAGE_INVALID`/`TSPL_IMAGE_TOO_LARGE`
+→ `IMAGE_REQUIRED`/`IMAGE_INVALID`/`IMAGE_TOO_LARGE`, dùng chung 2
+protocol — D5 ở "Documented Deviations" sẽ hết cần thiết sau thay đổi
+này), §122 (Production Print Matrix thêm dòng ESC/POS Bitmap), §80
+(Image Requirement Resolution tổng quát hoá khỏi riêng "TSPL bitmap
+target"). Native Android **không cần sửa** — đã audit, `writeByBase64`
+protocol-agnostic.
+
+---
+
 # 2. Non-Goals
 
 Printer Feature không chịu trách nhiệm:
@@ -825,8 +857,13 @@ TSPL representation
 ```ts
 type TsplRenderMode =
   | 'bitmap'
-  | 'truetype';
+  | 'truetype'
+  | 'internalfont';
 ```
+
+`internalfont` — in bằng font resident + `CODEPAGE` sẵn có của máy in (không
+`DOWNLOAD`, không install lifecycle). Strategy tương ứng:
+`TsplInternalFontStrategy` (§30 cập nhật danh sách strategy theo đây).
 
 ---
 
@@ -838,8 +875,11 @@ TsplStrategyRegistry
        ├── bitmap
        │     → TsplBitmapStrategy
        │
-       └── truetype
-             → TsplTrueTypeStrategy
+       ├── truetype
+       │     → TsplTrueTypeStrategy
+       │
+       └── internalfont
+             → TsplInternalFontStrategy
 ```
 
 Không switch logic lớn trong `TsplDriver`.
@@ -3006,11 +3046,17 @@ font installation
 
 # 122. Production Print Matrix
 
-| Mode          | Input      | Printer command  |
-| ------------- | ---------- | ---------------- |
-| TSPL Bitmap   | Image      | `BITMAP`         |
-| TSPL TrueType | Text       | `TEXT`           |
-| ESC/POS       | Text/Image | ESC/POS commands |
+| Mode               | Input | Printer command                     |
+| ------------------ | ----- | ------------------------------------ |
+| TSPL Bitmap        | Image | `BITMAP`                             |
+| TSPL TrueType      | Text  | `TEXT`                               |
+| TSPL Internal Font | Text  | `TEXT` (font resident + `CODEPAGE`)  |
+| ESC/POS            | Text  | ESC/POS text commands (`EPToolkit`)  |
+
+ESC/POS hiện **không** có đường Image — `EscPosTextBuilder` ném
+`TSPL_ELEMENT_UNSUPPORTED` nếu gặp element `image` (xem D5). Xem "Pending
+Architectural Changes" — spec ESC/POS bitmap (chưa implement) sẽ thêm
+`EscPosRenderMode: 'bitmap'` dùng lệnh `GS v 0`.
 
 ---
 
