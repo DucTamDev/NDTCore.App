@@ -4,6 +4,8 @@
 **Phạm vi:** `src/features/printer/` và các feature dùng printer (`cart`,
 `application`).
 **Protocol:** ESC/POS, TSPL. **Kết nối:** USB, Bluetooth, LAN.
+**Coding style:** [`CODING_STYLE.md`](CODING_STYLE.md) (riêng cho feature này,
+mở rộng [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md)).
 
 Tài liệu này mô tả feature printer *nên* trông như thế nào khi hoàn thiện —
 không ràng buộc bởi lịch sử từng bản refactor đã qua. Nếu code hiện tại
@@ -20,7 +22,7 @@ họ lệnh máy in (ESC/POS, TSPL), với tiếng Việt hiển thị đúng b�
 có hỗ trợ đúng codepage hay không.
 
 **Không chịu trách nhiệm:** payment, order, cart, business calculation,
-kitchen rule, inventory. Feature khác gọi vào qua đúng 2 entry point ở §3,
+kitchen rule, inventory. Feature khác gọi vào qua đúng 2 entry point ở §4,
 không được biết gì về USB/Bluetooth/TSPL/ESC-POS bên trong.
 
 **Nguyên tắc cốt lõi, giữ xuyên suốt mọi quyết định thiết kế:**
@@ -45,6 +47,7 @@ không được biết gì về USB/Bluetooth/TSPL/ESC-POS bên trong.
 ```text
 src/features/printer/
 ├── ARCHITECTURE.md
+├── CODING_STYLE.md
 │
 ├── models/
 │   ├── printer/          # Printer, PrinterConnection, PrinterDevice,
@@ -131,7 +134,60 @@ diện, không cấu hình thêm) — không gom về 1 cây test tập trung.
 
 ---
 
-## 3. Hai entry point duy nhất
+## 3. File Responsibility Matrix
+
+| File | Chịu trách nhiệm | KHÔNG chịu trách nhiệm |
+|---|---|---|
+| `models/printer/Printer.ts` | `Printer`, `PrinterConnection` (data contract) | Validate, I/O |
+| `models/printer/PrinterDevice.ts` | `ConnectionType`, `PrinterDevice`, `PrinterLanConfig`, `DeviceScanEvent` | — |
+| `models/printer/PrinterDriver.ts` | `PrinterDriverType`, `DriverSource`, `TsplRenderMode`, `EscPosRenderMode`, `*DriverConfig` | — |
+| `models/printer/PrinterCapabilities.ts` | `PrinterCapabilities` | — |
+| `models/media/PrintMedia.ts` | `PrintMedia`, `PrintMediaType`, `CutterMode`, `PaperSize` | — |
+| `models/printing/PrintDocument.ts` | `PrintElement` (union), `PrintDocument` | — |
+| `models/printing/PrintJob.ts` | `PrintJob`, `PrintJobStatus`, `PrintResult` | Scheduling logic |
+| `models/printing/PrintTarget.ts` | `PrintTarget` | — |
+| `errors/PrinterError.ts` | `PrinterErrorCode`, `PrinterErrorException`, `errorCodeOf` | — |
+| `drivers/IPrinterDriver.ts` | Contract mọi driver phải implement | — |
+| `drivers/DriverRegistry.ts` | `protocol → driver` (map tĩnh) | Routing, discovery |
+| `drivers/DriverCapabilities.ts` | `contentTypes`/`defaultConfig` tĩnh theo protocol | — |
+| `drivers/driverConfig.ts` | Accessor thuần: `mediaOf(printer)`, `paperSizeOf(printer)`, `tsplRenderModeOf`/`escPosRenderModeOf`/`usesBitmapRenderMode(driver)` | Side effect |
+| `drivers/escpos/EscPosDriver.ts` | Vòng đời + orchestrate render mode cho ESC/POS | Rendering thật (uỷ quyền builder) |
+| `drivers/escpos/EscPosTextBuilder.ts` | `PrintDocument` → chuỗi text ESC/POS (renderMode `text`) | Native, connect |
+| `drivers/escpos/EscPosBitmapEncoder.ts` | `MonochromeBitmap` → lệnh `GS v 0` (renderMode `bitmap`) | Capture ảnh, decode PNG |
+| `drivers/tspl/TsplDriver.ts` | Vòng đời + orchestrate strategy cho TSPL | Rendering thật (uỷ quyền strategy) |
+| `drivers/tspl/TsplEncoder.ts` | Builder lệnh TSPL cấp thấp (`SIZE`/`TEXT`/`BITMAP`/`BARCODE`/`QRCODE`/`PRINT`) | Connect, storage |
+| `drivers/tspl/TsplFontManager.ts` | TTF asset → lệnh `DOWNLOAD` | Print path, routing |
+| `drivers/tspl/TsplStrategyRegistry.ts` | `renderMode → strategy` (map tĩnh) | Rendering thật |
+| `drivers/tspl/strategies/*.ts` | `document → TSPL bytes` cho đúng 1 renderMode | Connect, native, storage |
+| `adapters/IPrinterAdapter.ts` | Contract `listDevices`/`connect`/`write`/`printText`/`read`/`disconnect` + `toConnectTarget()` | — |
+| `adapters/resolvePrinterAdapter.ts` | `(driverType, connectionType) → adapter instance` | — |
+| `adapters/native/NativeAdapter.ts` | Adapter qua `PrinterNativeModule` | TSPL/ESC-POS syntax |
+| `adapters/library/LibraryAdapter.ts` | Adapter qua `tcp-socket`/`bluetooth-classic` | — |
+| `adapters/vendor/VendorAdapter.ts` | Skeleton SDK hãng (chưa tích hợp) | — |
+| `transports/UsbTransport.ts` | Chunk + gửi byte qua `PrinterNativeModule` (USB) | Protocol |
+| `transports/BluetoothTransport.ts` / `LanTransport.ts` | Gửi/nhận byte qua thư viện tương ứng | Protocol |
+| `discovery/DeviceScanService.ts` | Quét thiết bị theo connectionType, log dev | Kết nối, in |
+| `discovery/NetworkInfoService.ts` | Lấy IP WiFi hiện tại (gợi ý nhập IP LAN) | Discovery protocol |
+| `discovery/PrinterDiscoveryService.ts` | Thử lần lượt driver, xác nhận qua `identify()` | UI, storage |
+| `discovery/PrinterResolver.ts` | `resolveIdentityKey(connection)` | Duplicate check (ở `PrinterRepository`) |
+| `printing/PrintService.ts` | Entry point production printing | Encode, transport |
+| `printing/PrintRoutingService.ts` | `printType → PrintTarget[]` | Print, connect |
+| `printing/PrintScheduler.ts` | Queue, lock, gọi `PrinterPrintService` | Encode |
+| `printing/PrinterPrintService.ts` | `print()`/`testPrint()` cho 1 printer cụ thể | Connection lifecycle khác |
+| `connection/PrinterConnectionService.ts` | `connect`/`disconnect`/`reconnect`/`getStatus`/`onStatusChange`/`connectDraft` | Print dispatch |
+| `connection/PrinterConnectionLock.ts` | Mutex theo `resourceKey` | Business logic |
+| `permissions/PrinterPermissionService.ts` | Xin quyền runtime (Bluetooth/location) trước scan | Scan thật |
+| `management/PrinterConfigService.ts` | `installTsplFont`/`setTsplRenderMode`/`setEscPosRenderMode`/`setPrinterMedia` | Print, discovery |
+| `logging/PrinterLogger.ts` | Điểm log chuẩn hoá duy nhất | Business logic |
+| `storage/PrinterRepository.ts` | CRUD + identity dedup + `printerSchema.parse()` | Validate business rule ngoài identity |
+| `storage/PrinterStorage.ts` | MMKV read/write thô + storage version reset | Identity, validate |
+| `media/paperSpec.ts` | Hằng số vật lý: khổ giấy, dot density, ngưỡng an toàn continuous | TSPL/ESC-POS syntax |
+| `media/cutter.ts` | `resolveEffectiveCutterMode(media)` | — |
+| `media/validation.ts` | Lỗi cấu hình die-cut hiển thị cho UI | Lưu trữ |
+
+---
+
+## 4. Hai entry point duy nhất
 
 ```text
 Quản lý máy in (scan, connect, config, test print)
@@ -146,9 +202,9 @@ Không feature nào ngoài printer được import bất cứ thứ gì từ `dr
 
 ---
 
-## 4. Domain Model
+## 5. Domain Model
 
-### 4.1 `Printer` — 1 giấy vật lý, 1 identity, 1..2 driver
+### 5.1 `Printer` — 1 giấy vật lý, 1 identity, 1..2 driver
 
 ```ts
 export interface Printer {
@@ -159,7 +215,7 @@ export interface Printer {
 
   connection: PrinterConnection;
 
-  /** Giấy vật lý đang nạp — thuộc Printer, KHÔNG thuộc driver nào (§5). */
+  /** Giấy vật lý đang nạp — thuộc Printer, KHÔNG thuộc driver nào (§7). */
   media: PrintMedia;
 
   capabilities: PrinterCapabilities;
@@ -180,9 +236,20 @@ không phụ thuộc driver/protocol/renderMode/font. Đổi driver không đổ
 identity; 2 printer khác driver nhưng cùng connection là 1 printer trùng
 lặp, phải bị chặn lúc lưu (`PrinterRepository`).
 
-### 4.2 `PrinterConnection` — discriminated union, không cho phép invalid state
+### 5.2 `PrinterConnection` — discriminated union, không cho phép invalid state
 
 ```ts
+export interface PrinterDevice {
+  deviceId: string;
+  displayName: string;
+  rawDevice: Record<string, unknown>;
+}
+
+export interface PrinterLanConfig {
+  ip: string;
+  port: number;
+}
+
 export type PrinterConnection =
   | { type: 'usb'; device: PrinterDevice }
   | { type: 'bluetooth'; device: PrinterDevice }
@@ -193,7 +260,7 @@ TypeScript tự chặn state vô lý (`type: 'lan'` kèm `device`, hay `type: 'u
 kèm `lan`) ở compile-time. Zod schema dùng `z.discriminatedUnion('type', ...)`
 tương ứng để validate dữ liệu đọc từ storage (không qua type-check).
 
-### 4.3 `PrintMedia` — cấu hình giấy, KHÔNG phải capability
+### 5.3 `PrintMedia` — cấu hình giấy, KHÔNG phải capability
 
 ```ts
 export interface PrintMedia {
@@ -205,6 +272,11 @@ export interface PrintMedia {
   horizontalGapMm?: number;
   verticalGapMm?: number;
   cutterMode?: 'none' | 'per_job' | 'per_row';
+}
+
+export interface PrinterCapabilities {
+  /** Máy in có dao cắt (phần cứng). */
+  cutter: boolean;
 }
 ```
 
@@ -221,7 +293,7 @@ PrinterCapabilities "Máy in này có dao cắt / hỗ trợ ảnh hay không"
 Ràng buộc: nếu `Printer.drivers` có driver ESC/POS, `media.type` phải là
 `continuous` (ESC/POS không có khái niệm khai báo khổ giấy die-cut).
 
-### 4.4 `PrinterDriver` — 1 protocol, 1 render mode riêng
+### 5.4 `PrinterDriver` — 1 protocol, 1 render mode riêng
 
 ```ts
 export interface PrinterDriver {
@@ -238,6 +310,17 @@ export interface EscPosDriverConfig {
   renderMode?: 'text' | 'bitmap';
 }
 
+export interface TsplFontConfig {
+  name: string;         // định danh dùng chung cho DOWNLOAD lẫn TEXT
+  fileName: string;     // tên file .ttf trong assets
+  fontInstalled: boolean;
+}
+
+export interface TsplInternalFontConfig {
+  codepage: 'UTF-8' | '1258' | '1252';
+  fontName: string;     // font resident của firmware, vd '3', 'TSS24.BF2'
+}
+
 export interface TsplDriverConfig {
   type: 'tspl';
   renderMode: 'bitmap' | 'truetype' | 'internalfont';
@@ -251,9 +334,70 @@ máy in hoàn toàn có thể chọn cách encode khác nhau (vd ESC/POS dùng `
 TSPL dùng `bitmap`), vì đây là lựa chọn *cách gửi lệnh*, không phải *giấy
 nào đang nạp*.
 
+### 5.5 Print-time model
+
+```ts
+export interface PrintDocument {
+  elements: PrintElement[]; // union: text | line | table | row | barcode | qrCode
+}
+
+export interface PrintDocuments {
+  /** Bắt buộc — mọi flow đều có document text. */
+  text: PrintDocument;
+  /** Base64 PNG (không tiền tố `data:`) — nguồn cho bitmap rendering (§9.4). */
+  image?: string;
+}
+
+export interface PrintTarget {
+  printer: Printer;
+  driver: PrinterDriver;
+}
+
+export interface PrintJob {
+  id: string;
+  requestId: string;    // gộp các job multi-target sinh từ 1 lệnh PrintService.print
+  printerId: string;
+  printType: 'Receipt' | 'Label';
+  documents: PrintDocuments;
+  status: 'pending' | 'printing' | 'success' | 'failed' | 'cancelled';
+  retryCount: number;
+  error?: PrinterError;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface PrintResult {
+  status: 'success' | 'partial-failure' | 'failed' | 'no-available-printer';
+  jobs: PrintJob[];
+  error?: PrinterError;
+}
+```
+
+`driverType` **không** lưu trên `PrintJob` — `PrintScheduler` tự tra driver
+từ `printer + printType`, thêm field là trùng nguồn sự thật.
+
 ---
 
-## 5. Nguyên tắc phân chia: Media vs Protocol vs Render Mode
+## 6. Naming Conventions
+
+| Hậu tố/vị trí | Ý nghĩa | Ví dụ |
+|---|---|---|
+| `*Props` | Input của 1 component | `PrinterInfoCardProps` |
+| `*Input` (hook/hàm) | Tham số 1 hàm/hook | `UseConnectionSetupInput`, `DiscoverPrinterInput` |
+| `*Values` | State form RHF trước khi lưu | `LanConnectionValues` |
+| Không hậu tố, ở `models/` | Domain model đã lưu — vừa là input khi ghi vừa là output khi đọc | `Printer`, `PrintMedia` |
+| `*WriteInput` | Input để tạo/sửa 1 model, khác model ở đúng field cần nới lỏng | `PrinterWriteInput` |
+| `*Result` | Giá trị trả về thật của 1 operation | `PrintResult` |
+| `*Event` | Event/callback stream | `DeviceScanEvent`, `DiscoveryEvent` |
+| `I` + tên | Contract có ≥ 1 implementation thay thế được | `IPrinterDriver`, `IPrinterAdapter` |
+| `create*` (factory function) | Hàm dựng service từ dependency, trả object method | `createPrinterConfigService` |
+
+Chi tiết rule đặt tên/comment/class-design xem [`CODING_STYLE.md`](CODING_STYLE.md).
+
+---
+
+## 7. Nguyên tắc phân chia: Media vs Protocol vs Render Mode
 
 Đây là ranh giới hay bị nhầm nhất, nêu tường minh:
 
@@ -262,11 +406,11 @@ nào đang nạp*.
 | `PrintMedia` (khổ giấy, die-cut, cutter) | `Printer` | Thuộc tính giấy vật lý — tại 1 thời điểm chỉ có 1 loại giấy nạp trong máy, không phân biệt driver nào đang in |
 | `PrinterCapabilities` (có dao cắt, hỗ trợ ảnh...) | `Printer` | Thuộc tính phần cứng cố định của máy in, độc lập protocol |
 | `renderMode` (text/bitmap/truetype/internalfont) | `PrinterDriverConfig` | Cách 1 driver cụ thể mã hoá nội dung — 2 driver trên cùng máy chọn độc lập |
-| `PrintType`/content type (Receipt/Label) | `PrinterDriver.contentTypes` | Loại nội dung 1 driver được gán xử lý — độc lập hoàn toàn với protocol (§6) |
+| `PrintType`/content type (Receipt/Label) | `PrinterDriver.contentTypes` | Loại nội dung 1 driver được gán xử lý — độc lập hoàn toàn với protocol (§8) |
 
 ---
 
-## 6. PrintType độc lập với Protocol
+## 8. PrintType độc lập với Protocol
 
 ```text
 Không hard-code:  Receipt = ESC/POS, Label = TSPL
@@ -282,9 +426,9 @@ không có rule bảng cứng nào theo protocol.
 
 ---
 
-## 7. Driver Layer
+## 9. Driver Layer
 
-### 7.1 Contract
+### 9.1 Contract
 
 ```ts
 export interface IPrinterDriver {
@@ -302,7 +446,7 @@ export interface IPrinterDriver {
 `scan` là stream (`Unsubscribe`, không phải `Promise<PrinterDevice[]>`) —
 Bluetooth discovery chạy ~12s, phải huỷ được giữa chừng.
 
-### 7.2 ESC/POS Driver — 2 render mode
+### 9.2 ESC/POS Driver — 2 render mode
 
 ```text
 PrintDocuments
@@ -319,7 +463,7 @@ adapter.write(bytes) / adapter.printText(text)
 trợ đúng codepage tiếng Việt. `bitmap` là lựa chọn khi máy không hỗ trợ,
 đánh đổi lấy hiển thị đúng 100% do app tự kiểm soát font.
 
-### 7.3 TSPL Driver — Strategy Pattern, 3 render mode
+### 9.3 TSPL Driver — Strategy Pattern, 3 render mode
 
 ```text
 TsplDriver
@@ -337,6 +481,15 @@ export interface ITsplPrintStrategy {
   validate(context: TsplStrategyContext): void;
   encode(context: TsplStrategyContext): Uint8Array;
 }
+
+export interface TsplStrategyContext {
+  printer: Printer;
+  driver: PrinterDriver;   // config.type === 'tspl' — TsplDriver narrow trước khi tạo context
+  documents: PrintDocuments;
+  printType: PrintType;
+  media: PrintMedia;       // = mediaOf(printer) — nguồn cho SIZE/GAP/SET CUTTER/layout cột
+  rows: number;            // số hàng die-cut cần in (>= 1); continuous = số bản sao
+}
 ```
 
 Strategy **không** connect, không đọc storage, không cài font — thuần
@@ -347,7 +500,7 @@ strategy → encode → gửi qua adapter.
 font, `internalfont` thiếu cấu hình đều là hard failure (`IMAGE_REQUIRED`,
 `TSPL_FONT_NOT_INSTALLED`...), không tự chuyển sang mode khác.
 
-### 7.4 Bitmap Rendering — dùng chung giữa 2 protocol
+### 9.4 Bitmap Rendering — dùng chung giữa 2 protocol
 
 ```text
 PrintDocument (text elements)
@@ -370,7 +523,7 @@ Toàn bộ pipeline capture→decode→threshold (`useBillImageCapture`,
 
 ---
 
-## 8. Adapter & Transport Layer
+## 10. Adapter & Transport Layer
 
 ```text
 EscPosDriver              TsplDriver
@@ -411,7 +564,7 @@ biết native. Tầng trên (driver, service, UI) không import native module.
 
 ---
 
-## 9. Discovery & Protocol Detection
+## 11. Discovery & Protocol Detection
 
 ```text
 User chọn connection + thiết bị → connect
@@ -429,7 +582,7 @@ tin — vendor/model chỉ là metadata hiển thị. USB không đọc được
 
 ---
 
-## 10. Print Pipeline (production)
+## 12. Print Pipeline (production)
 
 ```text
 Cart/Order
@@ -458,24 +611,46 @@ printer khác.
 
 ---
 
-## 11. Connection Management vs Print Dispatch
+## 13. Connection Management vs Print Dispatch
 
 Đây là 2 trách nhiệm **cố tình tách riêng**, dễ nhầm vì cùng thao tác trên
 "1 printer cụ thể":
 
-```text
-connection/PrinterConnectionService
-    connect() / disconnect() / reconnect() / getStatus() / onStatusChange()
-    → quản lý VÒNG ĐỜI kết nối
+```ts
+// connection/PrinterConnectionService.ts
+export interface PrinterConnectionServiceApi {
+  connect(printerId: string): Promise<void>;
+  disconnect(printerId: string): Promise<void>;
+  reconnect(printerId: string): Promise<void>;
+  reconnectAutoPrinters(): void;               // gọi 1 lần lúc app mount
+  connectDraft(printer: Printer, driver: PrinterDriver): Promise<void>;
+  disconnectForDriver(type: PrinterDriverType, printerId: string): Promise<void>;
+  getStatus(printerId: string): PrinterStatus;
+  onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe;
+  getStatusForDriver(type: PrinterDriverType, printerId: string): PrinterStatus;
+  onStatusChangeForDriver(type: PrinterDriverType, printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe;
+}
 
-printing/PrinterPrintService
-    print() / testPrint()
-    → THỰC THI 1 lần in, dùng driver đã/sắp connect
+// printing/PrinterPrintService.ts
+export interface PrinterPrintServiceApi {
+  print(printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void>;
+  testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void>;
+}
 ```
 
 Cả 2 dùng chung 3 primitive (`DriverRegistry`, `PrinterRepository`,
 `PrinterConnectionLock`) — **không phụ thuộc lẫn nhau**, không phải quan hệ
-wrap. `print()` gọi thẳng `driver.connect()` nếu cần (không qua
+wrap:
+
+```text
+                DriverRegistry   PrinterRepository   PrinterConnectionLock
+                      │                 │                    │
+        ┌─────────────┼─────────────────┤          ┌─────────┤
+        ▼             ▼                 ▼          ▼         ▼
+   PrinterConnectionService (connection/)      PrinterPrintService (printing/)
+```
+
+`print()` gọi thẳng `driver.connect()` nếu cần (không qua
 `PrinterConnectionService.connect()`, vì hàm đó connect *tất cả* driver
 của printer, khác scope với "connect đúng driver cần in").
 
@@ -487,9 +662,15 @@ tự lock.
 
 ---
 
-## 12. Concurrency — `PrinterConnectionLock`
+## 14. Concurrency — `PrinterConnectionLock`
 
 Lock bảo vệ **ranh giới tài nguyên native**, không phải "1 printer = 1 khoá":
+
+```ts
+export interface PrinterConnectionLockApi {
+  runExclusive<T>(resourceKey: string, task: () => Promise<T>): Promise<T>;
+}
+```
 
 ```text
 USB                        → "usb"                          (global singleton — mọi USB printer serialize chung)
@@ -498,12 +679,26 @@ TSPL Bluetooth device A     → "tspl:bluetooth:<deviceId>"     (độc lập th
 TSPL LAN ip:port            → "tspl:lan:<ip>:<port>"          (độc lập theo endpoint → in song song được)
 ```
 
-`resourceKey` **không log** (chứa IP với TSPL LAN — vi phạm rule không lộ
-IP). `connectionType` + `protocol` đã đủ để debug concurrency.
+Dùng chung bởi `PrinterConnectionService`, `PrinterPrintService`,
+`PrinterConfigService` (font install), `PrintScheduler` — 1 singleton duy
+nhất trong toàn feature. `resourceKey` **không log** (chứa IP với TSPL LAN
+— vi phạm rule không lộ IP). `connectionType` + `protocol` đã đủ để debug
+concurrency.
 
 ---
 
-## 13. Font Lifecycle (TSPL TrueType) — tách biệt hoàn toàn khỏi print
+## 15. Font Lifecycle (TSPL TrueType) — tách biệt hoàn toàn khỏi print
+
+```ts
+// management/PrinterConfigService.ts
+export interface PrinterConfigServiceApi {
+  installTsplFont(printerId: string, font: TsplFontConfig): Promise<void>;
+  setTsplRenderMode(printerId: string, renderMode: TsplRenderMode): void;
+  setTsplInternalFont(printerId: string, internalFont: TsplInternalFontConfig): void;
+  setEscPosRenderMode(printerId: string, renderMode: EscPosRenderMode): void;
+  setPrinterMedia(printerId: string, patch: Partial<PrintMedia>): void;
+}
+```
 
 ```text
 Install (thao tác tường minh, riêng biệt):
@@ -524,16 +719,29 @@ DOWNLOAD.
 
 ---
 
-## 14. Error Handling
+## 16. Error Handling
+
+```ts
+export interface PrinterError {
+  code: PrinterErrorCode;
+  message: string;
+  cause?: unknown;
+}
+
+export class PrinterErrorException extends Error {
+  code: PrinterErrorCode;
+  cause?: unknown;
+}
+```
 
 ```text
 Native/SDK error
       ↓
 Adapter/Transport (bắt, không để leak nguyên văn)
       ↓
-Driver (normalize)
+Driver (normalize thành PrinterErrorException)
       ↓
-PrinterErrorException { code: PrinterErrorCode, message, cause? }
+promise.reject(code, message) xuống JS caller
 ```
 
 Nhóm code liên quan tới ảnh (`IMAGE_REQUIRED`/`IMAGE_INVALID`/
@@ -546,27 +754,55 @@ và trả kết quả, không throw ngược lên luồng thanh toán.
 
 ---
 
-## 15. Persistence
+## 17. Persistence
 
-`PrinterStorage` (MMKV) qua `PrinterRepository` (CRUD + identity dedup +
-`printerSchema.parse()`). Đổi shape `Printer` không tương thích ngược →
-bump `CURRENT_STORAGE_VERSION`, **destructive reset** (không viết code
-migrate field-by-field) — printer cũ mất, user cấu hình lại.
+```ts
+// storage/PrinterRepository.ts
+export interface PrinterRepositoryApi {
+  getPrinters(): Printer[];
+  savePrinters(printers: Printer[]): void;
+  findOrThrow(printerId: string): Printer;
+  addPrinter(printer: PrinterWriteInput): void;
+  updatePrinter(printer: PrinterWriteInput): void;
+  removePrinter(printerId: string): void;
+  setEnabled(printerId: string, enabled: boolean): void;
+}
+```
+
+`PrinterStorage` (MMKV) là tầng đọc/ghi thô bên dưới `PrinterRepository`
+(CRUD + identity dedup + `printerSchema.parse()`). Đổi shape `Printer`
+không tương thích ngược → bump `CURRENT_STORAGE_VERSION`, **destructive
+reset** (không viết code migrate field-by-field) — printer cũ mất, user
+cấu hình lại.
 
 Không persist runtime state (`connected`/`connecting`/`lastError`) — chỉ
 persist configuration (driver, renderMode, media, font state).
 
 ---
 
-## 16. Logging
+## 18. Logging
 
-Mọi operation qua `PrinterLogger`, field chuẩn: `printerId`, `operation`,
-`protocol`, `connectionType`, `durationMs`, `result?`, `errorCode?`.
+```ts
+export interface PrinterLoggerApi {
+  scanCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void;
+  scanFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void;
+  connectSucceeded(params: { printerId: string; protocol: PrinterDriverType; connectionType: ConnectionType; durationMs: number }): void;
+  connectFailed(params: { printerId: string; protocol: PrinterDriverType; connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void;
+  printSucceeded(params: { printerId: string; protocol: PrinterDriverType; durationMs: number }): void;
+  printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode; durationMs: number }): void;
+  // ... disconnect*/testPrint*/discovery*/fontInstall* theo cùng pattern
+}
+```
+
+Field chuẩn: `printerId`, `operation` (`'scan'|'connect'|'disconnect'|'discovery'|'test-print'|'print'|'font-install'`),
+`protocol`, `connectionType`, `durationMs`, `result?` (`'success'|'failure'`,
+optional — event mốc-bắt-đầu như `discovery.started` không phát), `errorCode?`.
+
 **Không log:** nội dung hoá đơn, MAC address, IP, `resourceKey`, byte font.
 
 ---
 
-## 17. Testing Strategy
+## 19. Testing Strategy
 
 ```text
 Unit (không cần hardware):
@@ -586,7 +822,23 @@ lint + test tay). File logic có `__tests__/` colocate, dùng
 
 ---
 
-## 18. Core Invariants
+## 20. SOLID Mapping
+
+| Nguyên tắc | Áp dụng trong feature này |
+|---|---|
+| **Single Responsibility** | Mỗi file trong §3 chỉ có đúng 1 responsibility — vd `TsplEncoder` chỉ build syntax, `TsplFontManager` chỉ lo font lifecycle, không gộp thành 1 `TsplService` làm hết |
+| **Open/Closed** | Thêm `renderMode` mới cho TSPL = thêm 1 strategy + đăng ký vào `TsplStrategyRegistry`, không sửa `TsplDriver`. Thêm protocol mới = thêm 1 `IPrinterDriver` impl + đăng ký `DriverRegistry`, không sửa `PrintService`/`PrintScheduler` |
+| **Liskov Substitution** | Mọi `IPrinterDriver` (ESC/POS, TSPL, `WebUnsupportedDriver` cho web build) phải giữ đúng contract — `scan()` luôn trả `Unsubscribe`, `print()` luôn throw `PrinterErrorException` khi lỗi, không bao giờ silent-fail khác nhau giữa impl |
+| **Interface Segregation** | `IPrinterAdapter` không ép `IPrinterDriver` biết; `ITsplPrintStrategy` không ép biết `connect()`/`disconnect()`. Không tạo 1 interface khổng lồ ép mọi implementation phải có method không dùng tới |
+| **Dependency Inversion** | `PrintService`/`PrinterConnectionService`/`TsplDriver` phụ thuộc `IPrinterDriver`/`IPrinterAdapter`/`PrinterRepositoryApi` (abstraction), không phụ thuộc `NativeAdapter`/MMKV/USB SDK trực tiếp — native/storage implementation luôn ở outer layer, inject qua factory-function default param |
+
+**Không đồng nghĩa** SOLID = interface hoá mọi class hay tách factory cho
+mọi object — xem [`CODING_STYLE.md`](CODING_STYLE.md) §3, §7, §12 (Interface
+Rule, Constructor/Factory, Abstraction Rules).
+
+---
+
+## 21. Core Invariants
 
 Rút gọn từ nguyên tắc §1, áp dụng khi review code mới:
 
@@ -605,14 +857,13 @@ Rút gọn từ nguyên tắc §1, áp dụng khi review code mới:
 
 ---
 
-## 19. Tài liệu tham khảo
+## 22. Tài liệu tham khảo
 
-Các quyết định chi tiết + lý do lịch sử nằm trong `docs/superpowers/specs/`
-(tìm theo ngày, chủ đề "printer") — tài liệu này không phụ thuộc vào chúng
-để tự đầy đủ, nhưng khi cần hiểu *vì sao* 1 quyết định được chọn (vd vì
-sao `PrintMedia` thuộc `Printer` chứ không thuộc driver), spec tương ứng có
-đầy đủ phân tích trade-off.
-
-Coding style riêng: [`docs/CODING_STANDARDS.md`](../../../docs/CODING_STANDARDS.md)
-(Java native), [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md)
-(TypeScript).
+- [`CODING_STYLE.md`](CODING_STYLE.md) — rule đặt tên/comment/class-design riêng cho feature này.
+- [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md) — coding style TypeScript chung toàn app.
+- [`docs/CODING_STANDARDS.md`](../../../docs/CODING_STANDARDS.md) — coding style Java (native Android layer).
+- `docs/superpowers/specs/` (tìm theo ngày, chủ đề "printer") — quyết định
+  chi tiết + lý do lịch sử. Tài liệu này không phụ thuộc vào chúng để tự
+  đầy đủ, nhưng khi cần hiểu *vì sao* 1 quyết định được chọn (vd vì sao
+  `PrintMedia` thuộc `Printer` chứ không thuộc driver), spec tương ứng có
+  đầy đủ phân tích trade-off.
