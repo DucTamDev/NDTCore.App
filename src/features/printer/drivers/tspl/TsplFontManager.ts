@@ -9,7 +9,7 @@ import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 /** Font mặc định bundle sẵn trong app — chỉ 1 font ở phase này, xem spec §4/§10. */
 export const DEFAULT_TSPL_FONT: TsplFontConfig = {
   name: 'VIETFONT',
-  fileName: 'Roboto-Regular.ttf',
+  fileName: 'BeVietnamPro-Light.ttf',
   fontInstalled: false,
 };
 
