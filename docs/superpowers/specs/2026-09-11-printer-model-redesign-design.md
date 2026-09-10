@@ -1,7 +1,7 @@
 # Printer Model Redesign — Loại bỏ multi-driver/multi-connection, gộp mỗi Printer thành 1 cấu hình atomic
 
 **Ngày:** 2026-09-11
-**Nhánh:** refactor/vendor-thermal-printer
+**Nhánh:** refactor/native-printer-registry-queue
 
 ## 1. Bối cảnh & động lực
 
@@ -79,6 +79,7 @@ interface PrinterDriver {
 Không còn `TsplDriverConfig`/`EscPosDriverConfig` riêng biệt — cả 2 dùng chung 1 shape. Ràng buộc "TSPL chỉ còn `Bitmap` thực chất (không có encoder text-mode nào tồn tại cho TSPL)" enforce ở **schema**, không ở type: `renderMode` với `driver.type === Tspl` luôn phải là `Bitmap`; với `driver.type === EscPos` được chọn `Encoder` hoặc `Bitmap`.
 
 **Bị xoá hoàn toàn** (không còn được tham chiếu ở đâu sau refactor):
+
 - `TsplFontConfig`, `TsplInternalFontConfig`, `TsplCodepage`
 - `TsplTrueTypeStrategy`, `TsplInternalFontStrategy`, `TsplFontManager` + test tương ứng
 - `utils/cp1258.ts` + test (chỉ TSPL internalfont dùng)
@@ -104,11 +105,13 @@ interface PrinterCapabilities { cutter: boolean }
 ## 3. Validation invariants (PrinterSchema.ts)
 
 **Giữ:**
+
 - ESC/POS (`driver.type === EscPos`) ⇒ `paper.type === Continuous` (không đổi).
 - Die-cut (`paper.type === DieCut`) ⇒ bắt buộc `itemWidthMm`/`itemHeightMm`/`columns`/gap (không đổi nội dung, chỉ đổi vị trí field từ `driver.config.media` → `paper`).
 - `(identityKey, type)` unique trong toàn bộ danh sách printer đã lưu.
 
 **Bỏ hoàn toàn** (không còn ý nghĩa vì mỗi `Printer` chỉ có 1 driver):
+
 - `contentTypes` không giao nhau giữa 2 driver.
 - Tối đa 1-2 phần tử trong `drivers[]`.
 - Không trùng `driver.type` trong cùng 1 printer.
