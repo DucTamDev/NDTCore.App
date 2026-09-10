@@ -102,6 +102,34 @@ const CutterMode = { None: 'None', PerJob: 'PerJob', PerRow: 'PerRow' } as const
 interface PrinterCapabilities { cutter: boolean }
 ```
 
+### 2.7 PascalCase mở rộng — state/lifecycle enums (không đụng `PrinterErrorCode`)
+
+Theo yêu cầu bổ sung, PascalCase hoá value cho toàn bộ enum trạng thái/sự kiện còn lại trong feature (trước đó chỉ giới hạn ở enum thuộc model `Printer`):
+
+```ts
+// PrinterStatus.ts
+const PrinterStatus = {
+  Idle: 'Idle', Connecting: 'Connecting', Connected: 'Connected',
+  Disconnecting: 'Disconnecting', Disconnected: 'Disconnected',
+  Reconnecting: 'Reconnecting', Error: 'Error',
+} as const;
+
+// PrinterDevice.ts
+const DeviceScanEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
+
+// PrinterDiscoveryService.ts
+const DiscoveryStage = {
+  Connecting: 'Connecting', Identifying: 'Identifying', Identified: 'Identified',
+  UnknownProtocol: 'UnknownProtocol', Error: 'Error',
+} as const;
+
+// models/printing/PrintJob.ts
+const PrintJobStatus = { Pending: 'Pending', Printing: 'Printing', Success: 'Success', Failed: 'Failed', Cancelled: 'Cancelled' } as const;
+const PrintResultStatus = { Success: 'Success', PartialFailure: 'PartialFailure', Failed: 'Failed', NoAvailablePrinter: 'NoAvailablePrinter' } as const;
+```
+
+`PrinterErrorCode` (`errors/PrinterError.ts`) **giữ nguyên SCREAMING_SNAKE_CASE** — đây là quy ước riêng cho error code (không phải state enum), phạm vi ~44 file tham chiếu, không nằm trong yêu cầu này.
+
 ## 3. Validation invariants (PrinterSchema.ts)
 
 **Giữ:**
@@ -135,7 +163,7 @@ interface PrinterCapabilities { cutter: boolean }
 
 File cần sửa/xoá (không đầy đủ, plan sẽ liệt kê chi tiết theo task):
 
-**Models:** `Printer.ts`, `PrinterConnection.ts`, `PrinterDriver.ts`, `PrinterDevice.ts` (gộp `ConnectionType`), `PrintPaperConfig.ts` (PascalCase value nốt phần còn lại).
+**Models:** `Printer.ts`, `PrinterConnection.ts`, `PrinterDriver.ts`, `PrinterDevice.ts` (gộp `ConnectionType` + PascalCase `DeviceScanEventType`), `PrintPaperConfig.ts` (PascalCase value nốt phần còn lại), `PrinterStatus.ts`, `models/printing/PrintJob.ts` (`PrintJobStatus`/`PrintResultStatus`), `discovery/PrinterDiscoveryService.ts` (`DiscoveryStage`) — cùng mọi call site tham chiếu các giá trị enum này (hook `usePrinterConnection`, UI hiển thị trạng thái, `PrintScheduler`...).
 
 **Xoá hẳn:** `TsplFontConfig`/`TsplInternalFontConfig`/`TsplCodepage` (trong `PrinterDriver.ts`), `TsplTrueTypeStrategy.ts`, `TsplInternalFontStrategy.ts`, `TsplFontManager.ts`, `utils/cp1258.ts`, và toàn bộ test tương ứng (~28 file có tham chiếu theo grep, phần lớn chỉ cần bỏ import/case chứ không xoá cả file).
 
@@ -152,5 +180,5 @@ File cần sửa/xoá (không đầy đủ, plan sẽ liệt kê chi tiết theo
 ## 7. Ngoài phạm vi (không làm trong thiết kế này)
 
 - Không thêm field `encoder`/`PrintEncoder` (CP1258/1252/UTF-8) vào `PrinterDriverConfig` — ý tưởng nêu trong doc gốc chỉ mang tính dự phòng, chưa có yêu cầu thật.
-- Không đổi PascalCase cho các enum ngoài phạm vi model `Printer` (vd `PrinterStatus`, `DeviceScanEventType`, `PrintJobStatus`, `PrintResultStatus`) — các enum này thuộc domain khác (trạng thái kết nối, sự kiện scan, hàng đợi in), không nằm trong "Printer setup model" đang redesign.
+- Không đổi `PrinterErrorCode` (giữ SCREAMING_SNAKE_CASE) — xem 2.7.
 - Không có khái niệm gom nhóm "physical printer" ở tầng storage/model — mỗi `Printer` độc lập hoàn toàn, kể cả khi trỏ cùng `identityKey`.
