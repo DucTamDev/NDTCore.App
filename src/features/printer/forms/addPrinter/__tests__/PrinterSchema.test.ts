@@ -1,5 +1,5 @@
 import { printerDriverSchema, printerSchema } from '../PrinterSchema';
-import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 import { DriverSource, PrintRenderMode, PrinterDriverType, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { type Printer } from '../../../models/printer/Printer';
 import { PrintType } from '../../../models/printing/PrintType';
@@ -24,7 +24,7 @@ const basePrinter: Printer = {
   id: 'p1',
   name: 'Máy in',
   drivers: [escposDriver],
-  connection: { type: ConnectionType.lan, host: '192.168.1.10', port: 9100 },
+  connection: { type: PrinterConnectionType.Lan, host: '192.168.1.10', port: 9100 },
   identityKey: 'lan:192.168.1.10:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -145,17 +145,17 @@ describe('printerSchema', () => {
    * biểu diễn được nữa, không cần test runtime-reject riêng).
    */
   it('accepts connection.type usb với đúng field usb (vendorId/productId)', () => {
-    const printer: Printer = { ...basePrinter, connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 } };
+    const printer: Printer = { ...basePrinter, connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 } };
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('accepts connection.type bluetooth với đúng field bluetooth (deviceId)', () => {
-    const printer: Printer = { ...basePrinter, connection: { type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:55' } };
+    const printer: Printer = { ...basePrinter, connection: { type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:55' } };
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('rejects connection thiếu field bắt buộc của variant (usb thiếu productId)', () => {
-    const printer = { ...basePrinter, connection: { type: ConnectionType.usb, vendorId: 1155 } };
+    const printer = { ...basePrinter, connection: { type: PrinterConnectionType.Usb, vendorId: 1155 } };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 });

@@ -24,7 +24,7 @@ const printer: Printer = {
   id: 'p1',
   name: 'M',
   drivers: [],
-  connection: { type: 'lan', host: '1.2.3.4', port: 9100 },
+  connection: { type: 'Lan', host: '1.2.3.4', port: 9100 },
   identityKey: 'lan:1.2.3.4:9100',
   capabilities: { cutter: false },
   autoReconnect: false,

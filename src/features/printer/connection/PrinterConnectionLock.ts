@@ -1,4 +1,4 @@
-import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
@@ -29,15 +29,15 @@ export interface ConnectionResourceKeyInput {
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
   const { connection, driverType } = input;
 
-  if (connection.type === ConnectionType.usb) {
+  if (connection.type === PrinterConnectionType.Usb) {
     return 'usb';
   }
 
   if (driverType === PrinterDriverType.escpos) {
-    return `escpos:${connection.type}`;
+    return connection.type === PrinterConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
   }
 
-  if (connection.type === ConnectionType.bluetooth) {
+  if (connection.type === PrinterConnectionType.Bluetooth) {
     return `tspl:bluetooth:${connection.deviceId}`;
   }
 

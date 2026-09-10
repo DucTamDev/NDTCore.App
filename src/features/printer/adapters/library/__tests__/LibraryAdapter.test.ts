@@ -1,5 +1,5 @@
 import { LibraryAdapter } from '../LibraryAdapter';
-import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 jest.mock('../../../../../services/LoggerService', () => ({
@@ -35,26 +35,26 @@ describe('LibraryAdapter', () => {
 
   it('connect(usb) -> PRINTER_UNSUPPORTED_CONNECTION', async () => {
     await expect(
-      new LibraryAdapter().connect({ printerId: 'p1', connectionType: ConnectionType.usb, usb: { vendorId: 1, productId: 2 } }),
+      new LibraryAdapter().connect({ printerId: 'p1', connectionType: PrinterConnectionType.Usb, usb: { vendorId: 1, productId: 2 } }),
     ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
   });
 
   it('connect(lan) mở LanTransport với ip/port', async () => {
     const adapter = new LibraryAdapter();
-    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.9', port: 9100 } });
+    await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.9', port: 9100 } });
     expect(lastLan().connect).toHaveBeenCalledWith('10.0.0.9', 9100);
   });
 
   it('write(lan) đẩy bytes vào LanTransport.write', async () => {
     const adapter = new LibraryAdapter();
-    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.9', port: 9100 } });
+    await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.9', port: 9100 } });
     await adapter.write(new Uint8Array([1, 2, 3]));
     expect(lastLan().write).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
   });
 
   it('printText(lan) encode ESC/POS rồi write', async () => {
     const adapter = new LibraryAdapter();
-    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.9', port: 9100 } });
+    await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.9', port: 9100 } });
     await adapter.printText('<C>hi</C>', { cut: true, tailingLine: true, encoding: 'UTF8' });
     expect(lastLan().write).toHaveBeenCalledTimes(1);
     const [payload] = lastLan().write.mock.calls[0];
@@ -64,7 +64,7 @@ describe('LibraryAdapter', () => {
 
   it('read(lan) trả bytes từ LanTransport.readOnce', async () => {
     const adapter = new LibraryAdapter();
-    await adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '10.0.0.9', port: 9100 } });
+    await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.9', port: 9100 } });
     await expect(adapter.read(500)).resolves.toEqual(new Uint8Array([0x7e]));
   });
 

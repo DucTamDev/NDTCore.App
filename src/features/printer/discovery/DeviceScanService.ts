@@ -1,5 +1,5 @@
 import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
-import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import type { DeviceScanEvent } from '../models/printer/PrinterDevice';
 import { LoggerService } from '../../../services/LoggerService';
@@ -24,7 +24,7 @@ export const createDeviceScanService = (
    * cố ý không nhận `rawDevice`/MAC; đây là log dev thuần.
    */
   const withScanLogging =
-    (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
+    (connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
     (event: DeviceScanEvent): void => {
       LoggerService.debug('printer.scan.event', {
         connectionType,
@@ -36,21 +36,21 @@ export const createDeviceScanService = (
       onEvent(event);
     };
 
-  const scanDevices = (type: PrinterDriverType, connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
+  const scanDevices = (type: PrinterDriverType, connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
     getDriver(type).scan(connectionType, withScanLogging(connectionType, onEvent));
 
-  const scanForConnectionType = (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
+  const scanForConnectionType = (connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
     const tapped = withScanLogging(connectionType, onEvent);
 
-    if (connectionType === ConnectionType.usb) {
-      return getDriver(PrinterDriverType.escpos).scan(ConnectionType.usb, tapped);
+    if (connectionType === PrinterConnectionType.Usb) {
+      return getDriver(PrinterDriverType.escpos).scan(PrinterConnectionType.Usb, tapped);
     }
 
-    if (connectionType === ConnectionType.bluetooth) {
-      return getDriver(PrinterDriverType.tspl).scan(ConnectionType.bluetooth, tapped);
+    if (connectionType === PrinterConnectionType.Bluetooth) {
+      return getDriver(PrinterDriverType.tspl).scan(PrinterConnectionType.Bluetooth, tapped);
     }
 
-    return getDriver(PrinterDriverType.tspl).scan(ConnectionType.lan, tapped);
+    return getDriver(PrinterDriverType.tspl).scan(PrinterConnectionType.Lan, tapped);
   };
 
   const discoverDriver = (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);

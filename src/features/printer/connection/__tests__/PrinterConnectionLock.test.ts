@@ -1,11 +1,11 @@
 import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 
-const bluetoothConnection = (deviceId: string): PrinterConnection => ({ type: ConnectionType.bluetooth, deviceId });
-const lanConnection: PrinterConnection = { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 };
-const usbConnection: PrinterConnection = { type: ConnectionType.usb, vendorId: 1155, productId: 22222 };
+const bluetoothConnection = (deviceId: string): PrinterConnection => ({ type: PrinterConnectionType.Bluetooth, deviceId });
+const lanConnection: PrinterConnection = { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 };
+const usbConnection: PrinterConnection = { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 };
 
 describe('connectionResourceKey', () => {
   it('is "usb" for any driver over USB (RNUSBPrinter is a shared native singleton)', () => {

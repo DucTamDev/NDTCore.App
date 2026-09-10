@@ -1,5 +1,5 @@
 import type { IPrinterAdapter } from './IPrinterAdapter';
-import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { NativeAdapter } from './native/NativeAdapter';
 import { LibraryAdapter } from './library/LibraryAdapter';
@@ -12,13 +12,13 @@ import { LibraryAdapter } from './library/LibraryAdapter';
  */
 export const resolvePrinterAdapter = (
   driverType: PrinterDriverType,
-  connectionType: ConnectionType,
+  connectionType: PrinterConnectionType,
 ): IPrinterAdapter => {
   if (driverType === PrinterDriverType.escpos) {
     return new NativeAdapter();
   }
 
-  if (connectionType === ConnectionType.usb) {
+  if (connectionType === PrinterConnectionType.Usb) {
     return new NativeAdapter();
   }
 

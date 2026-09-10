@@ -2,7 +2,8 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
-import { ConnectionType, DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { type Printer } from '../../../models/printer/Printer';
@@ -110,7 +111,7 @@ const lanPrinter: Printer = {
   id: 'label-1',
   name: 'Máy in tem',
   drivers: [tsplDriverEntry],
-  connection: { type: ConnectionType.lan, host: '192.168.1.60', port: 9100 },
+  connection: { type: PrinterConnectionType.Lan, host: '192.168.1.60', port: 9100 },
   identityKey: 'lan:192.168.1.60:9100',
   capabilities: { cutter: false },
   autoReconnect: false,
@@ -122,13 +123,13 @@ const lanPrinter: Printer = {
 const usbPrinter: Printer = {
   ...lanPrinter,
   id: 'label-usb',
-  connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 },
+  connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
 };
 
 const bluetoothPrinter: Printer = {
   ...lanPrinter,
   id: 'label-bt',
-  connection: { type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:66', name: 'Máy in tem BT' },
+  connection: { type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:66', name: 'Máy in tem BT' },
 };
 
 const sampleDocuments: PrintDocuments = {
@@ -285,15 +286,15 @@ describe('TsplDriver', () => {
   it('scan() on lan immediately reports empty (no scan for LAN)', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan(ConnectionType.lan, (event) => events.push(event.type));
-    expect(events).toEqual([DeviceScanEventType.empty]);
+    driver.scan(PrinterConnectionType.Lan, (event) => events.push(event.type));
+    expect(events).toEqual([DeviceScanEventType.Empty]);
   });
 
   it('scan() on usb immediately reports error', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan(ConnectionType.usb, (event) => events.push(event.type));
-    expect(events).toEqual([DeviceScanEventType.error]);
+    driver.scan(PrinterConnectionType.Usb, (event) => events.push(event.type));
+    expect(events).toEqual([DeviceScanEventType.Error]);
   });
 
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
@@ -507,7 +508,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.lan }),
+      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: PrinterConnectionType.Lan }),
     );
   });
 
@@ -524,7 +525,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, connectionType: ConnectionType.usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, connectionType: PrinterConnectionType.Usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -571,16 +572,16 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan(ConnectionType.bluetooth, (event) => {
+      driver.scan(PrinterConnectionType.Bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== DeviceScanEventType.loading) resolve();
+        if (event.type !== DeviceScanEventType.Loading) resolve();
       });
     });
     const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
-    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.empty]);
+    expect(events).toEqual([DeviceScanEventType.Loading, DeviceScanEventType.Empty]);
   });
 
   it('scan("bluetooth") emits an error and skips startDiscovery when permission is denied', async () => {
@@ -595,12 +596,12 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan(ConnectionType.bluetooth, (event) => {
+      driver.scan(PrinterConnectionType.Bluetooth, (event) => {
         events.push(event.type);
-        if (event.type !== DeviceScanEventType.loading) resolve();
+        if (event.type !== DeviceScanEventType.Loading) resolve();
       });
     });
-    expect(events).toEqual([DeviceScanEventType.loading, DeviceScanEventType.error]);
+    expect(events).toEqual([DeviceScanEventType.Loading, DeviceScanEventType.Error]);
     expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
   });
 

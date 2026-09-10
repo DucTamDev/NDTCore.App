@@ -1,5 +1,5 @@
-import { ConnectionType } from '../models/printer/PrinterDevice';
 import type { PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnection, UsbPrinterConnection } from '../models/printer/PrinterConnection';
 
 /**
@@ -10,18 +10,18 @@ import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnectio
  */
 export const buildUsbConnection = (device: PrinterDevice): UsbPrinterConnection => {
   const raw = device.rawDevice as unknown as UsbRawDevice;
-  const connection: UsbPrinterConnection = { type: ConnectionType.usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
+  const connection: UsbPrinterConnection = { type: PrinterConnectionType.Usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
   return raw.serialNumber ? { ...connection, serialNumber: raw.serialNumber } : connection;
 };
 
 /** Dựng `BluetoothPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan. */
 export const buildBluetoothConnection = (device: PrinterDevice): BluetoothPrinterConnection => {
-  const connection: BluetoothPrinterConnection = { type: ConnectionType.bluetooth, deviceId: device.deviceId };
+  const connection: BluetoothPrinterConnection = { type: PrinterConnectionType.Bluetooth, deviceId: device.deviceId };
   return device.displayName ? { ...connection, name: device.displayName } : connection;
 };
 
 /** Dựng `LanPrinterConnection` từ IP/port đã nhập (form Add Printer). */
-export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: ConnectionType.lan, host, port });
+export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: PrinterConnectionType.Lan, host, port });
 
 /**
  * Chiều ngược lại `buildUsbConnection`/`buildBluetoothConnection` — dựng lại
@@ -33,12 +33,12 @@ export const buildLanConnection = (host: string, port: number): LanPrinterConnec
  * thị, chỉ để round-trip lại đúng connection.
  */
 export const deviceFromConnection = (connection: PrinterConnection): PrinterDevice | undefined => {
-  if (connection.type === ConnectionType.usb) {
+  if (connection.type === PrinterConnectionType.Usb) {
     const rawDevice: UsbRawDevice = { vendorId: connection.vendorId, productId: connection.productId, serialNumber: connection.serialNumber };
     return { deviceId: `${connection.vendorId}:${connection.productId}`, displayName: '', rawDevice: rawDevice as unknown as Record<string, unknown> };
   }
 
-  if (connection.type === ConnectionType.bluetooth) {
+  if (connection.type === PrinterConnectionType.Bluetooth) {
     return { deviceId: connection.deviceId, displayName: connection.name ?? '', rawDevice: {} };
   }
 
@@ -58,11 +58,11 @@ export const deviceFromConnection = (connection: PrinterConnection): PrinterDevi
  * cùng lúc.
  */
 export const resolveIdentityKey = (connection: PrinterConnection): string => {
-  if (connection.type === ConnectionType.lan) {
+  if (connection.type === PrinterConnectionType.Lan) {
     return `lan:${connection.host}:${connection.port}`;
   }
 
-  if (connection.type === ConnectionType.bluetooth) {
+  if (connection.type === PrinterConnectionType.Bluetooth) {
     return `bluetooth:mac:${connection.deviceId}`;
   }
 

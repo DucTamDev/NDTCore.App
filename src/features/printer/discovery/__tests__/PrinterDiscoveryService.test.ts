@@ -1,6 +1,6 @@
 import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterDriverType, type PrinterDriver } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { PrinterLogger } from '../../logging/PrinterLogger';
@@ -114,7 +114,7 @@ describe('PrinterDiscoveryService', () => {
     expect(last.stage).toBe(DiscoveryStage.error);
     expect(last.error?.code).toBe(PrinterErrorCode.PRINTER_CONNECTION_FAILED);
     expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', connectionType: ConnectionType.lan, candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos] }),
+      expect.objectContaining({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos] }),
     );
   });
 
@@ -127,13 +127,13 @@ describe('PrinterDiscoveryService', () => {
 
     expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith({
       printerId: 'p1',
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos],
     });
     expect(PrinterLogger.discoveryCandidateRejected).toHaveBeenCalledWith({
       printerId: 'p1',
       protocol: PrinterDriverType.tspl,
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       reason: 'not_confirmed',
     });
   });
@@ -204,7 +204,7 @@ describe('PrinterDiscoveryService', () => {
     const tsplDriver = makeMockDriver();
     await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(PrinterLogger.protocolDetected).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: ConnectionType.lan }),
+      expect.objectContaining({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: PrinterConnectionType.Lan }),
     );
   });
 
@@ -213,7 +213,7 @@ describe('PrinterDiscoveryService', () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
     expect(PrinterLogger.protocolUnknown).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', connectionType: ConnectionType.lan }),
+      expect.objectContaining({ printerId: 'p1', connectionType: PrinterConnectionType.Lan }),
     );
   });
 });

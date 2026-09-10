@@ -1,16 +1,6 @@
 import type { PrinterError } from '../../errors/PrinterError';
 
-/**
- * 3 giai đoạn của 1 máy in: scan (`PrinterDevice`) → lưu (`PrinterConnection`,
- * xem PrinterConnection.ts) → identify sau khi connect (`PrinterDeviceInfo`).
- */
-export const ConnectionType = {
-  usb: 'usb',
-  bluetooth: 'bluetooth',
-  lan: 'lan',
-} as const;
-
-export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
+/** 2 giai đoạn của 1 máy in: scan (`PrinterDevice`) → identify sau khi connect (`PrinterDeviceInfo`). Kết nối đã lưu xem `PrinterConnection.ts`. */
 
 /** 1 kết quả scan — thiết bị user có thể chọn, chưa connect, chưa lưu. */
 export interface PrinterDevice {
@@ -22,7 +12,7 @@ export interface PrinterDevice {
 }
 
 /**
- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — khớp
+ * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === PrinterConnectionType.Usb` — khớp
  * `PrinterInfoDto` từ native (`vendorId`/`productId` luôn có; `serialNumber`
  * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
  */
@@ -41,15 +31,8 @@ export interface PrinterDeviceInfo {
   model?: string;
 }
 
-export const DeviceScanEventType = {
-  loading: 'loading',
-  found: 'found',
-  empty: 'empty',
-  error: 'error',
-} as const;
-
+export const DeviceScanEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
 export type DeviceScanEventType = (typeof DeviceScanEventType)[keyof typeof DeviceScanEventType];
-
 export interface DeviceScanEvent {
   type: DeviceScanEventType;
   devices?: PrinterDevice[];

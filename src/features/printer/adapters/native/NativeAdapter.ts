@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { NativeModules, Platform } from 'react-native';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { UsbTransport } from '../../transports/UsbTransport';
@@ -37,19 +37,19 @@ export class NativeAdapter implements IPrinterAdapter {
   readonly source = 'native' as const;
   readonly canRead = false;
 
-  private connectionType?: ConnectionType;
+  private connectionType?: PrinterConnectionType;
   private printerId?: string;
   private usb?: UsbTransport;
 
-  async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
-    if (connectionType === ConnectionType.lan) {
+  async listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]> {
+    if (connectionType === PrinterConnectionType.Lan) {
       return [];
     }
 
     const devices = await ThermalPrinterModule.discoverPrinters(connectionType);
 
     return devices.map((d) => ({
-      deviceId: connectionType === ConnectionType.bluetooth ? (d.address ?? '') : `${d.vendorId}:${d.productId}`,
+      deviceId: connectionType === PrinterConnectionType.Bluetooth ? (d.address ?? '') : `${d.vendorId}:${d.productId}`,
       displayName: d.name ?? '',
       rawDevice: d as unknown as Record<string, unknown>,
     }));
@@ -59,7 +59,7 @@ export class NativeAdapter implements IPrinterAdapter {
     this.connectionType = target.connectionType;
     this.printerId = target.printerId;
 
-    if (target.connectionType === ConnectionType.usb) {
+    if (target.connectionType === PrinterConnectionType.Usb) {
       if (!target.usb) {
         throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
       }
@@ -69,7 +69,7 @@ export class NativeAdapter implements IPrinterAdapter {
       return;
     }
 
-    if (target.connectionType === ConnectionType.bluetooth) {
+    if (target.connectionType === PrinterConnectionType.Bluetooth) {
       if (!target.bluetooth) {
         throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
       }
@@ -86,7 +86,7 @@ export class NativeAdapter implements IPrinterAdapter {
   }
 
   async write(bytes: Uint8Array): Promise<void> {
-    if (this.connectionType === ConnectionType.usb) {
+    if (this.connectionType === PrinterConnectionType.Usb) {
       if (!this.usb) {
         throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in USB chưa kết nối' });
       }
@@ -107,7 +107,7 @@ export class NativeAdapter implements IPrinterAdapter {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
     }
 
-    if (Platform.OS === 'ios' && this.connectionType !== ConnectionType.usb) {
+    if (Platform.OS === 'ios' && this.connectionType !== PrinterConnectionType.Usb) {
       return this.printTextLegacyIOS(text);
     }
 
@@ -124,7 +124,7 @@ export class NativeAdapter implements IPrinterAdapter {
    * quan tới printerId của kiến trúc Android mới.
    */
   private printTextLegacyIOS(text: string): Promise<void> {
-    const legacyModule = this.connectionType === ConnectionType.bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
+    const legacyModule = this.connectionType === PrinterConnectionType.Bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
     const processed = textPreprocessingIOS(text);
 
     return new Promise((resolve, reject) => {
@@ -138,7 +138,7 @@ export class NativeAdapter implements IPrinterAdapter {
   }
 
   async disconnect(): Promise<void> {
-    if (this.connectionType === ConnectionType.usb) {
+    if (this.connectionType === PrinterConnectionType.Usb) {
       await this.usb?.close();
       return;
     }

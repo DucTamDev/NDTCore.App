@@ -1,5 +1,5 @@
 import { VendorAdapter } from '../VendorAdapter';
-import { ConnectionType } from '../../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 describe('VendorAdapter (skeleton)', () => {
@@ -8,12 +8,12 @@ describe('VendorAdapter (skeleton)', () => {
   });
 
   it('listDevices trả []', async () => {
-    await expect(new VendorAdapter().listDevices(ConnectionType.lan)).resolves.toEqual([]);
+    await expect(new VendorAdapter().listDevices(PrinterConnectionType.Lan)).resolves.toEqual([]);
   });
 
   it('connect / write / printText ném PRINTER_UNSUPPORTED_CONNECTION', async () => {
     const adapter = new VendorAdapter();
-    await expect(adapter.connect({ printerId: 'p1', connectionType: ConnectionType.lan, lan: { ip: '1.1.1.1', port: 9100 } })).rejects.toMatchObject({
+    await expect(adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '1.1.1.1', port: 9100 } })).rejects.toMatchObject({
       code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
     });
     await expect(adapter.write(new Uint8Array([1]))).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });

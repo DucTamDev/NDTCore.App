@@ -2,7 +2,7 @@ import { createPrinterConfigService } from '../PrinterConfigService';
 import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
@@ -255,7 +255,7 @@ describe('PrinterConfigService', () => {
     await service.installTsplFont(tsplPrinter.id, font);
 
     expect(succeededSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: tsplPrinter.id, connectionType: ConnectionType.lan }),
+      expect.objectContaining({ printerId: tsplPrinter.id, connectionType: PrinterConnectionType.Lan }),
     );
     succeededSpy.mockRestore();
   });

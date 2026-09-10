@@ -1,5 +1,6 @@
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import type { ConnectionType, PrinterDevice } from '../../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 
 /**
@@ -22,7 +23,7 @@ export class VendorAdapter implements IPrinterAdapter {
     });
   }
 
-  async listDevices(_connectionType: ConnectionType): Promise<PrinterDevice[]> {
+  async listDevices(_connectionType: PrinterConnectionType): Promise<PrinterDevice[]> {
     return [];
   }
 

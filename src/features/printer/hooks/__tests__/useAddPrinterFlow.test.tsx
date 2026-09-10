@@ -7,7 +7,7 @@ import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { PrinterConfigService } from '../../management/PrinterConfigService';
 import { DeviceScanService } from '../../discovery/DeviceScanService';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { DriverSource, PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 import type { Printer } from '../../models/printer/Printer';
@@ -71,7 +71,7 @@ const savedTspl: Printer = {
       config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { type: 'continuous', paperSize: 80 }, font: { name: 'VIETFONT', fileName: 'Roboto-Regular.ttf', fontInstalled: true } },
     },
   ],
-  connection: { type: ConnectionType.lan, host: '10.0.0.5', port: 9100 },
+  connection: { type: PrinterConnectionType.Lan, host: '10.0.0.5', port: 9100 },
   identityKey: 'lan:10.0.0.5:9100',
   capabilities: { cutter: false },
   autoReconnect: true,
@@ -193,7 +193,7 @@ describe('useAddPrinterFlow', () => {
     expect(PrinterRepository.updatePrinter).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'p1',
-        connection: expect.objectContaining({ type: ConnectionType.lan }),
+        connection: expect.objectContaining({ type: PrinterConnectionType.Lan }),
         capabilities: { cutter: false },
         drivers: expect.any(Array),
       }),

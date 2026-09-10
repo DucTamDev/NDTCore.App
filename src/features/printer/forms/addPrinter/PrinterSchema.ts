@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { DriverSource, PrintRenderMode, PrinterDriverType, TsplCodepage } from '../../models/printer/PrinterDriver';
 import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
@@ -104,20 +104,20 @@ export const printerDriverSchema = z
   });
 
 const usbPrinterConnectionSchema = z.object({
-  type: z.literal(ConnectionType.usb),
+  type: z.literal(PrinterConnectionType.Usb),
   vendorId: z.number(),
   productId: z.number(),
   serialNumber: z.string().optional(),
 });
 
 const bluetoothPrinterConnectionSchema = z.object({
-  type: z.literal(ConnectionType.bluetooth),
+  type: z.literal(PrinterConnectionType.Bluetooth),
   deviceId: z.string(),
   name: z.string().optional(),
 });
 
 const lanPrinterConnectionSchema = z.object({
-  type: z.literal(ConnectionType.lan),
+  type: z.literal(PrinterConnectionType.Lan),
   host: z.string(),
   port: z.number(),
 });

@@ -17,9 +17,9 @@ export interface PrinterListItemProps {
 }
 
 const connectionLabel: Record<Printer['connection']['type'], string> = {
-  usb: 'USB',
-  bluetooth: 'Bluetooth',
-  lan: 'LAN',
+  Usb: 'USB',
+  Bluetooth: 'Bluetooth',
+  Lan: 'LAN',
 };
 
 const protocolLabel: Record<PrinterDriverType, string> = {

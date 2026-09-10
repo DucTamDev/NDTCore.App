@@ -1,4 +1,4 @@
-import { ConnectionType } from '../PrinterDevice';
+import { PrinterConnectionType } from '../PrinterConnection';
 import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../PrinterDriver';
 import { type Printer } from '../Printer';
 import { PrintType } from '../../printing/PrintType';
@@ -15,7 +15,7 @@ describe('Printer domain type', () => {
       id: 'p1',
       name: 'Máy in tem quầy 1',
       drivers: [driver],
-      connection: { type: ConnectionType.lan, host: '192.168.1.50', port: 9100 },
+      connection: { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 },
       identityKey: 'lan:192.168.1.50:9100',
       capabilities: { cutter: false },
       autoReconnect: true,
@@ -34,7 +34,7 @@ describe('Printer domain type', () => {
         { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } },
         { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } },
       ],
-      connection: { type: ConnectionType.usb, vendorId: 1155, productId: 22222 },
+      connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
       identityKey: 'usb:1155:22222',
       capabilities: { cutter: false },
       autoReconnect: false,

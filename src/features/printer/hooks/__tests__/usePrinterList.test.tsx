@@ -7,7 +7,7 @@ import printerReducer from '../../store/printerSlice';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
 import type { Printer } from '../../models/printer/Printer';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
@@ -32,7 +32,7 @@ const printer = (over: Partial<Printer> = {}): Printer =>
   makePrinter({
     name: 'M1',
     drivers: [],
-    connection: { type: ConnectionType.lan, host: '1.2.3.4', port: 9100 },
+    connection: { type: PrinterConnectionType.Lan, host: '1.2.3.4', port: 9100 },
     identityKey: 'lan:1.2.3.4:9100',
     createdAt: '',
     updatedAt: '',

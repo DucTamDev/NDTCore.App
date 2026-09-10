@@ -5,7 +5,7 @@ import { PrinterConnectionService } from '../../connection/PrinterConnectionServ
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { DiscoveryStage, type DiscoveryEvent } from '../../discovery/PrinterDiscoveryService';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { DriverSource, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
@@ -21,7 +21,7 @@ import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSc
 export interface UseProtocolDiscoveryInput {
   initialValues?: Printer;
   drivers: PrinterDriver[];
-  connectionType: ConnectionType;
+  connectionType: PrinterConnectionType;
   lanForm: UseFormReturn<LanConnectionValues>;
   discoveryUnsubscribeRef: MutableRefObject<(() => void) | null>;
   buildDraftPrinter: () => Printer;
@@ -115,7 +115,7 @@ export const useProtocolDiscovery = ({
   };
 
   const onConnectPress = (): void => {
-    if (connectionType === ConnectionType.lan) {
+    if (connectionType === PrinterConnectionType.Lan) {
       lanForm.handleSubmit(() => startDiscovery())();
     } else {
       startDiscovery();

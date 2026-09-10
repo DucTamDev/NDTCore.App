@@ -1,7 +1,7 @@
 import { LoggerService } from '../../../../services/LoggerService';
 import { PrinterLogger } from '../PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 
 jest.mock('../../../../services/LoggerService', () => ({
@@ -19,9 +19,9 @@ describe('PrinterLogger', () => {
   });
 
   it('scanCompleted logs an info event with connectionType/deviceCount/durationMs + operation/result', () => {
-    PrinterLogger.scanCompleted({ connectionType: ConnectionType.bluetooth, deviceCount: 3, durationMs: 120 });
+    PrinterLogger.scanCompleted({ connectionType: PrinterConnectionType.Bluetooth, deviceCount: 3, durationMs: 120 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.scan.completed', {
-      connectionType: ConnectionType.bluetooth,
+      connectionType: PrinterConnectionType.Bluetooth,
       deviceCount: 3,
       durationMs: 120,
       operation: 'scan',
@@ -30,9 +30,9 @@ describe('PrinterLogger', () => {
   });
 
   it('scanFailed logs a warning event with connectionType/errorCode/durationMs + operation/result', () => {
-    PrinterLogger.scanFailed({ connectionType: ConnectionType.usb, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: 50 });
+    PrinterLogger.scanFailed({ connectionType: PrinterConnectionType.Usb, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: 50 });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.scan.failed', {
-      connectionType: ConnectionType.usb,
+      connectionType: PrinterConnectionType.Usb,
       errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
       durationMs: 50,
       operation: 'scan',
@@ -41,7 +41,7 @@ describe('PrinterLogger', () => {
   });
 
   it('connectSucceeded logs an info event with operation=connect, result=success, and no resourceKey/ip', () => {
-    PrinterLogger.connectSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: ConnectionType.lan, durationMs: 200 });
+    PrinterLogger.connectSucceeded({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: PrinterConnectionType.Lan, durationMs: 200 });
     expect(LoggerService.info).toHaveBeenCalledWith(
       'printer.connect.succeeded',
       expect.objectContaining({ operation: 'connect', result: 'success' }),
@@ -53,7 +53,7 @@ describe('PrinterLogger', () => {
     expect(payload).toEqual({
       printerId: 'p1',
       protocol: PrinterDriverType.escpos,
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       durationMs: 200,
       operation: 'connect',
       result: 'success',
@@ -64,14 +64,14 @@ describe('PrinterLogger', () => {
     PrinterLogger.connectFailed({
       printerId: 'p1',
       protocol: PrinterDriverType.tspl,
-      connectionType: ConnectionType.bluetooth,
+      connectionType: PrinterConnectionType.Bluetooth,
       errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
       durationMs: 300,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.connect.failed', {
       printerId: 'p1',
       protocol: PrinterDriverType.tspl,
-      connectionType: ConnectionType.bluetooth,
+      connectionType: PrinterConnectionType.Bluetooth,
       errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
       durationMs: 300,
       operation: 'connect',
@@ -124,19 +124,19 @@ describe('PrinterLogger', () => {
   });
 
   it('permissionDenied logs a warning event mapped to operation=scan, result=failure', () => {
-    PrinterLogger.permissionDenied({ connectionType: ConnectionType.bluetooth });
+    PrinterLogger.permissionDenied({ connectionType: PrinterConnectionType.Bluetooth });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.permission.denied', {
-      connectionType: ConnectionType.bluetooth,
+      connectionType: PrinterConnectionType.Bluetooth,
       operation: 'scan',
       result: 'failure',
     });
   });
 
   it('discoveryStarted logs a debug event with operation=discovery and NO result field', () => {
-    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: ConnectionType.lan, candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos] });
+    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos] });
     expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.started', {
       printerId: 'p1',
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       operation: 'discovery',
     });
@@ -148,13 +148,13 @@ describe('PrinterLogger', () => {
     PrinterLogger.discoveryCandidateRejected({
       printerId: 'p1',
       protocol: PrinterDriverType.tspl,
-      connectionType: ConnectionType.usb,
+      connectionType: PrinterConnectionType.Usb,
       reason: 'not_confirmed',
     });
     expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.candidate-rejected', {
       printerId: 'p1',
       protocol: PrinterDriverType.tspl,
-      connectionType: ConnectionType.usb,
+      connectionType: PrinterConnectionType.Usb,
       reason: 'not_confirmed',
       operation: 'discovery',
       result: 'failure',
@@ -164,13 +164,13 @@ describe('PrinterLogger', () => {
   it('discoveryFailed logs a warning event with operation=discovery, result=failure', () => {
     PrinterLogger.discoveryFailed({
       printerId: 'p1',
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 600,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.discovery.failed', {
       printerId: 'p1',
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 600,
       operation: 'discovery',
@@ -182,14 +182,14 @@ describe('PrinterLogger', () => {
     PrinterLogger.protocolDetected({
       printerId: 'p1',
       protocol: PrinterDriverType.escpos,
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 700,
     });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.protocol.detected', {
       printerId: 'p1',
       protocol: PrinterDriverType.escpos,
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 700,
       operation: 'discovery',
@@ -200,13 +200,13 @@ describe('PrinterLogger', () => {
   it('protocolUnknown logs a warning event with operation=discovery, result=failure', () => {
     PrinterLogger.protocolUnknown({
       printerId: 'p1',
-      connectionType: ConnectionType.usb,
+      connectionType: PrinterConnectionType.Usb,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 800,
     });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.protocol.unknown', {
       printerId: 'p1',
-      connectionType: ConnectionType.usb,
+      connectionType: PrinterConnectionType.Usb,
       candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos],
       durationMs: 800,
       operation: 'discovery',
@@ -243,10 +243,10 @@ describe('PrinterLogger', () => {
   });
 
   it('fontInstallSucceeded logs an info event with operation=font-install, result=success', () => {
-    PrinterLogger.fontInstallSucceeded({ printerId: 'p1', connectionType: ConnectionType.lan, durationMs: 4200 });
+    PrinterLogger.fontInstallSucceeded({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, durationMs: 4200 });
     expect(LoggerService.info).toHaveBeenCalledWith('printer.font-install.succeeded', {
       printerId: 'p1',
-      connectionType: ConnectionType.lan,
+      connectionType: PrinterConnectionType.Lan,
       durationMs: 4200,
       operation: 'font-install',
       result: 'success',
@@ -267,10 +267,10 @@ describe('PrinterLogger', () => {
   });
 
   it('fontInstallFailed logs a warning event with operation=font-install, result=failure', () => {
-    PrinterLogger.fontInstallFailed({ printerId: 'p1', connectionType: ConnectionType.bluetooth, errorCode: PrinterErrorCode.PRINTER_NOT_CONNECTED, durationMs: 900 });
+    PrinterLogger.fontInstallFailed({ printerId: 'p1', connectionType: PrinterConnectionType.Bluetooth, errorCode: PrinterErrorCode.PRINTER_NOT_CONNECTED, durationMs: 900 });
     expect(LoggerService.warning).toHaveBeenCalledWith('printer.font-install.failed', {
       printerId: 'p1',
-      connectionType: ConnectionType.bluetooth,
+      connectionType: PrinterConnectionType.Bluetooth,
       errorCode: PrinterErrorCode.PRINTER_NOT_CONNECTED,
       durationMs: 900,
       operation: 'font-install',

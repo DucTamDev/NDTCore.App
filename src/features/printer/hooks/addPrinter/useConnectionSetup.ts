@@ -7,7 +7,7 @@ import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, devic
 import { ThermalPrinterModule } from '../../adapters/native/PrinterNativeModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
@@ -39,7 +39,7 @@ export const useConnectionSetup = ({
   getProtocolState,
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
-  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.usb);
+  const [connectionType, setConnectionType] = useState<PrinterConnectionType>(initialValues?.connection.type ?? PrinterConnectionType.Usb);
   const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(
     initialValues ? deviceFromConnection(initialValues.connection) : undefined,
   );
@@ -50,8 +50,8 @@ export const useConnectionSetup = ({
   const lanForm = useForm<LanConnectionValues>({
     resolver: zodResolver(lanConnectionSchema),
     defaultValues: {
-      lanIp: initialValues?.connection.type === ConnectionType.lan ? initialValues.connection.host : '',
-      lanPort: initialValues?.connection.type === ConnectionType.lan ? String(initialValues.connection.port) : '',
+      lanIp: initialValues?.connection.type === PrinterConnectionType.Lan ? initialValues.connection.host : '',
+      lanPort: initialValues?.connection.type === PrinterConnectionType.Lan ? String(initialValues.connection.port) : '',
     },
   });
 
@@ -60,7 +60,7 @@ export const useConnectionSetup = ({
   /** Không cần biết protocol — xem `resolveIdentityKey`. */
   const currentIdentityKey = (): string | null => {
     try {
-      if (connectionType === ConnectionType.lan) {
+      if (connectionType === PrinterConnectionType.Lan) {
         const values = lanForm.getValues();
 
         if (!lanConnectionSchema.safeParse(values).success) {
@@ -75,7 +75,7 @@ export const useConnectionSetup = ({
         return null;
       }
 
-      const connection = connectionType === ConnectionType.usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+      const connection = connectionType === PrinterConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
       return resolveIdentityKey(connection);
     } catch {
       return null;
@@ -103,7 +103,7 @@ export const useConnectionSetup = ({
    * để identityKey pin thêm serial (`usb:<vid>:<pid>:<serial>`) thay vì chỉ `vid:pid`.
    */
   const refreshUsbSerial = async (): Promise<void> => {
-    if (connectionType !== ConnectionType.usb || !selectedDevice) {
+    if (connectionType !== PrinterConnectionType.Usb || !selectedDevice) {
       return;
     }
 
@@ -113,7 +113,7 @@ export const useConnectionSetup = ({
       return;
     }
 
-    const devices = await ThermalPrinterModule.discoverPrinters(ConnectionType.usb).catch(() => []);
+    const devices = await ThermalPrinterModule.discoverPrinters(PrinterConnectionType.Usb).catch(() => []);
     const rich = devices.find((d) => d.vendorId === Number(raw.vendorId) && d.productId === Number(raw.productId));
 
     if (!rich?.serialNumber) {
@@ -129,7 +129,7 @@ export const useConnectionSetup = ({
     }
   };
 
-  const onConnectionTypeChange = (value: ConnectionType): void => {
+  const onConnectionTypeChange = (value: PrinterConnectionType): void => {
     if (drivers.length > 0) {
       return;
     }

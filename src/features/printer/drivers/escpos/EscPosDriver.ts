@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { CutterMode } from '../../models/paper/PrintPaperConfig';
@@ -32,35 +32,35 @@ const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding
  */
 export class EscPosDriver implements IPrinterDriver {
   private adapters = new Map<string, NativeAdapter>();
-  private connectedTypes = new Map<string, ConnectionType>();
+  private connectedTypes = new Map<string, PrinterConnectionType>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
-  private activeByType = new Map<ConnectionType, string>();
+  private activeByType = new Map<PrinterConnectionType, string>();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
   }
 
-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
-    if (connectionType === ConnectionType.lan) {
-      onEvent({ type: DeviceScanEventType.empty });
+  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+    if (connectionType === PrinterConnectionType.Lan) {
+      onEvent({ type: DeviceScanEventType.Empty });
       return () => undefined;
     }
 
-    if (connectionType === ConnectionType.usb && Platform.OS !== 'android') {
-      onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
+    if (connectionType === PrinterConnectionType.Usb && Platform.OS !== 'android') {
+      onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
 
     let cancelled = false;
-    onEvent({ type: DeviceScanEventType.loading });
+    onEvent({ type: DeviceScanEventType.Loading });
     const startedAt = Date.now();
 
     const run = async (): Promise<void> => {
       try {
-        if (connectionType === ConnectionType.bluetooth) {
+        if (connectionType === PrinterConnectionType.Bluetooth) {
           const granted = await ensureBluetoothPermission();
 
           if (cancelled) {
@@ -68,7 +68,7 @@ export class EscPosDriver implements IPrinterDriver {
           }
 
           if (!granted) {
-            onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
+            onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
             return;
           }
         }
@@ -80,7 +80,7 @@ export class EscPosDriver implements IPrinterDriver {
         }
 
         LoggerService.debug('EscPosDriver.scan: devices', { connectionType, devices });
-        onEvent({ type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty, devices });
+        onEvent({ type: devices.length > 0 ? DeviceScanEventType.Found : DeviceScanEventType.Empty, devices });
         PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
       } catch (error) {
         if (cancelled) {
@@ -90,12 +90,12 @@ export class EscPosDriver implements IPrinterDriver {
         const message = error instanceof Error ? error.message : String(error);
 
         if (/no device found/i.test(message)) {
-          onEvent({ type: DeviceScanEventType.empty });
+          onEvent({ type: DeviceScanEventType.Empty });
           PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
           return;
         }
 
-        onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message } });
+        onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message } });
         PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
       }
     };
@@ -111,7 +111,7 @@ export class EscPosDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     try {
-      if (printer.connection.type === ConnectionType.bluetooth) {
+      if (printer.connection.type === PrinterConnectionType.Bluetooth) {
         const granted = await ensureBluetoothPermission();
 
         if (!granted) {
@@ -279,7 +279,7 @@ export class EscPosDriver implements IPrinterDriver {
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
 
-    if (!connectionType || connectionType === ConnectionType.usb) {
+    if (!connectionType || connectionType === PrinterConnectionType.Usb) {
       return null;
     }
 

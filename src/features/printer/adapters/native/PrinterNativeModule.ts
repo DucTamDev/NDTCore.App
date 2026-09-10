@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native';
-import type { ConnectionType } from '../../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 
 const ThermalPrinterModuleNative = NativeModules.ThermalPrinterModule;
 
@@ -49,7 +49,7 @@ export type ConnectRequest = UsbConnectRequest | BluetoothConnectRequest | LanCo
  * lý ngầm trong `discoverPrinters`/`connect`.
  */
 export const ThermalPrinterModule = {
-  discoverPrinters: (type: ConnectionType): Promise<PrinterInfoDto[]> => ThermalPrinterModuleNative.discoverPrinters(type),
+  discoverPrinters: (type: PrinterConnectionType): Promise<PrinterInfoDto[]> => ThermalPrinterModuleNative.discoverPrinters(type),
 
   connect: (request: ConnectRequest): Promise<void> => ThermalPrinterModuleNative.connect(request),
 

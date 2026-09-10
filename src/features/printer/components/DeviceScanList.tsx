@@ -5,10 +5,11 @@ import { DeviceScanService } from '../discovery/DeviceScanService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceScanEventType } from '../models/printer/PrinterDevice';
-import type { ConnectionType, PrinterDevice } from '../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
 
 export interface DeviceScanListProps {
-  connectionType: ConnectionType;
+  connectionType: PrinterConnectionType;
   selectedDeviceId?: string;
   onSelect: (device: PrinterDevice) => void;
 }
@@ -32,13 +33,13 @@ export const DeviceScanList: React.FC<DeviceScanListProps> = ({
     let settled = false;
     const unsubscribe = DeviceScanService.scanForConnectionType(connectionType, (event) => {
       if (settled) return;
-      if (event.type === DeviceScanEventType.loading) setLoading(true);
-      if (event.type === DeviceScanEventType.found || event.type === DeviceScanEventType.empty) {
+      if (event.type === DeviceScanEventType.Loading) setLoading(true);
+      if (event.type === DeviceScanEventType.Found || event.type === DeviceScanEventType.Empty) {
         settled = true;
         setLoading(false);
         setDevices(event.devices ?? []);
       }
-      if (event.type === DeviceScanEventType.error) {
+      if (event.type === DeviceScanEventType.Error) {
         settled = true;
         setLoading(false);
         setErrorMessage(event.error?.message ?? 'Không thể quét thiết bị');

@@ -1,6 +1,6 @@
 import { DriverRegistry } from '../DriverRegistry.web';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 
 describe('DriverRegistry (web)', () => {
@@ -11,7 +11,7 @@ describe('DriverRegistry (web)', () => {
 
   it('scan returns a no-op unsubscribe and never reports a device', () => {
     const onEvent = jest.fn();
-    const unsubscribe = DriverRegistry.escpos.scan(ConnectionType.usb, onEvent);
+    const unsubscribe = DriverRegistry.escpos.scan(PrinterConnectionType.Usb, onEvent);
     expect(onEvent).not.toHaveBeenCalled();
     expect(() => unsubscribe()).not.toThrow();
   });

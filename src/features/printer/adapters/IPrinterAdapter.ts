@@ -1,4 +1,5 @@
-import type { ConnectionType, PrinterDevice } from '../models/printer/PrinterDevice';
+import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -7,7 +8,7 @@ import type { Printer } from '../models/printer/Printer';
  */
 export interface PrinterConnectTarget {
   printerId: string;
-  connectionType: ConnectionType;
+  connectionType: PrinterConnectionType;
   lan?: { ip: string; port: number };
   bluetooth?: { deviceId: string };
   usb?: { vendorId: number; productId: number };
@@ -41,7 +42,7 @@ export interface IPrinterAdapter {
   readonly canRead: boolean;
 
   /** Liệt kê thiết bị cho 1 connectionType — `[]` nếu adapter không quét loại đó. */
-  listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]>;
+  listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]>;
 
   /** Mở kết nối. Idempotent phần init tầng dưới. */
   connect(target: PrinterConnectTarget): Promise<void>;
@@ -67,11 +68,11 @@ export interface IPrinterAdapter {
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
   const { connection } = printer;
 
-  if (connection.type === 'lan') {
+  if (connection.type === 'Lan') {
     return { printerId: printer.id, connectionType: connection.type, lan: { ip: connection.host, port: connection.port } };
   }
 
-  if (connection.type === 'bluetooth') {
+  if (connection.type === 'Bluetooth') {
     return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
   }
 

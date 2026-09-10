@@ -11,7 +11,7 @@ import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPri
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
-import { ConnectionType } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { PrintType } from '../models/printing/PrintType';
@@ -132,18 +132,18 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
    * `selectedDevice` thật ngay khi discovery xác nhận protocol.
    */
   const buildConnection = (): PrinterConnection => {
-    if (connectionType === ConnectionType.lan) {
+    if (connectionType === PrinterConnectionType.Lan) {
       const { ip, port } = buildLan(lanForm.getValues());
       return buildLanConnection(ip, port);
     }
 
     if (selectedDevice) {
-      return connectionType === ConnectionType.usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+      return connectionType === PrinterConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
     }
 
-    return connectionType === ConnectionType.usb
-      ? { type: ConnectionType.usb, vendorId: 0, productId: 0 }
-      : { type: ConnectionType.bluetooth, deviceId: '' };
+    return connectionType === PrinterConnectionType.Usb
+      ? { type: PrinterConnectionType.Usb, vendorId: 0, productId: 0 }
+      : { type: PrinterConnectionType.Bluetooth, deviceId: '' };
   };
 
   /**
@@ -154,7 +154,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
    * (final-review finding #2).
    */
   const buildDraftPrinter = (): PrinterWriteInput => {
-    const usbRaw = connectionType === ConnectionType.usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
+    const usbRaw = connectionType === PrinterConnectionType.Usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     return {
       id: printerId,
       name: displayForm.getValues('name') || 'Máy in mới',
@@ -213,7 +213,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
       return;
     }
 
-    const lanIp = connectionType === ConnectionType.lan ? lanForm.getValues('lanIp') : undefined;
+    const lanIp = connectionType === PrinterConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
     displayForm.setValue(
       'name',
       deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
@@ -335,7 +335,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   const connectLabel = resolveConnectLabel(connectionState);
   const connectDisabled =
     connectionState === 'connecting' ||
-    (connectionType !== ConnectionType.lan && !selectedDevice) ||
+    (connectionType !== PrinterConnectionType.Lan && !selectedDevice) ||
     drivers.length >= 2 ||
     Boolean(identityErrorMessage);
   const hasEmptyContentTypeDriver = drivers.some((d) => d.contentTypes.length === 0);

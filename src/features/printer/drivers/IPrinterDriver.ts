@@ -1,4 +1,5 @@
-import type { ConnectionType, DeviceScanEvent, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { DeviceScanEvent, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDriver } from '../models/printer/PrinterDriver';
 import type { PrinterStatus } from '../models/printer/PrinterStatus';
@@ -25,7 +26,7 @@ export interface PrintOptions {
 }
 
 export interface IPrinterDriver {
-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
+  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
   connect(printer: Printer, driver: PrinterDriver): Promise<void>;
   disconnect(printerId: string): Promise<void>;
   getStatus(printerId: string): PrinterStatus;

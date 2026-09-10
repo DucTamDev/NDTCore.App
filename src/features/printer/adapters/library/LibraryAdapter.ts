@@ -1,6 +1,6 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { LanTransport } from '../../transports/LanTransport';
@@ -22,10 +22,10 @@ export class LibraryAdapter implements IPrinterAdapter {
 
   private bluetooth?: BluetoothTransport;
 
-  private connectionType?: ConnectionType;
+  private connectionType?: PrinterConnectionType;
 
-  async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
-    if (connectionType !== ConnectionType.bluetooth) {
+  async listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]> {
+    if (connectionType !== PrinterConnectionType.Bluetooth) {
       return [];
     }
 
@@ -41,7 +41,7 @@ export class LibraryAdapter implements IPrinterAdapter {
   async connect(target: PrinterConnectTarget): Promise<void> {
     this.connectionType = target.connectionType;
 
-    if (target.connectionType === ConnectionType.lan) {
+    if (target.connectionType === PrinterConnectionType.Lan) {
       if (!target.lan) {
         throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
       }
@@ -51,7 +51,7 @@ export class LibraryAdapter implements IPrinterAdapter {
       return;
     }
 
-    if (target.connectionType === ConnectionType.bluetooth) {
+    if (target.connectionType === PrinterConnectionType.Bluetooth) {
       if (!target.bluetooth) {
         throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
       }

@@ -9,7 +9,7 @@ import type { Printer } from '../../../../models/printer/Printer';
 import type { PrinterDriver } from '../../../../models/printer/PrinterDriver';
 
 const printer: Printer = {
-  id: 'p1', name: 'M', drivers: [], connection: { type: 'lan', host: '1.2.3.4', port: 9100 },
+  id: 'p1', name: 'M', drivers: [], connection: { type: 'Lan', host: '1.2.3.4', port: 9100 },
   identityKey: 'k', capabilities: { cutter: false },
   autoReconnect: false, enabled: true, createdAt: '', updatedAt: '',
 };

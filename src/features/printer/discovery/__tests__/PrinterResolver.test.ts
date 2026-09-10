@@ -1,5 +1,5 @@
 import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection, resolveIdentityKey } from '../PrinterResolver';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 
 const usbDevice: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: { vendorId: 1155, productId: 22222 } };
@@ -38,28 +38,28 @@ describe('resolveIdentityKey', () => {
 
 describe('buildUsbConnection', () => {
   it('extracts vendorId/productId as numbers, omitting serialNumber when absent', () => {
-    expect(buildUsbConnection(usbDevice)).toEqual({ type: ConnectionType.usb, vendorId: 1155, productId: 22222 });
+    expect(buildUsbConnection(usbDevice)).toEqual({ type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 });
   });
 
   it('includes serialNumber when the rawDevice descriptor carries one', () => {
     const withSerial: PrinterDevice = { ...usbDevice, rawDevice: { vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' } };
-    expect(buildUsbConnection(withSerial)).toEqual({ type: ConnectionType.usb, vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' });
+    expect(buildUsbConnection(withSerial)).toEqual({ type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' });
   });
 });
 
 describe('buildBluetoothConnection', () => {
   it('carries deviceId + displayName as name', () => {
-    expect(buildBluetoothConnection(btDevice)).toEqual({ type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:55', name: 'Máy in BT' });
+    expect(buildBluetoothConnection(btDevice)).toEqual({ type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:55', name: 'Máy in BT' });
   });
 
   it('omits name when displayName is empty', () => {
-    expect(buildBluetoothConnection({ ...btDevice, displayName: '' })).toEqual({ type: ConnectionType.bluetooth, deviceId: '00:11:22:33:44:55' });
+    expect(buildBluetoothConnection({ ...btDevice, displayName: '' })).toEqual({ type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:55' });
   });
 });
 
 describe('buildLanConnection', () => {
   it('builds a LanPrinterConnection from host/port', () => {
-    expect(buildLanConnection('192.168.1.50', 9100)).toEqual({ type: ConnectionType.lan, host: '192.168.1.50', port: 9100 });
+    expect(buildLanConnection('192.168.1.50', 9100)).toEqual({ type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 });
   });
 });
 

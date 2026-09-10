@@ -1,6 +1,6 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { mediaOf } from '../driverConfig';
@@ -54,18 +54,18 @@ export class TsplDriver implements IPrinterDriver {
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
   }
 
-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
-    if (connectionType === ConnectionType.lan) {
-      onEvent({ type: DeviceScanEventType.empty });
+  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+    if (connectionType === PrinterConnectionType.Lan) {
+      onEvent({ type: DeviceScanEventType.Empty });
       return () => undefined;
     }
 
-    if (connectionType === ConnectionType.usb) {
-      onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
+    if (connectionType === PrinterConnectionType.Usb) {
+      onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
       return () => undefined;
     }
 
-    onEvent({ type: DeviceScanEventType.loading });
+    onEvent({ type: DeviceScanEventType.Loading });
     let cancelled = false;
     const startedAt = Date.now();
 
@@ -76,7 +76,7 @@ export class TsplDriver implements IPrinterDriver {
         }
 
         if (!granted) {
-          onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
+          onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
           return;
         }
 
@@ -87,7 +87,7 @@ export class TsplDriver implements IPrinterDriver {
             }
 
             onEvent({
-              type: devices.length > 0 ? DeviceScanEventType.found : DeviceScanEventType.empty,
+              type: devices.length > 0 ? DeviceScanEventType.Found : DeviceScanEventType.Empty,
               devices: devices.map((d) => ({ deviceId: d.address, displayName: d.name ?? d.address, rawDevice: d as unknown as Record<string, unknown> })),
             });
             PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
@@ -97,7 +97,7 @@ export class TsplDriver implements IPrinterDriver {
               return;
             }
 
-            onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
+            onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
             PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
           });
       })
@@ -106,7 +106,7 @@ export class TsplDriver implements IPrinterDriver {
           return;
         }
 
-        onEvent({ type: DeviceScanEventType.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
+        onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
         PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
       });
 
@@ -121,7 +121,7 @@ export class TsplDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     try {
-      if (printer.connection.type === ConnectionType.bluetooth) {
+      if (printer.connection.type === PrinterConnectionType.Bluetooth) {
         const granted = await ensureBluetoothPermission();
 
         if (!granted) {

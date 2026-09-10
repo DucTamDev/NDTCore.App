@@ -4,7 +4,7 @@ import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
@@ -22,7 +22,7 @@ const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
 
 const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
   makePrinterFixture({
-    name: 'Máy in', connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
+    name: 'Máy in', connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
     ...overrides,
   });
 
@@ -100,8 +100,8 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'label-1', drivers: [tsplDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 } }),
-      makePrinter({ id: 'label-2', drivers: [tsplDriver], connection: { type: ConnectionType.lan, host: '1.1.1.2', port: 9100 } }),
+      makePrinter({ id: 'label-1', drivers: [tsplDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'label-2', drivers: [tsplDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
     ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
@@ -124,10 +124,10 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connection: { type: ConnectionType.lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
       makePrinter({
         id: 'label-bt', drivers: [tsplDriver],
-        connection: { type: ConnectionType.bluetooth, deviceId: 'd1' },
+        connection: { type: PrinterConnectionType.Bluetooth, deviceId: 'd1' },
       }),
     ];
     const printerService = {

@@ -16,14 +16,15 @@ import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver
 import type { EscPosRenderMode, TsplRenderMode } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { mediaOf } from '../drivers/driverConfig';
-import type { ConnectionType, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 
-const connectionLabel: Record<ConnectionType, string> = {
-  usb: 'USB',
-  bluetooth: 'Bluetooth',
-  lan: 'LAN',
+const connectionLabel: Record<PrinterConnectionType, string> = {
+  Usb: 'USB',
+  Bluetooth: 'Bluetooth',
+  Lan: 'LAN',
 };
 
 const protocolLabel: Record<PrinterDriverType, string> = {
@@ -39,7 +40,7 @@ const contentTypeLabel: Record<PrintType, string> = {
 export interface PrinterInfoCardProps {
   control: Control<PrinterDisplayValues>;
   errors: FieldErrors<PrinterDisplayValues>;
-  connectionType: ConnectionType;
+  connectionType: PrinterConnectionType;
   drivers: PrinterDriver[];
   onToggleContentType: (type: PrinterDriverType, contentType: PrintType, value: boolean) => void;
   deviceInfo?: PrinterDeviceInfo;
