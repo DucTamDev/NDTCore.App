@@ -2,7 +2,7 @@ import { PrintRenderMode, PrinterDriverType, type PrinterDriverConfig } from '..
 import { PrintType } from '../models/printing/PrintType';
 import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 
-const DEFAULT_MEDIA = { type: PrintPaperType.continuous, paperSize: 80 } as const;
+const DEFAULT_MEDIA = { type: PrintPaperType.Continuous, paperSize: 80 } as const;
 
 export interface DriverCapabilities {
   contentTypes: PrintType[];

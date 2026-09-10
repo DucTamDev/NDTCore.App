@@ -13,17 +13,17 @@ const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalG
 
 const printMediaSchema = z
   .object({
-    type: z.enum([PrintPaperType.continuous, PrintPaperType.dieCut]),
+    type: z.enum([PrintPaperType.Continuous, PrintPaperType.DieCut]),
     paperSize: paperSizeSchema,
     itemWidthMm: z.number().positive().optional(),
     itemHeightMm: z.number().positive().optional(),
     columns: z.number().int().min(1).optional(),
     horizontalGapMm: z.number().min(0).optional(),
     verticalGapMm: z.number().min(0).optional(),
-    cutterMode: z.enum([CutterMode.none, CutterMode.perJob, CutterMode.perRow]).optional(),
+    cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]).optional(),
   })
   .superRefine((m, ctx) => {
-    if (m.type !== PrintPaperType.dieCut) {
+    if (m.type !== PrintPaperType.DieCut) {
       return;
     }
 
@@ -33,7 +33,7 @@ const printMediaSchema = z
       }
     }
 
-    if (m.cutterMode && m.cutterMode !== CutterMode.none) {
+    if (m.cutterMode && m.cutterMode !== CutterMode.None) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
     }
 
@@ -98,7 +98,7 @@ export const printerDriverSchema = z
       });
     }
 
-    if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintPaperType.continuous) {
+    if (driver.config.type === PrinterDriverType.escpos && driver.config.media.type !== PrintPaperType.Continuous) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['config', 'media', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
   });

@@ -175,7 +175,7 @@ export class EscPosDriver implements IPrinterDriver {
       return;
     }
 
-    const cut = resolveEffectiveCutterMode(mediaOf(driver)) !== CutterMode.none;
+    const cut = resolveEffectiveCutterMode(mediaOf(driver)) !== CutterMode.None;
     const text = buildEscPosText(paperSizeOf(driver), documents);
     await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
   }

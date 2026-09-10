@@ -13,7 +13,7 @@ describe('mediaOf / paperSizeOf', () => {
       config: {
         type: PrinterDriverType.tspl,
         renderMode: PrintRenderMode.bitmap,
-        media: { type: PrintPaperType.dieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 },
+        media: { type: PrintPaperType.DieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 },
       },
     };
     expect(paperSizeOf(driver)).toBe(100);

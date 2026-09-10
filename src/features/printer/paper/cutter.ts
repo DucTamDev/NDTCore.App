@@ -16,4 +16,4 @@ import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
  *   behaviour; only an explicit `'none'` disables the cut).
  */
 export const resolveEffectiveCutterMode = (media: PrintPaperConfig): CutterMode =>
-  media.type === PrintPaperType.dieCut ? CutterMode.none : (media.cutterMode ?? CutterMode.perJob);
+  media.type === PrintPaperType.DieCut ? CutterMode.None : (media.cutterMode ?? CutterMode.PerJob);

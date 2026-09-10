@@ -9,8 +9,8 @@ import { dieCutMediaError } from '../paper/validation';
 
 const PAPER_SIZE_OPTIONS = [58, 80, 100, 104].map((n) => ({ label: `${n}mm`, value: String(n) }));
 const MEDIA_TYPE_OPTIONS = [
-  { label: 'Giấy cuộn liên tục', value: PrintPaperType.continuous },
-  { label: 'Die-cut (tem rời, nhiều cột)', value: PrintPaperType.dieCut },
+  { label: 'Giấy cuộn liên tục', value: PrintPaperType.Continuous },
+  { label: 'Die-cut (tem rời, nhiều cột)', value: PrintPaperType.DieCut },
 ];
 
 export interface DriverMediaSectionProps {
@@ -25,7 +25,7 @@ const numStr = (n: number | undefined): string => (n == null ? '' : String(n));
 
 export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverType, media, disabled, onChange }) => {
   const isTspl = driverType === PrinterDriverType.tspl;
-  const isDieCut = media.type === PrintPaperType.dieCut;
+  const isDieCut = media.type === PrintPaperType.DieCut;
   const mediaError = dieCutMediaError(media);
   return (
     <View style={styles.block}>

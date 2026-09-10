@@ -8,7 +8,7 @@ import { PAPER_SIZE_SPECS } from './paperSpec';
  * `printMediaSchema` (chặn Save) và `PrinterInfoCard` (cảnh báo inline).
  */
 export const dieCutRowOverflow = (media: PrintPaperConfig): string | null => {
-  if (media.type !== PrintPaperType.dieCut) {
+  if (media.type !== PrintPaperType.DieCut) {
     return null;
   }
 
@@ -53,7 +53,7 @@ const DIE_CUT_REQUIRED_FIELDS: (keyof PrintPaperConfig)[] = [
  * message để `saveDisabled` + cảnh báo inline dùng).
  */
 export const dieCutMediaError = (media: PrintPaperConfig): string | null => {
-  if (media.type !== PrintPaperType.dieCut) {
+  if (media.type !== PrintPaperType.DieCut) {
     return null;
   }
 

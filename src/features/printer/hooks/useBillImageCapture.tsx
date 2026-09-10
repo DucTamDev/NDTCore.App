@@ -46,7 +46,7 @@ export const useBillImageCapture = (): UseBillImageCapture => {
       new Promise((resolve) => {
         resolverRef.current = resolve;
         const widthPx =
-          media.type === PrintPaperType.dieCut
+          media.type === PrintPaperType.DieCut
             ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
             : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
         setPending({ document, widthPx });

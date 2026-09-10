@@ -5,7 +5,7 @@ import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 describe('buildEscPosBitmapBytes', () => {
   it('phát đúng header ESC @ + GS v 0 (m=0) với width/height little-endian, theo sau bởi đúng data bits', () => {
     const bitmap: MonochromeBitmap = { widthBytes: 2, heightPx: 3, bits: new Uint8Array([0xff, 0x00, 0x0f, 0xf0, 0xaa, 0x55]) };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.perJob);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerJob);
 
     expect(Array.from(bytes.slice(0, 10))).toEqual([
       0x1b, 0x40, // ESC @
@@ -20,7 +20,7 @@ describe('buildEscPosBitmapBytes', () => {
     const widthBytes = 300; // 0x012C -> low 0x2C, high 0x01
     const heightPx = 500; // 0x01F4 -> low 0xF4, high 0x01
     const bitmap: MonochromeBitmap = { widthBytes, heightPx, bits: new Uint8Array(widthBytes * heightPx) };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.none);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
 
     expect(bytes[6]).toBe(0x2c);
     expect(bytes[7]).toBe(0x01);
@@ -30,7 +30,7 @@ describe('buildEscPosBitmapBytes', () => {
 
   it('cutterMode = none → không phát cut_bytes ([0x1b, 0x6d]) ở cuối', () => {
     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0xff]) };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.none);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
 
     // header (6) + width/height (4) + 1 byte data = 11 byte, không có gì thêm sau đó.
     expect(bytes.length).toBe(11);
@@ -39,7 +39,7 @@ describe('buildEscPosBitmapBytes', () => {
 
   it('cutterMode = perJob → phát cut_bytes ([0x1b, 0x6d]) ngay sau data', () => {
     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0xff]) };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.perJob);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerJob);
 
     expect(bytes.length).toBe(13);
     expect(Array.from(bytes.slice(-2))).toEqual([0x1b, 0x6d]);
@@ -47,7 +47,7 @@ describe('buildEscPosBitmapBytes', () => {
 
   it('cutterMode = perRow → cũng phát cut_bytes (chỉ "none" mới bỏ qua)', () => {
     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0x00]) };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.perRow);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerRow);
 
     expect(Array.from(bytes.slice(-2))).toEqual([0x1b, 0x6d]);
   });
@@ -55,7 +55,7 @@ describe('buildEscPosBitmapBytes', () => {
   it('data KHÔNG bị đảo bit — khớp nguyên vẹn MonochromeBitmap.bits (khác quirk đảo bit riêng của lệnh BITMAP TSPL)', () => {
     const bits = new Uint8Array([0b10110100, 0b00000000, 0b11111111]);
     const bitmap: MonochromeBitmap = { widthBytes: 3, heightPx: 1, bits };
-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.none);
+    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
 
     expect(Array.from(bytes.slice(10, 13))).toEqual(Array.from(bits));
   });

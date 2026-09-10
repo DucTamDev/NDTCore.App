@@ -7,7 +7,7 @@ import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrintType } from '../models/printing/PrintType';
 
-export const DEFAULT_MEDIA: PrintPaperConfig = { type: PrintPaperType.continuous, paperSize: 80 };
+export const DEFAULT_MEDIA: PrintPaperConfig = { type: PrintPaperType.Continuous, paperSize: 80 };
 
 /** Override phần metadata của 1 `PrinterDriver` — `config` được factory tự dựng (dùng `media`/`renderMode`), không nhận qua đây. */
 type DriverEntryOverride = Partial<Omit<PrinterDriver, 'config'>> & { media?: Partial<PrintPaperConfig> };

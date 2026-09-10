@@ -4,9 +4,9 @@ import { PrintPaperType, CutterMode } from '../../../models/paper/PrintPaperConf
 import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
-const CONT = (paperSize: PrintPaperConfig['paperSize'] = 58): PrintPaperConfig => ({ type: PrintPaperType.continuous, paperSize });
+const CONT = (paperSize: PrintPaperConfig['paperSize'] = 58): PrintPaperConfig => ({ type: PrintPaperType.Continuous, paperSize });
 const DIE = (): PrintPaperConfig => ({
-  type: PrintPaperType.dieCut,
+  type: PrintPaperType.DieCut,
   paperSize: 100,
   itemWidthMm: 30,
   itemHeightMm: 20,
@@ -93,19 +93,19 @@ describe('TsplEncoder', () => {
   });
 
   it('cut(3, per_job) → SET CUTTER 3 then PRINT 3,1', () => {
-    const output = decode(new TsplEncoder().cut(3, CutterMode.perJob).encode());
+    const output = decode(new TsplEncoder().cut(3, CutterMode.PerJob).encode());
     expect(output).toContain('SET CUTTER 3');
     expect(output.trim().endsWith('PRINT 3,1')).toBe(true);
   });
 
   it('cut(2, per_row) → SET CUTTER 1 then PRINT 2,1', () => {
-    const output = decode(new TsplEncoder().cut(2, CutterMode.perRow).encode());
+    const output = decode(new TsplEncoder().cut(2, CutterMode.PerRow).encode());
     expect(output).toContain('SET CUTTER 1');
     expect(output).toContain('PRINT 2,1');
   });
 
   it('cut(1, none) → SET CUTTER OFF then PRINT 1,1 last (persistent setting must be turned off, not just left unset)', () => {
-    const output = decode(new TsplEncoder().cut(1, CutterMode.none).encode());
+    const output = decode(new TsplEncoder().cut(1, CutterMode.None).encode());
     expect(output).toContain('SET CUTTER OFF');
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
@@ -173,7 +173,7 @@ describe('TsplEncoder', () => {
 
   it('cut() emits PRINT rows,1 and chains fluently with the other builders', () => {
     const output = decode(
-      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.perJob).encode(),
+      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.PerJob).encode(),
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });

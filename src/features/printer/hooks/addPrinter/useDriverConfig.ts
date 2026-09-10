@@ -113,7 +113,7 @@ export const useDriverConfig = ({ printerId, drivers, setDrivers, setTestPrintEr
 
     let media = { ...entry.config.media, ...patch } as PrintPaperConfig;
 
-    if (media.type === PrintPaperType.dieCut) {
+    if (media.type === PrintPaperType.DieCut) {
       media = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...media };
     }
 

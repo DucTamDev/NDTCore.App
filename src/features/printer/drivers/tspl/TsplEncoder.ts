@@ -81,7 +81,7 @@ export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
  * item height or the default; continuous Receipt → the wide safety ceiling.
  */
 export const resolveSizeHeightMm = (media: PrintPaperConfig, printType: PrintType): number => {
-  if (media.type === PrintPaperType.dieCut) {
+  if (media.type === PrintPaperType.DieCut) {
     return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
   }
 
@@ -108,7 +108,7 @@ export const columnPitchDots = (media: PrintPaperConfig): number =>
  * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
  */
 export const columnOffsets = (media: PrintPaperConfig): number[] => {
-  if (media.type !== PrintPaperType.dieCut) {
+  if (media.type !== PrintPaperType.DieCut) {
     return [0];
   }
 
@@ -123,7 +123,7 @@ export const columnOffsets = (media: PrintPaperConfig): number[] => {
  */
 export const contentWidthChars = (media: PrintPaperConfig): number => {
   const spec = PAPER_SIZE_SPECS[media.paperSize];
-  if (media.type !== PrintPaperType.dieCut) {
+  if (media.type !== PrintPaperType.DieCut) {
     return spec.charsPerLine;
   }
 
@@ -169,7 +169,7 @@ export class TsplEncoder {
     this.codepage = codepage;
     const heightMm = resolveSizeHeightMm(media, printType);
 
-    if (media.type === PrintPaperType.dieCut) {
+    if (media.type === PrintPaperType.DieCut) {
       const columns = media.columns ?? 1;
       const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
@@ -272,10 +272,10 @@ export class TsplEncoder {
    */
   cut(rows: number, mode: CutterMode): this {
     switch (mode) {
-      case CutterMode.none:
+      case CutterMode.None:
         this.pushLine('SET CUTTER OFF');
         break;
-      case CutterMode.perRow:
+      case CutterMode.PerRow:
         this.pushLine('SET CUTTER 1');
         break;
       default:

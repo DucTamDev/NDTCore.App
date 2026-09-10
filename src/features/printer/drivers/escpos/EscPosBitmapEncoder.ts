@@ -26,7 +26,7 @@ export const buildEscPosBitmapBytes = (bitmap: MonochromeBitmap, cutterMode: Cut
     bitmap.heightPx & 0xff, (bitmap.heightPx >> 8) & 0xff,
   ];
 
-  const trailer = cutterMode === CutterMode.none ? [] : CUT_BYTES;
+  const trailer = cutterMode === CutterMode.None ? [] : CUT_BYTES;
 
   return new Uint8Array([...INIT_PRINTER_BYTES, ...header, ...bitmap.bits, ...trailer]);
 };
