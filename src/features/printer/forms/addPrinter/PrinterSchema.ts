@@ -5,6 +5,7 @@ import { CutterMode, PaperSize, PrintPaperType } from '../../models/paper/PrintP
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
 import { dieCutRowOverflow } from '../../paper/validation';
+import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 
 const paperSizeSchema = z.union([
   z.literal(PaperSize.Mm58),
@@ -111,6 +112,10 @@ export const printerSchema = z
 
     if (printer.driver.type === PrinterDriverType.Tspl && printer.driver.config.renderMode !== RenderMode.Bitmap) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['driver', 'config', 'renderMode'], message: 'TSPL chỉ hỗ trợ chế độ Bitmap' });
+    }
+
+    if (!getDriverCapabilities(printer.driver.type).contentTypes.includes(printer.type)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['driver', 'type'], message: `Driver ${printer.driver.type} không hỗ trợ loại nội dung ${printer.type}` });
     }
   });
 

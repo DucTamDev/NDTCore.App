@@ -2,7 +2,7 @@ import { createPrinterRepository } from '../PrinterRepository';
 import { PrinterStorage } from '../PrinterStorage';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintType } from '../../models/printing/PrintType';
-import { basePrinter } from '../../testing/printerServiceTestKit';
+import { basePrinter, tsplDriverEntry } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -28,7 +28,8 @@ describe('PrinterRepository', () => {
   it('addPrinter() allows the same identityKey when type differs (dual-protocol device on one connection)', () => {
     const repository = createPrinterRepository();
     repository.addPrinter(basePrinter);
-    const labelPrinter: Printer = { ...basePrinter, id: 'p2', name: 'Máy in tem', type: PrintType.Label };
+    // Tem đòi driver hỗ trợ PrintType.Label (EscPos chỉ phục vụ Receipt) — dùng Tspl để record thứ 2 hợp lệ.
+    const labelPrinter: Printer = { ...basePrinter, id: 'p2', name: 'Máy in tem', type: PrintType.Label, driver: tsplDriverEntry };
     expect(() => repository.addPrinter(labelPrinter)).not.toThrow();
     expect(repository.getPrinters()).toHaveLength(2);
   });

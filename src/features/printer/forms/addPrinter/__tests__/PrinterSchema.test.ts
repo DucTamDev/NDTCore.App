@@ -2,6 +2,7 @@ import { printerSchema } from '../PrinterSchema';
 import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 import { RenderMode } from '../../../models/printer/PrinterDriver';
 import { CutterMode, PaperSize, PrintPaperType } from '../../../models/paper/PrintPaperConfig';
+import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter, makeEscPosDriver, makeTsplDriver } from '../../../testing/printerFixtures';
 
 describe('printerSchema', () => {
@@ -70,7 +71,20 @@ describe('printerSchema', () => {
         cutterMode: CutterMode.PerJob,
       },
     });
-    expect(printerSchema.safeParse(printer).success).toBe(false);
+    const result = printerSchema.safeParse(printer);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join('.') === 'paper.cutterMode')).toBe(true);
+    }
+  });
+
+  it('rejects ESC/POS driver + type Label (ESC/POS chỉ phục vụ Receipt)', () => {
+    const printer = makePrinter({ driver: makeEscPosDriver(), type: PrintType.Label });
+    const result = printerSchema.safeParse(printer);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.join('.') === 'driver.type')).toBe(true);
+    }
   });
 
   it('accepts connection.type Usb với đúng field usb (vendorId/productId)', () => {
