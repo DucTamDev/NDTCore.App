@@ -6,6 +6,7 @@ import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/car
 import type { PrintRowElement, PrintTextElement } from '../../../printer/models/printing/PrintDocument';
 import type { StoreViewModel } from '../../../store/types/store.types';
 import { PrintType } from '../../../printer/models/printing/PrintType';
+import { PrintPaperType } from '../../../printer/models/paper/PrintPaperConfig';
 
 jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
@@ -168,14 +169,14 @@ describe('printReceipt', () => {
   });
 
   it('captures a bill image and sends it alongside the text document when a target printer needs one', async () => {
-    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: 'continuous', paperSize: 58 });
+    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: PrintPaperType.Continuous, paperSize: 58 });
     const capture = jest.fn().mockResolvedValue('base64-png-data');
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
 
     await printReceipt(document, capture);
 
-    expect(capture).toHaveBeenCalledWith(document, { type: 'continuous', paperSize: 58 });
+    expect(capture).toHaveBeenCalledWith(document, { type: PrintPaperType.Continuous, paperSize: 58 });
     expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
       text: document,
       image: 'base64-png-data',
@@ -183,7 +184,7 @@ describe('printReceipt', () => {
   });
 
   it('falls back to text-only when captureBillImage resolves null (capture failed)', async () => {
-    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: 'continuous', paperSize: 80 });
+    (PrintService.imageDocumentMedia as jest.Mock).mockReturnValue({ type: PrintPaperType.Continuous, paperSize: 80 });
     const capture = jest.fn().mockResolvedValue(null);
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);

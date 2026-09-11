@@ -1,5 +1,6 @@
 import { createDeviceScanService } from '../DeviceScanService';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import { DiscoveryStage } from '../PrinterDiscoveryService';
 import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
 
@@ -25,14 +26,14 @@ describe('DeviceScanService', () => {
   it('scan events pass through the logging tap to the caller unchanged', () => {
     const escposDriver = makeMockDriver();
     (escposDriver.scan as jest.Mock).mockImplementation((_ct, onEvent: (e: unknown) => void) => {
-      onEvent({ type: 'found', devices: [{ deviceId: '11575:33751', displayName: '/dev/bus/usb/001/009', rawDevice: { vendor_id: '11575', product_id: '33751', device_name: '/dev/bus/usb/001/009' } }] });
+      onEvent({ type: DeviceScanEventType.Found, devices: [{ deviceId: '11575:33751', displayName: '/dev/bus/usb/001/009', rawDevice: { vendor_id: '11575', product_id: '33751', device_name: '/dev/bus/usb/001/009' } }] });
       return () => undefined;
     });
     const service = createDeviceScanService({ EscPos: escposDriver, Tspl: makeMockDriver() });
     const onEvent = jest.fn();
     service.scanForConnectionType(PrinterConnectionType.Usb, onEvent);
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'found',
+      type: DeviceScanEventType.Found,
       devices: [expect.objectContaining({ deviceId: '11575:33751' })],
     }));
   });

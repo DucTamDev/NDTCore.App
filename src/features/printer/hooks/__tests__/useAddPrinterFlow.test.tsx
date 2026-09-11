@@ -14,6 +14,10 @@ import { PrintType } from '../../models/printing/PrintType';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
 
+// Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
+// của jest.mock() tham chiếu biến out-of-scope theo pattern này.
+const mockIdleStatus = PrinterStatus.Idle;
+
 jest.mock('../../storage/PrinterRepository', () => ({
   PrinterRepository: {
     getPrinters: jest.fn(() => []),
@@ -24,7 +28,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
 
 jest.mock('../../connection/PrinterConnectionService', () => ({
   PrinterConnectionService: {
-    getStatusForDriver: jest.fn(() => 'idle'),
+    getStatusForDriver: jest.fn(() => mockIdleStatus),
     onStatusChangeForDriver: jest.fn(() => () => undefined),
     disconnectForDriver: jest.fn(() => Promise.resolve()),
     connectDraft: jest.fn(() => Promise.resolve()),
