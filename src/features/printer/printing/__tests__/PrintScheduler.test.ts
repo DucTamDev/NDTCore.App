@@ -5,14 +5,15 @@ import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrintType } from '../../models/printing/PrintType';
-import { makePrinter as makePrinterFixture, makeEscPosDriverEntry, makeTsplDriverEntry } from '../../testing/printerFixtures';
+import { makePrinter as makePrinterFixture, makeEscPosDriver, makeTsplDriver } from '../../testing/printerFixtures';
 
-const escposDriver = makeEscPosDriverEntry();
-const tsplDriver = makeTsplDriverEntry();
+const escposDriver = makeEscPosDriver();
+const tsplDriver = makeTsplDriver();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
@@ -100,8 +101,8 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'label-1', drivers: [tsplDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
-      makePrinter({ id: 'label-2', drivers: [tsplDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
+      makePrinter({ id: 'label-1', type: PrintType.Label, driver: tsplDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'label-2', type: PrintType.Label, driver: tsplDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
     ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
@@ -124,9 +125,9 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'receipt-lan', drivers: [escposDriver], connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'receipt-lan', type: PrintType.Receipt, driver: escposDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
       makePrinter({
-        id: 'label-bt', drivers: [tsplDriver],
+        id: 'label-bt', type: PrintType.Label, driver: tsplDriver,
         connection: { type: PrinterConnectionType.Bluetooth, deviceId: 'd1' },
       }),
     ];
@@ -171,7 +172,11 @@ describe('PrintScheduler', () => {
     // multi-printer race lần trước không đủ (chỉ khoá được PrintScheduler).
     const lock = createResourceLock();
     const repository = createPrinterRepository();
-    const printerService = createPrinterPrintService({ escpos: escposIPrinterDriver, tspl: escposIPrinterDriver }, repository, lock);
+    const printerService = createPrinterPrintService(
+      { [PrinterDriverType.EscPos]: escposIPrinterDriver, [PrinterDriverType.Tspl]: escposIPrinterDriver },
+      repository,
+      lock,
+    );
     const printer: Printer = makePrinter({ id: 'receipt-1' });
     repository.addPrinter(printer);
     const scheduler = createPrintScheduler({ print: printerService.print, getPrinters: repository.getPrinters }, lock);
@@ -182,7 +187,7 @@ describe('PrintScheduler', () => {
         // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
         // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(printer, escposDriver, { text: { elements: [] } }, PrintType.Receipt);
+        await printerService.testPrint(printer, { text: { elements: [] } });
       })(),
     ]);
 
