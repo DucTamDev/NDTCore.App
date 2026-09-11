@@ -1,27 +1,16 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
-import { TsplFontManager, DEFAULT_TSPL_FONT } from '../TsplFontManager';
 import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
 import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
-import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../../../models/printer/PrinterDriver';
+import { PrinterDriverType, RenderMode } from '../../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
-import { type Printer } from '../../../models/printer/Printer';
 import { PrintType } from '../../../models/printing/PrintType';
+import { PaperSize, PrintPaperType } from '../../../models/paper/PrintPaperConfig';
+import { type Printer } from '../../../models/printer/Printer';
+import { makePrinter, makeTsplDriver } from '../../../testing/printerFixtures';
 import type { PrintDocuments } from '../../IPrinterDriver';
-import type { PrintDocument, PrintElement } from '../../../models/printing/PrintDocument';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
-
-// `../TsplFontManager` is automocked (no factory) below so `mock.instances`
-// reflects the real class shape — but automocking still `require`s the real
-// module to introspect it, which transitively pulls in the real
-// `react-native-fs` (untranspiled Flow syntax, not in this project's Jest
-// `transformIgnorePatterns`). Stub it out the same way TsplFontManager's own
-// test does, purely to keep that require from crashing the parser.
-jest.mock('react-native-fs', () => ({
-  readFileAssets: jest.fn(),
-}));
-jest.mock('../TsplFontManager');
 
 /**
  * `TsplDriver.print()` decodes 'image' elements as real PNG bytes — a
@@ -86,59 +75,39 @@ jest.mock('../../../logging/PrinterLogger', () => ({
   },
 }));
 
-const MEDIA_58 = { type: 'continuous', paperSize: 58 } as const;
+const MEDIA_58 = { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 } as const;
 
-const tsplDriverEntry: PrinterDriver = {
-  type: PrinterDriverType.tspl,
-  source: DriverSource.auto,
-  contentTypes: [PrintType.Label],
-  config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { ...MEDIA_58 } },
-};
-
-/**
- * `documents.image` giờ là base64 string thuần — bitmap mode không còn duyệt
- * qua `PrintElement[]` nữa (xem `TsplBitmapStrategy`). Để vẫn cover
- * `encodeElements()` (text/line/table/row/barcode/qrCode/unsupported), các
- * test đó phải đi qua nhánh truetype (`documents.text`) bằng driver này thay
- * vì `tsplDriverEntry` mặc định.
- */
-const tsplTruetypeDriverEntry: PrinterDriver = {
-  ...tsplDriverEntry,
-  config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA_58 }, font: { ...DEFAULT_TSPL_FONT, fontInstalled: true } },
-};
-
-const lanPrinter: Printer = {
+/** Máy in Tem (LAN) — dùng cho các test phụ thuộc `resolveSizeHeightMm`/DEFAULT_LABEL_HEIGHT_MM (rows/cutter/IMAGE_TOO_LARGE). */
+const lanLabelPrinter: Printer = makePrinter({
   id: 'label-1',
   name: 'Máy in tem',
-  drivers: [tsplDriverEntry],
-  connection: { type: PrinterConnectionType.Lan, host: '192.168.1.60', port: 9100 },
   identityKey: 'lan:192.168.1.60:9100',
-  capabilities: { cutter: false },
-  autoReconnect: false,
-  enabled: true,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-};
+  type: PrintType.Label,
+  driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap } }),
+  connection: { type: PrinterConnectionType.Lan, host: '192.168.1.60', port: 9100 },
+  paper: { ...MEDIA_58 },
+});
 
-const usbPrinter: Printer = {
-  ...lanPrinter,
+const usbLabelPrinter: Printer = {
+  ...lanLabelPrinter,
   id: 'label-usb',
   connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
 };
 
-const bluetoothPrinter: Printer = {
-  ...lanPrinter,
+const bluetoothLabelPrinter: Printer = {
+  ...lanLabelPrinter,
   id: 'label-bt',
   connection: { type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:66', name: 'Máy in tem BT' },
 };
+
+/** Máy in Hoá đơn (giấy Continuous không giới hạn chiều cao cố định) — dùng cho các test IMAGE_TOO_LARGE/Receipt. */
+const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', type: PrintType.Receipt };
+const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', type: PrintType.Receipt };
 
 const sampleDocuments: PrintDocuments = {
   text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] },
   image: tinyPngBase64(),
 };
-
-/** Dùng `documents.text` để test strategy truetype (`tsplTruetypeDriverEntry`) — bitmap mode giờ không còn duyệt qua elements nữa. */
-const asTextDocuments = (document: PrintDocument): PrintDocuments => ({ text: document });
 
 const sampleText = sampleDocuments.text;
 
@@ -146,52 +115,52 @@ describe('TsplDriver', () => {
   it('connect() over LAN transitions status idle -> connecting -> connected', async () => {
     const driver = new TsplDriver();
     const statuses: string[] = [];
-    driver.onStatusChange(lanPrinter.id, (status) => statuses.push(status));
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Idle);
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    driver.onStatusChange(lanLabelPrinter.id, (status) => statuses.push(status));
+    expect(driver.getStatus(lanLabelPrinter.id)).toBe(PrinterStatus.Idle);
+    await driver.connect(lanLabelPrinter);
     expect(statuses).toEqual([PrinterStatus.Connecting, PrinterStatus.Connected]);
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Connected);
+    expect(driver.getStatus(lanLabelPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('disconnect() transitions to disconnected and clears the connection', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    await driver.disconnect(lanPrinter.id);
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Disconnected);
+    await driver.connect(lanLabelPrinter);
+    await driver.disconnect(lanLabelPrinter.id);
+    expect(driver.getStatus(lanLabelPrinter.id)).toBe(PrinterStatus.Disconnected);
   });
 
   it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows PRINTER_CONNECTION_FAILED when transport.close() rejects', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as {
       close: jest.Mock;
     };
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
 
-    await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Error);
+    await expect(driver.disconnect(lanLabelPrinter.id)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
+    expect(driver.getStatus(lanLabelPrinter.id)).toBe(PrinterStatus.Error);
 
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
     );
   });
 
   it('disconnect() clears the stale transport reference despite the native failure — print() afterwards correctly reports PRINTER_NOT_CONNECTED instead of using a broken transport', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as {
       close: jest.Mock;
     };
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
-    await driver.disconnect(lanPrinter.id).catch(() => undefined);
+    await driver.disconnect(lanLabelPrinter.id).catch(() => undefined);
 
     await expect(
-      driver.print(lanPrinter.id, sampleDocuments, PrintType.Receipt),
+      driver.print(lanLabelPrinter.id, sampleDocuments),
     ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED });
   });
 
@@ -203,39 +172,39 @@ describe('TsplDriver', () => {
       write: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(undefined),
     }));
-    await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
-    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.Error);
+    await expect(driver.connect(usbLabelPrinter)).rejects.toThrow();
+    expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Error);
   });
 
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers', async () => {
     const driver = new TsplDriver();
-    await driver.connect(usbPrinter, tsplDriverEntry);
+    await driver.connect(usbLabelPrinter);
     const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
     const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { connect: jest.Mock };
-    expect(instance.connect).toHaveBeenCalledWith(usbPrinter.id, 1155, 22222);
+    expect(instance.connect).toHaveBeenCalledWith(usbLabelPrinter.id, 1155, 22222);
   });
 
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers and transitions to connected', async () => {
     const driver = new TsplDriver();
-    await driver.connect(usbPrinter, tsplDriverEntry);
-    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.Connected);
+    await driver.connect(usbLabelPrinter);
+    expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('testPrint() over USB writes through UsbTransport', async () => {
     const driver = new TsplDriver();
-    await driver.connect(usbPrinter, tsplDriverEntry);
+    await driver.connect(usbReceiptPrinter);
     const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
     const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.testPrint(usbPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt);
+    await driver.testPrint(usbReceiptPrinter, sampleDocuments);
     expect(instance.write).toHaveBeenCalled();
   });
 
   it('testPrint() with options.rows emits PRINT rows,1 and SET CUTTER rows (continuous default per_job)', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label, { rows: 4 });
+    await driver.testPrint(lanLabelPrinter, { text: sampleText, image: tinyPngBase64() }, { rows: 4 });
     const bytes = instance.write.mock.calls[0][0] as Uint8Array;
     const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('PRINT 4,1');
@@ -248,10 +217,10 @@ describe('TsplDriver', () => {
     ['số thực', 2.9, 'PRINT 2,1'],
   ])('testPrint() sanitises options.rows = %s → %s', async (_label, rows, expected) => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label, { rows });
+    await driver.testPrint(lanLabelPrinter, { text: sampleText, image: tinyPngBase64() }, { rows });
     const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain(expected);
     expect(ascii).not.toContain('PRINT NaN,1');
@@ -259,27 +228,27 @@ describe('TsplDriver', () => {
 
   it('testPrint() with no options defaults to PRINT 1,1', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Label);
+    await driver.testPrint(lanLabelPrinter, { text: sampleText, image: tinyPngBase64() });
     const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('PRINT 1,1');
   });
 
   it('print() over USB writes through UsbTransport', async () => {
     const driver = new TsplDriver();
-    await driver.connect(usbPrinter, tsplDriverEntry);
+    await driver.connect(usbReceiptPrinter);
     const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
     const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.print(usbPrinter.id, sampleDocuments, PrintType.Receipt);
+    await driver.print(usbReceiptPrinter.id, sampleDocuments);
     expect(instance.write).toHaveBeenCalled();
   });
 
   it('identify() over USB returns null (no readOnce capability)', async () => {
     const driver = new TsplDriver();
-    await driver.connect(usbPrinter, tsplDriverEntry);
-    const result = await driver.identify(usbPrinter.id);
+    await driver.connect(usbLabelPrinter);
+    const result = await driver.identify(usbLabelPrinter.id);
     expect(result).toBeNull();
   });
 
@@ -299,10 +268,10 @@ describe('TsplDriver', () => {
 
   it('testPrint() reuses an already-open connection instead of reconnecting', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const callsBeforeTestPrint = LanTransport.mock.calls.length;
-    await driver.testPrint(lanPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt);
+    await driver.testPrint(lanLabelPrinter, sampleDocuments);
     expect(LanTransport.mock.calls.length).toBe(callsBeforeTestPrint);
   });
 
@@ -313,71 +282,17 @@ describe('TsplDriver', () => {
 
   it('identify() returns null when the transport does not respond in time', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    const result = await driver.identify(lanPrinter.id);
+    await driver.connect(lanLabelPrinter);
+    const result = await driver.identify(lanLabelPrinter.id);
     expect(result).toBeNull();
-  });
-
-  /**
-   * `image` KHÔNG nằm trong danh sách — `TsplTrueTypeStrategy` không hỗ trợ
-   * `element.type === 'image'` lồng trong `documents.text.elements` (RULE 21:
-   * TrueType chỉ gửi `TEXT`, không bao giờ `BITMAP`), xem test
-   * `TSPL_ELEMENT_UNSUPPORTED` riêng bên dưới.
-   */
-  it('print() encodes every truetype-supported element kind and writes once (via documents.text, truetype)', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplTruetypeDriverEntry);
-    const document: PrintDocument = {
-      elements: [
-        { type: 'text', content: 'Trà sữa', x: 0, y: 0 },
-        { type: 'line', x: 0, y: 10 },
-        { type: 'table', rows: [['Trà sữa', '2']], x: 0, y: 20 },
-        { type: 'row', left: 'Mã đơn', right: '#001', x: 0, y: 40 },
-        { type: 'barcode', content: '123', x: 0, y: 80 },
-        { type: 'qrCode', content: 'https://x', x: 0, y: 100 },
-      ],
-    };
-    await expect(driver.print(lanPrinter.id, asTextDocuments(document), PrintType.Receipt)).resolves.toBeUndefined();
-  });
-
-  it('print() renders a row element as a left/right-aligned line sized to paperSize (via documents.text, truetype)', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplTruetypeDriverEntry);
-    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
-    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.print(lanPrinter.id, asTextDocuments({ elements: [{ type: 'row', left: 'Ma don', right: '#001', x: 5, y: 10 }] }), PrintType.Receipt);
-    const bytes = instance.write.mock.calls[0][0] as Uint8Array;
-    const text = String.fromCharCode(...Array.from(bytes));
-    // 58mm = 32 ký tự, 'Ma don' (6) + 'a#001'... gap = 32 - 6 - 4 = 22 khoảng trắng.
-    // Font dùng tên thật từ font.name (truetype) thay vì "3" (bitmap) — xem tsplTruetypeDriverEntry.
-    expect(text).toContain(`TEXT 5,10,"${DEFAULT_TSPL_FONT.name}",0,1,1,"Ma don${' '.repeat(22)}#001"`);
-  });
-
-  /**
-   * RULE 21: TrueType chỉ bao giờ gửi `TEXT`, không bao giờ `BITMAP` — 1
-   * strategy render-mode-homogeneous không có cách nào xen kẽ bitmap giữa
-   * chừng. `TsplTrueTypeStrategy` không hỗ trợ `element.type === 'image'`
-   * trong `documents.text.elements` (chỉ text/line/table/row/barcode/qrCode),
-   * nên nhánh này phải ném `TSPL_ELEMENT_UNSUPPORTED` — KHÔNG còn render ra
-   * `BITMAP` như hành vi cũ của `encodeElements()` (đã xoá ở Task 6).
-   */
-  it('print() rejects an image PrintElement nested inside documents.text.elements with TSPL_ELEMENT_UNSUPPORTED (truetype không hỗ trợ BITMAP xen giữa)', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplTruetypeDriverEntry);
-    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
-    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await expect(
-      driver.print(lanPrinter.id, asTextDocuments({ elements: [{ type: 'image', data: tinyPngBase64(), x: 3, y: 7 }] }), PrintType.Receipt),
-    ).rejects.toMatchObject({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED });
-    expect(instance.write).not.toHaveBeenCalled();
   });
 
   it('print() decodes documents.image (base64 PNG) into a real BITMAP command at (0,0) (widthBytes = ceil(width/8))', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanReceiptPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await driver.print(lanPrinter.id, { text: sampleDocuments.text, image: tinyPngBase64() }, PrintType.Receipt);
+    await driver.print(lanReceiptPrinter.id, { text: sampleDocuments.text, image: tinyPngBase64() });
     const bytes = instance.write.mock.calls[0][0] as Uint8Array;
     // `initialize()` viết SIZE/GAP/CODEPAGE/CLS trước — tìm đúng vị trí bắt
     // đầu của "BITMAP" trong toàn bộ byte stream thay vì giả định index 0.
@@ -395,74 +310,45 @@ describe('TsplDriver', () => {
 
   it('print() rejects with IMAGE_TOO_LARGE when the image is taller than the declared label height', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     await expect(
-      driver.print(lanPrinter.id, { text: sampleDocuments.text, image: squarePngBase64() }, PrintType.Label),
+      driver.print(lanLabelPrinter.id, { text: sampleDocuments.text, image: squarePngBase64() }),
     ).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_TOO_LARGE });
   });
 
   it('print() does NOT reject the same oversized-for-Label image when printing a Receipt (continuous paper, no fixed label height)', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanReceiptPrinter);
     await expect(
-      driver.print(lanPrinter.id, { text: sampleDocuments.text, image: squarePngBase64() }, PrintType.Receipt),
+      driver.print(lanReceiptPrinter.id, { text: sampleDocuments.text, image: squarePngBase64() }),
     ).resolves.toBeUndefined();
-  });
-
-  it('print() rejects with TSPL_ELEMENT_UNSUPPORTED for an unsupported element (via documents.text, truetype)', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplTruetypeDriverEntry);
-    const badElement = { type: 'unknown-kind', x: 0, y: 0 } as unknown as PrintElement;
-    await expect(driver.print(lanPrinter.id, asTextDocuments({ elements: [badElement] }), PrintType.Receipt)).rejects.toMatchObject({
-      code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
-    });
   });
 
   it('print() bitmap mode: thiếu documents.image → ném IMAGE_REQUIRED, KHÔNG ghi bytes, log printFailed (RULE 33)', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
     const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
+    await expect(driver.print(lanLabelPrinter.id, { text: sampleText })).rejects.toMatchObject({ code: PrinterErrorCode.IMAGE_REQUIRED });
     expect(instance.write).not.toHaveBeenCalled();
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.IMAGE_REQUIRED }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl, errorCode: PrinterErrorCode.IMAGE_REQUIRED }),
     );
   });
 
   it('print() logs printSucceeded on the success path (RULE 33)', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt);
+    await driver.connect(lanLabelPrinter);
+    await driver.print(lanLabelPrinter.id, { text: sampleText, image: tinyPngBase64() });
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
     );
-  });
-
-  it('print() truetype mode chưa cài font → ném TSPL_FONT_NOT_INSTALLED, KHÔNG ghi bytes', async () => {
-    const driver = new TsplDriver();
-    const ttDriver: PrinterDriver = { ...tsplDriverEntry, config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.truetype, media: { ...MEDIA_58 } } };
-    await driver.connect(lanPrinter, ttDriver);
-    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
-    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
-    await expect(driver.print(lanPrinter.id, { text: sampleText }, PrintType.Receipt)).rejects.toMatchObject({ code: PrinterErrorCode.TSPL_FONT_NOT_INSTALLED });
-    expect(instance.write).not.toHaveBeenCalled();
-  });
-
-  /** `downloadFont` là method DUY NHẤT của `TsplFontManager` thực sự gửi lệnh `DOWNLOAD` — print path không được chạm tới nó. */
-  it('print()/testPrint()/connect() KHÔNG gọi TsplFontManager.downloadFont', async () => {
-    const spy = jest.spyOn(TsplFontManager.prototype, 'downloadFont');
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    await driver.print(lanPrinter.id, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt).catch(() => undefined);
-    await driver.testPrint(lanPrinter, tsplDriverEntry, { text: sampleText, image: tinyPngBase64() }, PrintType.Receipt).catch(() => undefined);
-    expect(spy).not.toHaveBeenCalled();
   });
 
   it('identify() returns a non-null PrinterDeviceInfo when the transport responds', async () => {
@@ -476,19 +362,19 @@ describe('TsplDriver', () => {
       close: jest.fn(),
     }));
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    const result = await driver.identify(lanPrinter.id);
+    await driver.connect(lanLabelPrinter);
+    const result = await driver.identify(lanLabelPrinter.id);
     expect(result).not.toBeNull();
   });
 
   it('connect() over Bluetooth checks permission before connecting', async () => {
     const driver = new TsplDriver();
-    await driver.connect(bluetoothPrinter, tsplDriverEntry);
+    await driver.connect(bluetoothLabelPrinter);
     const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.Connected);
+    expect(driver.getStatus(bluetoothLabelPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
@@ -497,18 +383,18 @@ describe('TsplDriver', () => {
     };
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new TsplDriver();
-    await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.Error);
+    await expect(driver.connect(bluetoothLabelPrinter)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
+    expect(driver.getStatus(bluetoothLabelPrinter.id)).toBe(PrinterStatus.Error);
   });
 
   it('connect() logs connectSucceeded on success', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
+    await driver.connect(lanLabelPrinter);
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl, connectionType: PrinterConnectionType.Lan }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl, connectionType: PrinterConnectionType.Lan }),
     );
   });
 
@@ -520,34 +406,34 @@ describe('TsplDriver', () => {
       write: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(undefined),
     }));
-    await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
+    await expect(driver.connect(usbLabelPrinter)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, connectionType: PrinterConnectionType.Usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrinterDriverType.Tspl, connectionType: PrinterConnectionType.Usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
   it('disconnect() logs disconnectSucceeded', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    await driver.disconnect(lanPrinter.id);
+    await driver.connect(lanLabelPrinter);
+    await driver.disconnect(lanLabelPrinter.id);
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
-    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl });
+    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl });
   });
 
   it('testPrint() logs testPrintSucceeded', async () => {
     const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    await driver.testPrint(lanPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt);
+    await driver.connect(lanLabelPrinter);
+    await driver.testPrint(lanLabelPrinter, sampleDocuments);
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanPrinter.id, protocol: PrinterDriverType.tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
     );
   });
 
@@ -559,12 +445,12 @@ describe('TsplDriver', () => {
       write: jest.fn().mockResolvedValue(undefined),
       close: jest.fn().mockResolvedValue(undefined),
     }));
-    await expect(driver.testPrint(usbPrinter, tsplDriverEntry, sampleDocuments, PrintType.Receipt)).rejects.toThrow();
+    await expect(driver.testPrint(usbLabelPrinter, sampleDocuments)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbPrinter.id, protocol: PrinterDriverType.tspl, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrinterDriverType.Tspl, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -604,32 +490,4 @@ describe('TsplDriver', () => {
     expect(events).toEqual([DeviceScanEventType.Loading, DeviceScanEventType.Error]);
     expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
   });
-
 });
-
-describe('TsplDriver.installTsplFont', () => {
-  it('delegates to TsplFontManager.downloadFont using the connected transport', async () => {
-    const driver = new TsplDriver();
-    await driver.connect(lanPrinter, tsplDriverEntry);
-    // `mock.instances[0]` would be the very first `TsplDriver` constructed
-    // anywhere in this file (each `new TsplDriver()` builds its own private
-    // `TsplFontManager`, and mocks aren't cleared between tests) — take the
-    // most recent instance instead, matching the pattern already used above
-    // for `LanTransport.mock.results[...length - 1]`.
-    const instances = (TsplFontManager as jest.Mock).mock.instances;
-    const downloadFontMock = instances[instances.length - 1].downloadFont as jest.Mock;
-    downloadFontMock.mockResolvedValue(undefined);
-
-    await driver.installTsplFont(lanPrinter.id, DEFAULT_TSPL_FONT);
-
-    expect(downloadFontMock).toHaveBeenCalledWith(expect.anything(), DEFAULT_TSPL_FONT);
-  });
-
-  it('throws PRINTER_NOT_CONNECTED when the printer is not connected', async () => {
-    const driver = new TsplDriver();
-    await expect(driver.installTsplFont('never-connected', DEFAULT_TSPL_FONT)).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
-    });
-  });
-});
-

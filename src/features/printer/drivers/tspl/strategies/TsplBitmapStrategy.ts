@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { PrintRenderMode } from '../../../models/printer/PrinterDriver';
+import { RenderMode } from '../../../models/printer/PrinterDriver';
 import { PrintPaperType } from '../../../models/paper/PrintPaperConfig';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
@@ -12,7 +12,7 @@ import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
  * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
  */
 export class TsplBitmapStrategy implements ITsplPrintStrategy {
-  readonly mode = PrintRenderMode.bitmap;
+  readonly mode = RenderMode.Bitmap;
 
   validate(context: TsplStrategyContext): void {
     if (!context.documents.image) {
@@ -24,11 +24,11 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { printType, media, rows, documents } = context;
-    const heightMm = resolveSizeHeightMm(media, printType);
-    const paperSize = media.paperSize;
-    const targetWidthPx = media.type === PrintPaperType.DieCut
-      ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
+    const { printType, paper, rows, documents } = context;
+    const heightMm = resolveSizeHeightMm(paper, printType);
+    const paperSize = paper.paperSize;
+    const targetWidthPx = paper.type === PrintPaperType.DieCut
+      ? (paper.itemWidthMm ?? 0) * DOTS_PER_MM
       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
 
     let bitmap;
@@ -52,12 +52,12 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
       });
     }
 
-    const encoder = new TsplEncoder().initialize(media, printType);
+    const encoder = new TsplEncoder().initialize(paper, printType);
 
-    for (const dx of columnOffsets(media)) {
+    for (const dx of columnOffsets(paper)) {
       encoder.image(dx, 0, bitmap);
     }
 
-    return encoder.cut(rows, resolveEffectiveCutterMode(media)).encode();
+    return encoder.cut(rows, resolveEffectiveCutterMode(paper)).encode();
   }
 }

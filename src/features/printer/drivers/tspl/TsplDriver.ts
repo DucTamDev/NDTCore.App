@@ -3,14 +3,10 @@ import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { mediaOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDriver, TsplFontConfig } from '../../models/printer/PrinterDriver';
-import { PrintType } from '../../models/printing/PrintType';
-import { TsplFontManager } from './TsplFontManager';
-import { resolveTsplStrategy } from './TsplStrategyRegistry';
+import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
 import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
@@ -21,13 +17,6 @@ import { PrinterLogger } from '../../logging/PrinterLogger';
 
 const IDENTIFY_TIMEOUT_MS = 1000;
 
-/**
- * Chuẩn hoá số hàng die-cut: sàn về số nguyên ≥ 1, và chặn `NaN` (input rỗng
- * / hỏng từ ô nhập số hàng ở SP-C) — `Math.max(1, NaN)` trả `NaN`, kéo theo
- * `SET CUTTER NaN` / `PRINT NaN,1`.
- *
- * Sanitises the die-cut row count: integer ≥ 1, with a `NaN` guard.
- */
 const resolveRows = (options?: PrintOptions): number => {
   const n = Math.floor(options?.rows ?? 1);
   return Number.isFinite(n) ? Math.max(1, n) : 1;
@@ -42,12 +31,13 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
   return bytes;
 };
 
+const tsplBitmapStrategy = new TsplBitmapStrategy();
+
 export class TsplDriver implements IPrinterDriver {
   private connections = new Map<string, IPrinterAdapter>();
-  private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
+  private contexts = new Map<string, Printer>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
-  private fontManager = new TsplFontManager();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
@@ -116,7 +106,7 @@ export class TsplDriver implements IPrinterDriver {
     };
   }
 
-  async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
+  async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
 
@@ -129,16 +119,16 @@ export class TsplDriver implements IPrinterDriver {
         }
       }
 
-      const adapter = resolvePrinterAdapter(PrinterDriverType.tspl, printer.connection.type);
+      const adapter = resolvePrinterAdapter(PrinterDriverType.Tspl, printer.connection.type);
       await adapter.connect(toConnectTarget(printer));
 
       this.connections.set(printer.id, adapter);
-      this.contexts.set(printer.id, { printer, driver });
+      this.contexts.set(printer.id, printer);
       this.setStatus(printer.id, PrinterStatus.Connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.Error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -151,14 +141,14 @@ export class TsplDriver implements IPrinterDriver {
       await adapter?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.tspl });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.Tspl });
   }
 
   getStatus(printerId: string): PrinterStatus {
@@ -174,79 +164,60 @@ export class TsplDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  /**
-   * Nguồn render DUY NHẤT — chọn strategy theo `renderMode` qua
-   * `resolveTsplStrategy` rồi validate/encode qua strategy đó. KHÔNG tự
-   * switch renderMode ở đây, KHÔNG fallback khi `validate()` ném lỗi (RULE 05,
-   * §27-30) — lỗi phải propagate thẳng ra ngoài.
-   */
-  private buildBytes(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, rows: number): Uint8Array {
-    if (driver.config.type !== PrinterDriverType.tspl) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.TSPL_RENDER_MODE_UNSUPPORTED, message: 'Driver không phải TSPL.' });
-    }
-
-    const strategy = resolveTsplStrategy(driver.config.renderMode);
+  /** Nguồn render DUY NHẤT — chỉ còn `TsplBitmapStrategy` (TrueType/internal-font đã bỏ). */
+  private buildBytes(printer: Printer, documents: PrintDocuments, rows: number): Uint8Array {
     const context: TsplStrategyContext = {
       printer,
-      driver,
       documents,
-      printType,
-      media: mediaOf(driver),
+      printType: printer.type,
+      paper: printer.paper,
       rows,
     };
 
-    strategy.validate(context);
-    return strategy.encode(context);
+    tsplBitmapStrategy.validate(context);
+    return tsplBitmapStrategy.encode(context);
   }
 
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> {
+  async testPrint(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
 
     try {
       if (!this.connections.has(printer.id)) {
-        await this.connect(printer, driver);
+        await this.connect(printer);
       }
 
       const adapter = this.connections.get(printer.id);
       const rows = resolveRows(options);
-      const bytes = this.buildBytes(printer, driver, documents, printType, rows);
+      const bytes = this.buildBytes(printer, documents, rows);
       await adapter?.write(bytes);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
-  async print(printerId: string, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> {
-    const context = this.contexts.get(printerId);
+  async print(printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
+    const printer = this.contexts.get(printerId);
     const adapter = this.connections.get(printerId);
 
-    if (!context || !adapter) {
+    if (!printer || !adapter) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
 
-    // RULE 33 / Invariant 45: mọi print failure phải được log cùng event
-    // chuẩn hoá như ESC/POS. `catch` chỉ log rồi ném lại — KHÔNG nuốt lỗi,
-    // KHÔNG fallback (lỗi strategy.validate/encode vẫn propagate nguyên vẹn).
     const startedAt = Date.now();
 
     try {
       const rows = resolveRows(options);
-      const bytes = this.buildBytes(context.printer, context.driver, documents, printType, rows);
+      const bytes = this.buildBytes(printer, documents, rows);
       await adapter.write(bytes);
-      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.tspl, durationMs: Date.now() - startedAt });
+      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
-  /**
-   * Chỉ dò `~!T` khi adapter đọc được phản hồi (`canRead`). Adapter native
-   * (USB) chỉ bulk-OUT → trả `null` NGAY, KHÔNG ghi (ghi rồi chờ đọc = lệnh
-   * rác vào máy in + lỗi "device not initialized" lúc discovery).
-   */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const adapter = this.connections.get(printerId);
 
@@ -262,15 +233,5 @@ export class TsplDriver implements IPrinterDriver {
     } catch {
       return null;
     }
-  }
-
-  async installTsplFont(printerId: string, font: TsplFontConfig): Promise<void> {
-    const adapter = this.connections.get(printerId);
-
-    if (!adapter) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
-    }
-
-    await this.fontManager.downloadFont(adapter, font);
   }
 }

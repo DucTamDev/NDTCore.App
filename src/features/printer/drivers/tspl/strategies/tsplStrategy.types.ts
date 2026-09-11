@@ -1,28 +1,25 @@
 import type { Printer } from '../../../models/printer/Printer';
-import type { PrinterDriver, PrintRenderMode } from '../../../models/printer/PrinterDriver';
+import type { RenderMode } from '../../../models/printer/PrinterDriver';
 import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../../IPrinterDriver';
 import type { PrintType } from '../../../models/printing/PrintType';
 
 /**
  * Input đã resolve đầy đủ cho 1 lần render TSPL. CONFIG-ONLY có chủ đích —
- * KHÔNG chứa connection state / transport / kết quả query máy in. Strategy
- * chỉ kiểm tra configuration invariant (§28, §118, §137, spec §12).
+ * KHÔNG chứa connection state / transport / kết quả query máy in.
  */
 export interface TsplStrategyContext {
   printer: Printer;
-  /** `config.type === 'tspl'` — `TsplDriver` narrow trước khi tạo context. */
-  driver: PrinterDriver;
   documents: PrintDocuments;
   printType: PrintType;
-  /** = `mediaOf(driver)`. Nguồn cho `SIZE`/`GAP`/`SET CUTTER`/layout cột. */
-  media: PrintPaperConfig;
+  /** = `printer.paper`. Nguồn cho `SIZE`/`GAP`/`SET CUTTER`/layout cột. */
+  paper: PrintPaperConfig;
   /** Số hàng die-cut cần in (>= 1). Continuous: số bản sao. */
   rows: number;
 }
 
 export interface ITsplPrintStrategy {
-  readonly mode: PrintRenderMode;
+  readonly mode: RenderMode;
   /** Ném `PrinterErrorException` (TSPL_*) nếu context không đủ điều kiện. KHÔNG trả bool, KHÔNG fallback. */
   validate(context: TsplStrategyContext): void;
   /** Thuần: context → raw TSPL bytes. */
