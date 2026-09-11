@@ -1,25 +1,25 @@
 import { DRIVER_CAPABILITIES, getDriverCapabilities } from '../DriverCapabilities';
-import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { RenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrintType } from '../../models/printing/PrintType';
 
 describe('DriverCapabilities', () => {
-  it('escpos only supports Receipt', () => {
-    expect(DRIVER_CAPABILITIES.escpos.contentTypes).toEqual([PrintType.Receipt]);
+  it('EscPos only supports Receipt', () => {
+    expect(DRIVER_CAPABILITIES[PrinterDriverType.EscPos].contentTypes).toEqual([PrintType.Receipt]);
   });
 
-  it('tspl supports both Receipt and Label', () => {
-    expect(DRIVER_CAPABILITIES.tspl.contentTypes).toEqual([PrintType.Receipt, PrintType.Label]);
+  it('Tspl supports both Receipt and Label', () => {
+    expect(DRIVER_CAPABILITIES[PrinterDriverType.Tspl].contentTypes).toEqual([PrintType.Receipt, PrintType.Label]);
   });
 
   it('getDriverCapabilities returns the definition for a given type', () => {
-    expect(getDriverCapabilities(PrinterDriverType.tspl)).toBe(DRIVER_CAPABILITIES.tspl);
+    expect(getDriverCapabilities(PrinterDriverType.Tspl)).toBe(DRIVER_CAPABILITIES[PrinterDriverType.Tspl]);
   });
 
-  it('escpos default config is { type: escpos, renderMode: text, media: continuous 80 }', () => {
-    expect(DRIVER_CAPABILITIES.escpos.defaultConfig).toEqual({ type: PrinterDriverType.escpos, renderMode: PrintRenderMode.encoder, media: { type: 'continuous', paperSize: 80 } });
+  it('EscPos default config is { renderMode: Encoder }', () => {
+    expect(DRIVER_CAPABILITIES[PrinterDriverType.EscPos].defaultConfig).toEqual({ renderMode: RenderMode.Encoder });
   });
 
-  it('tspl default config is { type: tspl, renderMode: bitmap, media: continuous 80 }', () => {
-    expect(DRIVER_CAPABILITIES.tspl.defaultConfig).toEqual({ type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } });
+  it('Tspl default config is { renderMode: Bitmap }', () => {
+    expect(DRIVER_CAPABILITIES[PrinterDriverType.Tspl].defaultConfig).toEqual({ renderMode: RenderMode.Bitmap });
   });
 });
