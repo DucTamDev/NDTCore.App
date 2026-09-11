@@ -20,10 +20,10 @@ describe('PrinterStorage', () => {
     expect(PrinterStorage.getPrinters()).toEqual([printer]);
   });
 
-  it('stamps the current storage version (6) after a save + read', () => {
+  it('stamps the current storage version (7) after a save + read', () => {
     PrinterStorage.savePrinters([printer]);
     PrinterStorage.getPrinters();
-    expect(StorageService.getItem('printer.storageVersion')).toBe(6);
+    expect(StorageService.getItem('printer.storageVersion')).toBe(7);
   });
 
   it('discards a legacy (pre-refactor) printer.list written under a missing/older storage version', () => {

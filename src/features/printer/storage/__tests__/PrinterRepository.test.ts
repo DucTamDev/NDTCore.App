@@ -1,6 +1,7 @@
 import { createPrinterRepository } from '../PrinterRepository';
 import { PrinterStorage } from '../PrinterStorage';
 import { type Printer } from '../../models/printer/Printer';
+import { PrintType } from '../../models/printing/PrintType';
 import { basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
@@ -16,12 +17,20 @@ describe('PrinterRepository', () => {
     expect(repository.getPrinters()).toEqual([basePrinter]);
   });
 
-  it('addPrinter() throws when identityKey collides with a different existing printer', () => {
+  it('addPrinter() throws when (identityKey, type) collides with a different existing printer', () => {
     const repository = createPrinterRepository();
     repository.addPrinter(basePrinter);
     const duplicate: Printer = { ...basePrinter, id: 'p2', name: 'Máy in khác' };
     expect(() => repository.addPrinter(duplicate)).toThrow();
     expect(repository.getPrinters()).toHaveLength(1);
+  });
+
+  it('addPrinter() allows the same identityKey when type differs (dual-protocol device on one connection)', () => {
+    const repository = createPrinterRepository();
+    repository.addPrinter(basePrinter);
+    const labelPrinter: Printer = { ...basePrinter, id: 'p2', name: 'Máy in tem', type: PrintType.Label };
+    expect(() => repository.addPrinter(labelPrinter)).not.toThrow();
+    expect(repository.getPrinters()).toHaveLength(2);
   });
 
   it('updatePrinter() does not throw against its own identityKey', () => {

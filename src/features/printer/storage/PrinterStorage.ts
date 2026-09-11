@@ -25,7 +25,13 @@ const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
 //     productId/serialNumber`, `BluetoothPrinterConnection.deviceId/name`,
 //     `LanPrinterConnection.host/port`, đổi tên `ip` → `host`) — shape đổi
 //     không tương thích ngược → reset (không migrate), xem ARCHITECTURE.md §7.
-const CURRENT_STORAGE_VERSION = 6;
+// v7: Printer đổi từ "1 connection + drivers[] (1-2 phần tử, mỗi driver tự
+//     giữ contentTypes/media riêng)" sang "1 connection + đúng 1 driver +
+//     đúng 1 paper + đúng 1 type" (atomic per-PrintType config) — đồng thời
+//     bỏ hẳn TsplDriverConfig.font/internalFont (TrueType/internal-font đã
+//     xoá tính năng). Shape đổi không tương thích ngược → reset (không migrate),
+//     xem ARCHITECTURE.md và spec 2026-09-11.
+const CURRENT_STORAGE_VERSION = 7;
 
 /**
  * Xoá `printer.list`/`printer.defaultId` (key cũ, `isDefault` đã bị bỏ —

@@ -27,11 +27,14 @@ export const createPrinterRepository = () => {
   };
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
-    const collision = getPrinters().find((p) => p.id !== printer.id && p.identityKey === printer.identityKey);
+    const collision = getPrinters().find(
+      (p) => p.id !== printer.id && p.identityKey === printer.identityKey && p.type === printer.type,
+    );
+
     if (collision) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.PRINTER_ALREADY_EXISTS,
-        message: `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`,
+        message: `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".`,
       });
     }
   };
