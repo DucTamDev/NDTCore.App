@@ -15,7 +15,7 @@ import type { PrinterDriverType } from '../models/printer/PrinterDriver';
  * concurrency mà không lộ IP (spec §12.6).
  *
  * Mọi payload đều kèm field chuẩn (§9.2 / §105):
- * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `font-install`).
+ * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `print`).
  * - `result`: `success` / `failure` — OPTIONAL. Event mốc-bắt-đầu lifecycle
  *   (`discoveryStarted`) KHÔNG phát `result`: `operation: 'discovery'` + tên
  *   event `.started` đã mang phase, chưa có kết quả để phân loại.
@@ -26,8 +26,7 @@ type PrinterLogOperation =
   | 'disconnect'
   | 'discovery'
   | 'test-print'
-  | 'print'
-  | 'font-install';
+  | 'print';
 
 type PrinterLogResult = 'success' | 'failure';
 
@@ -149,23 +148,5 @@ export const PrinterLogger = {
 
   printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode; durationMs: number }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
-  },
-
-  /**
-   * Font-install = op DOWNLOAD tường minh (§126). `connectionType` optional vì
-   * `AddPrinterModal` gọi trên draft chưa lưu — lúc đó chưa có `Printer` object
-   * để lấy connectionType (xem `PrinterConfigService.installTsplFont`).
-   */
-  fontInstallSucceeded(params: { printerId: string; connectionType?: PrinterConnectionType; durationMs: number }): void {
-    LoggerService.info('printer.font-install.succeeded', withStdFields('font-install', 'success', params));
-  },
-
-  fontInstallFailed(params: {
-    printerId: string;
-    connectionType?: PrinterConnectionType;
-    errorCode: PrinterErrorCode;
-    durationMs: number;
-  }): void {
-    LoggerService.warning('printer.font-install.failed', withStdFields('font-install', 'failure', params));
   },
 };

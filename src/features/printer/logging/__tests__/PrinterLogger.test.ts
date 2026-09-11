@@ -236,45 +236,4 @@ describe('PrinterLogger', () => {
       result: 'failure',
     });
   });
-
-  it('fontInstallSucceeded / fontInstallFailed exist', () => {
-    expect(typeof PrinterLogger.fontInstallSucceeded).toBe('function');
-    expect(typeof PrinterLogger.fontInstallFailed).toBe('function');
-  });
-
-  it('fontInstallSucceeded logs an info event with operation=font-install, result=success', () => {
-    PrinterLogger.fontInstallSucceeded({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, durationMs: 4200 });
-    expect(LoggerService.info).toHaveBeenCalledWith('printer.font-install.succeeded', {
-      printerId: 'p1',
-      connectionType: PrinterConnectionType.Lan,
-      durationMs: 4200,
-      operation: 'font-install',
-      result: 'success',
-    });
-    const payload = (LoggerService.info as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
-    expect(payload).not.toHaveProperty('resourceKey');
-    expect(payload).not.toHaveProperty('ip');
-  });
-
-  it('fontInstallSucceeded omits connectionType for a draft printer (no Printer object)', () => {
-    PrinterLogger.fontInstallSucceeded({ printerId: 'draft', durationMs: 10 });
-    expect(LoggerService.info).toHaveBeenCalledWith('printer.font-install.succeeded', {
-      printerId: 'draft',
-      durationMs: 10,
-      operation: 'font-install',
-      result: 'success',
-    });
-  });
-
-  it('fontInstallFailed logs a warning event with operation=font-install, result=failure', () => {
-    PrinterLogger.fontInstallFailed({ printerId: 'p1', connectionType: PrinterConnectionType.Bluetooth, errorCode: PrinterErrorCode.PRINTER_NOT_CONNECTED, durationMs: 900 });
-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.font-install.failed', {
-      printerId: 'p1',
-      connectionType: PrinterConnectionType.Bluetooth,
-      errorCode: PrinterErrorCode.PRINTER_NOT_CONNECTED,
-      durationMs: 900,
-      operation: 'font-install',
-      result: 'failure',
-    });
-  });
 });
