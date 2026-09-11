@@ -10,23 +10,23 @@ export type PaperSize =
 
 export const PrintPaperType = {
   /** Giấy cuộn liên tục, không có khe giữa các tem. */
-  Continuous: 'continuous',
+  Continuous: 'Continuous',
 
   /** Giấy tem rời, có khe giữa các tem. */
-  DieCut: 'die_cut',
+  DieCut: 'DieCut',
 } as const;
 
 export type PrintPaperType =
   (typeof PrintPaperType)[keyof typeof PrintPaperType];
 
 export const CutterMode = {
-  None: 'none',
+  None: 'None',
 
   /** Cắt một lần sau khi hoàn thành toàn bộ job in. */
-  PerJob: 'per_job',
+  PerJob: 'PerJob',
 
   /** Cắt sau mỗi hàng in. */
-  PerRow: 'per_row',
+  PerRow: 'PerRow',
 } as const;
 
 export type CutterMode =
