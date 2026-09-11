@@ -408,6 +408,10 @@ vendorId/productId, cùng pattern với `registerDeviceDetachListener`) để b�
 kết quả dialog cấp quyền cho đúng caller đang đợi — permission vẫn bất đồng
 bộ: `UsbConnection.open()` gọi `requestPermission()` rồi trả
 `CompletableFuture` chờ callback, không block thread bằng `Thread.sleep`.
+`UsbConnection` giữ future này (`pendingPermissionFuture`) làm field — nếu
+`close()` được gọi trong lúc còn treo (vd rút dây đúng lúc dialog đang hiện,
+kích hoạt `registerDeviceDetachListener` gọi `close()`), complete future đó
+với `CONNECTION_FAILED` thay vì để treo vĩnh viễn phía Promise JS.
 
 **Permission là trách nhiệm của `UsbConnection`** — `UsbPrinterDevice` chỉ
 gọi thẳng `connection.open()`, hoàn toàn generic giống Bluetooth/Net, không

@@ -29,6 +29,7 @@ public final class UsbConnection implements IPrinterConnection {
 
     private UsbDeviceConnection deviceConnection;
     private UsbInterface claimedInterface;
+    private CompletableFuture<PrinterResult> pendingPermissionFuture;
 
     public UsbConnection(ReactApplicationContext context, UsbPermission permission, UsbEndpointResolver endpointResolver, int vendorId, int productId) {
         this.usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
@@ -81,9 +82,11 @@ public final class UsbConnection implements IPrinterConnection {
      */
     private CompletableFuture<PrinterResult> awaitPermissionThenClaim(UsbDevice candidate, long startedAt) {
         CompletableFuture<PrinterResult> future = new CompletableFuture<>();
+        this.pendingPermissionFuture = future;
 
         permission.registerPermissionResultListener(vendorId, productId, granted -> {
             permission.unregisterPermissionResultListener(vendorId, productId);
+            pendingPermissionFuture = null;
 
             if (!granted) {
                 future.completeExceptionally(new PrinterConnectionException(PrinterErrorCode.PERMISSION_DENIED, "User denied USB permission"));
@@ -154,10 +157,20 @@ public final class UsbConnection implements IPrinterConnection {
     /**
      * Đóng kết nối USB — đóng UsbDeviceConnection là đủ để OS tự thu hồi
      * interface đã claim qua nó, không cần gọi releaseInterface() riêng.
+     *
+     * <p>Nếu đang treo chờ kết quả permission (vd bị rút dây giữa lúc dialog
+     * còn hiện), complete future đó với lỗi thay vì để treo mãi — future đó
+     * đã được trả cho caller ở open(), không còn cơ hội nào khác hoàn tất
+     * nó khi connection bị đóng trước khi dialog kịp trả lời.</p>
      */
     @Override
     public CompletableFuture<PrinterResult> close() {
         long startedAt = System.currentTimeMillis();
+
+        if (pendingPermissionFuture != null) {
+            pendingPermissionFuture.completeExceptionally(new PrinterConnectionException(PrinterErrorCode.CONNECTION_FAILED, "USB connection closed while waiting for permission"));
+            pendingPermissionFuture = null;
+        }
 
         // Best-effort cleanup — device có thể đã mất kết nối vật lý nên
         // close() có thể tự ném lỗi, không ảnh hưởng tới việc vẫn phải null
