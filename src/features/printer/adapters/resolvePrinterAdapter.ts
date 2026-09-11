@@ -14,7 +14,7 @@ export const resolvePrinterAdapter = (
   driverType: PrinterDriverType,
   connectionType: PrinterConnectionType,
 ): IPrinterAdapter => {
-  if (driverType === PrinterDriverType.escpos) {
+  if (driverType === PrinterDriverType.EscPos) {
     return new NativeAdapter();
   }
 
