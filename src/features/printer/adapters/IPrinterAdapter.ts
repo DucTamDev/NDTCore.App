@@ -1,5 +1,5 @@
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { PrinterDevice } from '../models/printer/PrinterDevice';
-import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -68,11 +68,11 @@ export interface IPrinterAdapter {
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
   const { connection } = printer;
 
-  if (connection.type === 'Lan') {
+  if (connection.type === PrinterConnectionType.Lan) {
     return { printerId: printer.id, connectionType: connection.type, lan: { ip: connection.host, port: connection.port } };
   }
 
-  if (connection.type === 'Bluetooth') {
+  if (connection.type === PrinterConnectionType.Bluetooth) {
     return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
   }
 
