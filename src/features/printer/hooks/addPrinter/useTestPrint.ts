@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
-import { mediaOf, usesBitmapRenderMode } from '../../drivers/driverConfig';
+import { usesBitmapRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
@@ -17,29 +17,28 @@ import type { UseBillImageCapture } from '../useBillImageCapture';
  * coordinator sở hữu và truyền xuống.
  */
 export interface UseTestPrintInput {
-  drivers: PrinterDriver[];
+  driver?: PrinterDriver;
   displayForm: UseFormReturn<PrinterDisplayValues>;
   buildDraftPrinter: () => Printer;
   captureBillImage: UseBillImageCapture['captureBillImage'];
 }
 
 /**
- * In thử (hoá đơn / tem) trong luồng Thêm/Sửa máy in: dựng document mẫu, ở chế
- * độ TSPL bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
- * `PrinterPrintService.testPrint` cho driver khớp content type.
+ * In thử trong luồng Thêm/Sửa máy in: dựng document mẫu theo `printer.type`
+ * cố định, ở chế độ Bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
+ * `PrinterPrintService.testPrint`.
  */
-export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
-  const [testPrintReceiptPending, setTestPrintReceiptPending] = useState(false);
-  const [testPrintLabelPending, setTestPrintLabelPending] = useState(false);
+export const useTestPrint = ({ driver, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
+  const [testPrintPending, setTestPrintPending] = useState(false);
   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
-  const resolveTestPrintDocuments = async (driver: PrinterDriver, document: PrintDocument): Promise<PrintDocuments> => {
-    if (!usesBitmapRenderMode(driver)) {
+  const resolveTestPrintDocuments = async (printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
+    if (!driver || !usesBitmapRenderMode(driver)) {
       return { text: document };
     }
 
-    const base64 = await captureBillImage(document, mediaOf(driver));
+    const base64 = await captureBillImage(document, printer.paper);
 
     if (!base64) {
       return { text: document };
@@ -48,13 +47,7 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
     return { text: document, image: base64 };
   };
 
-  const runTestPrint = async (
-    setPending: (pending: boolean) => void,
-    printType: PrintType,
-    sampleDocument: PrintDocument,
-  ): Promise<void> => {
-    const driver = drivers.find((d) => d.contentTypes.includes(printType));
-
+  const onTestPrint = async (): Promise<void> => {
     if (!driver) {
       return;
     }
@@ -66,33 +59,29 @@ export const useTestPrint = ({ drivers, displayForm, buildDraftPrinter, captureB
       return;
     }
 
-    setPending(true);
+    setTestPrintPending(true);
     setTestPrintErrorMessage(null);
     try {
-      const documents = await resolveTestPrintDocuments(driver, sampleDocument);
-      const options = printType === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
-      await PrinterPrintService.testPrint(printer, driver, documents, printType, options);
+      const sampleDocument = printer.type === PrintType.Label ? buildSampleLabelDocument() : buildSampleReceiptDocument();
+      const documents = await resolveTestPrintDocuments(printer, sampleDocument);
+      const options = printer.type === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
+      await PrinterPrintService.testPrint(printer, documents, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {
-      setPending(false);
+      setTestPrintPending(false);
     }
   };
-
-  const onTestPrintReceipt = (): Promise<void> => runTestPrint(setTestPrintReceiptPending, PrintType.Receipt, buildSampleReceiptDocument());
-  const onTestPrintLabel = (): Promise<void> => runTestPrint(setTestPrintLabelPending, PrintType.Label, buildSampleLabelDocument());
 
   const clearTestPrintError = (): void => setTestPrintErrorMessage(null);
 
   return {
-    testPrintReceiptPending,
-    testPrintLabelPending,
+    testPrintPending,
     testPrintErrorMessage,
     setTestPrintErrorMessage,
     testPrintRowsText,
     setTestPrintRowsText,
-    onTestPrintReceipt,
-    onTestPrintLabel,
+    onTestPrint,
     clearTestPrintError,
   };
 };

@@ -10,7 +10,7 @@ import type { ConnectionState, ProtocolState } from '../../components/StatusPane
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
-import type { PrinterDriver } from '../../models/printer/PrinterDriver';
+import type { PrintType } from '../../models/printing/PrintType';
 
 /**
  * Input cho {@link useConnectionSetup}. `getConnectionState`/`getProtocolState`
@@ -20,7 +20,10 @@ import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 export interface UseConnectionSetupInput {
   initialValues?: Printer;
   printerId: string;
-  drivers: PrinterDriver[];
+  /** Loại nội dung CỐ ĐỊNH của printer này — dùng để check trùng đúng cặp `(identityKey, type)`. */
+  printType: PrintType;
+  /** true khi đã xác nhận driver — khoá input kết nối, không cho đổi giữa chừng. */
+  hasDriver: boolean;
   getConnectionState: () => ConnectionState;
   getProtocolState: () => ProtocolState;
   resetConnectionResult: () => void;
@@ -34,7 +37,8 @@ export interface UseConnectionSetupInput {
 export const useConnectionSetup = ({
   initialValues,
   printerId,
-  drivers,
+  printType,
+  hasDriver,
   getConnectionState,
   getProtocolState,
   resetConnectionResult,
@@ -90,10 +94,8 @@ export const useConnectionSetup = ({
       return;
     }
 
-    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.identityKey === key);
-    setIdentityErrorMessage(
-      collision ? `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.` : undefined,
-    );
+    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.identityKey === key && p.type === printType);
+    setIdentityErrorMessage(collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chạy lại khi connectionType/selectedDevice/lan form thay đổi, đọc qua currentIdentityKey() ở trên
   }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
 
@@ -130,7 +132,7 @@ export const useConnectionSetup = ({
   };
 
   const onConnectionTypeChange = (value: PrinterConnectionType): void => {
-    if (drivers.length > 0) {
+    if (hasDriver) {
       return;
     }
 
@@ -140,7 +142,7 @@ export const useConnectionSetup = ({
   };
 
   const onSelectDevice = (device: PrinterDevice): void => {
-    if (drivers.length > 0) {
+    if (hasDriver) {
       return;
     }
 
@@ -149,7 +151,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanIpChange = (text: string): void => {
-    if (drivers.length > 0) {
+    if (hasDriver) {
       return;
     }
 
@@ -158,7 +160,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanPortChange = (text: string): void => {
-    if (drivers.length > 0) {
+    if (hasDriver) {
       return;
     }
 
