@@ -9,14 +9,15 @@ import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.exception.PrinterConnectionException;
 import com.ndtcorepos.thermalprinter.exception.PrinterWriteException;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
-import com.ndtcorepos.thermalprinter.transport.PrinterWriter;
+import com.ndtcorepos.thermalprinter.transport.IPrinterWriter;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Ghi bytes qua bulk OUT endpoint USB.
+ * Ghi bytes qua bulk OUT endpoint USB — tự resolve endpoint từ interface đã
+ * claim (Connection chỉ biết interface, không biết endpoint để ghi).
  */
-public final class UsbWriter implements PrinterWriter {
+public final class UsbWriter implements IPrinterWriter {
 
     private static final String LOG_SOURCE = "UsbWriter";
     private static final int BULK_TRANSFER_TIMEOUT_MS = 100000;
@@ -38,9 +39,9 @@ public final class UsbWriter implements PrinterWriter {
     public CompletableFuture<PrinterResult> write(byte[] data) {
         long startedAt = System.currentTimeMillis();
 
-        if (!connection.ensureClaimed()) {
-            String message = "USB connection is not ready — permission may still be pending";
-            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.CONNECTION_FAILED, message));
+        if (!connection.isOpen()) {
+            String message = "USB connection is not built, may be you forgot to connect";
+            return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.NOT_CONNECTED, message));
         }
 
         UsbDeviceConnection deviceConnection = connection.getDeviceConnection();

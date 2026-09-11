@@ -5,9 +5,9 @@ import com.ndtcorepos.thermalprinter.printer.PrinterCapabilities;
 import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 
 /**
- * CapabilityDetector cho printer Bluetooth — chưa có logic đọc status thật, trả UNKNOWN.
+ * ICapabilityDetector cho printer Bluetooth — chưa có logic đọc status thật, trả UNKNOWN.
  */
-public final class BluetoothCapabilityDetector implements CapabilityDetector {
+public final class BluetoothCapabilityDetector implements ICapabilityDetector {
 
     @Override
     public PrinterCapabilities detect(PrinterInfo info) {

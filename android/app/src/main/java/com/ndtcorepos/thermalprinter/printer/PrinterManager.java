@@ -2,7 +2,7 @@ package com.ndtcorepos.thermalprinter.printer;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.ndtcorepos.thermalprinter.detector.BluetoothCapabilityDetector;
-import com.ndtcorepos.thermalprinter.detector.CapabilityDetector;
+import com.ndtcorepos.thermalprinter.detector.ICapabilityDetector;
 import com.ndtcorepos.thermalprinter.detector.NetCapabilityDetector;
 import com.ndtcorepos.thermalprinter.detector.UsbCapabilityDetector;
 import com.ndtcorepos.thermalprinter.device.BluetoothPrinterDevice;
@@ -44,7 +44,7 @@ public final class PrinterManager {
     private final PrinterRegistry registry = new PrinterRegistry();
     private final PrinterQueueManager queueManager = new PrinterQueueManager(registry);
     private final Map<ConnectionType, IPrinterDiscovery> discoveries = new EnumMap<>(ConnectionType.class);
-    private final Map<ConnectionType, CapabilityDetector> detectors = new EnumMap<>(ConnectionType.class);
+    private final Map<ConnectionType, ICapabilityDetector> detectors = new EnumMap<>(ConnectionType.class);
 
     public PrinterManager(ReactApplicationContext context, UsbPermission usbPermission) {
         this.context = context;
@@ -75,7 +75,7 @@ public final class PrinterManager {
      * @param info thông tin kết nối
      */
     public CompletableFuture<PrinterResult> connect(String printerId, PrinterInfo info) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         if (device == null) {
             device = createDevice(info);
             registry.put(printerId, device);
@@ -83,7 +83,7 @@ public final class PrinterManager {
         return device.connect();
     }
 
-    private PrinterDevice createDevice(PrinterInfo info) {
+    private IPrinterDevice createDevice(PrinterInfo info) {
         return switch (info.connectionType()) {
             case USB -> {
                 UsbEndpointResolver resolver = new UsbEndpointResolver();
@@ -107,7 +107,7 @@ public final class PrinterManager {
      * @param printerId id cần kết nối lại
      */
     public CompletableFuture<PrinterResult> reconnect(String printerId) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         if (device == null) {
             return CompletableFuture.failedFuture(new PrinterException(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId));
         }
@@ -120,7 +120,7 @@ public final class PrinterManager {
      * @param printerId id cần ngắt kết nối
      */
     public CompletableFuture<PrinterResult> disconnect(String printerId) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         if (device == null) {
             return CompletableFuture.failedFuture(new PrinterException(PrinterErrorCode.PRINTER_NOT_FOUND, "Printer not found: " + printerId));
         }
@@ -134,7 +134,7 @@ public final class PrinterManager {
      * @return metadata tương ứng, null nếu không tìm thấy
      */
     public PrinterInfo getInfo(String printerId) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         return device == null ? null : device.getInfo();
     }
 
@@ -145,11 +145,11 @@ public final class PrinterManager {
      * @return capability tương ứng, null nếu không tìm thấy
      */
     public PrinterCapabilities getCapabilities(String printerId) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         if (device == null) {
             return null;
         }
-        CapabilityDetector detector = detectors.get(device.getInfo().connectionType());
+        ICapabilityDetector detector = detectors.get(device.getInfo().connectionType());
         return detector == null ? null : detector.detect(device.getInfo());
     }
 
@@ -160,7 +160,7 @@ public final class PrinterManager {
      * @return trạng thái hiện tại, null nếu printerId không có trong Registry
      */
     public PrinterState getConnectionState(String printerId) {
-        PrinterDevice device = registry.get(printerId);
+        IPrinterDevice device = registry.get(printerId);
         return device == null ? null : device.getState();
     }
 
@@ -199,7 +199,7 @@ public final class PrinterManager {
      * Đóng tất cả kết nối và tắt mọi executor — gọi khi RN module bị huỷ.
      */
     public void shutdown() {
-        for (PrinterDevice device : registry.getAll()) {
+        for (IPrinterDevice device : registry.getAll()) {
             device.disconnect();
         }
         queueManager.shutdownAll();

@@ -353,6 +353,13 @@ Không gộp nhiều mối quan tâm (permission + discovery + transfer + monito
 
 Constructor nên thể hiện rõ dependency, không lấy qua service locator/global state.
 
+### Rule 8.3 — Interface đặt tên với tiền tố `I`
+
+Theo quy ước .NET (`IDisposable`, `IEnumerable`), mọi interface trong package này đặt tên
+với tiền tố `I` để phân biệt rõ với class ngay khi đọc — vd `IPrinterDevice`,
+`IPrinterConnection`, `IPrinterWriter`, `ICapabilityDetector`, `IPrinterDiscovery`. Class
+implement không mang tiền tố này (`UsbPrinterDevice implements IPrinterDevice`).
+
 ---
 
 ## 9. Constants
@@ -622,3 +629,4 @@ private void handleDeviceDetached(Intent intent) {
 19. Comments should explain **why**, not obvious **what**.
 20. Prefer maintainable and debuggable code over clever or overly compact code.
 21. Comment functions that directly use Android APIs at the function level (Android/platform responsibility) — not on individual API calls; skip when the name + code already make it obvious.
+22. Name interfaces with an `I` prefix (.NET-style, e.g. `IPrinterDevice`); implementing classes carry no such prefix.

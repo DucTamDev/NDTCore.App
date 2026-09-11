@@ -48,7 +48,7 @@ PrinterManager (facade — orchestration)
 PrinterRegistry   PrinterQueueManager
      │              │
      ▼              ▼
-PrinterDevice    PrinterQueue (1/printerId, FIFO)
+IPrinterDevice    PrinterQueue (1/printerId, FIFO)
      │              │
      ├──────┐       ▼
      ▼      ▼    PrintJob
@@ -58,7 +58,7 @@ Connection Writer
 Android Platform (UsbManager/BluetoothAdapter/Socket)
 ```
 
-Dependency chỉ đi 1 chiều: `PrinterModule → PrinterManager → PrinterDevice →
+Dependency chỉ đi 1 chiều: `PrinterModule → PrinterManager → IPrinterDevice →
 Connection/Writer → Android API`. Không có chiều ngược (Android API không biết
 `PrinterManager`; `Connection`/`Writer` không biết ESC/POS/TSPL).
 
@@ -75,9 +75,9 @@ flow "Thêm máy in", trước cả lần `connect()` đầu tiên) — không c
 JS  → PrinterModule.connect({ printerId: "<id JS đã có sẵn>", type, vendorId, productId, ... })
 Bridge → PrinterManager.connect(printerId, info)
 Manager → registry.get(printerId):
-            có rồi → idempotent, dùng lại PrinterDevice hiện có
+            có rồi → idempotent, dùng lại IPrinterDevice hiện có
             chưa có (lần đầu, hoặc sau khi app bị kill — Registry rỗng) → tạo
-            PrinterDevice mới, registry.put(printerId, device)
+            IPrinterDevice mới, registry.put(printerId, device)
 ```
 
 `PrinterManager.connect(String printerId, PrinterInfo info)` luôn nhận `printerId` cụ thể,
@@ -99,20 +99,20 @@ android/app/src/main/java/com/ndtcorepos/thermalprinter/
 │   └── PrinterErrorResult.java       (giữ nguyên — Promise.reject có cấu trúc)
 ├── printer/
 │   ├── PrinterManager.java           (facade — thay PrinterService.java)
-│   ├── PrinterRegistry.java          (Map<printerId, PrinterDevice>, thread-safe)
-│   ├── PrinterDevice.java            (interface — thay model/IPrinterDevice.java cũ)
+│   ├── PrinterRegistry.java          (Map<printerId, IPrinterDevice>, thread-safe)
+│   ├── IPrinterDevice.java            (interface — thay model/IPrinterDevice.java cũ; đổi tên từ PrinterDevice.java để nhất quán prefix `I` với IPrinterDiscovery)
 │   ├── PrinterInfo.java
 │   ├── PrinterCapabilities.java
 │   ├── CapabilityState.java
 │   ├── PrinterState.java
 │   └── PrinterResult.java
 ├── device/
-│   ├── UsbPrinterDevice.java         (implements PrinterDevice)
-│   ├── BluetoothPrinterDevice.java   (implements PrinterDevice)
-│   └── NetPrinterDevice.java         (implements PrinterDevice)
+│   ├── UsbPrinterDevice.java         (implements IPrinterDevice)
+│   ├── BluetoothPrinterDevice.java   (implements IPrinterDevice)
+│   └── NetPrinterDevice.java         (implements IPrinterDevice)
 ├── transport/
-│   ├── PrinterConnection.java        (interface lifecycle thuần — xem mục 6)
-│   ├── PrinterWriter.java            (interface — chỉ write bytes)
+│   ├── IPrinterConnection.java        (interface lifecycle thuần — xem mục 6)
+│   ├── IPrinterWriter.java            (interface — chỉ write bytes)
 │   ├── usb/
 │   │   ├── UsbConnection.java
 │   │   ├── UsbWriter.java
@@ -133,7 +133,7 @@ android/app/src/main/java/com/ndtcorepos/thermalprinter/
 │   ├── usb/UsbPrinterDiscovery.java  (giữ logic hiện tại — isPrintableUsbDevice,...)
 │   └── bluetooth/BluetoothPrinterDiscovery.java (giữ logic hiện tại)
 ├── detector/
-│   ├── CapabilityDetector.java
+│   ├── ICapabilityDetector.java
 │   ├── UsbCapabilityDetector.java
 │   ├── BluetoothCapabilityDetector.java
 │   └── NetCapabilityDetector.java
@@ -156,7 +156,7 @@ cùng lúc một cách không cần thiết. 4 exception con (`exception/`) `ext
 com.ndtcorepos.thermalprinter.error.PrinterException` — subclass khác package base class là
 hợp lệ, không cần base class cùng package.
 
-**Xoá hoàn toàn**: `model/PrinterConnection.java` (sealed interface data cũ),
+**Xoá hoàn toàn**: `model/IPrinterConnection.java` (sealed interface data cũ),
 `model/IPrinterDevice.java`, `transport/IPrinterTransport.java`,
 `application/PrinterService.java`, `application/PrinterServiceFactory.java`,
 `module/ThermalPrinterModule.java` (nội dung dời sang `module/PrinterModule.java`).
@@ -251,7 +251,7 @@ public enum PrinterState {
 }
 ```
 
-Không có state `REGISTERED` — `PrinterDevice` chỉ được tạo trong `Registry` ngay tại thời
+Không có state `REGISTERED` — `IPrinterDevice` chỉ được tạo trong `Registry` ngay tại thời
 điểm `connect()` được gọi (mục 3), không có bước "đăng ký" tách rời việc mở kết nối, nên
 state đầu tiên của 1 device luôn là `CONNECTING`.
 
@@ -292,18 +292,18 @@ public final class PrinterResult {
 
 ---
 
-## 6. `PrinterConnection` / `PrinterWriter` — lifecycle thuần, tách khỏi write
+## 6. `IPrinterConnection` / `IPrinterWriter` — lifecycle thuần, tách khỏi write
 
-Khác code hiện tại (`model/PrinterConnection.java` là sealed interface **chứa data**
+Khác code hiện tại (`model/IPrinterConnection.java` là sealed interface **chứa data**
 `Usb(vendorId,productId)`/`Bluetooth(address)`/`Lan(host,port)` truyền vào `connect()`).
-Ở model mới, `PrinterConnection` **không chứa data** — data kết nối là field riêng của
+Ở model mới, `IPrinterConnection` **không chứa data** — data kết nối là field riêng của
 từng implementation, gán 1 lần lúc khởi tạo.
 
 ```java
 /**
  * Lifecycle của 1 kênh giao tiếp với printer — không ghi dữ liệu.
  */
-public interface PrinterConnection {
+public interface IPrinterConnection {
 
     /**
      * Mở kênh giao tiếp.
@@ -324,7 +324,7 @@ public interface PrinterConnection {
 /**
  * Ghi raw bytes trên 1 kênh đã mở.
  */
-public interface PrinterWriter {
+public interface IPrinterWriter {
 
     /**
      * Ghi bytes — ném lỗi nếu kênh chưa mở hoặc ghi thất bại.
@@ -341,12 +341,11 @@ public interface PrinterWriter {
 /**
  * Quản lý vòng đời kết nối USB — permission, mở/đóng UsbDeviceConnection, claim interface.
  */
-public final class UsbConnection implements PrinterConnection {
+public final class UsbConnection implements IPrinterConnection {
     private final UsbManager usbManager;
     private final UsbPermission permission;
     private final int vendorId;
     private final int productId;
-    private UsbDevice usbDevice;
     private UsbDeviceConnection connection;
     private UsbInterface claimedInterface;
 
@@ -370,9 +369,10 @@ public final class UsbConnection implements PrinterConnection {
 }
 
 /**
- * Ghi bytes qua bulk OUT endpoint USB.
+ * Ghi bytes qua bulk OUT endpoint USB — tự resolve endpoint từ interface đã
+ * claim (Connection chỉ biết interface, không biết endpoint để ghi).
  */
-public final class UsbWriter implements PrinterWriter {
+public final class UsbWriter implements IPrinterWriter {
     private final UsbConnection connection;
     private final UsbEndpointResolver endpointResolver;
 
@@ -402,9 +402,20 @@ public final class UsbEndpointResolver {
 ```
 
 `UsbPermission` (giữ nguyên, không đổi API) tiếp tục sở hữu `BroadcastReceiver` cho
-`ACTION_USB_PERMISSION`/`ACTION_USB_DEVICE_DETACHED`; permission vẫn bất đồng bộ —
-`UsbConnection.open()` gọi `requestPermission()` rồi trả `CompletableFuture` chờ callback,
-không block thread bằng `Thread.sleep`.
+`ACTION_USB_PERMISSION`/`ACTION_USB_DEVICE_DETACHED`, cộng thêm
+`registerPermissionResultListener`/`unregisterPermissionResultListener` (theo
+vendorId/productId, cùng pattern với `registerDeviceDetachListener`) để báo
+kết quả dialog cấp quyền cho đúng caller đang đợi — permission vẫn bất đồng
+bộ: `UsbConnection.open()` gọi `requestPermission()` rồi trả
+`CompletableFuture` chờ callback, không block thread bằng `Thread.sleep`.
+
+**Permission là trách nhiệm của `UsbConnection`** — `UsbPrinterDevice` chỉ
+gọi thẳng `connection.open()`, hoàn toàn generic giống Bluetooth/Net, không
+biết gì về permission. Từng cân nhắc chuyển permission sang `UsbPrinterDevice`
+(tham khảo DantSu — `UsbOutputStream` của họ không xử lý permission ở tầng
+transport) nhưng quyết định giữ lại ở `UsbConnection` để đơn giản hoá trước
+mắt; việc tách permission ra khỏi `IPrinterConnection` (nếu cần) để lại cho
+1 refactor riêng sau này, không làm cùng lúc với redesign này.
 
 ### `BluetoothConnection` / `BluetoothWriter`
 
@@ -412,7 +423,7 @@ không block thread bằng `Thread.sleep`.
 /**
  * Quản lý vòng đời socket RFCOMM Bluetooth.
  */
-public final class BluetoothConnection implements PrinterConnection {
+public final class BluetoothConnection implements IPrinterConnection {
     private final String address;
     private BluetoothSocket socket;
 
@@ -438,7 +449,7 @@ public final class BluetoothConnection implements PrinterConnection {
 /**
  * Ghi bytes qua OutputStream của socket Bluetooth.
  */
-public final class BluetoothWriter implements PrinterWriter {
+public final class BluetoothWriter implements IPrinterWriter {
     private final BluetoothConnection connection;
 
     /**
@@ -457,7 +468,7 @@ public final class BluetoothWriter implements PrinterWriter {
 /**
  * Quản lý vòng đời kết nối TCP tới printer mạng.
  */
-public final class NetConnection implements PrinterConnection {
+public final class NetConnection implements IPrinterConnection {
     private final String host;
     private final int port;
     private Socket socket;
@@ -484,7 +495,7 @@ public final class NetConnection implements PrinterConnection {
 /**
  * Ghi bytes qua OutputStream TCP.
  */
-public final class NetWriter implements PrinterWriter {
+public final class NetWriter implements IPrinterWriter {
     private final NetConnection connection;
 
     /**
@@ -499,13 +510,13 @@ public final class NetWriter implements PrinterWriter {
 
 ---
 
-## 7. `PrinterDevice` — điều phối Connection + Writer cho 1 printer
+## 7. `IPrinterDevice` — điều phối Connection + Writer cho 1 printer
 
 ```java
 /**
  * Đại diện 1 printer cụ thể — điều phối connection/writer, không tự biết protocol.
  */
-public interface PrinterDevice {
+public interface IPrinterDevice {
 
     /**
      * Metadata của printer này.
@@ -544,19 +555,19 @@ public interface PrinterDevice {
 
 ```java
 /**
- * PrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter.
+ * IPrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter.
  */
-public final class UsbPrinterDevice implements PrinterDevice { }
+public final class UsbPrinterDevice implements IPrinterDevice { }
 
 /**
- * PrinterDevice cho kết nối Bluetooth — phối hợp BluetoothConnection + BluetoothWriter.
+ * IPrinterDevice cho kết nối Bluetooth — phối hợp BluetoothConnection + BluetoothWriter.
  */
-public final class BluetoothPrinterDevice implements PrinterDevice { }
+public final class BluetoothPrinterDevice implements IPrinterDevice { }
 
 /**
- * PrinterDevice cho kết nối LAN — phối hợp NetConnection + NetWriter.
+ * IPrinterDevice cho kết nối LAN — phối hợp NetConnection + NetWriter.
  */
-public final class NetPrinterDevice implements PrinterDevice { }
+public final class NetPrinterDevice implements IPrinterDevice { }
 ```
 
 Mỗi implementation tự cập nhật `PrinterState` (field nội bộ) theo transition ở mục 5 khi
@@ -578,7 +589,7 @@ public final class PrinterRegistry {
      * @param printerId id cần tìm
      * @return printer tương ứng, null nếu chưa có
      */
-    public PrinterDevice get(String printerId);
+    public IPrinterDevice get(String printerId);
 
     /**
      * Thêm/thay thế printer trong registry.
@@ -586,7 +597,7 @@ public final class PrinterRegistry {
      * @param printerId khoá đăng ký
      * @param device printer cần lưu
      */
-    public void put(String printerId, PrinterDevice device);
+    public void put(String printerId, IPrinterDevice device);
 
     /**
      * Xoá printer khỏi registry.
@@ -598,12 +609,12 @@ public final class PrinterRegistry {
     /**
      * Tất cả printer đang quản lý.
      */
-    public List<PrinterDevice> getAll();
+    public List<IPrinterDevice> getAll();
 }
 ```
 
 `PrinterManager` là facade RN gọi qua `PrinterModule`, biết cách dựng đúng loại
-`PrinterDevice` (Usb/Bluetooth/Net) từ `PrinterInfo.connectionType` — `Registry` chỉ lưu
+`IPrinterDevice` (Usb/Bluetooth/Net) từ `PrinterInfo.connectionType` — `Registry` chỉ lưu
 trữ, không tự tạo device:
 
 ```java
@@ -621,9 +632,9 @@ public final class PrinterManager {
     /**
      * Kết nối tới printer theo printerId (JS truyền vào) + info.
      *
-     * <p>Registry chưa có printerId này → tạo PrinterDevice mới theo
+     * <p>Registry chưa có printerId này → tạo IPrinterDevice mới theo
      * info.connectionType, put vào Registry, rồi connect(). Đã có → dùng lại
-     * PrinterDevice hiện có (idempotent nếu đã CONNECTED).</p>
+     * IPrinterDevice hiện có (idempotent nếu đã CONNECTED).</p>
      *
      * @param printerId khoá đăng ký trong Registry
      * @param info thông tin kết nối
@@ -1014,7 +1025,7 @@ Không có `registerPrinter`/`unregisterPrinter` riêng.
 
 ## 12. Threading & async model
 
-Nội bộ (`PrinterManager` → `PrinterDevice` → `Connection`/`Writer`): `CompletableFuture`.
+Nội bộ (`PrinterManager` → `IPrinterDevice` → `Connection`/`Writer`): `CompletableFuture`.
 Boundary `PrinterModule`: `Promise` — map 1-1 từ `CompletableFuture`
 (`.thenAccept(result -> promise.resolve(...))` / `.exceptionally(error -> { ...
 PrinterErrorResult...rejectTo(promise); return null; })`).
@@ -1023,7 +1034,7 @@ Mỗi `PrinterQueue` sở hữu 1 `Executors.newSingleThreadExecutor()` riêng �
 trên thread đó, không bao giờ trên main thread Android hay JS thread.
 
 `PrinterManager.shutdown()` được `PrinterModule.invalidate()` (React Native New
-Architecture lifecycle hook) gọi khi module bị huỷ: đóng tất cả `PrinterDevice`, gọi
+Architecture lifecycle hook) gọi khi module bị huỷ: đóng tất cả `IPrinterDevice`, gọi
 `PrinterQueueManager.shutdownAll()`.
 
 ---
@@ -1052,13 +1063,13 @@ public interface IPrinterDiscovery {
 thủ công, đúng như app hiện tại.
 
 Discovery **không** connect printer — chỉ trả về `PrinterInfo`, việc mở kết nối là của
-`PrinterDevice.connect()` sau đó.
+`IPrinterDevice.connect()` sau đó.
 
 ```java
 /**
  * Phát hiện capability quan sát được từ native — không suy đoán, không biết protocol.
  */
-public interface CapabilityDetector {
+public interface ICapabilityDetector {
 
     /**
      * Phát hiện capability cho 1 printer.
@@ -1070,19 +1081,19 @@ public interface CapabilityDetector {
 }
 
 /**
- * CapabilityDetector cho printer USB.
+ * ICapabilityDetector cho printer USB.
  */
-public final class UsbCapabilityDetector implements CapabilityDetector { }
+public final class UsbCapabilityDetector implements ICapabilityDetector { }
 
 /**
- * CapabilityDetector cho printer Bluetooth.
+ * ICapabilityDetector cho printer Bluetooth.
  */
-public final class BluetoothCapabilityDetector implements CapabilityDetector { }
+public final class BluetoothCapabilityDetector implements ICapabilityDetector { }
 
 /**
- * CapabilityDetector cho printer LAN.
+ * ICapabilityDetector cho printer LAN.
  */
-public final class NetCapabilityDetector implements CapabilityDetector { }
+public final class NetCapabilityDetector implements ICapabilityDetector { }
 ```
 
 Chưa có consumer JS nào gọi `getPrinterCapabilities` ở thời điểm viết spec này — cả 3
@@ -1093,16 +1104,16 @@ status thật qua lệnh ESC/POS, việc đó thuộc tầng driver JS).
 
 ## 14. SOLID
 
-- **SRP**: `PrinterDevice` (vòng đời printer), `Connection` (mở/đóng kênh), `Writer` (ghi
-  bytes), `Discovery` (tìm thiết bị), `CapabilityDetector` (capability), `PrinterQueue`
+- **SRP**: `IPrinterDevice` (vòng đời printer), `Connection` (mở/đóng kênh), `Writer` (ghi
+  bytes), `Discovery` (tìm thiết bị), `ICapabilityDetector` (capability), `PrinterQueue`
   (thứ tự job), `PrinterRegistry` (lưu trữ) — mỗi lớp 1 việc.
 - **OCP**: thêm 1 loại transport mới (vd Serial) chỉ cần thêm `SerialPrinterDevice` +
   `SerialConnection`/`SerialWriter`, không sửa `PrinterManager`/`PrinterQueue`.
 - **LSP**: `UsbPrinterDevice`/`BluetoothPrinterDevice`/`NetPrinterDevice` thay thế được cho
-  nhau qua interface `PrinterDevice`.
-- **ISP**: tách `PrinterConnection`/`PrinterWriter`/`IPrinterDiscovery`/`CapabilityDetector`
+  nhau qua interface `IPrinterDevice`.
+- **ISP**: tách `IPrinterConnection`/`IPrinterWriter`/`IPrinterDiscovery`/`ICapabilityDetector`
   thay vì gộp vào 1 interface `PrinterTransport` khổng lồ.
-- **DIP**: `PrinterManager` phụ thuộc `PrinterDevice`/`PrinterRegistry`/`PrinterQueueManager`
+- **DIP**: `PrinterManager` phụ thuộc `IPrinterDevice`/`PrinterRegistry`/`PrinterQueueManager`
   (abstraction), không phụ thuộc `UsbDeviceConnection`/`BluetoothSocket`/`Socket`.
 
 ---

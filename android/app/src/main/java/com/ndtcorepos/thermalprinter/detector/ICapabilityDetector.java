@@ -6,7 +6,7 @@ import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 /**
  * Phát hiện capability quan sát được từ native — không suy đoán, không biết protocol.
  */
-public interface CapabilityDetector {
+public interface ICapabilityDetector {
 
     /**
      * Phát hiện capability cho 1 printer.

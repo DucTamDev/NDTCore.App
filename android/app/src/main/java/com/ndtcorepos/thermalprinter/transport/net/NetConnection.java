@@ -3,7 +3,7 @@ package com.ndtcorepos.thermalprinter.transport.net;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.exception.PrinterConnectionException;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
-import com.ndtcorepos.thermalprinter.transport.PrinterConnection;
+import com.ndtcorepos.thermalprinter.transport.IPrinterConnection;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Quản lý vòng đời kết nối TCP tới printer mạng.
  */
-public final class NetConnection implements PrinterConnection {
+public final class NetConnection implements IPrinterConnection {
 
     private final String host;
     private final int port;

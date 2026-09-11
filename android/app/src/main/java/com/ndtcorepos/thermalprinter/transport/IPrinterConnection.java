@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Lifecycle của 1 kênh giao tiếp với printer — không ghi dữ liệu.
  */
-public interface PrinterConnection {
+public interface IPrinterConnection {
 
     /**
      * Mở kênh giao tiếp.

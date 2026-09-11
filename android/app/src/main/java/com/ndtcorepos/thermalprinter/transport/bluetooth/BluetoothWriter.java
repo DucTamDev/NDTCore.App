@@ -4,7 +4,7 @@ import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.exception.PrinterConnectionException;
 import com.ndtcorepos.thermalprinter.exception.PrinterWriteException;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
-import com.ndtcorepos.thermalprinter.transport.PrinterWriter;
+import com.ndtcorepos.thermalprinter.transport.IPrinterWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Ghi bytes qua OutputStream của socket Bluetooth.
  */
-public final class BluetoothWriter implements PrinterWriter {
+public final class BluetoothWriter implements IPrinterWriter {
 
     private final BluetoothConnection connection;
 

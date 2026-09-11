@@ -12,14 +12,14 @@ import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.exception.PrinterConnectionException;
 import com.ndtcorepos.thermalprinter.permission.UsbPermission;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
-import com.ndtcorepos.thermalprinter.transport.PrinterConnection;
+import com.ndtcorepos.thermalprinter.transport.IPrinterConnection;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Quản lý vòng đời kết nối USB — permission, mở/đóng UsbDeviceConnection, claim interface.
  */
-public final class UsbConnection implements PrinterConnection {
+public final class UsbConnection implements IPrinterConnection {
 
     private final UsbManager usbManager;
     private final UsbPermission permission;
@@ -27,7 +27,6 @@ public final class UsbConnection implements PrinterConnection {
     private final int vendorId;
     private final int productId;
 
-    private UsbDevice usbDevice;
     private UsbDeviceConnection deviceConnection;
     private UsbInterface claimedInterface;
 
@@ -45,11 +44,10 @@ public final class UsbConnection implements PrinterConnection {
     /**
      * Mở kết nối USB — xin permission nếu chưa có, sau đó claim interface.
      *
-     * <p>Xin permission là bất đồng bộ (dialog hệ thống) — future resolve
-     * ngay sau khi gọi requestPermission(), không đợi user bấm "Cho phép".
-     * Việc mở UsbDeviceConnection/claimInterface thật diễn ra ngay nếu đã
-     * có quyền; nếu chưa có, lùi lại lần write() đầu tiên qua
-     * ensureClaimed() (permission lúc đó thường đã được cấp).</p>
+     * <p>Xin permission là bất đồng bộ (dialog hệ thống) — nếu chưa có
+     * quyền, future trả về CHỈ resolve sau khi có kết quả dialog thật (xem
+     * awaitPermissionThenClaim()), không coi việc dialog đang hiện là đã
+     * kết nối thành công.</p>
      */
     @Override
     public CompletableFuture<PrinterResult> open() {
@@ -62,11 +60,8 @@ public final class UsbConnection implements PrinterConnection {
             return CompletableFuture.failedFuture(new PrinterConnectionException(PrinterErrorCode.USB_DEVICE_NOT_FOUND, message));
         }
 
-        this.usbDevice = candidate;
-
         if (!permission.hasPermission(candidate)) {
-            permission.requestPermission(candidate);
-            return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
+            return awaitPermissionThenClaim(candidate, startedAt);
         }
 
         try {
@@ -76,6 +71,36 @@ public final class UsbConnection implements PrinterConnection {
         }
 
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
+    }
+
+    /**
+     * Xin quyền USB rồi đợi đúng kết quả dialog hệ thống trước khi resolve
+     * future trả cho caller — future chỉ complete thành công sau khi claim
+     * interface thật thành công, và complete lỗi PERMISSION_DENIED nếu user
+     * từ chối, thay vì báo kết nối thành công ngay khi dialog còn treo.
+     */
+    private CompletableFuture<PrinterResult> awaitPermissionThenClaim(UsbDevice candidate, long startedAt) {
+        CompletableFuture<PrinterResult> future = new CompletableFuture<>();
+
+        permission.registerPermissionResultListener(vendorId, productId, granted -> {
+            permission.unregisterPermissionResultListener(vendorId, productId);
+
+            if (!granted) {
+                future.completeExceptionally(new PrinterConnectionException(PrinterErrorCode.PERMISSION_DENIED, "User denied USB permission"));
+                return;
+            }
+
+            try {
+                claim(candidate);
+                future.complete(PrinterResult.success(System.currentTimeMillis() - startedAt));
+            } catch (PrinterConnectionException exception) {
+                future.completeExceptionally(exception);
+            }
+        });
+
+        permission.requestPermission(candidate);
+
+        return future;
     }
 
     /**
@@ -92,11 +117,14 @@ public final class UsbConnection implements PrinterConnection {
                 return candidate;
             }
         }
+
         return null;
     }
 
     /**
      * Mở UsbDeviceConnection và claim interface qua UsbManager của Android.
+     * Chỉ resolve UsbInterface (cần để claim) — resolve UsbEndpoint (cần để
+     * ghi) thuộc trách nhiệm của UsbWriter, không phải Connection.
      */
     private void claim(UsbDevice device) throws PrinterConnectionException {
         UsbInterface usbInterface = endpointResolver.resolveInterface(device);
@@ -115,27 +143,6 @@ public final class UsbConnection implements PrinterConnection {
         this.claimedInterface = usbInterface;
     }
 
-    /**
-     * Đảm bảo đã claim interface thật — gọi lười từ UsbWriter lúc write()
-     * đầu tiên, vì lúc open() permission có thể chưa được cấp xong.
-     */
-    boolean ensureClaimed() {
-        if (isOpen()) {
-            return true;
-        }
-
-        if (usbDevice == null || !permission.hasPermission(usbDevice)) {
-            return false;
-        }
-
-        try {
-            claim(usbDevice);
-            return true;
-        } catch (PrinterConnectionException exception) {
-            return false;
-        }
-    }
-
     UsbDeviceConnection getDeviceConnection() {
         return deviceConnection;
     }
@@ -145,22 +152,16 @@ public final class UsbConnection implements PrinterConnection {
     }
 
     /**
-     * Đóng kết nối USB và release interface.
+     * Đóng kết nối USB — đóng UsbDeviceConnection là đủ để OS tự thu hồi
+     * interface đã claim qua nó, không cần gọi releaseInterface() riêng.
      */
     @Override
     public CompletableFuture<PrinterResult> close() {
         long startedAt = System.currentTimeMillis();
 
         // Best-effort cleanup — device có thể đã mất kết nối vật lý nên
-        // releaseInterface/close có thể tự ném lỗi, không ảnh hưởng tới việc
-        // vẫn phải null hoá field bên dưới để connection coi như đã đóng.
-        if (deviceConnection != null && claimedInterface != null) {
-            try {
-                deviceConnection.releaseInterface(claimedInterface);
-            } catch (Exception ignored) {
-            }
-        }
-
+        // close() có thể tự ném lỗi, không ảnh hưởng tới việc vẫn phải null
+        // hoá field bên dưới để connection coi như đã đóng.
         if (deviceConnection != null) {
             try {
                 deviceConnection.close();
@@ -170,8 +171,8 @@ public final class UsbConnection implements PrinterConnection {
 
         claimedInterface = null;
         deviceConnection = null;
-        usbDevice = null;
         permission.unregisterDeviceDetachListener(vendorId, productId);
+        permission.unregisterPermissionResultListener(vendorId, productId);
 
         return CompletableFuture.completedFuture(PrinterResult.success(System.currentTimeMillis() - startedAt));
     }

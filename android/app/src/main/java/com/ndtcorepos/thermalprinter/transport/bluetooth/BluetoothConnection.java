@@ -7,7 +7,7 @@ import android.bluetooth.BluetoothSocket;
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.exception.PrinterConnectionException;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
-import com.ndtcorepos.thermalprinter.transport.PrinterConnection;
+import com.ndtcorepos.thermalprinter.transport.IPrinterConnection;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Quản lý vòng đời socket RFCOMM Bluetooth.
  */
-public final class BluetoothConnection implements PrinterConnection {
+public final class BluetoothConnection implements IPrinterConnection {
 
     private static final UUID SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 

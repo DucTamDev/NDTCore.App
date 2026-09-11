@@ -30,14 +30,28 @@ public final class BluetoothPrinterDiscovery implements IPrinterDiscovery {
             throw new PrinterException(PrinterErrorCode.DISCOVERY_FAILED, "Bluetooth is not enabled");
         }
 
+        Set<BluetoothDevice> bonded = getBondedDevicesSafely(adapter);
         List<PrinterInfo> devices = new ArrayList<>();
-        Set<BluetoothDevice> bonded = adapter.getBondedDevices();
 
         for (BluetoothDevice device : bonded) {
             devices.add(toPrinterInfo(device));
         }
 
         return devices;
+    }
+
+    /**
+     * Đọc danh sách bonded devices qua BluetoothAdapter.getBondedDevices() —
+     * từ Android 12 trở lên ném SecurityException nếu thiếu quyền
+     * BLUETOOTH_CONNECT, phải ánh xạ thành PrinterException để không phá vỡ
+     * Promise boundary ở module/.
+     */
+    private Set<BluetoothDevice> getBondedDevicesSafely(BluetoothAdapter adapter) throws PrinterException {
+        try {
+            return adapter.getBondedDevices();
+        } catch (SecurityException exception) {
+            throw new PrinterException(PrinterErrorCode.PERMISSION_DENIED, "Missing BLUETOOTH_CONNECT permission", exception);
+        }
     }
 
     private PrinterInfo toPrinterInfo(BluetoothDevice device) {

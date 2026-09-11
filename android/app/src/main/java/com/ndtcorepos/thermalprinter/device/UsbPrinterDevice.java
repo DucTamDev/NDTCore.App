@@ -1,25 +1,25 @@
 package com.ndtcorepos.thermalprinter.device;
 
-import com.ndtcorepos.thermalprinter.printer.PrinterDevice;
+import com.ndtcorepos.thermalprinter.printer.IPrinterDevice;
 import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
 import com.ndtcorepos.thermalprinter.printer.PrinterResult;
 import com.ndtcorepos.thermalprinter.printer.PrinterState;
-import com.ndtcorepos.thermalprinter.transport.PrinterConnection;
-import com.ndtcorepos.thermalprinter.transport.PrinterWriter;
+import com.ndtcorepos.thermalprinter.transport.IPrinterConnection;
+import com.ndtcorepos.thermalprinter.transport.IPrinterWriter;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * PrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter.
+ * IPrinterDevice cho kết nối USB — phối hợp UsbConnection + UsbWriter.
  */
-public final class UsbPrinterDevice implements PrinterDevice {
+public final class UsbPrinterDevice implements IPrinterDevice {
 
     private final PrinterInfo info;
-    private final PrinterConnection connection;
-    private final PrinterWriter writer;
+    private final IPrinterConnection connection;
+    private final IPrinterWriter writer;
     private volatile PrinterState state = PrinterState.CONNECTING;
 
-    public UsbPrinterDevice(PrinterInfo info, PrinterConnection connection, PrinterWriter writer) {
+    public UsbPrinterDevice(PrinterInfo info, IPrinterConnection connection, IPrinterWriter writer) {
         this.info = info;
         this.connection = connection;
         this.writer = writer;

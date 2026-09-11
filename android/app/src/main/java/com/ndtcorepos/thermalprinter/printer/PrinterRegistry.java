@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class PrinterRegistry {
 
-    private final Map<String, PrinterDevice> devices = new ConcurrentHashMap<>();
+    private final Map<String, IPrinterDevice> devices = new ConcurrentHashMap<>();
 
     /**
      * Tìm printer theo id.
@@ -17,7 +17,7 @@ public final class PrinterRegistry {
      * @param printerId id cần tìm
      * @return printer tương ứng, null nếu chưa có
      */
-    public PrinterDevice get(String printerId) {
+    public IPrinterDevice get(String printerId) {
         return devices.get(printerId);
     }
 
@@ -27,7 +27,7 @@ public final class PrinterRegistry {
      * @param printerId khoá đăng ký
      * @param device printer cần lưu
      */
-    public void put(String printerId, PrinterDevice device) {
+    public void put(String printerId, IPrinterDevice device) {
         devices.put(printerId, device);
     }
 
@@ -43,7 +43,7 @@ public final class PrinterRegistry {
     /**
      * Tất cả printer đang quản lý.
      */
-    public List<PrinterDevice> getAll() {
+    public List<IPrinterDevice> getAll() {
         return List.copyOf(devices.values());
     }
 }

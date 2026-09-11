@@ -15,6 +15,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * USB runtime permission (Android yêu cầu cấp quyền theo từng UsbDevice) +
@@ -31,6 +32,7 @@ public final class UsbPermission {
     private final UsbManager usbManager;
     private PendingIntent permissionIntent;
     private final Map<String, Runnable> deviceDetachListeners = new HashMap<>();
+    private final Map<String, Consumer<Boolean>> permissionResultListeners = new HashMap<>();
 
     public UsbPermission(ReactApplicationContext context) {
         this.context = context;
@@ -56,6 +58,23 @@ public final class UsbPermission {
 
     private static String deviceKey(int vendorId, int productId) {
         return vendorId + ":" + productId;
+    }
+
+    /**
+     * Đăng ký callback nhận kết quả dialog cấp quyền USB theo (vendorId,
+     * productId) — cho phép UsbConnection đợi đúng kết quả grant/deny thay
+     * vì coi permission pending là đã kết nối thành công.
+     */
+    public void registerPermissionResultListener(int vendorId, int productId, Consumer<Boolean> listener) {
+        permissionResultListeners.put(deviceKey(vendorId, productId), listener);
+    }
+
+    /**
+     * Gỡ callback kết quả cấp quyền — gọi sau khi đã nhận được kết quả, hoặc
+     * khi UsbConnection đóng trước khi dialog kịp trả lời.
+     */
+    public void unregisterPermissionResultListener(int vendorId, int productId) {
+        permissionResultListeners.remove(deviceKey(vendorId, productId));
     }
 
     public void register() {
@@ -104,17 +123,32 @@ public final class UsbPermission {
     };
 
     /**
-     * Đọc kết quả cấp quyền USB từ Intent do hệ thống Android gửi lại sau khi user phản hồi dialog.
+     * Đọc kết quả cấp quyền USB từ Intent do hệ thống Android gửi lại sau
+     * khi user phản hồi dialog, rồi báo kết quả cho đúng UsbConnection đang
+     * chờ qua permissionResultListeners (khớp theo vendorId/productId).
      */
     private void handlePermissionResult(Context ctx, Intent intent) {
         boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
         Log.v(LOG_SOURCE, "permission result: granted=" + granted);
 
-        if (granted) {
+        if (!granted) {
+            Toast.makeText(ctx, "User refuses to obtain USB device permissions", Toast.LENGTH_LONG).show();
+        }
+
+        UsbDevice device = getDeviceExtra(intent);
+
+        if (device == null) {
             return;
         }
 
-        Toast.makeText(ctx, "User refuses to obtain USB device permissions", Toast.LENGTH_LONG).show();
+        String key = deviceKey(device.getVendorId(), device.getProductId());
+        Consumer<Boolean> listener = permissionResultListeners.get(key);
+
+        if (listener == null) {
+            return;
+        }
+
+        listener.accept(granted);
     }
 
     /**
@@ -125,7 +159,7 @@ public final class UsbPermission {
     private void handleDeviceDetached(Context ctx, Intent intent) {
         Toast.makeText(ctx, "USB device has been turned off", Toast.LENGTH_LONG).show();
 
-        UsbDevice device = getDetachedDevice(intent);
+        UsbDevice device = getDeviceExtra(intent);
 
         if (device == null) {
             return;
@@ -145,11 +179,12 @@ public final class UsbPermission {
     }
 
     /**
-     * Đọc UsbDevice đính kèm trong Intent rút thiết bị — API lấy Parcelable
-     * đổi chữ ký giữa các SDK level nên phải rẽ nhánh theo Build.VERSION.
+     * Đọc UsbDevice đính kèm trong Intent (rút thiết bị hoặc kết quả cấp
+     * quyền — cả 2 action đều mang EXTRA_DEVICE) — API lấy Parcelable đổi
+     * chữ ký giữa các SDK level nên phải rẽ nhánh theo Build.VERSION.
      */
     @SuppressWarnings("deprecation")
-    private static UsbDevice getDetachedDevice(Intent intent) {
+    private static UsbDevice getDeviceExtra(Intent intent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
         }

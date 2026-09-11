@@ -88,7 +88,6 @@ public final class UsbPrinterDiscovery implements IPrinterDiscovery {
         }
     }
 
-    /** Dùng lại ở UsbConnection để resolve UsbDevice theo vendorId/productId. */
     public static boolean isPrintableUsbDevice(UsbDevice device) {
         if (device == null || device.getVendorId() < 0 || device.getProductId() < 0) {
             return false;

@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Đại diện 1 printer cụ thể — điều phối connection/writer, không tự biết protocol.
  */
-public interface PrinterDevice {
+public interface IPrinterDevice {
 
     /**
      * Metadata của printer này.

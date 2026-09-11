@@ -2,7 +2,7 @@ package com.ndtcorepos.thermalprinter.queue;
 
 import com.ndtcorepos.thermalprinter.error.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.printer.PrinterDevice;
+import com.ndtcorepos.thermalprinter.printer.IPrinterDevice;
 import com.ndtcorepos.thermalprinter.printer.PrinterRegistry;
 
 import java.util.Map;
@@ -61,7 +61,7 @@ public final class PrinterQueue {
         long startedAt = System.currentTimeMillis();
 
         try {
-            PrinterDevice device = registry.get(job.printerId());
+            IPrinterDevice device = registry.get(job.printerId());
 
             if (device == null) {
                 long durationMs = System.currentTimeMillis() - startedAt;
