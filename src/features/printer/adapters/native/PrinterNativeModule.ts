@@ -1,7 +1,26 @@
 import { NativeModules } from 'react-native';
-import type { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 
 const ThermalPrinterModuleNative = NativeModules.ThermalPrinterModule;
+
+/**
+ * Wire value native Android thực sự hiểu — `ConnectionType.fromWireValue()`
+ * (Java) so sánh `.equals()` phân biệt hoa/thường với đúng 3 hằng số thường
+ * này. `PrinterConnectionType` (TS) đã PascalCase từ Task 1 nên PHẢI dịch lại
+ * ở biên cầu nối, giống cách `NativeAdapter.connect()` tự gửi literal
+ * `'usb'`/`'bluetooth'`/`'lan'` riêng thay vì forward thẳng enum.
+ */
+const toWireConnectionType = (type: PrinterConnectionType): 'usb' | 'bluetooth' | 'lan' => {
+  if (type === PrinterConnectionType.Usb) {
+    return 'usb';
+  }
+
+  if (type === PrinterConnectionType.Bluetooth) {
+    return 'bluetooth';
+  }
+
+  return 'lan';
+};
 
 /** Metadata 1 printer trả về từ native (discoverPrinters/getPrinterInfo). */
 export interface PrinterInfoDto {
@@ -49,7 +68,7 @@ export type ConnectRequest = UsbConnectRequest | BluetoothConnectRequest | LanCo
  * lý ngầm trong `discoverPrinters`/`connect`.
  */
 export const ThermalPrinterModule = {
-  discoverPrinters: (type: PrinterConnectionType): Promise<PrinterInfoDto[]> => ThermalPrinterModuleNative.discoverPrinters(type),
+  discoverPrinters: (type: PrinterConnectionType): Promise<PrinterInfoDto[]> => ThermalPrinterModuleNative.discoverPrinters(toWireConnectionType(type)),
 
   connect: (request: ConnectRequest): Promise<void> => ThermalPrinterModuleNative.connect(request),
 

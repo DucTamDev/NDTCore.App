@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
 
 const loadReal = () =>
   jest.requireActual('../PrinterNativeModule') as typeof import('../PrinterNativeModule');
@@ -26,10 +27,20 @@ afterEach(() => {
 });
 
 describe('ThermalPrinterModule', () => {
-  it('discoverPrinters gọi native với đúng type', async () => {
+  /**
+   * `PrinterConnectionType` (TS) là PascalCase (`'Usb'`) nhưng native Android
+   * (`ConnectionType.fromWireValue()`, Java) chỉ nhận đúng 3 hằng số thường —
+   * `discoverPrinters()` phải tự dịch lại ở boundary, KHÔNG forward thẳng giá
+   * trị enum (khác bản cũ trước Task 1 khi enum TS vốn đã thường sẵn).
+   */
+  it.each([
+    [PrinterConnectionType.Usb, 'usb'],
+    [PrinterConnectionType.Bluetooth, 'bluetooth'],
+    [PrinterConnectionType.Lan, 'lan'],
+  ])('discoverPrinters(%s) gọi native với wire value thường %s', async (input, expectedWireValue) => {
     const { ThermalPrinterModule } = loadReal();
-    await ThermalPrinterModule.discoverPrinters('usb' as never);
-    expect(NativeModules.ThermalPrinterModule.discoverPrinters).toHaveBeenCalledWith('usb');
+    await ThermalPrinterModule.discoverPrinters(input);
+    expect(NativeModules.ThermalPrinterModule.discoverPrinters).toHaveBeenCalledWith(expectedWireValue);
   });
 
   it('connect gọi native với đúng request (kèm printerId)', async () => {
