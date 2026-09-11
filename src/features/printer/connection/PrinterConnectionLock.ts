@@ -33,7 +33,7 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
     return 'usb';
   }
 
-  if (driverType === PrinterDriverType.escpos) {
+  if (driverType === PrinterDriverType.EscPos) {
     return connection.type === PrinterConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
   }
 
@@ -45,12 +45,13 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
 };
 
 /**
- * Tra resource key từ 1 `Printer` + driver cụ thể — helper dùng chung bởi
- * `PrinterConnectionService` và `PrinterConfigService` (trước đây copy verbatim
- * ở cả 2 file), chỉ là wrapper mỏng quanh `connectionResourceKey`.
+ * Tra resource key từ 1 `Printer` — helper dùng chung bởi
+ * `PrinterConnectionService` và `PrinterConfigService`, wrapper mỏng quanh
+ * `connectionResourceKey`. Mỗi `Printer` giờ chỉ có 1 driver nên không cần
+ * tham số `driverType` rời như bản cũ.
  */
-export const resourceKeyFor = (printer: Printer, driverType: PrinterDriverType): string =>
-  connectionResourceKey({ driverType, connection: printer.connection });
+export const resourceKeyFor = (printer: Printer): string =>
+  connectionResourceKey({ driverType: printer.driver.type, connection: printer.connection });
 
 /**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi

@@ -9,34 +9,34 @@ const usbConnection: PrinterConnection = { type: PrinterConnectionType.Usb, vend
 
 describe('connectionResourceKey', () => {
   it('is "usb" for any driver over USB (RNUSBPrinter is a shared native singleton)', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.escpos, connection: usbConnection })).toBe('usb');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.tspl, connection: usbConnection })).toBe('usb');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: usbConnection })).toBe('usb');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: usbConnection })).toBe('usb');
   });
 
   it('is "escpos:bluetooth" regardless of device — the vendor library BLEPrinter namespace is a global singleton', () => {
     const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
     const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.escpos, connection: deviceA })).toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.escpos, connection: deviceB }),
+    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe(
+      connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceB }),
     );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.escpos, connection: deviceA })).toBe('escpos:bluetooth');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe('escpos:bluetooth');
   });
 
   it('is "escpos:lan" regardless of host:port — the vendor library NetPrinter namespace is a global singleton', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.escpos, connection: lanConnection })).toBe('escpos:lan');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: lanConnection })).toBe('escpos:lan');
   });
 
   it('is per-device for tspl over bluetooth — TsplDriver manages its own transport per printer, no shared native singleton', () => {
     const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
     const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.tspl, connection: deviceA })).not.toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.tspl, connection: deviceB }),
+    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).not.toBe(
+      connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceB }),
     );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
   });
 
   it('is per-host:port for tspl over lan', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
+    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
   });
 });
 
