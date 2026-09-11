@@ -18,7 +18,6 @@ import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSc
  */
 export interface UseProtocolDiscoveryInput {
   initialValues?: Printer;
-  hasDriver: boolean;
   connectionType: PrinterConnectionType;
   lanForm: UseFormReturn<LanConnectionValues>;
   discoveryUnsubscribeRef: MutableRefObject<(() => void) | null>;
@@ -36,7 +35,6 @@ export interface UseProtocolDiscoveryInput {
  */
 export const useProtocolDiscovery = ({
   initialValues,
-  hasDriver,
   connectionType,
   lanForm,
   discoveryUnsubscribeRef,
