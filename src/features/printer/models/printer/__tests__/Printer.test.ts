@@ -1,47 +1,48 @@
 import { PrinterConnectionType } from '../PrinterConnection';
-import { DriverSource, PrinterDriverType, PrintRenderMode, type PrinterDriver } from '../PrinterDriver';
+import { DriverSource, PrinterDriverType, RenderMode, type PrinterDriver } from '../PrinterDriver';
 import { type Printer } from '../Printer';
 import { PrintType } from '../../printing/PrintType';
+import { PaperSize, PrintPaperType } from '../../paper/PrintPaperConfig';
 
 describe('Printer domain type', () => {
-  it('accepts a fully-formed Printer with a single tspl driver for a LAN label printer', () => {
+  it('accepts a fully-formed Printer with a tspl driver for a LAN label printer', () => {
     const driver: PrinterDriver = {
-      type: PrinterDriverType.tspl,
-      source: DriverSource.auto,
-      contentTypes: [PrintType.Label],
-      config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 58 } },
+      type: PrinterDriverType.Tspl,
+      source: DriverSource.Auto,
+      config: { renderMode: RenderMode.Bitmap },
     };
     const printer: Printer = {
       id: 'p1',
-      name: 'Máy in tem quầy 1',
-      drivers: [driver],
-      connection: { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 },
       identityKey: 'lan:192.168.1.50:9100',
+      type: PrintType.Label,
+      name: 'Máy in tem quầy 1',
+      driver,
+      connection: { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 },
+      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 },
       capabilities: { cutter: false },
       autoReconnect: true,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
-    expect(printer.drivers[0].type).toBe(PrinterDriverType.tspl);
+    expect(printer.driver.type).toBe(PrinterDriverType.Tspl);
   });
 
-  it('accepts a Printer with two drivers (escpos + tspl) over the same physical connection', () => {
+  it('accepts a Printer with a single escpos driver over USB', () => {
     const printer: Printer = {
       id: 'p1',
-      name: 'Máy in đa năng',
-      drivers: [
-        { type: PrinterDriverType.escpos, source: DriverSource.auto, contentTypes: [PrintType.Receipt], config: { type: PrinterDriverType.escpos, media: { type: 'continuous', paperSize: 80 } } },
-        { type: PrinterDriverType.tspl, source: DriverSource.manual, contentTypes: [PrintType.Label], config: { type: PrinterDriverType.tspl, renderMode: PrintRenderMode.bitmap, media: { type: 'continuous', paperSize: 80 } } },
-      ],
-      connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
       identityKey: 'usb:1155:22222',
+      type: PrintType.Receipt,
+      name: 'Máy in hóa đơn quầy 1',
+      driver: { type: PrinterDriverType.EscPos, source: DriverSource.Manual, config: { renderMode: RenderMode.Encoder } },
+      connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
+      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 },
       capabilities: { cutter: false },
       autoReconnect: false,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
-    expect(printer.drivers).toHaveLength(2);
+    expect(printer.driver.type).toBe(PrinterDriverType.EscPos);
   });
 });
