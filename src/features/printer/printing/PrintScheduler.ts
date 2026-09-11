@@ -15,11 +15,11 @@ export const createPrintScheduler = (
     error instanceof PrinterErrorException ? { code: error.code, message: error.message } : { code: PrinterErrorCode.UNKNOWN_ERROR, message: String(error) };
 
   /**
-   * Tra printer + driver sẽ xử lý `job.printType`, rồi tính resource key
-   * theo đúng đặc thù driver đó (spec §9, xem `connectionResourceKey`) — KHÔNG
-   * còn `protocol:connectionType` đơn giản như trước, vì mỗi driver type có
-   * ranh giới concurrency khác nhau. Rơi về `job.printerId` nếu không tìm
-   * thấy cấu hình (không nên xảy ra trong thực tế).
+   * Tra printer sẽ xử lý `job.printerId`, rồi tính resource key theo đúng
+   * đặc thù driver của printer đó (spec §9, xem `connectionResourceKey`) —
+   * mỗi `Printer` giờ chỉ có đúng 1 driver nên không cần tìm driver nào khớp
+   * `printType` nữa. Rơi về `job.printerId` nếu không tìm thấy cấu hình
+   * (không nên xảy ra trong thực tế).
    */
   const resourceKeyFor = (job: PrintJob): string => {
     const printer = printerService.getPrinters().find((p) => p.id === job.printerId);
@@ -28,8 +28,7 @@ export const createPrintScheduler = (
       return job.printerId;
     }
 
-    const driver = printer.drivers.find((d) => d.contentTypes.includes(job.printType)) ?? printer.drivers[0];
-    return connectionResourceKey({ driverType: driver.type, connection: printer.connection });
+    return connectionResourceKey({ driverType: printer.driver.type, connection: printer.connection });
   };
 
   const enqueue = (job: PrintJob): Promise<PrintJob> =>
@@ -38,7 +37,7 @@ export const createPrintScheduler = (
         job.status = PrintJobStatus.Printing;
         job.startedAt = new Date().toISOString();
         try {
-          await printerService.print(job.printerId, job.documents, job.printType);
+          await printerService.print(job.printerId, job.documents);
           job.status = PrintJobStatus.Success;
         } catch (error) {
           job.status = PrintJobStatus.Failed;

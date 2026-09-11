@@ -2,9 +2,6 @@ import type { IPrinterDriver, PrintDocuments, PrintOptions } from '../drivers/IP
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
-import type { PrinterDriver } from '../models/printer/PrinterDriver';
-import type { PrintType } from '../models/printing/PrintType';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { DriverRegistry } from '../drivers/DriverRegistry';
 import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
@@ -34,33 +31,21 @@ export const createPrinterPrintService = (
   /**
    * KHÔNG tự `lock.runExclusive` — luôn được `PrintScheduler.enqueue()` gọi
    * từ BÊN TRONG 1 `lock.runExclusive` đã acquire sẵn ở tầng scheduler cùng
-   * `resourceKey`. `PrinterConnectionLock` không reentrant: nếu thêm lock ở
-   * đây "cho nhất quán với `testPrint()`" sẽ deadlock ngay lập tức vì lồng
-   * bên trong lock cùng key mà scheduler đang giữ. `testPrint()` tự lock vì
-   * được UI gọi thẳng, không qua scheduler.
+   * `resourceKey`. `testPrint()` tự lock vì được UI gọi thẳng, không qua scheduler.
    */
-  const print = async (printerId: string, documents: PrintDocuments, printType: PrintType): Promise<void> => {
+  const print = async (printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
     const printer = repository.findOrThrow(printerId);
-    const driverEntry = printer.drivers.find((d) => d.contentTypes.includes(printType));
-
-    if (!driverEntry) {
-      throw new PrinterErrorException({
-        code: PrinterErrorCode.NO_AVAILABLE_PRINTER,
-        message: `Máy in ${printerId} không có driver nào nhận in ${printType}`,
-      });
-    }
-
-    const driver = getDriver(driverEntry.type);
+    const driver = getDriver(printer.driver.type);
 
     if (driver.getStatus(printerId) !== PrinterStatus.Connected) {
-      await driver.connect(printer, driverEntry);
+      await driver.connect(printer);
     }
 
-    await driver.print(printerId, documents, printType);
+    await driver.print(printerId, documents, options);
   };
 
-  const testPrint = async (printer: Printer, driver: PrinterDriver, documents: PrintDocuments, printType: PrintType, options?: PrintOptions): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer, driver.type), () => getDriver(driver.type).testPrint(printer, driver, documents, printType, options));
+  const testPrint = async (printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
+    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.driver.type).testPrint(printer, documents, options));
   };
 
   return { print, testPrint };

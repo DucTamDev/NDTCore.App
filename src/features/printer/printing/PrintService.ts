@@ -1,11 +1,10 @@
 import { PrintRoutingService } from './PrintRoutingService';
-import type { PrintTarget } from '../models/printing/PrintTarget';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
 import { PRINT_TYPE_LABELS } from '../models/printing/PrintType';
 import { PrinterErrorCode } from '../errors/PrinterError';
 import type { PrintType } from '../models/printing/PrintType';
-import { mediaOf, usesBitmapRenderMode } from '../drivers/driverConfig';
+import { usesBitmapRenderMode } from '../drivers/driverConfig';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../drivers/IPrinterDriver';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
@@ -34,17 +33,13 @@ export const createPrintService = (deps: PrintServiceDeps) => {
   /**
    * `PrintPaperConfig` cần để render ảnh cho `printType` này, hoặc `null` nếu
    * không có target nào (TSPL hoặc ESC/POS) đang cấu hình `renderMode:
-   * 'bitmap'`. Target TSPL cấu hình `'truetype'`/`'internalfont'` không cần
-   * ảnh — strategy tương ứng dùng thẳng `documents.text`, bỏ qua
-   * `documents.image` hoàn toàn (nếu font/cấu hình chưa sẵn sàng thì
-   * strategy tự ném lỗi in, không phải việc tầng này né tránh). Nơi gọi
-   * (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi có giá trị trả về
-   * — capture theo `media` để máy die-cut chụp đúng bề rộng tem
-   * (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
+   * 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi
+   * có giá trị trả về — capture theo `paper` để máy die-cut chụp đúng bề rộng
+   * tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
   const imageDocumentMedia = (printType: PrintType): PrintPaperConfig | null => {
-    const target = deps.routing.resolveTargets(printType).find((t: PrintTarget) => usesBitmapRenderMode(t.driver));
-    return target ? mediaOf(target.driver) : null;
+    const target = deps.routing.resolveTargets(printType).find((printer) => usesBitmapRenderMode(printer.driver));
+    return target ? target.paper : null;
   };
 
   const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
@@ -60,7 +55,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
 
     const requestId = generateId();
     const jobs: PrintJob[] = await Promise.all(
-      targets.map(({ printer }) =>
+      targets.map((printer) =>
         deps.scheduler.enqueue({
           id: generateId(),
           requestId,
