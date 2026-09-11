@@ -1,12 +1,13 @@
 import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType, type PrinterDriver } from '../../models/printer/PrinterDriver';
+import { DriverSource, PrinterDriverType, RenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { makePrinter } from '../../testing/printerFixtures';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+import { PrintType } from '../../models/printing/PrintType';
 
 jest.mock('../../logging/PrinterLogger', () => ({
   PrinterLogger: {
@@ -41,8 +42,8 @@ const collectEvents = (
 
 describe('PrinterDiscoveryService', () => {
   // Draft `Printer` ĐẦY ĐỦ — `DiscoverPrinterInput.draftPrinter` là 1 Printer thật
-  // (do caller tự dựng), không phải mấy field rời rạc nữa.
-  const baseDraftPrinter = makePrinter({ name: 'Máy in mới', drivers: [] });
+  // (do caller tự dựng), gồm `type`/`paper`/`driver` placeholder theo shape mới.
+  const baseDraftPrinter = makePrinter({ name: 'Máy in mới' });
   const baseInput = { draftPrinter: baseDraftPrinter };
 
   afterEach(() => jest.clearAllMocks());
@@ -50,71 +51,75 @@ describe('PrinterDiscoveryService', () => {
   it('emits identified when the first candidate connects and identifies successfully', async () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
     const escposDriver = makeMockDriver();
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
-    expect(events[2].protocol).toBe(PrinterDriverType.tspl);
+    expect(events[2].protocol).toBe(PrinterDriverType.Tspl);
+    expect(events[2].driver).toEqual({
+      type: PrinterDriverType.Tspl,
+      source: DriverSource.Auto,
+      config: getDriverCapabilities(PrinterDriverType.Tspl).defaultConfig,
+    });
     expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
     expect(tsplDriver.disconnect).not.toHaveBeenCalled();
     expect(escposDriver.connect).not.toHaveBeenCalled();
   });
 
-  it('hands the candidate driver its own defaultConfig media (no form threading — SP-C)', async () => {
+  it('excludes EscPos from the candidate list when draftPrinter.type is Label (capability filter)', async () => {
+    const labelDraftPrinter = makePrinter({ type: PrintType.Label });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
     const escposDriver = makeMockDriver();
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-    const [, candidateDriver] = tsplDriver.connect.mock.calls[0] as [unknown, PrinterDriver];
-    expect(candidateDriver.config.media.paperSize).toBe(getDriverCapabilities(PrinterDriverType.tspl).defaultConfig.media.paperSize);
+    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, { draftPrinter: labelDraftPrinter });
+    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
+    expect(events[2].protocol).toBe(PrinterDriverType.Tspl);
+    expect(tsplDriver.connect).toHaveBeenCalledTimes(1);
+    expect(escposDriver.connect).not.toHaveBeenCalled();
+    expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith(
+      expect.objectContaining({ candidates: [PrinterDriverType.Tspl] }),
+    );
   });
 
-  it('does not mutate the shared defaultConfig when building candidate media', async () => {
+  it('hands the candidate driver its own defaultConfig (no leftover state from a previous attempt)', async () => {
+    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
+    const escposDriver = makeMockDriver();
+    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+    const [attemptPrinter] = tsplDriver.connect.mock.calls[0] as [{ driver: { config: { renderMode: RenderMode } } }];
+    expect(attemptPrinter.driver.config.renderMode).toBe(getDriverCapabilities(PrinterDriverType.Tspl).defaultConfig.renderMode);
+  });
+
+  it('does not mutate the shared defaultConfig when building the candidate driver', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-    expect(getDriverCapabilities(PrinterDriverType.tspl).defaultConfig.media.paperSize).toBe(80);
-    expect(getDriverCapabilities(PrinterDriverType.escpos).defaultConfig.media.paperSize).toBe(80);
-  });
-
-  it('excludedDrivers removes a driver type from the candidate list even if it would have identified', async () => {
-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, { ...baseInput, excludedDrivers: [PrinterDriverType.tspl] });
-    const identified = events.find((e) => e.stage === DiscoveryStage.Identified);
-    expect(identified?.protocol).toBe(PrinterDriverType.escpos);
-    expect(tsplDriver.connect).not.toHaveBeenCalled();
-  });
-
-  it('emits error (not unknown_protocol) when excludedDrivers removes every candidate', async () => {
-    const events = await collectEvents(
-      { escpos: makeMockDriver(), tspl: makeMockDriver() },
-      { ...baseInput, excludedDrivers: [PrinterDriverType.escpos, PrinterDriverType.tspl] },
-    );
-    expect(events[events.length - 1].stage).toBe(DiscoveryStage.Error);
+    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+    expect(getDriverCapabilities(PrinterDriverType.Tspl).defaultConfig.renderMode).toBe(RenderMode.Bitmap);
+    expect(getDriverCapabilities(PrinterDriverType.EscPos).defaultConfig.renderMode).toBe(RenderMode.Encoder);
   });
 
   it('falls through to the next candidate when the first identify() returns null', async () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({}) });
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
-    expect(events.find((e) => e.stage === DiscoveryStage.Identified)?.protocol).toBe(PrinterDriverType.escpos);
+    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+    const identified = events.find((e) => e.stage === DiscoveryStage.Identified);
+    expect(identified?.protocol).toBe(PrinterDriverType.EscPos);
+    expect(identified?.driver?.type).toBe(PrinterDriverType.EscPos);
     expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('emits unknown_protocol when every remaining candidate connects but none identifies', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     expect(events[events.length - 1].stage).toBe(DiscoveryStage.UnknownProtocol);
   });
 
   it('emits error when every remaining candidate fails to even connect', async () => {
     const escposDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
     const tsplDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
-    const events = await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     const last = events[events.length - 1];
     expect(last.stage).toBe(DiscoveryStage.Error);
     expect(last.error?.code).toBe(PrinterErrorCode.PRINTER_CONNECTION_FAILED);
     expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, candidatesTried: [PrinterDriverType.tspl, PrinterDriverType.escpos] }),
+      expect.objectContaining({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, candidatesTried: [PrinterDriverType.Tspl, PrinterDriverType.EscPos] }),
     );
   });
 
@@ -123,16 +128,16 @@ describe('PrinterDiscoveryService', () => {
   it('logs discoveryStarted and discoveryCandidateRejected for the full trace of a multi-candidate attempt', async () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
 
     expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith({
       printerId: 'p1',
       connectionType: PrinterConnectionType.Lan,
-      candidates: [PrinterDriverType.tspl, PrinterDriverType.escpos],
+      candidates: [PrinterDriverType.Tspl, PrinterDriverType.EscPos],
     });
     expect(PrinterLogger.discoveryCandidateRejected).toHaveBeenCalledWith({
       printerId: 'p1',
-      protocol: PrinterDriverType.tspl,
+      protocol: PrinterDriverType.Tspl,
       connectionType: PrinterConnectionType.Lan,
       reason: 'not_confirmed',
     });
@@ -140,12 +145,12 @@ describe('PrinterDiscoveryService', () => {
 
   it('unsubscribing before completion stops further events from being emitted', async () => {
     let resolveConnect: () => void = () => undefined;
-    const escposDriver = makeMockDriver({
+    const tsplDriver = makeMockDriver({
       connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; })),
     });
-    const tsplDriver = makeMockDriver();
+    const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ escpos: escposDriver, tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
       events.push(event);
     });
     unsubscribe();
@@ -162,7 +167,7 @@ describe('PrinterDiscoveryService', () => {
     });
     const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ escpos: escposDriver, tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
       events.push(event);
     });
 
@@ -183,7 +188,7 @@ describe('PrinterDiscoveryService', () => {
     });
     const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ escpos: escposDriver, tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
       events.push(event);
     });
 
@@ -202,16 +207,16 @@ describe('PrinterDiscoveryService', () => {
   it('logs protocolDetected when identify() succeeds', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TM-T82' }) });
     const tsplDriver = makeMockDriver();
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     expect(PrinterLogger.protocolDetected).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: 'p1', protocol: PrinterDriverType.escpos, connectionType: PrinterConnectionType.Lan }),
+      expect.objectContaining({ printerId: 'p1', protocol: PrinterDriverType.EscPos, connectionType: PrinterConnectionType.Lan }),
     );
   });
 
   it('logs protocolUnknown when every candidate connects but none identifies', async () => {
     const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    await collectEvents({ escpos: escposDriver, tspl: tsplDriver }, baseInput);
+    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     expect(PrinterLogger.protocolUnknown).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: 'p1', connectionType: PrinterConnectionType.Lan }),
     );

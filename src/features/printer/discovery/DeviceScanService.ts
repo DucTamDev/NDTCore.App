@@ -43,14 +43,14 @@ export const createDeviceScanService = (
     const tapped = withScanLogging(connectionType, onEvent);
 
     if (connectionType === PrinterConnectionType.Usb) {
-      return getDriver(PrinterDriverType.escpos).scan(PrinterConnectionType.Usb, tapped);
+      return getDriver(PrinterDriverType.EscPos).scan(PrinterConnectionType.Usb, tapped);
     }
 
     if (connectionType === PrinterConnectionType.Bluetooth) {
-      return getDriver(PrinterDriverType.tspl).scan(PrinterConnectionType.Bluetooth, tapped);
+      return getDriver(PrinterDriverType.Tspl).scan(PrinterConnectionType.Bluetooth, tapped);
     }
 
-    return getDriver(PrinterDriverType.tspl).scan(PrinterConnectionType.Lan, tapped);
+    return getDriver(PrinterDriverType.Tspl).scan(PrinterConnectionType.Lan, tapped);
   };
 
   const discoverDriver = (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
