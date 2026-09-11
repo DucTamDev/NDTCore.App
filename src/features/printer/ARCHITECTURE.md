@@ -11,7 +11,7 @@ Printer feature được thiết kế cho production Android POS với các mụ
 * Dễ mở rộng driver và connection type.
 * Cô lập Android/vendor SDK khỏi business logic.
 * Hỗ trợ nhiều printer trong cùng POS.
-* Hỗ trợ một printer có nhiều driver.
+* Hỗ trợ một physical printer phục vụ nhiều loại nội dung (Hoá đơn + Tem) qua nhiều `Printer` record độc lập, cùng `identityKey`.
 * Không tạo abstraction nếu abstraction không mang lại boundary hoặc responsibility thực sự.
 
 Nguyên tắc cốt lõi:
@@ -190,50 +190,56 @@ Label   → TSPL
 Thay vào đó, các concept độc lập:
 
 ```text
-PrintContentType
+PrintType
 PrinterDriverType
-ConnectionType
-PrintRenderConfig
+PrinterConnectionType
+RenderMode
 ```
 
 Ví dụ:
 
 ```ts
-export type PrintContentType =
-  | 'receipt'
-  | 'label';
+export const PrintType = {
+  Receipt: 'Receipt',
+  Label: 'Label',
+} as const;
 
-export type PrinterDriverType =
-  | 'escpos'
-  | 'tspl';
+export const PrinterDriverType = {
+  EscPos: 'EscPos',
+  Tspl: 'Tspl',
+} as const;
 
-export type ConnectionType =
-  | 'usb'
-  | 'bluetooth'
-  | 'lan';
+export const PrinterConnectionType = {
+  Usb: 'Usb',
+  Bluetooth: 'Bluetooth',
+  Lan: 'Lan',
+} as const;
 ```
 
-Driver quyết định content type mà nó hỗ trợ.
+Driver TYPE quyết định content type nào driver đó CÓ THỂ hỗ trợ (`DRIVER_CAPABILITIES` — xem §9). Nhưng mỗi `Printer` record chỉ gắn với ĐÚNG 1 `type` cụ thể — xem §5.
 
 ---
 
 # 5. Printer Model
 
+Một `Printer` là cấu hình atomic: ĐÚNG 1 `connection` + ĐÚNG 1 `driver` + ĐÚNG 1 `paper` config + ĐÚNG 1 `type` (loại nội dung cố định).
+
 ```ts
 export interface Printer {
   id: string;
-  name: string;
-  connection: PrinterConnection;
-  drivers: PrinterDriver[];
-  capabilities?: PrinterCapabilities;
-
-  /**
-   * Stable key used to identify the physical printer
-   * and prevent duplicate printer configuration.
-   */
   identityKey: string;
-
+  type: PrintType;
+  name: string;
+  vendor?: string;
+  model?: string;
+  connection: PrinterConnection;
+  driver: PrinterDriver;
+  paper: PrintPaperConfig;
+  capabilities: PrinterCapabilities;
+  autoReconnect: boolean;
   enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
@@ -244,31 +250,48 @@ export interface Printer {
 * Stable identifier của printer configuration.
 * Dùng để reference printer trong storage, routing và runtime operation.
 
+`identityKey`
+
+* Dùng để nhận diện physical printer — chỉ phụ thuộc `connection`, không phụ thuộc `driver`.
+* Dùng cho duplicate prevention.
+* Không dùng để lock runtime resource (xem `resourceKey`, §6).
+* Ràng buộc unique là cặp `(identityKey, type)`, không phải `identityKey` một mình — một physical printer có thể có nhiều `Printer` record (mỗi record một `type`) cùng `identityKey`.
+
+`type`
+
+* Loại nội dung CỐ ĐỊNH của printer record này: `PrintType.Receipt` hoặc `PrintType.Label`.
+* Không đổi được sau khi tạo — đổi loại nội dung nghĩa là tạo printer record khác.
+
 `name`
 
 * Display name do application quản lý.
 
+`vendor`, `model`
+
+* Thông tin tham khảo, lấy từ `identify()` lúc thêm printer — không dùng cho business logic.
+
 `connection`
 
 * Thông tin connection của printer.
-* Là discriminated union theo `ConnectionType`.
+* Là discriminated union theo `PrinterConnectionType`.
 
-`drivers`
+`driver`
 
-* Danh sách driver được cấu hình cho printer.
-* Một printer có thể có nhiều driver.
-* Hiện tại tối đa hai driver: `escpos` và `tspl`.
+* ĐÚNG 1 driver được cấu hình cho printer — không phải mảng.
+* `driver.type` phải nằm trong `DRIVER_CAPABILITIES[driver.type].contentTypes` mới hỗ trợ được `printer.type` (enforce ở `PrinterSchema.ts`, xem §9).
+
+`paper`
+
+* Cấu hình giấy (`PrintPaperConfig`) áp dụng cho printer này.
 
 `capabilities`
 
 * Physical capabilities được phát hiện hoặc cấu hình.
 * Không dùng để thay thế driver configuration.
 
-`identityKey`
+`autoReconnect`
 
-* Dùng để nhận diện physical printer.
-* Dùng cho duplicate prevention.
-* Không dùng để lock runtime resource.
+* Có tự động reconnect khi mất kết nối hay không.
 
 `enabled`
 
@@ -281,6 +304,10 @@ isDefault
 ```
 
 Printer selection được quyết định bởi routing configuration.
+
+### Một physical printer phục vụ nhiều loại nội dung
+
+Một máy in vật lý phục vụ cả Hoá đơn lẫn Tem (ví dụ máy TSPL) được biểu diễn bằng **2 `Printer` record riêng biệt**, cùng `identityKey` (cùng physical device), khác `type` — có thể cùng `connection`, khác `driver` config (ví dụ cùng Bluetooth device nhưng mỗi record một `PrinterDriverConfig`). Xem `discovery/PrinterResolver.ts` và `storage/PrinterRepository.ts`.
 
 ---
 
@@ -394,20 +421,20 @@ export type PrinterConnection =
   | LanPrinterConnection;
 
 export interface UsbPrinterConnection {
-  type: 'usb';
+  type: typeof PrinterConnectionType.Usb;
   vendorId: number;
   productId: number;
   serialNumber?: string;
 }
 
 export interface BluetoothPrinterConnection {
-  type: 'bluetooth';
+  type: typeof PrinterConnectionType.Bluetooth;
   deviceId: string;
   name?: string;
 }
 
 export interface LanPrinterConnection {
-  type: 'lan';
+  type: typeof PrinterConnectionType.Lan;
   host: string;
   port: number;
 }
@@ -462,36 +489,50 @@ Driver không chịu trách nhiệm:
 
 # 9. Driver Capability
 
+`PrinterDriver` là field của `Printer` (§5) — mỗi `Printer` có ĐÚNG 1 driver, không phải mảng:
+
 ```ts
 export interface PrinterDriver {
   type: PrinterDriverType;
-  contentTypes: PrintContentType[];
+  source: DriverSource;
+  config: PrinterDriverConfig;
+}
+
+export interface PrinterDriverConfig {
+  renderMode: RenderMode;
 }
 ```
 
-Ví dụ:
+`DriverCapabilities` là bảng TĨNH theo driver TYPE, trả lời "driver loại này CÓ THỂ phục vụ content type nào" — dùng để lọc candidate lúc discovery và validate ở `PrinterSchema.ts` (driver type phải hỗ trợ `printer.type`), KHÔNG phải config của một `Printer` cụ thể:
 
 ```ts
-const DRIVER_DEFINITIONS = {
-  escpos: {
-    contentTypes: ['receipt'],
+export interface DriverCapabilities {
+  contentTypes: PrintType[];
+  defaultConfig: PrinterDriverConfig;
+}
+
+export const DRIVER_CAPABILITIES: Record<PrinterDriverType, DriverCapabilities> = {
+  [PrinterDriverType.EscPos]: {
+    contentTypes: [PrintType.Receipt],
+    defaultConfig: { renderMode: RenderMode.Encoder },
   },
 
-  tspl: {
-    contentTypes: ['receipt', 'label'],
+  [PrinterDriverType.Tspl]: {
+    contentTypes: [PrintType.Receipt, PrintType.Label],
+    defaultConfig: { renderMode: RenderMode.Bitmap },
   },
-} as const;
+};
 ```
 
-`PrintContentType` và `PrinterDriverType` vẫn là hai independent concepts.
+`PrintType` và `PrinterDriverType` vẫn là hai independent concepts — không map cứng 1-1.
 
 Không tạo type:
 
 ```ts
-type PrinterType = 'receipt-printer' | 'label-printer';
+type PrinterKind = 'receipt-printer' | 'label-printer';
 ```
 
-vì physical printer có thể hỗ trợ nhiều driver/content type.
+Một physical printer hỗ trợ nhiều content type (ví dụ TSPL) được biểu diễn bằng nhiều `Printer` record độc lập, mỗi record một `type` — không phải một `Printer` với nhiều driver/content type (xem §5).
 
 ---
 
@@ -517,9 +558,12 @@ models/media/
 Nó không mô tả physical capability của printer.
 
 ```ts
-export type PrintPaperType =
-  | 'continuous'
-  | 'die_cut';
+export const PrintPaperType = {
+  Continuous: 'Continuous',
+  DieCut: 'DieCut',
+} as const;
+
+export type PrintPaperType = (typeof PrintPaperType)[keyof typeof PrintPaperType];
 
 export interface PrintPaperConfig {
   type: PrintPaperType;
@@ -560,8 +604,8 @@ Không dùng nó để biểu diễn:
 
 ```ts
 {
-  type: 'continuous',
-  paperSize: 80
+  type: PrintPaperType.Continuous,
+  paperSize: PaperSize.Mm80,
 }
 ```
 
@@ -570,7 +614,7 @@ Không dùng nó để biểu diễn:
 Nếu không chỉ định:
 
 ```text
-per_job
+CutterMode.PerJob
 ```
 
 được áp dụng.
@@ -580,7 +624,7 @@ per_job
 Die-cut không sử dụng cutter.
 
 ```text
-cutterMode = none
+cutterMode = CutterMode.None
 ```
 
 Nếu caller truyền cutter configuration không phù hợp, validation phải xử lý.
@@ -590,7 +634,7 @@ Nếu caller truyền cutter configuration không phù hợp, validation phải 
 `columns` chỉ có ý nghĩa với:
 
 ```ts
-type === 'die_cut'
+type === PrintPaperType.DieCut
 ```
 
 Khi die-cut:
@@ -627,11 +671,8 @@ Ví dụ:
 
 ```ts
 export interface PrinterCapabilities {
-  paperSizes: PaperSize[];
-  supportsCut: boolean;
-  supportsBitmap: boolean;
-  supportsQrCode: boolean;
-  supportsBarcode: boolean;
+  /** Máy in có dao cắt (phần cứng). */
+  cutter: boolean;
 }
 ```
 
@@ -674,11 +715,11 @@ Chứa cutter rules.
 Ví dụ:
 
 ```text
-continuous + undefined cutter
-→ per_job
+Continuous + undefined cutter
+→ PerJob
 
-die_cut
-→ none
+DieCut
+→ None
 ```
 
 ## `validation.ts`
@@ -697,44 +738,30 @@ Validation không nên được phân tán vào nhiều layer.
 
 # 14. Rendering
 
-Rendering strategy là configuration của print operation.
+Rendering strategy (`RenderMode`) là config dùng chung cho CẢ 2 protocol, nằm trong `PrinterDriver.config` (§9):
 
 ```ts
-export type PrintRenderConfig =
-  | { mode: 'encoder' }
-  | { mode: 'bitmap'; fontFamily: string }
-  | { mode: 'truetype'; fontName: string }
-  | {
-      mode: 'internalfont';
-      codepage: TsplCodepage;
-      fontName?: string;
-    };
+export const RenderMode = {
+  Encoder: 'Encoder',
+  Bitmap: 'Bitmap',
+} as const;
+
+export type RenderMode = (typeof RenderMode)[keyof typeof RenderMode];
+
+export interface PrinterDriverConfig {
+  renderMode: RenderMode;
+}
 ```
 
-Render modes:
+Chỉ còn 2 render mode. TSPL đã bỏ TrueType/internal-font (xem lịch sử ở dưới) — TSPL LUÔN dùng `RenderMode.Bitmap`. ESC/POS chọn `Encoder` hoặc `Bitmap`. Việc "TSPL chỉ được `Bitmap`" được enforce ở `PrinterSchema.ts` (`superRefine`), không phải ở type, vì cả 2 driver dùng chung 1 `PrinterDriverConfig`.
 
-```text
-encoder
-bitmap
-truetype
-internalfont
-```
+## `Encoder`
 
-## `encoder`
+Protocol encoder trực tiếp tạo command (ESC/POS only — qua `EPToolkit`, cần đúng codepage CP1258, không rasterize).
 
-Protocol encoder trực tiếp tạo command.
+## `Bitmap`
 
-## `bitmap`
-
-Text được rasterize thành bitmap trước khi encode.
-
-## `truetype`
-
-Text được render bằng TrueType font đã được cài trên printer.
-
-## `internalfont`
-
-Sử dụng font/codepage của printer.
+Nội dung đã được render thành ảnh (PNG base64, `documents.image`) ở lớp trên; driver decode ảnh này thành monochrome 1-bit rồi gửi lệnh bitmap của protocol (`BITMAP` cho TSPL, tương ứng cho ESC/POS). Chậm hơn `Encoder` nhưng đúng trên mọi máy bất kể codepage.
 
 ---
 
@@ -770,58 +797,11 @@ không phụ thuộc vào việc TSPL printer có Vietnamese codepage hay không
 
 ---
 
-# 16. TSPL TrueType Font
+# 16. TSPL TrueType Font (ĐÃ BỎ)
 
-TrueType font installation là một spike riêng.
+TSPL từng có kế hoạch hỗ trợ thêm `truetype`/`internalfont` render mode (font cài trên printer, `DOWNLOAD "<name>",<byteCount>` + `TsplFontManager`/`TsplFontConfig`/`TsplCodepage`). Feature này đã bị **xoá hoàn toàn** trước khi triển khai production — TSPL chỉ còn một render mode duy nhất: `RenderMode.Bitmap` (xem §14). Không có `TsplStrategyRegistry`, `TsplTrueTypeStrategy`, `TsplInternalFontStrategy` hay `utils/cp1258.ts` trong codebase hiện tại.
 
-Model có thể hỗ trợ:
-
-```ts
-type TsplRenderMode =
-  | 'bitmap'
-  | 'truetype';
-```
-
-Font configuration có thể có:
-
-```ts
-export interface TsplFontConfig {
-  name: string;
-  fileName: string;
-  installed: boolean;
-}
-```
-
-Default font có thể sử dụng Unicode font phù hợp với Vietnamese.
-
-Ví dụ:
-
-```text
-Noto Sans
-```
-
-Installation sử dụng TSPL:
-
-```text
-DOWNLOAD "<name>",<byteCount>
-```
-
-sau đó gửi raw font bytes.
-
-Hardware behavior phải được verify trước khi coi đây là production guarantee.
-
-Không comment kiểu:
-
-```ts
-// Download font.
-```
-
-Nếu cần comment:
-
-```ts
-// The printer stores TrueType fonts under the TSPL font name,
-// so the downloaded name must match the name used by subsequent TEXT commands.
-```
+Lý do: rasterize sang bitmap ở lớp trên (canvas render Unicode/Vietnamese text → PNG) hoạt động đúng trên mọi máy TSPL bất kể firmware có hỗ trợ TrueType/codepage hay không, nên không cần thêm complexity của việc quản lý font cài trên printer.
 
 ---
 
@@ -829,15 +809,19 @@ Nếu cần comment:
 
 ```text
 drivers/
+├── DriverCapabilities.ts
+├── DriverRegistry.ts
 ├── escpos/
 │   ├── EscPosDriver.ts
+│   ├── EscPosBitmapEncoder.ts
+│   ├── EscPosTextBuilder.ts
 │   └── ...
 │
 └── tspl/
     ├── TsplDriver.ts
-    ├── TsplFontManager.ts
+    ├── TsplEncoder.ts
     └── strategies/
-        ├── ...
+        └── TsplBitmapStrategy.ts
 ```
 
 Driver không biết printer được lưu ở đâu.
@@ -886,8 +870,7 @@ TSPL driver chịu trách nhiệm:
 * `BARCODE`;
 * `QRCODE`;
 * `BITMAP`;
-* rendering strategy;
-* TSPL-specific font handling.
+* rendering strategy (chỉ còn `TsplBitmapStrategy` — TrueType/internal-font đã bỏ, xem §16).
 
 Bitmap flow:
 
@@ -1723,7 +1706,7 @@ Ví dụ:
 ```ts
 const canPrintReceipt =
   printer.enabled &&
-  driver.contentTypes.includes('receipt');
+  printer.type === PrintType.Receipt;
 
 if (!canPrintReceipt) {
   return;
@@ -1733,7 +1716,7 @@ if (!canPrintReceipt) {
 Hoặc:
 
 ```ts
-if (!canPrintReceipt(printer, driver)) {
+if (!canPrintReceipt(printer)) {
   return;
 }
 ```
@@ -1816,7 +1799,7 @@ interface PrintPaperConfig {
   type: PrintPaperType;
 
   /**
-   * Required when type is "die_cut".
+   * Required when type is DieCut.
    */
   columns?: number;
 }
@@ -1957,11 +1940,8 @@ Không nên:
 if (
   printer &&
   printer.enabled &&
-  printer.drivers.some(
-    driver =>
-      driver.type === 'escpos' &&
-      driver.contentTypes.includes('receipt'),
-  )
+  printer.type === PrintType.Receipt &&
+  printer.driver.type === PrinterDriverType.EscPos
 ) {
   ...
 }
@@ -2458,13 +2438,14 @@ Các invariant sau phải được giữ:
 * Không có `isDefault`.
 * Có `identityKey`.
 * `identityKey` không dùng cho concurrency.
-* Một printer có thể có nhiều drivers.
-* Một content type chỉ thuộc một driver trong cùng printer.
+* Mỗi printer có ĐÚNG 1 `driver`, ĐÚNG 1 `connection`, ĐÚNG 1 `paper`, ĐÚNG 1 `type` cố định.
+* Một physical printer phục vụ nhiều content type = nhiều `Printer` record cùng `identityKey`, khác `type`.
+* Unique constraint là cặp `(identityKey, type)`.
 
 ### Drivers
 
-* `escpos` và `tspl` là independent driver types.
-* Driver quyết định supported content types.
+* `EscPos` và `Tspl` là independent driver types.
+* `DRIVER_CAPABILITIES` quyết định driver type nào CÓ THỂ phục vụ content type nào — enforce khớp với `printer.type` ở `PrinterSchema.ts`.
 * Driver không quản lý persistence.
 * Driver không quản lý routing.
 
@@ -2494,14 +2475,14 @@ PrintService
 * `PrintPaperConfig` không đại diện physical capability.
 * `PrinterCapabilities` không đại diện print-job configuration.
 * Die-cut không dùng cutter.
-* Continuous không khai báo cutter thì mặc định `per_job`.
+* Continuous không khai báo cutter thì mặc định `CutterMode.PerJob`.
 * Die-cut row overflow phải được validation.
 
 ### Rendering
 
-* Rendering strategy độc lập với protocol.
-* Unicode text có thể được rasterize bằng TrueType font.
-* TrueType installation là spike nếu hardware chưa verify.
+* Chỉ có 2 render mode: `Encoder`, `Bitmap`.
+* TSPL LUÔN dùng `Bitmap` (TrueType/internal-font đã bị xoá hoàn toàn — không phải spike, không tồn tại trong code).
+* ESC/POS chọn `Encoder` hoặc `Bitmap`.
 
 ### Native
 

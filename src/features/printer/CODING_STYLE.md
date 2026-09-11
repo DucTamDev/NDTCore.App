@@ -92,19 +92,20 @@ suốt:
 
 ```ts
 // Không hard-code rải rác
-if (driver === 'escpos') { ... }
+if (driver === 'EscPos') { ... }
 
 // Centralize đúng pattern đã dùng
 export const PrinterDriverType = {
-  escpos: 'escpos',
-  tspl: 'tspl',
+  EscPos: 'EscPos',
+  Tspl: 'Tspl',
 } as const;
 
 export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
 ```
 
-Sử dụng: `driver.type === PrinterDriverType.escpos` — không so sánh string
-literal trực tiếp ở nơi gọi.
+Sử dụng: `driver.type === PrinterDriverType.EscPos` — không so sánh string
+literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ
+`PrinterErrorCode` (giữ SCREAMING_SNAKE_CASE).
 
 ---
 
@@ -136,14 +137,13 @@ class), đã hỗ trợ dependency injection đầy đủ qua default parameter:
 
 ```ts
 export const createPrinterConfigService = (
-  registry: Record<PrinterDriverType, IPrinterDriver> = DriverRegistry,
   repository: PrinterRepositoryLike = PrinterRepository,
 ) => {
   // ...
-  return { installTsplFont, setTsplRenderMode };
+  return { setRenderMode, setPaper };
 };
 
-export const PrinterConfigService = createPrinterConfigService(DriverRegistry, PrinterRepository);
+export const PrinterConfigService = createPrinterConfigService(PrinterRepository);
 ```
 
 **Không đổi sang class-based OOP** (`new PrinterConfigService(repository)`)
@@ -221,7 +221,7 @@ export interface PrintPaperConfig { ... }
 name: string;
 
 // Cần — constraint không thấy được từ tên+type
-/** Bắt buộc khi type = 'die_cut'. Bỏ qua khi continuous. */
+/** Bắt buộc khi type = PrintPaperType.DieCut. Bỏ qua khi Continuous. */
 columns?: number;
 ```
 
@@ -291,5 +291,5 @@ Pure/tính toán:            calculate, resolve, derive, validate, format, encod
 ```
 
 `resolveEffectiveCutterMode(media)` (pure) không được âm thầm ghi log/side
-effect; `PrinterConfigService.setDriverMedia()` (side effect) phải có tên
+effect; `PrinterConfigService.setPaper()` (side effect) phải có tên
 động từ rõ ràng, không đặt tên như `getDriverMedia`.
