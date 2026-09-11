@@ -46,8 +46,8 @@ export const PrinterManagementPanel: React.FC = () => {
   }, [isPhone, mode]);
 
   const formKey = editingPrinter?.id ?? `add-${addSessionId}`;
-  // Chỉ Thêm mới (không Sửa) mới mang purpose — Sửa giữ nguyên content type đã lưu.
-  const purpose = editingPrinter ? undefined : activeTab;
+  /** Sửa: giữ nguyên `type` đã lưu (không đổi được). Thêm mới: theo tab đang mở. */
+  const printType = editingPrinter ? editingPrinter.type : activeTab;
 
   if (isPhone && mode === 'form') {
     return (
@@ -59,13 +59,13 @@ export const PrinterManagementPanel: React.FC = () => {
           onSaved={onSaved}
           onBack={backToList}
           showBackButton={false}
-          purpose={purpose}
+          printType={printType}
         />
       </View>
     );
   }
 
-  const printersForTab = printers.filter((p) => p.drivers.some((d) => d.contentTypes.includes(activeTab)));
+  const printersForTab = printers.filter((p) => p.type === activeTab);
 
   return (
     <View style={styles.container}>
@@ -73,7 +73,6 @@ export const PrinterManagementPanel: React.FC = () => {
 
       <SegmentedButtons
         value={activeTab}
-        // value chỉ có thể là PrintType.Receipt/PrintType.Label (2 button cố định ở dưới) — cast an toàn.
         onValueChange={(value) => setActiveTab(value as PrintType)}
         buttons={[
           { value: PrintType.Receipt, label: PRINT_TYPE_LABELS.Receipt },
@@ -92,7 +91,7 @@ export const PrinterManagementPanel: React.FC = () => {
           initialValues={editingPrinter}
           onDismiss={backToList}
           onSaved={onSaved}
-          purpose={purpose}
+          printType={printType}
         />
       )}
     </View>

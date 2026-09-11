@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../models/printer/Printer';
@@ -16,15 +17,15 @@ export interface PrinterListItemProps {
   onEdit: (printer: Printer) => void;
 }
 
-const connectionLabel: Record<Printer['connection']['type'], string> = {
+const connectionLabel: Record<PrinterConnectionType, string> = {
   Usb: 'USB',
   Bluetooth: 'Bluetooth',
   Lan: 'LAN',
 };
 
 const protocolLabel: Record<PrinterDriverType, string> = {
-  escpos: 'ESC/POS',
-  tspl: 'TSPL',
+  EscPos: 'ESC/POS',
+  Tspl: 'TSPL',
 };
 
 export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actions, onEdit }) => {
@@ -34,12 +35,9 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
 
   const closeMenu = (): void => setMenuVisible(false);
   const enabled = printer.enabled ?? true;
-  const drivers = printer.drivers.map((d) => protocolLabel[d.type]).join(' + ');
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connection.type], drivers, `Khổ ${printer.drivers[0]?.config.media.paperSize ?? '?'}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connection.type], protocolLabel[printer.driver.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
-  // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — interaction
-  // của chính card (dialog xác nhận của nó), không phải business logic.
   const requestDelete = (): void => {
     if (status === PrinterStatus.Connected) {
       setConfirmDeleteVisible(true);

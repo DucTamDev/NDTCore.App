@@ -14,14 +14,13 @@ export interface AddPrinterModalProps {
   initialValues?: Printer;
   onDismiss: () => void;
   onSaved: () => void;
-  /** Mục đích khi THÊM MỚI (tab Hoá đơn/Tem đang mở ở màn danh sách) — bỏ qua khi Sửa. */
-  purpose?: PrintType;
+  printType: PrintType;
 }
 
-export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved, purpose }) => (
+export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved, printType }) => (
   <Portal>
     <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.container}>
-      <AddPrinterForm visible={visible} initialValues={initialValues} onSaved={onSaved} onBack={onDismiss} purpose={purpose} />
+      <AddPrinterForm visible={visible} initialValues={initialValues} onSaved={onSaved} onBack={onDismiss} printType={printType} />
     </Modal>
   </Portal>
 );

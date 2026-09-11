@@ -37,7 +37,7 @@ export const usePrinterList = (): UsePrinterList => {
     const list = PrinterRepository.getPrinters();
     LoggerService.debug('usePrinterList.reload', {
       count: list.length,
-      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connection.type, drivers: p.drivers.map((d) => d.type), enabled: p.enabled ?? true })),
+      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connection.type, driver: p.driver.type, enabled: p.enabled ?? true })),
     });
     dispatch(printersLoaded(list));
   }, [dispatch]);
