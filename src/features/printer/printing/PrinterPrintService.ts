@@ -52,7 +52,7 @@ export const createPrinterPrintService = (
 
     const driver = getDriver(driverEntry.type);
 
-    if (driver.getStatus(printerId) !== PrinterStatus.connected) {
+    if (driver.getStatus(printerId) !== PrinterStatus.Connected) {
       await driver.connect(printer, driverEntry);
     }
 

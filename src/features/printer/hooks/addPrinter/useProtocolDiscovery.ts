@@ -81,10 +81,10 @@ export const useProtocolDiscovery = ({
       },
       (event: DiscoveryEvent) => {
         switch (event.stage) {
-          case DiscoveryStage.identifying:
+          case DiscoveryStage.Identifying:
             setProtocolState('detecting');
             break;
-          case DiscoveryStage.identified:
+          case DiscoveryStage.Identified:
             if (!event.protocol) {
               break;
             }
@@ -98,11 +98,11 @@ export const useProtocolDiscovery = ({
             refreshUsbSerial();
             prefillDisplayName(event.deviceInfo?.deviceName);
             break;
-          case DiscoveryStage.unknown_protocol:
+          case DiscoveryStage.UnknownProtocol:
             setConnectionState('idle');
             setProtocolState('unknown');
             break;
-          case DiscoveryStage.error:
+          case DiscoveryStage.Error:
             setConnectionState('error');
             setProtocolState('idle');
             setConnectionErrorMessage(event.error?.message);

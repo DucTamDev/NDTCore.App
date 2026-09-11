@@ -27,7 +27,7 @@ export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({
       label="In bill thử"
       mode="outlined"
       style={styles.testPrintButton}
-      disabled={status !== PrinterStatus.connected || !canPrintReceipt || testPrintReceiptPending}
+      disabled={status !== PrinterStatus.Connected || !canPrintReceipt || testPrintReceiptPending}
       loading={testPrintReceiptPending}
       onPress={onTestPrintReceipt}
     />
@@ -35,7 +35,7 @@ export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({
       label="In tem thử"
       mode="outlined"
       style={styles.testPrintButton}
-      disabled={status !== PrinterStatus.connected || !canPrintLabel || testPrintLabelPending}
+      disabled={status !== PrinterStatus.Connected || !canPrintLabel || testPrintLabelPending}
       loading={testPrintLabelPending}
       onPress={onTestPrintLabel}
     />

@@ -117,7 +117,7 @@ export class TsplDriver implements IPrinterDriver {
   }
 
   async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
-    this.setStatus(printer.id, PrinterStatus.connecting);
+    this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
 
     try {
@@ -134,35 +134,35 @@ export class TsplDriver implements IPrinterDriver {
 
       this.connections.set(printer.id, adapter);
       this.contexts.set(printer.id, { printer, driver });
-      this.setStatus(printer.id, PrinterStatus.connected);
+      this.setStatus(printer.id, PrinterStatus.Connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
-      this.setStatus(printer.id, PrinterStatus.error);
+      this.setStatus(printer.id, PrinterStatus.Error);
       PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
   async disconnect(printerId: string): Promise<void> {
-    this.setStatus(printerId, PrinterStatus.disconnecting);
+    this.setStatus(printerId, PrinterStatus.Disconnecting);
     const adapter = this.connections.get(printerId);
 
     try {
       await adapter?.disconnect();
     } catch (error) {
-      this.setStatus(printerId, PrinterStatus.error);
+      this.setStatus(printerId, PrinterStatus.Error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.tspl, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
     }
 
-    this.setStatus(printerId, PrinterStatus.disconnected);
+    this.setStatus(printerId, PrinterStatus.Disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.tspl });
   }
 
   getStatus(printerId: string): PrinterStatus {
-    return this.statuses.get(printerId) ?? PrinterStatus.idle;
+    return this.statuses.get(printerId) ?? PrinterStatus.Idle;
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {

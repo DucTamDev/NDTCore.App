@@ -13,11 +13,11 @@ describe('print job types', () => {
       printerId: 'p1',
       printType: PrintType.Receipt,
       documents: { text: document },
-      status: PrintJobStatus.pending,
+      status: PrintJobStatus.Pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
-    expect(job.status).toBe(PrintJobStatus.pending);
+    expect(job.status).toBe(PrintJobStatus.Pending);
   });
 
   it('PrintJob dùng field documents (không phải documentVariants)', () => {
@@ -27,7 +27,7 @@ describe('print job types', () => {
       printerId: 'p',
       printType: PrintType.Receipt,
       documents: { text: { elements: [] } },
-      status: PrintJobStatus.pending,
+      status: PrintJobStatus.Pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
@@ -37,10 +37,10 @@ describe('print job types', () => {
   it('accepts every PrintResult status', () => {
     // 'UNKNOWN_ERROR' ở đây chỉ là 1 PrinterErrorCode bất kỳ để thoả shape.
     const results: PrintResult[] = [
-      { status: PrintResultStatus.success, jobs: [] },
-      { status: PrintResultStatus.partialFailure, jobs: [] },
-      { status: PrintResultStatus.failed, jobs: [] },
-      { status: PrintResultStatus.noAvailablePrinter, jobs: [], error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } },
+      { status: PrintResultStatus.Success, jobs: [] },
+      { status: PrintResultStatus.PartialFailure, jobs: [] },
+      { status: PrintResultStatus.Failed, jobs: [] },
+      { status: PrintResultStatus.NoAvailablePrinter, jobs: [], error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } },
     ];
     expect(results).toHaveLength(4);
   });

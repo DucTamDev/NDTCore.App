@@ -15,7 +15,7 @@ class WebUnsupportedDriver implements IPrinterDriver {
   async disconnect(): Promise<void> {}
 
   getStatus(): PrinterStatus {
-    return PrinterStatus.error;
+    return PrinterStatus.Error;
   }
 
   onStatusChange(): Unsubscribe {

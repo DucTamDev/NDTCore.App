@@ -79,7 +79,7 @@ export const createPrinterConnectionService = (
   const getStatus = (printerId: string): PrinterStatus => {
     const printer = repository.findOrThrow(printerId);
     const statuses = printer.drivers.map((d) => getDriver(d.type).getStatus(printerId));
-    return statuses.find((s) => s === PrinterStatus.connected) ?? statuses[0] ?? PrinterStatus.idle;
+    return statuses.find((s) => s === PrinterStatus.Connected) ?? statuses[0] ?? PrinterStatus.Idle;
   };
 
   const onStatusChange = (printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe => {

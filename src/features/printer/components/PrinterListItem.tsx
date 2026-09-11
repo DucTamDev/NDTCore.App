@@ -41,7 +41,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   // Đang kết nối thì hỏi lại trước khi xoá; ngược lại xoá thẳng — interaction
   // của chính card (dialog xác nhận của nó), không phải business logic.
   const requestDelete = (): void => {
-    if (status === PrinterStatus.connected) {
+    if (status === PrinterStatus.Connected) {
       setConfirmDeleteVisible(true);
       return;
     }

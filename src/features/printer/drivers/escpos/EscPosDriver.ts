@@ -107,7 +107,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
-    this.setStatus(printer.id, PrinterStatus.connecting);
+    this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
 
     try {
@@ -129,21 +129,21 @@ export class EscPosDriver implements IPrinterDriver {
       const previousOwner = this.activeByType.get(printer.connection.type);
 
       if (previousOwner && previousOwner !== printer.id) {
-        this.setStatus(previousOwner, PrinterStatus.disconnected);
+        this.setStatus(previousOwner, PrinterStatus.Disconnected);
       }
 
       this.activeByType.set(printer.connection.type, printer.id);
-      this.setStatus(printer.id, PrinterStatus.connected);
+      this.setStatus(printer.id, PrinterStatus.Connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
-      this.setStatus(printer.id, PrinterStatus.error);
+      this.setStatus(printer.id, PrinterStatus.Error);
       PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
 
   async disconnect(printerId: string): Promise<void> {
-    this.setStatus(printerId, PrinterStatus.disconnecting);
+    this.setStatus(printerId, PrinterStatus.Disconnecting);
     const connectionType = this.connectedTypes.get(printerId);
     const isActiveOwner = Boolean(connectionType) && this.activeByType.get(connectionType!) === printerId;
 
@@ -152,7 +152,7 @@ export class EscPosDriver implements IPrinterDriver {
         await this.adapters.get(printerId)?.disconnect();
       }
     } catch (error) {
-      this.setStatus(printerId, PrinterStatus.error);
+      this.setStatus(printerId, PrinterStatus.Error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -165,7 +165,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.contexts.delete(printerId);
     }
 
-    this.setStatus(printerId, PrinterStatus.disconnected);
+    this.setStatus(printerId, PrinterStatus.Disconnected);
     PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
   }
 
@@ -234,7 +234,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   getStatus(printerId: string): PrinterStatus {
-    return this.statuses.get(printerId) ?? PrinterStatus.idle;
+    return this.statuses.get(printerId) ?? PrinterStatus.Idle;
   }
 
   onStatusChange(printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe {

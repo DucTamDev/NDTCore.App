@@ -35,13 +35,13 @@ export const createPrintScheduler = (
   const enqueue = (job: PrintJob): Promise<PrintJob> =>
     lock
       .runExclusive(resourceKeyFor(job), async () => {
-        job.status = PrintJobStatus.printing;
+        job.status = PrintJobStatus.Printing;
         job.startedAt = new Date().toISOString();
         try {
           await printerService.print(job.printerId, job.documents, job.printType);
-          job.status = PrintJobStatus.success;
+          job.status = PrintJobStatus.Success;
         } catch (error) {
-          job.status = PrintJobStatus.failed;
+          job.status = PrintJobStatus.Failed;
           job.error = toPrinterError(error);
         }
         job.completedAt = new Date().toISOString();
@@ -50,7 +50,7 @@ export const createPrintScheduler = (
 
   const retry = (job: PrintJob): Promise<PrintJob> => {
     job.retryCount += 1;
-    job.status = PrintJobStatus.pending;
+    job.status = PrintJobStatus.Pending;
     job.error = undefined;
     return enqueue(job);
   };

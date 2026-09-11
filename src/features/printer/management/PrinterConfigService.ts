@@ -72,7 +72,7 @@ export const createPrinterConfigService = (
     LoggerService.debug('installTsplFont: bắt đầu', { printerId, inStorage: Boolean(printer), connectionType, font: { name: font.name, fileName: font.fileName } });
     try {
       await lock.runExclusive(resourceKeyForTsplPrinterId(printerId), async () => {
-        const wasConnected = tsplDriver.getStatus(printerId) === PrinterStatus.connected;
+        const wasConnected = tsplDriver.getStatus(printerId) === PrinterStatus.Connected;
         LoggerService.debug('installTsplFont: trong lock', { wasConnected });
         if (!wasConnected) {
           // Không tìm thấy printer trong storage và driver cũng chưa connected →

@@ -86,7 +86,7 @@ describe('PrinterConfigService', () => {
   });
 
   it('installTsplFont() connects then disconnects around the DOWNLOAD when the driver was not already connected', async () => {
-    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.idle) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
+    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, repository, createResourceLock());
     const tsplPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
@@ -101,7 +101,7 @@ describe('PrinterConfigService', () => {
   });
 
   it('installTsplFont() does not touch a pre-existing connection (§95 Driver Connect Reuse)', async () => {
-    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
+    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, repository, createResourceLock());
     const tsplPrinter: Printer = { ...basePrinter, drivers: [tsplDriverEntry] };
@@ -198,7 +198,7 @@ describe('PrinterConfigService', () => {
   });
 
   it('installTsplFont() for a draft (unsaved but already connected) resolves without writing storage', async () => {
-    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
+    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, repository, createResourceLock());
     const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };
@@ -211,7 +211,7 @@ describe('PrinterConfigService', () => {
   });
 
   it('installTsplFont() throws PRINTER_NOT_CONNECTED for an unknown printer the driver reports as not connected', async () => {
-    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.idle) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
+    const tsplDriver = { ...makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle) }), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const repository = createPrinterRepository();
     const service = createPrinterConfigService({ escpos: makeMockDriver(), tspl: tsplDriver as never }, repository, createResourceLock());
     const font = { name: 'VIETFONT', fileName: 'NotoSans-Regular.ttf', fontInstalled: false };

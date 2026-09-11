@@ -58,6 +58,6 @@ interface StateWithPrinter {
 
 export const selectPrinters = (state: StateWithPrinter): Printer[] => state.printer.printers;
 export const selectPrinterStatus = (state: StateWithPrinter, printerId: string): PrinterStatus =>
-  state.printer.statusById[printerId] ?? PrinterStatus.idle;
+  state.printer.statusById[printerId] ?? PrinterStatus.Idle;
 
 export default printerSlice.reducer;

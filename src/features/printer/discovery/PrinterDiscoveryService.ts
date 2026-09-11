@@ -16,11 +16,11 @@ import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 const CANDIDATE_ORDER: PrinterDriverType[] = [PrinterDriverType.tspl, PrinterDriverType.escpos];
 
 export const DiscoveryStage = {
-  connecting: 'connecting',
-  identifying: 'identifying',
-  identified: 'identified',
-  unknown_protocol: 'unknown_protocol',
-  error: 'error',
+  Connecting: 'Connecting',
+  Identifying: 'Identifying',
+  Identified: 'Identified',
+  UnknownProtocol: 'UnknownProtocol',
+  Error: 'Error',
 } as const;
 
 export type DiscoveryStage = (typeof DiscoveryStage)[keyof typeof DiscoveryStage];
@@ -80,7 +80,7 @@ export const createDiscoverDriver =
           config: { ...def, media: { ...def.media } },
         };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
-        onEvent({ stage: DiscoveryStage.connecting, protocol: type });
+        onEvent({ stage: DiscoveryStage.Connecting, protocol: type });
         try {
           await driver.connect(draftPrinter, draftDriver);
         } catch {
@@ -92,14 +92,14 @@ export const createDiscoverDriver =
           await disconnectQuietly();
           return;
         }
-        onEvent({ stage: DiscoveryStage.identifying, protocol: type });
+        onEvent({ stage: DiscoveryStage.Identifying, protocol: type });
         const deviceInfo = await driver.identify(printerId).catch(() => null);
         if (cancelled) {
           await disconnectQuietly();
           return;
         }
         if (deviceInfo) {
-          onEvent({ stage: DiscoveryStage.identified, protocol: type, deviceInfo });
+          onEvent({ stage: DiscoveryStage.Identified, protocol: type, deviceInfo });
           PrinterLogger.protocolDetected({ printerId, protocol: type, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
           return;
         }
@@ -112,12 +112,12 @@ export const createDiscoverDriver =
       }
 
       if (candidates.length === 0 || connectFailures === candidates.length) {
-        onEvent({ stage: DiscoveryStage.error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' } });
+        onEvent({ stage: DiscoveryStage.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' } });
         PrinterLogger.discoveryFailed({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
         return;
       }
 
-      onEvent({ stage: DiscoveryStage.unknown_protocol });
+      onEvent({ stage: DiscoveryStage.UnknownProtocol });
       PrinterLogger.protocolUnknown({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
     };
 

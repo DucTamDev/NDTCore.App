@@ -38,7 +38,7 @@ describe('PrinterPrintService', () => {
   });
 
   it('print() connects first when the driver reports the printer is not connected', async () => {
-    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.idle) });
+    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle) });
     const repository = createPrinterRepository();
     const service = createPrinterPrintService({ escpos: escposDriver, tspl: makeMockDriver() }, repository, createResourceLock());
     repository.addPrinter(basePrinter);

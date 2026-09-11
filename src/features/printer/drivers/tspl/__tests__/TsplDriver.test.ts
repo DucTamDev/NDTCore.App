@@ -147,17 +147,17 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const statuses: string[] = [];
     driver.onStatusChange(lanPrinter.id, (status) => statuses.push(status));
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.idle);
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Idle);
     await driver.connect(lanPrinter, tsplDriverEntry);
-    expect(statuses).toEqual([PrinterStatus.connecting, PrinterStatus.connected]);
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.connected);
+    expect(statuses).toEqual([PrinterStatus.Connecting, PrinterStatus.Connected]);
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('disconnect() transitions to disconnected and clears the connection', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanPrinter, tsplDriverEntry);
     await driver.disconnect(lanPrinter.id);
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.disconnected);
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Disconnected);
   });
 
   it('disconnect() sets status error (not stuck at disconnecting), logs disconnectFailed and rethrows PRINTER_CONNECTION_FAILED when transport.close() rejects', async () => {
@@ -170,7 +170,7 @@ describe('TsplDriver', () => {
     instance.close.mockRejectedValueOnce(new Error('socket already destroyed'));
 
     await expect(driver.disconnect(lanPrinter.id)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
-    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.error);
+    expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Error);
 
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectFailed: jest.Mock };
@@ -204,7 +204,7 @@ describe('TsplDriver', () => {
       close: jest.fn().mockResolvedValue(undefined),
     }));
     await expect(driver.connect(usbPrinter, tsplDriverEntry)).rejects.toThrow();
-    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.error);
+    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.Error);
   });
 
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers', async () => {
@@ -218,7 +218,7 @@ describe('TsplDriver', () => {
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers and transitions to connected', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbPrinter, tsplDriverEntry);
-    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.connected);
+    expect(driver.getStatus(usbPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('testPrint() over USB writes through UsbTransport', async () => {
@@ -488,7 +488,7 @@ describe('TsplDriver', () => {
       ensureBluetoothPermission: jest.Mock;
     };
     expect(ensureBluetoothPermission).toHaveBeenCalled();
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.connected);
+    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('connect() over Bluetooth fails with PRINTER_CONNECTION_FAILED when permission is denied', async () => {
@@ -498,7 +498,7 @@ describe('TsplDriver', () => {
     ensureBluetoothPermission.mockResolvedValueOnce(false);
     const driver = new TsplDriver();
     await expect(driver.connect(bluetoothPrinter, tsplDriverEntry)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
-    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.error);
+    expect(driver.getStatus(bluetoothPrinter.id)).toBe(PrinterStatus.Error);
   });
 
   it('connect() logs connectSucceeded on success', async () => {

@@ -150,7 +150,7 @@ describe('useAddPrinterFlow', () => {
   it('discovery "identified" event connects + appends the detected driver', () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.identified, protocol: PrinterDriverType.tspl }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Identified, protocol: PrinterDriverType.tspl }));
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().statusPanel.protocolState).toBe('identified');
     expect(get().infoCard.drivers.map((d) => d.type)).toEqual([PrinterDriverType.tspl]);
@@ -159,14 +159,14 @@ describe('useAddPrinterFlow', () => {
   it('discovery "unknown_protocol" event surfaces the manual-pick state', () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     expect(get().statusPanel.protocolState).toBe('unknown');
   });
 
   it('purpose=Label prefill chỉ bật Tem cho driver TSPL mới thêm (không tự bật cả Hoá đơn)', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), purpose: PrintType.Label });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.identified, protocol: PrinterDriverType.tspl }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Identified, protocol: PrinterDriverType.tspl }));
     expect(get().infoCard.drivers[0].contentTypes).toEqual([PrintType.Label]);
     expect(get().hasPurposeMismatchDriver).toBe(false);
   });
@@ -174,7 +174,7 @@ describe('useAddPrinterFlow', () => {
   it('purpose=Label + driver ESC/POS (không hỗ trợ Tem) → giữ contentTypes mặc định + báo mismatch', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), purpose: PrintType.Label });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     expect(get().infoCard.drivers[0].contentTypes).toEqual([PrintType.Receipt]);
     expect(get().hasPurposeMismatchDriver).toBe(true);
@@ -307,7 +307,7 @@ describe('useAddPrinterFlow', () => {
   it('draft handed to connectDraft carries per-driver config.media', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     const draft = (PrinterConnectionService.connectDraft as jest.Mock).mock.calls[0][0] as Printer;
     expect(draft.drivers.length).toBeGreaterThan(0);
@@ -317,7 +317,7 @@ describe('useAddPrinterFlow', () => {
   it('manual protocol pick connects the draft and appends a "manual" driver', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     expect(PrinterConnectionService.connectDraft).toHaveBeenCalled();
     expect(get().statusPanel.connectionState).toBe('connected');
@@ -351,7 +351,7 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
   });
@@ -361,7 +361,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
     act(() => { (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1'; });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.unknown_protocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
     await act(async () => { get().statusPanel.onChooseProtocol(PrinterDriverType.escpos); });
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });
@@ -369,7 +369,7 @@ describe('useAddPrinterFlow', () => {
   it('discovery "error" stage shows the error message and no driver', () => {
     const { get } = render({ visible: true, onSaved: jest.fn() });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.error, error: { code: 'X', message: 'mất kết nối' } }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
     expect(get().statusPanel.connectionState).toBe('error');
     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
     expect(get().infoCard.drivers).toHaveLength(0);
@@ -379,7 +379,7 @@ describe('useAddPrinterFlow', () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, onSaved });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.identified, protocol: PrinterDriverType.tspl }));
+    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Identified, protocol: PrinterDriverType.tspl }));
     act(() => get().infoCard.onToggleContentType(PrinterDriverType.tspl, PrintType.Receipt, true));
     await act(async () => { await get().infoCard.onSave(); });
     expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(expect.objectContaining({ drivers: expect.any(Array) }));

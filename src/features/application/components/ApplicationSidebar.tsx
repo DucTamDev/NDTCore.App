@@ -27,7 +27,7 @@ export const ApplicationSidebar: React.FC<ApplicationSidebarProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { printers } = usePrinterList();
-  const hasConnectedPrinter = printers.some((p) => PrinterConnectionService.getStatus(p.id) === PrinterStatus.connected);
+  const hasConnectedPrinter = printers.some((p) => PrinterConnectionService.getStatus(p.id) === PrinterStatus.Connected);
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
   const [confirmChangeStoreVisible, setConfirmChangeStoreVisible] = useState(false);

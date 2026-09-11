@@ -44,9 +44,9 @@ describe('DeviceScanService', () => {
     await new Promise<void>((resolve) => {
       service.discoverDriver({ draftPrinter: { ...basePrinter, drivers: [] } }, (event) => {
         events.push(event.stage);
-        if (event.stage === DiscoveryStage.identified) resolve();
+        if (event.stage === DiscoveryStage.Identified) resolve();
       });
     });
-    expect(events).toEqual([DiscoveryStage.connecting, DiscoveryStage.identifying, DiscoveryStage.identified]);
+    expect(events).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
   });
 });

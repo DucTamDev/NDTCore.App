@@ -20,14 +20,14 @@ interface PrintServiceDeps {
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
 const resolveResultStatus = (successCount: number, total: number): PrintResultStatus => {
   if (successCount === total) {
-    return PrintResultStatus.success;
+    return PrintResultStatus.Success;
   }
 
   if (successCount === 0) {
-    return PrintResultStatus.failed;
+    return PrintResultStatus.Failed;
   }
 
-  return PrintResultStatus.partialFailure;
+  return PrintResultStatus.PartialFailure;
 };
 
 export const createPrintService = (deps: PrintServiceDeps) => {
@@ -52,7 +52,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
 
     if (targets.length === 0) {
       return {
-        status: PrintResultStatus.noAvailablePrinter,
+        status: PrintResultStatus.NoAvailablePrinter,
         jobs: [],
         error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
       };
@@ -67,13 +67,13 @@ export const createPrintService = (deps: PrintServiceDeps) => {
           printerId: printer.id,
           printType,
           documents,
-          status: PrintJobStatus.pending,
+          status: PrintJobStatus.Pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),
         }),
       ),
     );
-    const successCount = jobs.filter((job) => job.status === PrintJobStatus.success).length;
+    const successCount = jobs.filter((job) => job.status === PrintJobStatus.Success).length;
     const status = resolveResultStatus(successCount, jobs.length);
     return { status, jobs };
   };

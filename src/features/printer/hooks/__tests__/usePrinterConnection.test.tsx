@@ -29,7 +29,7 @@ describe('usePrinterConnection', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('dispatches PrinterConnectionService.getStatus() into the store on mount', () => {
-    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.connected);
+    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Connected);
     (PrinterConnectionService.onStatusChange as jest.Mock).mockReturnValue(() => undefined);
     const store = makeStore();
     const statuses: PrinterStatus[] = [];
@@ -42,12 +42,12 @@ describe('usePrinterConnection', () => {
       );
     });
 
-    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.connected);
+    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.Connected);
     expect(PrinterConnectionService.getStatus).toHaveBeenCalledWith('p1');
   });
 
   it('updates when PrinterConnectionService.onStatusChange pushes a new status', () => {
-    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.idle);
+    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
     let pushStatus: ((status: PrinterStatus) => void) | undefined;
     (PrinterConnectionService.onStatusChange as jest.Mock).mockImplementation(
       (_id: string, callback: (status: PrinterStatus) => void) => {
@@ -66,14 +66,14 @@ describe('usePrinterConnection', () => {
       );
     });
     act(() => {
-      pushStatus?.(PrinterStatus.connected);
+      pushStatus?.(PrinterStatus.Connected);
     });
 
-    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.connected);
+    expect(statuses[statuses.length - 1]).toBe(PrinterStatus.Connected);
   });
 
   it('unsubscribes from PrinterConnectionService.onStatusChange on unmount', () => {
-    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.idle);
+    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
     const unsubscribe = jest.fn();
     (PrinterConnectionService.onStatusChange as jest.Mock).mockReturnValue(unsubscribe);
     const store = makeStore();

@@ -31,7 +31,7 @@ describe('DriverRegistry (web)', () => {
   });
 
   it('getStatus always returns "error"', () => {
-    expect(DriverRegistry.escpos.getStatus('p1')).toBe(PrinterStatus.error);
+    expect(DriverRegistry.escpos.getStatus('p1')).toBe(PrinterStatus.Error);
   });
 
   it('onStatusChange returns a no-op unsubscribe', () => {

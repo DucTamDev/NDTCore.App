@@ -83,7 +83,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   const [drivers, setDrivers] = useState<PrinterDriver[]>(initialValues?.drivers ?? []);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureBillImage } = useBillImageCapture();
-  const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.idle);
+  const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.Idle);
 
   const displayForm = useForm<PrinterDisplayValues>({
     resolver: zodResolver(printerDisplaySchema),
@@ -269,7 +269,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
   useEffect(() => {
     const activeDriver = drivers[0];
     if (!activeDriver) {
-      setLiveStatus(PrinterStatus.idle);
+      setLiveStatus(PrinterStatus.Idle);
       return undefined;
     }
     setLiveStatus(PrinterConnectionService.getStatusForDriver(activeDriver.type, printerId));
@@ -324,7 +324,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, purpose }: 
       return;
     }
     savedRef.current = true;
-    if (liveStatus === PrinterStatus.connected) {
+    if (liveStatus === PrinterStatus.Connected) {
       PrinterConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
       PrinterConnectionService.connect(printer.id).catch(() => undefined);

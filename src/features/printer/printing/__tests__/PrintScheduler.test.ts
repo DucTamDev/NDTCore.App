@@ -16,7 +16,7 @@ const tsplDriver = makeTsplDriverEntry();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
-  documents: { text: { elements: [] } }, status: PrintJobStatus.pending, retryCount: 0, createdAt: new Date().toISOString(),
+  documents: { text: { elements: [] } }, status: PrintJobStatus.Pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
@@ -31,7 +31,7 @@ describe('PrintScheduler', () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
-    expect(result.status).toBe(PrintJobStatus.success);
+    expect(result.status).toBe(PrintJobStatus.Success);
     expect(result.completedAt).toBeDefined();
   });
 
@@ -42,16 +42,16 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     const result = await scheduler.enqueue(makeJob());
-    expect(result.status).toBe(PrintJobStatus.failed);
+    expect(result.status).toBe(PrintJobStatus.Failed);
     expect(result.error).toEqual({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
-    const result = await scheduler.retry(makeJob({ status: PrintJobStatus.failed, retryCount: 0 }));
+    const result = await scheduler.retry(makeJob({ status: PrintJobStatus.Failed, retryCount: 0 }));
     expect(result.retryCount).toBe(1);
-    expect(result.status).toBe(PrintJobStatus.success);
+    expect(result.status).toBe(PrintJobStatus.Success);
   });
 
   it('never runs two jobs for the same printerId concurrently when the printer is not found in getPrinters (resourceKeyFor falls back to printerId)', async () => {
@@ -153,7 +153,7 @@ describe('PrintScheduler', () => {
       scan: jest.fn().mockReturnValue(() => undefined),
       connect: jest.fn().mockResolvedValue(undefined),
       disconnect: jest.fn().mockResolvedValue(undefined),
-      getStatus: jest.fn().mockReturnValue(PrinterStatus.connected),
+      getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
       onStatusChange: jest.fn().mockReturnValue(() => undefined),
       testPrint: jest.fn().mockImplementation(async () => {
         order.push('testPrint-start');

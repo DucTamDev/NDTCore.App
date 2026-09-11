@@ -199,8 +199,8 @@ export const printReceipt = async (
   try {
     const documents = await buildPrintDocumentVariants(PrintType.Receipt, textDocument, captureBillImage);
     const result = await PrintService.print(PrintType.Receipt, documents);
-    if (result.status === PrintResultStatus.noAvailablePrinter) return 'no-printer';
-    if (result.status === PrintResultStatus.failed || result.status === PrintResultStatus.partialFailure) {
+    if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
+    if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);
       return 'failed';
     }

@@ -30,7 +30,7 @@ describe('PrintService.print', () => {
     const deps = makeDeps([], () => { throw new Error('should not be called'); });
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
-    expect(result.status).toBe(PrintResultStatus.noAvailablePrinter);
+    expect(result.status).toBe(PrintResultStatus.NoAvailablePrinter);
     expect(result.error?.code).toBe(PrinterErrorCode.NO_AVAILABLE_PRINTER);
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
@@ -39,7 +39,7 @@ describe('PrintService.print', () => {
     const p1 = makePrinter('p1');
     const deps = makeDeps(
       [{ printer: p1, driver: escposDriver }],
-      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job1', requestId: 'req1', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.Success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
     const documents = { text: textDocument, image: imageBase64 };
@@ -50,29 +50,29 @@ describe('PrintService.print', () => {
   it('reports success when all jobs succeed', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.success, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.Success, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
-    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.success);
+    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.Success);
   });
 
   it('reports partial-failure on mixed results', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }, { printer: makePrinter('p2'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.success : PrintJobStatus.failed, retryCount: 0, createdAt: 'now' }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: printerId === 'p1' ? PrintJobStatus.Success : PrintJobStatus.Failed, retryCount: 0, createdAt: 'now' }),
     );
     const service = createPrintService(deps);
-    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.partialFailure);
+    expect((await service.print(PrintType.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.PartialFailure);
   });
 
   it('reports failed with no top-level error when every job fails', async () => {
     const deps = makeDeps(
       [{ printer: makePrinter('p1'), driver: escposDriver }],
-      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.failed, retryCount: 0, createdAt: 'now', error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } }),
+      (printerId) => ({ id: 'job', requestId: 'req', printerId, printType: PrintType.Receipt, documents: { text: textDocument }, status: PrintJobStatus.Failed, retryCount: 0, createdAt: 'now', error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } }),
     );
     const service = createPrintService(deps);
     const result = await service.print(PrintType.Receipt, { text: textDocument });
-    expect(result.status).toBe(PrintResultStatus.failed);
+    expect(result.status).toBe(PrintResultStatus.Failed);
     expect(result.error).toBeUndefined();
   });
 });
