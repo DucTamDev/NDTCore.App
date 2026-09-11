@@ -1,15 +1,12 @@
 import { Platform } from 'react-native';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { PrintRenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { RenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { CutterMode } from '../../models/paper/PrintPaperConfig';
-import { escPosRenderModeOf, mediaOf, paperSizeOf } from '../driverConfig';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDriver } from '../../models/printer/PrinterDriver';
-import type { PrintType } from '../../models/printing/PrintType';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionService';
 import { PrinterLogger } from '../../logging/PrinterLogger';
@@ -35,7 +32,7 @@ export class EscPosDriver implements IPrinterDriver {
   private connectedTypes = new Map<string, PrinterConnectionType>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
-  private contexts = new Map<string, { printer: Printer; driver: PrinterDriver }>();
+  private contexts = new Map<string, Printer>();
   private activeByType = new Map<PrinterConnectionType, string>();
 
   private setStatus(printerId: string, status: PrinterStatus): void {
@@ -106,7 +103,7 @@ export class EscPosDriver implements IPrinterDriver {
     };
   }
 
-  async connect(printer: Printer, driver: PrinterDriver): Promise<void> {
+  async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
 
@@ -124,7 +121,7 @@ export class EscPosDriver implements IPrinterDriver {
 
       this.adapters.set(printer.id, adapter);
       this.connectedTypes.set(printer.id, printer.connection.type);
-      this.contexts.set(printer.id, { printer, driver });
+      this.contexts.set(printer.id, printer);
 
       const previousOwner = this.activeByType.get(printer.connection.type);
 
@@ -134,10 +131,10 @@ export class EscPosDriver implements IPrinterDriver {
 
       this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.Connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.EscPos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.Error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.EscPos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -153,7 +150,7 @@ export class EscPosDriver implements IPrinterDriver {
       }
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       if (isActiveOwner) {
@@ -166,31 +163,30 @@ export class EscPosDriver implements IPrinterDriver {
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.escpos });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.EscPos });
   }
 
-  private async sendDocuments(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
-    if (escPosRenderModeOf(driver) === PrintRenderMode.bitmap) {
-      await this.sendBitmap(adapter, driver, documents);
+  private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
+    if (printer.driver.config.renderMode === RenderMode.Bitmap) {
+      await this.sendBitmap(adapter, printer, documents);
       return;
     }
 
-    const cut = resolveEffectiveCutterMode(mediaOf(driver)) !== CutterMode.None;
-    const text = buildEscPosText(paperSizeOf(driver), documents);
+    const cut = resolveEffectiveCutterMode(printer.paper) !== CutterMode.None;
+    const text = buildEscPosText(printer.paper.paperSize, documents);
     await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
   }
 
   /**
-   * ESC/POS media luôn `continuous` (schema cấm die-cut cho ESC/POS) — không
+   * ESC/POS paper luôn `Continuous` (schema cấm die-cut cho ESC/POS) — không
    * cần lặp theo cột như TSPL die-cut, đơn giản hơn hẳn theo đúng lý do vật lý.
    */
-  private async sendBitmap(adapter: NativeAdapter, driver: PrinterDriver, documents: PrintDocuments): Promise<void> {
+  private async sendBitmap(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
     if (!documents.image) {
       throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_REQUIRED, message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.' });
     }
 
-    const media = mediaOf(driver);
-    const targetWidthPx = PAPER_SIZE_SPECS[paperSizeOf(driver)].imageWidthPx;
+    const targetWidthPx = PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx;
 
     let bitmap;
 
@@ -206,29 +202,29 @@ export class EscPosDriver implements IPrinterDriver {
       throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_TOO_LARGE, message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.` });
     }
 
-    const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(media));
+    const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
     // KHÔNG dùng adapter.printText() — cần chunk qua UsbTransport như TSPL bitmap
     // (printText() trên USB gọi thẳng writeByBase64 không chunk, bill dài dễ vượt 1 lần transfer).
     await adapter.write(bytes);
   }
 
-  /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
-  async print(printerId: string, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
-    const context = this.contexts.get(printerId);
+  /** `_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async print(printerId: string, documents: PrintDocuments, _options?: PrintOptions): Promise<void> {
+    const printer = this.contexts.get(printerId);
     const connectionType = this.connectedTypes.get(printerId);
     const adapter = this.adapters.get(printerId);
 
-    if (!context || !connectionType || !adapter || this.activeByType.get(connectionType) !== printerId) {
+    if (!printer || !connectionType || !adapter || this.activeByType.get(connectionType) !== printerId) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
     }
 
     const startedAt = Date.now();
 
     try {
-      await this.sendDocuments(adapter, context.driver, documents);
-      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
+      await this.sendDocuments(adapter, printer, documents);
+      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.EscPos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -246,15 +242,15 @@ export class EscPosDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  /** `printType`/`_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
-  async testPrint(printer: Printer, driver: PrinterDriver, documents: PrintDocuments, _printType: PrintType, _options?: PrintOptions): Promise<void> {
+  /** `_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+  async testPrint(printer: Printer, documents: PrintDocuments, _options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
 
     try {
       const isStaleOwner = this.activeByType.get(printer.connection.type) !== printer.id;
 
       if (!this.adapters.has(printer.id) || isStaleOwner) {
-        await this.connect(printer, driver);
+        await this.connect(printer);
       }
 
       const adapter = this.adapters.get(printer.id);
@@ -263,10 +259,10 @@ export class EscPosDriver implements IPrinterDriver {
         return;
       }
 
-      await this.sendDocuments(adapter, driver, documents);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.escpos, durationMs: Date.now() - startedAt });
+      await this.sendDocuments(adapter, printer, documents);
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.EscPos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.escpos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
