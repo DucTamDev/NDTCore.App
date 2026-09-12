@@ -1,4 +1,4 @@
-import { RenderMode } from '../../models/printer/PrinterDriver';
+import { RenderMode, BitmapSource } from '../../models/printer/PrinterDriver';
 import type { PrinterDriver } from '../../models/printer/PrinterDriver';
 import { PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
@@ -13,10 +13,10 @@ export interface UseDriverConfigInput {
 }
 
 /**
- * Chỉnh cấu hình sau khi đã có driver: render mode (chỉ ESC/POS chọn được —
- * TSPL cố định `Bitmap`, schema ràng buộc), khổ giấy/loại giấy. Mọi thay đổi
- * persist đối xứng qua `PrinterConfigService` — no-op nếu là draft chưa lưu,
- * `Save` lo phần đó.
+ * Chỉnh cấu hình sau khi đã có driver: render mode (cả ESC/POS và TSPL đều
+ * chọn được), nguồn ảnh bitmap (chỉ có ý nghĩa khi renderMode === Bitmap),
+ * khổ giấy/loại giấy. Mọi thay đổi persist đối xứng qua `PrinterConfigService`
+ * — no-op nếu là draft chưa lưu, `Save` lo phần đó.
  */
 export const useDriverConfig = ({ printerId, driver, setDriver, paper, setPaper }: UseDriverConfigInput) => {
   const onSelectRenderMode = (mode: RenderMode): void => {
@@ -26,6 +26,15 @@ export const useDriverConfig = ({ printerId, driver, setDriver, paper, setPaper 
 
     setDriver({ ...driver, config: { ...driver.config, renderMode: mode } });
     PrinterConfigService.setRenderMode(printerId, mode);
+  };
+
+  const onSelectBitmapSource = (bitmapSource: BitmapSource): void => {
+    if (!driver) {
+      return;
+    }
+
+    setDriver({ ...driver, config: { ...driver.config, bitmapSource } });
+    PrinterConfigService.setBitmapSource(printerId, bitmapSource);
   };
 
   const onChangePaper = (patch: Partial<PrintPaperConfig>): void => {
@@ -39,5 +48,5 @@ export const useDriverConfig = ({ printerId, driver, setDriver, paper, setPaper 
     PrinterConfigService.setPaper(printerId, next);
   };
 
-  return { onSelectRenderMode, onChangePaper };
+  return { onSelectRenderMode, onSelectBitmapSource, onChangePaper };
 };

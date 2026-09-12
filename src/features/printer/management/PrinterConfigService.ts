@@ -1,5 +1,5 @@
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import { RenderMode } from '../models/printer/PrinterDriver';
+import { RenderMode, BitmapSource } from '../models/printer/PrinterDriver';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 
 type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
@@ -22,6 +22,18 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     );
   };
 
+  const setBitmapSource = (printerId: string, bitmapSource: BitmapSource): void => {
+    const printer = repository.getPrinters().find((p) => p.id === printerId);
+
+    if (!printer) {
+      return;
+    }
+
+    repository.savePrinters(
+      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, driver: { ...p.driver, config: { ...p.driver.config, bitmapSource } } })),
+    );
+  };
+
   const setPaper = (printerId: string, patch: Partial<PrintPaperConfig>): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
 
@@ -32,7 +44,7 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper: { ...p.paper, ...patch } })));
   };
 
-  return { setRenderMode, setPaper };
+  return { setRenderMode, setBitmapSource, setPaper };
 };
 
 export const PrinterConfigService = createPrinterConfigService(PrinterRepository);

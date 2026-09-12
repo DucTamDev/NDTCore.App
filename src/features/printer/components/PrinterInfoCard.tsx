@@ -11,7 +11,7 @@ import { DriverRenderModeSection } from './DriverRenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
 import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import { PrintType, PRINT_TYPE_LABELS } from '../models/printing/PrintType';
-import { DriverSource, RenderMode, type PrinterDriver } from '../models/printer/PrinterDriver';
+import { DriverSource, RenderMode, type BitmapSource, type PrinterDriver } from '../models/printer/PrinterDriver';
 import { PrinterConnectionType } from '../models/printer/PrinterConnection';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
@@ -42,8 +42,9 @@ export interface PrinterInfoCardProps {
   onAutoReconnectChange: (value: boolean) => void;
   testPrintPending: boolean;
   onTestPrint: () => void;
-  /** Chỉ có ý nghĩa khi driver là ESC/POS — TSPL cố định `Bitmap`. */
   onSelectRenderMode: (mode: RenderMode) => void;
+  /** Chỉ có tác dụng khi `driver.config.renderMode === Bitmap`. */
+  onSelectBitmapSource: (source: BitmapSource) => void;
   /** Số hàng die-cut cho "In thử" — giữ dạng text để nhập dở. */
   testPrintRowsText: string;
   onTestPrintRowsChange: (text: string) => void;
@@ -68,6 +69,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   testPrintPending,
   onTestPrint,
   onSelectRenderMode,
+  onSelectBitmapSource,
   testPrintRowsText,
   onTestPrintRowsChange,
   printType,
@@ -113,7 +115,9 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
       >
         <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
         <DriverMediaSection driverType={driver?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
-        {driver ? <DriverRenderModeSection driver={driver} disabled={locked} onSelectRenderMode={onSelectRenderMode} /> : null}
+        {driver ? (
+          <DriverRenderModeSection driver={driver} disabled={locked} onSelectRenderMode={onSelectRenderMode} onSelectBitmapSource={onSelectBitmapSource} />
+        ) : null}
         {printType === PrintType.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />
         ) : null}

@@ -327,6 +327,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, printType }
       testPrintPending: testPrint.testPrintPending,
       onTestPrint: testPrint.onTestPrint,
       onSelectRenderMode: driverConfig.onSelectRenderMode,
+      onSelectBitmapSource: driverConfig.onSelectBitmapSource,
       testPrintRowsText: testPrint.testPrintRowsText,
       onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       printType,
