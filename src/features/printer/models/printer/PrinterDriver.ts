@@ -26,8 +26,23 @@ export const RenderMode = {
 
 export type RenderMode = (typeof RenderMode)[keyof typeof RenderMode];
 
+/**
+ * Chỉ có ý nghĩa khi `renderMode === Bitmap` — chọn nguồn tạo ra
+ * `documents.image`. `Image` (mặc định, backward-compat) là chụp `View` qua
+ * `react-native-view-shot`; `Ast` vẽ trực tiếp từ `PrintDocument.elements[]`
+ * lên canvas Skia off-screen, không mount View.
+ */
+export const BitmapSource = {
+  Image: 'Image',
+  Ast: 'Ast',
+} as const;
+
+export type BitmapSource = (typeof BitmapSource)[keyof typeof BitmapSource];
+
 export interface PrinterDriverConfig {
   renderMode: RenderMode;
+  /** Chỉ có ý nghĩa khi renderMode === Bitmap. Thiếu field (printer lưu trước khi field này tồn tại) coi như `Image`. */
+  bitmapSource?: BitmapSource;
 }
 
 /** 1 driver (protocol) của 1 `Printer` — mỗi `Printer` có ĐÚNG 1 driver, xem `Printer.ts`. */
