@@ -13,12 +13,21 @@ export const DriverSource = {
 export type DriverSource = (typeof DriverSource)[keyof typeof DriverSource];
 
 /**
- * Chiến lược render dùng chung cho CẢ 2 protocol. TSPL chỉ còn `Bitmap` (đã
- * bỏ TrueType/internal-font — enforce ở schema, không phải ở type vì cả 2
- * driver dùng chung 1 `PrinterDriverConfig`). ESC/POS chọn `Encoder` hoặc `Bitmap`.
+ * Chiến lược render dùng chung cho CẢ 2 protocol — cả TSPL và ESC/POS đều
+ * chọn được `Encoder` hoặc `Bitmap` (trước đây TSPL chỉ có `Bitmap`, đã bỏ
+ * giới hạn này khi thêm `TsplTextStrategy`). Ý nghĩa `Encoder` khác nhau theo
+ * protocol — xem chi tiết ở từng nhánh bên dưới.
  */
 export const RenderMode = {
-  /** ESC/POS only — encode trực tiếp qua `EPToolkit` (cần đúng codepage CP1258), không rasterize. */
+  /**
+   * Encode trực tiếp thành lệnh text của protocol, không rasterize — nhanh
+   * hơn `Bitmap` nhưng phụ thuộc font/codepage của máy in:
+   * - TSPL (`TsplTextStrategy`): dùng font built-in `"3"` sẵn có trên máy,
+   *   chủ yếu chỉ có glyph ASCII — có thể không hiện đúng dấu tiếng Việt trên
+   *   một số dòng máy (xem comment `TsplEncoder.text()`).
+   * - ESC/POS: encode qua `EPToolkit`, cần cấu hình đúng codepage (CP1258)
+   *   để hiện đúng tiếng Việt.
+   */
   Encoder: 'Encoder',
   /** Render nội dung thành ảnh rồi gửi lệnh bitmap của protocol. Chậm hơn `Encoder` nhưng đúng trên mọi máy bất kể codepage. */
   Bitmap: 'Bitmap',

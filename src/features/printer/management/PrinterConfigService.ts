@@ -5,9 +5,9 @@ import { PrinterRepository, type createPrinterRepository } from '../storage/Prin
 type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
 
 /**
- * Cấu hình render mode / giấy cho 1 printer ĐÃ LƯU. Printer draft chưa lưu →
- * no-op ở cả 2 setter — modal Thêm máy in mang state vào lúc Save (xem
- * `useAddPrinterFlow.ts`).
+ * Cấu hình render mode / bitmap source / giấy cho 1 printer ĐÃ LƯU. Printer
+ * draft chưa lưu → no-op ở cả 3 setter — modal Thêm máy in mang state vào lúc
+ * Save (xem `useAddPrinterFlow.ts`).
  */
 export const createPrinterConfigService = (repository: PrinterRepositoryLike = PrinterRepository) => {
   const setRenderMode = (printerId: string, renderMode: RenderMode): void => {

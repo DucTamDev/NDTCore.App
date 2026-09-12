@@ -41,6 +41,8 @@ export interface PrinterDriverConfig {
 - Rule capability-check hiện có (driver-capability-vs-`printer.type`, thêm ở đợt fix review trước) giữ nguyên — không liên quan tới `renderMode`.
 - Thêm validate cho `bitmapSource`: chỉ set khi `renderMode === Bitmap` (không bắt buộc phải set — thiếu thì coi như `Image`).
 
+> **Ghi nhận sai khác so với thiết kế ban đầu (đợt fix review cuối):** Triển khai thực tế KHÔNG thêm cross-field validation ở schema như dự kiến ban đầu — `bitmapSource` chỉ validate kiểu enum, không ràng buộc theo `renderMode`. Lý do: validation cứng sẽ chặn việc lưu printer khi user chuyển từ `Bitmap` sang `Encoder` trong khi field `bitmapSource` cũ còn sót lại trên object (UI không tự xoá field này khi đổi renderMode) — giá trị sót lại là vô hại (chỉ đọc khi `renderMode === Bitmap`), nên chặn save vì nó là quá mức cần thiết.
+
 ## 4. TSPL Text Strategy (`drivers/tspl/strategies/TsplTextStrategy.ts`)
 
 Mirror `TsplBitmapStrategy`, implement `ITsplPrintStrategy` với `mode = RenderMode.Encoder`. Đi qua `documents.text.elements[]` (AST dùng chung với ESC/POS Encoder), map từng loại sang lệnh TSPL thật:
@@ -218,6 +220,7 @@ return { text: textDocument, image: base64 };
 - Không wrap dòng dài ở TSPL text mode / Skia AST renderer (mục 6) — nội dung quá khổ giấy sẽ tràn thay vì tự xuống dòng.
 - Barcode/QR trong TSPL text mode và Skia renderer dùng chiều cao ước lượng cố định, không tính theo kích thước thật đã encode — có thể tràn ở nội dung dài bất thường.
 - `image` element type chưa được xử lý ở cả 2 đường mới (chưa từng phát sinh trong thực tế, không mở rộng scope).
+- TSPL text mode không có cơ chế tương đương guard tràn `IMAGE_TOO_LARGE` của Bitmap mode: nội dung vượt chiều cao khổ giấy die-cut sẽ bị cắt/tràn âm thầm thay vì báo lỗi. Nhất quán với quyết định "không wrap" của v1 (mục 6) nhưng đáng nêu tường minh cạnh các rủi ro đã chấp nhận khác, vì Bitmap mode có báo lỗi còn Text mode thì không.
 
 ## 10. Phạm vi KHÔNG làm ở đợt này
 

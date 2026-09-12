@@ -11,6 +11,8 @@ import { makePrinter, makeTsplDriver } from '../../../../testing/printerFixtures
 
 const MEDIA: PrintPaperConfig = { type: 'Continuous', paperSize: 80 };
 
+const DIE_CUT: PrintPaperConfig = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+
 const printer: Printer = makePrinter({
   id: 'p1',
   name: 'M',
@@ -101,5 +103,13 @@ describe('TsplTextStrategy', () => {
 
   it('encode kết thúc bằng PRINT rows,1', () => {
     expect(asAscii(s.encode(ctx({ elements: [] })))).toContain('PRINT 1,1');
+  });
+
+  it('die_cut 3 cột → cùng nội dung text được lặp lại ở x = 0, pitch, 2*pitch', () => {
+    // pitch = (30 + 2) * 8 = 256, giống fixture die-cut của TsplBitmapStrategy.test.ts
+    const ascii = asAscii(s.encode(ctx({ elements: [{ type: 'text', content: 'Xin chào', x: 0, y: 0 }] }, { paper: DIE_CUT })));
+    expect(ascii).toContain('TEXT 0,0,"3",0,1,1,"Xin chào"');
+    expect(ascii).toContain('TEXT 256,0,"3",0,1,1,"Xin chào"');
+    expect(ascii).toContain('TEXT 512,0,"3",0,1,1,"Xin chào"');
   });
 });

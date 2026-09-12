@@ -25,6 +25,24 @@ describe('renderDocumentToBitmap', () => {
     expect(await renderDocumentToBitmap({ elements: [] }, MEDIA)).toBeNull();
   });
 
+  it('constructs the font at size LINE_HEIGHT_PX (24), not the Skia default', async () => {
+    await renderDocumentToBitmap({ elements: [] }, MEDIA);
+    expect(Skia.Font).toHaveBeenCalledWith(undefined, LINE_HEIGHT_PX);
+  });
+
+  it('looks up a monospace typeface via FontMgr.System().matchFamilyStyle and uses it when found', async () => {
+    const fakeTypeface = { fake: 'typeface' };
+    (Skia.FontMgr.System as jest.Mock).mockReturnValueOnce({ matchFamilyStyle: jest.fn(() => fakeTypeface) });
+    await renderDocumentToBitmap({ elements: [] }, MEDIA);
+    expect(Skia.Font).toHaveBeenCalledWith(fakeTypeface, LINE_HEIGHT_PX);
+  });
+
+  it('falls back to the default typeface at the correct size when matchFamilyStyle returns null', async () => {
+    (Skia.FontMgr.System as jest.Mock).mockReturnValueOnce({ matchFamilyStyle: jest.fn(() => null) });
+    await renderDocumentToBitmap({ elements: [] }, MEDIA);
+    expect(Skia.Font).toHaveBeenCalledWith(undefined, LINE_HEIGHT_PX);
+  });
+
   it('draws a text element via canvas.drawText at the running y offset', async () => {
     await renderDocumentToBitmap({ elements: [{ type: 'text', content: 'Xin chào', x: 0, y: 0 }] }, MEDIA);
     const surface = (Skia.Surface.MakeOffscreen as jest.Mock).mock.results[0].value;
@@ -53,11 +71,23 @@ describe('renderDocumentToBitmap', () => {
     expect(drawTextCalls.map((c: { args: unknown[] }) => c.args[0])).toEqual(['a  b', 'c  d']);
   });
 
-  it('sizes the surface height to the number of lines (2 lines → 2 * LINE_HEIGHT_PX, min 1 line)', async () => {
+  it('sizes the surface height to the number of lines plus one bottom-margin line (2 lines → 2*LINE_HEIGHT_PX + LINE_HEIGHT_PX)', async () => {
     await renderDocumentToBitmap(
       { elements: [{ type: 'text', content: 'a', x: 0, y: 0 }, { type: 'text', content: 'b', x: 0, y: 0 }] },
       MEDIA,
     );
+    // 2 * 24 (nội dung) + 24 (biên dưới bù offset y khởi đầu LINE_HEIGHT_PX của vòng lặp vẽ) = 72
+    expect(Skia.Surface.MakeOffscreen).toHaveBeenCalledWith(576, 72);
+  });
+
+  it('sizes the surface height for an empty document to max(LINE_HEIGHT_PX, 0) + LINE_HEIGHT_PX', async () => {
+    await renderDocumentToBitmap({ elements: [] }, MEDIA);
+    expect(Skia.Surface.MakeOffscreen).toHaveBeenCalledWith(576, 48);
+  });
+
+  it('does not add height for an image element (matches the drawing loop, which does not advance y for image)', async () => {
+    await renderDocumentToBitmap({ elements: [{ type: 'image', data: 'x', x: 0, y: 0 }] }, MEDIA);
+    // image không được vẽ → chỉ còn biên dưới mặc định, giống document rỗng: max(24, 0) + 24 = 48
     expect(Skia.Surface.MakeOffscreen).toHaveBeenCalledWith(576, 48);
   });
 

@@ -113,7 +113,9 @@ jest.mock('@shopify/react-native-skia', () => {
       Color: jest.fn((value) => value),
       Paint: jest.fn(() => ({ setColor: jest.fn(), setStrokeWidth: jest.fn() })),
       FontMgr: { System: jest.fn(() => ({ matchFamilyStyle: jest.fn(() => null) })) },
-      Font: jest.fn(() => ({ measureText: jest.fn(() => ({ width: 0 })), getSize: jest.fn(() => 24) })),
+      // Ghi lại `size` truyền vào thay vì hardcode — renderDocumentToBitmap.test.ts
+      // cần assert đúng cỡ chữ (24 = LINE_HEIGHT_DOTS) được truyền cho Skia.Font.
+      Font: jest.fn((_typeface, size) => ({ measureText: jest.fn(() => ({ width: 0 })), getSize: jest.fn(() => size ?? 24) })),
     },
     ImageFormat: { PNG: 'png' },
   };
