@@ -4,7 +4,8 @@ import type { PrintDocument } from '../models/printing/PrintDocument';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paper/paperSpec';
-import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX } from './printLayoutConstants';
+import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS as BARCODE_HEIGHT_PX } from './printLayoutConstants';
+import { encodeCode128 } from './code128';
 
 /** Kiểu canvas Skia thật, suy ra từ chính API đang dùng — Task 7/8 tái dùng type này cho các hàm vẽ phụ trợ (drawBarcode/drawQrCode), không định nghĩa lại. */
 type SkiaSurface = ReturnType<typeof Skia.Surface.MakeOffscreen>;
@@ -20,15 +21,39 @@ const resolveWidthPx = (media: PrintPaperConfig): number =>
  * định ngay lúc tạo, khác `View` tự cao theo nội dung.
  */
 const estimateHeightPx = (document: PrintDocument): number => {
-  let lines = 0;
+  let height = 0;
   for (const element of document.elements) {
     if (element.type === 'table') {
-      lines += element.rows.length;
+      height += element.rows.length * LINE_HEIGHT_PX;
+    } else if (element.type === 'barcode') {
+      height += BARCODE_HEIGHT_PX;
     } else {
-      lines += 1;
+      height += LINE_HEIGHT_PX;
     }
   }
-  return Math.max(LINE_HEIGHT_PX, lines * LINE_HEIGHT_PX);
+  return Math.max(LINE_HEIGHT_PX, height);
+};
+
+/**
+ * Vẽ barcode bằng cách đi qua từng độ rộng module trong `widths` (bar, space,
+ * bar, space, ...) — chỉ index CHẴN (0, 2, 4, ...) là bar (đen), index lẻ là
+ * space (bỏ qua, không vẽ). `moduleWidthPx = 2` — độ rộng 1 module tối thiểu,
+ * đủ để barcode fit trong khổ giấy phổ biến (chưa wrap — spec §6, tràn thì
+ * chấp nhận).
+ */
+const MODULE_WIDTH_PX = 2;
+
+const drawBarcode = (canvas: SkiaCanvas, content: string, x: number, y: number, paint: ReturnType<typeof Skia.Paint>): void => {
+  const { widths } = encodeCode128(content);
+  let cursor = x;
+
+  widths.forEach((width, index) => {
+    const barWidthPx = width * MODULE_WIDTH_PX;
+    if (index % 2 === 0) {
+      canvas.drawRect({ x: cursor, y, width: barWidthPx, height: BARCODE_HEIGHT_PX - 10 }, paint);
+    }
+    cursor += barWidthPx;
+  });
 };
 
 /**
@@ -79,9 +104,12 @@ export const renderDocumentToBitmap = async (document: PrintDocument, media: Pri
           }
           break;
         case 'barcode':
+          drawBarcode(canvas, element.content, 0, y, paint);
+          y += BARCODE_HEIGHT_PX;
+          break;
         case 'qrCode':
         case 'image':
-          // Task 7 (barcode), Task 8 (qrCode). image: chưa xử lý (spec §5 — chưa từng phát sinh trong thực tế).
+          // Task 8 (qrCode). image: chưa xử lý (spec §5 — chưa từng phát sinh trong thực tế).
           break;
       }
     }
