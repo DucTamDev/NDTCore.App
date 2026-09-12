@@ -119,6 +119,14 @@ jest.mock('@shopify/react-native-skia', () => {
   };
 });
 
+// qrcode does synchronous QR-matrix math with no native dependency — mocked
+// here only for deterministic, fast tests (drawQrCode.test.ts overrides
+// locally with a tiny real matrix when it needs to assert actual pixel
+// placement; other tests just need `create()` to not throw).
+jest.mock('qrcode', () => ({
+  create: jest.fn(() => ({ modules: { size: 1, data: new Uint8Array([1]) } })),
+}));
+
 // Lớp JS của native module RN*Printer (adapters/native/PrinterNativeModule)
 // gọi thẳng NativeModules.ThermalPrinterModule, nên bất kỳ test nào
 // transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —

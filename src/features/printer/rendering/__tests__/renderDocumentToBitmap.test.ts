@@ -2,7 +2,7 @@ import { renderDocumentToBitmap } from '../renderDocumentToBitmap';
 import { Skia } from '@shopify/react-native-skia';
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import { encodeCode128 } from '../code128';
-import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS } from '../printLayoutConstants';
+import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../printLayoutConstants';
 
 const MEDIA: PrintPaperConfig = { type: 'Continuous', paperSize: 80 };
 
@@ -79,5 +79,24 @@ describe('renderDocumentToBitmap', () => {
     const surface = (Skia.Surface.MakeOffscreen as jest.Mock).mock.results[0].value;
     const drawTextCall = surface.getCanvas().ops.find((o: { op: string }) => o.op === 'drawText');
     expect(drawTextCall.args[2]).toBe(LINE_HEIGHT_PX + BARCODE_HEIGHT_DOTS); // y của "after"
+  });
+
+  it('draws a qrCode as a grid of drawRect calls matching the module matrix size', async () => {
+    const qrcode = require('qrcode');
+    (qrcode.create as jest.Mock).mockReturnValueOnce({ modules: { size: 2, data: new Uint8Array([1, 0, 0, 1]) } });
+    await renderDocumentToBitmap({ elements: [{ type: 'qrCode', content: 'https://x', x: 0, y: 0 }] }, MEDIA);
+    const surface = (Skia.Surface.MakeOffscreen as jest.Mock).mock.results[0].value;
+    const rectCalls = surface.getCanvas().ops.filter((o: { op: string }) => o.op === 'drawRect');
+    expect(rectCalls).toHaveLength(2); // chỉ 2 module "dark" (data[0]=1, data[3]=1) được vẽ, module 0 bị bỏ qua
+  });
+
+  it('qrCode advances y by QRCODE_HEIGHT_DOTS', async () => {
+    await renderDocumentToBitmap(
+      { elements: [{ type: 'qrCode', content: 'x', x: 0, y: 0 }, { type: 'text', content: 'after', x: 0, y: 0 }] },
+      MEDIA,
+    );
+    const surface = (Skia.Surface.MakeOffscreen as jest.Mock).mock.results[0].value;
+    const drawTextCall = surface.getCanvas().ops.find((o: { op: string }) => o.op === 'drawText');
+    expect(drawTextCall.args[2]).toBe(LINE_HEIGHT_PX + QRCODE_HEIGHT_DOTS);
   });
 });

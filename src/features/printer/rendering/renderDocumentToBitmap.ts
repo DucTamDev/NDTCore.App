@@ -4,7 +4,12 @@ import type { PrintDocument } from '../models/printing/PrintDocument';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import { PrintPaperType } from '../models/paper/PrintPaperConfig';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paper/paperSpec';
-import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS as BARCODE_HEIGHT_PX } from './printLayoutConstants';
+import { create as createQrCode } from 'qrcode';
+import {
+  LINE_HEIGHT_DOTS as LINE_HEIGHT_PX,
+  BARCODE_HEIGHT_DOTS as BARCODE_HEIGHT_PX,
+  QRCODE_HEIGHT_DOTS as QRCODE_HEIGHT_PX,
+} from './printLayoutConstants';
 import { encodeCode128 } from './code128';
 
 /** Kiểu canvas Skia thật, suy ra từ chính API đang dùng — Task 7/8 tái dùng type này cho các hàm vẽ phụ trợ (drawBarcode/drawQrCode), không định nghĩa lại. */
@@ -27,6 +32,8 @@ const estimateHeightPx = (document: PrintDocument): number => {
       height += element.rows.length * LINE_HEIGHT_PX;
     } else if (element.type === 'barcode') {
       height += BARCODE_HEIGHT_PX;
+    } else if (element.type === 'qrCode') {
+      height += QRCODE_HEIGHT_PX;
     } else {
       height += LINE_HEIGHT_PX;
     }
@@ -54,6 +61,21 @@ const drawBarcode = (canvas: SkiaCanvas, content: string, x: number, y: number, 
     }
     cursor += barWidthPx;
   });
+};
+
+/** Mỗi module QR vẽ thành 1 ô vuông `QR_MODULE_PX` cạnh — cell size cố định, không co giãn theo version QR (v1, chấp nhận tràn nếu QR lớn — spec §6/§9). */
+const QR_MODULE_PX = 4;
+
+const drawQrCode = (canvas: SkiaCanvas, content: string, x: number, y: number, paint: ReturnType<typeof Skia.Paint>): void => {
+  const { modules } = createQrCode(content);
+  for (let row = 0; row < modules.size; row += 1) {
+    for (let col = 0; col < modules.size; col += 1) {
+      if (modules.data[row * modules.size + col] === 0) {
+        continue;
+      }
+      canvas.drawRect({ x: x + col * QR_MODULE_PX, y: y + row * QR_MODULE_PX, width: QR_MODULE_PX, height: QR_MODULE_PX }, paint);
+    }
+  }
 };
 
 /**
@@ -108,8 +130,11 @@ export const renderDocumentToBitmap = async (document: PrintDocument, media: Pri
           y += BARCODE_HEIGHT_PX;
           break;
         case 'qrCode':
+          drawQrCode(canvas, element.content, 0, y, paint);
+          y += QRCODE_HEIGHT_PX;
+          break;
         case 'image':
-          // Task 8 (qrCode). image: chưa xử lý (spec §5 — chưa từng phát sinh trong thực tế).
+          // Chưa xử lý (spec §5 — chưa từng phát sinh trong thực tế).
           break;
       }
     }
