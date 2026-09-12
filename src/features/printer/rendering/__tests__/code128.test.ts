@@ -1,4 +1,5 @@
 import { encodeCode128 } from '../code128';
+import { PrinterErrorCode } from '../../errors/PrinterError';
 
 describe('encodeCode128', () => {
   it('starts with the Start-B pattern (211214) and ends with the Stop pattern (2331112)', () => {
@@ -8,7 +9,7 @@ describe('encodeCode128', () => {
   });
 
   it('encodes a single digit-only string with the correct checksum symbol', () => {
-    // "1" → Start B(104) + code(49) → checksum = (104 + 49*1) % 103 = 50 → pattern for symbol 50
+    // "1" → Start B(104) + code(17, where 17 = 49 - 32) → checksum = (104 + 17*1) % 103 = 18 → pattern for symbol 18
     const { widths } = encodeCode128('1');
     // Start(6) + data-for-"1"(6) + checksum(6) + stop(7) = 25 widths
     expect(widths).toHaveLength(6 + 6 + 6 + 7);
@@ -19,11 +20,21 @@ describe('encodeCode128', () => {
     expect(totalModules).toBe(widths.reduce((sum, w) => sum + w, 0));
   });
 
-  it('throws INVALID_ARGUMENT for a character outside ASCII 32-126', () => {
+  it('throws VALIDATION_ERROR for a character outside ASCII 32-126', () => {
     expect(() => encodeCode128('Đơn')).toThrow();
+    try {
+      encodeCode128('Đơn');
+    } catch (e) {
+      expect(e).toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
+    }
   });
 
-  it('throws INVALID_ARGUMENT for an empty string (Code128 needs at least one symbol)', () => {
+  it('throws VALIDATION_ERROR for an empty string (Code128 needs at least one symbol)', () => {
     expect(() => encodeCode128('')).toThrow();
+    try {
+      encodeCode128('');
+    } catch (e) {
+      expect(e).toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
+    }
   });
 });

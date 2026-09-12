@@ -52,6 +52,8 @@ const STOP_PATTERN = [2, 3, 3, 1, 1, 1, 2];
  */
 export const encodeCode128 = (content: string): { widths: number[]; totalModules: number } => {
   if (content.length === 0) {
+    // VALIDATION_ERROR — the plan brief specified a nonexistent INVALID_ARGUMENT code;
+    // this is the corrected, accepted choice per the code review ruling.
     throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Nội dung barcode không được rỗng' });
   }
 
@@ -60,6 +62,8 @@ export const encodeCode128 = (content: string): { widths: number[]; totalModules
   for (const char of content) {
     const codePoint = char.codePointAt(0) ?? -1;
     if (codePoint < 32 || codePoint > 126) {
+      // VALIDATION_ERROR — the plan brief specified a nonexistent INVALID_ARGUMENT code;
+      // this is the corrected, accepted choice per the code review ruling.
       throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: `Ký tự "${char}" không hỗ trợ trong Code128 Set B (cần ASCII 32-126)` });
     }
     codes.push(codePoint - 32);
