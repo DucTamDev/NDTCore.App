@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { DriverSource, RenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { DriverSource, RenderMode, PrinterDriverType, BitmapSource } from '../../models/printer/PrinterDriver';
 import { CutterMode, PaperSize, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
@@ -51,7 +51,10 @@ const printPaperConfigSchema = z
 
 const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
 
-const printerDriverConfigSchema = z.object({ renderMode: z.enum([RenderMode.Encoder, RenderMode.Bitmap]) });
+const printerDriverConfigSchema = z.object({
+  renderMode: z.enum([RenderMode.Encoder, RenderMode.Bitmap]),
+  bitmapSource: z.enum([BitmapSource.Image, BitmapSource.Ast]).optional(),
+});
 
 export const printerDriverSchema = z.object({
   type: z.enum([PrinterDriverType.EscPos, PrinterDriverType.Tspl]),
@@ -108,10 +111,6 @@ export const printerSchema = z
   .superRefine((printer, ctx) => {
     if (printer.driver.type === PrinterDriverType.EscPos && printer.paper.type !== PrintPaperType.Continuous) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paper', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
-    }
-
-    if (printer.driver.type === PrinterDriverType.Tspl && printer.driver.config.renderMode !== RenderMode.Bitmap) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['driver', 'config', 'renderMode'], message: 'TSPL chỉ hỗ trợ chế độ Bitmap' });
     }
 
     if (!getDriverCapabilities(printer.driver.type).contentTypes.includes(printer.type)) {

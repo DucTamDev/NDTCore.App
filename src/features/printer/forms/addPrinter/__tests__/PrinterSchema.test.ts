@@ -1,6 +1,6 @@
 import { printerSchema } from '../PrinterSchema';
 import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
-import { RenderMode } from '../../../models/printer/PrinterDriver';
+import { RenderMode, BitmapSource } from '../../../models/printer/PrinterDriver';
 import { CutterMode, PaperSize, PrintPaperType } from '../../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../../models/printing/PrintType';
 import { makePrinter, makeEscPosDriver, makeTsplDriver } from '../../../testing/printerFixtures';
@@ -30,15 +30,23 @@ describe('printerSchema', () => {
     }
   });
 
-  it('rejects TSPL driver with driver.config.renderMode Encoder', () => {
+  it('accepts TSPL driver with driver.config.renderMode Encoder', () => {
     const printer = makePrinter({
       driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }),
     });
-    const result = printerSchema.safeParse(printer);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((i) => i.message === 'TSPL chỉ hỗ trợ chế độ Bitmap')).toBe(true);
-    }
+    expect(printerSchema.safeParse(printer).success).toBe(true);
+  });
+
+  it('accepts TSPL driver with bitmapSource Ast when renderMode is Bitmap', () => {
+    const printer = makePrinter({
+      driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap, bitmapSource: BitmapSource.Ast } }),
+    });
+    expect(printerSchema.safeParse(printer).success).toBe(true);
+  });
+
+  it('accepts a driver config with no bitmapSource at all (defaults to Image downstream)', () => {
+    const printer = makePrinter({ driver: makeEscPosDriver({ config: { renderMode: RenderMode.Bitmap } }) });
+    expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('rejects die-cut paper missing a required field', () => {
