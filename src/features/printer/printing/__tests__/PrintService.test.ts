@@ -1,5 +1,5 @@
 import { createPrintService, PrintService } from '../PrintService';
-import { RenderMode } from '../../models/printer/PrinterDriver';
+import { RenderMode, BitmapSource } from '../../models/printer/PrinterDriver';
 import { PaperSize, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
@@ -94,15 +94,15 @@ describe('PrintService.print', () => {
   });
 });
 
-describe('PrintService.imageDocumentMedia', () => {
+describe('PrintService.imageDocumentTarget', () => {
   it('returns null when the only target uses escpos in encoder mode', () => {
     const deps = makeDeps([makePrinter({ id: 'p1' })], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toBeNull();
+    expect(createPrintService(deps).imageDocumentTarget(PrintType.Receipt)).toBeNull();
   });
 
-  it('returns the paper of the escpos target when it is in bitmap mode (usesBitmapRenderMode generalizes beyond tspl)', () => {
+  it('returns the paper + Image bitmapSource default when the target has no bitmapSource set', () => {
     const p1 = makePrinter({
       id: 'p1',
       driver: makeEscPosDriver({ config: { renderMode: RenderMode.Bitmap } }),
@@ -111,27 +111,31 @@ describe('PrintService.imageDocumentMedia', () => {
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual(p1.paper);
+    expect(createPrintService(deps).imageDocumentTarget(PrintType.Receipt)).toEqual({ paper: p1.paper, bitmapSource: BitmapSource.Image });
   });
 
-  it('returns the paper of the tspl target when it is in bitmap mode', () => {
-    const p1 = makePrinter({ id: 'p1', driver: makeTsplDriver(), paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 } });
+  it('returns the target driver config bitmapSource when explicitly set to Ast', () => {
+    const p1 = makePrinter({
+      id: 'p1',
+      driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap, bitmapSource: BitmapSource.Ast } }),
+      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 },
+    });
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual(p1.paper);
+    expect(createPrintService(deps).imageDocumentTarget(PrintType.Receipt)).toEqual({ paper: p1.paper, bitmapSource: BitmapSource.Ast });
   });
 
-  it('returns the bitmap target paper when a mix of encoder and bitmap targets both resolve the same printType', () => {
+  it('returns the bitmap target when a mix of encoder and bitmap targets both resolve the same printType', () => {
     const p1 = makePrinter({ id: 'p1', driver: makeEscPosDriver() });
     const p2 = makePrinter({ id: 'p2', driver: makeTsplDriver(), paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 } });
     const deps = makeDeps([p1, p2], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentMedia(PrintType.Receipt)).toEqual(p2.paper);
+    expect(createPrintService(deps).imageDocumentTarget(PrintType.Receipt)).toEqual({ paper: p2.paper, bitmapSource: BitmapSource.Image });
   });
 
   it('the real exported PrintService singleton has no configured printers by default, so it returns null', () => {
-    expect(PrintService.imageDocumentMedia(PrintType.Receipt)).toBeNull();
+    expect(PrintService.imageDocumentTarget(PrintType.Receipt)).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { PRINT_TYPE_LABELS } from '../models/printing/PrintType';
 import { PrinterErrorCode } from '../errors/PrinterError';
 import type { PrintType } from '../models/printing/PrintType';
 import { usesBitmapRenderMode } from '../drivers/driverConfig';
+import { BitmapSource } from '../models/printer/PrinterDriver';
 import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
 import type { PrintDocuments } from '../drivers/IPrinterDriver';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
@@ -31,15 +32,15 @@ const resolveResultStatus = (successCount: number, total: number): PrintResultSt
 
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
-   * `PrintPaperConfig` cần để render ảnh cho `printType` này, hoặc `null` nếu
-   * không có target nào (TSPL hoặc ESC/POS) đang cấu hình `renderMode:
-   * 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí capture khi
-   * có giá trị trả về — capture theo `paper` để máy die-cut chụp đúng bề rộng
-   * tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
+   * Target (paper + bitmapSource) cần để render ảnh cho `printType` này, hoặc
+   * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
+   * `renderMode: 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
+   * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
+   * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
-  const imageDocumentMedia = (printType: PrintType): PrintPaperConfig | null => {
+  const imageDocumentTarget = (printType: PrintType): { paper: PrintPaperConfig; bitmapSource: BitmapSource } | null => {
     const target = deps.routing.resolveTargets(printType).find((printer) => usesBitmapRenderMode(printer.driver));
-    return target ? target.paper : null;
+    return target ? { paper: target.paper, bitmapSource: target.driver.config.bitmapSource ?? BitmapSource.Image } : null;
   };
 
   const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
@@ -73,7 +74,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
     return { status, jobs };
   };
 
-  return { print, imageDocumentMedia };
+  return { print, imageDocumentTarget };
 };
 
 export const PrintService = createPrintService({ routing: PrintRoutingService, scheduler: PrintScheduler });
