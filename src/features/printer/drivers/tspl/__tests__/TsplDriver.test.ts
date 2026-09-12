@@ -104,6 +104,9 @@ const bluetoothLabelPrinter: Printer = {
 const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', type: PrintType.Receipt };
 const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', type: PrintType.Receipt };
 
+/** renderMode Encoder — dùng cho test rẽ nhánh sang TsplTextStrategy (không cần documents.image). */
+const lanEncoderPrinter: Printer = { ...lanLabelPrinter, id: 'label-encoder', driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }) };
+
 const sampleDocuments: PrintDocuments = {
   text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] },
   image: tinyPngBase64(),
@@ -234,6 +237,16 @@ describe('TsplDriver', () => {
     await driver.testPrint(lanLabelPrinter, { text: sampleText, image: tinyPngBase64() });
     const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
     expect(ascii).toContain('PRINT 1,1');
+  });
+
+  it('renderMode Encoder gọi TsplTextStrategy (TEXT command), không cần documents.image', async () => {
+    const driver = new TsplDriver();
+    await driver.connect(lanEncoderPrinter);
+    const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+    const instance = LanTransport.mock.results[LanTransport.mock.results.length - 1].value as { write: jest.Mock };
+    await driver.testPrint(lanEncoderPrinter, { text: { elements: [{ type: 'text', content: 'hi', x: 0, y: 0 }] } });
+    const ascii = Array.from(instance.write.mock.calls[0][0] as Uint8Array).map((b) => String.fromCharCode(b)).join('');
+    expect(ascii).toContain('TEXT 0,0,"3",0,1,1,"hi"');
   });
 
   it('print() over USB writes through UsbTransport', async () => {

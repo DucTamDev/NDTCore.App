@@ -1,12 +1,13 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrinterDriverType, RenderMode } from '../../models/printer/PrinterDriver';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
 import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
+import { TsplTextStrategy } from './strategies/TsplTextStrategy';
 import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
@@ -32,6 +33,7 @@ const encodeAsciiCommand = (text: string): Uint8Array => {
 };
 
 const tsplBitmapStrategy = new TsplBitmapStrategy();
+const tsplTextStrategy = new TsplTextStrategy();
 
 export class TsplDriver implements IPrinterDriver {
   private connections = new Map<string, IPrinterAdapter>();
@@ -164,8 +166,9 @@ export class TsplDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  /** Nguồn render DUY NHẤT — chỉ còn `TsplBitmapStrategy` (TrueType/internal-font đã bỏ). */
+  /** Chọn strategy theo renderMode — y hệt cách EscPosDriver.sendDocuments() rẽ nhánh. */
   private buildBytes(printer: Printer, documents: PrintDocuments, rows: number): Uint8Array {
+    const strategy = printer.driver.config.renderMode === RenderMode.Bitmap ? tsplBitmapStrategy : tsplTextStrategy;
     const context: TsplStrategyContext = {
       printer,
       documents,
@@ -174,8 +177,8 @@ export class TsplDriver implements IPrinterDriver {
       rows,
     };
 
-    tsplBitmapStrategy.validate(context);
-    return tsplBitmapStrategy.encode(context);
+    strategy.validate(context);
+    return strategy.encode(context);
   }
 
   async testPrint(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
