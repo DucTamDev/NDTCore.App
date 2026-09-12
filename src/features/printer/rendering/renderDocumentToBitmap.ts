@@ -51,7 +51,40 @@ export const renderDocumentToBitmap = async (document: PrintDocument, media: Pri
     const canvas = surface.getCanvas();
     canvas.clear(Skia.Color('white'));
 
-    // Tasks 6-8 điền phần vẽ từng loại element vào đây.
+    const font = Skia.Font(); // font hệ thống mặc định — đủ dấu tiếng Việt (Roboto trên Android), xem spec §5(b)
+    const paint = Skia.Paint();
+    let y = LINE_HEIGHT_PX;
+
+    for (const element of document.elements) {
+      switch (element.type) {
+        case 'text':
+          canvas.drawText(element.content, 0, y, paint, font);
+          y += LINE_HEIGHT_PX;
+          break;
+        case 'line':
+          canvas.drawLine(0, y, widthPx, y, paint);
+          y += LINE_HEIGHT_PX;
+          break;
+        case 'row': {
+          const rightWidth = font.measureText(element.right).width;
+          canvas.drawText(element.left, 0, y, paint, font);
+          canvas.drawText(element.right, widthPx - rightWidth, y, paint, font);
+          y += LINE_HEIGHT_PX;
+          break;
+        }
+        case 'table':
+          for (const row of element.rows) {
+            canvas.drawText(row.join('  '), 0, y, paint, font);
+            y += LINE_HEIGHT_PX;
+          }
+          break;
+        case 'barcode':
+        case 'qrCode':
+        case 'image':
+          // Task 7 (barcode), Task 8 (qrCode). image: chưa xử lý (spec §5 — chưa từng phát sinh trong thực tế).
+          break;
+      }
+    }
 
     const bytes = surface.makeImageSnapshot().encodeToBytes(ImageFormat.PNG);
     return Buffer.from(bytes).toString('base64');
