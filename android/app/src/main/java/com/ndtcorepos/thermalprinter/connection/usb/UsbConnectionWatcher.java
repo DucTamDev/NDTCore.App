@@ -35,6 +35,8 @@ public final class UsbConnectionWatcher {
 
     /** Starts watching one physical USB device for detach. */
     public void watch(ConnectionIdentity identity, int vendorId, int productId) {
+        unwatch(identity);
+
         Runnable listener = () -> onConnectionLost.accept(identity);
 
         watchedDevices.put(identity, new int[] { vendorId, productId });
