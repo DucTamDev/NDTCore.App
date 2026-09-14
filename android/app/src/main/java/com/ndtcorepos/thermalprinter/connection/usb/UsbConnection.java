@@ -28,6 +28,7 @@ public final class UsbConnection implements IPrinterConnection {
 
     private UsbDeviceConnection usbConnection;
     private volatile ConnectionState state = ConnectionState.DISCONNECTED;
+    private volatile CompletableFuture<Boolean> pendingPermissionFuture;
 
     public UsbConnection(
             UsbManager usbManager,
@@ -39,10 +40,7 @@ public final class UsbConnection implements IPrinterConnection {
         this.device = device;
         this.usbInterface = usbInterface;
         this.permission = permission;
-        // close() is already idempotent and does exactly what a physical detach
-        // requires (release the interface, close the connection) — reused
-        // directly as the detach handler.
-        this.permission.registerDeviceDetachListener(device.getVendorId(), device.getProductId(), this::close);
+        this.permission.registerDeviceDetachListener(device.getVendorId(), device.getProductId(), this::handleDetach);
     }
 
     /**
@@ -50,10 +48,14 @@ public final class UsbConnection implements IPrinterConnection {
      * already granted.
      *
      * Deliberately NOT `synchronized` — awaitPermission() below can block for
-     * up to PERMISSION_TIMEOUT_SECONDS while the system dialog is on screen. If
-     * this method held the instance lock during that wait, a device detached
-     * mid-dialog could never complete close() (which needs the same lock) to
-     * unblock the wait, deadlocking until the timeout instead of failing fast.
+     * up to PERMISSION_TIMEOUT_SECONDS while the system dialog is on screen.
+     * Completing a mid-dialog detach's pending future (see handleDetach())
+     * only needs a plain field write, not this instance's monitor, so that
+     * part works either way — but if open() held the monitor for the whole
+     * wait, a concurrent getState()/isConnected() status check (e.g. from a
+     * UI polling connection state) would also block for up to 30 seconds
+     * instead of returning immediately. Not synchronizing keeps those status
+     * reads responsive while a permission dialog is pending.
      */
     @Override
     public PrinterWriteResult open() {
@@ -103,6 +105,7 @@ public final class UsbConnection implements IPrinterConnection {
      */
     private boolean awaitPermission() {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
+        pendingPermissionFuture = future;
         int vendorId = device.getVendorId();
         int productId = device.getProductId();
 
@@ -117,8 +120,25 @@ public final class UsbConnection implements IPrinterConnection {
         } catch (ExecutionException | TimeoutException exception) {
             return false;
         } finally {
+            pendingPermissionFuture = null;
             permission.unregisterPermissionResultListener(vendorId, productId);
         }
+    }
+
+    /**
+     * Handles a physical USB detach. If a permission request is currently
+     * pending, completes it with false first so awaitPermission()'s blocked
+     * future.get() returns immediately instead of running out its full
+     * timeout — then runs the same cleanup as an explicit close().
+     */
+    private void handleDetach() {
+        CompletableFuture<Boolean> pending = pendingPermissionFuture;
+
+        if (pending != null) {
+            pending.complete(false);
+        }
+
+        close();
     }
 
     @Override
