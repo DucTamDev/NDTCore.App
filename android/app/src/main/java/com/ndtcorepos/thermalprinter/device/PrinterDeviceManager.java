@@ -20,12 +20,6 @@ public final class PrinterDeviceManager {
      */
     private final PrinterDeviceRegistry registry;
 
-    /**
-     * Reference counts for active device consumers.
-     */
-    private final Map<ConnectionIdentity, Integer> referenceCounts =
-            new HashMap<>();
-
 
     /**
      * Creates a printer device manager.
@@ -40,45 +34,7 @@ public final class PrinterDeviceManager {
 
 
     /**
-     * Acquires an existing runtime device.
-     *
-     * @param identity physical connection identity
-     * @return device handle
-     * @throws IllegalStateException when the device is not registered
-     */
-    public synchronized PrinterDeviceHandle acquire(
-            ConnectionIdentity identity
-    ) {
-        IPrinterDevice device =
-                registry.get(identity);
-
-        if (device == null) {
-            throw new IllegalStateException(
-                    "Printer device is not registered: "
-                            + identity
-            );
-        }
-
-        int count =
-                referenceCounts.getOrDefault(
-                        identity,
-                        0
-                );
-
-        referenceCounts.put(
-                identity,
-                count + 1
-        );
-
-        return new PrinterDeviceHandle(
-                device,
-                () -> release(identity)
-        );
-    }
-
-
-    /**
-     * Registers a runtime device without acquiring a consumer reference.
+     * Registers a runtime device.
      *
      * @param device runtime printer device
      */
@@ -86,48 +42,6 @@ public final class PrinterDeviceManager {
             IPrinterDevice device
     ) {
         registry.register(device);
-        referenceCounts.putIfAbsent(
-                device.getConnectionIdentity(),
-                0
-        );
-    }
-
-
-    /**
-     * Releases one consumer reference.
-     *
-     * The runtime device is removed when no consumer remains.
-     *
-     * @param identity physical connection identity
-     */
-    public synchronized void release(
-            ConnectionIdentity identity
-    ) {
-        Integer count =
-                referenceCounts.get(identity);
-
-        if (count == null) {
-            return;
-        }
-
-        if (count <= 1) {
-
-            referenceCounts.remove(identity);
-
-            IPrinterDevice device =
-                    registry.remove(identity);
-
-            if (device != null) {
-                device.close();
-            }
-
-            return;
-        }
-
-        referenceCounts.put(
-                identity,
-                count - 1
-        );
     }
 
 
@@ -143,11 +57,10 @@ public final class PrinterDeviceManager {
         return registry.get(identity);
     }
 
-    /** Removes a runtime device without applying consumer reference counting. */
+    /** Removes a runtime device from the registry without closing it. */
     public synchronized IPrinterDevice remove(
             ConnectionIdentity identity
     ) {
-        referenceCounts.remove(identity);
         return registry.remove(identity);
     }
 
@@ -156,8 +69,6 @@ public final class PrinterDeviceManager {
      * Closes and removes all active runtime devices.
      */
     public synchronized void closeAll() {
-
-        referenceCounts.clear();
 
         for (IPrinterDevice device : registry.snapshot()) {
             device.close();
