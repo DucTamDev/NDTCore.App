@@ -28,6 +28,7 @@ import com.ndtcorepos.thermalprinter.device.net.NetworkPrinterDevice;
 import com.ndtcorepos.thermalprinter.device.usb.UsbPrinterDevice;
 import com.ndtcorepos.thermalprinter.discovery.bluetooth.BluetoothPrinterDiscovery;
 import com.ndtcorepos.thermalprinter.discovery.usb.UsbPrinterDiscovery;
+import com.ndtcorepos.thermalprinter.enums.ConnectionState;
 import com.ndtcorepos.thermalprinter.enums.ConnectionType;
 import com.ndtcorepos.thermalprinter.enums.IdentityStability;
 import com.ndtcorepos.thermalprinter.identity.usb.UsbConnectionIdentityResolver;
@@ -41,9 +42,10 @@ import com.ndtcorepos.thermalprinter.writer.usb.UsbEndpointResolver;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * React Native bridge for the native thermal printer layer.
@@ -56,6 +58,13 @@ import java.util.concurrent.Future;
 public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
     private static final String MODULE_NAME = "ThermalPrinterModule";
+
+    /**
+     * Upper bound on how long the bridge thread waits for a queued write —
+     * without it a stalled transport (dead socket, unresponsive printer)
+     * blocks every subsequent native-module call behind it forever.
+     */
+    private static final int WRITE_TIMEOUT_SECONDS = 15;
 
     private final UsbManager usbManager;
 
@@ -76,10 +85,11 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
         this.usbManager = (UsbManager) reactContext.getSystemService(Context.USB_SERVICE);
 
-        this.usbDiscovery = new UsbPrinterDiscovery(reactContext);
+        this.usbEndpointResolver = new UsbEndpointResolver();
+
+        this.usbDiscovery = new UsbPrinterDiscovery(reactContext, usbEndpointResolver);
         this.bluetoothDiscovery = new BluetoothPrinterDiscovery();
         this.usbIdentityResolver = new UsbConnectionIdentityResolver();
-        this.usbEndpointResolver = new UsbEndpointResolver();
 
         this.usbPermission = new UsbPermission(reactContext);
         this.usbPermission.register();
@@ -144,17 +154,31 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
             String printerId = request.getString("printerId");
             ConnectionType type = ConnectionType.fromWireValue(request.getString("type"));
 
-            ConnectionIdentity identity = resolveIdentity(type, request);
+            UsbDevice usbDevice = type == ConnectionType.USB
+                    ? findUsbDevice(request.getInt("vendorId"), request.getInt("productId"))
+                    : null;
 
-            if (identity == null) {
+            if (type == ConnectionType.USB && usbDevice == null) {
                 promise.reject("CONNECT_FAILED", "Device not found");
                 return;
             }
 
+            ConnectionIdentity identity = resolveIdentity(type, request, usbDevice);
+
             IPrinterDevice device = deviceManager.get(identity);
 
+            if (device != null && device.getState() != ConnectionState.CONNECTED) {
+                // Registered but no longer actually connected (e.g. the
+                // physical device was detached) — tear it down and rebuild
+                // fresh rather than reporting a stale "already connected".
+                queueManager.remove(identity);
+                deviceManager.remove(identity);
+                device.close();
+                device = null;
+            }
+
             if (device == null) {
-                device = createDevice(type, identity, request);
+                device = createDevice(type, identity, request, usbDevice);
 
                 PrinterWriteResult result = device.open();
 
@@ -177,16 +201,13 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
      * Resolves the physical connection identity for a connect request — cheap
      * enough to call before deciding whether a new device even needs building.
      *
-     * @return null when the requested USB device is not currently attached
+     * @param usbDevice the already-located USB device for USB requests, null
+     *                  for other transports — looked up once by connect() so
+     *                  identity resolution and device creation cannot disagree
+     *                  about which device they are talking to
      */
-    private ConnectionIdentity resolveIdentity(ConnectionType type, ReadableMap request) {
+    private ConnectionIdentity resolveIdentity(ConnectionType type, ReadableMap request, UsbDevice usbDevice) {
         if (type == ConnectionType.USB) {
-            UsbDevice usbDevice = findUsbDevice(request.getInt("vendorId"), request.getInt("productId"));
-
-            if (usbDevice == null) {
-                return null;
-            }
-
             return usbIdentityResolver.resolve(toUsbDescriptor(usbDevice));
         }
 
@@ -201,9 +222,8 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
     }
 
     /** Builds (but does not open) the runtime device for a connect request. */
-    private IPrinterDevice createDevice(ConnectionType type, ConnectionIdentity identity, ReadableMap request) {
+    private IPrinterDevice createDevice(ConnectionType type, ConnectionIdentity identity, ReadableMap request, UsbDevice usbDevice) {
         if (type == ConnectionType.USB) {
-            UsbDevice usbDevice = findUsbDevice(request.getInt("vendorId"), request.getInt("productId"));
             UsbInterface usbInterface = findPrinterInterface(usbDevice);
             UsbConnection connection = new UsbConnection(usbManager, usbDevice, usbInterface, usbPermission);
             return new UsbPrinterDevice(identity, connection, usbEndpointResolver);
@@ -231,7 +251,16 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
             byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
 
             Future<PrinterWriteResult> future = queueManager.submit(device, bytes);
-            PrinterWriteResult result = future.get();
+
+            PrinterWriteResult result;
+
+            try {
+                result = future.get(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            } catch (TimeoutException timeoutException) {
+                future.cancel(true);
+                promise.reject("WRITE_FAILED", "Write timed out");
+                return;
+            }
 
             if (!result.isSuccess()) {
                 promise.reject("WRITE_FAILED", result.getErrorCode().name());
@@ -244,25 +273,56 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
         }
     }
 
-    /** Closes a printer's connection and forgets its printerId mapping. */
+    /**
+     * Closes a printer's connection and forgets its printerId mapping.
+     *
+     * The physical connection is only torn down once no other printerId still
+     * maps to it — two printerIds can share one device (see connect()), and
+     * disconnecting one must not break the other.
+     */
     @ReactMethod
     public void disconnect(String printerId, Promise promise) {
-        ConnectionIdentity identity = connectedPrinters.remove(printerId);
+        try {
+            ConnectionIdentity identity = connectedPrinters.remove(printerId);
 
-        if (identity == null) {
+            if (identity == null) {
+                promise.resolve(null);
+                return;
+            }
+
+            if (connectedPrinters.containsValue(identity)) {
+                // Another printerId still shares this physical connection —
+                // only forget this printerId's mapping, don't tear it down.
+                promise.resolve(null);
+                return;
+            }
+
+            queueManager.remove(identity);
+
+            IPrinterDevice device = deviceManager.remove(identity);
+
+            if (device != null) {
+                device.close();
+            }
+
             promise.resolve(null);
-            return;
+        } catch (Exception exception) {
+            promise.reject("DISCONNECT_FAILED", exception);
         }
+    }
 
-        queueManager.remove(identity);
-
-        IPrinterDevice device = deviceManager.remove(identity);
-
-        if (device != null) {
-            device.close();
-        }
-
-        promise.resolve(null);
+    /**
+     * Releases every native resource this module holds — the USB broadcast
+     * receiver, all open USB/Bluetooth/TCP connections, and the per-connection
+     * queue executors. React Native calls this when the module is torn down
+     * (notably on every dev reload), so without it each reload leaks them.
+     */
+    @Override
+    public void invalidate() {
+        usbPermission.unregister();
+        deviceManager.closeAll();
+        queueManager.shutdown();
+        super.invalidate();
     }
 
     private UsbDevice findUsbDevice(int vendorId, int productId) {
@@ -275,11 +335,16 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
         return null;
     }
 
+    /**
+     * Picks the interface that actually carries a bulk OUT endpoint — a
+     * composite device's first endpoint-bearing interface may be an unrelated
+     * HID/interrupt one, which would fail later with INVALID_ENDPOINT.
+     */
     private UsbInterface findPrinterInterface(UsbDevice device) {
         for (int index = 0; index < device.getInterfaceCount(); index++) {
             UsbInterface usbInterface = device.getInterface(index);
 
-            if (usbInterface.getEndpointCount() > 0) {
+            if (usbEndpointResolver.resolve(usbInterface) != null) {
                 return usbInterface;
             }
         }
