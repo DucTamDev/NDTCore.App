@@ -10,14 +10,8 @@ beforeEach(() => {
   NativeModules.ThermalPrinterModule = {
     discoverPrinters: jest.fn().mockResolvedValue([]),
     connect: jest.fn().mockResolvedValue(undefined),
-    reconnect: jest.fn().mockResolvedValue(undefined),
     disconnect: jest.fn().mockResolvedValue(undefined),
     writeByBase64: jest.fn().mockResolvedValue('ok'),
-    getPrinterInfo: jest.fn().mockResolvedValue(undefined),
-    getPrinterCapabilities: jest.fn().mockResolvedValue(undefined),
-    getConnectionState: jest.fn().mockResolvedValue('CONNECTED'),
-    cancelPrintJob: jest.fn().mockResolvedValue(false),
-    getQueueStatus: jest.fn().mockResolvedValue({ pendingCount: 0, runningJobId: null }),
   };
 });
 
