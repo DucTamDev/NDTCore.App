@@ -52,10 +52,11 @@ public final class UsbConnection implements IPrinterConnection {
      * Completing a mid-dialog detach's pending future (see handleDetach())
      * only needs a plain field write, not this instance's monitor, so that
      * part works either way — but if open() held the monitor for the whole
-     * wait, a concurrent getState()/isConnected() status check (e.g. from a
-     * UI polling connection state) would also block for up to 30 seconds
-     * instead of returning immediately. Not synchronizing keeps those status
-     * reads responsive while a permission dialog is pending.
+     * wait, every `synchronized` method on this instance — close(), claim()
+     * and getUsbConnection() — would block behind it for up to 30 seconds.
+     * Notably that would stall close() (and therefore an explicit disconnect
+     * or module teardown) until the dialog resolved. Not synchronizing keeps
+     * those operations available while a permission dialog is pending.
      */
     @Override
     public PrinterWriteResult open() {

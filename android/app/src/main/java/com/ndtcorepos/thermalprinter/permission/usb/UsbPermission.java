@@ -92,6 +92,14 @@ public final class UsbPermission {
         Log.v(LOG_SOURCE, "receiver registered");
     }
 
+    /**
+     * Undoes register() — call when the owning native module is torn down so
+     * the receiver registration does not leak across RN reloads.
+     */
+    public void unregister() {
+        context.unregisterReceiver(receiver);
+    }
+
     public boolean hasPermission(UsbDevice device) {
         return usbManager.hasPermission(device);
     }

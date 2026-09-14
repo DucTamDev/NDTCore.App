@@ -3,18 +3,17 @@ package com.ndtcorepos.thermalprinter.writer.usb;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
-import android.hardware.usb.UsbRequest;
 
 import com.ndtcorepos.thermalprinter.enums.PrinterErrorCode;
 import com.ndtcorepos.thermalprinter.model.PrinterWriteResult;
 import com.ndtcorepos.thermalprinter.writer.IPrinterWriter;
 
-import java.nio.ByteBuffer;
-
 /**
  * Writes raw bytes to a USB printer.
  *
- * UsbRequest is the primary USB transfer mechanism.
+ * UsbDeviceConnection.bulkTransfer is the primary USB transfer mechanism —
+ * it is the only one that honors the caller's timeout on every supported API
+ * level, so a printer that stops ACKing cannot block the caller forever.
  *
  * This class does not manage USB permission, device discovery,
  * connection lifecycle, or printer protocol encoding.
@@ -68,9 +67,10 @@ public final class UsbWriter
 
 
     /**
-     * Writes raw bytes using UsbRequest.
+     * Writes raw bytes using a single bulk transfer.
      *
-     * The complete byte array is queued as one USB request.
+     * The complete byte array is sent as one transfer — callers chunk larger
+     * payloads before reaching this layer.
      *
      * @param data raw printer bytes
      * @param timeout timeout in milliseconds
@@ -117,7 +117,7 @@ public final class UsbWriter
             );
         }
 
-        return writeWithUsbRequest(
+        return writeWithBulkTransfer(
                 data,
                 timeout
         );
@@ -125,58 +125,33 @@ public final class UsbWriter
 
 
     /**
-     * Sends the byte array using Android UsbRequest.
+     * Sends the byte array using UsbDeviceConnection.bulkTransfer, which
+     * honors the caller's timeout on every supported API level (unlike
+     * UsbRequest.queue()/UsbDeviceConnection.requestWait(), whose no-arg
+     * overload never times out).
      *
      * @param data raw printer bytes
      * @param timeout timeout in milliseconds
      * @return write result
      */
-    private PrinterWriteResult writeWithUsbRequest(
+    private PrinterWriteResult writeWithBulkTransfer(
             byte[] data,
             int timeout
     ) {
-        UsbRequest request = new UsbRequest();
+        int transferred = usbConnection.bulkTransfer(
+                usbEndpoint,
+                data,
+                data.length,
+                timeout
+        );
 
-        try {
-            if (!request.initialize(
-                    usbConnection,
-                    usbEndpoint
-            )) {
-                return PrinterWriteResult.failure(
-                        PrinterErrorCode.WRITE_FAILED,
-                        0
-                );
-            }
-
-            ByteBuffer buffer =
-                    ByteBuffer.wrap(data);
-
-            if (!request.queue(
-                    buffer,
-                    data.length
-            )) {
-                return PrinterWriteResult.failure(
-                        PrinterErrorCode.WRITE_FAILED,
-                        0
-                );
-            }
-
-            UsbRequest completedRequest =
-                    usbConnection.requestWait();
-
-            if (completedRequest == null) {
-                return PrinterWriteResult.failure(
-                        PrinterErrorCode.WRITE_TIMEOUT,
-                        0
-                );
-            }
-
-            return PrinterWriteResult.success(
-                    data.length
+        if (transferred < 0) {
+            return PrinterWriteResult.failure(
+                    PrinterErrorCode.WRITE_TIMEOUT,
+                    0
             );
-
-        } finally {
-            request.close();
         }
+
+        return PrinterWriteResult.success(transferred);
     }
 }

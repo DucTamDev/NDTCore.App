@@ -2,9 +2,6 @@ package com.ndtcorepos.thermalprinter.device;
 
 import com.ndtcorepos.thermalprinter.model.ConnectionIdentity;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Manages active physical printer runtimes.
  *

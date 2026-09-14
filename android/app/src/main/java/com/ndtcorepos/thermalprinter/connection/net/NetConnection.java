@@ -33,15 +33,21 @@ public final class NetConnection implements IPrinterConnection {
 
         state = ConnectionState.CONNECTING;
 
+        Socket newSocket = new Socket();
+
         try {
-            Socket newSocket = new Socket();
             newSocket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
-            socket = newSocket;
         } catch (IOException exception) {
+            try {
+                newSocket.close();
+            } catch (IOException ignored) {
+            }
+
             state = ConnectionState.DISCONNECTED;
             return PrinterWriteResult.failure(PrinterErrorCode.CONNECTION_FAILED, 0);
         }
 
+        socket = newSocket;
         state = ConnectionState.CONNECTED;
         return PrinterWriteResult.success(0);
     }
