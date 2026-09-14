@@ -461,8 +461,19 @@ public final class BluetoothConnectionWatcher {
         context.unregisterReceiver(receiver);
     }
 
-    /** Starts watching one bonded Bluetooth device for ACL disconnect. */
+    /**
+     * Starts watching one bonded Bluetooth device for ACL disconnect.
+     *
+     * Calls unwatch(identity) first so a stale prior registration for the
+     * same identity (e.g. left behind because onConnectionLost fired without
+     * a matching unwatch — see Task 2's UsbConnectionWatcher, which had this
+     * exact leak-on-rewatch bug before its own review caught it) can never
+     * accumulate: re-watching the same identity always ends with exactly one
+     * live listener registered for it, never two.
+     */
     public void watch(ConnectionIdentity identity, String address) {
+        unwatch(identity);
+
         Runnable listener = () -> onConnectionLost.accept(identity);
 
         watchedAddresses.put(identity, address);
