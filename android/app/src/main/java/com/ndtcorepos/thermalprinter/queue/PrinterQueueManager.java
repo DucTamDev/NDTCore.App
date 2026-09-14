@@ -1,62 +1,86 @@
 package com.ndtcorepos.thermalprinter.queue;
 
-import com.ndtcorepos.thermalprinter.printer.PrinterRegistry;
+import com.ndtcorepos.thermalprinter.device.IPrinterDevice;
+import com.ndtcorepos.thermalprinter.model.ConnectionIdentity;
+import com.ndtcorepos.thermalprinter.model.PrinterWriteResult;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
 
 /**
- * Map printerId → PrinterQueue, tạo lười khi có job đầu tiên cho 1 printerId.
+ * Manages one serial queue for each physical connection identity.
+ *
+ * Writes targeting the same connection execute sequentially.
+ * Writes targeting different connections can execute concurrently.
  */
 public final class PrinterQueueManager {
 
-    private final PrinterRegistry registry;
-    private final Map<String, PrinterQueue> queues = new ConcurrentHashMap<>();
+    /**
+     * Queues indexed by physical connection identity.
+     */
+    private final Map<ConnectionIdentity, PrinterQueue> queues =
+            new HashMap<>();
 
-    public PrinterQueueManager(PrinterRegistry registry) {
-        this.registry = registry;
-    }
 
     /**
-     * Lấy queue của 1 printer, tạo mới nếu chưa có.
+     * Submits raw bytes to the queue belonging to a connection.
      *
-     * @param printerId printer cần lấy queue
-     * @return queue tương ứng
+     * @param device runtime printer device
+     * @param data raw printer bytes
+     * @return asynchronous write result
      */
-    public PrinterQueue getOrCreate(String printerId) {
-        return queues.computeIfAbsent(printerId, id -> new PrinterQueue(id, registry));
-    }
+    public synchronized Future<PrinterWriteResult> submit(
+            IPrinterDevice device,
+            byte[] data
+    ) {
+        ConnectionIdentity identity =
+                device.getConnectionIdentity();
 
-    /**
-     * Lấy queue của 1 printer NẾU đã tồn tại — không tự tạo mới (dùng cho
-     * getQueueStatus, tránh spin lên 1 executor thừa chỉ để hỏi trạng thái).
-     *
-     * @param printerId printer cần tra cứu
-     * @return queue tương ứng, null nếu chưa từng có job nào
-     */
-    public PrinterQueue getIfExists(String printerId) {
-        return queues.get(printerId);
-    }
+        PrinterQueue queue =
+                queues.get(identity);
 
-    /**
-     * Huỷ 1 job theo id — tìm trong tất cả queue đang quản lý.
-     *
-     * @param jobId id job cần huỷ
-     * @return true nếu huỷ thành công
-     */
-    public boolean cancel(String jobId) {
-        for (PrinterQueue queue : queues.values()) {
-            if (queue.cancel(jobId)) {
-                return true;
-            }
+        if (queue == null) {
+            queue = new PrinterQueue(device);
+
+            queues.put(
+                    identity,
+                    queue
+            );
         }
-        return false;
+
+        return queue.submit(
+                new PrinterQueueTask(data)
+        );
     }
 
+
     /**
-     * Đóng tất cả queue đang quản lý.
+     * Removes and shuts down the queue for a connection.
+     *
+     * @param identity physical connection identity
      */
-    public void shutdownAll() {
-        queues.values().forEach(PrinterQueue::shutdown);
+    public synchronized void remove(
+            ConnectionIdentity identity
+    ) {
+        PrinterQueue queue =
+                queues.remove(identity);
+
+        if (queue != null) {
+            queue.shutdown();
+        }
+    }
+
+
+    /**
+     * Shuts down all printer queues.
+     */
+    public synchronized void shutdown() {
+
+        for (PrinterQueue queue : queues.values()) {
+            queue.shutdown();
+        }
+
+        queues.clear();
     }
 }

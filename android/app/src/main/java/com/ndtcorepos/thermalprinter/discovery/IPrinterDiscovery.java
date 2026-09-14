@@ -1,19 +1,20 @@
 package com.ndtcorepos.thermalprinter.discovery;
 
-import com.ndtcorepos.thermalprinter.error.PrinterException;
-import com.ndtcorepos.thermalprinter.printer.PrinterInfo;
+import com.ndtcorepos.thermalprinter.model.PrinterDescriptor;
 
 import java.util.List;
 
 /**
- * Tìm các printer khả dụng cho 1 loại kết nối.
+ * Discovers physical printer devices available through one transport.
+ *
+ * Discovery does not open devices, request permission, or transmit data.
  */
 public interface IPrinterDiscovery {
 
     /**
-     * Quét thiết bị khả dụng.
+     * Discovers currently available printer devices.
      *
-     * @throws PrinterException DISCOVERY_FAILED nếu hệ thống USB/Bluetooth không sẵn sàng
+     * @return discovered printer descriptors
      */
-    List<PrinterInfo> discover() throws PrinterException;
+    List<PrinterDescriptor> discover();
 }

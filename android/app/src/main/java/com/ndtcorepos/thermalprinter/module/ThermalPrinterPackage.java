@@ -15,7 +15,7 @@ import java.util.List;
 public class ThermalPrinterPackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
-        return Arrays.asList(new NativeModule[] { new PrinterModule(reactContext) });
+        return Arrays.asList(new NativeModule[] { new ThermalPrinterModule(reactContext) });
     }
 
     @Override
