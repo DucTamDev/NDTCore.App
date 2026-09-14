@@ -13,8 +13,9 @@ import android.widget.Toast;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
@@ -31,8 +32,18 @@ public final class UsbPermission {
     private final ReactApplicationContext context;
     private final UsbManager usbManager;
     private PendingIntent permissionIntent;
-    private final Map<String, Runnable> deviceDetachListeners = new HashMap<>();
-    private final Map<String, Consumer<Boolean>> permissionResultListeners = new HashMap<>();
+
+    /**
+     * Multiple independent listeners per device (e.g. UsbConnection's own
+     * detach cleanup and UsbConnectionWatcher's JS-notification listener) —
+     * ConcurrentHashMap + concurrent Set because these are read and written
+     * from two different threads: the native-modules thread (register/
+     * unregister, called from connect()/disconnect()) and the
+     * BroadcastReceiver's callback thread (main/UI thread, since register()
+     * below does not pass a Handler).
+     */
+    private final Map<String, Set<Runnable>> deviceDetachListeners = new ConcurrentHashMap<>();
+    private final Map<String, Set<Consumer<Boolean>>> permissionResultListeners = new ConcurrentHashMap<>();
 
     public UsbPermission(ReactApplicationContext context) {
         this.context = context;
@@ -40,17 +51,24 @@ public final class UsbPermission {
     }
 
     /**
-     * Registers a detach callback keyed by (vendorId, productId) — one
-     * UsbPermission instance is shared by every UsbConnection, so listeners
-     * must be told apart by device rather than a single shared Runnable.
+     * Registers a detach callback keyed by (vendorId, productId) — a device
+     * can have more than one listener (e.g. UsbConnection's own cleanup and
+     * UsbConnectionWatcher's JS-notification listener), so this adds to the
+     * set rather than replacing a single value.
      */
     public void registerDeviceDetachListener(int vendorId, int productId, Runnable listener) {
-        deviceDetachListeners.put(deviceKey(vendorId, productId), listener);
+        deviceDetachListeners
+                .computeIfAbsent(deviceKey(vendorId, productId), key -> ConcurrentHashMap.newKeySet())
+                .add(listener);
     }
 
-    /** Unregisters a detach callback — call when a UsbConnection closes on its own. */
-    public void unregisterDeviceDetachListener(int vendorId, int productId) {
-        deviceDetachListeners.remove(deviceKey(vendorId, productId));
+    /** Unregisters one detach callback — pass the exact instance given to registerDeviceDetachListener. */
+    public void unregisterDeviceDetachListener(int vendorId, int productId, Runnable listener) {
+        Set<Runnable> listeners = deviceDetachListeners.get(deviceKey(vendorId, productId));
+
+        if (listeners != null) {
+            listeners.remove(listener);
+        }
     }
 
     private static String deviceKey(int vendorId, int productId) {
@@ -63,12 +81,18 @@ public final class UsbPermission {
      * grant/deny result instead of treating a pending dialog as success.
      */
     public void registerPermissionResultListener(int vendorId, int productId, Consumer<Boolean> listener) {
-        permissionResultListeners.put(deviceKey(vendorId, productId), listener);
+        permissionResultListeners
+                .computeIfAbsent(deviceKey(vendorId, productId), key -> ConcurrentHashMap.newKeySet())
+                .add(listener);
     }
 
-    /** Unregisters a permission-result callback after it fires, or if the caller gives up. */
-    public void unregisterPermissionResultListener(int vendorId, int productId) {
-        permissionResultListeners.remove(deviceKey(vendorId, productId));
+    /** Unregisters one permission-result callback — pass the exact instance given to registerPermissionResultListener. */
+    public void unregisterPermissionResultListener(int vendorId, int productId, Consumer<Boolean> listener) {
+        Set<Consumer<Boolean>> listeners = permissionResultListeners.get(deviceKey(vendorId, productId));
+
+        if (listeners != null) {
+            listeners.remove(listener);
+        }
     }
 
     public void register() {
@@ -143,19 +167,20 @@ public final class UsbPermission {
             return;
         }
 
-        String key = deviceKey(device.getVendorId(), device.getProductId());
-        Consumer<Boolean> listener = permissionResultListeners.get(key);
+        Set<Consumer<Boolean>> listeners = permissionResultListeners.get(deviceKey(device.getVendorId(), device.getProductId()));
 
-        if (listener == null) {
+        if (listeners == null) {
             return;
         }
 
-        listener.accept(granted);
+        for (Consumer<Boolean> listener : listeners) {
+            listener.accept(granted);
+        }
     }
 
     /**
      * Multiple UsbConnections can be active at once, so the detached device must
-     * be read from EXTRA_DEVICE and only that device's listener notified.
+     * be read from EXTRA_DEVICE and only that device's listeners notified.
      */
     private void handleDeviceDetached(Context ctx, Intent intent) {
         Toast.makeText(ctx, "USB device has been turned off", Toast.LENGTH_LONG).show();
@@ -166,14 +191,15 @@ public final class UsbPermission {
             return;
         }
 
-        String key = deviceKey(device.getVendorId(), device.getProductId());
-        Runnable listener = deviceDetachListeners.get(key);
+        Set<Runnable> listeners = deviceDetachListeners.get(deviceKey(device.getVendorId(), device.getProductId()));
 
-        if (listener == null) {
+        if (listeners == null) {
             return;
         }
 
-        listener.run();
+        for (Runnable listener : listeners) {
+            listener.run();
+        }
     }
 
     /**

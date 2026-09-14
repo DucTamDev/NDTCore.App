@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 /** Manages the Android USB resources for one physical printer connection. */
 public final class UsbConnection implements IPrinterConnection {
@@ -29,6 +30,7 @@ public final class UsbConnection implements IPrinterConnection {
     private UsbDeviceConnection usbConnection;
     private volatile ConnectionState state = ConnectionState.DISCONNECTED;
     private volatile CompletableFuture<Boolean> pendingPermissionFuture;
+    private final Runnable detachListener = this::handleDetach;
 
     public UsbConnection(
             UsbManager usbManager,
@@ -40,7 +42,7 @@ public final class UsbConnection implements IPrinterConnection {
         this.device = device;
         this.usbInterface = usbInterface;
         this.permission = permission;
-        this.permission.registerDeviceDetachListener(device.getVendorId(), device.getProductId(), this::handleDetach);
+        this.permission.registerDeviceDetachListener(device.getVendorId(), device.getProductId(), detachListener);
     }
 
     /**
@@ -107,10 +109,11 @@ public final class UsbConnection implements IPrinterConnection {
     private boolean awaitPermission() {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
         pendingPermissionFuture = future;
+        Consumer<Boolean> permissionResultListener = future::complete;
         int vendorId = device.getVendorId();
         int productId = device.getProductId();
 
-        permission.registerPermissionResultListener(vendorId, productId, future::complete);
+        permission.registerPermissionResultListener(vendorId, productId, permissionResultListener);
         permission.requestPermission(device);
 
         try {
@@ -122,7 +125,7 @@ public final class UsbConnection implements IPrinterConnection {
             return false;
         } finally {
             pendingPermissionFuture = null;
-            permission.unregisterPermissionResultListener(vendorId, productId);
+            permission.unregisterPermissionResultListener(vendorId, productId, permissionResultListener);
         }
     }
 
@@ -156,7 +159,7 @@ public final class UsbConnection implements IPrinterConnection {
         }
 
         state = ConnectionState.DISCONNECTED;
-        permission.unregisterDeviceDetachListener(device.getVendorId(), device.getProductId());
+        permission.unregisterDeviceDetachListener(device.getVendorId(), device.getProductId(), detachListener);
         return PrinterWriteResult.success(0);
     }
 
