@@ -1,4 +1,6 @@
 import { TscCompiler } from '../TscCompiler';
+import { TSC_COMMAND } from '../TscCommand';
+import type { ResolvedPrintDocument } from '../../../document';
 
 describe('TscCompiler', () => {
   it('emits a BITMAP command with an actual payload, not a bare trailing comma', () => {
@@ -56,5 +58,115 @@ describe('TscCompiler', () => {
     // An unescaped bare quote would split the command grammar into extra
     // comma-separated parameters instead of staying inside one string field.
     expect(output).not.toContain('"Say "hello""');
+  });
+
+  it('emits a DIAGONAL command for a diagonal element, not a BAR command', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }],
+    });
+
+    expect(output).toContain('DIAGONAL 0,0,100,50,2');
+    expect(output).not.toContain('BAR ');
+  });
+
+  it('still emits a BAR command for an axis-aligned line element', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'line', options: { x1: 0, y1: 10, x2: 100, y2: 10, thickness: 2 } }],
+    });
+
+    expect(output).toContain('BAR 0,10,100,2');
+    expect(output).not.toContain('DIAGONAL');
+  });
+
+  it('emits SET CUTTER OFF for cut mode "off"', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    const lines = output.trim().split('\r\n');
+    expect(lines).toContain('SET CUTTER OFF');
+  });
+
+  it('emits SET CUTTER <rows> for cut mode "full" with an explicit rows count', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'cut', options: { mode: 'full', rows: 3 } }],
+    });
+
+    const lines = output.trim().split('\r\n');
+    expect(lines).toContain('SET CUTTER 3');
+  });
+
+  it('defaults cut rows to 1 when omitted', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'cut', options: { mode: 'partial' } }],
+    });
+
+    const lines = output.trim().split('\r\n');
+    expect(lines).toContain('SET CUTTER 1');
+  });
+
+  it('compiles a table element into real TEXT commands carrying its cell content', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [
+        {
+          type: 'table',
+          options: {
+            x: 5,
+            y: 20,
+            columns: [{ width: 10 }, { width: 10 }],
+            rows: [
+              ['hello', 'world'],
+              ['foo', 'bar'],
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(output).toContain(TSC_COMMAND.TEXT);
+    expect(output).toContain('hello');
+    expect(output).toContain('world');
+    expect(output).toContain('foo');
+    expect(output).toContain('bar');
+
+    // Two rows must land on two different y positions, not overwrite each other.
+    const textLines = output.split('\r\n').filter((l) => l.startsWith(`${TSC_COMMAND.TEXT} `));
+    expect(textLines).toHaveLength(2);
+    const yValues = textLines.map((l) => Number(l.split(',')[1]));
+    expect(yValues[0]).toBe(20);
+    expect(yValues[1]).toBeGreaterThan(20);
+  });
+
+  it('produces byte-identical output for pageBreak/spacer/row/column no-ops vs. an empty-elements document', () => {
+    const compilerA = new TscCompiler();
+    const compilerB = new TscCompiler();
+    const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+    };
+
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const noOpOutput = compilerB.compile({
+      ...baseDoc,
+      elements: [
+        { type: 'pageBreak' },
+        { type: 'spacer', options: { size: 10 } },
+        { type: 'row', options: {} },
+        { type: 'column', options: {} },
+      ],
+    });
+
+    expect(noOpOutput).toBe(emptyOutput);
   });
 });

@@ -1,18 +1,13 @@
-import type { ResolvedPrintDocument, PrintElement } from '../../document';
+import type { ResolvedPrintDocument } from '../../document';
+import type { PrintElement } from '../../builder';
 import type { PrinterProfile } from '../../profile';
 import type { PrintCompiler } from '../../core';
 import type { BarcodeSymbology } from '../../barcode';
 import type { QrErrorCorrectionLevel } from '../../qrcode';
 import type { TextOptions } from '../../builder/content/TextElement';
-import type { ImageOptions } from '../../builder/content/ImageElement';
-import type { BoxOptions } from '../../builder/drawing/BoxElement';
-import type { LineOptions } from '../../builder/drawing/LineElement';
-import type { CircleOptions } from '../../builder/drawing/CircleElement';
-import type { EllipseOptions } from '../../builder/drawing/EllipseElement';
-import type { ReverseOptions } from '../../builder/drawing/ReverseElement';
-import type { EraseOptions } from '../../builder/drawing/EraseElement';
 import { TSC_COMMAND } from './TscCommand';
 import { encodeTscBitmapPayload } from './TscEncoder';
+import { formatTable } from '../../receipt';
 
 const MM_PER_INCH = 25.4;
 
@@ -41,6 +36,19 @@ const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 const QR_MODE_AUTO = 'A';
 
 /**
+ * Per-row line height, in dots, used to stack a `table` element's formatted
+ * lines. Derived from `DEFAULT_FONT` ("2")'s glyph height on the TSPL
+ * built-in bitmap font table — same 20-dot figure `TscPreviewRenderer`'s
+ * `TSC_FONTS['2'].h` uses, kept consistent since table rows are compiled via
+ * `compileTextElement` with no explicit font override (so they render at
+ * `DEFAULT_FONT`).
+ */
+const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 20;
+
+/** TSPL2 default cut-batch size when `CutOptions.rows` is omitted — cut after every 1 label. */
+const DEFAULT_CUT_ROWS = 1;
+
+/**
  * Escapes a value for embedding inside a double-quoted TSPL string parameter
  * (e.g. `TEXT`/`BLOCK`/`BARCODE`/`QRCODE`'s trailing `"content"` field).
  *
@@ -56,8 +64,8 @@ function escapeTsplString(content: string): string {
   return content.replace(/"/g, '\\"').replace(/[\r\n]/g, ' ');
 }
 
-function compileTextElement(content: string, options: Record<string, unknown>): string {
-  const o = options as TextOptions;
+function compileTextElement(content: string, options: TextOptions | undefined): string {
+  const o = options ?? {};
   const x = o.x ?? 0;
   const y = o.y ?? 0;
   const font = o.font ?? DEFAULT_FONT;
@@ -81,7 +89,7 @@ function compileElement(element: PrintElement): string {
       return compileTextElement(element.content, element.options);
 
     case 'image': {
-      const o = element.options as ImageOptions;
+      const o = element.options ?? {};
       const x = o.x ?? 0;
       const y = o.y ?? 0;
       const bmp = element.bitmap;
@@ -90,7 +98,7 @@ function compileElement(element: PrintElement): string {
     }
 
     case 'box': {
-      const o = element.options as unknown as BoxOptions;
+      const o = element.options;
       const x2 = o.x + o.width;
       const y2 = o.y + o.height;
       const t = o.thickness ?? 1;
@@ -100,44 +108,90 @@ function compileElement(element: PrintElement): string {
       return `${TSC_COMMAND.BOX} ${o.x},${o.y},${x2},${y2},${t}`;
     }
 
+    // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
+    // element/case below (see `DiagonalElement` in `builder/PrintElement.ts`).
+    // The final `return` stays unconditional (not nested in the `x1===x2`
+    // `if`) so every path returns a string even if a hand-built document
+    // bypasses `PrintBuilder.line()`'s axis-aligned guarantee — that would
+    // otherwise fall through into the next switch case.
     case 'line': {
-      const o = element.options as unknown as LineOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       if (o.y1 === o.y2) {
         const w = Math.abs(o.x2 - o.x1);
         return `${TSC_COMMAND.BAR} ${Math.min(o.x1, o.x2)},${o.y1},${w},${t}`;
       }
-      if (o.x1 === o.x2) {
-        const h = Math.abs(o.y2 - o.y1);
-        return `${TSC_COMMAND.BAR} ${o.x1},${Math.min(o.y1, o.y2)},${t},${h}`;
-      }
+      const h = Math.abs(o.y2 - o.y1);
+      return `${TSC_COMMAND.BAR} ${o.x1},${Math.min(o.y1, o.y2)},${t},${h}`;
+    }
+
+    // The non-axis-aligned case `'line'` used to fall back to — moved here as-is.
+    case 'diagonal': {
+      const o = element.options;
+      const t = o.thickness ?? 1;
       return `${TSC_COMMAND.DIAGONAL} ${o.x1},${o.y1},${o.x2},${o.y2},${t}`;
     }
 
     case 'circle': {
-      const o = element.options as unknown as CircleOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       return `${TSC_COMMAND.CIRCLE} ${o.x},${o.y},${o.diameter},${t}`;
     }
 
     case 'ellipse': {
-      const o = element.options as unknown as EllipseOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       return `${TSC_COMMAND.ELLIPSE} ${o.x},${o.y},${o.width},${o.height},${t}`;
     }
 
     case 'reverse': {
-      const o = element.options as unknown as ReverseOptions;
+      const o = element.options;
       return `${TSC_COMMAND.REVERSE} ${o.x},${o.y},${o.width},${o.height}`;
     }
 
     case 'erase': {
-      const o = element.options as unknown as EraseOptions;
+      const o = element.options;
       return `${TSC_COMMAND.ERASE} ${o.x},${o.y},${o.width},${o.height}`;
     }
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
+
+    /**
+     * `SET CUTTER` — see `TSC_COMMAND.SET_CUTTER`'s doc comment for why this
+     * follows `TsplEncoder.cut()`'s exact grammar (no `BATCH` keyword) rather
+     * than inventing one. `'full'`/`'partial'` are not distinguished — TSPL's
+     * cutter has no partial-cut concept, unlike ESC/POS's `GS V`.
+     */
+    case 'cut': {
+      const mode = element.options?.mode ?? 'full';
+      if (mode === 'off') return `${TSC_COMMAND.SET_CUTTER} OFF`;
+      const rows = element.options?.rows ?? DEFAULT_CUT_ROWS;
+      return `${TSC_COMMAND.SET_CUTTER} ${rows}`;
+    }
+
+    // Real behavior: format the rows into text lines via the shared
+    // `formatTable()` (same helper `EscPosCompiler`'s `'table'` case uses),
+    // then emit each line as its own `TSC_COMMAND.TEXT` command, stacked one
+    // `DEFAULT_TABLE_ROW_HEIGHT_DOTS` apart starting at the table's own y.
+    case 'table': {
+      const o = element.options;
+      const x = o.x ?? 0;
+      const y = o.y ?? 0;
+      const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
+      const rowLines = formatTable(o.columns, o.rows, totalWidth);
+      return rowLines.map((line, i) => compileTextElement(line, { x, y: y + i * DEFAULT_TABLE_ROW_HEIGHT_DOTS })).join('\r\n');
+    }
+
+    // Neither TSPL nor this package has a native "page break" / "advance the
+    // cursor by N dots" / "lay out children in a row-or-column" primitive —
+    // documented no-op, same precedent as `EscPosCompiler`'s equivalent
+    // cases, pending a real auto-layout design (not a bug).
+    case 'pageBreak':
+    case 'spacer':
+    case 'row':
+    case 'column':
+      return '';
 
     // Not in portakal (it never compiles barcode/qrcode elements) — derived
     // directly from the TSPL/TSPL2 Programming Manual's `BARCODE`/`QRCODE`
@@ -186,7 +240,10 @@ export function compileToTSC(document: ResolvedPrintDocument): string {
   lines.push(TSC_COMMAND.CLS);
 
   for (const element of document.elements) {
-    lines.push(compileElement(element));
+    // A no-op element (or empty-content `raw`) compiles to `''` — skip it so
+    // it doesn't push a spurious blank line into the `\r\n`-joined output.
+    const line = compileElement(element);
+    if (line) lines.push(line);
   }
 
   lines.push(`${TSC_COMMAND.PRINT} ${document.copies}`);
