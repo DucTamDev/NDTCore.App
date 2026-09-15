@@ -1,0 +1,11 @@
+{
+  "name": "printer-core",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Framework-agnostic thermal printer core: label/document model, ESC/POS + TSPL compilers, barcode/QR/image encoding, paper + printer profiles. No I/O, no React Native dependency.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  }
+}
