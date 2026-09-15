@@ -1,2 +1,12 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+export type PrintElementType =
+  | "text"
+  | "image"
+  | "box"
+  | "line"
+  | "circle"
+  | "ellipse"
+  | "reverse"
+  | "erase"
+  | "raw"
+  | "barcode"
+  | "qrcode";

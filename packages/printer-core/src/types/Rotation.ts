@@ -1,2 +1,1 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+export type Rotation = 0 | 90 | 180 | 270;

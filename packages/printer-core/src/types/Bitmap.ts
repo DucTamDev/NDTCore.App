@@ -1,2 +1,6 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+export interface Bitmap {
+  data: Uint8Array;
+  width: number;
+  height: number;
+  bytesPerRow: number;
+}

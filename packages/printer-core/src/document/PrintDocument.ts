@@ -1,2 +1,6 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { PrintDocumentOptions } from './PrintDocumentOptions';
+
+export interface PrintDocument extends PrintDocumentOptions {
+  width: number;
+  height?: number;
+}

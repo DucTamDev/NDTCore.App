@@ -1,2 +1,4 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { Point } from './Point';
+import type { Size } from './Size';
+
+export interface Rect extends Point, Size {}

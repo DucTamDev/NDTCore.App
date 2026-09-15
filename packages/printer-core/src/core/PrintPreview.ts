@@ -1,2 +1,5 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { ResolvedPrintDocument } from '../document';
+
+export interface PrintPreview {
+  preview(document: ResolvedPrintDocument): string;
+}

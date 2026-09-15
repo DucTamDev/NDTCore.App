@@ -1,2 +1,3 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+export interface PrintParser<TResult> {
+  parse(source: string | Uint8Array): TResult;
+}
