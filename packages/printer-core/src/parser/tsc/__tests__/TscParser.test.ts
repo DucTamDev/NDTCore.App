@@ -1,4 +1,6 @@
 import { TscParser, parseTSPL } from '../TscParser';
+import { TscCompiler } from '../../../compiler/tsc/TscCompiler';
+import type { ResolvedPrintDocument } from '../../../document';
 
 describe('TscParser', () => {
   it('parses a SIZE + CLS + TEXT + PRINT sequence', () => {
@@ -39,5 +41,65 @@ describe('TscParser', () => {
   it('flags a genuinely unrecognized command as UNKNOWN (parser-level; range/order checks are the validator\'s job)', () => {
     const result = parseTSPL('NOTAREALCOMMAND 1,2,3\n');
     expect(result.commands).toEqual([{ cmd: 'UNKNOWN', raw: 'NOTAREALCOMMAND 1,2,3' }]);
+  });
+
+  describe('known limitation: BITMAP payload bytes containing 0x0A fracture re-parsing', () => {
+    /**
+     * `TscCompiler`/`encodeTscBitmapPayload` embed the bitmap's raw bytes
+     * directly into the `\r\n`-joined TSPL document string (see
+     * TscEncoder.ts). `TscParser` tokenizes the whole document with
+     * `code.split(/\r?\n/)` *before* any command-specific parsing runs, and
+     * the BITMAP branch only reads its 5 header parameters — it has no
+     * byte-count-aware logic to consume/skip the payload that follows. A
+     * payload byte of 0x0A (line feed) is real bitmap data a printer will
+     * happily accept over the wire, but it also matches `\r?\n` and
+     * therefore splits the document mid-payload on re-parse: everything
+     * after the split point (the rest of the payload, and every line after
+     * it) is re-tokenized as if it started a new command. Depending on the
+     * exact byte values, this can corrupt the BITMAP command's own numeric
+     * fields and/or spawn spurious extra commands (most falling into
+     * `UNKNOWN`) from leftover payload bytes that don't match any real
+     * command grammar.
+     *
+     * This is a known, accepted limitation of the line-based parser port
+     * (preserving portakal's exact grammar/tokenization, not fixed here) —
+     * it does NOT affect what a real printer receives, since the transport
+     * sends the compiled string's bytes as-is. It DOES mean `TscParser`
+     * cannot faithfully round-trip a `TscCompiler`-produced document that
+     * contains an image element whose payload happens to contain 0x0A.
+     * This test pins the CURRENT (broken) parse behavior — traced by hand
+     * against the compiled string below and confirmed by running it — so
+     * the gap stays visible instead of silently unverified.
+     */
+    it('spawns a spurious UNKNOWN command from a BITMAP payload byte after a 0x0A split', () => {
+      const doc: ResolvedPrintDocument = {
+        widthDots: 320,
+        heightDots: 240,
+        dpi: 203,
+        gapDots: 24,
+        speed: 4,
+        density: 8,
+        direction: 0,
+        copies: 1,
+        elements: [{ type: 'image', bitmap: { data: new Uint8Array([0x41, 0x0a, 0x42]), width: 24, height: 1, bytesPerRow: 3 }, options: {} }],
+      };
+
+      const compiled = new TscCompiler().compile(doc);
+      // Compiled BITMAP line: `BITMAP 0,0,3,1,0,A\nB` — the payload's own
+      // 0x0A byte (between "A" and "B") is indistinguishable from a real
+      // line break once the document is tokenized.
+      expect(compiled).toContain('BITMAP 0,0,3,1,0,A\nB');
+
+      const result = parseTSPL(compiled);
+      const cmdNames = result.commands.map((c) => c.cmd);
+
+      // A clean round-trip would produce exactly 8 commands (SIZE, GAP,
+      // SPEED, DENSITY, DIRECTION, CLS, BITMAP, PRINT). The leaked "B" byte
+      // (0x42) lands on its own fractured "line", matches no known command,
+      // and is recorded as an extra UNKNOWN — corrupting the command count
+      // and stream instead of being consumed as bitmap data.
+      expect(cmdNames).toEqual(['SIZE', 'GAP', 'SPEED', 'DENSITY', 'DIRECTION', 'CLS', 'BITMAP', 'UNKNOWN', 'PRINT']);
+      expect(result.commands.find((c) => c.cmd === 'UNKNOWN')).toEqual({ cmd: 'UNKNOWN', raw: 'B' });
+    });
   });
 });

@@ -636,6 +636,25 @@ export function parseTSPL(code: string): TSPLParseResult {
       continue;
     }
 
+    // KNOWN LIMITATION: this only reads the 5 header parameters — it does not
+    // consume the widthBytes*height binary payload bytes that follow the
+    // trailing comma (TscCompiler/encodeTscBitmapPayload append them, see
+    // TscEncoder.ts). Because the whole document is first tokenized into
+    // "lines" via `code.split(/\r?\n/)` above, any payload byte equal to
+    // 0x0D/0x0A splits mid-payload into spurious extra lines, which then
+    // mostly parse as UNKNOWN — corrupting the rest of the command stream.
+    // Real monochrome bitmap data will commonly contain such bytes. This
+    // mirrors portakal's own line-based `parseTSPL()`, which never handled a
+    // binary payload either (it's the same code path the "known-broken"
+    // BITMAP header — no payload at all — came from). Making this
+    // byte-count-aware would mean abandoning line-based tokenization for
+    // BITMAP specifically, which is out of scope for a straight grammar
+    // port: TscParser cannot yet faithfully round-trip (compile -> parse) a
+    // TscCompiler-produced document containing an image element. This does
+    // NOT affect what a real printer receives — the transport sends the
+    // compiled string's raw bytes as-is, so the printer sees the correct
+    // BITMAP command and payload regardless of what this in-package parser
+    // makes of it afterwards.
     if (upperLine.startsWith('BITMAP ')) {
       const args = line.slice(7).trim();
       const params = args.split(',');
