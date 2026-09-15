@@ -1,2 +1,5 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
+/**
+ * QR code element — renders a 2D QR code via the printer's native command.
+ * Configuration lives in `QrCodeConfig` (see `../../qrcode`).
+ */
 export {};

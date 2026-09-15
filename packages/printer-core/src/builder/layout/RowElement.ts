@@ -1,2 +1,7 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { Point } from '../../types';
+
+/** Options for a horizontal row layout — net-new, no portakal equivalent. */
+export interface RowOptions extends Point {
+  /** Gap between children, in dots. */
+  gap?: number;
+}

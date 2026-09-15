@@ -1,2 +1,5 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+/**
+ * Marker options for a page break — net-new, no portakal equivalent.
+ * Carries no configuration, only a position in the element list.
+ */
+export type PageBreakOptions = Record<string, never>;
