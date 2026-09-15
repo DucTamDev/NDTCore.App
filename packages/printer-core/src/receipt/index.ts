@@ -4,5 +4,6 @@ export * from './ReceiptCell';
 export * from './ReceiptFormatter';
 export * from './PairFormatter';
 export * from './TableFormatter';
+export * from './validateTableColumns';
 export * from './SeparatorFormatter';
 export * from './WordWrapper';

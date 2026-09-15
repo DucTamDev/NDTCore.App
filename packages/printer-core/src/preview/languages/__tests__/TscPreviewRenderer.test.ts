@@ -10,6 +10,41 @@ describe('TscPreviewRenderer', () => {
     expect(svg).toContain('<line');
   });
 
+  it('previews a text element with no options field without throwing', () => {
+    expect(() =>
+      new TscPreviewRenderer().preview({
+        widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [{ type: 'text', content: 'x' }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('previews an image element with no options field without throwing', () => {
+    expect(() =>
+      new TscPreviewRenderer().preview({
+        widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [{ type: 'image', bitmap: { data: new Uint8Array([0xff]), width: 8, height: 1, bytesPerRow: 1 } }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('renders a diagonal-shaped line element (hand-built, not via PrintBuilder.line()) as a <line>, not a vertical <rect>', () => {
+    const svg = new TscPreviewRenderer().preview({
+      widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'line', options: { x1: 0, y1: 0, x2: 10, y2: 20 } }],
+    });
+    expect(svg).toContain('<line');
+  });
+
+  it('throws a clear error for a table element with a zero-width column', () => {
+    expect(() =>
+      new TscPreviewRenderer().preview({
+        widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [{ type: 'table', options: { x: 0, y: 0, columns: [{ width: 10 }, { width: 0 }], rows: [['a', 'b']] } }],
+      }),
+    ).toThrow(/positive width/);
+  });
+
   it('renders table row content as text', () => {
     const svg = new TscPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,

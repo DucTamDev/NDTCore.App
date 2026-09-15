@@ -149,6 +149,26 @@ describe('TscCompiler', () => {
     expect(yValues[1]).toBeGreaterThan(20);
   });
 
+  it('throws a clear error when a table column has a non-positive width instead of silently dropping its content', () => {
+    const compiler = new TscCompiler();
+    expect(() =>
+      compiler.compile({
+        widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [
+          {
+            type: 'table',
+            options: {
+              x: 5,
+              y: 20,
+              columns: [{ width: 10 }, { width: 0 }],
+              rows: [['hello', 'world']],
+            },
+          },
+        ],
+      }),
+    ).toThrow(/positive width/);
+  });
+
   it('produces byte-identical output for pageBreak/spacer/row/column no-ops vs. an empty-elements document', () => {
     const compilerA = new TscCompiler();
     const compilerB = new TscCompiler();

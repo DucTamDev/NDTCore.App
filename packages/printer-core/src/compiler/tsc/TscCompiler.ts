@@ -7,7 +7,7 @@ import type { QrErrorCorrectionLevel } from '../../qrcode';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { TSC_COMMAND } from './TscCommand';
 import { encodeTscBitmapPayload } from './TscEncoder';
-import { formatTable } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../receipt';
 
 const MM_PER_INCH = 25.4;
 
@@ -45,7 +45,7 @@ const QR_MODE_AUTO = 'A';
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 20;
 
-/** TSPL2 default cut-batch size when `CutOptions.rows` is omitted — cut after every 1 label. */
+/** Default number of labels to feed before cutting when `CutOptions.rows` is omitted — cut after every 1 label. */
 const DEFAULT_CUT_ROWS = 1;
 
 /**
@@ -110,10 +110,12 @@ function compileElement(element: PrintElement): string {
 
     // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
     // element/case below (see `DiagonalElement` in `builder/PrintElement.ts`).
-    // The final `return` stays unconditional (not nested in the `x1===x2`
-    // `if`) so every path returns a string even if a hand-built document
-    // bypasses `PrintBuilder.line()`'s axis-aligned guarantee — that would
-    // otherwise fall through into the next switch case.
+    // `PrintBuilder.line()` always dispatches via `isDiagonal()` so it never
+    // produces a `'line'` element with diagonal coordinates, but a hand-built
+    // `PrintElement` literal could bypass that guarantee — the fallback below
+    // covers that case defensively (reusing the same `DIAGONAL` emission the
+    // `'diagonal'` case uses) instead of silently emitting an incorrect
+    // vertical `BAR`.
     case 'line': {
       const o = element.options;
       const t = o.thickness ?? 1;
@@ -121,8 +123,11 @@ function compileElement(element: PrintElement): string {
         const w = Math.abs(o.x2 - o.x1);
         return `${TSC_COMMAND.BAR} ${Math.min(o.x1, o.x2)},${o.y1},${w},${t}`;
       }
-      const h = Math.abs(o.y2 - o.y1);
-      return `${TSC_COMMAND.BAR} ${o.x1},${Math.min(o.y1, o.y2)},${t},${h}`;
+      if (o.x1 === o.x2) {
+        const h = Math.abs(o.y2 - o.y1);
+        return `${TSC_COMMAND.BAR} ${o.x1},${Math.min(o.y1, o.y2)},${t},${h}`;
+      }
+      return `${TSC_COMMAND.DIAGONAL} ${o.x1},${o.y1},${o.x2},${o.y2},${t}`;
     }
 
     // The non-axis-aligned case `'line'` used to fall back to — moved here as-is.
@@ -178,6 +183,7 @@ function compileElement(element: PrintElement): string {
       const o = element.options;
       const x = o.x ?? 0;
       const y = o.y ?? 0;
+      validateTableColumns(o.columns);
       const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
       const rowLines = formatTable(o.columns, o.rows, totalWidth);
       return rowLines.map((line, i) => compileTextElement(line, { x, y: y + i * DEFAULT_TABLE_ROW_HEIGHT_DOTS })).join('\r\n');

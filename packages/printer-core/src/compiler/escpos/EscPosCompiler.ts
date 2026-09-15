@@ -8,7 +8,7 @@ import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';
 import { encodeEscPosBarcode } from './EscPosBarcodeEncoder';
 import { encodeEscPosQrCode } from './EscPosQrCodeEncoder';
-import { formatTable } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../receipt';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {
@@ -106,6 +106,7 @@ function compileElement(element: PrintElement, profile: PrinterProfile | undefin
     }
 
     case 'table': {
+      validateTableColumns(element.options.columns);
       const totalWidth = element.options.columns.reduce((sum, column) => sum + column.width, 0);
       const lines = formatTable(element.options.columns, element.options.rows, totalWidth);
       const chunks: Uint8Array[] = [];

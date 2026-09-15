@@ -1,6 +1,5 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintPreview } from '../../core';
-import type { TextOptions } from '../../builder/content/TextElement';
 
 const DEFAULT_RECEIPT_WIDTH_DOTS = 576;
 const LINE_HEIGHT_PAD = 4;
@@ -25,7 +24,7 @@ export class EscPosPreviewRenderer implements PrintPreview {
 
     for (const element of document.elements) {
       if (element.type !== 'text') continue;
-      const o = element.options as TextOptions;
+      const o = element.options ?? {};
 
       const fontSize = (o.size ?? 1) * 12;
       const align = o.align ?? 'left';

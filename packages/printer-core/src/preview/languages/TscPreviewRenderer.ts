@@ -1,14 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintPreview } from '../../core';
-import type { TextOptions } from '../../builder/content/TextElement';
-import type { ImageOptions } from '../../builder/content/ImageElement';
-import type { BoxOptions } from '../../builder/drawing/BoxElement';
-import type { CircleOptions } from '../../builder/drawing/CircleElement';
-import type { EllipseOptions } from '../../builder/drawing/EllipseElement';
-import type { ReverseOptions } from '../../builder/drawing/ReverseElement';
-import type { EraseOptions } from '../../builder/drawing/EraseElement';
-import { formatTable } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../receipt';
 
 /** TSC built-in bitmap-font pixel dimensions, per the TSPL/TSPL2 Programming Manual's font table. */
 const TSC_FONTS: Record<string, { w: number; h: number }> = {
@@ -55,7 +48,7 @@ function tscCharWidth(font: string | undefined, size: number | undefined, xScale
 function renderElement(element: PrintElement): string {
   switch (element.type) {
     case 'text': {
-      const o = element.options as TextOptions;
+      const o = element.options ?? {};
       const x = o.x ?? 0;
       const y = o.y ?? 0;
       const fs = tscFontSize(o.font, o.size, o.yScale);
@@ -75,7 +68,7 @@ function renderElement(element: PrintElement): string {
     }
 
     case 'image': {
-      const o = element.options as ImageOptions;
+      const o = element.options ?? {};
       const x = o.x ?? 0;
       const y = o.y ?? 0;
       const bmp = element.bitmap;
@@ -99,7 +92,7 @@ function renderElement(element: PrintElement): string {
     }
 
     case 'box': {
-      const o = element.options as unknown as BoxOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       const rx = o.radius ?? 0;
       if (t >= Math.min(o.width, o.height)) {
@@ -109,18 +102,23 @@ function renderElement(element: PrintElement): string {
     }
 
     // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
-    // element/case below. The vertical branch's `return` stays unconditional
-    // (not nested in an `x1===x2` `if`) so every path returns a string even
-    // if a hand-built document bypasses `PrintBuilder.line()`'s axis-aligned
-    // guarantee — that would otherwise fall through into the next switch
-    // case. Same precedent as `TscCompiler.ts`'s `'line'`/`'diagonal'` split.
+    // element/case below. `PrintBuilder.line()` always dispatches via
+    // `isDiagonal()` so it never produces a `'line'` element with diagonal
+    // coordinates, but a hand-built `PrintElement` literal could bypass that
+    // guarantee — the fallback below covers that case defensively (reusing
+    // the same emission the `'diagonal'` case uses) instead of silently
+    // rendering an incorrect vertical bar. Same precedent as
+    // `TscCompiler.ts`'s `'line'`/`'diagonal'` split.
     case 'line': {
       const o = element.options;
       const t = o.thickness ?? 1;
       if (o.y1 === o.y2) {
         return `<rect x="${Math.min(o.x1, o.x2)}" y="${o.y1}" width="${Math.abs(o.x2 - o.x1)}" height="${t}" fill="#000"/>`;
       }
-      return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
+      if (o.x1 === o.x2) {
+        return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
+      }
+      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
     }
 
     // The non-axis-aligned case `'line'` used to fall back to — moved here as-is.
@@ -131,7 +129,7 @@ function renderElement(element: PrintElement): string {
     }
 
     case 'circle': {
-      const o = element.options as unknown as CircleOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       const r = o.diameter / 2;
       if (t >= r) return `<circle cx="${o.x + r}" cy="${o.y + r}" r="${r}" fill="#000"/>`;
@@ -139,18 +137,18 @@ function renderElement(element: PrintElement): string {
     }
 
     case 'ellipse': {
-      const o = element.options as unknown as EllipseOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       return `<ellipse cx="${o.x + o.width / 2}" cy="${o.y + o.height / 2}" rx="${o.width / 2}" ry="${o.height / 2}" fill="none" stroke="#000" stroke-width="${t}"/>`;
     }
 
     case 'reverse': {
-      const o = element.options as unknown as ReverseOptions;
+      const o = element.options;
       return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#000"/>`;
     }
 
     case 'erase': {
-      const o = element.options as unknown as EraseOptions;
+      const o = element.options;
       return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#fff"/>`;
     }
 
@@ -164,6 +162,7 @@ function renderElement(element: PrintElement): string {
       const x = o.x ?? 0;
       const y = o.y ?? 0;
       const rowHeight = tscFontSize(undefined, 1);
+      validateTableColumns(o.columns);
       const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
       const lines = formatTable(o.columns, o.rows, totalWidth);
       return lines

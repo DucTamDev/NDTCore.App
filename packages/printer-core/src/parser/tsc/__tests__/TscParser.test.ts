@@ -30,6 +30,13 @@ describe('TscParser', () => {
     expect(result.elements).toEqual([{ type: 'text', content: 'x', options: { x: 0, y: 0, font: '3', rotation: 0, size: 1, maxWidth: 100 } }]);
   });
 
+  it('parses a DIAGONAL command into a diagonal PrintElement, not a line element', () => {
+    const source = 'SIZE 40 mm,30 mm\nCLS\nDIAGONAL 0,0,100,50,2\n';
+    const result = parseTSPL(source);
+    expect(result.commands).toContainEqual({ cmd: 'DIAGONAL', x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 });
+    expect(result.elements).toEqual([{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }]);
+  });
+
   it('round-trips BOX/BARCODE/QRCODE commands emitted by TscCompiler back into structured commands', () => {
     const source = [
       'SIZE 40 mm,30 mm',

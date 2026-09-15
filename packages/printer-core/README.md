@@ -70,8 +70,8 @@ src/
 ├── index.ts
 ├── core/             # PrinterLanguage, PrintCompiler/Parser/Preview/Validation — entrypoint theo ngôn ngữ
 ├── types/            # Point, Size, Rect, Unit, Alignment, Rotation, Direction, FontWeight, FontStyle, Bitmap
-├── document/          # PrintDocument, PrintDocumentOptions, PrintElement(Type), ResolvedPrintDocument
-├── builder/          # PrintBuilder, LabelBuilder, ReceiptBuilder + content/, drawing/, layout/, printer/
+├── document/          # PrintDocument, PrintDocumentOptions, ResolvedPrintDocument
+├── builder/          # PrintBuilder, LabelBuilder, ReceiptBuilder, PrintElement(Type) + content/, drawing/, layout/, printer/
 ├── markup/            # HTML-like markup DSL (<label>...</label>) parse thành LabelBuilder
 ├── receipt/           # ReceiptLayout, formatter (pair/table/separator), WordWrapper — receipt-mode layout
 ├── barcode/           # BarcodeType, BarcodeConfig, BarcodeValidator
