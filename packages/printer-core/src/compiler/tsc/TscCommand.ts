@@ -26,11 +26,9 @@ export const TSC_COMMAND = {
   BARCODE: 'BARCODE',
   QRCODE: 'QRCODE',
   /**
-   * `SET CUTTER` — per this repo's own `TsplEncoder.cut()`
-   * (`src/features/printer/drivers/tspl/TsplEncoder.ts`, read-only
-   * reference, validated on real TSPL hardware), the argument form is
-   * `SET CUTTER OFF` or `SET CUTTER <n>` (no `BATCH` keyword) and the
-   * setting is persistent — once a job sends `SET CUTTER n`, the printer
+   * `SET CUTTER` — the argument form is `SET CUTTER OFF` or `SET CUTTER <n>`
+   * (no `BATCH` keyword, verified against real TSPL hardware behavior) and
+   * the setting is persistent — once a job sends `SET CUTTER n`, the printer
    * keeps cutting on later jobs until an explicit `SET CUTTER OFF`.
    */
   SET_CUTTER: 'SET CUTTER',

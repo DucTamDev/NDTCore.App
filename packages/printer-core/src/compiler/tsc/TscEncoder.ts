@@ -6,8 +6,7 @@ import type { Bitmap } from '../../types';
  * `bitmap.bytesPerRow * bitmap.height` raw binary bytes (MSB-first, bit 1 =
  * black), with no length prefix or hex-ASCII re-encoding — the header's own
  * `bytesPerRow`/`height` fields already tell the printer how many bytes to
- * read next (this repo's own `src/features/printer/drivers/tspl/TsplEncoder.ts`
- * `image()` confirms the same raw-binary framing on real TSPL hardware).
+ * read next.
  *
  * portakal's `compileToTSC()` builds the whole document as one `string`, so
  * `TscCompiler` follows suit rather than switching to bytes for this one

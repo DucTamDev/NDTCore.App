@@ -1,2 +1,2 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
+// Placeholder — not yet ported (see docs/superpowers).
 export {};

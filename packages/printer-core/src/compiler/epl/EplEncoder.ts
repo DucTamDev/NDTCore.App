@@ -8,8 +8,8 @@ import type { Bitmap } from '../../types';
  * already tell the printer how many bytes to read next, per the EPL2
  * Programmer's Guide's Graphic Write command (`GW p1,p2,p3,p4,<data>`), the
  * same raw-binary-after-trailing-comma shape as TSPL's `BITMAP` — see
- * `TscEncoder.ts`'s `encodeTscBitmapPayload()`, this fix's direct structural
- * reference.
+ * `TscEncoder.ts`'s `encodeTscBitmapPayload()` in this package, this fix's
+ * direct structural reference.
  *
  * Fixes a real bug in portakal's `languages/epl.ts` image case: it emits
  * only the `GW x,y,bytesPerRow,height` header (no trailing comma, no
@@ -22,10 +22,7 @@ import type { Bitmap } from '../../types';
  * portakal's own `src/lang/epl.ts` file header ("GW image polarity:
  * INVERTED (0=black, 1=white)"), a documented EPL2 hardware quirk, not a
  * portakal bug. Each byte is bit-inverted (`^ 0xff`) right here, at the
- * point the payload is built for the wire — same pattern (and same
- * eslint-disable justification) this repo's own
- * `src/features/printer/drivers/tspl/TsplEncoder.ts` `image()` uses for its
- * own printer-specific polarity quirk — so `Bitmap`/`encodeZplBitmapPayload`/
+ * point the payload is built for the wire, so `Bitmap`/`encodeZplBitmapPayload`/
  * `encodeTscBitmapPayload` keep the one standard polarity everywhere else in
  * this package, and only `GW`'s own genuinely-inverted wire format is
  * special-cased.
