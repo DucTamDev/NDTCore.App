@@ -77,6 +77,10 @@ export function parseCPCL(code: string): CPCLParseResult {
     // carried on the line that follows rather than inline.
     if (cmd.startsWith('TEXT') || cmd === 'T' || cmd === 'VTEXT') {
       const font = parts[1] ?? '2';
+      // Kept as the raw parsed value, with no `|| 1` floor on a parsed `0` —
+      // portakal coerces a parsed size of 0 up to 1 here, but this package's
+      // sibling EPL parser preserves the raw parsed size with no such
+      // coercion, and that's the convention followed here too.
       const size = Number(parts[2] ?? 0);
       const x = Number(parts[3] ?? 0);
       const y = Number(parts[4] ?? 0);
