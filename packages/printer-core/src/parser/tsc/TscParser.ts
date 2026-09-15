@@ -1,5 +1,6 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document';
+import type { PrintElement } from '../../builder';
+import type { Rotation } from '../../types';
 
 /**
  * Every TSPL/TSPL2 command this parser recognizes, ported from portakal's
@@ -500,7 +501,7 @@ export function parseTSPL(code: string): TSPLParseResult {
         }
 
         commands.push({ cmd: 'TEXT', x, y, font, rotation, xMul, yMul, alignment, content });
-        elements.push({ type: 'text', content, options: { x, y, font, rotation, size: xMul } });
+        elements.push({ type: 'text', content, options: { x, y, font, rotation: rotation as Rotation, size: xMul } });
       }
       continue;
     }
@@ -520,7 +521,11 @@ export function parseTSPL(code: string): TSPLParseResult {
         const content = unquote(params[params.length - 1]);
 
         commands.push({ cmd: 'BLOCK', x, y, width, height, font, rotation, xMul, yMul, content });
-        elements.push({ type: 'text', content, options: { x, y, font, rotation, size: xMul, maxWidth: width } });
+        elements.push({
+          type: 'text',
+          content,
+          options: { x, y, font, rotation: rotation as Rotation, size: xMul, maxWidth: width },
+        });
       }
       continue;
     }
@@ -615,7 +620,7 @@ export function parseTSPL(code: string): TSPLParseResult {
       const args = line.slice(9).trim().split(',').map(Number);
       if (args.length >= 5) {
         commands.push({ cmd: 'DIAGONAL', x1: args[0], y1: args[1], x2: args[2], y2: args[3], thickness: args[4] });
-        elements.push({ type: 'line', options: { x1: args[0], y1: args[1], x2: args[2], y2: args[3], thickness: args[4] } });
+        elements.push({ type: 'diagonal', options: { x1: args[0], y1: args[1], x2: args[2], y2: args[3], thickness: args[4] } });
       }
       continue;
     }

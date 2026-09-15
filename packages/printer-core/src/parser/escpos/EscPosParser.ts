@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document';
+import type { PrintElement } from '../../builder';
 
 /** One decoded ESC/POS command: its mnemonic name, raw bytes, and decoded parameters. */
 export interface EscPosParsedCommand {
