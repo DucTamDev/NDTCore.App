@@ -1,4 +1,5 @@
 export * from './PrintBuilder';
+export * from './PrintElement';
 export * from './LabelBuilder';
 export * from './ReceiptBuilder';
 export * from './content';

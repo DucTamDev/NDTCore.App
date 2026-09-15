@@ -1,12 +1,3 @@
-export type PrintElementType =
-  | "text"
-  | "image"
-  | "box"
-  | "line"
-  | "circle"
-  | "ellipse"
-  | "reverse"
-  | "erase"
-  | "raw"
-  | "barcode"
-  | "qrcode";
+import type { PrintElement } from '../builder';
+
+export type PrintElementType = PrintElement['type'];

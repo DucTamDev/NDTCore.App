@@ -1,5 +1,5 @@
 import type { Direction } from '../types';
-import type { PrintElement } from './PrintElement';
+import type { PrintElement } from '../builder';
 
 export interface ResolvedPrintDocument {
   widthDots: number;
