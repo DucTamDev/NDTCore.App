@@ -57,7 +57,7 @@ export class LabelBuilder extends PrintBuilder {
       gapDots: this.config.gap != null ? toDots(this.config.gap, unit, dpi) : toDots(3, 'mm', dpi),
       speed: this.config.speed ?? 4,
       density: this.config.density ?? 8,
-      direction: this.config.direction ?? 0,
+      direction: this.config.direction ?? 'forward',
       copies: this.config.copies ?? 1,
       elements: this.elements,
     };

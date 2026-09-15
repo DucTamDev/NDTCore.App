@@ -4,12 +4,16 @@ import type { PrinterProfile } from '../../profile';
 import type { PrintCompiler } from '../../core';
 import type { BarcodeSymbology } from '../../barcode';
 import type { QrErrorCorrectionLevel } from '../../qrcode';
+import type { Direction } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { TSC_COMMAND } from './TscCommand';
 import { encodeTscBitmapPayload } from './TscEncoder';
 import { formatTable, validateTableColumns } from '../../receipt';
 
 const MM_PER_INCH = 25.4;
+
+/** TSPL2 `DIRECTION` command's wire values — 'forward' → 0, 'reverse' → 1. */
+const TSC_DIRECTION_VALUE: Record<Direction, 0 | 1> = { forward: 0, reverse: 1 };
 
 const DEFAULT_FONT = '2';
 const DEFAULT_ROTATION = 0;
@@ -242,7 +246,7 @@ export function compileToTSC(document: ResolvedPrintDocument): string {
   lines.push(`${TSC_COMMAND.GAP} ${gMM} mm,0 mm`);
   lines.push(`${TSC_COMMAND.SPEED} ${document.speed}`);
   lines.push(`${TSC_COMMAND.DENSITY} ${document.density}`);
-  lines.push(`${TSC_COMMAND.DIRECTION} ${document.direction}`);
+  lines.push(`${TSC_COMMAND.DIRECTION} ${TSC_DIRECTION_VALUE[document.direction]}`);
   lines.push(TSC_COMMAND.CLS);
 
   for (const element of document.elements) {

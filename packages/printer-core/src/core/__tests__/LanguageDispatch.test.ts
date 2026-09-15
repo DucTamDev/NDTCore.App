@@ -9,7 +9,7 @@ const doc: ResolvedPrintDocument = {
   gapDots: 24,
   speed: 4,
   density: 8,
-  direction: 0,
+  direction: 'forward',
   copies: 1,
   elements: [{ type: 'text', content: 'Hi', options: {} }],
 };

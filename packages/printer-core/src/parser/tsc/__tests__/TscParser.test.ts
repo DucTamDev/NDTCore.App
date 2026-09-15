@@ -98,7 +98,7 @@ describe('TscParser', () => {
         gapDots: 24,
         speed: 4,
         density: 8,
-        direction: 0,
+        direction: 'forward',
         copies: 1,
         elements: [{ type: 'image', bitmap: { data: new Uint8Array([0x41, 0x0a, 0x42]), width: 24, height: 1, bytesPerRow: 3 }, options: {} }],
       };

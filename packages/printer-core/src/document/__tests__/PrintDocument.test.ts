@@ -13,7 +13,7 @@ describe('PrintDocument element union', () => {
   it('describes a resolved document with dot-based measurements', () => {
     const resolved: ResolvedPrintDocument = {
       widthDots: 320, heightDots: 0, dpi: 203, gapDots: 24,
-      speed: 4, density: 8, direction: 0, copies: 1, elements: [],
+      speed: 4, density: 8, direction: 'forward', copies: 1, elements: [],
     };
     expect(resolved.widthDots).toBeGreaterThan(0);
   });

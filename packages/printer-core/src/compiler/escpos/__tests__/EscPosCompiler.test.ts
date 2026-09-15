@@ -30,7 +30,7 @@ describe('EscPosCompiler', () => {
         gapDots: 0,
         speed: 4,
         density: 8,
-        direction: 0,
+        direction: 'forward',
         copies: 1,
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
@@ -61,7 +61,7 @@ describe('EscPosCompiler', () => {
         gapDots: 0,
         speed: 4,
         density: 8,
-        direction: 0,
+        direction: 'forward',
         copies: 1,
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
@@ -80,7 +80,7 @@ describe('EscPosCompiler', () => {
       gapDots: 0,
       speed: 4,
       density: 8,
-      direction: 0,
+      direction: 'forward',
       copies: 1,
       elements: [{ type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } }],
     });
@@ -97,7 +97,7 @@ describe('EscPosCompiler', () => {
       gapDots: 0,
       speed: 4,
       density: 8,
-      direction: 0,
+      direction: 'forward',
       copies: 1,
       elements: [{ type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } }],
     });
@@ -118,7 +118,7 @@ describe('EscPosCompiler', () => {
       gapDots: 0,
       speed: 4,
       density: 8,
-      direction: 0,
+      direction: 'forward',
       copies: 1,
       elements: [{ type: 'qrcode', options: { content: 'hello-qr' } }],
     });
@@ -136,7 +136,7 @@ describe('EscPosCompiler', () => {
 
   it('emits a full-cut GS V command for a cut element', () => {
     const bytes = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'full' } }],
     });
     expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x00]));
@@ -144,7 +144,7 @@ describe('EscPosCompiler', () => {
 
   it('emits the 4-byte GS V m n form (function B) when cut options.rows is provided', () => {
     const bytes = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'full', rows: 3 } }],
     });
     // GS V m n (function B): m=0x41 selects full cut, n=3 feeds 3 lines before cutting.
@@ -153,7 +153,7 @@ describe('EscPosCompiler', () => {
 
   it('emits the 4-byte GS V m n form with m=0x42 for a partial cut with rows provided', () => {
     const bytes = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'partial', rows: 5 } }],
     });
     expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x42, 0x05]));
@@ -161,11 +161,11 @@ describe('EscPosCompiler', () => {
 
   it('emits nothing for cut mode off', () => {
     const withCut = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'off' } }],
     });
     const withoutCut = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [],
     });
     expect(withCut).toEqual(withoutCut);
@@ -173,7 +173,7 @@ describe('EscPosCompiler', () => {
 
   it('emits table rows as text lines', () => {
     const bytes = new EscPosCompiler().compile({
-      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'table', options: { columns: [{ width: 10 }], rows: [['hello']] } }],
     });
     const text = new TextDecoder().decode(bytes);
@@ -183,7 +183,7 @@ describe('EscPosCompiler', () => {
   it('throws a clear error when a table column has a non-positive width instead of silently dropping its content', () => {
     expect(() =>
       new EscPosCompiler().compile({
-        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [{ type: 'table', options: { columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
       }),
     ).toThrow(/positive width/);
@@ -199,11 +199,11 @@ describe('EscPosCompiler', () => {
     ];
     for (const el of noOpElements) {
       const withEl = new EscPosCompiler().compile({
-        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [el],
       });
       const without = new EscPosCompiler().compile({
-        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [],
       });
       expect(withEl).toEqual(without);
