@@ -4,7 +4,7 @@ describe('PrintDocument element union', () => {
   it('accepts a barcode element alongside portakal-native element types', () => {
     const elements: PrintElement[] = [
       { type: 'text', content: 'hi', options: {} },
-      { type: 'barcode', options: {} as never },
+      { type: 'barcode', options: { symbology: 'code128', content: '12345' } },
     ];
     expect(elements).toHaveLength(2);
   });

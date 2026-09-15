@@ -1,4 +1,6 @@
 import type { Bitmap } from '../types';
+import type { BarcodeConfig } from '../barcode';
+import type { QrCodeConfig } from '../qrcode';
 
 export type PrintElement =
   | { type: "text"; content: string; options: Record<string, unknown> }
@@ -10,5 +12,5 @@ export type PrintElement =
   | { type: "reverse"; options: Record<string, unknown> }
   | { type: "erase"; options: Record<string, unknown> }
   | { type: "raw"; content: string | Uint8Array }
-  | { type: "barcode"; options: unknown }
-  | { type: "qrcode"; options: unknown };
+  | { type: "barcode"; options: BarcodeConfig }
+  | { type: "qrcode"; options: QrCodeConfig };
