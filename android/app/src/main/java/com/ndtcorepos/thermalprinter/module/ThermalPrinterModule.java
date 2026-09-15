@@ -16,10 +16,13 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import com.ndtcorepos.thermalprinter.connection.bluetooth.BluetoothConnection;
+import com.ndtcorepos.thermalprinter.connection.bluetooth.BluetoothConnectionWatcher;
 import com.ndtcorepos.thermalprinter.connection.net.NetConnection;
 import com.ndtcorepos.thermalprinter.connection.usb.UsbConnection;
+import com.ndtcorepos.thermalprinter.connection.usb.UsbConnectionWatcher;
 import com.ndtcorepos.thermalprinter.device.IPrinterDevice;
 import com.ndtcorepos.thermalprinter.device.PrinterDeviceManager;
 import com.ndtcorepos.thermalprinter.device.PrinterDeviceRegistry;
@@ -73,6 +76,8 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
     private final UsbConnectionIdentityResolver usbIdentityResolver;
     private final UsbEndpointResolver usbEndpointResolver;
     private final UsbPermission usbPermission;
+    private final UsbConnectionWatcher usbConnectionWatcher;
+    private final BluetoothConnectionWatcher bluetoothConnectionWatcher;
 
     private final PrinterDeviceManager deviceManager;
     private final PrinterQueueManager queueManager;
@@ -93,6 +98,9 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
         this.usbPermission = new UsbPermission(reactContext);
         this.usbPermission.register();
+        this.usbConnectionWatcher = new UsbConnectionWatcher(usbPermission, this::onConnectionLost);
+        this.bluetoothConnectionWatcher = new BluetoothConnectionWatcher(reactContext, this::onConnectionLost);
+        this.bluetoothConnectionWatcher.register();
 
         this.deviceManager = new PrinterDeviceManager(new PrinterDeviceRegistry());
         this.queueManager = new PrinterQueueManager();
@@ -188,10 +196,16 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
                 }
 
                 deviceManager.register(device);
+
+                if (type == ConnectionType.USB) {
+                    usbConnectionWatcher.watch(identity, usbDevice.getVendorId(), usbDevice.getProductId());
+                } else if (type == ConnectionType.BLUETOOTH) {
+                    bluetoothConnectionWatcher.watch(identity, request.getString("address"));
+                }
             }
 
             connectedPrinters.put(printerId, identity);
-            promise.resolve(null);
+            promise.resolve(identity.getValue());
         } catch (Exception exception) {
             promise.reject("CONNECT_FAILED", exception);
         }
@@ -297,13 +311,13 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
                 return;
             }
 
-            queueManager.remove(identity);
-
-            IPrinterDevice device = deviceManager.remove(identity);
-
-            if (device != null) {
-                device.close();
+            if (identity.getType() == ConnectionType.USB) {
+                usbConnectionWatcher.unwatch(identity);
+            } else if (identity.getType() == ConnectionType.BLUETOOTH) {
+                bluetoothConnectionWatcher.unwatch(identity);
             }
+
+            teardownDevice(identity);
 
             promise.resolve(null);
         } catch (Exception exception) {
@@ -320,9 +334,46 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
     @Override
     public void invalidate() {
         usbPermission.unregister();
+        bluetoothConnectionWatcher.unregister();
         deviceManager.closeAll();
         queueManager.shutdown();
         super.invalidate();
+    }
+
+    /**
+     * Removes and closes the runtime device for an identity — the shared
+     * teardown sequence used by both an explicit disconnect() and an
+     * unexpected onConnectionLost().
+     */
+    private void teardownDevice(ConnectionIdentity identity) {
+        queueManager.remove(identity);
+
+        IPrinterDevice device = deviceManager.remove(identity);
+
+        if (device != null) {
+            device.close();
+        }
+    }
+
+    /**
+     * Called by either watcher when a physical connection is lost outside an
+     * explicit disconnect() call. Tears down the dead connection's runtime
+     * state, then notifies JS — this method does not touch connectedPrinters
+     * or resolve any printerId; that correlation is left entirely to the TS
+     * side (see the design spec).
+     */
+    private void onConnectionLost(ConnectionIdentity identity) {
+        teardownDevice(identity);
+        emitConnectionLost(identity);
+    }
+
+    private void emitConnectionLost(ConnectionIdentity identity) {
+        WritableMap payload = Arguments.createMap();
+        payload.putString("identity", identity.getValue());
+
+        getReactApplicationContext()
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit("ThermalPrinterConnectionLost", payload);
     }
 
     private UsbDevice findUsbDevice(int vendorId, int productId) {
