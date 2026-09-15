@@ -31,10 +31,11 @@ const USB_WRITE_CHUNK_BYTES = 16 * 1024;
 export class UsbTransport {
   private printerId?: string;
 
-  async connect(printerId: string, vendorId: number, productId: number): Promise<void> {
+  async connect(printerId: string, vendorId: number, productId: number): Promise<string> {
     try {
-      await ThermalPrinterModule.connect({ printerId, type: 'usb', vendorId, productId });
+      const identity = await ThermalPrinterModule.connect({ printerId, type: 'usb', vendorId, productId });
       this.printerId = printerId;
+      return identity;
     } catch (error) {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: errorMessage(error) });
     }

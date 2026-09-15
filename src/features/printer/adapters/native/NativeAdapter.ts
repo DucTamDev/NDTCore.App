@@ -40,6 +40,7 @@ export class NativeAdapter implements IPrinterAdapter {
   private connectionType?: PrinterConnectionType;
   private printerId?: string;
   private usb?: UsbTransport;
+  private connectionIdentity?: string;
 
   async listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]> {
     if (connectionType === PrinterConnectionType.Lan) {
@@ -65,7 +66,7 @@ export class NativeAdapter implements IPrinterAdapter {
       }
 
       this.usb = new UsbTransport();
-      await this.usb.connect(target.printerId, target.usb.vendorId, target.usb.productId);
+      this.connectionIdentity = await this.usb.connect(target.printerId, target.usb.vendorId, target.usb.productId);
       return;
     }
 
@@ -74,7 +75,7 @@ export class NativeAdapter implements IPrinterAdapter {
         throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
       }
 
-      await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'bluetooth', address: target.bluetooth.deviceId });
+      this.connectionIdentity = await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'bluetooth', address: target.bluetooth.deviceId });
       return;
     }
 
@@ -82,7 +83,17 @@ export class NativeAdapter implements IPrinterAdapter {
       throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
     }
 
-    await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'lan', host: target.lan.ip, port: target.lan.port });
+    this.connectionIdentity = await ThermalPrinterModule.connect({ printerId: target.printerId, type: 'lan', host: target.lan.ip, port: target.lan.port });
+  }
+
+  /**
+   * ConnectionIdentity native trả về lúc connect() — dùng để driver tương
+   * quan sự kiện `subscribeConnectionLost` với đúng printerId. `null` nếu
+   * chưa connect (không có trong IPrinterAdapter — chỉ NativeAdapter mới có
+   * khái niệm identity, LibraryAdapter/VendorAdapter không có tương đương).
+   */
+  getConnectionIdentity(): string | null {
+    return this.connectionIdentity ?? null;
   }
 
   async write(bytes: Uint8Array): Promise<void> {

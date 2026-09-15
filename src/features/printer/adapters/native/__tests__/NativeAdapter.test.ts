@@ -22,7 +22,7 @@ jest.mock('../../../../../services/LoggerService', () => ({
 jest.mock('../PrinterNativeModule', () => ({
   ThermalPrinterModule: {
     discoverPrinters: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
     disconnect: jest.fn().mockResolvedValue(undefined),
     writeByBase64: jest.fn().mockResolvedValue('ok'),
   },
@@ -103,5 +103,16 @@ describe('NativeAdapter', () => {
     await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.5', port: 9100 } });
     await adapter.disconnect();
     expect(mod().ThermalPrinterModule.disconnect).toHaveBeenCalledWith('p1');
+  });
+
+  it('connect() lưu lại connectionIdentity native trả về, getConnectionIdentity() đọc được', async () => {
+    mod().ThermalPrinterModule.connect.mockResolvedValueOnce('BLUETOOTH:AA:BB');
+    const adapter = new NativeAdapter();
+    await adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Bluetooth, bluetooth: { deviceId: 'AA:BB' } });
+    expect(adapter.getConnectionIdentity()).toBe('BLUETOOTH:AA:BB');
+  });
+
+  it('getConnectionIdentity() trả null trước khi connect()', () => {
+    expect(new NativeAdapter().getConnectionIdentity()).toBeNull();
   });
 });

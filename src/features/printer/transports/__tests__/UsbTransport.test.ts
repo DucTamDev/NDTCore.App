@@ -16,7 +16,7 @@ describe('UsbTransport.connect', () => {
       ThermalPrinterModule: { connect: jest.Mock };
     };
     const transport = new UsbTransport();
-    await transport.connect('p1', 1155, 22222);
+    await expect(transport.connect('p1', 1155, 22222)).resolves.toBe('mock-identity');
     expect(ThermalPrinterModule.connect).toHaveBeenCalledWith({ printerId: 'p1', type: 'usb', vendorId: 1155, productId: 22222 });
   });
 
