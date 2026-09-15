@@ -1,2 +1,13 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+/**
+ * Column definition for table layout
+ */
+export interface ReceiptColumn {
+  /**
+   * Column width in characters
+   */
+  width: number;
+  /**
+   * Text alignment within column
+   */
+  align?: "left" | "center" | "right";
+}
