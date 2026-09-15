@@ -4,11 +4,11 @@ import type { Rotation } from '../../types';
 
 /**
  * One decoded EPL2 command: its single-letter command char and the raw text
- * following it on the same line (already trimmed). EPL2 is a line-based
- * language — each command is one line terminated by LF, per the EPL2
- * Programmer's Guide — so, unlike ZPL's `^`/`~`-prefixed grammar, no
- * multi-character tokenizer is needed; matches portakal's `{cmd, raw}` shape
- * in `parsers/epl.ts`.
+ * following it on the same line (already trimmed). EPL2 commands are
+ * separated by line breaks rather than a special prefix character (unlike
+ * ZPL's `^`/`~`-prefixed grammar), so no multi-character tokenizer is
+ * needed here — just a per-line split; matches portakal's `{cmd, raw}`
+ * shape in `parsers/epl.ts`.
  */
 export interface EPLCommand {
   cmd: string;

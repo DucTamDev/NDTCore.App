@@ -59,8 +59,26 @@ describe('EplCompiler', () => {
     const headerIndex = output.indexOf('GW10,10,2,1,');
     expect(headerIndex).toBeGreaterThanOrEqual(0);
     const afterHeader = output.slice(headerIndex + 'GW10,10,2,1,'.length);
-    expect(afterHeader.charCodeAt(0)).toBe(0xff);
-    expect(afterHeader.charCodeAt(1)).toBe(0x00);
+    // GW's polarity is inverted relative to bitmap.data (see EplEncoder.ts) —
+    // 0xff in bitmap.data comes out as 0x00 in the payload, and vice versa;
+    // the inversion itself is asserted precisely in the dedicated test below.
+    expect(afterHeader.charCodeAt(0)).toBe(0x00);
+    expect(afterHeader.charCodeAt(1)).toBe(0xff);
+  });
+
+  it('inverts each payload byte relative to bitmap.data, per GW\'s documented inverted polarity (0=black, 1=white)', () => {
+    const compiler = new EplCompiler();
+    const bitmap = { data: new Uint8Array([0xff, 0x00, 0xa5]), width: 24, height: 1, bytesPerRow: 3 };
+    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'image', bitmap, options: { x: 0, y: 0 } }] });
+
+    const header = 'GW0,0,3,1,';
+    const headerIndex = output.indexOf(header);
+    expect(headerIndex).toBeGreaterThanOrEqual(0);
+    const payload = output.slice(headerIndex + header.length, headerIndex + header.length + 3);
+
+    expect(payload.charCodeAt(0)).toBe(0x00); // 0xff -> 0x00
+    expect(payload.charCodeAt(1)).toBe(0xff); // 0x00 -> 0xff
+    expect(payload.charCodeAt(2)).toBe(0x5a); // 0xa5 -> 0x5a (bitwise complement)
   });
 
   it('generates a box command', () => {
