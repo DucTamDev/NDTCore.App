@@ -8,7 +8,7 @@
 
 **Tech Stack:** Java (Android — no new dependencies), React Native bridge (`DeviceEventManagerModule.RCTDeviceEventEmitter` for the new event, `Promise` for existing calls), TypeScript (`DeviceEventEmitter`, Jest).
 
-**Spec:** `docs/superpowers/specs/2026-09-15-native-connection-watcher-design.md` — read it for the full rationale (why LAN and auto-reconnect are out of scope, why events carry identity not printerId, the USB listener-conflict resolution). This plan implements it with two small, justified refinements over the spec's sketch, noted inline where they occur: (1) `UsbConnectionWatcher` needs no `register()`/`unregister()` of its own — it has no receiver to own, it only piggybacks on `UsbPermission`'s existing one; (2) the TS event subscription uses React Native's global `DeviceEventEmitter` directly rather than wrapping `NativeModules.ThermalPrinterModule` in a `NativeEventEmitter`, since the native module doesn't implement the `addListener`/`removeListeners` pair RN expects when you do that.
+**Spec:** `docs/superpowers/specs/2026-09-15-native-connection-watcher-design.md` (kept in sync with this plan — read it for the full rationale: why LAN and auto-reconnect are out of scope, why events carry identity not printerId, the USB listener-conflict resolution, and the known out-of-scope follow-ups it lists). Three refinements over the spec's original sketch, all also reflected in the spec now: (1) `UsbConnectionWatcher` needs no `register()`/`unregister()` of its own — it has no receiver to own, it only piggybacks on `UsbPermission`'s existing one; (2) the TS event subscription uses React Native's global `DeviceEventEmitter` directly rather than wrapping `NativeModules.ThermalPrinterModule` in a `NativeEventEmitter`, since the native module doesn't implement the `addListener`/`removeListeners` pair RN expects when you do that; (3) both watchers' `watch()` calls `unwatch(identity)` on itself first (self-cleaning) — found necessary during Task 2's review, since calling `watch()` twice for the same identity without an intervening `unwatch()` would otherwise orphan the prior listener registration forever.
 
 ## Global Constraints
 
@@ -680,30 +680,24 @@ to:
                 bluetoothConnectionWatcher.unwatch(identity);
             }
 
-            queueManager.remove(identity);
-
-            IPrinterDevice device = deviceManager.remove(identity);
-
-            if (device != null) {
-                device.close();
-            }
+            teardownDevice(identity);
 
             promise.resolve(null);
 ```
-(`unwatch()` runs *before* `device.close()`, so the watcher's own receiver never has to distinguish this from an unexpected disconnect — it simply isn't listening anymore by the time the connection actually closes.)
+(`unwatch()` runs *before* `teardownDevice()` closes the connection, so the watcher's own receiver never has to distinguish this from an unexpected disconnect — it simply isn't listening anymore by the time the connection actually closes. `teardownDevice()` is a new shared helper, added in Step 4 below, factored out of what this method's body used to do inline — `onConnectionLost()` needs the exact same three steps.)
 
-- [ ] **Step 4: Add `onConnectionLost()` and `emitConnectionLost()`**
+- [ ] **Step 4: Extract `teardownDevice()`, add `onConnectionLost()` and `emitConnectionLost()`**
 
-Add these two new private methods (anywhere among the other private helpers, e.g. near `findUsbDevice`):
+`disconnect()` (Step 3 above) and the new `onConnectionLost()` both need the exact same three steps to tear down a dead identity's runtime state — extract them into one shared private helper so the sequence exists once.
+
+Add these three new private methods (anywhere among the other private helpers, e.g. near `findUsbDevice`):
 ```java
     /**
-     * Called by either watcher when a physical connection is lost outside an
-     * explicit disconnect() call. Tears down the dead connection's runtime
-     * state exactly like disconnect() does, then notifies JS — this method
-     * does not touch connectedPrinters or resolve any printerId; that
-     * correlation is left entirely to the TS side (see the design spec).
+     * Removes and closes the runtime device for an identity — the shared
+     * teardown sequence used by both an explicit disconnect() and an
+     * unexpected onConnectionLost().
      */
-    private void onConnectionLost(ConnectionIdentity identity) {
+    private void teardownDevice(ConnectionIdentity identity) {
         queueManager.remove(identity);
 
         IPrinterDevice device = deviceManager.remove(identity);
@@ -711,7 +705,17 @@ Add these two new private methods (anywhere among the other private helpers, e.g
         if (device != null) {
             device.close();
         }
+    }
 
+    /**
+     * Called by either watcher when a physical connection is lost outside an
+     * explicit disconnect() call. Tears down the dead connection's runtime
+     * state, then notifies JS — this method does not touch connectedPrinters
+     * or resolve any printerId; that correlation is left entirely to the TS
+     * side (see the design spec).
+     */
+    private void onConnectionLost(ConnectionIdentity identity) {
+        teardownDevice(identity);
         emitConnectionLost(identity);
     }
 

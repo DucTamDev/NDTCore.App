@@ -12,7 +12,7 @@ The native thermal-printer module never proactively tells the TypeScript layer w
 
 ## Architecture
 
-One watcher instance per transport, owned by `ThermalPrinterModule` as a singleton (constructed once, alongside `usbPermission`, mirroring its existing lifecycle: `register()` on construction, `unregister()`/cleanup in `invalidate()`):
+One watcher instance per transport, owned by `ThermalPrinterModule` as a singleton (constructed once, alongside `usbPermission`). **Only `BluetoothConnectionWatcher` has its own `register()`/`unregister()` lifecycle** (it owns a `BroadcastReceiver`); `UsbConnectionWatcher` has neither — it has no receiver of its own, it only registers additional listeners with `UsbPermission`'s existing one (see below), so there is nothing for it to register/unregister at the module level.
 
 ```
 ThermalPrinterModule
@@ -47,6 +47,10 @@ private final Map<String, Set<Consumer<Boolean>>> permissionResultListeners = ne
 
 `UsbConnectionWatcher.watch()` calls `usbPermission.registerDeviceDetachListener(vendorId, productId, () -> onConnectionLost.accept(identity))` — a second, independent listener alongside `UsbConnection`'s own. `unwatch()` calls the matching unregister. `UsbConnection`'s internal detach handling is untouched.
 
+**`watch()` is self-cleaning:** it calls `unwatch(identity)` as its own first step before registering anything new. Without this, calling `watch()` twice for the same identity without an intervening `unwatch()` — a real sequence: device detaches (the listener fires but nothing unwatches, since the detach itself is what's being reported), then the same device reconnects and `connect()` calls `watch()` again — would leave the first listener permanently orphaned inside `UsbPermission`'s `Set` (this watcher's own bookkeeping would only reference the newest one, so it could never find and remove the old one), leaking it and causing the *next* detach to fire twice. `BluetoothConnectionWatcher.watch()` does the same for the same reason.
+
+**Known limitation, out of scope for this design:** both `UsbPermission`'s detach-listener map and `UsbConnectionWatcher`'s bookkeeping key USB devices by `vendorId:productId` only, not the full `ConnectionIdentity` (which also incorporates the serial number when the device reports one). If two printers of the exact same model (same VID/PID, different serial) are physically connected at once, detaching one fires listeners for both, and the JS layer would see a spurious `Disconnected` for the printer that's still actually connected. This is a pre-existing gap — `UsbConnection`'s own permission-wait detach handling (predates this design) already keys the same way — not something this design introduces, and fixing it properly means reworking `UsbPermission`'s keying end-to-end (both the permission-result and detach paths), which is a separate change from adding a watcher. Tracked as a follow-up, not part of this design's scope.
+
 ### Bluetooth: new, self-contained watcher (no existing mechanism to extend)
 
 `BluetoothConnection` today has no disconnect-broadcast listening at all. `BluetoothConnectionWatcher` is structurally a new instance of the same pattern `UsbPermission` already established:
@@ -77,14 +81,22 @@ if (type == ConnectionType.USB) {
 ```
 `unwatch()` runs *before* the device is closed, so the watcher's own receiver doesn't observe (and doesn't need to distinguish) a disconnect it already knows is intentional.
 
-`onConnectionLost(ConnectionIdentity identity)` (the shared callback both watchers invoke):
+`onConnectionLost(ConnectionIdentity identity)` (the shared callback both watchers invoke) tears the device down using the exact same three steps `disconnect()` already performs (`queueManager.remove` / `deviceManager.remove` / `device.close()`), extracted into one shared private `teardownDevice(identity)` helper on `ThermalPrinterModule` so the sequence exists once instead of duplicated between the two call sites:
 ```java
-queueManager.remove(identity);
-IPrinterDevice device = deviceManager.remove(identity);
-if (device != null) device.close();
-emitConnectionLost(identity);
+private void teardownDevice(ConnectionIdentity identity) {
+    queueManager.remove(identity);
+    IPrinterDevice device = deviceManager.remove(identity);
+    if (device != null) device.close();
+}
+
+private void onConnectionLost(ConnectionIdentity identity) {
+    teardownDevice(identity);
+    emitConnectionLost(identity);
+}
 ```
-Note this does **not** touch `connectedPrinters` or resolve any `printerId` — see below.
+This stays a private helper on `ThermalPrinterModule` rather than moving into `PrinterDeviceManager` — `PrinterDeviceManager` has no knowledge of `PrinterQueueManager` today, and giving it one just to host this sequence would add a new cross-dependency between two currently-independent classes for no benefit `ThermalPrinterModule` (which already owns both) doesn't already provide.
+
+Note `onConnectionLost` does **not** touch `connectedPrinters` or resolve any `printerId` — see below.
 
 ## Native → JS event contract
 
@@ -95,10 +107,11 @@ private void emitConnectionLost(ConnectionIdentity identity) {
     WritableMap payload = Arguments.createMap();
     payload.putString("identity", identity.getValue());
     getReactApplicationContext()
-        .getJSModule(DeviceEventEmitterModule.class)
+        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
         .emit("ThermalPrinterConnectionLost", payload);
 }
 ```
+(`DeviceEventManagerModule.RCTDeviceEventEmitter` is React Native's actual class for this — `com.facebook.react.modules.core.DeviceEventManagerModule`.)
 
 Rationale: native's business is physical connections, not printerId bookkeeping for this path. Resolving "which printerId(s) does this identity affect" is pushed to TS, where the driver already has that context from its own `connect()` call — native doesn't need to duplicate it via `connectedPrinters` lookups for this event (it still *maintains* `connectedPrinters` for its own `writeByBase64`/`disconnect` addressing, just doesn't consult it here).
 
@@ -117,11 +130,11 @@ Fix: `connect()` resolves with the identity instead of `null`:
 `PrinterNativeModule.ts` gains:
 ```ts
 export const subscribeConnectionLost = (callback: (identity: string) => void): Unsubscribe => {
-  const emitter = new NativeEventEmitter(NativeModules.ThermalPrinterModule);
-  const subscription = emitter.addListener('ThermalPrinterConnectionLost', ({ identity }) => callback(identity));
+  const subscription = DeviceEventEmitter.addListener('ThermalPrinterConnectionLost', (event: { identity: string }) => callback(event.identity));
   return () => subscription.remove();
 };
 ```
+Uses React Native's global `DeviceEventEmitter` directly rather than wrapping `NativeModules.ThermalPrinterModule` in a `NativeEventEmitter` — RN expects a module used that way to implement `addListener`/`removeListeners` itself, which `ThermalPrinterModule.java` doesn't (and doesn't need to, since `DeviceEventEmitter` is a global emitter, not module-scoped).
 
 `EscPosDriver` and `TsplDriver` (both consumers of `NativeAdapter`, the only adapter this event applies to) each:
 - Store the resolved identity alongside their existing per-`printerId` state (`identities: Map<string, string>`, populated in `connect()` from the native call's resolved value).
@@ -155,3 +168,6 @@ If two `printerId`s share one physical identity (the native-side connection-reus
 - LAN/TCP dead-peer detection (needs a probe mechanism, separate design).
 - Auto-reconnect behavior triggered by watcher events (left entirely to existing JS-side logic).
 - Any change to `writeByBase64`/`discoverPrinters` — untouched by this design.
+- **USB detach-listener keying by full identity (incl. serial) instead of `vendorId:productId`** — see the "Known limitation" note under USB above. Real gap, pre-existing (predates this design), affects `UsbConnection`'s own permission-wait detach handling too, not just the new watcher. Fixing it means reworking `UsbPermission`'s keying end-to-end; tracked as a follow-up, not bundled into this design.
+- **Centralizing `identity → printerId[]` correlation into a connection-service layer instead of each driver keeping its own `identities` map.** Considered during review; rejected for this design because `PrinterConnectionService` today is a stateless routing facade (delegates straight to `getDriver(type).onStatusChange(...)`) — the per-`printerId` state (`statuses`, `listeners`) already lives inside each driver (`EscPosDriver`, `TsplDriver`), so adding `identities` there follows the codebase's existing pattern. Centralizing all of it would be a larger, separate refactor of already-established state ownership, not something this design's scope calls for.
+- **Proactively failing already-queued (not-yet-started) write jobs the instant a connection is lost**, rather than letting them attempt and fail naturally once they reach a closed device. `write()`/`close()` on every device implementation are `synchronized`, so this is a latency/UX nicety, not a correctness gap — no data corruption or crash risk either way. Candidate follow-up, not required here.
