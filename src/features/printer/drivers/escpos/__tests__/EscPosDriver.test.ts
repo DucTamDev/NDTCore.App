@@ -739,4 +739,37 @@ describe('EscPosDriver — connection lost event', () => {
 
     expect(statuses).toEqual([]);
   });
+
+  it('chỉ đúng printerId khớp identity mới đổi status, printerId khác giữ nguyên', async () => {
+    const { subscribeConnectionLost, ThermalPrinterModule } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
+      subscribeConnectionLost: jest.Mock;
+      ThermalPrinterModule: { connect: jest.Mock };
+    };
+    ThermalPrinterModule.connect.mockResolvedValueOnce('USB:1155:22222:SERIAL').mockResolvedValueOnce('USB:9999:8888:OTHER');
+
+    const driver = new EscPosDriver();
+    const printerA: Printer = makePrinter({
+      id: 'p-a',
+      driver: makeEscPosDriver(),
+      connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
+    });
+    const printerB: Printer = makePrinter({
+      id: 'p-b',
+      driver: makeEscPosDriver(),
+      connection: { type: PrinterConnectionType.Usb, vendorId: 9999, productId: 8888 },
+    });
+    await driver.connect(printerA);
+    await driver.connect(printerB);
+
+    const statusesA: PrinterStatus[] = [];
+    const statusesB: PrinterStatus[] = [];
+    driver.onStatusChange(printerA.id, (status) => statusesA.push(status));
+    driver.onStatusChange(printerB.id, (status) => statusesB.push(status));
+
+    const onConnectionLost = subscribeConnectionLost.mock.calls[subscribeConnectionLost.mock.calls.length - 1][0] as (identity: string) => void;
+    onConnectionLost('USB:9999:8888:OTHER');
+
+    expect(statusesB).toEqual([PrinterStatus.Disconnected]);
+    expect(statusesA).toEqual([]);
+  });
 });

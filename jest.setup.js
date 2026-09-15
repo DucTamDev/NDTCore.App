@@ -150,7 +150,7 @@ jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => ({
   const { NativeModules } = require('react-native');
   NativeModules.ThermalPrinterModule = {
     ...NativeModules.ThermalPrinterModule,
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
     writeByBase64: jest.fn().mockResolvedValue('ok'),
   };
 }
