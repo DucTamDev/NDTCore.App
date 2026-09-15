@@ -3,7 +3,6 @@ import { ReceiptColumn } from './ReceiptColumn';
 export function formatRow(columns: ReceiptColumn[], values: string[], totalWidth: number): string {
   if (columns.length === 0 || values.length === 0) return "";
 
-  // If no explicit widths, auto-distribute
   let assignedWidth = 0;
   let autoCount = 0;
   for (const col of columns) {
