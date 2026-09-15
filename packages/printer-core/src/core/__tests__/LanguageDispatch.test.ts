@@ -54,8 +54,16 @@ describe('LanguageDispatch', () => {
     expect(previewFor('cpcl', doc)).toContain('<svg');
   });
 
-  it('throws a clear UnsupportedLanguageError for the 4 not-yet-implemented languages', () => {
-    for (const language of ['dpl', 'sbpl', 'starprnt', 'ipl'] as const) {
+  it('routes "dpl" to DplCompiler/DplParser/DplValidator/DplPreviewRenderer', () => {
+    const dpl = compileTo('dpl', doc);
+    expect(typeof dpl).toBe('string');
+    expect(parseFrom('dpl', dpl as string).commands.length).toBeGreaterThan(0);
+    expect(validateFor('dpl', dpl as string).valid).toBe(true);
+    expect(previewFor('dpl', doc)).toContain('<svg');
+  });
+
+  it('throws a clear UnsupportedLanguageError for the 3 not-yet-implemented languages', () => {
+    for (const language of ['sbpl', 'starprnt', 'ipl'] as const) {
       expect(() => compileTo(language, doc)).toThrow(UnsupportedLanguageError);
       expect(() => parseFrom(language, '')).toThrow(UnsupportedLanguageError);
       expect(() => validateFor(language, '')).toThrow(UnsupportedLanguageError);
