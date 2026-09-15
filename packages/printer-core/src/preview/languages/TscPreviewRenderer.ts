@@ -1,13 +1,14 @@
-import type { ResolvedPrintDocument, PrintElement } from '../../document';
+import type { ResolvedPrintDocument } from '../../document';
+import type { PrintElement } from '../../builder';
 import type { PrintPreview } from '../../core';
 import type { TextOptions } from '../../builder/content/TextElement';
 import type { ImageOptions } from '../../builder/content/ImageElement';
 import type { BoxOptions } from '../../builder/drawing/BoxElement';
-import type { LineOptions } from '../../builder/drawing/LineElement';
 import type { CircleOptions } from '../../builder/drawing/CircleElement';
 import type { EllipseOptions } from '../../builder/drawing/EllipseElement';
 import type { ReverseOptions } from '../../builder/drawing/ReverseElement';
 import type { EraseOptions } from '../../builder/drawing/EraseElement';
+import { formatTable } from '../../receipt';
 
 /** TSC built-in bitmap-font pixel dimensions, per the TSPL/TSPL2 Programming Manual's font table. */
 const TSC_FONTS: Record<string, { w: number; h: number }> = {
@@ -107,15 +108,25 @@ function renderElement(element: PrintElement): string {
       return `<rect x="${o.x + t / 2}" y="${o.y + t / 2}" width="${o.width - t}" height="${o.height - t}" fill="none" stroke="#000" stroke-width="${t}" rx="${rx}"/>`;
     }
 
+    // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
+    // element/case below. The vertical branch's `return` stays unconditional
+    // (not nested in an `x1===x2` `if`) so every path returns a string even
+    // if a hand-built document bypasses `PrintBuilder.line()`'s axis-aligned
+    // guarantee — that would otherwise fall through into the next switch
+    // case. Same precedent as `TscCompiler.ts`'s `'line'`/`'diagonal'` split.
     case 'line': {
-      const o = element.options as unknown as LineOptions;
+      const o = element.options;
       const t = o.thickness ?? 1;
       if (o.y1 === o.y2) {
         return `<rect x="${Math.min(o.x1, o.x2)}" y="${o.y1}" width="${Math.abs(o.x2 - o.x1)}" height="${t}" fill="#000"/>`;
       }
-      if (o.x1 === o.x2) {
-        return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
-      }
+      return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
+    }
+
+    // The non-axis-aligned case `'line'` used to fall back to — moved here as-is.
+    case 'diagonal': {
+      const o = element.options;
+      const t = o.thickness ?? 1;
       return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
     }
 
@@ -143,13 +154,39 @@ function renderElement(element: PrintElement): string {
       return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#fff"/>`;
     }
 
+    // Real behavior: format the rows into text lines via the shared
+    // `formatTable()` (same helper `TscCompiler`'s `'table'` case uses), then
+    // render each line as its own `<text>`, stacked one default-font row
+    // height (`tscFontSize(undefined, 1)`) apart starting at the table's y —
+    // a table element carries no font option of its own.
+    case 'table': {
+      const o = element.options;
+      const x = o.x ?? 0;
+      const y = o.y ?? 0;
+      const rowHeight = tscFontSize(undefined, 1);
+      const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
+      const lines = formatTable(o.columns, o.rows, totalWidth);
+      return lines
+        .map((line, i) => `<text x="${x}" y="${y + i * rowHeight + rowHeight * 0.85}" fill="#000" font-size="${rowHeight}" font-family="monospace">${escapeXml(line)}</text>`)
+        .join('');
+    }
+
     // Not in portakal's `renderElement()` (its `LabelElement` union has no
     // barcode/qrcode variant) — kept here only so the switch stays
     // exhaustive over this package's wider `PrintElement` union; TSC's
     // preview renders text/vector/image content only, same as upstream.
+    // `cut`/`pageBreak`/`spacer`/`row`/`column` have no visual representation
+    // on the label itself — cut is a post-print printer action, the other 4
+    // are documented no-ops in the compilers too (no auto-layout primitive),
+    // per the design spec.
     case 'raw':
     case 'barcode':
     case 'qrcode':
+    case 'cut':
+    case 'pageBreak':
+    case 'spacer':
+    case 'row':
+    case 'column':
       return '';
   }
 }
