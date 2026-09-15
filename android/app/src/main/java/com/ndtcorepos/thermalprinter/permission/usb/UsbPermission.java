@@ -107,7 +107,7 @@ public final class UsbPermission {
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
         } else {
             context.registerReceiver(receiver, filter);
