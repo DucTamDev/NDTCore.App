@@ -5,7 +5,10 @@
  */
 export const createMockThermalPrinterModule = () => ({
   discoverPrinters: jest.fn().mockResolvedValue([]),
-  connect: jest.fn().mockResolvedValue(undefined),
+  connect: jest.fn().mockResolvedValue('mock-identity'),
   disconnect: jest.fn().mockResolvedValue(undefined),
   writeByBase64: jest.fn().mockResolvedValue('ok'),
 });
+
+/** Mock của subscribeConnectionLost — trả về unsubscribe rỗng, không tự bắn event nào. */
+export const createMockSubscribeConnectionLost = () => jest.fn().mockReturnValue(() => undefined);

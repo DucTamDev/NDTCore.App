@@ -4,7 +4,7 @@ describe('MockPrinterAdapter', () => {
   it('createMockThermalPrinterModule trả stub cho toàn bộ method của ThermalPrinterModule', async () => {
     const mock = createMockThermalPrinterModule();
     await expect(mock.discoverPrinters('usb' as never)).resolves.toEqual([]);
-    await expect(mock.connect({} as never)).resolves.toBeUndefined();
+    await expect(mock.connect({} as never)).resolves.toBe('mock-identity');
     await expect(mock.disconnect('p1')).resolves.toBeUndefined();
     await expect(mock.writeByBase64('p1', 'QUI=')).resolves.toBe('ok');
   });

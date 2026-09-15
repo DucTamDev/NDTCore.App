@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { DeviceEventEmitter, NativeModules } from 'react-native';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 
 const ThermalPrinterModuleNative = NativeModules.ThermalPrinterModule;
@@ -53,9 +53,25 @@ export type ConnectRequest = UsbConnectRequest | BluetoothConnectRequest | LanCo
 export const ThermalPrinterModule = {
   discoverPrinters: (type: PrinterConnectionType): Promise<PrinterInfoDto[]> => ThermalPrinterModuleNative.discoverPrinters(toWireConnectionType(type)),
 
-  connect: (request: ConnectRequest): Promise<void> => ThermalPrinterModuleNative.connect(request),
+  connect: (request: ConnectRequest): Promise<string> => ThermalPrinterModuleNative.connect(request),
 
   disconnect: (printerId: string): Promise<void> => ThermalPrinterModuleNative.disconnect(printerId),
 
   writeByBase64: (printerId: string, base64Data: string): Promise<string> => ThermalPrinterModuleNative.writeByBase64(printerId, base64Data),
+};
+
+export type Unsubscribe = () => void;
+
+/**
+ * Sự kiện native bắn khi 1 kết nối USB/Bluetooth vật lý bị mất ngoài ý muốn
+ * (rút dây, ra khỏi tầm sóng) — KHÔNG mang printerId, chỉ mang `identity`
+ * (ConnectionIdentity.getValue() phía Java). Caller tự tra `printerId` nào
+ * đang dùng identity đó (xem EscPosDriver/TsplDriver). Dùng DeviceEventEmitter
+ * toàn cục của RN thay vì bọc NativeEventEmitter(NativeModules.ThermalPrinterModule)
+ * — module native không implement addListener/removeListeners nên RN sẽ cảnh
+ * báo nếu bọc kiểu đó, còn DeviceEventEmitter thì không cần.
+ */
+export const subscribeConnectionLost = (callback: (identity: string) => void): Unsubscribe => {
+  const subscription = DeviceEventEmitter.addListener('ThermalPrinterConnectionLost', (event: { identity: string }) => callback(event.identity));
+  return () => subscription.remove();
 };

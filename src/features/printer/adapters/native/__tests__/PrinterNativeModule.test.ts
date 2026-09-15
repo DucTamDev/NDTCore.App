@@ -9,7 +9,7 @@ const originalThermalPrinterModule = NativeModules.ThermalPrinterModule;
 beforeEach(() => {
   NativeModules.ThermalPrinterModule = {
     discoverPrinters: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
     disconnect: jest.fn().mockResolvedValue(undefined),
     writeByBase64: jest.fn().mockResolvedValue('ok'),
   };
@@ -37,9 +37,9 @@ describe('ThermalPrinterModule', () => {
     expect(NativeModules.ThermalPrinterModule.discoverPrinters).toHaveBeenCalledWith(expectedWireValue);
   });
 
-  it('connect gọi native với đúng request (kèm printerId)', async () => {
+  it('connect gọi native với đúng request (kèm printerId) và trả về identity', async () => {
     const { ThermalPrinterModule } = loadReal();
-    await ThermalPrinterModule.connect({ printerId: 'p1', type: 'usb', vendorId: 1234, productId: 5678 });
+    await expect(ThermalPrinterModule.connect({ printerId: 'p1', type: 'usb', vendorId: 1234, productId: 5678 })).resolves.toBe('mock-identity');
     expect(NativeModules.ThermalPrinterModule.connect).toHaveBeenCalledWith({ printerId: 'p1', type: 'usb', vendorId: 1234, productId: 5678 });
   });
 
@@ -53,5 +53,23 @@ describe('ThermalPrinterModule', () => {
     const { ThermalPrinterModule } = loadReal();
     await expect(ThermalPrinterModule.writeByBase64('p1', 'QUI=')).resolves.toBe('ok');
     expect(NativeModules.ThermalPrinterModule.writeByBase64).toHaveBeenCalledWith('p1', 'QUI=');
+  });
+});
+
+describe('subscribeConnectionLost', () => {
+  it('gọi callback với identity khi DeviceEventEmitter bắn ThermalPrinterConnectionLost', () => {
+    const { subscribeConnectionLost } = loadReal();
+    const { DeviceEventEmitter } = require('react-native') as typeof import('react-native');
+    const callback = jest.fn();
+
+    const unsubscribe = subscribeConnectionLost(callback);
+    DeviceEventEmitter.emit('ThermalPrinterConnectionLost', { identity: 'USB:1234:5678:SERIAL' });
+
+    expect(callback).toHaveBeenCalledWith('USB:1234:5678:SERIAL');
+
+    unsubscribe();
+    callback.mockClear();
+    DeviceEventEmitter.emit('ThermalPrinterConnectionLost', { identity: 'USB:1234:5678:SERIAL' });
+    expect(callback).not.toHaveBeenCalled();
   });
 });

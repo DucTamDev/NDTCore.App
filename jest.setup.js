@@ -137,10 +137,11 @@ jest.mock('qrcode', () => ({
 jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => ({
   ThermalPrinterModule: {
     discoverPrinters: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
     disconnect: jest.fn().mockResolvedValue(undefined),
     writeByBase64: jest.fn().mockResolvedValue('Print SuccessFully'),
   },
+  subscribeConnectionLost: jest.fn().mockReturnValue(() => undefined),
 }));
 
 // PrinterNativeModule.test.ts dùng requireActual để test bản THẬT — cần
