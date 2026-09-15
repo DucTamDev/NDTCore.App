@@ -1,2 +1,10 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+export type PrinterVendor =
+  | 'Epson'
+  | 'Star Micronics'
+  | 'Bixolon'
+  | 'Citizen'
+  | 'Generic'
+  | 'TSC'
+  | 'Zebra'
+  | 'SATO'
+  | 'Honeywell';

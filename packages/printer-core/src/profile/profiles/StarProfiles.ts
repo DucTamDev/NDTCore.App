@@ -1,2 +1,3 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { PrinterProfile } from '../PrinterProfile';
+
+export const STAR_PROFILES: Record<string, PrinterProfile> = {};

@@ -1,2 +1,76 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+import type { PrinterProfile } from '../PrinterProfile';
+
+export const EPSON_PROFILES: Record<string, PrinterProfile> = {
+  'epson-tm-t88vi': {
+    name: 'Epson TM-T88VI',
+    vendor: 'Epson',
+    language: 'escpos',
+    paperWidth: 80,
+    dotsPerLine: 576,
+    dpi: 203,
+    charsPerLine: 48,
+    usbVendorId: 0x04b8,
+    features: {
+      cutter: 'partial',
+      cashDrawer: true,
+      imageMode: ['raster', 'column', 'nvGraphics'],
+      cjk: true,
+      nativeUtf8: true,
+      codePages: [0, 1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19, 255],
+    },
+  },
+  'epson-tm-t88v': {
+    name: 'Epson TM-T88V',
+    vendor: 'Epson',
+    language: 'escpos',
+    paperWidth: 80,
+    dotsPerLine: 576,
+    dpi: 203,
+    charsPerLine: 48,
+    usbVendorId: 0x04b8,
+    features: {
+      cutter: 'partial',
+      cashDrawer: true,
+      imageMode: ['raster', 'column'],
+      cjk: true,
+      nativeUtf8: false,
+      codePages: [0, 1, 2, 3, 4, 5, 16, 17, 18, 19],
+    },
+  },
+  'epson-tm-t20iii': {
+    name: 'Epson TM-T20III',
+    vendor: 'Epson',
+    language: 'escpos',
+    paperWidth: 80,
+    dotsPerLine: 576,
+    dpi: 203,
+    charsPerLine: 48,
+    usbVendorId: 0x04b8,
+    features: {
+      cutter: 'partial',
+      cashDrawer: true,
+      imageMode: ['raster', 'column'],
+      cjk: true,
+      nativeUtf8: true,
+      codePages: [0, 16, 17, 19],
+    },
+  },
+  'epson-tm-m30ii': {
+    name: 'Epson TM-m30II',
+    vendor: 'Epson',
+    language: 'escpos',
+    paperWidth: 80,
+    dotsPerLine: 576,
+    dpi: 203,
+    charsPerLine: 48,
+    usbVendorId: 0x04b8,
+    features: {
+      cutter: 'partial',
+      cashDrawer: false,
+      imageMode: ['raster', 'nvGraphics'],
+      cjk: true,
+      nativeUtf8: true,
+      codePages: [0, 16, 17, 19, 255],
+    },
+  },
+};
