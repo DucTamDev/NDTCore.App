@@ -4,7 +4,9 @@ import com.ndtcorepos.thermalprinter.model.ConnectionIdentity;
 import com.ndtcorepos.thermalprinter.permission.usb.UsbPermission;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -28,6 +30,19 @@ public final class UsbConnectionWatcher {
     /** The exact listener instance registered per identity, so unwatch() removes only this listener. */
     private final Map<ConnectionIdentity, Runnable> listeners = new ConcurrentHashMap<>();
 
+    /**
+     * The epoch each identity was most recently watch()ed under. A listener
+     * only fires onConnectionLost if its own captured epoch still matches
+     * this map's current value for that identity — otherwise the event is
+     * stale (the identity was unwatched and/or re-watched since this
+     * listener was registered, e.g. a disconnect() immediately followed by a
+     * reconnect racing a delayed detach broadcast for the OLD connection)
+     * and is silently ignored instead of tearing down a connection that is
+     * no longer the one this listener was registered for.
+     */
+    private final Map<ConnectionIdentity, Long> epochs = new ConcurrentHashMap<>();
+    private final AtomicLong nextEpoch = new AtomicLong();
+
     public UsbConnectionWatcher(UsbPermission permission, Consumer<ConnectionIdentity> onConnectionLost) {
         this.permission = permission;
         this.onConnectionLost = onConnectionLost;
@@ -37,7 +52,14 @@ public final class UsbConnectionWatcher {
     public void watch(ConnectionIdentity identity, int vendorId, int productId) {
         unwatch(identity);
 
-        Runnable listener = () -> onConnectionLost.accept(identity);
+        long epoch = nextEpoch.incrementAndGet();
+        epochs.put(identity, epoch);
+
+        Runnable listener = () -> {
+            if (Objects.equals(epochs.get(identity), epoch)) {
+                onConnectionLost.accept(identity);
+            }
+        };
 
         watchedDevices.put(identity, new int[] { vendorId, productId });
         listeners.put(identity, listener);
@@ -47,6 +69,8 @@ public final class UsbConnectionWatcher {
 
     /** Stops watching a device — call before intentionally closing its connection. */
     public void unwatch(ConnectionIdentity identity) {
+        epochs.remove(identity);
+
         int[] device = watchedDevices.remove(identity);
         Runnable listener = listeners.remove(identity);
 

@@ -174,7 +174,11 @@ public final class UsbPermission {
         }
 
         for (Consumer<Boolean> listener : listeners) {
-            listener.accept(granted);
+            try {
+                listener.accept(granted);
+            } catch (Exception exception) {
+                Log.w(LOG_SOURCE, "Permission result listener threw", exception);
+            }
         }
     }
 
@@ -198,7 +202,11 @@ public final class UsbPermission {
         }
 
         for (Runnable listener : listeners) {
-            listener.run();
+            try {
+                listener.run();
+            } catch (Exception exception) {
+                Log.w(LOG_SOURCE, "Device detach listener threw", exception);
+            }
         }
     }
 

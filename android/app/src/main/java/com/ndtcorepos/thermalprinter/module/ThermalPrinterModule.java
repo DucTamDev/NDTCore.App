@@ -5,6 +5,7 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.util.Base64;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -46,6 +47,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -61,6 +64,8 @@ import java.util.concurrent.TimeoutException;
 public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
     private static final String MODULE_NAME = "ThermalPrinterModule";
+
+    private static final String LOG_SOURCE = "ThermalPrinterModule";
 
     /**
      * Upper bound on how long the bridge thread waits for a queued write —
@@ -81,6 +86,14 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
     private final PrinterDeviceManager deviceManager;
     private final PrinterQueueManager queueManager;
+
+    /**
+     * Runs the teardown half of onConnectionLost off the caller's thread — it
+     * arrives on a BroadcastReceiver callback (the main/UI thread), and
+     * closing a Bluetooth connection can block for seconds draining its
+     * buffer, which would be an ANR there.
+     */
+    private final ExecutorService connectionLostExecutor = Executors.newSingleThreadExecutor();
 
     /** Maps a caller-assigned printerId to the physical connection currently backing it. */
     private final Map<String, ConnectionIdentity> connectedPrinters = new HashMap<>();
@@ -179,9 +192,15 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
                 // Registered but no longer actually connected (e.g. the
                 // physical device was detached) — tear it down and rebuild
                 // fresh rather than reporting a stale "already connected".
-                queueManager.remove(identity);
-                deviceManager.remove(identity);
-                device.close();
+                // unwatch() first so the rebuild below re-registers a fresh
+                // watcher listener instead of leaving the dead one live.
+                if (type == ConnectionType.USB) {
+                    usbConnectionWatcher.unwatch(identity);
+                } else if (type == ConnectionType.BLUETOOTH) {
+                    bluetoothConnectionWatcher.unwatch(identity);
+                }
+
+                teardownDevice(identity);
                 device = null;
             }
 
@@ -335,6 +354,7 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
     public void invalidate() {
         usbPermission.unregister();
         bluetoothConnectionWatcher.unregister();
+        connectionLostExecutor.shutdown();
         deviceManager.closeAll();
         queueManager.shutdown();
         super.invalidate();
@@ -357,23 +377,34 @@ public final class ThermalPrinterModule extends ReactContextBaseJavaModule {
 
     /**
      * Called by either watcher when a physical connection is lost outside an
-     * explicit disconnect() call. Tears down the dead connection's runtime
-     * state, then notifies JS — this method does not touch connectedPrinters
-     * or resolve any printerId; that correlation is left entirely to the TS
-     * side (see the design spec).
+     * explicit disconnect() call. Notifies JS first, then tears down the dead
+     * connection's runtime state on a background thread — this runs on a
+     * BroadcastReceiver callback (main/UI) thread, where the multi-second
+     * drain inside a Bluetooth close() would be an ANR and would also delay
+     * the event this feature exists to deliver. This method does not touch
+     * connectedPrinters or resolve any printerId; that correlation is left
+     * entirely to the TS side (see the design spec).
      */
     private void onConnectionLost(ConnectionIdentity identity) {
-        teardownDevice(identity);
         emitConnectionLost(identity);
+        connectionLostExecutor.execute(() -> teardownDevice(identity));
     }
 
     private void emitConnectionLost(ConnectionIdentity identity) {
-        WritableMap payload = Arguments.createMap();
-        payload.putString("identity", identity.getValue());
+        if (!getReactApplicationContext().hasActiveReactInstance()) {
+            return;
+        }
 
-        getReactApplicationContext()
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit("ThermalPrinterConnectionLost", payload);
+        try {
+            WritableMap payload = Arguments.createMap();
+            payload.putString("identity", identity.getValue());
+
+            getReactApplicationContext()
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                    .emit("ThermalPrinterConnectionLost", payload);
+        } catch (Exception exception) {
+            Log.w(LOG_SOURCE, "Failed to emit connection lost event", exception);
+        }
     }
 
     private UsbDevice findUsbDevice(int vendorId, int productId) {

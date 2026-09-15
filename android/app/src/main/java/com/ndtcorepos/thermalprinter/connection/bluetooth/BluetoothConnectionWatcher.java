@@ -6,13 +6,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.util.Log;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.ndtcorepos.thermalprinter.model.ConnectionIdentity;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -23,6 +26,8 @@ import java.util.function.Consumer;
  * detach-listening mechanism to extend.
  */
 public final class BluetoothConnectionWatcher {
+
+    private static final String LOG_SOURCE = "BluetoothConnectionWatcher";
 
     private final ReactApplicationContext context;
     private final Consumer<ConnectionIdentity> onConnectionLost;
@@ -35,6 +40,20 @@ public final class BluetoothConnectionWatcher {
 
     /** The exact listener instance registered per identity, so unwatch() removes only this listener. */
     private final Map<ConnectionIdentity, Runnable> listeners = new ConcurrentHashMap<>();
+
+    /**
+     * The epoch each identity was most recently watch()ed under. A listener
+     * only fires onConnectionLost if its own captured epoch still matches
+     * this map's current value for that identity — otherwise the event is
+     * stale (the identity was unwatched and/or re-watched since this
+     * listener was registered, e.g. a disconnect() immediately followed by a
+     * reconnect racing a delayed ACL_DISCONNECTED broadcast for the OLD
+     * socket, which closing that socket is itself what triggers) and is
+     * silently ignored instead of tearing down a connection that is no
+     * longer the one this listener was registered for.
+     */
+    private final Map<ConnectionIdentity, Long> epochs = new ConcurrentHashMap<>();
+    private final AtomicLong nextEpoch = new AtomicLong();
 
     public BluetoothConnectionWatcher(ReactApplicationContext context, Consumer<ConnectionIdentity> onConnectionLost) {
         this.context = context;
@@ -69,7 +88,14 @@ public final class BluetoothConnectionWatcher {
     public void watch(ConnectionIdentity identity, String address) {
         unwatch(identity);
 
-        Runnable listener = () -> onConnectionLost.accept(identity);
+        long epoch = nextEpoch.incrementAndGet();
+        epochs.put(identity, epoch);
+
+        Runnable listener = () -> {
+            if (Objects.equals(epochs.get(identity), epoch)) {
+                onConnectionLost.accept(identity);
+            }
+        };
 
         watchedAddresses.put(identity, address);
         listeners.put(identity, listener);
@@ -81,6 +107,8 @@ public final class BluetoothConnectionWatcher {
 
     /** Stops watching a device — call before intentionally disconnecting it. */
     public void unwatch(ConnectionIdentity identity) {
+        epochs.remove(identity);
+
         String address = watchedAddresses.remove(identity);
         Runnable listener = listeners.remove(identity);
 
@@ -115,7 +143,11 @@ public final class BluetoothConnectionWatcher {
             }
 
             for (Runnable listener : addressListeners) {
-                listener.run();
+                try {
+                    listener.run();
+                } catch (Exception exception) {
+                    Log.w(LOG_SOURCE, "Disconnect listener threw", exception);
+                }
             }
         }
     };
