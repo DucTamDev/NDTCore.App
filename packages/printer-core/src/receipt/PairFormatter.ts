@@ -1,8 +1,5 @@
 import { padRight } from './ReceiptFormatter';
 
-/**
- * Format a simple left+right pair on one line (most common receipt pattern)
- */
 export function formatPair(left: string, right: string, totalWidth: number): string {
   const rightLen = right.length;
   const leftLen = totalWidth - rightLen;

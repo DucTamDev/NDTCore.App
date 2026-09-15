@@ -1,6 +1,3 @@
-/**
- * Word-wrap text at word boundaries
- */
 export function wordWrap(text: string, maxWidth: number): string[] {
   if (text.length <= maxWidth) return [text];
 

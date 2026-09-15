@@ -1,8 +1,5 @@
 import { ReceiptColumn } from './ReceiptColumn';
 
-/**
- * Row helper: format text for same-line left+right (or multi-column) alignment
- */
 export function formatRow(columns: ReceiptColumn[], values: string[], totalWidth: number): string {
   if (columns.length === 0 || values.length === 0) return "";
 
@@ -29,10 +26,6 @@ export function formatRow(columns: ReceiptColumn[], values: string[], totalWidth
   return parts.join("");
 }
 
-/**
- * Align text within a fixed width
- * @internal
- */
 export function alignText(text: string, width: number, align: "left" | "center" | "right"): string {
   const truncated = text.length > width ? text.slice(0, width) : text;
   const padding = width - truncated.length;
@@ -50,10 +43,6 @@ export function alignText(text: string, width: number, align: "left" | "center" 
   }
 }
 
-/**
- * Pad text to the right with spaces
- * @internal
- */
 export function padRight(text: string, width: number): string {
   if (text.length >= width) return text.slice(0, width);
   return text + " ".repeat(width - text.length);
