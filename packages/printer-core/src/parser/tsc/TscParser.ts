@@ -241,6 +241,17 @@ function unquote(s: string): string {
 }
 
 /**
+ * Normalizes an arbitrary parsed rotation number to a valid `Rotation`.
+ * TSPL's `TEXT`/`BLOCK` rotation field is free-form text, so a malformed or
+ * unusual document (e.g. a non-multiple-of-90 value, or non-numeric text
+ * yielding `NaN`) must not be blindly asserted into the 4-value `Rotation`
+ * type. Falls back to `0`, TSPL's own unrotated baseline.
+ */
+function normalizeRotation(value: number): Rotation {
+  return value === 90 || value === 180 || value === 270 ? value : 0;
+}
+
+/**
  * Parses TSPL/TSPL2 source into structured commands, one physical line at a
  * time. Several `startsWith` checks below only work because of the order
  * they run in (e.g. `GAP` before `GAPDETECT`'s own exclusion, `SET ` before
@@ -501,7 +512,7 @@ export function parseTSPL(code: string): TSPLParseResult {
         }
 
         commands.push({ cmd: 'TEXT', x, y, font, rotation, xMul, yMul, alignment, content });
-        elements.push({ type: 'text', content, options: { x, y, font, rotation: rotation as Rotation, size: xMul } });
+        elements.push({ type: 'text', content, options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul } });
       }
       continue;
     }
@@ -524,7 +535,7 @@ export function parseTSPL(code: string): TSPLParseResult {
         elements.push({
           type: 'text',
           content,
-          options: { x, y, font, rotation: rotation as Rotation, size: xMul, maxWidth: width },
+          options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul, maxWidth: width },
         });
       }
       continue;

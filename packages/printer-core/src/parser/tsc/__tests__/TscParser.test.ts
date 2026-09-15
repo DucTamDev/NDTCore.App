@@ -18,6 +18,18 @@ describe('TscParser', () => {
     expect(result.elements).toEqual([{ type: 'text', content: 'Hello', options: { x: 10, y: 10, font: '3', rotation: 0, size: 1 } }]);
   });
 
+  it('normalizes an out-of-range TEXT rotation to 0 instead of asserting it into Rotation', () => {
+    const source = 'SIZE 40 mm,30 mm\nCLS\nTEXT 0,0,"3",45,1,1,"x"\n';
+    const result = parseTSPL(source);
+    expect(result.elements).toEqual([{ type: 'text', content: 'x', options: { x: 0, y: 0, font: '3', rotation: 0, size: 1 } }]);
+  });
+
+  it('normalizes an out-of-range BLOCK rotation to 0 instead of asserting it into Rotation', () => {
+    const source = 'SIZE 40 mm,30 mm\nCLS\nBLOCK 0,0,100,50,"3",45,1,1,"x"\n';
+    const result = parseTSPL(source);
+    expect(result.elements).toEqual([{ type: 'text', content: 'x', options: { x: 0, y: 0, font: '3', rotation: 0, size: 1, maxWidth: 100 } }]);
+  });
+
   it('round-trips BOX/BARCODE/QRCODE commands emitted by TscCompiler back into structured commands', () => {
     const source = [
       'SIZE 40 mm,30 mm',
