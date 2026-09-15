@@ -1,2 +1,2 @@
-// Placeholder — populated when migrating logic from src/features/printer (see docs/superpowers).
-export {};
+/** Supported monochrome dithering algorithms. */
+export type DitherAlgorithm = 'threshold' | 'floyd-steinberg' | 'atkinson' | 'ordered';
