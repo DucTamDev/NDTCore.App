@@ -40,6 +40,22 @@ const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 /** TSPL2 `QRCODE` mode field: "A" (auto — printer picks the encoding mode) vs "M" (manual). Always auto here, same as this repo's own `TsplEncoder.qrcode()`. */
 const QR_MODE_AUTO = 'A';
 
+/**
+ * Escapes a value for embedding inside a double-quoted TSPL string parameter
+ * (e.g. `TEXT`/`BLOCK`/`BARCODE`/`QRCODE`'s trailing `"content"` field).
+ *
+ * Backslash-escapes literal `"` so user content (a product name, a label
+ * field) can't close the TSPL string early — an unescaped quote there would
+ * corrupt the command grammar and let the remainder of the content be
+ * reinterpreted as further TSPL parameters. `\r`/`\n` are replaced with a
+ * space for the same reason: this compiler joins one command per line with
+ * `\r\n` (see `compileToTSC`), so an embedded newline could otherwise start
+ * a new line the printer treats as its own TSPL command.
+ */
+function escapeTsplString(content: string): string {
+  return content.replace(/"/g, '\\"').replace(/[\r\n]/g, ' ');
+}
+
 function compileTextElement(content: string, options: Record<string, unknown>): string {
   const o = options as TextOptions;
   const x = o.x ?? 0;
@@ -48,14 +64,15 @@ function compileTextElement(content: string, options: Record<string, unknown>): 
   const rotation = o.rotation ?? DEFAULT_ROTATION;
   const xMul = o.xScale ?? o.size ?? 1;
   const yMul = o.yScale ?? o.size ?? 1;
+  const escaped = escapeTsplString(content);
 
   if (o.maxWidth) {
     const align = o.align === 'center' ? 2 : o.align === 'right' ? 3 : 1;
     const spacing = o.lineSpacing ?? 0;
-    return `${TSC_COMMAND.BLOCK} ${x},${y},${o.maxWidth},${o.maxWidth},"${font}",${rotation},${xMul},${yMul},${spacing},${align},"${content}"`;
+    return `${TSC_COMMAND.BLOCK} ${x},${y},${o.maxWidth},${o.maxWidth},"${font}",${rotation},${xMul},${yMul},${spacing},${align},"${escaped}"`;
   }
 
-  return `${TSC_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${xMul},${yMul},"${content}"`;
+  return `${TSC_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${xMul},${yMul},"${escaped}"`;
 }
 
 function compileElement(element: PrintElement): string {
@@ -136,7 +153,7 @@ function compileElement(element: PrintElement): string {
       const rotation = c.rotation ?? DEFAULT_ROTATION;
       const narrow = c.narrowBarWidth ?? DEFAULT_NARROW_BAR;
       const wide = c.wideBarWidth ?? DEFAULT_WIDE_BAR;
-      const escaped = c.content.replace(/"/g, '\\"');
+      const escaped = escapeTsplString(c.content);
       return `${TSC_COMMAND.BARCODE} ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},"${escaped}"`;
     }
 
@@ -147,7 +164,7 @@ function compileElement(element: PrintElement): string {
       const ecc = c.errorCorrection ?? DEFAULT_QR_ECC;
       const cellWidth = c.cellWidth ?? DEFAULT_QR_CELL_WIDTH;
       const rotation = c.rotation ?? DEFAULT_ROTATION;
-      const escaped = c.content.replace(/"/g, '\\"');
+      const escaped = escapeTsplString(c.content);
       return `${TSC_COMMAND.QRCODE} ${x},${y},${ecc},${cellWidth},${QR_MODE_AUTO},${rotation},"${escaped}"`;
     }
   }
@@ -182,6 +199,25 @@ export function compileToTSC(document: ResolvedPrintDocument): string {
  * `PrintCompiler`'s shared call shape and isn't otherwise used.
  */
 export class TscCompiler implements PrintCompiler<string> {
+  /**
+   * Known limitation — mixed string encoding when an `image` element is
+   * present: the returned string interleaves two incompatible byte
+   * conventions. Text content (from `text`/`block`/`barcode`/`qrcode`
+   * elements) is ordinary UTF-8-intended text, but an `image` element's
+   * `BITMAP` payload is built by {@link encodeTscBitmapPayload} as
+   * "one JS char code = one raw byte" (latin-1 style), since that payload is
+   * already-binary pixel data, not text.
+   *
+   * A caller turning this string into wire bytes must NOT run the whole
+   * string through a naive UTF-8 encoder (e.g. `TextEncoder`) when the
+   * document contains an image element — that would re-encode every bitmap
+   * byte ≥ 0x80 as a multi-byte UTF-8 sequence and corrupt the bitmap.
+   * Correctly transmitting a document that mixes non-ASCII text (e.g.
+   * Vietnamese product names) with an image element requires per-segment
+   * encoding (latin-1 for the bitmap span, UTF-8 elsewhere) that this
+   * package does not yet provide — out of scope here; this is documentation
+   * of an existing constraint, not a fix.
+   */
   compile(document: ResolvedPrintDocument, _profile?: PrinterProfile): string {
     return compileToTSC(document);
   }

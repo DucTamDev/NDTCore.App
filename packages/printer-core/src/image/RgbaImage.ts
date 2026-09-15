@@ -1,4 +1,9 @@
-/** Convert RGBA pixel data to grayscale (BT.601 luminance, alpha composited on white). */
+/**
+ * Reduces RGBA pixel data to a single-channel grayscale buffer. Since thermal
+ * paper has no notion of transparency, translucent pixels are first flattened
+ * onto an opaque white backdrop before the RGB channels are folded down to a
+ * brightness value using the BT.601 luma weights.
+ */
 export function rgbaToGrayscale(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,
@@ -10,11 +15,11 @@ export function rgbaToGrayscale(
     const g = rgba[i * 4 + 1]!;
     const b = rgba[i * 4 + 2]!;
     const a = rgba[i * 4 + 3]!;
-    // Composite alpha on white background
+    // Blend each channel toward white (255) in proportion to how transparent the pixel is
     const rr = (r * a + 255 * (255 - a)) / 255;
     const gg = (g * a + 255 * (255 - a)) / 255;
     const bb = (b * a + 255 * (255 - a)) / 255;
-    // BT.601 luminance
+    // BT.601 luma weights — green contributes the most to perceived brightness, blue the least
     gray[i] = Math.round(0.299 * rr + 0.587 * gg + 0.114 * bb);
   }
   return gray;

@@ -43,4 +43,18 @@ describe('TscCompiler', () => {
     expect(lines).toContain('BOX 0,0,100,50,2');
     expect(lines[lines.length - 1]).toBe('PRINT 1');
   });
+
+  it('escapes a double-quote in TEXT content instead of letting it close the TSPL string early', () => {
+    const compiler = new TscCompiler();
+    const output = compiler.compile({
+      widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'text', content: 'Say "hello"', options: { x: 10, y: 10 } }],
+    });
+
+    const lines = output.trim().split('\r\n');
+    expect(lines).toContain('TEXT 10,10,"2",0,1,1,"Say \\"hello\\""');
+    // An unescaped bare quote would split the command grammar into extra
+    // comma-separated parameters instead of staying inside one string field.
+    expect(output).not.toContain('"Say "hello""');
+  });
 });
