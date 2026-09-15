@@ -12,6 +12,7 @@ import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionSe
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
+import { subscribeConnectionLost } from '../../adapters/native/PrinterNativeModule';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
@@ -34,6 +35,17 @@ export class EscPosDriver implements IPrinterDriver {
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private contexts = new Map<string, Printer>();
   private activeByType = new Map<PrinterConnectionType, string>();
+  private identities = new Map<string, string>();
+
+  constructor() {
+    subscribeConnectionLost((identity) => {
+      for (const [printerId, knownIdentity] of this.identities) {
+        if (knownIdentity === identity) {
+          this.setStatus(printerId, PrinterStatus.Disconnected);
+        }
+      }
+    });
+  }
 
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
@@ -123,6 +135,12 @@ export class EscPosDriver implements IPrinterDriver {
       this.connectedTypes.set(printer.id, printer.connection.type);
       this.contexts.set(printer.id, printer);
 
+      const identity = adapter.getConnectionIdentity();
+
+      if (identity) {
+        this.identities.set(printer.id, identity);
+      }
+
       const previousOwner = this.activeByType.get(printer.connection.type);
 
       if (previousOwner && previousOwner !== printer.id) {
@@ -160,6 +178,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.adapters.delete(printerId);
       this.connectedTypes.delete(printerId);
       this.contexts.delete(printerId);
+      this.identities.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);

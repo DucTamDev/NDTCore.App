@@ -52,7 +52,7 @@ jest.mock('../../../transports/BluetoothTransport', () => ({
 }));
 jest.mock('../../../transports/UsbTransport', () => ({
   UsbTransport: jest.fn().mockImplementation(() => ({
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
     write: jest.fn().mockResolvedValue(undefined),
     close: jest.fn().mockResolvedValue(undefined),
   })),
@@ -502,5 +502,41 @@ describe('TsplDriver', () => {
     });
     expect(events).toEqual([DeviceScanEventType.Loading, DeviceScanEventType.Error]);
     expect(RNBluetoothClassic.default.startDiscovery.mock.calls.length).toBe(callsBefore);
+  });
+});
+
+describe('TsplDriver — connection lost event', () => {
+  it('USB (NativeAdapter): cập nhật status Disconnected khi identity khớp', async () => {
+    const { subscribeConnectionLost } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
+      subscribeConnectionLost: jest.Mock;
+    };
+
+    const driver = new TsplDriver();
+    await driver.connect(usbLabelPrinter);
+
+    const statuses: PrinterStatus[] = [];
+    driver.onStatusChange(usbLabelPrinter.id, (status) => statuses.push(status));
+
+    const onConnectionLost = subscribeConnectionLost.mock.calls[subscribeConnectionLost.mock.calls.length - 1][0] as (identity: string) => void;
+    onConnectionLost('mock-identity');
+
+    expect(statuses).toEqual([PrinterStatus.Disconnected]);
+  });
+
+  it('Bluetooth (LibraryAdapter): không có identity nên subscribeConnectionLost không ảnh hưởng', async () => {
+    const { subscribeConnectionLost } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
+      subscribeConnectionLost: jest.Mock;
+    };
+
+    const driver = new TsplDriver();
+    await driver.connect(bluetoothLabelPrinter);
+
+    const statuses: PrinterStatus[] = [];
+    driver.onStatusChange(bluetoothLabelPrinter.id, (status) => statuses.push(status));
+
+    const onConnectionLost = subscribeConnectionLost.mock.calls[subscribeConnectionLost.mock.calls.length - 1][0] as (identity: string) => void;
+    onConnectionLost('mock-identity'); // arbitrary — LibraryAdapter connections never populate `identities`, so this must always be a no-op
+
+    expect(statuses).toEqual([]);
   });
 });
