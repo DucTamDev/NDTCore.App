@@ -4,7 +4,13 @@ describe('encodeTcvn3', () => {
   it('maps a precomposed Vietnamese character to a single TCVN3 byte', () => {
     const bytes = encodeTcvn3('đ');
     expect(bytes).toHaveLength(1);
-    expect(bytes[0]).toBeGreaterThanOrEqual(0xb0);
+    expect(bytes[0]).toBe(0xae);
+  });
+
+  it('maps the uppercase precomposed Vietnamese character to a single TCVN3 byte', () => {
+    const bytes = encodeTcvn3('Đ');
+    expect(bytes).toHaveLength(1);
+    expect(bytes[0]).toBe(0xa7);
   });
 
   it('passes plain ASCII through unchanged', () => {

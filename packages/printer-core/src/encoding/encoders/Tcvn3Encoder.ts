@@ -9,18 +9,23 @@ export interface Tcvn3Mapping {
  * reference implementation exists in this repo's dependencies to cross-check against (checked:
  * no `tcvn3`/`vscii`-named package in node_modules).
  *
- * The two entries below (Đ/đ) are populated with reasonable confidence from repeated, consistent
- * recollection of TCVN3 documentation. The wider TCVN3 grid — the ~120 remaining precomposed
- * vowel+tone combinations (à/á/ả/ã/ạ and their ă/â/ê/ô/ơ/ư variants, upper and lower case) — is
- * intentionally NOT populated here: exact byte assignments for that grid could not be verified in
- * this session, and inventing them would risk silently corrupting printed Vietnamese text on real
- * hardware. See task-2-report.md for details. Before relying on this encoder for anything beyond
- * Đ/đ, cross-check against an authoritative TCVN3 (TCVN 5712:1993) reference table and extend
- * TCVN3_CHARS accordingly.
+ * The two entries below (Đ/đ) were originally transcribed wrong — the first pass of this file
+ * accidentally copied CP1258's byte values for Đ/đ (0xD0/0xF0) instead of TCVN3's. They have
+ * since been corrected to 0xA7/0xAE, sourced from independent TCVN3-specific research (a cited
+ * Vietnamese character-encoding reference, not CP1258 and not the original recollection). This
+ * is the only part of the table backed by that research; treat it as "checked against one
+ * external source", not as independently cross-verified the way Windows1258Encoder's table is.
+ *
+ * The wider TCVN3 grid — the ~120 remaining precomposed vowel+tone combinations (à/á/ả/ã/ạ and
+ * their ă/â/ê/ô/ơ/ư variants, upper and lower case) — is intentionally NOT populated here: exact
+ * byte assignments for that grid have not been verified, and inventing them would risk silently
+ * corrupting printed Vietnamese text on real hardware. See task-2-report.md for details. Before
+ * relying on this encoder for anything beyond Đ/đ, cross-check against an authoritative TCVN3
+ * (TCVN 5712:1993) reference table and extend TCVN3_CHARS accordingly.
  */
 const TCVN3_CHARS: Tcvn3Mapping = {
-  Đ: 0xd0,
-  đ: 0xf0,
+  Đ: 0xa7,
+  đ: 0xae,
 };
 
 const ASCII_MAX = 0x7f;
