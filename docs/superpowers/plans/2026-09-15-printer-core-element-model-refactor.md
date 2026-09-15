@@ -332,7 +332,99 @@ git commit -m "fix: align parser element construction with redesigned PrintEleme
 
 ---
 
-### Task 6: Whole-package sweep — fix remaining call sites, extend integration test
+### Task 6: TSC preview renderer — exhaustive switch over the new element types
+
+**Files:**
+- Modify: `packages/printer-core/src/preview/languages/TscPreviewRenderer.ts`
+- Test: `packages/printer-core/src/preview/languages/__tests__/TscPreviewRenderer.test.ts` (new — this file has no existing test today; create one)
+
+**Interfaces:**
+- Consumes: `PrintElement` (Task 1, all 18 variants).
+- Produces: no new exports — `TscPreviewRenderer.preview()`'s signature is unchanged, only its internal `renderElement()` switch gains cases.
+
+**Note:** `preview/languages/EscPosPreviewRenderer.ts` needs NO changes — it already generically skips every non-`'text'` element (`if (element.type !== 'text') continue;`) rather than switching exhaustively, so the 7 new variants fall through the same skip with zero code changes. Confirmed by reading the file directly — do not add anything there.
+
+**Steps:**
+
+- [ ] **Step 1: Read the current `TscPreviewRenderer.ts` in full**, especially its `'line'` case (which currently has 3 branches: horizontal, vertical, and a diagonal `<line>` SVG fallback for neither) and the `'raw'`/`'barcode'`/`'qrcode'` group (already returns `''`, same pattern the 4 no-op cases below will follow).
+
+- [ ] **Step 2: Split the `'line'` case's diagonal branch into a new `'diagonal'` case.** The existing code:
+  ```typescript
+  case 'line': {
+    const o = element.options as unknown as LineOptions;
+    const t = o.thickness ?? 1;
+    if (o.y1 === o.y2) { /* horizontal rect */ }
+    if (o.x1 === o.x2) { /* vertical rect */ }
+    return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
+  }
+  ```
+  becomes a `'line'` case with only the horizontal/vertical branches (the third `return` line moves out), plus a new:
+  ```typescript
+  case 'diagonal': {
+    const o = element.options;
+    const t = o.thickness ?? 1;
+    return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
+  }
+  ```
+  Remove the now-redundant `as unknown as LineOptions` cast in the remaining `'line'` case too (`element.options` is already precisely typed after Task 1).
+
+- [ ] **Step 3: Add `case 'cut': case 'pageBreak': case 'spacer': case 'row': case 'column': return '';`** — none of these have a visual representation on the label itself (cut is a post-print printer action, the other 4 are documented no-ops in the compilers too, per the design spec) — group them with the existing `'raw'`/`'barcode'`/`'qrcode'` empty-string group, with a comment noting why (no visual representation, consistent with the compiler-level no-op decision).
+
+- [ ] **Step 4: Add `case 'table'`** — render each of the table's rows as text, reusing the file's existing `tscFontSize()`/`tscCharWidth()` helpers the same way the `'text'` case does, at `y + i * <row height>` for row index `i` (row height = `tscFontSize(undefined, 1)`, i.e. the default font's height, since a table has no font option of its own). Call `formatTable()` from `../../receipt` to get the row strings (same function Task 4 uses in the real compiler), then emit one `<text>` element per line, left-aligned at `options.x`.
+
+- [ ] **Step 5: Write the failing test** (`preview/languages/__tests__/TscPreviewRenderer.test.ts`, new file):
+
+```typescript
+import { TscPreviewRenderer } from '../TscPreviewRenderer';
+
+describe('TscPreviewRenderer', () => {
+  it('renders a <line> element for a diagonal, not a <rect>', () => {
+    const svg = new TscPreviewRenderer().preview({
+      widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } }],
+    });
+    expect(svg).toContain('<line');
+  });
+
+  it('renders table row content as text', () => {
+    const svg = new TscPreviewRenderer().preview({
+      widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'table', options: { x: 0, y: 0, columns: [{ width: 10 }], rows: [['hello']] } }],
+    });
+    expect(svg).toContain('hello');
+  });
+
+  it('renders nothing for cut/pageBreak/spacer/row/column', () => {
+    const base = new TscPreviewRenderer().preview({
+      widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1, elements: [],
+    });
+    for (const el of [{ type: 'cut' as const }, { type: 'pageBreak' as const }, { type: 'spacer' as const, options: { size: 5 } }, { type: 'row' as const, options: {} }, { type: 'column' as const, options: {} }]) {
+      const svg = new TscPreviewRenderer().preview({
+        widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [el],
+      });
+      expect(svg).toBe(base);
+    }
+  });
+});
+```
+
+Run and verify FAIL then PASS.
+
+- [ ] **Step 6: Run full package verification.**
+
+Run: `npm run type-check -w printer-core && npm test` (from repo root). Expect the 2 previously-reported `TscPreviewRenderer.ts` errors to be gone; other downstream errors (Task 5/7's territory) may still remain — that's expected per this plan's test-suite-green ruling (see the SDD ledger).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/printer-core/src/preview/languages/TscPreviewRenderer.ts packages/printer-core/src/preview/languages/__tests__/TscPreviewRenderer.test.ts
+git commit -m "refactor: make TscPreviewRenderer exhaustive over the redesigned PrintElement union"
+```
+
+---
+
+### Task 7: Whole-package sweep — fix remaining call sites, extend integration test
 
 **Files:**
 - Modify: any file `npm run type-check -w printer-core` still flags after Tasks 1-5 (expected candidates: test files across `builder/`, `compiler/`, `parser/`, `validation/`, `preview/`, `core/` that construct `PrintElement`/`ResolvedPrintDocument` literals by hand — grep for `type: '` object literals matching the 11 original variant names across `__tests__/` directories to find them before running type-check, so you're not surprised)
