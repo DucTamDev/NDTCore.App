@@ -1,4 +1,5 @@
-import type { PrintElement, ResolvedPrintDocument } from '../index';
+import type { PrintElement } from '../../builder';
+import type { ResolvedPrintDocument } from '../index';
 
 describe('PrintDocument element union', () => {
   it('accepts a barcode element alongside portakal-native element types', () => {
