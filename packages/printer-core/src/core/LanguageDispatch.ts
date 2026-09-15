@@ -17,15 +17,19 @@ import { EplCompiler } from '../compiler/epl/EplCompiler';
 import { EplParser } from '../parser/epl/EplParser';
 import { EplValidator } from '../validation/epl/EplValidator';
 import { EplPreviewRenderer } from '../preview/languages/EplPreviewRenderer';
+import { CpclCompiler } from '../compiler/cpcl/CpclCompiler';
+import { CpclParser } from '../parser/cpcl/CpclParser';
+import { CpclValidator } from '../validation/cpcl/CpclValidator';
+import { CpclPreviewRenderer } from '../preview/languages/CpclPreviewRenderer';
 import type { PrinterLanguage } from './PrinterLanguage';
 import { UnsupportedLanguageError } from './PrinterCoreError';
 
 /**
  * Routes a `PrinterLanguage` to its compiler and runs it. "tsc" (Task 9),
- * "escpos" (Task 8), "zpl" (Phase 2 Task 1), and "epl" (Phase 2 Task 2) have
- * a real compiler in this package — every other language throws
- * `UnsupportedLanguageError` (Phase 2 per the porting plan: CPCL, DPL, SBPL,
- * Star PRNT, IPL).
+ * "escpos" (Task 8), "zpl" (Phase 2 Task 1), "epl" (Phase 2 Task 2), and
+ * "cpcl" (Phase 2 Task 3) have a real compiler in this package — every other
+ * language throws `UnsupportedLanguageError` (Phase 2 per the porting plan:
+ * DPL, SBPL, Star PRNT, IPL).
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
   switch (language) {
@@ -37,12 +41,14 @@ export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocu
       return new ZplCompiler().compile(document, profile);
     case 'epl':
       return new EplCompiler().compile(document, profile);
+    case 'cpcl':
+      return new CpclCompiler().compile(document, profile);
     default:
       throw new UnsupportedLanguageError(language, 'compiler');
   }
 }
 
-/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces (`string` for TSC/ZPL/EPL, `Uint8Array` for ESC/POS). */
+/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces (`string` for TSC/ZPL/EPL/CPCL, `Uint8Array` for ESC/POS). */
 export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
   switch (language) {
     case 'tsc':
@@ -53,6 +59,8 @@ export function parseFrom(language: PrinterLanguage, source: string | Uint8Array
       return new ZplParser().parse(source);
     case 'epl':
       return new EplParser().parse(source);
+    case 'cpcl':
+      return new CpclParser().parse(source);
     default:
       throw new UnsupportedLanguageError(language, 'parser');
   }
@@ -69,6 +77,8 @@ export function validateFor(language: PrinterLanguage, source: string): Validati
       return new ZplValidator().validate(source);
     case 'epl':
       return new EplValidator().validate(source);
+    case 'cpcl':
+      return new CpclValidator().validate(source);
     default:
       throw new UnsupportedLanguageError(language, 'validator');
   }
@@ -85,6 +95,8 @@ export function previewFor(language: PrinterLanguage, document: ResolvedPrintDoc
       return new ZplPreviewRenderer().preview(document);
     case 'epl':
       return new EplPreviewRenderer().preview(document);
+    case 'cpcl':
+      return new CpclPreviewRenderer().preview(document);
     default:
       throw new UnsupportedLanguageError(language, 'preview renderer');
   }
