@@ -1,6 +1,7 @@
 import { EscPosCompiler } from '../EscPosCompiler';
 import { EscPosParser } from '../../../parser/escpos/EscPosParser';
 import type { EscPosParsedCommand } from '../../../parser/escpos/EscPosParser';
+import type { PrintElement } from '../../../builder';
 
 /** Whether `needle` occurs as a contiguous run inside `haystack` — avoids relying on Node's `Buffer` global. */
 function containsSubsequence(haystack: Uint8Array, needle: Uint8Array): boolean {
@@ -131,5 +132,55 @@ describe('EscPosCompiler', () => {
     expect(storeCommand).toBeDefined();
     const dataBytes = storeCommand!.bytes.slice(8);
     expect(new TextDecoder().decode(new Uint8Array(dataBytes))).toBe('hello-qr');
+  });
+
+  it('emits a full-cut GS V command for a cut element', () => {
+    const bytes = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'cut', options: { mode: 'full' } }],
+    });
+    expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x00]));
+  });
+
+  it('emits nothing for cut mode off', () => {
+    const withCut = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+    const withoutCut = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [],
+    });
+    expect(withCut).toEqual(withoutCut);
+  });
+
+  it('emits table rows as text lines', () => {
+    const bytes = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+      elements: [{ type: 'table', options: { columns: [{ width: 10 }], rows: [['hello']] } }],
+    });
+    const text = new TextDecoder().decode(bytes);
+    expect(text).toContain('hello');
+  });
+
+  it('no-ops for pageBreak/spacer/row/column/diagonal', () => {
+    const noOpElements: PrintElement[] = [
+      { type: 'pageBreak' },
+      { type: 'spacer', options: { size: 5 } },
+      { type: 'row', options: {} },
+      { type: 'column', options: {} },
+      { type: 'diagonal', options: { x1: 0, y1: 0, x2: 5, y2: 5 } },
+    ];
+    for (const el of noOpElements) {
+      const withEl = new EscPosCompiler().compile({
+        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [el],
+      });
+      const without = new EscPosCompiler().compile({
+        widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 0, copies: 1,
+        elements: [],
+      });
+      expect(withEl).toEqual(without);
+    }
   });
 });

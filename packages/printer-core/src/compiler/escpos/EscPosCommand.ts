@@ -23,6 +23,7 @@ export const ESC_POS = {
   BARCODE: 0x6b, // GS k m [n] data
   RASTER_IMAGE: [0x76, 0x30], // GS v 0
   TWO_D_CODE: [0x28, 0x6b], // GS ( k
+  CUT: 0x56, // GS V m [n]
 } as const;
 
 /** Concatenate byte chunks into one Uint8Array — every ESC/POS encoder assembles its output this way. */
