@@ -657,7 +657,13 @@ git commit -m "feat: port printer-core fluent label builder + markup DSL"
 
 - [ ] **Step 2: Implement `EscPosCommand.ts`** — extract the `ESC`/`GS`/`LF` byte constants (source lines 3-5) plus every other inline command byte used in `compileElement()` (align `ESC,0x61`; bold `ESC,0x45`; size `GS,0x21`; reverse `GS,0x42`; raster image `GS,0x76,0x30`; text `GS v 0` — read the exact byte values from the source, do not guess) as named exported constants, e.g. `export const ESC_POS = { ESC: 0x1b, GS: 0x1d, LF: 0x0a, ALIGN: 0x61, BOLD: 0x45, SIZE: 0x21, REVERSE: 0x42, RASTER_IMAGE: [0x76, 0x30] } as const;`.
 
-- [ ] **Step 3: Implement `EscPosCodePage.ts`** — thin re-export/adapter around Task 2's `encoding/CodePageEncoder.ts` scoped to what ESC/POS needs: `function encodeEscPosText(text: string, profile?: PrinterProfile): Uint8Array` calling `encodeTextForPrinter(text, profile ?? DEFAULT_PROFILE)` (define a conservative `DEFAULT_PROFILE` fallback — e.g. `nativeUtf8: false, codePages: [437]` — for callers that compile without a specific printer profile, since `EscPosCompiler.compile()`'s `profile` parameter above is optional).
+- [ ] **Step 3: Implement `EscPosCodePage.ts`** — thin re-export/adapter around Task 2's `encoding/CodePageEncoder.ts` scoped to what ESC/POS needs: `function encodeEscPosText(text: string, profile?: PrinterProfile): Uint8Array` calling `encodeTextForPrinter(text, profile ?? DEFAULT_PROFILE)`. **Exact shape (matches Task 2's `encodeTextForPrinter(text, profile: { features: { nativeUtf8: boolean; codePages: number[] } })` signature — the fields are nested under `features`, not flat):**
+
+```typescript
+const DEFAULT_PROFILE = { features: { nativeUtf8: false, codePages: [437] } };
+```
+
+A real `PrinterProfile` (Task 6) satisfies this structurally since it also nests `nativeUtf8`/`codePages` under `features` — only the fallback constant needs to match this nested shape explicitly.
 
 - [ ] **Step 4: Implement `EscPosCompiler.ts` — with the code-page bug fix.** Port `compileToESCPOS()` (source lines 113-124) and its text/raw case handling (46-79, 103-109) directly, **except**: everywhere the source calls `ByteBuffer.writeText()` (source line 29, `new TextEncoder().encode(text)` — raw UTF-8, no code-page awareness), call `encodeEscPosText()` from Step 3 instead. This is the Global Constraints bug-fix requirement — verify with a test (Step 8) that non-ASCII text run through a non-`nativeUtf8` profile produces different bytes than naive UTF-8 encoding would. Case box/line/circle/ellipse/reverse/erase remain no-ops exactly as portakal has them (source lines 95-101) — ESC/POS has no native vector-drawing command, and upgrading this to render-to-image is explicitly out of scope for Phase 1 (note it as a Phase 2/3 candidate in your task report, do not implement it now). Case "barcode"/"qrcode" call into `EscPosBarcodeEncoder.ts`/`EscPosQrCodeEncoder.ts` (Steps 6-7) instead of being unhandled.
 
