@@ -1,3 +1,58 @@
 import type { PrinterProfile } from '../PrinterProfile';
 
-export const ZEBRA_PROFILES: Record<string, PrinterProfile> = {};
+export const ZEBRA_PROFILES: Record<string, PrinterProfile> = {
+  'zebra-zd420': {
+    name: 'Zebra ZD420',
+    vendor: 'Zebra',
+    language: 'zpl',
+    paperWidth: 108,
+    dotsPerLine: 832,
+    dpi: 203,
+    charsPerLine: 0,
+    usbVendorId: 0x0a5f,
+    features: {
+      cutter: 'full',
+      cashDrawer: false,
+      imageMode: ['raster'],
+      cjk: false,
+      nativeUtf8: true,
+      codePages: [],
+    },
+  },
+  'zebra-zt410': {
+    name: 'Zebra ZT410',
+    vendor: 'Zebra',
+    language: 'zpl',
+    paperWidth: 104,
+    dotsPerLine: 832,
+    dpi: 203,
+    charsPerLine: 0,
+    usbVendorId: 0x0a5f,
+    features: {
+      cutter: 'full',
+      cashDrawer: false,
+      imageMode: ['raster'],
+      cjk: false,
+      nativeUtf8: true,
+      codePages: [],
+    },
+  },
+  'zebra-gk420': {
+    name: 'Zebra GK420',
+    vendor: 'Zebra',
+    language: 'epl',
+    paperWidth: 108,
+    dotsPerLine: 832,
+    dpi: 203,
+    charsPerLine: 0,
+    usbVendorId: 0x0a5f,
+    features: {
+      cutter: 'none',
+      cashDrawer: false,
+      imageMode: ['raster'],
+      cjk: false,
+      nativeUtf8: false,
+      codePages: [],
+    },
+  },
+};
