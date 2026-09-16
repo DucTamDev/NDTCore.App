@@ -13,7 +13,7 @@ import { formatTable, validateTableColumns } from '../receipt';
 const IMAGE_PREVIEW_MAX_SAMPLES = 100;
 const CANVAS_PADDING = 10;
 const DEFAULT_CANVAS_HEIGHT = 400;
-/** Row spacing for a stacked `table` element — this renderer has no font-metrics table to derive it from, so a fixed dot value is used, same fallback role `EplCompiler`'s/`TscPreviewRenderer`'s own table-row constants serve for their languages. */
+/** Row spacing for a stacked `table` element — this renderer has no font-metrics table to derive it from, so a fixed dot value is used, same fallback role `EplCompiler`'s/`TscPreviewRenderer`'s own table-row constants serve for their languages. Intentionally duplicated (same value, same name) in `DplCompiler.ts` — the two live in different layers (preview vs. compile) with no shared module either already imports, so a cross-import here would be a bigger dependency than the constant is worth. */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 
 function escapeXml(s: string): string {

@@ -9,7 +9,7 @@
  * DPL's element records are fixed-width digit fields rather than
  * letter-prefixed commands (unlike EPL2's `A`/`X`/`LO` or ZPL's
  * `^A`/`^GB`/`^GD`), so only the document-level setup/teardown commands and
- * the record-type marker letters get named constants here — the numeric
+ * the one record-type marker letter get a named constant here — the numeric
  * field layout itself stays inline in `DplCompiler.ts`, next to the padding
  * logic it belongs with.
  */
@@ -28,8 +28,6 @@ export const DPL_COMMAND = {
   END: 'E',
   /** Trailing record-type marker shared by the Line/Box Draw command's fixed-field record (portakal's `2l`/`0002l` suffixes both end in this letter). */
   LINE_BOX_MARKER: 'l',
-  /** Bar Code Field record-type marker. Net new — portakal never compiles a barcode/QR element for DPL, so there's no literal to extract this from; it follows the same single-letter-marker shape `LINE_BOX_MARKER` documents. */
-  BARCODE_MARKER: 'B',
 } as const;
 
 export type DplCommandName = (typeof DPL_COMMAND)[keyof typeof DPL_COMMAND];

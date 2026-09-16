@@ -2,8 +2,6 @@ import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrinterProfile } from '../../profile';
 import type { PrintCompiler } from '../../core';
-import type { BarcodeSymbology } from '../../barcode';
-import type { QrErrorCorrectionLevel } from '../../qrcode';
 import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { DPL_COMMAND } from './DplCommand';
@@ -45,38 +43,13 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
  * height from (its `h`/`w` fields are a raw size multiplier, not a computed
  * pixel height, unlike EPL2's/TSC's built-in font tables) — kept as one
  * named constant, same fallback-default role `EplCompiler`'s
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` serves for EPL2.
+ * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` serves for EPL2. Intentionally duplicated
+ * (same value, same name) in `preview/PreviewRenderer.ts` — the two live in
+ * different layers (compile vs. preview) with no shared module either
+ * already imports, so a cross-import here would be a bigger dependency than
+ * the constant is worth.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
-
-/**
- * DPL `B` Bar Code Field type-selection digit per symbology. Net new —
- * portakal never compiles a barcode element for DPL (`parsers/dpl.ts` has no
- * structured decode of any bar-code-shaped record to use as ground truth),
- * so this table is a minimal, low-confidence judgment call rather than a
- * verified port, following the same allowance `EplCompiler`'s
- * `EPL_BARCODE_TYPE` doc comment documents for its own gap. Recommend
- * verifying against Honeywell/Datamax's own command reference or real
- * hardware before relying on it in production.
- */
-const DPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
-  code39: '0',
-  code93: '1',
-  code128: '3',
-  codabar: '2',
-  ean8: '4',
-  ean13: '5',
-  upca: '6',
-  itf: '7',
-  /** No dedicated UPC-E entry found — approximated with UPC-A's own code. */
-  upce: '6',
-};
-
-const DEFAULT_BARCODE_HEIGHT = 50;
-const DEFAULT_NARROW_BAR = 2;
-const DEFAULT_WIDE_BAR = 2;
-const DEFAULT_QR_CELL_WIDTH = 4;
-const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 
 function compileElement(element: PrintElement): string {
   switch (element.type) {
@@ -183,38 +156,20 @@ function compileElement(element: PrintElement): string {
     case 'column':
       return '';
 
-    // Not in portakal — see `DPL_BARCODE_TYPE`'s doc comment for this
-    // table's confidence caveats. Field order (rotation, position, bar
-    // widths, height, type, human-readable flag, data) mirrors the shape
-    // already established by this file's own text/box records.
-    case 'barcode': {
-      const c = element.options;
-      const rot = dplRotation(c.rotation);
-      const col = String(c.x ?? 0).padStart(4, '0');
-      const row = String(c.y ?? 0).padStart(4, '0');
-      const narrow = String(c.narrowBarWidth ?? DEFAULT_NARROW_BAR).padStart(4, '0');
-      const wide = String(c.wideBarWidth ?? DEFAULT_WIDE_BAR).padStart(4, '0');
-      const height = String(c.height ?? DEFAULT_BARCODE_HEIGHT).padStart(4, '0');
-      const type = DPL_BARCODE_TYPE[c.symbology];
-      const human = c.readable === false ? 'N' : 'Y';
-      return `${rot}${col}${row}${narrow}${wide}${height}${DPL_COMMAND.BARCODE_MARKER}${type}${human}${c.content}`;
-    }
-
-    // Not in portakal, same gap as `barcode` above — DPL's 2D bar code
-    // record grammar isn't corroborated anywhere accessible to this task, so
-    // this is a minimal, low-confidence judgment call (position, rotation,
-    // cell width, error correction, content), not a verified port. Flagged
-    // in the task report for follow-up verification against real hardware
-    // or Honeywell/Datamax's own documentation.
-    case 'qrcode': {
-      const c = element.options;
-      const rot = dplRotation(c.rotation);
-      const col = String(c.x ?? 0).padStart(4, '0');
-      const row = String(c.y ?? 0).padStart(4, '0');
-      const cell = String(c.cellWidth ?? DEFAULT_QR_CELL_WIDTH).padStart(4, '0');
-      const ecc = c.errorCorrection ?? DEFAULT_QR_ECC;
-      return `${rot}${col}${row}${cell}${DPL_COMMAND.BARCODE_MARKER}2D${ecc}${c.content}`;
-    }
+    // Not in portakal (`parsers/dpl.ts` has no structured decode of any
+    // bar-code-shaped record to use as ground truth) and, unlike EPL2's/
+    // ZPL's/CPCL's barcode commands (all corroborated by well-documented,
+    // externally verifiable manuals even without a portakal source), DPL's
+    // Bar Code Field grammar isn't corroborated anywhere accessible to this
+    // task — there's no genuine external anchor to derive a type-selection
+    // table or record shape from, only guesswork. Documented no-op instead,
+    // consistent with how this same file already treats every other
+    // genuinely-undocumented DPL capability (`circle`/`ellipse`/`reverse`/
+    // `erase` above): honest absence of information, not an invented
+    // plausible-looking record.
+    case 'barcode':
+    case 'qrcode':
+      return '';
   }
 }
 

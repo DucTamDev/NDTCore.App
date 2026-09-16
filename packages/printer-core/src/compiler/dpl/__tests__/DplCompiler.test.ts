@@ -171,6 +171,26 @@ describe('DplCompiler', () => {
     expect(noOpOutput).toBe(emptyOutput);
   });
 
+  // barcode/qrcode have no verified DPL record grammar to port or derive
+  // (unlike EPL2/CPCL, whose barcode commands are corroborated by
+  // well-documented, externally verifiable manuals) — documented no-ops,
+  // same treatment as circle/ellipse/reverse/erase above, not real output.
+  it('produces identical output for barcode/qrcode no-ops vs. an empty-elements document', () => {
+    const compilerA = new DplCompiler();
+    const compilerB = new DplCompiler();
+
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const noOpOutput = compilerB.compile({
+      ...baseDoc,
+      elements: [
+        { type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } },
+        { type: 'qrcode', options: { x: 10, y: 10, content: 'hello' } },
+      ],
+    });
+
+    expect(noOpOutput).toBe(emptyOutput);
+  });
+
   it('produces identical output for pageBreak/spacer/row/column no-ops vs. an empty-elements document', () => {
     const compilerA = new DplCompiler();
     const compilerB = new DplCompiler();
@@ -182,27 +202,5 @@ describe('DplCompiler', () => {
     });
 
     expect(noOpOutput).toBe(emptyOutput);
-  });
-
-  it('compiles a barcode element into a Bar Code Field record carrying its content', () => {
-    const compiler = new DplCompiler();
-    const output = compiler.compile({
-      ...baseDoc,
-      elements: [{ type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } }],
-    });
-
-    expect(output).toContain('123456789');
-    expect(output).toContain('B');
-  });
-
-  it('compiles a qrcode element into a 2D Bar Code Field record carrying its content', () => {
-    const compiler = new DplCompiler();
-    const output = compiler.compile({
-      ...baseDoc,
-      elements: [{ type: 'qrcode', options: { x: 10, y: 10, content: 'hello' } }],
-    });
-
-    expect(output).toContain('hello');
-    expect(output).toContain('B');
   });
 });
