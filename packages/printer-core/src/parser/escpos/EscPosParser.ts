@@ -15,7 +15,13 @@ export interface EscPosParseResult {
   warnings: string[];
 }
 
-function decodeEscPos(data: Uint8Array): EscPosParseResult {
+/**
+ * Decodes an ESC/POS byte stream into commands plus recovered `PrintElement`s.
+ * Exported (unlike the class below, whose `PrintParser` return type only
+ * exposes `commands`/`warnings`) so callers that need the recovered elements
+ * — e.g. using ESC/POS as a cross-compile source — can get them directly.
+ */
+export function decodeEscPos(data: Uint8Array): EscPosParseResult {
   const commands: EscPosParsedCommand[] = [];
   const elements: PrintElement[] = [];
   const warnings: string[] = [];
