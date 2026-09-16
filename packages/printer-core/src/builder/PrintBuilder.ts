@@ -116,4 +116,9 @@ export abstract class PrintBuilder {
     this.elements.push({ type: 'column', options });
     return this;
   }
+
+  append(elements: PrintElement[]): this {
+    this.elements.push(...elements);
+    return this;
+  }
 }
