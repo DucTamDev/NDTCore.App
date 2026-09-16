@@ -41,12 +41,9 @@ import type { PrinterLanguage } from './PrinterLanguage';
 import { UnsupportedLanguageError } from './PrinterCoreError';
 
 /**
- * Routes a `PrinterLanguage` to its compiler and runs it. "tsc" (Task 9),
- * "escpos" (Task 8), "zpl" (Phase 2 Task 1), "epl" (Phase 2 Task 2), "cpcl"
- * (Phase 2 Task 3), "dpl" (Phase 2 Task 4), "sbpl" (Phase 2 Task 5),
- * "starprnt" (Phase 2 Task 6), and "ipl" (Phase 2 Task 7) have a real
- * compiler in this package — Phase 2 is now complete, so every
- * `PrinterLanguage` has a real implementation.
+ * Routes a `PrinterLanguage` to its compiler and runs it. Every one of the
+ * nine languages — tsc, escpos, zpl, epl, cpcl, dpl, sbpl, starprnt, ipl —
+ * has a real compiler in this package, so there is no stub branch here.
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
   switch (language) {
@@ -65,7 +62,7 @@ export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocu
     case 'sbpl':
       return new SbplCompiler().compile(document, profile);
     case 'starprnt':
-      return new StarPrntCompiler().compile(document);
+      return new StarPrntCompiler().compile(document, profile);
     case 'ipl':
       return new IplCompiler().compile(document, profile);
     default:
@@ -73,7 +70,7 @@ export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocu
   }
 }
 
-/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces (`string` for TSC/ZPL/EPL/CPCL, `Uint8Array` for ESC/POS). */
+/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tsc/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */
 export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
   switch (language) {
     case 'tsc':

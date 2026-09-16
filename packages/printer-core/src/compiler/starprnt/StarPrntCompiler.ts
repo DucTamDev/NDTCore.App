@@ -1,6 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintCompiler } from '../../core';
+import type { PrinterProfile } from '../../profile';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { STAR_PRNT, concatStarPrntBytes } from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
@@ -32,6 +33,12 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
     chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.SIZE, mag, mag]));
   }
 
+  // Known limitation: text always goes out as UTF-8. Star PRNT output here is
+  // not profile- or code-page-aware the way ESC/POS output is, because this
+  // package has no verified Star Line Mode code-page-select command to emit
+  // (`STAR_PRNT` carries no such constant, and the ported reference has none
+  // either). Non-ASCII content therefore depends on the printer already being
+  // configured for UTF-8.
   chunks.push(new TextEncoder().encode(content));
   chunks.push(new Uint8Array([STAR_PRNT.LF]));
 
@@ -122,9 +129,13 @@ function compileElement(element: PrintElement): Uint8Array[] {
  * unsatisfiable and would double-cut a document that already places its own
  * `cut` element, so it is not ported; see the `'cut'` case above for what
  * replaces it.
+ *
+ * `_profile` is accepted for call-shape parity with the other language
+ * compilers but is not read: see `compileTextElement` for why Star PRNT text
+ * output cannot be profile-driven yet.
  */
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument): Uint8Array {
+  compile(document: ResolvedPrintDocument, _profile?: PrinterProfile): Uint8Array {
     const chunks: Uint8Array[] = [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.INIT])];
 
     for (const element of document.elements) {

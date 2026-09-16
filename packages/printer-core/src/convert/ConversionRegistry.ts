@@ -16,7 +16,7 @@ import { parseSBPL } from '../parser/sbpl/SbplParser';
 import { SbplCompiler } from '../compiler/sbpl/SbplCompiler';
 import { decodeEscPos } from '../parser/escpos/EscPosParser';
 import { EscPosCompiler } from '../compiler/escpos/EscPosCompiler';
-import { StarPrntParser } from '../parser/starprnt/StarPrntParser';
+import { decodeStarPrnt } from '../parser/starprnt/StarPrntParser';
 import { StarPrntCompiler } from '../compiler/starprnt/StarPrntCompiler';
 import { parseIPL } from '../parser/ipl/IplParser';
 import { IplCompiler } from '../compiler/ipl/IplCompiler';
@@ -62,7 +62,7 @@ function toBytes(source: string | Uint8Array): Uint8Array {
  *
  * Unlike portakal's `SourceLanguage`, every language here is a valid
  * conversion source, including escpos and starprnt: their parsers
- * (`decodeEscPos`, `StarPrntParser`) already recover real `PrintElement[]`
+ * (`decodeEscPos`, `decodeStarPrnt`) already recover real `PrintElement[]`
  * from byte input, the same as any text-protocol language's parser — there
  * was no technical reason to keep them target-only.
  */
@@ -121,10 +121,10 @@ export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry
   },
   starprnt: {
     parse: (source) => {
-      const result = new StarPrntParser().parse(toBytes(source));
+      const result = decodeStarPrnt(toBytes(source));
       return { elements: result.elements, warnings: result.warnings };
     },
-    compile: (document) => new StarPrntCompiler().compile(document),
+    compile: (document, profile) => new StarPrntCompiler().compile(document, profile),
   },
   ipl: {
     parse: (source) => {

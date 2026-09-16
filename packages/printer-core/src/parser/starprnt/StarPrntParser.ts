@@ -14,7 +14,13 @@ export interface StarPrntParseResult {
   warnings: string[];
 }
 
-function decodeStarPrnt(data: Uint8Array): StarPrntParseResult {
+/**
+ * Decodes a Star Line Mode byte stream into commands plus recovered
+ * `PrintElement`s. Exported alongside the class wrapper below so byte-in
+ * callers — `ConversionRegistry`'s starprnt source entry, for one — can reach
+ * it as a plain function, the same shape every other language's parser offers.
+ */
+export function decodeStarPrnt(data: Uint8Array): StarPrntParseResult {
   const commands: StarPrntParsedCommand[] = [];
   const elements: PrintElement[] = [];
   const warnings: string[] = [];
