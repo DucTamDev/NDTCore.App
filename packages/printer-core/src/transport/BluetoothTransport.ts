@@ -7,11 +7,11 @@ export interface BLEConfig {
   serviceUuid?: string;
   writeCharacteristicUuid?: string;
   notifyCharacteristicUuid?: string;
-  /** Requested MTU size (default: 512). */
+  /** MTU size to negotiate with the peripheral; 512 if unset. */
   requestMtu?: number;
   /** Write chunk size; defaults to the negotiated MTU minus protocol overhead. */
   chunkSize?: number;
-  /** Delay between chunks in ms (default: 20). */
+  /** Pause between successive chunk writes, in ms; 20 if unset. */
   chunkDelay?: number;
 }
 
