@@ -1,7 +1,18 @@
-/** Connection settings for a Bluetooth LE printer transport. */
+/**
+ * Connection settings for a Bluetooth LE printer transport. Includes MTU/chunk
+ * knobs because most BLE printers truncate writes larger than the negotiated
+ * MTU if the caller doesn't chunk them.
+ */
 export interface BLEConfig {
-  serviceUuid: string;
-  characteristicUuid: string;
+  serviceUuid?: string;
+  writeCharacteristicUuid?: string;
+  notifyCharacteristicUuid?: string;
+  /** Requested MTU size (default: 512). */
+  requestMtu?: number;
+  /** Write chunk size; defaults to the negotiated MTU minus protocol overhead. */
+  chunkSize?: number;
+  /** Delay between chunks in ms (default: 20). */
+  chunkDelay?: number;
 }
 
 /** Well-known BLE service/characteristic UUIDs for common thermal printers. */

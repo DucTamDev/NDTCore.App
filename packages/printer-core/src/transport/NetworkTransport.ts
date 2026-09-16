@@ -1,5 +1,8 @@
 /** Connection settings for a raw TCP/IP printer transport. */
 export interface TCPConfig {
   host: string;
-  port: number;
+  /** Default 9100 (standard raw port); some vendors (e.g. SATO) use 1024. */
+  port?: number;
+  /** Connection timeout in ms. */
+  timeout?: number;
 }

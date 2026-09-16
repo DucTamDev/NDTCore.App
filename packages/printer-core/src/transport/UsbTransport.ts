@@ -1,7 +1,9 @@
 /** Connection settings for a USB printer transport. */
 export interface USBConfig {
   vendorId: number;
-  productId: number;
+  productId?: number;
+  interfaceNumber?: number;
+  endpointNumber?: number;
 }
 
 /** Well-known USB vendor IDs for thermal printer manufacturers. */
