@@ -159,12 +159,11 @@ function compileElement(element: PrintElement): string {
     // truth) and, unlike CPCL's/EPL2's/ZPL's barcode commands (all
     // corroborated by well-documented, externally verifiable manuals even
     // without a portakal source), SATO's actual 1D/2D bar-code field layouts
-    // aren't corroborated anywhere accessible to this task — there's no
+    // aren't corroborated by any source available here — there's no
     // genuine external anchor to derive a type-selection table or field
     // shape from, only guesswork. Documented no-op instead, consistent with
-    // how `DplCompiler` already treats this exact same gap for DPL (downgraded
-    // there after review for the same reason) and how this file already
-    // treats every other genuinely-undocumented SBPL capability
+    // how `DplCompiler` already treats this exact same gap for DPL and how
+    // this file already treats every other genuinely-undocumented SBPL capability
     // (`circle`/`ellipse`/`reverse`/`erase` above): honest absence of
     // information, not an invented plausible-looking field.
     case 'barcode':

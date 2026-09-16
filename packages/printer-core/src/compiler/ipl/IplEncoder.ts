@@ -9,7 +9,7 @@ import type { Bitmap } from '../../types';
  * `IplCompiler` builds the whole document as one `string`, not bytes.
  *
  * CONFIDENCE — LOW, flagged for hardware verification before relying on it.
- * Unlike Task 2 (EPL) and Task 4 (DPL), where portakal's own image case at
+ * Unlike EPL and DPL, where portakal's own image case at
  * least had a plausible header shape and was only missing the payload,
  * portakal's `languages/ipl.ts` image case is a near-stub: it emits only
  * `{STX}G{fieldNum};o{x},{y};f0{ETX}` — no width, no height, no data at
@@ -28,7 +28,7 @@ import type { Bitmap } from '../../types';
  * name, clause letters, clause order, and byte layout may differ from what
  * is implemented here.
  *
- * What IS certain: the bug this task must fix — portakal's total absence of
+ * What IS certain: the underlying bug — portakal's total absence of
  * width/height/payload in the image case — is fixed. Real, byte-accurate
  * bitmap data now follows the header, byte for byte, matching
  * `bitmap.data`. Treat the exact command syntax as a documented,

@@ -195,13 +195,13 @@ describe('IplCompiler', () => {
     expect(noOpOutput).toBe(emptyOutput);
   });
 
-  // The core bug fix this task requires (Step 3): portakal's IPL image case
-  // emits ONLY `{STX}G{fieldNum};o{x},{y};f0{ETX}` — no width, no height, no
-  // data. These two tests prove real, byte-accurate payload data now
-  // follows the header. See `IplEncoder.ts`'s doc comment for this task's
-  // full confidence disclosure on the exact clause syntax (LOW confidence,
-  // flagged for hardware verification) — these tests assert only what is
-  // certain: header shape plus real trailing bytes.
+  // portakal's IPL image case emits ONLY
+  // `{STX}G{fieldNum};o{x},{y};f0{ETX}` — no width, no height, no data.
+  // These two tests prove real, byte-accurate payload data now follows the
+  // header. See `IplEncoder.ts`'s doc comment for the full confidence
+  // disclosure on the exact clause syntax (LOW confidence, flagged for
+  // hardware verification) — these tests assert only what is certain:
+  // header shape plus real trailing bytes.
   it('emits a graphic (G) field record with an actual payload, not a bare header', () => {
     const compiler = new IplCompiler();
     const output = compiler.compile({

@@ -307,7 +307,9 @@ export function parseZPL(code: string): ZPLParseResult {
         const color = (cmd.params[3] ?? 'B').toUpperCase();
         const rIndex = Number(cmd.params[4] ?? 0);
         const r = rIndex > 0 ? (rIndex / 8) * (Math.min(w, h) / 2) : 0;
-        // `^FR` XORs the field (black<->white); color `W` also inverts.
+        // Two independent inversion sources combine here: an active `^FR`
+        // flips the drawn field's polarity, and a `W` color argument means
+        // the box was already requested white in the first place.
         const isWhite = fieldReverse ? color !== 'W' : color === 'W';
         const isFilled = t >= Math.min(w, h);
         if (isWhite && isFilled) {

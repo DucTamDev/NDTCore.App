@@ -17,9 +17,8 @@ function escapeXml(value: string): string {
  * portakal's `renderReceiptSVG()` for `lang/starprnt.ts` — including a gap
  * already present there: it renders bold and size but not `reverse` or
  * `underline`, even though `StarPrntCompiler`'s text case supports
- * underline. Kept as-is (a faithful port, not a redesign); see this task's
- * report for the reverse/underline preview support left as a possible
- * future enhancement.
+ * underline. Kept as-is (a faithful port, not a redesign) — `reverse` and
+ * `underline` rendering remain unimplemented for Star PRNT previews.
  */
 export class StarPrntPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {

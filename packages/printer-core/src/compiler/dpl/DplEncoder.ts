@@ -13,8 +13,8 @@ import type { Bitmap } from '../../types';
  *
  * Fixes a real bug in portakal's `languages/dpl.ts` image case: it emits
  * only the fixed header with no payload appended at all — an incomplete
- * record no real printer could decode. Same bug class Phase 1 fixed for
- * TSC's `BITMAP` and Task 2 fixed for EPL's `GW`. Unlike EPL2's `GW`,
+ * record no real printer could decode. The same bug class already corrected
+ * here for TSC's `BITMAP` and EPL's `GW`. Unlike EPL2's `GW`,
  * portakal documents no inverted-polarity quirk for DPL's image record, so
  * this encoder carries `Bitmap`'s standard polarity through unchanged, same
  * as `encodeTscBitmapPayload()`.

@@ -6,7 +6,7 @@ export interface USBConfig {
   endpointNumber?: number;
 }
 
-/** Well-known USB vendor IDs for thermal printer manufacturers. */
+/** Lookup table of USB vendor ID values, keyed by receipt/label printer brand. */
 export const USB_VENDOR_IDS: Record<string, number> = {
   epson: 0x04b8,
   star: 0x0519,

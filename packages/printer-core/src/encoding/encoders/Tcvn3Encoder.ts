@@ -19,7 +19,7 @@ export interface Tcvn3Mapping {
  * The wider TCVN3 grid — the ~120 remaining precomposed vowel+tone combinations (à/á/ả/ã/ạ and
  * their ă/â/ê/ô/ơ/ư variants, upper and lower case) — is intentionally NOT populated here: exact
  * byte assignments for that grid have not been verified, and inventing them would risk silently
- * corrupting printed Vietnamese text on real hardware. See task-2-report.md for details. Before
+ * corrupting printed Vietnamese text on real hardware. Before
  * relying on this encoder for anything beyond Đ/đ, cross-check against an authoritative TCVN3
  * (TCVN 5712:1993) reference table and extend TCVN3_CHARS accordingly.
  */

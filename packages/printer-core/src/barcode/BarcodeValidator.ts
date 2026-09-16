@@ -3,8 +3,9 @@ import type { BarcodeConfig } from './BarcodeConfig';
 /**
  * A validation finding for a barcode (or QR code) config.
  *
- * Minimal local shape for Phase 1 — the shared `validation/` folder with
- * a language-specific `ValidationIssue` type doesn't exist until Task 8/9.
+ * Deliberately a minimal local shape: this predates the shared `validation/`
+ * folder and its language-specific `ValidationIssue` type, and stays
+ * independent of it.
  */
 export interface BarcodeValidationIssue {
   level: 'error' | 'warning';
