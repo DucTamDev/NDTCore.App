@@ -33,16 +33,20 @@ import { StarPrntCompiler } from '../compiler/starprnt/StarPrntCompiler';
 import { StarPrntParser } from '../parser/starprnt/StarPrntParser';
 import { StarPrntValidator } from '../validation/starprnt/StarPrntValidator';
 import { StarPrntPreviewRenderer } from '../preview/languages/StarPrntPreviewRenderer';
+import { IplCompiler } from '../compiler/ipl/IplCompiler';
+import { IplParser } from '../parser/ipl/IplParser';
+import { IplValidator } from '../validation/ipl/IplValidator';
+import { IplPreviewRenderer } from '../preview/languages/IplPreviewRenderer';
 import type { PrinterLanguage } from './PrinterLanguage';
 import { UnsupportedLanguageError } from './PrinterCoreError';
 
 /**
  * Routes a `PrinterLanguage` to its compiler and runs it. "tsc" (Task 9),
  * "escpos" (Task 8), "zpl" (Phase 2 Task 1), "epl" (Phase 2 Task 2), "cpcl"
- * (Phase 2 Task 3), "dpl" (Phase 2 Task 4), "sbpl" (Phase 2 Task 5), and
- * "starprnt" (Phase 2 Task 6) have a real compiler in this package — every
- * other language throws `UnsupportedLanguageError` (Phase 2 per the porting
- * plan: only IPL remains).
+ * (Phase 2 Task 3), "dpl" (Phase 2 Task 4), "sbpl" (Phase 2 Task 5),
+ * "starprnt" (Phase 2 Task 6), and "ipl" (Phase 2 Task 7) have a real
+ * compiler in this package — Phase 2 is now complete, so every
+ * `PrinterLanguage` has a real implementation.
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
   switch (language) {
@@ -62,6 +66,8 @@ export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocu
       return new SbplCompiler().compile(document, profile);
     case 'starprnt':
       return new StarPrntCompiler().compile(document);
+    case 'ipl':
+      return new IplCompiler().compile(document, profile);
     default:
       throw new UnsupportedLanguageError(language, 'compiler');
   }
@@ -86,6 +92,8 @@ export function parseFrom(language: PrinterLanguage, source: string | Uint8Array
       return new SbplParser().parse(source);
     case 'starprnt':
       return new StarPrntParser().parse(source);
+    case 'ipl':
+      return new IplParser().parse(source);
     default:
       throw new UnsupportedLanguageError(language, 'parser');
   }
@@ -110,6 +118,8 @@ export function validateFor(language: PrinterLanguage, source: string): Validati
       return new SbplValidator().validate(source);
     case 'starprnt':
       return new StarPrntValidator().validate(source);
+    case 'ipl':
+      return new IplValidator().validate(source);
     default:
       throw new UnsupportedLanguageError(language, 'validator');
   }
@@ -134,6 +144,8 @@ export function previewFor(language: PrinterLanguage, document: ResolvedPrintDoc
       return new SbplPreviewRenderer().preview(document);
     case 'starprnt':
       return new StarPrntPreviewRenderer().preview(document);
+    case 'ipl':
+      return new IplPreviewRenderer().preview(document);
     default:
       throw new UnsupportedLanguageError(language, 'preview renderer');
   }

@@ -77,12 +77,19 @@ describe('LanguageDispatch', () => {
     expect(previewFor('starprnt', doc)).toContain('<svg');
   });
 
-  it('throws a clear UnsupportedLanguageError for the 1 not-yet-implemented language', () => {
-    for (const language of ['ipl'] as const) {
-      expect(() => compileTo(language, doc)).toThrow(UnsupportedLanguageError);
-      expect(() => parseFrom(language, '')).toThrow(UnsupportedLanguageError);
-      expect(() => validateFor(language, '')).toThrow(UnsupportedLanguageError);
-      expect(() => previewFor(language, doc)).toThrow(UnsupportedLanguageError);
-    }
+  it('routes "ipl" to IplCompiler/IplParser/IplValidator/IplPreviewRenderer', () => {
+    const ipl = compileTo('ipl', doc);
+    expect(typeof ipl).toBe('string');
+    expect(parseFrom('ipl', ipl as string).commands.length).toBeGreaterThan(0);
+    expect(validateFor('ipl', ipl as string).valid).toBe(true);
+    expect(previewFor('ipl', doc)).toContain('<svg');
+  });
+
+  it('throws a clear UnsupportedLanguageError for an unknown language', () => {
+    const unknown = 'unknown' as unknown as Parameters<typeof compileTo>[0];
+    expect(() => compileTo(unknown, doc)).toThrow(UnsupportedLanguageError);
+    expect(() => parseFrom(unknown, '')).toThrow(UnsupportedLanguageError);
+    expect(() => validateFor(unknown, '')).toThrow(UnsupportedLanguageError);
+    expect(() => previewFor(unknown, doc)).toThrow(UnsupportedLanguageError);
   });
 });
