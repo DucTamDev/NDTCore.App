@@ -1,44 +1,23 @@
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
 import type { ValidationResult } from '../validation/ValidationResult';
-import { TscCompiler } from '../compiler/tsc/TscCompiler';
-import { TscParser } from '../parser/tsc/TscParser';
-import { TscValidator } from '../validation/tsc/TscValidator';
-import { TscPreviewRenderer } from '../preview/languages/TscPreviewRenderer';
-import { EscPosCompiler } from '../compiler/escpos/EscPosCompiler';
-import { EscPosParser } from '../parser/escpos/EscPosParser';
-import { EscPosValidator } from '../validation/escpos/EscPosValidator';
-import { EscPosPreviewRenderer } from '../preview/languages/EscPosPreviewRenderer';
-import { ZplCompiler } from '../compiler/zpl/ZplCompiler';
-import { ZplParser } from '../parser/zpl/ZplParser';
-import { ZplValidator } from '../validation/zpl/ZplValidator';
-import { ZplPreviewRenderer } from '../preview/languages/ZplPreviewRenderer';
-import { EplCompiler } from '../compiler/epl/EplCompiler';
-import { EplParser } from '../parser/epl/EplParser';
-import { EplValidator } from '../validation/epl/EplValidator';
-import { EplPreviewRenderer } from '../preview/languages/EplPreviewRenderer';
-import { CpclCompiler } from '../compiler/cpcl/CpclCompiler';
-import { CpclParser } from '../parser/cpcl/CpclParser';
-import { CpclValidator } from '../validation/cpcl/CpclValidator';
-import { CpclPreviewRenderer } from '../preview/languages/CpclPreviewRenderer';
-import { DplCompiler } from '../compiler/dpl/DplCompiler';
-import { DplParser } from '../parser/dpl/DplParser';
-import { DplValidator } from '../validation/dpl/DplValidator';
-import { DplPreviewRenderer } from '../preview/languages/DplPreviewRenderer';
-import { SbplCompiler } from '../compiler/sbpl/SbplCompiler';
-import { SbplParser } from '../parser/sbpl/SbplParser';
-import { SbplValidator } from '../validation/sbpl/SbplValidator';
-import { SbplPreviewRenderer } from '../preview/languages/SbplPreviewRenderer';
-import { StarPrntCompiler } from '../compiler/starprnt/StarPrntCompiler';
-import { StarPrntParser } from '../parser/starprnt/StarPrntParser';
-import { StarPrntValidator } from '../validation/starprnt/StarPrntValidator';
-import { StarPrntPreviewRenderer } from '../preview/languages/StarPrntPreviewRenderer';
-import { IplCompiler } from '../compiler/ipl/IplCompiler';
-import { IplParser } from '../parser/ipl/IplParser';
-import { IplValidator } from '../validation/ipl/IplValidator';
-import { IplPreviewRenderer } from '../preview/languages/IplPreviewRenderer';
 import type { PrinterLanguage } from './PrinterLanguage';
+import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
+import { LANGUAGE_REGISTRY } from './LanguageRegistry';
 import { UnsupportedLanguageError } from './PrinterCoreError';
+
+/**
+ * `LANGUAGE_REGISTRY` is a `Record<PrinterLanguage, ...>`, so this lookup
+ * can never actually miss for a real `PrinterLanguage` value — the check
+ * stays because `language` may arrive from outside type-checked code (e.g.
+ * an untyped string from JSON or user input), the same defensive shape
+ * `PrinterConverter.ts`'s own `lookup()` uses.
+ */
+function lookup(language: PrinterLanguage, capability: string): PrinterLanguageDefinition {
+  const definition = LANGUAGE_REGISTRY[language];
+  if (!definition) throw new UnsupportedLanguageError(language, capability);
+  return definition;
+}
 
 /**
  * Routes a `PrinterLanguage` to its compiler and runs it. Every one of the
@@ -46,104 +25,20 @@ import { UnsupportedLanguageError } from './PrinterCoreError';
  * has a real compiler in this package, so there is no stub branch here.
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
-  switch (language) {
-    case 'tsc':
-      return new TscCompiler().compile(document, profile);
-    case 'escpos':
-      return new EscPosCompiler().compile(document, profile);
-    case 'zpl':
-      return new ZplCompiler().compile(document, profile);
-    case 'epl':
-      return new EplCompiler().compile(document, profile);
-    case 'cpcl':
-      return new CpclCompiler().compile(document, profile);
-    case 'dpl':
-      return new DplCompiler().compile(document, profile);
-    case 'sbpl':
-      return new SbplCompiler().compile(document, profile);
-    case 'starprnt':
-      return new StarPrntCompiler().compile(document, profile);
-    case 'ipl':
-      return new IplCompiler().compile(document, profile);
-    default:
-      throw new UnsupportedLanguageError(language, 'compiler');
-  }
+  return lookup(language, 'compiler').compiler.compile(document, profile);
 }
 
 /** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tsc/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */
 export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
-  switch (language) {
-    case 'tsc':
-      return new TscParser().parse(source);
-    case 'escpos':
-      return new EscPosParser().parse(source as Uint8Array);
-    case 'zpl':
-      return new ZplParser().parse(source);
-    case 'epl':
-      return new EplParser().parse(source);
-    case 'cpcl':
-      return new CpclParser().parse(source);
-    case 'dpl':
-      return new DplParser().parse(source);
-    case 'sbpl':
-      return new SbplParser().parse(source);
-    case 'starprnt':
-      return new StarPrntParser().parse(source);
-    case 'ipl':
-      return new IplParser().parse(source);
-    default:
-      throw new UnsupportedLanguageError(language, 'parser');
-  }
+  return lookup(language, 'parser').parser.parse(source);
 }
 
 /** Routes a `PrinterLanguage` to its validator. */
 export function validateFor(language: PrinterLanguage, source: string): ValidationResult {
-  switch (language) {
-    case 'tsc':
-      return new TscValidator().validate(source);
-    case 'escpos':
-      return new EscPosValidator().validate(source);
-    case 'zpl':
-      return new ZplValidator().validate(source);
-    case 'epl':
-      return new EplValidator().validate(source);
-    case 'cpcl':
-      return new CpclValidator().validate(source);
-    case 'dpl':
-      return new DplValidator().validate(source);
-    case 'sbpl':
-      return new SbplValidator().validate(source);
-    case 'starprnt':
-      return new StarPrntValidator().validate(source);
-    case 'ipl':
-      return new IplValidator().validate(source);
-    default:
-      throw new UnsupportedLanguageError(language, 'validator');
-  }
+  return lookup(language, 'validator').validator.validate(source);
 }
 
 /** Routes a `PrinterLanguage` to its SVG preview renderer. */
 export function previewFor(language: PrinterLanguage, document: ResolvedPrintDocument): string {
-  switch (language) {
-    case 'tsc':
-      return new TscPreviewRenderer().preview(document);
-    case 'escpos':
-      return new EscPosPreviewRenderer().preview(document);
-    case 'zpl':
-      return new ZplPreviewRenderer().preview(document);
-    case 'epl':
-      return new EplPreviewRenderer().preview(document);
-    case 'cpcl':
-      return new CpclPreviewRenderer().preview(document);
-    case 'dpl':
-      return new DplPreviewRenderer().preview(document);
-    case 'sbpl':
-      return new SbplPreviewRenderer().preview(document);
-    case 'starprnt':
-      return new StarPrntPreviewRenderer().preview(document);
-    case 'ipl':
-      return new IplPreviewRenderer().preview(document);
-    default:
-      throw new UnsupportedLanguageError(language, 'preview renderer');
-  }
+  return lookup(language, 'preview renderer').previewRenderer.preview(document);
 }

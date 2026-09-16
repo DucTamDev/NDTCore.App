@@ -4,4 +4,6 @@ export * from './PrintParser';
 export * from './PrintPreview';
 export * from './PrintValidation';
 export * from './PrinterCoreError';
+export * from './PrinterLanguageDefinition';
+export * from './LanguageRegistry';
 export * from './LanguageDispatch';
