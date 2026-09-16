@@ -25,15 +25,19 @@ import { DplCompiler } from '../compiler/dpl/DplCompiler';
 import { DplParser } from '../parser/dpl/DplParser';
 import { DplValidator } from '../validation/dpl/DplValidator';
 import { DplPreviewRenderer } from '../preview/languages/DplPreviewRenderer';
+import { SbplCompiler } from '../compiler/sbpl/SbplCompiler';
+import { SbplParser } from '../parser/sbpl/SbplParser';
+import { SbplValidator } from '../validation/sbpl/SbplValidator';
+import { SbplPreviewRenderer } from '../preview/languages/SbplPreviewRenderer';
 import type { PrinterLanguage } from './PrinterLanguage';
 import { UnsupportedLanguageError } from './PrinterCoreError';
 
 /**
  * Routes a `PrinterLanguage` to its compiler and runs it. "tsc" (Task 9),
  * "escpos" (Task 8), "zpl" (Phase 2 Task 1), "epl" (Phase 2 Task 2), "cpcl"
- * (Phase 2 Task 3), and "dpl" (Phase 2 Task 4) have a real compiler in this
- * package — every other language throws `UnsupportedLanguageError` (Phase 2
- * per the porting plan: SBPL, Star PRNT, IPL).
+ * (Phase 2 Task 3), "dpl" (Phase 2 Task 4), and "sbpl" (Phase 2 Task 5) have
+ * a real compiler in this package — every other language throws
+ * `UnsupportedLanguageError` (Phase 2 per the porting plan: Star PRNT, IPL).
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
   switch (language) {
@@ -49,6 +53,8 @@ export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocu
       return new CpclCompiler().compile(document, profile);
     case 'dpl':
       return new DplCompiler().compile(document, profile);
+    case 'sbpl':
+      return new SbplCompiler().compile(document, profile);
     default:
       throw new UnsupportedLanguageError(language, 'compiler');
   }
@@ -69,6 +75,8 @@ export function parseFrom(language: PrinterLanguage, source: string | Uint8Array
       return new CpclParser().parse(source);
     case 'dpl':
       return new DplParser().parse(source);
+    case 'sbpl':
+      return new SbplParser().parse(source);
     default:
       throw new UnsupportedLanguageError(language, 'parser');
   }
@@ -89,6 +97,8 @@ export function validateFor(language: PrinterLanguage, source: string): Validati
       return new CpclValidator().validate(source);
     case 'dpl':
       return new DplValidator().validate(source);
+    case 'sbpl':
+      return new SbplValidator().validate(source);
     default:
       throw new UnsupportedLanguageError(language, 'validator');
   }
@@ -109,6 +119,8 @@ export function previewFor(language: PrinterLanguage, document: ResolvedPrintDoc
       return new CpclPreviewRenderer().preview(document);
     case 'dpl':
       return new DplPreviewRenderer().preview(document);
+    case 'sbpl':
+      return new SbplPreviewRenderer().preview(document);
     default:
       throw new UnsupportedLanguageError(language, 'preview renderer');
   }
