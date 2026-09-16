@@ -10,12 +10,7 @@ describe('LabelBuilder', () => {
     expect(doc.widthDots).toBeGreaterThan(0);
   });
 
-  it('defaults width/dpi from a known printer profile', () => {
-    const doc = new LabelBuilder({ printer: 'tsc-te310' } as never).resolve();
-    expect(doc.dpi).toBe(300);
-  });
-
-  it('throws when width is missing and no profile is given', () => {
+  it('throws when width is missing', () => {
     expect(() => new LabelBuilder({} as never)).toThrow();
   });
 

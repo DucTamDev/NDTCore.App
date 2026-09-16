@@ -8,5 +8,4 @@ export interface PrintDocumentOptions {
   density?: number;
   direction?: Direction;
   copies?: number;
-  printer?: string;
 }

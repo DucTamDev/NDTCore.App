@@ -31,7 +31,6 @@ export function markup(source: string): LabelBuilder {
     speed: labelAttrs.speed ? Number(labelAttrs.speed) : undefined,
     density: labelAttrs.density ? Number(labelAttrs.density) : undefined,
     copies: labelAttrs.copies ? Number(labelAttrs.copies) : undefined,
-    printer: labelAttrs.printer ?? undefined,
   };
 
   // `width` is always assigned above (falls back to "40mm"), so this

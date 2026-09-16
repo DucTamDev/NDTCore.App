@@ -1,14 +1,13 @@
 import type { PrintDocument, ResolvedPrintDocument } from '../document';
 import type { Unit } from '../types';
-import { getProfile } from '../profile';
 import { PrintBuilder } from './PrintBuilder';
 
 /**
  * Thrown when a document configuration can't be resolved — currently just
- * a missing/non-positive width with no printer profile to fall back to.
- * Defined here rather than in a dedicated `errors/` folder: the skeleton
- * has none yet (unlike portakal's `src/errors.ts`). Worth revisiting as a
- * proper `errors/` module in a later phase if more error types show up.
+ * a missing/non-positive width. Defined here rather than in a dedicated
+ * `errors/` folder: the skeleton has none yet (unlike portakal's
+ * `src/errors.ts`). Worth revisiting as a proper `errors/` module in a
+ * later phase if more error types show up.
  */
 export class InvalidConfigError extends Error {}
 
@@ -29,17 +28,6 @@ export class LabelBuilder extends PrintBuilder {
 
   constructor(config: PrintDocument) {
     super();
-    if (config.printer) {
-      const profile = getProfile(config.printer);
-      if (profile) {
-        config = {
-          ...config,
-          width: config.width || profile.paperWidth,
-          dpi: config.dpi ?? profile.dpi,
-          unit: config.unit ?? 'mm',
-        };
-      }
-    }
     if (!config.width || config.width <= 0) {
       throw new InvalidConfigError('Label width must be a positive number');
     }
