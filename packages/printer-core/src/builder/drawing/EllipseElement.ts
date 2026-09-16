@@ -7,3 +7,9 @@ export interface EllipseOptions {
   /** Stroke width in dots; printer default is 1 when omitted. */
   thickness?: number;
 }
+
+/** An ellipse outline. */
+export interface EllipseElement {
+  type: 'ellipse';
+  options: EllipseOptions;
+}

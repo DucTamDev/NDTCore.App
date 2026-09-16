@@ -6,3 +6,9 @@ export interface CircleOptions {
   /** Stroke width in dots; printer default is 1 when omitted. */
   thickness?: number;
 }
+
+/** A circle outline. */
+export interface CircleElement {
+  type: 'circle';
+  options: CircleOptions;
+}

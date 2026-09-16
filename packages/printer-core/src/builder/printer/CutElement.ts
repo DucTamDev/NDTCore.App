@@ -7,3 +7,9 @@ export interface CutOptions {
   rows?: number;
   mode?: 'off' | 'partial' | 'full';
 }
+
+/** A paper-cut command. */
+export interface CutElement {
+  type: 'cut';
+  options?: CutOptions;
+}

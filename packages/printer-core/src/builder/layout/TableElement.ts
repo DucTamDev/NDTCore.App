@@ -10,3 +10,9 @@ export interface TableOptions extends Point {
   columns: ReceiptColumn[];
   rows: string[][];
 }
+
+/** A table placed as a positioned document element. */
+export interface TableElement {
+  type: 'table';
+  options: TableOptions;
+}

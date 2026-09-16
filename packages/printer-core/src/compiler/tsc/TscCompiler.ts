@@ -113,7 +113,7 @@ function compileElement(element: PrintElement): string {
     }
 
     // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
-    // element/case below (see `DiagonalElement` in `builder/PrintElement.ts`).
+    // element/case below (see `DiagonalElement` in `builder/drawing/DiagonalElement.ts`).
     // `PrintBuilder.line()` always dispatches via `isDiagonal()` so it never
     // produces a `'line'` element with diagonal coordinates, but a hand-built
     // `PrintElement` literal could bypass that guarantee — the fallback below

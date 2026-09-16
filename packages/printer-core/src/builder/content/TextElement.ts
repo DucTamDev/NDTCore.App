@@ -16,3 +16,10 @@ export interface TextOptions {
   maxWidth?: number;
   lineSpacing?: number;
 }
+
+/** A text run, positioned and styled per `TextOptions`. */
+export interface TextElement {
+  type: 'text';
+  content: string;
+  options?: TextOptions;
+}

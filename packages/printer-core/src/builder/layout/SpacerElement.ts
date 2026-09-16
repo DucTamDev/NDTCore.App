@@ -5,3 +5,9 @@ export interface SpacerOptions {
   size: number;
   unit?: Unit;
 }
+
+/** A fixed-size spacer. */
+export interface SpacerElement {
+  type: 'spacer';
+  options: SpacerOptions;
+}

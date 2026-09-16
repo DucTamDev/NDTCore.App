@@ -5,3 +5,9 @@ export interface RowOptions extends Point {
   /** Gap between children, in dots. */
   gap?: number;
 }
+
+/** A horizontal row layout container. */
+export interface RowElement {
+  type: 'row';
+  options: RowOptions;
+}

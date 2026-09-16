@@ -9,3 +9,9 @@ export interface BoxOptions {
   /** Corner rounding radius, in dots — 0/omitted means square corners. */
   radius?: number;
 }
+
+/** A rectangle (box) outline. */
+export interface BoxElement {
+  type: 'box';
+  options: BoxOptions;
+}
