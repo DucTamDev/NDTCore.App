@@ -9,9 +9,9 @@ Mục tiêu dài hạn là mirror đầy đủ chức năng của
 nguồn mở, zero-dependency) — không trim bớt ngôn ngữ, để giữ khả năng mở rộng
 sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng hôm nay.
 
-> **Trạng thái hiện tại: một phần thật, phần còn lại là placeholder.** 188/253
-> file `.ts` trong `src/` đã có logic thật; phần còn lại vẫn là placeholder
-> (`export {}`) chờ port tiếp. Cụ thể:
+> **Trạng thái hiện tại: đầy đủ, package đã hoàn chỉnh.** Cả 9 ngôn ngữ máy in,
+> `convert/`, và toàn bộ profile theo hãng đều đã có logic thật — không còn
+> file placeholder (`export {}`) nào. Cụ thể:
 >
 > **Đã có logic thật:**
 > - Nền tảng: types, document model, core dispatch (`PrintCompiler`/`Parser`/
@@ -21,36 +21,37 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > - `image/`: dithering ảnh (threshold, Floyd-Steinberg, Atkinson, ordered)
 > - `barcode/`, `qrcode/`: lớp mô tả + validate (chưa render ảnh module thật)
 > - `receipt/`: layout công thức in hoá đơn (pair/table/separator, word wrap)
-> - `profile/`: một phần — Generic/Epson/TSC có dữ liệu thật, 6 file hãng còn
->   lại (Bixolon, Citizen, Honeywell, Sato, Star, Zebra) mới là stub rỗng
+> - `profile/`: đầy đủ — cả 9 file hãng (Generic, Epson, TSC, Bixolon, Citizen,
+>   Honeywell, Sato, Star, Zebra) đều có dữ liệu thật
 > - `builder/`: fluent builder API (PrintBuilder/LabelBuilder/ReceiptBuilder)
 >   và `markup/`: markup DSL kiểu HTML (`<label>...</label>`)
-> - **ESC/POS** và **TSC/TSPL**: đầy đủ pipeline compile → parse → validate →
->   preview (SVG) — 2/9 ngôn ngữ máy in
->
-> **Vẫn là placeholder:**
-> - 7 ngôn ngữ máy in còn lại (ZPL, EPL, CPCL, DPL, SBPL, Star PRNT, IPL):
->   compiler/parser/validator/preview đều chưa có logic
-> - `convert/` (cross-compiler giữa các ngôn ngữ)
-> - 6 file profile hãng nêu trên (dữ liệu thật chưa có)
+> - **Cả 9 ngôn ngữ máy in** (TSC/TSPL, ESC/POS, ZPL, EPL, CPCL, DPL, SBPL,
+>   Star PRNT, IPL): đầy đủ pipeline compile → parse → validate → preview (SVG)
+> - `convert/`: cross-compiler giữa các ngôn ngữ (parse ngôn ngữ A → dựng lại
+>   `PrintElement[]` → compile sang ngôn ngữ B)
 > - `transport/` — **chỉ định nghĩa interface theo đúng thiết kế**, I/O thật
->   (USB/BT/LAN) vẫn thuộc về `src/features/printer/` của app, không phải nợ
->   kỹ thuật
+>   (USB/BT/LAN) vẫn thuộc về app, không phải nợ kỹ thuật
 > - `testing/` (MockPrinterTransport, PrintDataAssertion, HexDump...)
 >
-> Có một bài test tích hợp end-to-end thật chứng minh phần đã xong hoạt động
-> đúng: `src/__tests__/phase1-integration.test.ts` — dựng một document thật,
-> compile ra cả ESC/POS lẫn TSC, parse ngược, rồi validate.
+> Có bài test tích hợp end-to-end thật chứng minh cả 9 ngôn ngữ hoạt động đúng:
+> `src/__tests__/phase2-integration.test.ts` — dựng một document thật (text +
+> barcode + table + cut), compile/parse/validate/preview lần lượt qua tất cả
+> 9 `PrinterLanguage` bằng `core/LanguageDispatch.ts`, cộng thêm 2 test chi
+> tiết riêng cho ESC/POS và TSC kế thừa từ Phase 1.
 >
-> **Chưa có consumer nào dùng package này** — `src/features/printer/` của app
-> hiện vẫn giữ logic trùng lặp của riêng nó. Việc chuyển app sang dùng
-> `printer-core` thay vì logic riêng là việc khác, để sau.
+> **Chưa có consumer nào dùng package này** — app hiện vẫn giữ logic in ấn
+> trùng lặp của riêng nó. Việc chuyển app sang dùng `printer-core` thay vì
+> logic riêng là việc khác, để sau.
 >
-> **Giới hạn đã biết:** chuỗi string mà `TscCompiler.compile()` trả về trộn
-> lẫn hai kiểu encoding byte khác nhau (text UTF-8 và payload bitmap dạng
-> latin-1 one-char-per-byte) khi document có element ảnh — xem JSDoc trên
-> `TscCompiler.compile()` (`src/compiler/tsc/TscCompiler.ts`) để biết chi tiết
-> trước khi dùng output TSC compile ra để gửi máy in thật.
+> **Giới hạn đã biết (không thuộc phạm vi port này):**
+> - Chuỗi string mà `TscCompiler.compile()` trả về trộn lẫn hai kiểu encoding
+>   byte khác nhau (text UTF-8 và payload bitmap dạng latin-1 one-char-per-byte)
+>   khi document có element ảnh — xem JSDoc trên `TscCompiler.compile()`
+>   (`src/compiler/tsc/TscCompiler.ts`) để biết chi tiết trước khi dùng output
+>   TSC compile ra để gửi máy in thật.
+> - `Tcvn3Encoder` chỉ phủ một phần bảng mã TCVN3 (partial coverage) — xem
+>   JSDoc trên `Tcvn3Encoder` (`src/encoding/encoders/Tcvn3Encoder.ts`) để biết
+>   phạm vi ký tự đã hỗ trợ.
 
 ## Ranh giới với `src/features/printer`
 
