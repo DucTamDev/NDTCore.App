@@ -32,12 +32,6 @@ export function bindElements(elements: PrintElement[], data: BindingData): Print
     switch (element.type) {
       case 'text':
         return { ...element, content: substitute(element.content, data) };
-      // Kept as two separate case labels rather than a combined
-      // `case 'barcode': case 'qrcode':` — combining them widens
-      // `element.options` to `BarcodeConfig | QrCodeConfig`, and the
-      // resulting object literal no longer type-checks as `PrintElement`
-      // (TypeScript can't correlate the merged `options` shape back to
-      // either specific variant).
       case 'barcode':
         return { ...element, options: { ...element.options, content: substitute(element.options.content, data) } };
       case 'qrcode':
