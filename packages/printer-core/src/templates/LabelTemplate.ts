@@ -2,20 +2,20 @@ import type { PrintDocument } from '../document';
 import type { PrintElement } from '../builder';
 
 /**
- * A print-ready starting point for a `LabelBuilder` document: a complete
- * paper/dpi config plus its starting elements, both plain data so it can be
- * cloned directly into a persisted, user-edited template elsewhere without
- * calling anything. `config` is a full `PrintDocument`, not `Partial` — a
- * template that can't fully specify its own paper config isn't a usable
- * starting point.
+ * A persisted, user-editable label document: identity (`id`/`name`) plus a
+ * complete paper/dpi config and its elements, all plain data — no `build()`
+ * function, so the whole record round-trips through JSON storage as-is.
+ * `config` is a full `PrintDocument`, not `Partial` — a template that can't
+ * fully specify its own paper config isn't usable.
  *
- * `kind` is a discriminant defined locally here — deliberately not any
+ * `type` is a discriminant defined locally here — deliberately not any
  * app-specific content-type enum, which this framework-agnostic package
- * must never depend on. A consumer mapping this onto its own persisted
- * template shape maps `kind` to its own type field itself.
+ * must never depend on.
  */
 export interface LabelTemplate {
-  kind: 'label';
+  id: string;
+  name: string;
+  type: 'label';
   config: PrintDocument;
   elements: PrintElement[];
 }

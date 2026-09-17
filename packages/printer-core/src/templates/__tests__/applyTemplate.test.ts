@@ -4,7 +4,9 @@ import type { ReceiptTemplate } from '../ReceiptTemplate';
 
 describe('applyLabelTemplate', () => {
   const template: LabelTemplate = {
-    kind: 'label',
+    id: 't1',
+    name: 'Test label',
+    type: 'label',
     config: { width: 40, height: 30, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hello', options: {} }],
   };
@@ -28,7 +30,9 @@ describe('applyLabelTemplate', () => {
 
 describe('applyReceiptTemplate', () => {
   const template: ReceiptTemplate = {
-    kind: 'receipt',
+    id: 't2',
+    name: 'Test receipt',
+    type: 'receipt',
     config: { width: 58, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hi', options: {} }],
   };
