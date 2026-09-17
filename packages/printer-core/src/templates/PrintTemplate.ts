@@ -1,16 +1,7 @@
 import type { PrintDocument } from '../document';
 import type { PrintElement } from '../builder';
-import { PrintTemplateType } from './PrintTemplateType';
+import type { PrintTemplateType } from './PrintTemplateType';
 
-/**
- * Common shape both template kinds share: identity (`id`/`name`) plus the
- * discriminant, config, and elements every persisted, user-editable
- * print document needs. Not exported as `PrintTemplate` itself — that name
- * is reserved for the real union below, since narrowing on `type` (e.g.
- * `if (t.type === PrintTemplateType.Receipt)`) only works when the two
- * variants are alternatives of a union, not subtypes of a shared parent
- * interface.
- */
 export interface BasePrintTemplate {
   id: string;
   name: string;
