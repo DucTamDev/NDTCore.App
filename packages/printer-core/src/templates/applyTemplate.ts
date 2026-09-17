@@ -1,7 +1,6 @@
 import type { PrintDocument } from '../document';
 import { LabelBuilder, ReceiptBuilder } from '../builder';
-import type { LabelTemplate } from './LabelTemplate';
-import type { ReceiptTemplate } from './ReceiptTemplate';
+import type { LabelTemplate, ReceiptTemplate } from './PrintTemplate';
 
 /** Builds a `LabelBuilder` from a template's config + starting elements, with optional config overrides applied on top. */
 export function applyLabelTemplate(template: LabelTemplate, overrides?: Partial<PrintDocument>): LabelBuilder {

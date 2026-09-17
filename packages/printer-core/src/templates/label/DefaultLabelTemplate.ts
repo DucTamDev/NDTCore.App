@@ -1,4 +1,5 @@
-import type { LabelTemplate } from '../LabelTemplate';
+import type { LabelTemplate } from '../PrintTemplate';
+import { PrintTemplateType } from '../PrintTemplateType';
 
 /**
  * Blank 40x30mm label at 203dpi — the bare starting point for a new label,
@@ -9,7 +10,7 @@ import type { LabelTemplate } from '../LabelTemplate';
 export const DefaultLabelTemplate: LabelTemplate = {
   id: 'default-label',
   name: 'Nhãn trắng',
-  type: 'label',
+  type: PrintTemplateType.Label,
   config: { width: 40, height: 30, unit: 'mm', dpi: 203 },
   elements: [],
 };

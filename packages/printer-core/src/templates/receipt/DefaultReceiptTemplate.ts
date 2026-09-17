@@ -1,4 +1,5 @@
-import type { ReceiptTemplate } from '../ReceiptTemplate';
+import type { ReceiptTemplate } from '../PrintTemplate';
+import { PrintTemplateType } from '../PrintTemplateType';
 
 /**
  * Blank 58mm continuous receipt at 203dpi — the bare starting point for a
@@ -9,7 +10,7 @@ import type { ReceiptTemplate } from '../ReceiptTemplate';
 export const DefaultReceiptTemplate: ReceiptTemplate = {
   id: 'default-receipt',
   name: 'Hóa đơn trắng',
-  type: 'receipt',
+  type: PrintTemplateType.Receipt,
   config: { width: 58, unit: 'mm', dpi: 203 },
   elements: [],
 };

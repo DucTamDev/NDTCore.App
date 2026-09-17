@@ -1,12 +1,12 @@
 import { applyLabelTemplate, applyReceiptTemplate } from '../applyTemplate';
-import type { LabelTemplate } from '../LabelTemplate';
-import type { ReceiptTemplate } from '../ReceiptTemplate';
+import type { LabelTemplate, ReceiptTemplate } from '../PrintTemplate';
+import { PrintTemplateType } from '../PrintTemplateType';
 
 describe('applyLabelTemplate', () => {
   const template: LabelTemplate = {
     id: 't1',
     name: 'Test label',
-    type: 'label',
+    type: PrintTemplateType.Label,
     config: { width: 40, height: 30, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hello', options: {} }],
   };
@@ -32,7 +32,7 @@ describe('applyReceiptTemplate', () => {
   const template: ReceiptTemplate = {
     id: 't2',
     name: 'Test receipt',
-    type: 'receipt',
+    type: PrintTemplateType.Receipt,
     config: { width: 58, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hi', options: {} }],
   };

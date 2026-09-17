@@ -1,5 +1,4 @@
-export * from './LabelTemplate';
-export * from './ReceiptTemplate';
+export * from './PrintTemplateType';
 export * from './PrintTemplate';
 export * from './applyTemplate';
 export * from './label/DefaultLabelTemplate';
