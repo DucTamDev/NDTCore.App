@@ -6,7 +6,7 @@ import type { PrintElement } from '../builder';
  * as `LabelPreset`, but `config` omits `height` since continuous receipt
  * paper has no fixed length, matching `ReceiptBuilder`'s own constructor.
  */
-export interface ReceiptPreset<TVars> {
+export interface ReceiptPreset {
   config: Omit<PrintDocument, 'height'>;
-  build(vars: TVars): PrintElement[];
+  elements: PrintElement[];
 }
