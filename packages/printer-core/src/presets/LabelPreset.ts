@@ -8,8 +8,15 @@ import type { PrintElement } from '../builder';
  * template without calling anything. `config` is a full `PrintDocument`, not
  * `Partial` — a preset that can't fully specify its own paper config isn't
  * a usable starting point.
+ *
+ * `kind` is a discriminant defined locally here — deliberately not the
+ * app's own `PrintType` (`src/features/printer`), which this
+ * framework-agnostic package must never depend on. A consumer mapping this
+ * preset onto its own persisted template shape maps `kind` to its own type
+ * field itself.
  */
 export interface LabelPreset {
+  kind: 'label';
   config: PrintDocument;
   elements: PrintElement[];
 }

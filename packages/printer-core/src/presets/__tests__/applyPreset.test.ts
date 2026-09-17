@@ -4,6 +4,7 @@ import type { ReceiptPreset } from '../ReceiptPreset';
 
 describe('applyLabelPreset', () => {
   const preset: LabelPreset = {
+    kind: 'label',
     config: { width: 40, height: 30, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hello', options: {} }],
   };
@@ -27,6 +28,7 @@ describe('applyLabelPreset', () => {
 
 describe('applyReceiptPreset', () => {
   const preset: ReceiptPreset = {
+    kind: 'receipt',
     config: { width: 58, unit: 'mm', dpi: 203 },
     elements: [{ type: 'text', content: 'Hi', options: {} }],
   };
