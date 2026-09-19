@@ -1,8 +1,9 @@
 import type { ResolvedNode } from '../resolution/ResolvedNode';
 import type { LayoutConfig } from './LayoutConfig';
-import type { TypographyProfile } from './TypographyProfile';
+import type { TypographyProfile, FontScaleLevel } from './TypographyProfile';
 import type { FontMetrics } from './FontMetrics';
 import type { PrintElement } from '../builder';
+import type { TextStyle } from '../template/style/TextStyle';
 
 interface Position { readonly x: number; readonly y: number; }
 interface Size { readonly widthDots: number; readonly heightDots: number; }
@@ -74,11 +75,43 @@ function arrange(node: ResolvedNode, origin: Position, availableWidthDots: numbe
   }
 }
 
+function scaleTree(node: ResolvedNode, level: FontScaleLevel): ResolvedNode {
+  if (node.type === 'text') {
+    const style: TextStyle | undefined = node.style && {
+      ...node.style,
+      fontSize: node.style.fontSize !== undefined ? node.style.fontSize * level.fontScale : undefined,
+      lineHeight: node.style.lineHeight !== undefined ? node.style.lineHeight * level.lineHeightScale : undefined,
+    };
+    return { ...node, style };
+  }
+  if (node.type === 'container') return { ...node, children: node.children.map((child) => scaleTree(child, level)) };
+  return node;
+}
+
+function totalHeight(node: ResolvedNode, fontMetrics: FontMetrics): number {
+  return measure(node, fontMetrics).heightDots;
+}
+
 export class LayoutEngine {
-  // `config`/`typography` are unused until Task 14 wires in the multi-scale sizing search.
-  resolve(root: ResolvedNode, _config: LayoutConfig, _typography: TypographyProfile, fontMetrics: FontMetrics): PrintElement[] {
+  resolve(root: ResolvedNode, config: LayoutConfig, typography: TypographyProfile, fontMetrics: FontMetrics): PrintElement[] {
+    const levels = typography.fontScaleLevels;
+
+    if (config.heightDots === undefined) {
+      const scaled = scaleTree(root, levels[0]);
+      const elements: PrintElement[] = [];
+      arrange(scaled, { x: 0, y: 0 }, config.widthDots, fontMetrics, elements);
+      return elements;
+    }
+
+    let chosen = levels[levels.length - 1];
+    for (const level of levels) {
+      const scaled = scaleTree(root, level);
+      if (totalHeight(scaled, fontMetrics) <= config.heightDots) { chosen = level; break; }
+    }
+
+    const scaled = scaleTree(root, chosen);
     const elements: PrintElement[] = [];
-    arrange(root, { x: 0, y: 0 }, _config.widthDots, fontMetrics, elements);
+    arrange(scaled, { x: 0, y: 0 }, config.widthDots, fontMetrics, elements);
     return elements;
   }
 }
