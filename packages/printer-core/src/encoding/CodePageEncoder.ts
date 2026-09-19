@@ -91,20 +91,17 @@ export function encodeText(text: string, preferredCodePage?: number): EncodingRe
 }
 
 /**
- * Encode text for a specific printer profile.
+ * Encode text for a specific printer's text-encoding capabilities.
  *
  * Fix vs. portakal: portakal's `encodeTextForPrinter` accepts a `nativeUtf8`-shaped flag but never
- * branches on it, always doing code-page lookup. Here, when `profile.features.nativeUtf8` is true,
+ * branches on it, always doing code-page lookup. Here, when `encoding.nativeUtf8` is true,
  * text is sent as raw UTF-8 (no code-page switch); otherwise it falls back to `encodeText` using
  * the printer's first declared code page.
  */
-export function encodeTextForPrinter(
-  text: string,
-  profile: { features: { nativeUtf8: boolean; codePages: number[] } }
-): EncodingResult {
-  if (profile.features.nativeUtf8) {
+export function encodeTextForPrinter(text: string, encoding: { nativeUtf8: boolean; codePages: number[] }): EncodingResult {
+  if (encoding.nativeUtf8) {
     return { bytes: encodeUtf8Passthrough(text), codePage: null, unmappedChars: [] };
   }
 
-  return encodeText(text, profile.features.codePages[0]);
+  return encodeText(text, encoding.codePages[0]);
 }

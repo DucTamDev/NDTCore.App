@@ -1,7 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
-import type { PrinterProfile } from '../../profile';
-import type { PrintCompiler } from '../../core';
+import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { DPL_COMMAND } from './DplCommand';
@@ -196,7 +195,7 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
 
 /**
  * DPL has no code-page/byte-encoding step (unlike ESC/POS) — its compiled
- * output is a plain command string, so `profile` is accepted only to satisfy
+ * output is a plain command string, so `encoding` is accepted only to satisfy
  * `PrintCompiler`'s shared call shape and isn't otherwise used.
  *
  * Known limitation — same mixed string encoding constraint as
@@ -208,7 +207,7 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
  * contains an image element.
  */
 export class DplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _profile?: PrinterProfile): string {
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
     return compileToDPL(document);
   }
 }

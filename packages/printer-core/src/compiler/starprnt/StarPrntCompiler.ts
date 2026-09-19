@@ -1,7 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
-import type { PrintCompiler } from '../../core';
-import type { PrinterProfile } from '../../profile';
+import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { STAR_PRNT, concatStarPrntBytes } from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
@@ -130,12 +129,12 @@ function compileElement(element: PrintElement): Uint8Array[] {
  * `cut` element, so it is not ported; see the `'cut'` case above for what
  * replaces it.
  *
- * `_profile` is accepted for call-shape parity with the other language
+ * `encoding` is accepted for call-shape parity with the other language
  * compilers but is not read: see `compileTextElement` for why Star PRNT text
- * output cannot be profile-driven yet.
+ * output cannot be encoding-driven yet.
  */
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, _profile?: PrinterProfile): Uint8Array {
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): Uint8Array {
     const chunks: Uint8Array[] = [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.INIT])];
 
     for (const element of document.elements) {

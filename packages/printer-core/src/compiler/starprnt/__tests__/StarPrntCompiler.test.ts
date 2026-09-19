@@ -1,6 +1,6 @@
 import { StarPrntCompiler } from '../StarPrntCompiler';
 import type { PrintElement } from '../../../builder';
-import { STAR_PROFILES, type PrinterProfile } from '../../../profile';
+import { STAR_PROFILES } from '../../../profile';
 
 const BASE = { widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward' as const, copies: 1 };
 
@@ -109,15 +109,15 @@ describe('StarPrntCompiler', () => {
     ).toThrow(/positive width/);
   });
 
-  it('accepts a PrinterProfile argument without changing its output (Star PRNT text is not yet profile-driven)', () => {
-    const profile: PrinterProfile = STAR_PROFILES['star-tsp143']!;
+  it('accepts an encoding argument without changing its output (Star PRNT text is not yet encoding-driven)', () => {
+    const encoding = STAR_PROFILES['star-tsp143']!.features;
     const elements: PrintElement[] = [{ type: 'text', content: 'Profile', options: { bold: true, size: 2 } }];
 
-    const withProfile = new StarPrntCompiler().compile({ ...BASE, elements }, profile);
-    const withoutProfile = new StarPrntCompiler().compile({ ...BASE, elements });
+    const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, encoding);
+    const withoutEncoding = new StarPrntCompiler().compile({ ...BASE, elements });
 
-    expect(withProfile).toEqual(withoutProfile);
-    expect(new TextDecoder().decode(withProfile)).toContain('Profile');
+    expect(withEncoding).toEqual(withoutEncoding);
+    expect(new TextDecoder().decode(withEncoding)).toContain('Profile');
   });
 
   it('no-ops for box/line/diagonal/circle/ellipse/reverse/erase/pageBreak/spacer/row/column/barcode/qrcode', () => {

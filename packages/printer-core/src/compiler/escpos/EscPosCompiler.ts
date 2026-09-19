@@ -1,7 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
-import type { PrinterProfile } from '../../profile';
-import type { PrintCompiler } from '../../core';
+import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
@@ -21,7 +20,7 @@ function alignByte(align: TextOptions['align']): number {
   }
 }
 
-function compileTextElement(content: string, options: TextOptions | undefined, profile: PrinterProfile | undefined): Uint8Array[] {
+function compileTextElement(content: string, options: TextOptions | undefined, encoding: TextEncodingOptions | undefined): Uint8Array[] {
   const o = options ?? {};
   const chunks: Uint8Array[] = [];
 
@@ -38,7 +37,7 @@ function compileTextElement(content: string, options: TextOptions | undefined, p
 
   if (o.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, 1]));
 
-  chunks.push(encodeEscPosText(content, profile));
+  chunks.push(encodeEscPosText(content, encoding));
   chunks.push(new Uint8Array([ESC_POS.LF]));
 
   if (o.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, 0]));
@@ -50,10 +49,10 @@ function compileTextElement(content: string, options: TextOptions | undefined, p
   return chunks;
 }
 
-function compileElement(element: PrintElement, profile: PrinterProfile | undefined): Uint8Array[] {
+function compileElement(element: PrintElement, encoding: TextEncodingOptions | undefined): Uint8Array[] {
   switch (element.type) {
     case 'text':
-      return compileTextElement(element.content, element.options, profile);
+      return compileTextElement(element.content, element.options, encoding);
 
     case 'image':
       return [encodeEscPosImage(element.bitmap)];
@@ -65,7 +64,7 @@ function compileElement(element: PrintElement, profile: PrinterProfile | undefin
       return [encodeEscPosQrCode(element.options)];
 
     case 'raw':
-      return [typeof element.content === 'string' ? encodeEscPosText(element.content, profile) : element.content];
+      return [typeof element.content === 'string' ? encodeEscPosText(element.content, encoding) : element.content];
 
     // ESC/POS has no native vector-drawing command — box/line/circle/ellipse/
     // reverse/erase/diagonal stay no-ops, same as portakal. Rendering these to
@@ -110,7 +109,7 @@ function compileElement(element: PrintElement, profile: PrinterProfile | undefin
       const totalWidth = element.options.columns.reduce((sum, column) => sum + column.width, 0);
       const lines = formatTable(element.options.columns, element.options.rows, totalWidth);
       const chunks: Uint8Array[] = [];
-      for (const line of lines) chunks.push(...compileTextElement(line, undefined, profile));
+      for (const line of lines) chunks.push(...compileTextElement(line, undefined, encoding));
       return chunks;
     }
   }
@@ -118,11 +117,11 @@ function compileElement(element: PrintElement, profile: PrinterProfile | undefin
 
 /** Compiles a `ResolvedPrintDocument` into ESC/POS bytes. */
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, profile?: PrinterProfile): Uint8Array {
+  compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): Uint8Array {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];
 
     for (const element of document.elements) {
-      chunks.push(...compileElement(element, profile));
+      chunks.push(...compileElement(element, encoding));
     }
 
     return concatEscPosBytes(chunks);

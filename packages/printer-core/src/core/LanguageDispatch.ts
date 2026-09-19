@@ -25,7 +25,7 @@ function lookup(language: PrinterLanguage, capability: string): PrinterLanguageD
  * has a real compiler in this package, so there is no stub branch here.
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
-  return lookup(language, 'compiler').compiler.compile(document, profile);
+  return lookup(language, 'compiler').compiler.compile(document, profile?.features);
 }
 
 /** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tsc/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */

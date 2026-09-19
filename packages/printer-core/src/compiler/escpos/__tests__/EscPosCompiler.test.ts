@@ -20,7 +20,7 @@ function containsSubsequence(haystack: Uint8Array, needle: Uint8Array): boolean 
 }
 
 describe('EscPosCompiler', () => {
-  it('encodes non-ASCII text via the profile code page, not raw UTF-8', () => {
+  it('encodes non-ASCII text via the declared code page, not raw UTF-8', () => {
     const compiler = new EscPosCompiler();
     const bytes = compiler.compile(
       {
@@ -34,25 +34,16 @@ describe('EscPosCompiler', () => {
         copies: 1,
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
-      undefined, // falls back to DEFAULT_PROFILE (nativeUtf8: false)
+      undefined, // falls back to DEFAULT_ENCODING (nativeUtf8: false)
     );
     const naiveUtf8 = new TextEncoder().encode('café');
-    // The café substring should NOT appear as raw UTF-8 bytes when a non-native-UTF8 profile is used.
+    // The café substring should NOT appear as raw UTF-8 bytes when a non-native-UTF8 encoding is used.
     expect(containsSubsequence(bytes, naiveUtf8)).toBe(false);
   });
 
-  it('encodes non-ASCII text as raw UTF-8 when the profile declares nativeUtf8', () => {
+  it('encodes non-ASCII text as raw UTF-8 when the encoding declares nativeUtf8', () => {
     const compiler = new EscPosCompiler();
-    const nativeUtf8Profile = {
-      name: 'Test',
-      vendor: 'Generic' as const,
-      language: 'escpos' as const,
-      paperWidth: 80,
-      dotsPerLine: 384,
-      dpi: 203,
-      charsPerLine: 48,
-      features: { cutter: 'none' as const, cashDrawer: false, imageMode: [], cjk: false, nativeUtf8: true, codePages: [] },
-    };
+    const nativeUtf8Encoding = { nativeUtf8: true, codePages: [] };
     const bytes = compiler.compile(
       {
         widthDots: 384,
@@ -65,7 +56,7 @@ describe('EscPosCompiler', () => {
         copies: 1,
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
-      nativeUtf8Profile,
+      nativeUtf8Encoding,
     );
     const naiveUtf8 = new TextEncoder().encode('café');
     expect(containsSubsequence(bytes, naiveUtf8)).toBe(true);

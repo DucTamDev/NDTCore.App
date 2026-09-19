@@ -1,7 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
-import type { PrinterProfile } from '../../profile';
-import type { PrintCompiler } from '../../core';
+import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../barcode';
 import type { QrErrorCorrectionLevel } from '../../qrcode';
 import type { Rotation } from '../../types';
@@ -270,11 +269,11 @@ export function compileToZPL(document: ResolvedPrintDocument): string {
 
 /**
  * ZPL has no code-page/byte-encoding step (unlike ESC/POS) — its compiled
- * output is a plain command string, so `profile` is accepted only to satisfy
+ * output is a plain command string, so `encoding` is accepted only to satisfy
  * `PrintCompiler`'s shared call shape and isn't otherwise used.
  */
 export class ZplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _profile?: PrinterProfile): string {
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
     return compileToZPL(document);
   }
 }
