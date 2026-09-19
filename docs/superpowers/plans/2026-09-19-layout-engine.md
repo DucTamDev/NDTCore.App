@@ -2220,7 +2220,7 @@ describe('LayoutEngine', () => {
     const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hello', style: { fontSize: 20 } };
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
     expect(elements).toHaveLength(1);
-    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: undefined } });
+    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: 20 } });
   });
 
   it('stacks column children vertically with gap', () => {
