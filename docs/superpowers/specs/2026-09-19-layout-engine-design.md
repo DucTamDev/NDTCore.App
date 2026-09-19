@@ -1,82 +1,121 @@
-# Layout Engine — Design Spec
+# Layout Engine — Spec thiết kế
 
-## Goal
+## Mục tiêu
 
-Replace `packages/printer-core`'s `templates/` and `binding/` modules
-entirely with a tree-based template model that supports real auto-layout:
-containers with padding/margin/gap/alignment, text that wraps and reflows,
-and repeating sections for variable-length lists (toppings, order lines).
-The flat `LabelTemplate`/`ReceiptTemplate` (`{ config, elements: PrintElement[] }`)
-and `bindElements()` placeholder substitution built earlier are deleted
-outright — **no migration, no backward-compat shim**. Nothing outside this
-package consumes them yet (verified: no references under `NDTCore.App/src`),
-so there is nothing to break.
+Thay thế hoàn toàn 2 module `templates/` và `binding/` trong
+`packages/printer-core` bằng 1 mô hình template dạng cây, hỗ trợ auto-layout
+thật: container có padding/margin/gap/alignment, text tự wrap dòng, và
+section lặp cho danh sách độ dài thay đổi (topping, dòng hoá đơn).
+`LabelTemplate`/`ReceiptTemplate` dạng phẳng cũ (`{ config, elements:
+PrintElement[] }`) và `bindElements()` (thay `{{placeholder}}`) bị **xoá
+hẳn — không migrate, không giữ lại gì**. Chưa có nơi nào ngoài package này
+dùng tới (đã verify: không có reference nào trong `NDTCore.App/src`), nên
+không có gì bị vỡ khi xoá.
 
-## Non-goals / explicitly out of scope
+## Ngoài phạm vi
 
-- Persisting templates, cloning them into user-editable records, or any UI —
-  same boundary the deleted `templates/` module had. This spec only builds
-  the in-memory tree → layout → element pipeline.
-- Changing `PrintElement`, `PrintCompiler`, `ResolvedPrintDocument`, or any
-  of the 9 language compilers. See **Compatibility** below — this is
-  additive.
-- Real per-printer font metrics. `FontMetrics` is a contract; the built-in
-  implementation is a documented approximation (see **FontMetrics**).
+- Lưu trữ template, clone thành bản ghi user tự sửa, hay bất kỳ UI nào —
+  đúng ranh giới module `templates/` cũ đã có. Spec này chỉ xây pipeline
+  cây → layout → element trong bộ nhớ.
+- Đổi `PrintElement`, `PrintCompiler`, `ResolvedPrintDocument`, hay bất kỳ
+  compiler nào trong 9 ngôn ngữ. Xem mục **Tính tương thích** — đây là thiết
+  kế đắp thêm (additive).
+- Đo lường font thật theo từng máy in. `FontMetrics` chỉ là 1 contract;
+  implementation có sẵn là ước lượng xấp xỉ, ghi rõ trong tài liệu (xem mục
+  **FontMetrics**).
 
-## Architecture
+## Kiến trúc
 
 ```
-PrintTemplate (TemplateNode tree — static, no data, no coordinates)
+PrintTemplate (cây TemplateNode — tĩnh, chưa có data, chưa có toạ độ)
         │
         ▼  DocumentResolver.resolve(template, data)
-ResolvedNode (bound values, repeats expanded, hidden nodes dropped — still no coordinates)
+ResolvedNode (đã bind giá trị, đã expand repeat, đã lọc node ẩn — vẫn chưa toạ độ)
         │
         ▼  LayoutEngine.resolve(root, config, typography, fontMetrics)
-PrintElement[]  ◄── existing type, unchanged (18 variants)
+PrintElement[]  ◄── type đã có sẵn, không đổi (18 loại)
         │
-        ▼  (unchanged — LabelBuilder/ReceiptBuilder, ResolvedPrintDocument, compile())
+        ▼  (không đổi — LabelBuilder/ReceiptBuilder, ResolvedPrintDocument, compile())
 ```
 
-Three concepts, three names, one direction — a node is never reused for two
-pipeline stages:
+3 khái niệm, 3 tên riêng, 1 chiều duy nhất — không node nào bị dùng lại cho
+2 giai đoạn khác nhau:
 
-| Stage | Type family | Has data? | Has coordinates? |
+| Giai đoạn | Họ type | Có data? | Có toạ độ? |
 |---|---|---|---|
-| Template | `TemplateNode` | no | no |
-| Resolved | `ResolvedNode` | yes | no |
-| Layout output | `PrintElement` (existing) | yes | yes |
+| Template | `TemplateNode` | không | không |
+| Resolved | `ResolvedNode` | có | không |
+| Kết quả layout | `PrintElement` (đã có sẵn) | có | có |
 
-## Compatibility (why this is additive, not a rewrite)
+## Tính tương thích (vì sao đây là additive, không phải viết lại)
 
-`LayoutEngine` is a new step inserted **before** everything that already
-exists. Nothing downstream changes:
+`LayoutEngine` là 1 bước mới chèn **trước** mọi thứ đã có sẵn. Không có gì
+ở tầng dưới bị đổi:
 
-- **`PrintElement`** (18 variants: `text`/`image`/`barcode`/`qrcode`/`raw`/
+- **`PrintElement`** (18 loại: `text`/`image`/`barcode`/`qrcode`/`raw`/
   `box`/`line`/`diagonal`/`circle`/`ellipse`/`reverse`/`erase`/`pageBreak`/
-  `spacer`/`row`/`column`/`cut`/`table`) — unchanged. `LayoutEngine` only
-  ever *produces* `PrintElement[]`; it never introduces a new element shape
-  compilers must learn. `ContainerNode`/`RepeatNode` are template-only
-  concepts — they are consumed during layout and never appear in the output
-  array.
+  `spacer`/`row`/`column`/`cut`/`table`) — giữ nguyên. `LayoutEngine` chỉ
+  *sinh ra* `PrintElement[]`; không tạo ra hình dạng element mới nào bắt
+  compiler phải học thêm. `ContainerNode`/`RepeatNode` chỉ là khái niệm của
+  tầng template — bị "tiêu thụ" trong lúc layout, không bao giờ xuất hiện
+  trong mảng output.
 - **`PrintCompiler<TOutput>.compile(document, encoding?: TextEncodingOptions)`**
-  — untouched. This spec's pipeline ends at `PrintElement[]`, which flows
-  into `ResolvedPrintDocument` exactly as it does today.
-- **No naming collisions.** The existing `document/PrintDocument.ts`
-  (`{ width, height?, ...PrintDocumentOptions }`) and
-  `document/ResolvedPrintDocument.ts` keep their current meaning. This
-  spec's new types use distinct names (`PrintTemplate`, `ResolvedNode`,
-  `LayoutConfig`) that don't shadow anything already exported from
+  — không đổi. Pipeline của spec này dừng lại ở `PrintElement[]`, sau đó
+  chảy vào `ResolvedPrintDocument` y hệt hiện tại.
+- **Không trùng tên.** `document/PrintDocument.ts`
+  (`{ width, height?, ...PrintDocumentOptions }`) và
+  `document/ResolvedPrintDocument.ts` giữ nguyên ý nghĩa hiện tại. Các type
+  mới của spec này dùng tên khác hẳn (`PrintTemplate`, `ResolvedNode`,
+  `LayoutConfig`) không đè lên bất kỳ export nào đã có của
   `packages/printer-core`.
 
-## Template layer
+## Tầng Template
+
+### `PrintTemplate` — phân biệt rõ Label và Receipt
+
+Theo đúng quy ước const-object + derived type đã dùng xuyên suốt codebase
+(`PrintType`, `PrinterDriverType`, `CutterMode`,...), và đúng pattern
+discriminated union thật (`PrintTemplate` là union thật, không phải type
+`extends` từ 1 base cùng tên):
 
 ```ts
-export interface PrintTemplate {
+export const PrintTemplateType = {
+  Label: 'label',
+  Receipt: 'receipt',
+} as const;
+export type PrintTemplateType = (typeof PrintTemplateType)[keyof typeof PrintTemplateType];
+
+export interface BasePrintTemplate {
   readonly id: string;
   readonly version: number;
+  readonly type: PrintTemplateType;
   readonly root: TemplateNode;
 }
 
+/** Label khổ cố định — `heightDots` bắt buộc. */
+export interface LabelTemplate extends BasePrintTemplate {
+  readonly type: typeof PrintTemplateType.Label;
+  readonly config: LayoutConfig;
+}
+
+/** Hoá đơn giấy cuộn liên tục — không có `heightDots` (không có khổ cố định). */
+export interface ReceiptTemplate extends BasePrintTemplate {
+  readonly type: typeof PrintTemplateType.Receipt;
+  readonly config: Omit<LayoutConfig, 'heightDots'>;
+}
+
+export type PrintTemplate = LabelTemplate | ReceiptTemplate;
+```
+
+`config` trên `LabelTemplate` dùng `LayoutConfig` với `heightDots` bắt
+buộc (khổ label cố định, biết trước); `ReceiptTemplate` bỏ hẳn field này
+(giấy cuộn không có khổ cao cố định) — cùng nguyên tắc `ReceiptBuilder`
+hiện tại đã áp dụng (`Omit<PrintDocument, 'height'>`). Nhờ tách theo `type`,
+`LayoutEngine` biết chắc lúc nào cần chạy thuật toán scale-để-vừa-khổ
+(Label) và lúc nào không cần scale gì cả (Receipt) — không phải suy đoán
+từ việc `heightDots` có giá trị hay `undefined` nữa.
+
+```ts
 export type TemplateNode =
   | ContainerNode
   | TextNode
@@ -94,12 +133,12 @@ export interface ContainerNode {
   readonly children: readonly TemplateNode[];
 }
 
-/** At least one of `text`/`binding` must be present — enforced by `DocumentResolver`, not the type system (a union of two required-alternative shapes reads worse than the validation cost of enforcing it at resolve time). */
+/** Bắt buộc có ít nhất 1 trong `text`/`binding` — kiểm tra ở `DocumentResolver`, không ép bằng type system (union 2 nhánh "bắt buộc 1 trong 2" đọc rối hơn chi phí validate lúc resolve). */
 export interface TextNode {
   readonly type: 'text';
   readonly id: string;
-  readonly text?: string; // literal, fixed content
-  readonly binding?: string; // dotted-path key into PrintData
+  readonly text?: string; // literal, nội dung cố định
+  readonly binding?: string; // dotted-path key vào PrintData
   readonly style?: TextStyle;
   readonly visibleWhen?: VisibilityCondition;
 }
@@ -112,7 +151,7 @@ export interface LineNode {
   readonly visibleWhen?: VisibilityCondition;
 }
 
-/** Mirrors `TextNode`'s literal-or-binding split; `content` is the barcode payload. */
+/** Cùng cấu trúc literal-hoặc-binding như `TextNode`; `content` là nội dung mã vạch. */
 export interface BarcodeNode {
   readonly type: 'barcode';
   readonly id: string;
@@ -134,7 +173,7 @@ export interface QrCodeNode {
   readonly visibleWhen?: VisibilityCondition;
 }
 
-/** No decode step in this pipeline — `bitmap` is a pre-decoded `Bitmap`, same precondition `ImageElement` already has. `binding` looks up a `Bitmap` value in `PrintData` for per-print images (e.g. a dynamically fetched logo); `bitmap` is for one baked into the template itself. */
+/** Pipeline này không có bước decode ảnh — `bitmap` phải là `Bitmap` đã decode sẵn, cùng điều kiện `ImageElement` đang yêu cầu. `binding` tra 1 giá trị `Bitmap` trong `PrintData` (ví dụ logo tải động theo từng lần in); `bitmap` dùng khi ảnh đã nhúng cứng vào template. */
 export interface ImageNode {
   readonly type: 'image';
   readonly id: string;
@@ -147,19 +186,19 @@ export interface ImageNode {
 export interface RepeatNode {
   readonly type: 'repeat';
   readonly id: string;
-  readonly binding: string; // key resolving to an array in PrintData
+  readonly binding: string; // key trỏ tới 1 mảng trong PrintData
   readonly template: TemplateNode;
   readonly visibleWhen?: VisibilityCondition;
 }
 ```
 
-`RepeatNode` is a distinct node type, not a `repeat?: RepeatConfig` field on
-every node. Repeat changes cardinality (one template node becomes N resolved
-nodes) — a different kind of transformation than style or visibility, which
-never change how many nodes exist. Keeping it a separate type keeps
-`TemplateNode` a clean discriminated union: no node is "sometimes plural."
+`RepeatNode` là 1 node type riêng, không phải field `repeat?: RepeatConfig`
+gắn trên mọi node. Repeat đổi *số lượng* (1 template node → N resolved
+node) — khác bản chất với style/visibility (không bao giờ đổi số lượng node
+tồn tại). Tách riêng giữ `TemplateNode` là discriminated union sạch: không
+node nào "thỉnh thoảng nhân bản".
 
-## Shared style/geometry primitives
+## Style/geometry dùng chung
 
 ```ts
 export type Dimension = { type: 'fixed'; value: number } | { type: 'fill' } | { type: 'auto' };
@@ -194,18 +233,18 @@ export type VisibilityCondition =
   | { readonly type: 'equals'; readonly binding: string; readonly value: unknown };
 ```
 
-`VisibilityCondition` is a closed, typed union — deliberately not an
-arbitrary string expression (`visibleIf: string`), which would turn the
-template into a small scripting language. `AndCondition`/`OrCondition`/
-`NotEqualsCondition` are natural additions later; this spec only needs
-`exists`/`equals` (no template built during design needed more).
+`VisibilityCondition` là union đóng, có kiểu rõ ràng — cố tình không dùng
+biểu thức string tự do (`visibleIf: string`), vì như vậy sẽ biến template
+thành 1 ngôn ngữ scripting con. `AndCondition`/`OrCondition`/
+`NotEqualsCondition` là hướng mở rộng tự nhiên sau này; spec này chỉ cần
+`exists`/`equals` (không có template nào lúc thiết kế cần nhiều hơn).
 
-All dimensions/insets/gaps are in **dots**, matching every other geometry
-value already in this package (`widthDots`, `x`/`y` in `TextOptions`, etc.).
-A caller working in mm/inches converts before constructing a `PrintTemplate`,
-the same way callers already convert before calling `LabelBuilder`.
+Mọi giá trị dimension/inset/gap tính bằng **dots**, khớp với mọi giá trị
+hình học khác trong package (`widthDots`, `x`/`y` trong `TextOptions`,...).
+Nơi gọi làm việc theo mm/inch tự convert trước khi dựng `PrintTemplate`,
+giống hệt cách gọi `LabelBuilder` hiện tại.
 
-## Resolved layer
+## Tầng Resolved
 
 ```ts
 export type PrintData = Readonly<Record<string, unknown>>;
@@ -268,53 +307,52 @@ export interface DocumentResolver {
 }
 ```
 
-`RepeatNode` does not appear in `ResolvedNode` — resolving one replaces it
-with N resolved copies of its `template`, wrapped in a `ResolvedContainer`
-(inheriting the repeat's own `style`, so a caller can lay repeated rows out
-as a column with a `gap` the same way any other container would).
+`RepeatNode` không xuất hiện trong `ResolvedNode` — resolve xong nó bị thay
+bằng N bản sao đã resolve của `template`, bọc trong 1 `ResolvedContainer`
+(kế thừa `style` của chính `RepeatNode`, nhờ vậy nơi gọi có thể xếp các
+dòng lặp thành cột với `gap` y hệt bất kỳ container nào khác).
 
-### Resolver behavior
+### Hành vi resolver
 
-- **Binding lookup**: `binding: "product.name"` is a dotted path resolved
-  against `data`. Inside a `RepeatNode`'s expansion, the current item is
-  pushed onto a context stack as the innermost scope — an unresolved key is
-  looked up in the item first, then falls back to the outer scope. This is
-  the same "innermost scope wins, falls back outward" rule Mustache section
-  resolution uses, letting a repeated row reference both its own item
-  fields (`name`, `price`) and outer/global fields (`storeName`) without a
-  separate mechanism for each.
-- **Missing binding key is a hard error.** If a `binding` path resolves to
-  `undefined` anywhere in the tree, `resolve()` throws immediately, naming
-  the offending node's `id` and `binding` path. This is a POS system —
-  a template silently printing a blank price or product name because a data
-  field was never wired up is a worse failure than an exception at print
-  time that surfaces the bug immediately.
-- **Visibility**: a node whose `visibleWhen` evaluates false is dropped
-  entirely from the resolved tree (not resolved-then-hidden — it never
-  reaches `LayoutEngine`, and never consumes layout space).
-- **No formatting.** `DocumentResolver` does plain key lookup and
-  `String(value)` conversion — it does not format currency, dates, or
-  numbers. Formatting (`45000` → `"45,000 ₫"`) is the caller's
-  responsibility, applied before constructing the `PrintData` object. This
-  keeps the resolver a pure, dependency-free lookup step.
+- **Tra binding**: `binding: "product.name"` là dotted-path tra trong
+  `data`. Bên trong 1 lần expand `RepeatNode`, item hiện tại được đẩy vào
+  context stack làm scope trong cùng — key không tìm thấy sẽ tra trong item
+  trước, không thấy mới rơi ra scope ngoài. Đây đúng quy tắc "scope trong
+  cùng ưu tiên, không thấy thì rơi ra ngoài" mà Mustache section dùng, nhờ
+  đó 1 dòng lặp vừa đọc được field của chính item (`name`, `price`) vừa đọc
+  được field global bên ngoài (`storeName`) mà không cần 2 cơ chế khác
+  nhau.
+- **Thiếu binding key là lỗi cứng.** Nếu 1 `binding` path resolve ra
+  `undefined` ở bất kỳ đâu trong cây, `resolve()` throw ngay, nêu rõ `id`
+  của node và path bị thiếu. Đây là hệ thống POS — template âm thầm in ra
+  giá/tên sản phẩm rỗng vì thiếu field data là hậu quả tệ hơn nhiều so với
+  1 exception phát hiện lỗi ngay lúc in.
+- **Visibility**: node có `visibleWhen` đánh giá false bị loại hẳn khỏi cây
+  đã resolve (không phải resolve-xong-rồi-ẩn — nó không bao giờ tới
+  `LayoutEngine`, không chiếm không gian layout nào).
+- **Không format.** `DocumentResolver` chỉ tra key và convert
+  `String(value)` — không format tiền tệ, ngày tháng, số. Format
+  (`45000` → `"45,000 ₫"`) là trách nhiệm của nơi gọi, làm trước khi dựng
+  `PrintData`. Nhờ vậy resolver giữ được là 1 bước tra cứu thuần tuý, không
+  phụ thuộc gì thêm.
 
-## Layout layer
+## Tầng Layout
 
 ```ts
 export interface LayoutConfig {
   readonly widthDots: number;
-  readonly heightDots?: number; // undefined = continuous (receipt)
+  readonly heightDots?: number; // undefined = liên tục (hoá đơn)
   readonly dpi: number;
 }
 
 export interface FontScaleLevel {
   readonly id: string;
-  readonly fontScale: number; // multiplies every TextStyle.fontSize in the tree
+  readonly fontScale: number; // nhân với mọi TextStyle.fontSize trong cây
   readonly lineHeightScale: number;
 }
 
 export interface TypographyProfile {
-  readonly fontScaleLevels: readonly FontScaleLevel[]; // ordered largest → smallest
+  readonly fontScaleLevels: readonly FontScaleLevel[]; // sắp lớn → nhỏ
 }
 
 export interface TextMeasurement {
@@ -335,72 +373,68 @@ export interface LayoutEngine {
 
 ### FontMetrics
 
-Real character width depends on the specific bitmap/vector font baked into
-a specific printer model — `TextOptions.size` is a magnification factor
-applied to a printer's own built-in font, not an absolute point size, and
-the same `size: 2` renders a different pixel width on an Epson than on a
-TSC. `packages/printer-core` has no way to know this in advance for an
-unspecified printer, and stays a zero-I/O, zero-dependency package — it
-cannot go measure a real font at layout time.
+Độ rộng ký tự thật phụ thuộc vào font bitmap/vector nạp sẵn trong từng
+model máy in cụ thể — `TextOptions.size` là hệ số phóng đại áp lên font có
+sẵn của máy in, không phải point-size tuyệt đối, và cùng `size: 2` render
+ra độ rộng pixel khác nhau giữa Epson và TSC. `packages/printer-core`
+không có cách nào biết trước điều này cho 1 máy in chưa xác định, và vẫn
+giữ tính chất 0 I/O, 0 dependency — không thể tự đo 1 font thật lúc layout.
 
-`FontMetrics` is therefore a contract with one built-in, explicitly
-approximate implementation:
+Vì vậy `FontMetrics` là 1 contract, có sẵn đúng 1 implementation ghi rõ là
+ước lượng:
 
 ```ts
 export class ApproximateFontMetrics implements FontMetrics { /* ... */ }
 ```
 
-documented as a best-effort estimate (fixed dots-per-character scaled by
-`fontSize`), good enough to lay a template out without per-printer
-calibration data. A caller that needs real accuracy for a specific printer
-model supplies its own `FontMetrics` (e.g. backed by real per-printer
-character tables, or a native measurement API) — `LayoutEngine` only
-depends on the interface.
+tài liệu hoá rõ là ước lượng tốt nhất có thể (số dots-trên-ký-tự cố định,
+nhân theo `fontSize`), đủ dùng để layout mà không cần dữ liệu calibrate
+riêng từng máy in. Nơi gọi cần độ chính xác thật cho 1 model cụ thể tự cung
+cấp `FontMetrics` riêng (ví dụ dựa trên bảng ký tự thật của máy, hay API đo
+lường native) — `LayoutEngine` chỉ phụ thuộc vào interface.
 
-### Word wrap
+### Wrap dòng
 
-`FontMetrics.wrap()` hard-breaks a single word longer than `maxWidthDots`
-(splits mid-word) rather than letting that one line overflow the container's
-width — the same default browsers use for `overflow-wrap: break-word`. This
-was not explicitly confirmed during design; revisit if a template author
-hits this in practice and wants different behavior (e.g. shrink-to-fit for
-that one line instead of breaking it).
+`FontMetrics.wrap()` cắt cứng giữa từ khi 1 từ đơn lẻ dài hơn cả
+`maxWidthDots` (thay vì để dòng đó tràn ra ngoài container) — đúng hành vi
+mặc định trình duyệt dùng cho `overflow-wrap: break-word`. Điểm này chưa
+được xác nhận trực tiếp lúc thiết kế; xem lại nếu có template thực tế gặp
+trường hợp này và cần hành vi khác (ví dụ thu nhỏ riêng dòng đó thay vì cắt
+giữa từ).
 
-### Sizing algorithm — never blocks printing
+### Thuật toán sizing — không bao giờ chặn in
 
-`LayoutEngine.resolve()` never throws for "content doesn't fit." A print
-job must always produce output — refusing to print because of a layout
-edge case is a worse failure mode than a slightly-too-tall label. The
-resolved algorithm:
+`LayoutEngine.resolve()` không bao giờ throw vì lý do "nội dung không vừa".
+1 lệnh in phải luôn ra được kết quả — từ chối in vì 1 trường hợp layout rìa
+là hậu quả tệ hơn nhiều so với 1 label hơi cao quá khổ 1 chút. Thuật toán:
 
-1. **Receipt** (`config.heightDots` is `undefined`): always use
-   `typography.fontScaleLevels[0]` (the largest scale). Continuous paper
-   has no ceiling to fit under, so there is nothing to shrink for.
-2. **Label** (`config.heightDots` is set): try each `FontScaleLevel` in
-   `typography.fontScaleLevels`, largest to smallest. For each level,
-   multiply every `TextStyle.fontSize`/`lineHeight` in the resolved tree by
-   that level's `fontScale`/`lineHeightScale`, lay out the whole tree
-   (header, footer, repeated sections — everything, uniformly, not just
-   the section that happens to be long), and measure the total height.
-   Use the **first** level whose total height fits within
-   `config.heightDots`.
-3. If **no** level fits (even the smallest), use the smallest level anyway
-   and return the laid-out `PrintElement[]` as-is — the content may render
-   past the label's nominal edge, which is a print-quality concern for
-   whoever authored the template and `fontScaleLevels`, not something
-   `LayoutEngine` refuses to attempt.
+1. **Hoá đơn** (`config.heightDots` là `undefined`): luôn dùng
+   `typography.fontScaleLevels[0]` (scale lớn nhất). Giấy cuộn liên tục
+   không có trần để phải vừa, nên không có gì cần thu nhỏ.
+2. **Label** (`config.heightDots` có giá trị): thử lần lượt từng
+   `FontScaleLevel` trong `typography.fontScaleLevels`, từ lớn tới nhỏ. Với
+   mỗi level, nhân mọi `TextStyle.fontSize`/`lineHeight` trong toàn cây đã
+   resolve theo `fontScale`/`lineHeightScale` của level đó, layout **toàn
+   bộ cây** (header, footer, section lặp — tất cả cùng lúc, đồng nhất,
+   không riêng phần nào bị dài ra), rồi đo tổng chiều cao. Dùng level
+   **đầu tiên** có tổng chiều cao vừa `config.heightDots`.
+3. Nếu thử hết **mọi** level vẫn không vừa, **vẫn dùng level nhỏ nhất** và
+   trả về `PrintElement[]` đã layout theo level đó — nội dung có thể tràn
+   ra ngoài mép danh nghĩa của label, đây là vấn đề chất lượng in của người
+   thiết kế template/`fontScaleLevels`, không phải thứ `LayoutEngine` từ
+   chối thực hiện.
 
-Scaling is **global, not per-section** — a label with many topping rows
-shrinks its header/footer text along with the topping list, keeping the
-whole label visually consistent at whatever scale it lands on, rather than
-shrinking only the section that grew.
+Scale là **toàn cục, không riêng từng section** — label có nhiều dòng
+topping sẽ co cả header/footer theo cùng lúc với danh sách topping, giữ
+toàn bộ label nhất quán về mặt hình ảnh ở bất kỳ scale nào nó dừng lại,
+thay vì chỉ co riêng phần bị dài ra.
 
-### ResolvedNode → PrintElement mapping
+### Ánh xạ ResolvedNode → PrintElement
 
-`ResolvedContainer` never produces an element itself — it exists purely to
-compute `x`/`y` for its children (per `style.direction`/`gap`/`padding`/
-`justifyContent`/`alignItems`) and is otherwise discarded. Every other
-`ResolvedNode` variant produces exactly one `PrintElement`:
+`ResolvedContainer` không bao giờ tự sinh ra 1 element — nó chỉ tồn tại để
+tính `x`/`y` cho các con (theo `style.direction`/`gap`/`padding`/
+`justifyContent`/`alignItems`) rồi bị bỏ đi. Mọi `ResolvedNode` khác sinh
+ra đúng 1 `PrintElement`:
 
 | `ResolvedNode` | → `PrintElement` |
 |---|---|
@@ -410,37 +444,38 @@ compute `x`/`y` for its children (per `style.direction`/`gap`/`padding`/
 | `ResolvedQrCode` | `QrCodeElement { options: { x, y, content: value, errorCorrection } }` |
 | `ResolvedImage` | `ImageElement { bitmap, options: { x, y } }` |
 
-`x`/`y` on every emitted element are computed by `LayoutEngine`, never
-supplied by the template author — this is the entire point of the tree
-model over the deleted flat `elements: PrintElement[]` shape, where every
-`x`/`y` had to be hand-placed.
+`x`/`y` trên mọi element sinh ra đều do `LayoutEngine` tính, không bao giờ
+do người viết template khai tay — đây chính là điểm khác biệt cốt lõi so
+với `elements: PrintElement[]` phẳng đã xoá, nơi mọi `x`/`y` phải đặt tay
+từng cái một.
 
-## Error handling summary
+## Tóm tắt xử lý lỗi
 
-| Failure | Behavior |
+| Trường hợp | Hành vi |
 |---|---|
-| `TextNode`/`BarcodeNode`/etc. missing both `text`/`binding` and `content`/`binding` | Thrown by `DocumentResolver` at template-authoring-error detection, not silently defaulted to empty. |
-| `binding` path resolves to `undefined` in `PrintData` | Thrown by `DocumentResolver`, naming the node `id` and path. |
-| `RepeatNode.binding` resolves to a non-array | Thrown by `DocumentResolver`. |
-| Content taller than `heightDots` even at the smallest `FontScaleLevel` | **Not thrown.** `LayoutEngine` returns the best-effort layout at the smallest scale (see Sizing algorithm above). |
+| `TextNode`/`BarcodeNode`/... thiếu cả `text`/`binding` lẫn `content`/`binding` | `DocumentResolver` throw — phát hiện lỗi khai template ngay, không âm thầm coi là rỗng. |
+| `binding` path resolve ra `undefined` trong `PrintData` | `DocumentResolver` throw, nêu rõ `id` node và path. |
+| `RepeatNode.binding` resolve ra giá trị không phải mảng | `DocumentResolver` throw. |
+| Nội dung cao hơn `heightDots` kể cả ở `FontScaleLevel` nhỏ nhất | **Không throw.** `LayoutEngine` trả về layout best-effort ở scale nhỏ nhất (xem mục Thuật toán sizing). |
 
-## Deletion scope
+## Phạm vi xoá
 
-Removed outright, no migration:
+Xoá hẳn, không migrate:
 
-- `packages/printer-core/src/templates/` (`PrintTemplateType`, `PrintTemplate`
-  (old flat shape), `applyTemplate`, `DefaultLabelTemplate`,
-  `DefaultReceiptTemplate`, and their tests)
-- `packages/printer-core/src/binding/` (`bindElements`, `BindingData`, and
-  its test)
-- The `export * from './templates'` / `export * from './binding'` lines in
+- `packages/printer-core/src/templates/` (`PrintTemplateType`,
+  `PrintTemplate` bản phẳng cũ, `applyTemplate`, `DefaultLabelTemplate`,
+  `DefaultReceiptTemplate`, và test đi kèm)
+- `packages/printer-core/src/binding/` (`bindElements`, `BindingData`, và
+  test đi kèm)
+- 2 dòng `export * from './templates'` / `export * from './binding'` trong
   `packages/printer-core/src/index.ts`
 
-## Folder structure
+## Cấu trúc thư mục
 
 ```
 src/
 ├── template/
+│   ├── PrintTemplateType.ts
 │   ├── PrintTemplate.ts
 │   ├── TemplateNode.ts
 │   ├── ContainerNode.ts
@@ -471,6 +506,6 @@ src/
     └── index.ts
 ```
 
-This replaces `templates/` and `binding/` (deleted) as sibling top-level
-folders under `packages/printer-core/src/`, exported from the package root
-`index.ts` the same way every other module is.
+Thay thế `template/` và `binding/` (đã xoá) làm thư mục con ngang hàng
+trong `packages/printer-core/src/`, export từ `index.ts` gốc của package
+giống mọi module khác.
