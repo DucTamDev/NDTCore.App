@@ -29,6 +29,15 @@ không có gì bị vỡ khi xoá.
   các `RepeatNode` cần phân trang nằm phẳng trong 1 cây — mỗi item cha của
   1 `RepeatNode` lồng có thể cần số trang khác nhau, phá vỡ tính "đồng bộ".
   Không có template thực tế nào ở F&B (label/hoá đơn) cần lồng sâu vậy.
+- **Phân trang theo overflow đo lường thật.** Đã cân nhắc và loại bỏ:
+  phân trang **chỉ** dựa vào `RepeatNode.maxItemsPerPage` (cấu hình cố
+  định, tính trước), **không** dựa vào việc `LayoutEngine` đo lường rồi
+  phát hiện tràn mới quyết định tách trang. Xem mục **Phân trang** để biết
+  lý do.
+- **Type-state builder** (dùng generic để TypeScript chặn `.build()` lúc
+  compile nếu thiếu `.size()`/`.root()`). Cân nhắc nhưng không áp dụng ở
+  v1 — runtime validate (throw rõ ràng lúc `build()`) đơn giản, đủ dùng, và
+  tránh over-engineering ở tầng builder.
 
 ## Kiến trúc
 
@@ -78,7 +87,138 @@ PrintElement[]  ◄── type đã có sẵn, không đổi (18 loại) — 1 m
   `ResolvedPage`, `LayoutConfig`) không đè lên bất kỳ export nào đã có của
   `packages/printer-core`.
 
-## Tầng Template
+## Cấu trúc thư mục
+
+```
+src/
+├── template/
+│   ├── PrintTemplate.ts
+│   ├── PrintTemplateType.ts
+│   │
+│   ├── nodes/
+│   │   ├── TemplateNode.ts
+│   │   ├── ContainerNode.ts
+│   │   ├── TextNode.ts
+│   │   ├── LineNode.ts
+│   │   ├── BarcodeNode.ts
+│   │   ├── QrCodeNode.ts
+│   │   ├── ImageNode.ts
+│   │   └── RepeatNode.ts
+│   │
+│   ├── style/
+│   │   ├── Dimension.ts
+│   │   ├── Insets.ts
+│   │   ├── BoxStyle.ts
+│   │   ├── LayoutStyle.ts
+│   │   ├── TextStyle.ts
+│   │   └── VisibilityCondition.ts
+│   │
+│   ├── builders/
+│   │   ├── NodeBuilder.ts          (internal, không export)
+│   │   ├── BuildContext.ts         (internal, không export)
+│   │   ├── LabelTemplateBuilder.ts
+│   │   ├── ReceiptTemplateBuilder.ts
+│   │   ├── ContainerBuilder.ts
+│   │   ├── TextBuilder.ts
+│   │   ├── LineBuilder.ts
+│   │   ├── BarcodeBuilder.ts
+│   │   ├── QrCodeBuilder.ts
+│   │   ├── ImageBuilder.ts
+│   │   ├── RepeatBuilder.ts
+│   │   ├── dimensions.ts
+│   │   ├── conditions.ts
+│   │   └── index.ts
+│   │
+│   └── index.ts
+│
+├── resolution/
+│   ├── PrintData.ts
+│   ├── ResolvedNode.ts
+│   ├── ResolvedPage.ts
+│   ├── DocumentResolver.ts
+│   └── index.ts
+│
+└── layout/
+    ├── LayoutEngine.ts
+    ├── LayoutConfig.ts
+    ├── TypographyProfile.ts
+    ├── FontMetrics.ts
+    ├── ApproximateFontMetrics.ts
+    ├── TextMeasurement.ts
+    └── index.ts
+```
+
+Không tạo `builders/core`, `builders/base`, `builders/factory`,... trừ khi
+lúc viết code thật phát sinh trùng lặp rõ ràng cần tách thêm. Thay thế
+`template/` và `binding/` (đã xoá) làm thư mục con ngang hàng trong
+`packages/printer-core/src/`, export từ `index.ts` gốc của package giống
+mọi module khác.
+
+## Style/geometry dùng chung
+
+Tách 3 tầng rõ ràng, vì không phải property nào cũng hợp lệ cho mọi loại
+node:
+
+```ts
+export type Dimension = { type: 'fixed'; value: number } | { type: 'fill' } | { type: 'auto' };
+
+export interface Insets {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+
+/** Property hình học áp dụng được cho MỌI node — kể cả node lá (không có children). */
+export interface BoxStyle {
+  readonly width?: Dimension;
+  readonly height?: Dimension;
+  readonly margin?: Insets;
+  readonly padding?: Insets;
+}
+
+/**
+ * Property chỉ có nghĩa cho node CÓ children — `direction`/`gap`/
+ * `justifyContent`/`alignItems` đều mô tả cách sắp xếp CON bên trong 1
+ * container. Gắn các field này vào node lá (`TextNode`, `LineNode`,...)
+ * sẽ compile được nhưng vô nghĩa lúc dùng — do đó `LayoutStyle` chỉ xuất
+ * hiện trên `ContainerNode`, không phải base style dùng chung.
+ */
+export interface LayoutStyle extends BoxStyle {
+  readonly direction?: 'row' | 'column';
+  readonly gap?: number;
+  readonly justifyContent?: 'start' | 'center' | 'end' | 'space-between';
+  readonly alignItems?: 'start' | 'center' | 'end';
+}
+
+export interface TextStyle {
+  readonly fontSize?: number;
+  readonly fontWeight?: 'normal' | 'bold';
+  readonly lineHeight?: number;
+  readonly textAlign?: 'left' | 'center' | 'right';
+}
+
+export type VisibilityCondition =
+  | { readonly type: 'exists'; readonly binding: string }
+  | { readonly type: 'equals'; readonly binding: string; readonly value: unknown };
+```
+
+Mọi node lá (`TextNode`, `LineNode`, `BarcodeNode`, `QrCodeNode`,
+`ImageNode`) dùng `BoxStyle` (`TextNode` thêm `TextStyle`) — không bao giờ
+dùng `LayoutStyle` đầy đủ. Chỉ `ContainerNode` dùng `LayoutStyle`.
+
+`VisibilityCondition` là union đóng, có kiểu rõ ràng — cố tình không dùng
+biểu thức string tự do (`visibleIf: string`), vì như vậy sẽ biến template
+thành 1 ngôn ngữ scripting con. `AndCondition`/`OrCondition`/
+`NotEqualsCondition` là hướng mở rộng tự nhiên sau này; spec này chỉ cần
+`exists`/`equals` (không có template nào lúc thiết kế cần nhiều hơn).
+
+Mọi giá trị dimension/inset/gap tính bằng **dots**, khớp với mọi giá trị
+hình học khác trong package (`widthDots`, `x`/`y` trong `TextOptions`,...).
+Nơi gọi làm việc theo mm/inch tự convert trước khi dựng `PrintTemplate`,
+giống hệt cách gọi `LabelBuilder` hiện tại.
+
+## Tầng Template — model
 
 ### `PrintTemplate` — phân biệt rõ Label và Receipt
 
@@ -124,6 +264,24 @@ hiện tại đã áp dụng (`Omit<PrintDocument, 'height'>`). Nhờ tách theo
 (Label) và lúc nào không cần scale gì cả (Receipt) — không phải suy đoán
 từ việc `heightDots` có giá trị hay `undefined` nữa.
 
+### Node — base dùng chung
+
+```ts
+export interface TemplateNodeBase {
+  readonly id: string;
+  readonly visibleWhen?: VisibilityCondition;
+}
+```
+
+Không đưa `style` vào base — mỗi node cần đúng 1 loại style riêng
+(`ContainerNode` → `LayoutStyle`, `TextNode` → `BoxStyle & TextStyle`, các
+node lá khác → `BoxStyle`), khai chung ở base chỉ tạo ra 1 union mơ hồ mà
+không interface con nào thật sự dùng nguyên union đó. Cũng không đưa
+`binding` vào base — không phải node nào cũng có data (ví dụ
+`ContainerNode` không bao giờ có `binding`).
+
+### `TemplateNode`
+
 ```ts
 export type TemplateNode =
   | ContainerNode
@@ -134,65 +292,60 @@ export type TemplateNode =
   | ImageNode
   | RepeatNode;
 
-export interface ContainerNode {
+export interface ContainerNode extends TemplateNodeBase {
   readonly type: 'container';
-  readonly id: string;
   readonly style?: LayoutStyle;
-  readonly visibleWhen?: VisibilityCondition;
   readonly children: readonly TemplateNode[];
 }
 
-/** Bắt buộc có ít nhất 1 trong `text`/`binding` — kiểm tra ở `DocumentResolver`, không ép bằng type system (union 2 nhánh "bắt buộc 1 trong 2" đọc rối hơn chi phí validate lúc resolve). */
-export interface TextNode {
+/** Bắt buộc có ít nhất 1 trong `text`/`binding` — kiểm tra ở `DocumentResolver` (cho object literal viết tay) và enforce sẵn ở `TextBuilder` (xem mục Builder) — không ép bằng type system (union 2 nhánh "bắt buộc 1 trong 2" đọc rối hơn chi phí validate). */
+export interface TextNode extends TemplateNodeBase {
   readonly type: 'text';
-  readonly id: string;
   readonly text?: string; // literal, nội dung cố định
   readonly binding?: string; // dotted-path key vào PrintData
-  readonly style?: TextStyle;
-  readonly visibleWhen?: VisibilityCondition;
+  readonly style?: BoxStyle & TextStyle;
 }
 
-export interface LineNode {
+export interface LineNode extends TemplateNodeBase {
   readonly type: 'line';
-  readonly id: string;
   readonly thickness?: number;
-  readonly style?: LayoutStyle;
-  readonly visibleWhen?: VisibilityCondition;
+  readonly style?: BoxStyle;
 }
 
 /** Cùng cấu trúc literal-hoặc-binding như `TextNode`; `content` là nội dung mã vạch. */
-export interface BarcodeNode {
+export interface BarcodeNode extends TemplateNodeBase {
   readonly type: 'barcode';
-  readonly id: string;
   readonly content?: string;
   readonly binding?: string;
   readonly symbology: BarcodeSymbology;
   readonly readable?: boolean;
-  readonly style?: LayoutStyle;
-  readonly visibleWhen?: VisibilityCondition;
+  readonly style?: BoxStyle;
 }
 
-export interface QrCodeNode {
+export interface QrCodeNode extends TemplateNodeBase {
   readonly type: 'qrcode';
-  readonly id: string;
   readonly content?: string;
   readonly binding?: string;
   readonly errorCorrection?: QrErrorCorrectionLevel;
-  readonly style?: LayoutStyle;
-  readonly visibleWhen?: VisibilityCondition;
+  readonly style?: BoxStyle;
 }
 
 /** Pipeline này không có bước decode ảnh — `bitmap` phải là `Bitmap` đã decode sẵn, cùng điều kiện `ImageElement` đang yêu cầu. `binding` tra 1 giá trị `Bitmap` trong `PrintData` (ví dụ logo tải động theo từng lần in); `bitmap` dùng khi ảnh đã nhúng cứng vào template. */
-export interface ImageNode {
+export interface ImageNode extends TemplateNodeBase {
   readonly type: 'image';
-  readonly id: string;
   readonly bitmap?: Bitmap;
   readonly binding?: string;
-  readonly style?: LayoutStyle;
-  readonly visibleWhen?: VisibilityCondition;
+  readonly style?: BoxStyle;
 }
 
 /**
+ * Repeat là node cấu trúc thuần tuý — không có style (xem giải thích bên
+ * dưới), không phải field `repeat?: RepeatConfig` gắn trên mọi node.
+ * Repeat đổi *số lượng* (1 template node → N resolved node) — khác bản
+ * chất với style/visibility (không bao giờ đổi số lượng node tồn tại).
+ * Tách riêng giữ `TemplateNode` là discriminated union sạch: không node
+ * nào "thỉnh thoảng nhân bản".
+ *
  * `maxItemsPerPage` — số item tối đa hiển thị trên 1 trang, áp dụng
  * **giống nhau cho mọi trang** (trang đầu và trang tiếp theo dùng chung 1
  * con số, không tách riêng như một số phần mềm thương mại). `undefined` =
@@ -209,57 +362,335 @@ export interface RepeatNode {
 }
 ```
 
-`RepeatNode` là 1 node type riêng, không phải field `repeat?: RepeatConfig`
-gắn trên mọi node. Repeat đổi *số lượng* (1 template node → N resolved
-node) — khác bản chất với style/visibility (không bao giờ đổi số lượng node
-tồn tại). Tách riêng giữ `TemplateNode` là discriminated union sạch: không
-node nào "thỉnh thoảng nhân bản".
+**Vì sao `RepeatNode` không có `style`**: nếu cho phép `repeat("toppings").gap(2)`, ngữ nghĩa của `gap` mơ hồ — là khoảng cách giữa các item lặp, hay style của khối `Repeat` (mà `Repeat` không phải 1 physical box)? Thay vì cố định nghĩa mơ hồ này, style thuộc về `template` bên trong `RepeatNode`:
 
-## Style/geometry dùng chung
-
-```ts
-export type Dimension = { type: 'fixed'; value: number } | { type: 'fill' } | { type: 'auto' };
-
-export interface Insets {
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
-  readonly left: number;
-}
-
-export interface LayoutStyle {
-  readonly width?: Dimension;
-  readonly height?: Dimension;
-  readonly margin?: Insets;
-  readonly padding?: Insets;
-  readonly direction?: 'row' | 'column';
-  readonly gap?: number;
-  readonly justifyContent?: 'start' | 'center' | 'end' | 'space-between';
-  readonly alignItems?: 'start' | 'center' | 'end';
-}
-
-export interface TextStyle {
-  readonly fontSize?: number;
-  readonly fontWeight?: 'normal' | 'bold';
-  readonly lineHeight?: number;
-  readonly textAlign?: 'left' | 'center' | 'right';
-}
-
-export type VisibilityCondition =
-  | { readonly type: 'exists'; readonly binding: string }
-  | { readonly type: 'equals'; readonly binding: string; readonly value: unknown };
+```
+RepeatNode (không style)
+└── template: ContainerNode { style: { direction: 'column', gap: 2 } }
+    └── (nội dung 1 item)
 ```
 
-`VisibilityCondition` là union đóng, có kiểu rõ ràng — cố tình không dùng
-biểu thức string tự do (`visibleIf: string`), vì như vậy sẽ biến template
-thành 1 ngôn ngữ scripting con. `AndCondition`/`OrCondition`/
-`NotEqualsCondition` là hướng mở rộng tự nhiên sau này; spec này chỉ cần
-`exists`/`equals` (không có template nào lúc thiết kế cần nhiều hơn).
+Ngữ nghĩa rõ ràng: `gap` là của `ContainerNode` bọc mỗi item, không phải của bản thân việc lặp.
 
-Mọi giá trị dimension/inset/gap tính bằng **dots**, khớp với mọi giá trị
-hình học khác trong package (`widthDots`, `x`/`y` trong `TextOptions`,...).
-Nơi gọi làm việc theo mm/inch tự convert trước khi dựng `PrintTemplate`,
-giống hệt cách gọi `LabelBuilder` hiện tại.
+## Tầng Template — Builder (DSL)
+
+Model ở trên là **contract** — Builder chỉ là 1 cách thuận tiện để tạo ra
+đúng model đó, không phải 1 framework riêng. Class Builder cụ thể
+(`NodeBuilder`, `ContainerBuilder`,...) là **implementation detail, không
+export ra public API** — chỉ các factory function (`column()`, `text.binding()`,...) và type công khai (`TemplateNode`,...) mới export.
+
+### `BuildContext` và sinh ID
+
+Không bắt người viết template tự đặt ID tay (dễ trùng). 1 counter dùng
+chung cho toàn cây, tạo tại `LabelTemplateBuilder`/`ReceiptTemplateBuilder`
+(root), truyền xuống mọi builder con qua `BuildContext` — không để mỗi
+Builder tự giữ counter riêng (dễ sinh `text-1`, `text-1`, `text-1` trùng
+nhau giữa các nhánh khác nhau của cây):
+
+```ts
+// internal — không export
+class TemplateNodeIdGenerator {
+  private sequence = 0;
+  next(type: string): string {
+    this.sequence += 1;
+    return `${type}-${this.sequence}`;
+  }
+}
+
+// internal — không export
+interface BuildContext {
+  readonly idGenerator: TemplateNodeIdGenerator;
+}
+```
+
+### `NodeBuilder<TNode>` — base nội bộ
+
+```ts
+// internal — không export
+abstract class NodeBuilder<TNode extends TemplateNode> {
+  protected nodeId?: string;
+  protected boxStyle: BoxStyle = {};
+  protected visibility?: VisibilityCondition;
+
+  id(value: string): this { this.nodeId = value; return this; }
+  width(value: Dimension): this { this.boxStyle = { ...this.boxStyle, width: value }; return this; }
+  height(value: Dimension): this { this.boxStyle = { ...this.boxStyle, height: value }; return this; }
+  margin(value: Insets): this { this.boxStyle = { ...this.boxStyle, margin: value }; return this; }
+  padding(value: Insets): this { this.boxStyle = { ...this.boxStyle, padding: value }; return this; }
+  visibleWhen(condition: VisibilityCondition): this { this.visibility = condition; return this; }
+
+  abstract build(context: BuildContext): TNode;
+}
+```
+
+### `ContainerBuilder`
+
+```ts
+// internal — không export
+class ContainerBuilder extends NodeBuilder<ContainerNode> {
+  private readonly direction: 'row' | 'column';
+  private readonly childBuilders: NodeBuilder<TemplateNode>[] = [];
+  private gapValue?: number;
+  private justify?: LayoutStyle['justifyContent'];
+  private align?: LayoutStyle['alignItems'];
+
+  constructor(direction: 'row' | 'column') { super(); this.direction = direction; }
+
+  gap(value: number): this { this.gapValue = value; return this; }
+  justifyContent(value: LayoutStyle['justifyContent']): this { this.justify = value; return this; }
+  alignItems(value: LayoutStyle['alignItems']): this { this.align = value; return this; }
+  children(...builders: NodeBuilder<TemplateNode>[]): this { this.childBuilders.push(...builders); return this; }
+
+  build(context: BuildContext): ContainerNode {
+    return {
+      type: 'container',
+      id: this.nodeId ?? context.idGenerator.next('container'),
+      style: { ...this.boxStyle, direction: this.direction, gap: this.gapValue, justifyContent: this.justify, alignItems: this.align },
+      children: this.childBuilders.map((child) => child.build(context)),
+      ...(this.visibility ? { visibleWhen: this.visibility } : {}),
+    };
+  }
+}
+
+export function column(): ContainerBuilder { return new ContainerBuilder('column'); }
+export function row(): ContainerBuilder { return new ContainerBuilder('row'); }
+```
+
+### `TextBuilder`
+
+Factory tách riêng `literal`/`binding` ngay từ constructor, thay vì 2
+method rời (`.text(...)`/`.binding(...)`) dễ gọi cả 2 tạo state không hợp
+lệ:
+
+```ts
+// internal — không export
+class TextBuilder extends NodeBuilder<TextNode> {
+  private readonly content: { kind: 'literal'; value: string } | { kind: 'binding'; path: string };
+  private textStyle: TextStyle = {};
+
+  constructor(content: { kind: 'literal'; value: string } | { kind: 'binding'; path: string }) {
+    super();
+    this.content = content;
+  }
+
+  fontSize(value: number): this { this.textStyle = { ...this.textStyle, fontSize: value }; return this; }
+  bold(): this { this.textStyle = { ...this.textStyle, fontWeight: 'bold' }; return this; }
+  align(value: TextStyle['textAlign']): this { this.textStyle = { ...this.textStyle, textAlign: value }; return this; }
+  lineHeight(value: number): this { this.textStyle = { ...this.textStyle, lineHeight: value }; return this; }
+
+  build(context: BuildContext): TextNode {
+    return {
+      type: 'text',
+      id: this.nodeId ?? context.idGenerator.next('text'),
+      style: { ...this.boxStyle, ...this.textStyle },
+      ...(this.content.kind === 'literal' ? { text: this.content.value } : { binding: this.content.path }),
+      ...(this.visibility ? { visibleWhen: this.visibility } : {}),
+    };
+  }
+}
+
+export const text = {
+  literal(value: string): TextBuilder { return new TextBuilder({ kind: 'literal', value }); },
+  binding(path: string): TextBuilder { return new TextBuilder({ kind: 'binding', path }); },
+};
+```
+
+`LineBuilder`/`BarcodeBuilder`/`QrCodeBuilder`/`ImageBuilder` theo đúng
+khuôn này — factory `literal()`/`binding()` (riêng `image` dùng
+`bitmap()`/`binding()`, vì "literal" của ảnh là 1 `Bitmap`, không phải
+chuỗi), method riêng cho property đặc thù (`barcode.symbology()`/
+`.readable()`, `qrcode.errorCorrection()`), method chung (`.width()`/
+`.margin()`/...) kế thừa từ `NodeBuilder`.
+
+### `RepeatBuilder`
+
+```ts
+// internal — không export
+class RepeatBuilder extends NodeBuilder<RepeatNode> {
+  private readonly bindingPath: string;
+  private templateBuilder?: NodeBuilder<TemplateNode>;
+  private perPage?: number;
+
+  constructor(binding: string) { super(); this.bindingPath = binding; }
+
+  template(node: NodeBuilder<TemplateNode>): this { this.templateBuilder = node; return this; }
+  maxItemsPerPage(value: number): this { this.perPage = value; return this; }
+
+  build(context: BuildContext): RepeatNode {
+    if (!this.templateBuilder) throw new Error(`Repeat "${this.bindingPath}" requires a .template(...)`);
+    return {
+      type: 'repeat',
+      id: this.nodeId ?? context.idGenerator.next('repeat'),
+      binding: this.bindingPath,
+      template: this.templateBuilder.build(context),
+      ...(this.perPage !== undefined ? { maxItemsPerPage: this.perPage } : {}),
+      ...(this.visibility ? { visibleWhen: this.visibility } : {}),
+    };
+  }
+}
+
+export function repeat(binding: string): RepeatBuilder { return new RepeatBuilder(binding); }
+```
+
+`RepeatBuilder` cố tình **không** kế thừa method style của `NodeBuilder`
+(`.width()`/`.margin()`/...) — đúng lý do "không có style" đã giải thích ở
+mục model.
+
+### Dimension / Visibility — hàm dựng giá trị
+
+```ts
+export function fixed(value: number): Dimension { return { type: 'fixed', value }; }
+export function fill(): Dimension { return { type: 'fill' }; }
+export function auto(): Dimension { return { type: 'auto' }; }
+
+export function exists(binding: string): VisibilityCondition { return { type: 'exists', binding }; }
+export function equals(binding: string, value: unknown): VisibilityCondition { return { type: 'equals', binding, value }; }
+```
+
+### Root builder — `labelTemplate()` / `receiptTemplate()`
+
+```ts
+class LabelTemplateBuilder {
+  private layoutConfig?: LayoutConfig;
+  private rootBuilder?: NodeBuilder<TemplateNode>;
+
+  size(config: LayoutConfig): this { this.layoutConfig = config; return this; }
+  root(node: NodeBuilder<TemplateNode>): this { this.rootBuilder = node; return this; }
+
+  build(): LabelTemplate {
+    if (!this.layoutConfig) throw new Error('Label template requires .size(...)');
+    if (!this.rootBuilder) throw new Error('Print template requires .root(...)');
+
+    const context: BuildContext = { idGenerator: new TemplateNodeIdGenerator() };
+    return Object.freeze({
+      id: context.idGenerator.next('template'),
+      version: 1,
+      type: PrintTemplateType.Label,
+      config: this.layoutConfig,
+      root: this.rootBuilder.build(context),
+    });
+  }
+}
+
+export function labelTemplate(): LabelTemplateBuilder { return new LabelTemplateBuilder(); }
+
+// ReceiptTemplateBuilder / receiptTemplate() cùng khuôn, .size(): Omit<LayoutConfig, 'heightDots'>, type: PrintTemplateType.Receipt
+```
+
+### Ranh giới validate
+
+```
+LabelTemplateBuilder/ContainerBuilder/...  → validate CẤU TRÚC (size tồn tại, root tồn tại, repeat có template, dimension >= 0,...)
+        │
+        ▼
+PrintTemplate
+        │
+        ▼
+DocumentResolver                            → validate DỮ LIỆU (binding tồn tại trong PrintData không, mảng hay không,...)
+        │
+        ▼
+LayoutEngine                                → không validate, không throw — luôn best-effort (xem mục Thuật toán sizing)
+        │
+        ▼
+Compiler + PrintValidation.validate()       → validate CÚ PHÁP giao thức đích (đã có sẵn, không đổi)
+```
+
+Builder **không** validate dữ liệu — `text.binding('product.name')` không
+kiểm tra `product.name` có tồn tại trong `PrintData` hay không, đó là việc
+của `DocumentResolver` lúc có data thật.
+
+### API surface
+
+```ts
+// root
+labelTemplate()
+receiptTemplate()
+
+// container
+column()
+row()
+
+// content
+text.literal() / text.binding()
+line()
+barcode.literal() / barcode.binding()
+qrcode.literal() / qrcode.binding()
+image.bitmap() / image.binding()
+repeat(binding)
+
+// dimension
+fixed(value) / fill() / auto()
+
+// visibility
+exists(binding) / equals(binding, value)
+```
+
+Method chung trên mọi node builder: `.id()` `.width()` `.height()`
+`.margin()` `.padding()` `.visibleWhen()`. Method riêng theo loại node:
+`.gap()` `.justifyContent()` `.alignItems()` `.children()` (container) —
+`.fontSize()` `.bold()` `.align()` `.lineHeight()` (text) —
+`.symbology()` `.readable()` (barcode) — `.errorCorrection()` (qrcode) —
+`.template()` `.maxItemsPerPage()` (repeat) — `.size()` `.root()` `.build()`
+(root).
+
+### Ví dụ đầy đủ — Label
+
+```ts
+const productLabel = labelTemplate()
+  .size({ widthDots: 400, heightDots: 240, dpi: 203 })
+  .root(
+    column()
+      .padding({ top: 8, right: 8, bottom: 8, left: 8 })
+      .gap(4)
+      .children(
+        text.binding('product.name').fontSize(24).bold(),
+        row()
+          .justifyContent('space-between')
+          .children(
+            text.binding('product.size'),
+            text.binding('product.price').align('right'),
+          ),
+        line(),
+        repeat('toppings')
+          .maxItemsPerPage(6)
+          .template(
+            row().gap(4).children(text.literal('•'), text.binding('name')),
+          ),
+        barcode.binding('order.code').symbology('code128').readable(true),
+      ),
+  )
+  .build();
+```
+
+### Ví dụ đầy đủ — Receipt
+
+```ts
+const receipt = receiptTemplate()
+  .size({ widthDots: 576, dpi: 203 })
+  .root(
+    column()
+      .padding({ top: 16, right: 16, bottom: 16, left: 16 })
+      .gap(8)
+      .children(
+        text.literal('MY SHOP').fontSize(32).bold().align('center'),
+        line(),
+        repeat('items').template(
+          column()
+            .gap(2)
+            .children(
+              row()
+                .justifyContent('space-between')
+                .children(text.binding('name'), text.binding('price')),
+            ),
+        ),
+        line(),
+        row()
+          .justifyContent('space-between')
+          .children(text.literal('TOTAL'), text.binding('total').bold()),
+      ),
+  )
+  .build();
+```
 
 ## Tầng Resolved
 
@@ -285,14 +716,14 @@ export interface ResolvedText {
   readonly type: 'text';
   readonly id: string;
   readonly value: string;
-  readonly style?: TextStyle;
+  readonly style?: BoxStyle & TextStyle;
 }
 
 export interface ResolvedLine {
   readonly type: 'line';
   readonly id: string;
   readonly thickness?: number;
-  readonly style?: LayoutStyle;
+  readonly style?: BoxStyle;
 }
 
 export interface ResolvedBarcode {
@@ -301,7 +732,7 @@ export interface ResolvedBarcode {
   readonly value: string;
   readonly symbology: BarcodeSymbology;
   readonly readable?: boolean;
-  readonly style?: LayoutStyle;
+  readonly style?: BoxStyle;
 }
 
 export interface ResolvedQrCode {
@@ -309,14 +740,14 @@ export interface ResolvedQrCode {
   readonly id: string;
   readonly value: string;
   readonly errorCorrection?: QrErrorCorrectionLevel;
-  readonly style?: LayoutStyle;
+  readonly style?: BoxStyle;
 }
 
 export interface ResolvedImage {
   readonly type: 'image';
   readonly id: string;
   readonly bitmap: Bitmap;
-  readonly style?: LayoutStyle;
+  readonly style?: BoxStyle;
 }
 
 /** 1 trang thành công, hoặc 1 trang lỗi — lỗi ở 1 trang không ảnh hưởng các trang khác trong cùng lô (xem mục Phân trang). */
@@ -332,8 +763,8 @@ export interface DocumentResolver {
 `RepeatNode` không xuất hiện trong `ResolvedNode` — resolve xong nó bị thay
 bằng các bản sao đã resolve của `template` (số lượng theo lát cắt của
 trang hiện tại — xem mục **Phân trang**), bọc trong 1 `ResolvedContainer`
-(kế thừa `style` của chính `RepeatNode`, nhờ vậy nơi gọi có thể xếp các
-dòng lặp thành cột với `gap` y hệt bất kỳ container nào khác).
+kế thừa `style` của `ContainerNode` bên trong `template` (không phải style
+của `RepeatNode` — nó không có style, xem mục Builder).
 
 ### Hành vi resolver
 
@@ -369,8 +800,11 @@ dòng lặp thành cột với `gap` y hệt bất kỳ container nào khác).
 
 Khi 1 hoặc nhiều `RepeatNode` khai `maxItemsPerPage`, `DocumentResolver`
 tính số trang cần thiết và cắt lát dữ liệu **đồng bộ** giữa mọi `RepeatNode`
-đang phân trang — không phải thuật toán "thử rồi đo" như sizing, mà tính
-thẳng từ số lượng item thật:
+đang phân trang. Đây là cơ chế **cấu hình cố định, tính trước — không đo
+lường, không phụ thuộc overflow thật**: số trang chỉ phụ thuộc số lượng
+item thật và `maxItemsPerPage` khai trong template, hoàn toàn độc lập với
+`LayoutEngine`/`FontMetrics` (đã cân nhắc và loại phương án ngược lại —
+đo lường rồi mới quyết định tách trang — xem mục **Ngoài phạm vi**).
 
 1. Với mỗi `RepeatNode` có `maxItemsPerPage`, đếm số item thật
    (`data[binding].length`), tính `ceil(count / maxItemsPerPage)`.
@@ -501,7 +935,7 @@ tính `x`/`y` cho các con (theo `style.direction`/`gap`/`padding`/
 ra đúng 1 `PrintElement`:
 
 | `ResolvedNode` | → `PrintElement` |
-|---|---|
+| --- | --- |
 | `ResolvedText` | `TextElement { content: value, options: { x, y, size, align, ... } }` |
 | `ResolvedLine` | `LineElement { options: { x1, y1, x2, y2, thickness } }` |
 | `ResolvedBarcode` | `BarcodeElement { options: { x, y, symbology, content: value, readable } }` |
@@ -551,8 +985,8 @@ chính xác sẽ in bao nhiêu tem trước khi tem đầu tiên thực sự ra 
 ## Tóm tắt xử lý lỗi
 
 | Trường hợp | Hành vi |
-|---|---|
-| `TextNode`/`BarcodeNode`/... thiếu cả `text`/`binding` lẫn `content`/`binding` | `DocumentResolver` trả `{ status: 'error' }` cho đúng trang đó — phát hiện lỗi khai template ngay, không âm thầm coi là rỗng. |
+| --- | --- |
+| `TextNode`/`BarcodeNode`/... thiếu cả `text`/`binding` lẫn `content`/`binding` | `DocumentResolver` trả `{ status: 'error' }` cho đúng trang đó (hoặc chặn sớm hơn ở `TextBuilder`/... nếu dựng qua Builder) — phát hiện lỗi khai template ngay, không âm thầm coi là rỗng. |
 | `binding` path resolve ra `undefined` trong `PrintData` | `DocumentResolver` trả `{ status: 'error', pageIndex, nodeId, message }` cho đúng trang đó; **các trang khác không bị ảnh hưởng.** |
 | `RepeatNode.binding` resolve ra giá trị không phải mảng | `DocumentResolver` trả `{ status: 'error' }` cho đúng trang đó. |
 | Nội dung cao hơn `heightDots` kể cả ở `FontScaleLevel` nhỏ nhất | **Không lỗi.** `LayoutEngine` trả về layout best-effort ở scale nhỏ nhất (xem mục Thuật toán sizing). |
@@ -568,44 +1002,3 @@ Xoá hẳn, không migrate:
   test đi kèm)
 - 2 dòng `export * from './templates'` / `export * from './binding'` trong
   `packages/printer-core/src/index.ts`
-
-## Cấu trúc thư mục
-
-```
-src/
-├── template/
-│   ├── PrintTemplateType.ts
-│   ├── PrintTemplate.ts
-│   ├── TemplateNode.ts
-│   ├── ContainerNode.ts
-│   ├── TextNode.ts
-│   ├── LineNode.ts
-│   ├── BarcodeNode.ts
-│   ├── QrCodeNode.ts
-│   ├── ImageNode.ts
-│   ├── RepeatNode.ts
-│   ├── LayoutStyle.ts
-│   ├── TextStyle.ts
-│   ├── Dimension.ts
-│   ├── Insets.ts
-│   ├── VisibilityCondition.ts
-│   └── index.ts
-├── resolution/
-│   ├── PrintData.ts
-│   ├── ResolvedNode.ts
-│   ├── ResolvedPage.ts
-│   ├── DocumentResolver.ts
-│   └── index.ts
-└── layout/
-    ├── LayoutEngine.ts
-    ├── LayoutConfig.ts
-    ├── TypographyProfile.ts
-    ├── FontMetrics.ts
-    ├── ApproximateFontMetrics.ts
-    ├── TextMeasurement.ts
-    └── index.ts
-```
-
-Thay thế `template/` và `binding/` (đã xoá) làm thư mục con ngang hàng
-trong `packages/printer-core/src/`, export từ `index.ts` gốc của package
-giống mọi module khác.
