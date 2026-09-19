@@ -90,16 +90,64 @@ function resolveNode(node: TemplateNode, scope: Scope): ResolvedNode | null {
   }
 }
 
+function countPaginatingItems(node: TemplateNode, scope: Scope, counts: number[]): void {
+  if (node.type === 'repeat') {
+    const items = lookup(scope, node.binding);
+    if (Array.isArray(node.template ? [] : []) && node.maxItemsPerPage !== undefined && Array.isArray(items)) {
+      counts.push(Math.ceil(items.length / node.maxItemsPerPage));
+    }
+    // Do not recurse into a RepeatNode's own template — nested paginating
+    // repeats are out of scope (see spec's "Ngoài phạm vi").
+    return;
+  }
+  if (node.type === 'container') {
+    for (const child of node.children) countPaginatingItems(child, scope, counts);
+  }
+}
+
+function resolveNodeForPage(node: TemplateNode, scope: Scope, pageIndex: number): ResolvedNode | null {
+  if (!evaluateVisibility(node, scope)) return null;
+
+  if (node.type === 'repeat') {
+    const items = lookup(scope, node.binding);
+    if (!Array.isArray(items)) throw new ResolveError(node.id, `repeat "${node.id}" binding "${node.binding}" is not an array`);
+    const slice = node.maxItemsPerPage !== undefined ? items.slice(pageIndex * node.maxItemsPerPage, (pageIndex + 1) * node.maxItemsPerPage) : items;
+    const children = slice
+      .map((item) => resolveNode(node.template, { data: item, parent: scope }))
+      .filter((child): child is ResolvedNode => child !== null);
+    return { type: 'container', id: node.id, children };
+  }
+
+  if (node.type === 'container') {
+    return {
+      type: 'container',
+      id: node.id,
+      style: node.style,
+      children: node.children.map((child) => resolveNodeForPage(child, scope, pageIndex)).filter((child): child is ResolvedNode => child !== null),
+    };
+  }
+
+  return resolveNode(node, scope);
+}
+
 export class DocumentResolver {
   resolve(template: PrintTemplate, data: PrintData): readonly ResolvedPage[] {
     const scope: Scope = { data, parent: null };
-    try {
-      const node = resolveNode(template.root, scope);
-      return [{ status: 'ok', pageIndex: 0, node: node ?? { type: 'container', id: template.root.id, children: [] } }];
-    } catch (error) {
-      if (error instanceof ResolveError) return [{ status: 'error', pageIndex: 0, nodeId: error.nodeId, message: error.message }];
-      throw error;
+    const pageCounts: number[] = [];
+    countPaginatingItems(template.root, scope, pageCounts);
+    const pageCount = Math.max(1, ...pageCounts, 0) || 1;
+
+    const pages: ResolvedPage[] = [];
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+      try {
+        const node = resolveNodeForPage(template.root, scope, pageIndex);
+        pages.push({ status: 'ok', pageIndex, node: node ?? { type: 'container', id: template.root.id, children: [] } });
+      } catch (error) {
+        if (error instanceof ResolveError) pages.push({ status: 'error', pageIndex, nodeId: error.nodeId, message: error.message });
+        else throw error;
+      }
     }
+    return pages;
   }
 }
 
