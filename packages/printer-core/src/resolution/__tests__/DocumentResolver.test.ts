@@ -100,4 +100,10 @@ describe('DocumentResolver', () => {
     const pages = resolver.resolve(label({ type: 'text', id: 't1' }), {});
     expect(pages[0]).toMatchObject({ status: 'error', nodeId: 't1' });
   });
+
+  it('returns a page-scoped error when an ImageNode binding value is not a valid Bitmap', () => {
+    const tree = label({ type: 'image', id: 'img1', binding: 'logo' });
+    const pages = resolver.resolve(tree, { logo: 'not-a-bitmap' });
+    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 'img1' });
+  });
 });

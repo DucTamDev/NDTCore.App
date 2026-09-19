@@ -1,5 +1,6 @@
 import type { PrintTemplate } from '../template/PrintTemplate';
 import type { TemplateNode } from '../template/nodes/TemplateNode';
+import type { Bitmap } from '../types';
 import type { PrintData } from './PrintData';
 import type { ResolvedNode } from './ResolvedNode';
 import type { ResolvedPage } from './ResolvedPage';
@@ -72,7 +73,10 @@ function resolveNode(node: TemplateNode, scope: Scope): ResolvedNode | null {
     case 'image': {
       const bitmap = node.bitmap ?? (node.binding !== undefined ? lookup(scope, node.binding) : undefined);
       if (bitmap === undefined) throw new ResolveError(node.id, `image "${node.id}" has no bitmap/binding value`);
-      return { type: 'image', id: node.id, bitmap: bitmap as never, style: node.style };
+      if (typeof bitmap !== 'object' || bitmap === null || !('data' in bitmap) || !('width' in bitmap) || !('height' in bitmap) || !('bytesPerRow' in bitmap)) {
+        throw new ResolveError(node.id, `image "${node.id}" binding value is not a valid Bitmap`);
+      }
+      return { type: 'image', id: node.id, bitmap: bitmap as Bitmap, style: node.style };
     }
 
     case 'repeat': {
