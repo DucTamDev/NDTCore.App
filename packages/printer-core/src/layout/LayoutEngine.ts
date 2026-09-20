@@ -58,12 +58,22 @@ function resolveLineLengthDots(node: Extract<ResolvedNode, { type: 'line' }>, av
   return width?.type === 'fixed' ? width.value : availableWidthDots;
 }
 
+// TextStyle.fontSize is an author-facing "dots" size (matches ApproximateFontMetrics's
+// measurement unit); every compiler's TextOptions.size is instead a 1-8 magnification
+// multiplier applied to the printer's native font — this converts one to the other,
+// treating ~12 dots as one magnification step, at the point the value leaves this module.
+const DOTS_PER_MAGNIFICATION_STEP = 12;
+function toMagnification(fontSizeDots: number | undefined): number | undefined {
+  if (fontSizeDots === undefined) return undefined;
+  return Math.min(8, Math.max(1, Math.round(fontSizeDots / DOTS_PER_MAGNIFICATION_STEP)));
+}
+
 function arrange(node: ResolvedNode, origin: Position, availableWidthDots: number, fontMetrics: FontMetrics, out: PrintElement[]): void {
   if (node.type === 'text') {
     const lines = fontMetrics.wrap(node.value, availableWidthDots, node.style ?? {});
     let lineY = origin.y;
     for (const line of lines) {
-      out.push({ type: 'text', content: line, options: { x: origin.x, y: lineY, size: node.style?.fontSize, align: node.style?.textAlign, bold: node.style?.fontWeight === 'bold' } });
+      out.push({ type: 'text', content: line, options: { x: origin.x, y: lineY, size: toMagnification(node.style?.fontSize), align: node.style?.textAlign, bold: node.style?.fontWeight === 'bold' } });
       lineY += fontMetrics.measure(line, node.style ?? {}).heightDots;
     }
     return;

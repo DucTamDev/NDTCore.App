@@ -22,7 +22,8 @@ describe('LayoutEngine sizing', () => {
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
     const first = elements[0];
     if (first.type !== 'text') throw new Error('expected text element');
-    expect(first.options?.size).toBe(40);
+    // fontSize stays 40 dots (scale 1) -> magnification round(40/12) = 3.
+    expect(first.options?.size).toBe(3);
   });
 
   it('label picks the largest scale level that fits within heightDots', () => {
@@ -38,7 +39,9 @@ describe('LayoutEngine sizing', () => {
     const elements = engine.resolve(root, labelConfig, typography, fontMetrics);
     const first = elements[0];
     if (first.type !== 'text') throw new Error('expected text element');
-    expect(first.options?.size).toBeLessThan(20); // shrunk below the original fontSize
+    // Chosen level shrinks fontSize 20 -> 5 dots (scale 0.25) -> magnification round(5/12) = 1,
+    // below round(20/12) = 2 for the unscaled size — still shrunk in the new 1-8 range.
+    expect(first.options?.size).toBe(1);
   });
 
   it('label falls back to the smallest scale level (best-effort, no throw) when nothing fits', () => {
@@ -49,7 +52,8 @@ describe('LayoutEngine sizing', () => {
     const elements = engine.resolve(root, labelConfig, typography, fontMetrics);
     const first = elements[0];
     if (first.type !== 'text') throw new Error('expected text element');
-    expect(first.options?.size).toBeCloseTo(4); // 40 * 0.1
+    // 40 * 0.1 = 4 dots -> magnification round(4/12) clamped to the minimum of 1.
+    expect(first.options?.size).toBe(1);
   });
 
   it('scales the whole tree uniformly, not just the section that grew', () => {
@@ -67,6 +71,7 @@ describe('LayoutEngine sizing', () => {
     const item = elements[1];
     if (header.type !== 'text' || item.type !== 'text') throw new Error('expected text elements');
     expect(header.options?.size).toBe(item.options?.size); // same scale applied to both
-    expect(header.options?.size).toBeLessThan(20);
+    // 20 * 0.5 = 10 dots -> magnification round(10/12) = 1, below round(20/12) = 2 unscaled.
+    expect(header.options?.size).toBe(1);
   });
 });

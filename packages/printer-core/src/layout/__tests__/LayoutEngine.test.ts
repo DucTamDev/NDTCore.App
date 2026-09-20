@@ -14,7 +14,8 @@ describe('LayoutEngine', () => {
     const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hello', style: { fontSize: 20 } };
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
     expect(elements).toHaveLength(1);
-    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: 20 } });
+    // fontSize 20 dots -> magnification round(20/12) = 2 (options.size is a 1-8 multiplier, not dots).
+    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: 2 } });
   });
 
   it('stacks column children vertically with gap', () => {
@@ -132,5 +133,38 @@ describe('LayoutEngine', () => {
     const ys = elements.map((el) => ('options' in el && el.options && 'y' in el.options ? (el.options.y ?? 0) : 0));
     expect(new Set(ys).size).toBe(ys.length);
     for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+  });
+
+  describe('fontSize (dots) -> options.size (1-8 magnification) conversion', () => {
+    it('converts a typical dots-based fontSize into a magnification in range 1-8', () => {
+      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 24 } };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      if (elements[0].type !== 'text') throw new Error('expected text element');
+      const size = elements[0].options?.size;
+      expect(size).not.toBe(24);
+      expect(size).toBeGreaterThanOrEqual(1);
+      expect(size).toBeLessThanOrEqual(8);
+    });
+
+    it('leaves options.size undefined when no fontSize style is set', () => {
+      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi' };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      if (elements[0].type !== 'text') throw new Error('expected text element');
+      expect(elements[0].options?.size).toBeUndefined();
+    });
+
+    it('clamps a very small fontSize to a minimum magnification of 1', () => {
+      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 1 } };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      if (elements[0].type !== 'text') throw new Error('expected text element');
+      expect(elements[0].options?.size).toBe(1);
+    });
+
+    it('clamps a very large fontSize to a maximum magnification of 8', () => {
+      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 200 } };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      if (elements[0].type !== 'text') throw new Error('expected text element');
+      expect(elements[0].options?.size).toBe(8);
+    });
   });
 });
