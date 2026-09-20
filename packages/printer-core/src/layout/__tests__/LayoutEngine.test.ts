@@ -98,4 +98,39 @@ describe('LayoutEngine', () => {
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
     expect(elements).toEqual([]);
   });
+
+  it('wraps text longer than the available width into multiple TextElements at increasing y', () => {
+    const longText = 'This is a very long line of receipt text that should not fit on a single narrow line of a thermal printer';
+    const narrowConfig: LayoutConfig = { widthDots: 100, dpi: 203 };
+    const root: ResolvedNode = { type: 'text', id: 't1', value: longText, style: { fontSize: 10 } };
+
+    const singleLineWidth = fontMetrics.measure(longText, { fontSize: 10 }).widthDots;
+    const elements = engine.resolve(root, narrowConfig, typography, fontMetrics);
+
+    expect(elements.length).toBeGreaterThan(1);
+    let previousY = -Infinity;
+    for (const el of elements) {
+      if (el.type !== 'text') throw new Error('expected text element');
+      expect(el.options?.y ?? 0).toBeGreaterThan(previousY);
+      previousY = el.options?.y ?? 0;
+      expect(fontMetrics.measure(el.content, { fontSize: 10 }).widthDots).toBeLessThan(singleLineWidth);
+    }
+  });
+
+  it('does not overlap a line, barcode, qrcode, and text stacked in a column', () => {
+    const root: ResolvedNode = {
+      type: 'container', id: 'root', style: { direction: 'column' },
+      children: [
+        { type: 'line', id: 'l1', thickness: 2 },
+        { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', readable: true },
+        { type: 'qrcode', id: 'q1', value: 'XYZ' },
+        { type: 'text', id: 't1', value: 'Hello', style: { fontSize: 10 } },
+      ],
+    };
+    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    expect(elements).toHaveLength(4);
+    const ys = elements.map((el) => ('options' in el && el.options && 'y' in el.options ? (el.options.y ?? 0) : 0));
+    expect(new Set(ys).size).toBe(ys.length);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+  });
 });

@@ -8,15 +8,34 @@ import type { TextStyle } from '../template/style/TextStyle';
 interface Position { readonly x: number; readonly y: number; }
 interface Size { readonly widthDots: number; readonly heightDots: number; }
 
-function measure(node: ResolvedNode, fontMetrics: FontMetrics): Size {
+function measure(node: ResolvedNode, fontMetrics: FontMetrics, availableWidthDots: number): Size {
   if (node.type === 'text') {
-    const m = fontMetrics.measure(node.value, node.style ?? {});
-    return { widthDots: m.widthDots, heightDots: m.heightDots };
+    const lines = fontMetrics.wrap(node.value, availableWidthDots, node.style ?? {});
+    const measurements = lines.map((line) => fontMetrics.measure(line, node.style ?? {}));
+    return {
+      widthDots: Math.max(0, ...measurements.map((m) => m.widthDots)),
+      heightDots: measurements.reduce((sum, m) => sum + m.heightDots, 0),
+    };
+  }
+  if (node.type === 'line') {
+    return { widthDots: resolveLineLengthDots(node, availableWidthDots), heightDots: node.thickness ?? 1 };
+  }
+  if (node.type === 'image') {
+    return { widthDots: node.bitmap.width, heightDots: node.bitmap.height };
+  }
+  if (node.type === 'barcode') {
+    // Fixed approximation: real width depends on symbology + module width + content length, not modeled at layout level.
+    return { widthDots: 200, heightDots: 80 };
+  }
+  if (node.type === 'qrcode') {
+    // Fixed approximation: real size depends on cellWidth x module count, which depends on content + error correction.
+    return { widthDots: 120, heightDots: 120 };
   }
   if (node.type === 'container') {
-    const sizes = node.children.map((child) => measure(child, fontMetrics));
-    const gap = node.style?.gap ?? 0;
     const padding = node.style?.padding ?? { top: 0, right: 0, bottom: 0, left: 0 };
+    const childAvailableWidthDots = availableWidthDots - padding.left - padding.right;
+    const sizes = node.children.map((child) => measure(child, fontMetrics, childAvailableWidthDots));
+    const gap = node.style?.gap ?? 0;
     if (node.style?.direction === 'row') {
       return {
         widthDots: sizes.reduce((sum, s) => sum + s.widthDots, 0) + gap * Math.max(0, sizes.length - 1) + padding.left + padding.right,
@@ -41,7 +60,12 @@ function resolveLineLengthDots(node: Extract<ResolvedNode, { type: 'line' }>, av
 
 function arrange(node: ResolvedNode, origin: Position, availableWidthDots: number, fontMetrics: FontMetrics, out: PrintElement[]): void {
   if (node.type === 'text') {
-    out.push({ type: 'text', content: node.value, options: { x: origin.x, y: origin.y, size: node.style?.fontSize, align: node.style?.textAlign, bold: node.style?.fontWeight === 'bold' } });
+    const lines = fontMetrics.wrap(node.value, availableWidthDots, node.style ?? {});
+    let lineY = origin.y;
+    for (const line of lines) {
+      out.push({ type: 'text', content: line, options: { x: origin.x, y: lineY, size: node.style?.fontSize, align: node.style?.textAlign, bold: node.style?.fontWeight === 'bold' } });
+      lineY += fontMetrics.measure(line, node.style ?? {}).heightDots;
+    }
     return;
   }
   if (node.type === 'line') {
@@ -70,7 +94,7 @@ function arrange(node: ResolvedNode, origin: Position, availableWidthDots: numbe
 
   for (const child of node.children) {
     arrange(child, { x: cursorX, y: cursorY }, childAvailableWidthDots, fontMetrics, out);
-    const size = measure(child, fontMetrics);
+    const size = measure(child, fontMetrics, childAvailableWidthDots);
     if (node.style?.direction === 'row') cursorX += size.widthDots + gap;
     else cursorY += size.heightDots + gap;
   }
@@ -89,8 +113,8 @@ function scaleTree(node: ResolvedNode, level: FontScaleLevel): ResolvedNode {
   return node;
 }
 
-function totalHeight(node: ResolvedNode, fontMetrics: FontMetrics): number {
-  return measure(node, fontMetrics).heightDots;
+function totalHeight(node: ResolvedNode, fontMetrics: FontMetrics, availableWidthDots: number): number {
+  return measure(node, fontMetrics, availableWidthDots).heightDots;
 }
 
 export class LayoutEngine {
@@ -107,7 +131,7 @@ export class LayoutEngine {
     let chosen = levels[levels.length - 1];
     for (const level of levels) {
       const scaled = scaleTree(root, level);
-      if (totalHeight(scaled, fontMetrics) <= config.heightDots) { chosen = level; break; }
+      if (totalHeight(scaled, fontMetrics, config.widthDots) <= config.heightDots) { chosen = level; break; }
     }
 
     const scaled = scaleTree(root, chosen);
