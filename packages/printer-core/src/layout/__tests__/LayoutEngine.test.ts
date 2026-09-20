@@ -167,4 +167,79 @@ describe('LayoutEngine', () => {
       expect(elements[0].options?.size).toBe(8);
     });
   });
+
+  describe('row with justifyContent: space-between (name ...... price idiom)', () => {
+    it('produces a single table element for exactly 2 text children with space-between', () => {
+      const root: ResolvedNode = {
+        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
+        children: [
+          { type: 'text', id: 'name', value: 'Milk Tea' },
+          { type: 'text', id: 'price', value: '45,000' },
+        ],
+      };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      expect(elements).toHaveLength(1);
+      const [el] = elements;
+      if (el.type !== 'table') throw new Error('expected table element');
+      expect(el.options.columns).toHaveLength(2);
+      expect(el.options.columns[0].align).toBe('left');
+      expect(el.options.columns[1].align).toBe('right');
+      expect(el.options.rows).toEqual([['Milk Tea', '45,000']]);
+      const rightWidth = fontMetrics.measure('45,000', {}).widthDots;
+      expect(el.options.columns[1].width).toBe(rightWidth);
+    });
+
+    it('falls through to individual text elements when justifyContent is not space-between', () => {
+      const root: ResolvedNode = {
+        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'start' },
+        children: [
+          { type: 'text', id: 'name', value: 'Milk Tea' },
+          { type: 'text', id: 'price', value: '45,000' },
+        ],
+      };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      expect(elements).toHaveLength(2);
+      expect(elements.every((e) => e.type === 'text')).toBe(true);
+    });
+
+    it('falls through to individual text elements when justifyContent is unset', () => {
+      const root: ResolvedNode = {
+        type: 'container', id: 'root', style: { direction: 'row' },
+        children: [
+          { type: 'text', id: 'name', value: 'Milk Tea' },
+          { type: 'text', id: 'price', value: '45,000' },
+        ],
+      };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      expect(elements).toHaveLength(2);
+      expect(elements.every((e) => e.type === 'text')).toBe(true);
+    });
+
+    it('falls through to individual text elements when there are 3 children', () => {
+      const root: ResolvedNode = {
+        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
+        children: [
+          { type: 'text', id: 'a', value: 'A' },
+          { type: 'text', id: 'b', value: 'B' },
+          { type: 'text', id: 'c', value: 'C' },
+        ],
+      };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      expect(elements).toHaveLength(3);
+      expect(elements.every((e) => e.type === 'text')).toBe(true);
+    });
+
+    it('falls through to individual elements when a child is not text (e.g. barcode)', () => {
+      const root: ResolvedNode = {
+        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
+        children: [
+          { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', readable: true },
+          { type: 'text', id: 'price', value: '45,000' },
+        ],
+      };
+      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      expect(elements).toHaveLength(2);
+      expect(elements.map((e) => e.type)).toEqual(['barcode', 'text']);
+    });
+  });
 });

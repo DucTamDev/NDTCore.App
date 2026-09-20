@@ -34,6 +34,15 @@ function measure(node: ResolvedNode, fontMetrics: FontMetrics, availableWidthDot
   if (node.type === 'container') {
     const padding = node.style?.padding ?? { top: 0, right: 0, bottom: 0, left: 0 };
     const childAvailableWidthDots = availableWidthDots - padding.left - padding.right;
+    if (isSpaceBetweenTextRow(node)) {
+      const [left, right] = node.children;
+      const leftSize = measure(left, fontMetrics, childAvailableWidthDots);
+      const rightSize = measure(right, fontMetrics, childAvailableWidthDots);
+      return {
+        widthDots: childAvailableWidthDots + padding.left + padding.right,
+        heightDots: Math.max(leftSize.heightDots, rightSize.heightDots) + padding.top + padding.bottom,
+      };
+    }
     const sizes = node.children.map((child) => measure(child, fontMetrics, childAvailableWidthDots));
     const gap = node.style?.gap ?? 0;
     if (node.style?.direction === 'row') {
@@ -48,6 +57,21 @@ function measure(node: ResolvedNode, fontMetrics: FontMetrics, availableWidthDot
     };
   }
   return { widthDots: 0, heightDots: 0 };
+}
+
+// Scoped special case for the "name ...... price" idiom: a row of exactly 2 text
+// children with justifyContent: 'space-between'. General flexbox justify/align
+// (arbitrary child counts, other values, both axes) is out of scope — see report.
+function isSpaceBetweenTextRow(
+  node: Extract<ResolvedNode, { type: 'container' }>,
+): node is Extract<ResolvedNode, { type: 'container' }> & { children: readonly [Extract<ResolvedNode, { type: 'text' }>, Extract<ResolvedNode, { type: 'text' }>] } {
+  return (
+    node.style?.direction === 'row' &&
+    node.style?.justifyContent === 'space-between' &&
+    node.children.length === 2 &&
+    node.children[0].type === 'text' &&
+    node.children[1].type === 'text'
+  );
 }
 
 // A LineNode carries no intrinsic length (only `thickness`) — its length comes from
@@ -101,6 +125,25 @@ function arrange(node: ResolvedNode, origin: Position, availableWidthDots: numbe
   const childAvailableWidthDots = availableWidthDots - padding.left - padding.right;
   let cursorX = origin.x + padding.left;
   let cursorY = origin.y + padding.top;
+
+  if (isSpaceBetweenTextRow(node)) {
+    const [left, right] = node.children;
+    const rightWidth = measure(right, fontMetrics, childAvailableWidthDots).widthDots;
+    const leftWidth = Math.max(0, childAvailableWidthDots - rightWidth);
+    out.push({
+      type: 'table',
+      options: {
+        x: cursorX,
+        y: cursorY,
+        columns: [
+          { width: leftWidth, align: 'left' },
+          { width: rightWidth, align: 'right' },
+        ],
+        rows: [[left.value, right.value]],
+      },
+    });
+    return;
+  }
 
   for (const child of node.children) {
     arrange(child, { x: cursorX, y: cursorY }, childAvailableWidthDots, fontMetrics, out);
