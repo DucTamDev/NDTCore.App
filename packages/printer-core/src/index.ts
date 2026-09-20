@@ -16,5 +16,6 @@ export * from './convert';
 export * from './profile';
 export * from './transport';
 export * from './testing';
-export * from './templates';
-export * from './binding';
+export * from './template';
+export * from './resolution';
+export * from './layout';

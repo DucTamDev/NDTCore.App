@@ -1,4 +1,4 @@
-import type { ResolvedNode, ResolvedContainer, ResolvedText } from '../ResolvedNode';
+import type { ResolvedContainer, ResolvedText } from '../ResolvedNode';
 import type { ResolvedPage } from '../ResolvedPage';
 import type { PrintData } from '../PrintData';
 
