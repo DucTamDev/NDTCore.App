@@ -10,6 +10,7 @@ type Scope = { readonly data: unknown; readonly parent: Scope | null };
 function getPath(value: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((current, key) => {
     if (current === null || typeof current !== 'object') return undefined;
+    if (!Object.prototype.hasOwnProperty.call(current, key)) return undefined;
     return (current as Record<string, unknown>)[key];
   }, value);
 }
@@ -91,10 +92,13 @@ function resolveNode(node: TemplateNode, scope: Scope): ResolvedNode | null {
 }
 
 function countPaginatingItems(node: TemplateNode, scope: Scope, counts: number[]): void {
+  if (!evaluateVisibility(node, scope)) return;
+
   if (node.type === 'repeat') {
     const items = lookup(scope, node.binding);
-    if (Array.isArray(node.template ? [] : []) && node.maxItemsPerPage !== undefined && Array.isArray(items)) {
-      counts.push(Math.ceil(items.length / node.maxItemsPerPage));
+    const perPage = node.maxItemsPerPage;
+    if (perPage !== undefined && Number.isFinite(perPage) && perPage > 0 && Array.isArray(items)) {
+      counts.push(Math.ceil(items.length / perPage));
     }
     // Do not recurse into a RepeatNode's own template — nested paginating
     // repeats are out of scope (see spec's "Ngoài phạm vi").

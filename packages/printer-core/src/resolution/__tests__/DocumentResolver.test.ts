@@ -101,6 +101,11 @@ describe('DocumentResolver', () => {
     expect(pages[0]).toMatchObject({ status: 'error', nodeId: 't1' });
   });
 
+  it('errors on a binding that names an inherited Object.prototype member instead of resolving it', () => {
+    const pages = resolver.resolve(label({ type: 'text', id: 't1', binding: 'toString' }), {});
+    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 't1' });
+  });
+
   it('returns a page-scoped error when an ImageNode binding value is not a valid Bitmap', () => {
     const tree = label({ type: 'image', id: 'img1', binding: 'logo' });
     const pages = resolver.resolve(tree, { logo: 'not-a-bitmap' });

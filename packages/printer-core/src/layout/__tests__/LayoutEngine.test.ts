@@ -59,6 +59,26 @@ describe('LayoutEngine', () => {
     expect(elements[0].options?.y).toBe(8);
   });
 
+  it('includes a container\'s own padding in its measured height (affects sibling placement)', () => {
+    const root: ResolvedNode = {
+      type: 'container', id: 'root', style: { direction: 'column' },
+      children: [
+        {
+          type: 'container', id: 'inner', style: { direction: 'column', padding: { top: 8, right: 0, bottom: 8, left: 0 } },
+          children: [{ type: 'text', id: 't1', value: 'A', style: { fontSize: 10 } }],
+        },
+        { type: 'text', id: 't2', value: 'B', style: { fontSize: 10 } },
+      ],
+    };
+    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const [inner, sibling] = elements;
+    if (inner.type !== 'text' || sibling.type !== 'text') throw new Error('expected text elements');
+    const contentHeight = fontMetrics.measure('A', { fontSize: 10 }).heightDots;
+    // Sibling starts after the inner container's full measured height (content + top/bottom padding),
+    // not just its content height — otherwise it would overlap the inner container's padding.
+    expect(sibling.options?.y).toBe(contentHeight + 8 + 8);
+  });
+
   it('maps ResolvedBarcode/ResolvedQrCode/ResolvedImage/ResolvedLine to their PrintElement', () => {
     const root: ResolvedNode = {
       type: 'container', id: 'root', style: { direction: 'column' },

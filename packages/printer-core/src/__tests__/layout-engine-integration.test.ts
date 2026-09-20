@@ -18,8 +18,7 @@ describe('layout engine end-to-end', () => {
             text.binding('product.name').fontSize(24).bold(),
             row().children(text.binding('product.price')),
             line(),
-            // RepeatBuilder deliberately doesn't extend NodeBuilder (no box style); cast for .children().
-            repeat('toppings').template(row().children(text.literal('- '), text.binding('name'))) as any,
+            repeat('toppings').template(row().children(text.literal('- '), text.binding('name'))),
             barcode.binding('order.code').symbology('code128'),
           ),
       )

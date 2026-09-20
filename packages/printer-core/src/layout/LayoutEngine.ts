@@ -16,15 +16,16 @@ function measure(node: ResolvedNode, fontMetrics: FontMetrics): Size {
   if (node.type === 'container') {
     const sizes = node.children.map((child) => measure(child, fontMetrics));
     const gap = node.style?.gap ?? 0;
+    const padding = node.style?.padding ?? { top: 0, right: 0, bottom: 0, left: 0 };
     if (node.style?.direction === 'row') {
       return {
-        widthDots: sizes.reduce((sum, s) => sum + s.widthDots, 0) + gap * Math.max(0, sizes.length - 1),
-        heightDots: Math.max(0, ...sizes.map((s) => s.heightDots)),
+        widthDots: sizes.reduce((sum, s) => sum + s.widthDots, 0) + gap * Math.max(0, sizes.length - 1) + padding.left + padding.right,
+        heightDots: Math.max(0, ...sizes.map((s) => s.heightDots)) + padding.top + padding.bottom,
       };
     }
     return {
-      widthDots: Math.max(0, ...sizes.map((s) => s.widthDots)),
-      heightDots: sizes.reduce((sum, s) => sum + s.heightDots, 0) + gap * Math.max(0, sizes.length - 1),
+      widthDots: Math.max(0, ...sizes.map((s) => s.widthDots)) + padding.left + padding.right,
+      heightDots: sizes.reduce((sum, s) => sum + s.heightDots, 0) + gap * Math.max(0, sizes.length - 1) + padding.top + padding.bottom,
     };
   }
   return { widthDots: 0, heightDots: 0 };

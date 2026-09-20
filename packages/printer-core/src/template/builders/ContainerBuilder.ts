@@ -1,4 +1,4 @@
-import { NodeBuilder } from './NodeBuilder';
+import { NodeBuilder, TemplateNodeBuilder } from './NodeBuilder';
 import type { BuildContext } from './BuildContext';
 import type { ContainerNode } from '../nodes/ContainerNode';
 import type { TemplateNode } from '../nodes/TemplateNode';
@@ -6,7 +6,7 @@ import type { LayoutStyle } from '../style/LayoutStyle';
 
 class ContainerBuilder extends NodeBuilder<ContainerNode> {
   private readonly direction: 'row' | 'column';
-  private readonly childBuilders: NodeBuilder<TemplateNode>[] = [];
+  private readonly childBuilders: TemplateNodeBuilder<TemplateNode>[] = [];
   private gapValue?: number;
   private justify?: LayoutStyle['justifyContent'];
   private align?: LayoutStyle['alignItems'];
@@ -16,7 +16,7 @@ class ContainerBuilder extends NodeBuilder<ContainerNode> {
   gap(value: number): this { this.gapValue = value; return this; }
   justifyContent(value: LayoutStyle['justifyContent']): this { this.justify = value; return this; }
   alignItems(value: LayoutStyle['alignItems']): this { this.align = value; return this; }
-  children(...builders: NodeBuilder<TemplateNode>[]): this { this.childBuilders.push(...builders); return this; }
+  children(...builders: TemplateNodeBuilder<TemplateNode>[]): this { this.childBuilders.push(...builders); return this; }
 
   build(context: BuildContext): ContainerNode {
     return {

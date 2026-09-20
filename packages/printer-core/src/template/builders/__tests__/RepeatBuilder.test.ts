@@ -1,5 +1,6 @@
 import { repeat } from '../RepeatBuilder';
 import { text } from '../TextBuilder';
+import { column } from '../ContainerBuilder';
 import { BuildContext } from '../BuildContext';
 import { TemplateNodeIdGenerator } from '../BuildContext';
 
@@ -29,5 +30,21 @@ describe('RepeatBuilder', () => {
     const builder = repeat('toppings');
     // @ts-expect-error RepeatBuilder does not extend NodeBuilder's style methods
     builder.width;
+  });
+
+  it('nests directly inside column().children(...) with no cast', () => {
+    const node = column()
+      .children(
+        text.literal('Toppings:'),
+        repeat('toppings').template(text.binding('name')),
+      )
+      .build(context);
+    expect(node.children).toHaveLength(2);
+    expect(node.children[1]).toMatchObject({ type: 'repeat', binding: 'toppings' });
+  });
+
+  it('throws when maxItemsPerPage is 0 or negative', () => {
+    expect(() => repeat('toppings').maxItemsPerPage(0)).toThrow(/positive integer/);
+    expect(() => repeat('toppings').maxItemsPerPage(-1)).toThrow(/positive integer/);
   });
 });

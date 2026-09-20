@@ -1,22 +1,21 @@
 import type { BuildContext } from './BuildContext';
 import type { RepeatNode } from '../nodes/RepeatNode';
 import type { TemplateNode } from '../nodes/TemplateNode';
-import type { VisibilityCondition } from '../style/VisibilityCondition';
-import type { NodeBuilder } from './NodeBuilder';
+import { TemplateNodeBuilder, type NodeBuilder } from './NodeBuilder';
 
-class RepeatBuilder {
-  private nodeId?: string;
+class RepeatBuilder extends TemplateNodeBuilder<RepeatNode> {
   private readonly bindingPath: string;
   private templateBuilder?: NodeBuilder<TemplateNode>;
   private perPage?: number;
-  private visibility?: VisibilityCondition;
 
-  constructor(binding: string) { this.bindingPath = binding; }
+  constructor(binding: string) { super(); this.bindingPath = binding; }
 
-  id(value: string): this { this.nodeId = value; return this; }
   template(node: NodeBuilder<TemplateNode>): this { this.templateBuilder = node; return this; }
-  maxItemsPerPage(value: number): this { this.perPage = value; return this; }
-  visibleWhen(condition: VisibilityCondition): this { this.visibility = condition; return this; }
+  maxItemsPerPage(value: number): this {
+    if (value <= 0 || !Number.isFinite(value)) throw new Error('maxItemsPerPage must be a positive integer');
+    this.perPage = value;
+    return this;
+  }
 
   build(context: BuildContext): RepeatNode {
     if (!this.templateBuilder) throw new Error(`Repeat "${this.bindingPath}" requires a .template(...)`);

@@ -56,6 +56,17 @@ describe('DocumentResolver pagination', () => {
     }
   });
 
+  it('contributes zero pages for a hidden RepeatNode (visibleWhen false), not phantom pages', () => {
+    const tree = label({
+      type: 'repeat', id: 'r1', binding: 'toppings', maxItemsPerPage: 5,
+      visibleWhen: { type: 'exists', binding: 'showToppings' },
+      template: { type: 'text', id: 'x', binding: 'name' },
+    });
+    const data: PrintData = { toppings: Array.from({ length: 12 }, (_, i) => ({ name: `Topping ${i}` })) };
+    const pages = resolver.resolve(tree, data);
+    expect(pages).toHaveLength(1);
+  });
+
   it('isolates a resolve error to its own page without affecting other pages', () => {
     const tree = label({ type: 'repeat', id: 'r1', binding: 'toppings', maxItemsPerPage: 1, template: { type: 'text', id: 'x', binding: 'name' } });
     const data: PrintData = { toppings: [{ name: 'Pearl' }, {}, { name: 'Cheese' }] };
