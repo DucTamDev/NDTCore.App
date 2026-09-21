@@ -1,4 +1,4 @@
-import { parseTSPL } from '../../parser/tsc/TscParser';
+import { parseTSPL } from '../../language/tsc/TscParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

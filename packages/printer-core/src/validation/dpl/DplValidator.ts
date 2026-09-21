@@ -1,4 +1,4 @@
-import { parseDPL } from '../../parser/dpl/DplParser';
+import { parseDPL } from '../../language/dpl/DplParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

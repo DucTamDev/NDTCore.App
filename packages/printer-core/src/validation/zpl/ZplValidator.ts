@@ -1,4 +1,4 @@
-import { parseZPL } from '../../parser/zpl/ZplParser';
+import { parseZPL } from '../../language/zpl/ZplParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

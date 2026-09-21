@@ -1,4 +1,4 @@
-import { parseCPCL } from '../../parser/cpcl/CpclParser';
+import { parseCPCL } from '../../language/cpcl/CpclParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

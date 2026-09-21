@@ -2,7 +2,7 @@ import { labelTemplate, column, row, text, line, barcode, repeat } from '../temp
 import { createDocumentResolver } from '../resolution';
 import { createLayoutEngine, ApproximateFontMetrics } from '../layout';
 import type { TypographyProfile } from '../layout';
-import { EscPosCompiler } from '../compiler/escpos/EscPosCompiler';
+import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 
 // No @types/node in this RN package; require() is only used to assert a module is gone.
 declare function require(id: string): unknown;

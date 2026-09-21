@@ -1,4 +1,4 @@
-import { parseIPL } from '../../parser/ipl/IplParser';
+import { parseIPL } from '../../language/ipl/IplParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

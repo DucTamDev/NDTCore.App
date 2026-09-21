@@ -1,9 +1,9 @@
 import { LabelBuilder } from '../document/builder/LabelBuilder';
-import { TscCompiler } from '../compiler/tsc/TscCompiler';
-import { TscParser } from '../parser/tsc/TscParser';
+import { TscCompiler } from '../language/tsc/TscCompiler';
+import { TscParser } from '../language/tsc/TscParser';
 import { TscValidator } from '../validation/tsc/TscValidator';
-import { EscPosCompiler } from '../compiler/escpos/EscPosCompiler';
-import { EscPosParser } from '../parser/escpos/EscPosParser';
+import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
+import { EscPosParser } from '../language/escpos/EscPosParser';
 import { compileTo, parseFrom, previewFor, validateFor } from '../core/LanguageDispatch';
 import type { PrinterLanguage } from '../core/PrinterLanguage';
 

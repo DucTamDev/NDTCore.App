@@ -1,4 +1,4 @@
-import { parseSBPL } from '../../parser/sbpl/SbplParser';
+import { parseSBPL } from '../../language/sbpl/SbplParser';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

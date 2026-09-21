@@ -1,4 +1,4 @@
-import { STAR_PRNT } from '../../compiler/starprnt/StarPrntCommand';
+import { STAR_PRNT } from '../../language/starprnt/StarPrntCommand';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';

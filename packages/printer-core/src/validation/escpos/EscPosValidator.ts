@@ -1,4 +1,4 @@
-import { ESC_POS } from '../../compiler/escpos/EscPosCommand';
+import { ESC_POS } from '../../language/escpos/EscPosCommand';
 import type { PrintValidation } from '../../core';
 import type { ValidationIssue } from '../ValidationIssue';
 import type { ValidationResult } from '../ValidationResult';
