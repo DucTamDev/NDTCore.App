@@ -69,24 +69,178 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 ```text
 src/
 ├── index.ts
-├── core/             # PrinterLanguage, PrintCompiler/Parser/Preview/Validation — entrypoint theo ngôn ngữ
-├── types/            # Point, Size, Rect, Unit, Alignment, Rotation, Direction, FontWeight, FontStyle, Bitmap
-├── document/          # PrintDocument, PrintDocumentOptions, ResolvedPrintDocument
-├── builder/          # PrintBuilder, LabelBuilder, ReceiptBuilder, PrintElement(Type) + content/, drawing/, layout/, printer/
-├── markup/            # HTML-like markup DSL (<label>...</label>) parse thành LabelBuilder
-├── receipt/           # ReceiptLayout, formatter (pair/table/separator), WordWrapper — receipt-mode layout
-├── barcode/           # BarcodeType, BarcodeConfig, BarcodeValidator
-├── qrcode/            # QrCodeModel, QrCodeErrorCorrection, QrCodeConfig, QrCodeValidator
-├── image/             # MonochromeBitmap, Rgba/Resize/Crop/Transform/Threshold/Dither + dithering/ (4 thuật toán)
-├── encoding/          # CodePage, CodePageEncoder + encoders/ (Utf8, Cp437/858/866/857, Windows1252/1258, Tcvn3)
-├── compiler/          # PrinterCompiler + 1 thư mục/ngôn ngữ: tsc, zpl, epl, escpos, cpcl, dpl, sbpl, starprnt, ipl
-├── parser/            # PrinterParser + 1 thư mục/ngôn ngữ (parse ngược lệnh máy in → structured data)
-├── preview/           # PreviewRenderer (SVG) + languages/ (font metrics riêng từng ngôn ngữ)
-├── validation/        # PrinterValidator + 1 thư mục/ngôn ngữ (validate lệnh trước khi gửi máy in)
-├── convert/           # PrinterConverter — cross-compiler giữa các ngôn ngữ
-├── profile/           # PrinterProfile, PrinterProfileResolver + profiles/ theo hãng (Epson, Star, Zebra, TSC...)
-├── transport/         # PrinterTransport (interface), Usb/Bluetooth/NetworkTransport (interface only)
-└── testing/           # MockPrinterTransport, PrintDataAssertion, HexDump — helper cho test
+│
+├── types/                     # KHÔNG đổi — primitive/value types thực sự generic
+│   ├── Alignment.ts, Bitmap.ts, Direction.ts, FontStyle.ts, FontWeight.ts,
+│   │   Point.ts, Rect.ts, Rotation.ts, Size.ts, Unit.ts, index.ts
+│
+├── template/                  # KHÔNG đổi
+│   ├── model/                 # (đổi tên từ không-có-tên-riêng — các TemplateNode)
+│   │   ├── PrintTemplate.ts, PrintTemplateType.ts, TemplateNode.ts,
+│   │   │   TemplateNodeBase.ts, ContainerNode.ts, TextNode.ts, ImageNode.ts,
+│   │   │   BarcodeNode.ts, QrCodeNode.ts, LineNode.ts, RepeatNode.ts
+│   ├── style/                 # KHÔNG đổi vị trí (đã tách sẵn)
+│   │   ├── BoxStyle.ts, Dimension.ts, Insets.ts, LayoutStyle.ts, TextStyle.ts,
+│   │   │   VisibilityCondition.ts
+│   ├── builder/                # đổi tên từ `builders/` (số nhiều) → `builder/`
+│   │   │                       # (số ít, khớp `document/builder/` mới)
+│   │   ├── BarcodeBuilder.ts, BuildContext.ts, ContainerBuilder.ts,
+│   │   │   ImageBuilder.ts, LabelTemplateBuilder.ts, LineBuilder.ts,
+│   │   │   NodeBuilder.ts, QrCodeBuilder.ts, ReceiptTemplateBuilder.ts,
+│   │   │   RepeatBuilder.ts, TextBuilder.ts, conditions.ts, dimensions.ts,
+│   │   │   index.ts
+│   └── index.ts
+│
+├── resolution/                 # KHÔNG đổi
+│   ├── DocumentResolver.ts, PrintData.ts, ResolvedNode.ts, ResolvedPage.ts,
+│   │   index.ts
+│
+├── layout/                     # KHÔNG đổi
+│   ├── ApproximateFontMetrics.ts, FontMetrics.ts,
+│   │   LayoutConfig.ts, LayoutEngine.ts, TextMeasurement.ts,
+│   │   TypographyProfile.ts, index.ts
+│
+├── document/
+│   ├── PrintDocument.ts, PrintDocumentOptions.ts, ResolvedPrintDocument.ts,
+│   │   PrintElementType.ts, index.ts    # KHÔNG đổi vị trí (đã ở document/)
+│   │
+│   ├── elements/                # MỚI — gộp builder/PrintElement.ts +
+│   │   │                        # builder/content|drawing|layout|printer/*
+│   │   ├── PrintElement.ts      # từ builder/PrintElement.ts (union type)
+│   │   ├── content/             # từ builder/content/
+│   │   │   ├── BarcodeElement.ts, ImageElement.ts, QrCodeElement.ts,
+│   │   │   │   RawElement.ts, TextElement.ts, index.ts
+│   │   ├── drawing/              # từ builder/drawing/ — KHÔNG chia nhỏ thêm
+│   │   │   │                     # thành shape/line/effect (xem "Quyết định
+│   │   │   │                     # KHÔNG áp dụng" bên dưới)
+│   │   │   ├── BoxElement.ts, CircleElement.ts, DiagonalElement.ts,
+│   │   │   │   EllipseElement.ts, EraseElement.ts, LineElement.ts,
+│   │   │   │   ReverseElement.ts, index.ts
+│   │   ├── layout/                # từ builder/layout/
+│   │   │   ├── ColumnElement.ts, PageBreakElement.ts, RowElement.ts,
+│   │   │   │   SpacerElement.ts, TableElement.ts, index.ts
+│   │   └── control/                # từ builder/printer/ (đổi tên `printer`→`control`,
+│   │       │                        # khớp đúng ý nghĩa: CutElement là lệnh điều
+│   │       │                        # khiển máy in, không phải nội dung in)
+│   │       ├── CutElement.ts, index.ts
+│   │
+│   └── builder/                  # MỚI — gộp builder/{Print,Label,Receipt}Builder.ts
+│       │                         # + markup/ (front-end khác tạo LabelBuilder)
+│       ├── PrintBuilder.ts, LabelBuilder.ts, ReceiptBuilder.ts, index.ts
+│       └── markup/                # từ markup/ (root cũ)
+│           ├── MarkupBuilder.ts, MarkupParser.ts, index.ts
+│
+├── symbology/                    # MỚI — gộp barcode/ + qrcode/ (root cũ)
+│   ├── barcode/
+│   │   ├── BarcodeConfig.ts, BarcodeType.ts, BarcodeValidator.ts, index.ts
+│   └── qrcode/
+│       ├── QrCodeConfig.ts, QrCodeErrorCorrection.ts, QrCodeModel.ts,
+│       │   QrCodeValidator.ts, index.ts
+│
+├── formatting/                    # MỚI — phần dùng chung, generic của receipt/ cũ
+│   ├── TableColumn.ts             # rename từ receipt/ReceiptColumn.ts
+│   ├── PairFormatter.ts           # KHÔNG đổi tên, chỉ đổi vị trí
+│   ├── TableFormatter.ts          # KHÔNG đổi tên, chỉ đổi vị trí
+│   ├── SeparatorFormatter.ts      # KHÔNG đổi tên, chỉ đổi vị trí
+│   ├── WordWrapper.ts             # KHÔNG đổi tên, chỉ đổi vị trí
+│   ├── RowFormatter.ts            # rename từ receipt/ReceiptFormatter.ts
+│   ├── validateTableColumns.ts    # KHÔNG đổi tên, chỉ đổi vị trí
+│   └── index.ts
+│
+├── receipt/                        # THU GỌN — chỉ còn phần thật sự receipt-specific
+│   ├── ReceiptLayout.ts            # cập nhật import TableColumn thay ReceiptColumn
+│   └── index.ts
+│
+├── image/                          # KHÔNG đổi
+│   ├── ImageCrop.ts, ImageDither.ts, ImageResize.ts, ImageSource.ts,
+│   │   ImageThreshold.ts, ImageTransform.ts, MonochromeBitmap.ts,
+│   │   RgbaImage.ts, index.ts
+│   └── dithering/
+│       ├── AtkinsonDither.ts, DitherAlgorithm.ts, FloydSteinbergDither.ts,
+│       │   OrderedDither.ts, ThresholdDither.ts, index.ts
+│
+├── encoding/                       # KHÔNG đổi
+│   ├── CodePage.ts, CodePageEncoder.ts, EncodingResult.ts, index.ts
+│   └── encoders/
+│       ├── Cp437Encoder.ts, Cp857Encoder.ts, Cp858Encoder.ts,
+│       │   Cp866Encoder.ts, Tcvn3Encoder.ts, Utf8Encoder.ts,
+│       │   Windows1252Encoder.ts, Windows1258Encoder.ts, index.ts
+│
+├── core/                           # THU GỌN — chỉ còn contract, KHÔNG implementation
+│   ├── LanguageDispatch.ts, LanguageRegistry.ts, PrinterLanguage.ts,
+│   │   PrinterLanguageDefinition.ts, PrinterCoreError.ts,
+│   │   PrintCompiler.ts, PrintParser.ts, PrintPreview.ts, PrintValidation.ts,
+│   │   index.ts                     # KHÔNG đổi tên file nào, chỉ giữ nguyên vị trí
+│
+├── language/                        # MỚI — gộp compiler/{lang} + parser/{lang}
+│   │                                 # (KHÔNG gồm validation, KHÔNG gồm preview)
+│   ├── tsc/       (giữ tên `tsc`, KHÔNG đổi thành `tspl`)
+│   │   ├── TscCommand.ts, TscCompiler.ts, TscEncoder.ts, TscParser.ts, index.ts
+│   ├── zpl/       ├── ZplCommand.ts, ZplCompiler.ts, ZplEncoder.ts, ZplParser.ts, index.ts
+│   ├── epl/       ├── EplCommand.ts, EplCompiler.ts, EplEncoder.ts, EplParser.ts, index.ts
+│   ├── cpcl/      ├── CpclCommand.ts, CpclCompiler.ts, CpclEncoder.ts, CpclParser.ts, index.ts
+│   ├── dpl/       ├── DplCommand.ts, DplCompiler.ts, DplEncoder.ts, DplParser.ts, index.ts
+│   ├── ipl/       ├── IplCommand.ts, IplCompiler.ts, IplEncoder.ts, IplParser.ts, index.ts
+│   ├── sbpl/      ├── SbplCommand.ts, SbplCompiler.ts, SbplEncoder.ts, SbplParser.ts, index.ts
+│   ├── escpos/    ├── EscPosCommand.ts, EscPosCompiler.ts, EscPosCodePage.ts,
+│   │              │   EscPosBarcodeEncoder.ts, EscPosImageEncoder.ts,
+│   │              │   EscPosQrCodeEncoder.ts, EscPosParser.ts, index.ts
+│   └── starprnt/  └── StarPrntCommand.ts, StarPrntCompiler.ts, StarPrntEncoder.ts,
+│                      StarPrntParser.ts, index.ts
+│
+├── preview/                          # THU GỌN + thêm per-language subfolder
+│   ├── PreviewRenderer.ts            # KHÔNG đổi — implementation dùng chung
+│   │                                 # cho Dpl/Sbpl/Ipl (giữ nguyên vị trí + nội dung)
+│   ├── index.ts
+│   └── languages/
+│       ├── tsc/TscPreviewRenderer.ts       (MỚI — thêm 1 cấp thư mục theo lang)
+│       ├── zpl/ZplPreviewRenderer.ts
+│       ├── epl/EplPreviewRenderer.ts
+│       ├── cpcl/CpclPreviewRenderer.ts
+│       ├── dpl/DplPreviewRenderer.ts
+│       ├── ipl/IplPreviewRenderer.ts
+│       ├── sbpl/SbplPreviewRenderer.ts
+│       ├── escpos/EscPosPreviewRenderer.ts
+│       └── starprnt/StarPrntPreviewRenderer.ts
+│       (mỗi thư mục có index.ts riêng — MỚI)
+│
+├── validation/                        # THU GỌN + languages/{lang}/ giữ nguyên
+│   │                                  # cấu trúc hiện có (đã đúng theo pattern mới)
+│   ├── ValidationIssue.ts, ValidationResult.ts, index.ts
+│   └── languages/                     # đổi tên từ validation/{lang}/ trực tiếp
+│       │                              # → validation/languages/{lang}/ (thêm 1 cấp
+│       │                              #   `languages/`, khớp preview/languages/)
+│       ├── tsc/TscValidator.ts, index.ts
+│       ├── zpl/ZplValidator.ts, index.ts
+│       ├── epl/EplValidator.ts, index.ts
+│       ├── cpcl/CpclValidator.ts, index.ts
+│       ├── dpl/DplValidator.ts, index.ts
+│       ├── ipl/IplValidator.ts, index.ts
+│       ├── sbpl/SbplValidator.ts, index.ts
+│       ├── escpos/EscPosValidator.ts, index.ts
+│       └── starprnt/StarPrntValidator.ts, index.ts
+│
+├── convert/                            # KHÔNG đổi tên (giữ nguyên `convert`,
+│   │                                   # không đổi thành `conversion`)
+│   ├── ConversionPath.ts, ConversionRegistry.ts, ConversionResult.ts,
+│   │   PrinterConverter.ts, index.ts
+│
+├── profile/                            # KHÔNG đổi
+│   ├── PrinterProfile.ts, PrinterProfileResolver.ts, PrinterVendor.ts, index.ts
+│   └── profiles/
+│       ├── BixolonProfiles.ts, CitizenProfiles.ts, EpsonProfiles.ts,
+│       │   GenericProfile.ts, HoneywellProfiles.ts, SatoProfiles.ts,
+│       │   StarProfiles.ts, TscProfiles.ts, ZebraProfiles.ts, index.ts
+│
+├── transport/                          # KHÔNG đổi
+│   ├── BluetoothTransport.ts, NetworkTransport.ts, PrinterTransport.ts,
+│   │   UsbTransport.ts, index.ts
+│
+├── testing/                             # KHÔNG đổi
+│   ├── HexDump.ts, MockPrinterTransport.ts, PrintDataAssertion.ts, index.ts
+│
+└── __tests__/                            # KHÔNG đổi (integration test ở root)
+    ├── layout-engine-integration.test.ts, phase2-integration.test.ts
 ```
 
 ## Scripts
