@@ -1,21 +1,21 @@
 import type { Bitmap } from '../types';
-import type { PrintElement } from './PrintElement';
+import type { PrintElement } from '../document/elements/PrintElement';
 import type { BarcodeConfig } from '../symbology/barcode';
 import type { QrCodeConfig } from '../symbology/qrcode';
-import type { TextOptions } from './content/TextElement';
-import type { ImageOptions } from './content/ImageElement';
-import type { BoxOptions } from './drawing/BoxElement';
-import type { LineOptions } from './drawing/LineElement';
-import { isDiagonal } from './drawing/DiagonalElement';
-import type { CircleOptions } from './drawing/CircleElement';
-import type { EllipseOptions } from './drawing/EllipseElement';
-import type { ReverseOptions } from './drawing/ReverseElement';
-import type { EraseOptions } from './drawing/EraseElement';
-import type { CutOptions } from './printer/CutElement';
-import type { TableOptions } from './layout/TableElement';
-import type { SpacerOptions } from './layout/SpacerElement';
-import type { RowOptions } from './layout/RowElement';
-import type { ColumnOptions } from './layout/ColumnElement';
+import type { TextOptions } from '../document/elements/content/TextElement';
+import type { ImageOptions } from '../document/elements/content/ImageElement';
+import type { BoxOptions } from '../document/elements/drawing/BoxElement';
+import type { LineOptions } from '../document/elements/drawing/LineElement';
+import { isDiagonal } from '../document/elements/drawing/DiagonalElement';
+import type { CircleOptions } from '../document/elements/drawing/CircleElement';
+import type { EllipseOptions } from '../document/elements/drawing/EllipseElement';
+import type { ReverseOptions } from '../document/elements/drawing/ReverseElement';
+import type { EraseOptions } from '../document/elements/drawing/EraseElement';
+import type { CutOptions } from '../document/elements/control/CutElement';
+import type { TableOptions } from '../document/elements/layout/TableElement';
+import type { SpacerOptions } from '../document/elements/layout/SpacerElement';
+import type { RowOptions } from '../document/elements/layout/RowElement';
+import type { ColumnOptions } from '../document/elements/layout/ColumnElement';
 
 /**
  * Base class shared by `LabelBuilder` and `ReceiptBuilder` — holds the

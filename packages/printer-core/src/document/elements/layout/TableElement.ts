@@ -1,5 +1,5 @@
-import type { Point } from '../../types';
-import type { TableColumn } from '../../formatting';
+import type { Point } from '../../../types';
+import type { TableColumn } from '../../../formatting';
 
 /**
  * Options for a table placed as a positioned document element — distinct

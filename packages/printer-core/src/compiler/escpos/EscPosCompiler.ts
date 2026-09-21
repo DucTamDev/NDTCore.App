@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';

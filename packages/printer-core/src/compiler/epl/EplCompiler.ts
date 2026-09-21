@@ -4,7 +4,7 @@ import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { EPL_COMMAND } from './EplCommand';
 import { encodeEplBitmapPayload } from './EplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

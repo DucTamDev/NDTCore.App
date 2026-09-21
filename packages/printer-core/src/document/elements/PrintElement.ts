@@ -10,7 +10,7 @@ import type { CircleElement } from './drawing/CircleElement';
 import type { EllipseElement } from './drawing/EllipseElement';
 import type { ReverseElement } from './drawing/ReverseElement';
 import type { EraseElement } from './drawing/EraseElement';
-import type { CutElement } from './printer/CutElement';
+import type { CutElement } from './control/CutElement';
 import type { TableElement } from './layout/TableElement';
 import type { PageBreakElement } from './layout/PageBreakElement';
 import type { SpacerElement } from './layout/SpacerElement';
@@ -22,7 +22,7 @@ import type { ColumnElement } from './layout/ColumnElement';
  * Each variant owns its exact shape (no `Record<string, unknown>` bridge),
  * so compilers and parsers narrow on `type` and get the real options
  * interface for free. Each variant is defined alongside its own `*Options`
- * type in its own `content/`/`drawing/`/`layout/`/`printer/` file — this
+ * type in its own `content/`/`drawing/`/`layout/`/`control/` file — this
  * file only assembles the union.
  */
 export type PrintElement =

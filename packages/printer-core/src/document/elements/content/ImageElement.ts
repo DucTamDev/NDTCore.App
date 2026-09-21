@@ -1,5 +1,5 @@
-import type { DitherAlgorithm } from '../../image';
-import type { Bitmap } from '../../types';
+import type { DitherAlgorithm } from '../../../image';
+import type { Bitmap } from '../../../types';
 
 /** Options for a raster image element. */
 export interface ImageOptions {

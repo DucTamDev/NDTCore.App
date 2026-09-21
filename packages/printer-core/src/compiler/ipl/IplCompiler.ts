@@ -2,7 +2,7 @@ import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation } from '../../types';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { IPL_COMMAND } from './IplCommand';
 import { encodeIplBitmapPayload } from './IplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

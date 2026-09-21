@@ -3,7 +3,7 @@ import type { PrintElement } from '../../builder';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { CPCL_COMMAND } from './CpclCommand';
 import { encodeCpclBitmapPayload } from './CpclEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

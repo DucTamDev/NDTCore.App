@@ -1,4 +1,4 @@
-import type { Alignment, Rotation } from '../../types';
+import type { Alignment, Rotation } from '../../../types';
 
 /** Options for a text element. */
 export interface TextOptions {

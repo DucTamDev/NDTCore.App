@@ -4,7 +4,7 @@ import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Direction } from '../../types';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { TSC_COMMAND } from './TscCommand';
 import { encodeTscBitmapPayload } from './TscEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
@@ -112,7 +112,7 @@ function compileElement(element: PrintElement): string {
     }
 
     // Axis-aligned only — a genuinely diagonal line is a separate `diagonal`
-    // element/case below (see `DiagonalElement` in `builder/drawing/DiagonalElement.ts`).
+    // element/case below (see `DiagonalElement` in `document/elements/drawing/DiagonalElement.ts`).
     // `PrintBuilder.line()` always dispatches via `isDiagonal()` so it never
     // produces a `'line'` element with diagonal coordinates, but a hand-built
     // `PrintElement` literal could bypass that guarantee — the fallback below

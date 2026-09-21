@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
-import type { TextOptions } from '../../builder/content/TextElement';
+import type { TextOptions } from '../../document/elements/content/TextElement';
 import { STAR_PRNT, concatStarPrntBytes } from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
