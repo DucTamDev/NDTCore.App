@@ -19,12 +19,12 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > - Encoding: code page (Cp437/858/866/857, Windows1252/1258) + tiếng Việt
 >   (TCVN3, CP1258)
 > - `image/`: dithering ảnh (threshold, Floyd-Steinberg, Atkinson, ordered)
-> - `barcode/`, `qrcode/`: lớp mô tả + validate (chưa render ảnh module thật)
+> - `symbology/barcode/`, `symbology/qrcode/`: lớp mô tả + validate (chưa render ảnh module thật)
 > - `receipt/`: layout công thức in hoá đơn (pair/table/separator, word wrap)
 > - `profile/`: đầy đủ — cả 9 file hãng (Generic, Epson, TSC, Bixolon, Citizen,
 >   Honeywell, Sato, Star, Zebra) đều có dữ liệu thật
-> - `builder/`: fluent builder API (PrintBuilder/LabelBuilder/ReceiptBuilder)
->   và `markup/`: markup DSL kiểu HTML (`<label>...</label>`)
+> - `document/builder/`: fluent builder API (PrintBuilder/LabelBuilder/ReceiptBuilder)
+>   và `document/builder/markup/`: markup DSL kiểu HTML (`<label>...</label>`)
 > - **Cả 9 ngôn ngữ máy in** (TSC/TSPL, ESC/POS, ZPL, EPL, CPCL, DPL, SBPL,
 >   Star PRNT, IPL): đầy đủ pipeline compile → parse → validate → preview (SVG)
 > - `convert/`: cross-compiler giữa các ngôn ngữ (parse ngôn ngữ A → dựng lại
@@ -47,7 +47,7 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > - Chuỗi string mà `TscCompiler.compile()` trả về trộn lẫn hai kiểu encoding
 >   byte khác nhau (text UTF-8 và payload bitmap dạng latin-1 one-char-per-byte)
 >   khi document có element ảnh — xem JSDoc trên `TscCompiler.compile()`
->   (`src/compiler/tsc/TscCompiler.ts`) để biết chi tiết trước khi dùng output
+>   (`src/language/tsc/TscCompiler.ts`) để biết chi tiết trước khi dùng output
 >   TSC compile ra để gửi máy in thật.
 > - `Tcvn3Encoder` chỉ phủ một phần bảng mã TCVN3 (partial coverage) — xem
 >   JSDoc trên `Tcvn3Encoder` (`src/encoding/encoders/Tcvn3Encoder.ts`) để biết
@@ -75,10 +75,10 @@ src/
 │   │   Point.ts, Rect.ts, Rotation.ts, Size.ts, Unit.ts, index.ts
 │
 ├── template/                  # KHÔNG đổi
-│   ├── model/                 # (đổi tên từ không-có-tên-riêng — các TemplateNode)
-│   │   ├── PrintTemplate.ts, PrintTemplateType.ts, TemplateNode.ts,
-│   │   │   TemplateNodeBase.ts, ContainerNode.ts, TextNode.ts, ImageNode.ts,
-│   │   │   BarcodeNode.ts, QrCodeNode.ts, LineNode.ts, RepeatNode.ts
+│   ├── PrintTemplate.ts, PrintTemplateType.ts, index.ts
+│   ├── nodes/                  # TemplateNode.ts, TemplateNodeBase.ts, ContainerNode.ts,
+│   │   │                       # TextNode.ts, ImageNode.ts, BarcodeNode.ts,
+│   │   │   QrCodeNode.ts, LineNode.ts, RepeatNode.ts
 │   ├── style/                 # KHÔNG đổi vị trí (đã tách sẵn)
 │   │   ├── BoxStyle.ts, Dimension.ts, Insets.ts, LayoutStyle.ts, TextStyle.ts,
 │   │   │   VisibilityCondition.ts
