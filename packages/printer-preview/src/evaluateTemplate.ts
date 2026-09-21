@@ -28,6 +28,7 @@ export function evaluateTemplate(code: string): EvaluateResult {
       if (name === 'printer-core') return PrinterCore;
       throw new Error(`Cannot require "${name}" — only "printer-core" is available here.`);
     };
+    // eslint-disable-next-line no-new-func -- deliberately executes user-authored template code; documented non-sandboxed dev-tool behavior
     const fn = new Function('module', 'exports', 'require', js);
     fn(moduleObj, moduleObj.exports, requireShim);
 

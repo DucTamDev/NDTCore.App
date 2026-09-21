@@ -14,10 +14,8 @@ const LANGUAGES: readonly PrinterLanguage[] = ['tsc', 'zpl', 'epl', 'cpcl', 'dpl
 export function App() {
   const [code, setCode] = useState(defaultCode);
   const [dataText, setDataText] = useState(defaultData);
-  const [language, setLanguage] = useState<PrinterLanguage>(() => {
-    const initial = evaluateTemplate(defaultCode);
-    return initial.status === 'ok' ? defaultLanguageFor(initial.template) : 'tsc';
-  });
+  const [language, setLanguage] = useState<PrinterLanguage>('tsc');
+  const [languageTouched, setLanguageTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<readonly PagePreview[]>([]);
 
@@ -37,11 +35,20 @@ export function App() {
         setPreviews([]);
         return;
       }
-      setError(null);
-      setPreviews(renderPreviews(evaluated.template, data as Record<string, unknown>, language));
+      const languageToUse = languageTouched ? language : defaultLanguageFor(evaluated.template);
+      if (!languageTouched) {
+        setLanguage(languageToUse);
+      }
+      try {
+        setError(null);
+        setPreviews(renderPreviews(evaluated.template, data as Record<string, unknown>, languageToUse));
+      } catch (pipelineError) {
+        setError(`[pipeline] ${pipelineError instanceof Error ? pipelineError.message : String(pipelineError)}`);
+        setPreviews([]);
+      }
     }, 500);
     return () => clearTimeout(timer);
-  }, [code, dataText, language]);
+  }, [code, dataText, language, languageTouched]);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', height: '100vh' }}>
@@ -52,7 +59,13 @@ export function App() {
         <DataEditor value={dataText} onChange={setDataText} />
       </div>
       <div style={{ overflow: 'auto', padding: 8 }}>
-        <select value={language} onChange={(event) => setLanguage(event.target.value as PrinterLanguage)}>
+        <select
+          value={language}
+          onChange={(event) => {
+            setLanguage(event.target.value as PrinterLanguage);
+            setLanguageTouched(true);
+          }}
+        >
           {LANGUAGES.map((lang) => (
             <option key={lang} value={lang}>
               {lang}
