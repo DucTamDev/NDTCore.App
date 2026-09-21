@@ -2,63 +2,86 @@ import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
 
-/** CPCL built-in bitmap-font pixel dimensions, per the Zebra CPCL Font Manual (ZQ210/ZQ220). */
-const CPCL_FONTS: Record<string, { w: number; h: number }> = {
-  '0': { w: 8, h: 9 },
-  '1': { w: 16, h: 48 },
-  '2': { w: 20, h: 12 },
-  '4': { w: 25, h: 47 },
-  '5': { w: 16, h: 24 },
-  '6': { w: 28, h: 27 },
-  '7': { w: 12, h: 24 },
+/** Kích thước pixel font bitmap có sẵn của CPCL, theo Zebra CPCL Font Manual (ZQ210/ZQ220). */
+const CPCL_FONTS: Record<string, { width: number; height: number }> = {
+  '0': { width: 8, height: 9 },
+  '1': { width: 16, height: 48 },
+  '2': { width: 20, height: 12 },
+  '4': { width: 25, height: 47 },
+  '5': { width: 16, height: 24 },
+  '6': { width: 28, height: 27 },
+  '7': { width: 12, height: 24 },
 };
 
-const DEFAULT_FONT = '2';
-const FALLBACK_FONT_HEIGHT_UNIT = 12;
+const DEFAULT_FONT_CODE = '2';
+const FALLBACK_FONT_HEIGHT_DOTS = 12;
+const TEXT_BASELINE_RATIO = 0.85;
+const DEFAULT_LINE_THICKNESS_DOTS = 1;
 
-function cpclFontSize(font: string | undefined, size: number | undefined): number {
-  const f = CPCL_FONTS[font ?? DEFAULT_FONT];
-  return f ? f.h * Math.max(1, size ?? 1) : (size ?? 1) * FALLBACK_FONT_HEIGHT_UNIT;
+const CANVAS_PADDING_DOTS = 10;
+const DEFAULT_CANVAS_HEIGHT_DOTS = 400;
+const CANVAS_BACKGROUND_COLOR = '#f5f5f4';
+const CANVAS_BORDER_COLOR = '#e5e5e5';
+const CAPTION_COLOR = '#a1a1aa';
+const INK_COLOR = '#000';
+const PAPER_COLOR = '#fff';
+const MONOSPACE_FONT_FAMILY = 'monospace';
+
+function resolveFontSizeDots(font: string | undefined, size: number | undefined): number {
+  const knownFont = CPCL_FONTS[font ?? DEFAULT_FONT_CODE];
+  if (knownFont) return knownFont.height * Math.max(1, size ?? 1);
+  return (size ?? 1) * FALLBACK_FONT_HEIGHT_DOTS;
 }
 
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function escapeXml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): string {
+  const options = element.options ?? {};
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const fontSizeDots = resolveFontSizeDots(options.font, options.size);
+  const baselineY = y + fontSizeDots * TEXT_BASELINE_RATIO;
+  return (
+    `<text x="${x}" y="${baselineY}" fill="${INK_COLOR}" font-size="${fontSizeDots}" ` +
+    `font-family="${MONOSPACE_FONT_FAMILY}">${escapeXml(element.content)}</text>`
+  );
+}
+
+function renderBoxElement(element: Extract<PrintElement, { type: 'box' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  return (
+    `<rect x="${options.x + thickness / 2}" y="${options.y + thickness / 2}" ` +
+    `width="${options.width - thickness}" height="${options.height - thickness}" ` +
+    `fill="none" stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderLineElement(element: Extract<PrintElement, { type: 'line' | 'diagonal' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  return (
+    `<line x1="${options.x1}" y1="${options.y1}" x2="${options.x2}" y2="${options.y2}" ` +
+    `stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
 }
 
 function renderElement(element: PrintElement): string {
   switch (element.type) {
-    case 'text': {
-      const o = element.options ?? {};
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const fs = cpclFontSize(o.font, o.size);
-      return `<text x="${x}" y="${y + fs * 0.85}" fill="#000" font-size="${fs}" font-family="monospace">${escapeXml(element.content)}</text>`;
-    }
-
-    case 'box': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      return `<rect x="${o.x + t / 2}" y="${o.y + t / 2}" width="${o.width - t}" height="${o.height - t}" fill="none" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    // CPCL's native LINE command draws a straight line between any two
-    // points — no axis-aligned/diagonal split needed, unlike EPL2's/ZPL's
-    // preview renderers, matching `CpclCompiler`'s own `'line'`/`'diagonal'`
-    // pairing.
+    case 'text':
+      return renderTextElement(element);
+    case 'box':
+      return renderBoxElement(element);
+    // Lệnh LINE gốc của CPCL vẽ được đường thẳng giữa 2 điểm bất kỳ, không cần
+    // tách trục thẳng/chéo như EPL2/ZPL — khớp cách CpclCompiler ghép chung
+    // case 'line'/'diagonal'.
     case 'line':
-    case 'diagonal': {
-      const o = element.options;
-      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${o.thickness ?? 1}"/>`;
-    }
-
-    // portakal's own CPCL preview (`lang/cpcl.ts`) only implements text/box/
-    // line — every other case (including its own recognized `LabelElement`
-    // variants circle/ellipse/reverse/erase/image/raw) falls through its
-    // `default: return ""`, a genuine portakal-native limitation, not a bug
-    // to fix here. `barcode`/`qrcode`/`cut`/`table`/`pageBreak`/`spacer`/
-    // `row`/`column` have no portakal precedent at all — kept in this same
-    // no-op bucket only so the switch stays exhaustive over this package's
-    // wider `PrintElement` union.
+    case 'diagonal':
+      return renderLineElement(element);
+    // Preview CPCL chỉ hỗ trợ text/box/line — các loại còn lại không có
+    // rendering riêng, giữ case rõ ràng để switch luôn exhaustive.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -77,29 +100,31 @@ function renderElement(element: PrintElement): string {
   }
 }
 
-const CANVAS_PADDING = 10;
-const DEFAULT_CANVAS_HEIGHT = 400; // matches portakal's own CPCL preview fallback
-
-/** Renders a CPCL document preview as an SVG, using CPCL's own font metrics. */
+/** Render preview CPCL thành SVG, dùng đúng bảng font của CPCL. */
 export class CpclPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {
-    const w = document.widthDots;
-    const h = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT;
-    const pad = CANVAS_PADDING;
-    const svgW = w + pad * 2;
-    const svgH = h + pad * 2;
+    const documentWidth = document.widthDots;
+    const documentHeight = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT_DOTS;
+    const svgWidth = documentWidth + CANVAS_PADDING_DOTS * 2;
+    const svgHeight = documentHeight + CANVAS_PADDING_DOTS * 2;
 
-    let els = '';
-    for (const element of document.elements) els += renderElement(element);
+    let renderedElements = '';
+    for (const element of document.elements) renderedElements += renderElement(element);
+
+    const caption = `${documentWidth}×${documentHeight} dots — CPCL`;
 
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}">`,
-      `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#f5f5f4" rx="4"/>`,
-      `<rect x="${pad}" y="${pad}" width="${w}" height="${h}" fill="#fff" stroke="#e5e5e5" stroke-width="1" rx="2"/>`,
-      `<g transform="translate(${pad},${pad})">`,
-      els,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" ` +
+        `width="${svgWidth}" height="${svgHeight}">`,
+      `<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="${CANVAS_BACKGROUND_COLOR}" rx="4"/>`,
+      `<rect x="${CANVAS_PADDING_DOTS}" y="${CANVAS_PADDING_DOTS}" ` +
+        `width="${documentWidth}" height="${documentHeight}" ` +
+        `fill="${PAPER_COLOR}" stroke="${CANVAS_BORDER_COLOR}" stroke-width="1" rx="2"/>`,
+      `<g transform="translate(${CANVAS_PADDING_DOTS},${CANVAS_PADDING_DOTS})">`,
+      renderedElements,
       '</g>',
-      `<text x="${svgW / 2}" y="${svgH - 1}" text-anchor="middle" fill="#a1a1aa" font-size="8" font-family="monospace">${w}×${h} dots — CPCL</text>`,
+      `<text x="${svgWidth / 2}" y="${svgHeight - 1}" text-anchor="middle" fill="${CAPTION_COLOR}" font-size="8" ` +
+        `font-family="${MONOSPACE_FONT_FAMILY}">${caption}</text>`,
       '</svg>',
     ].join('\n');
   }

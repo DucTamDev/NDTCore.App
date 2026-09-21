@@ -3,85 +3,155 @@ import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
 
-/** EPL2 built-in bitmap-font pixel dimensions, per the EPL2 Programmer's Guide's font table. */
-const EPL_FONTS: Record<string, { w: number; h: number }> = {
-  '1': { w: 8, h: 12 },
-  '2': { w: 10, h: 16 },
-  '3': { w: 12, h: 20 },
-  '4': { w: 14, h: 24 },
-  '5': { w: 32, h: 48 },
+/** Kích thước pixel font bitmap có sẵn của EPL2, theo EPL2 Programmer's Guide. */
+const EPL_FONTS: Record<string, { width: number; height: number }> = {
+  '1': { width: 8, height: 12 },
+  '2': { width: 10, height: 16 },
+  '3': { width: 12, height: 20 },
+  '4': { width: 14, height: 24 },
+  '5': { width: 32, height: 48 },
 };
 
-const DEFAULT_FONT = '2';
-const FALLBACK_FONT_HEIGHT_UNIT = 16;
-const FALLBACK_CHAR_WIDTH_UNIT = 10;
+const DEFAULT_FONT_CODE = '2';
+const FALLBACK_FONT_HEIGHT_DOTS = 16;
+const FALLBACK_CHAR_WIDTH_DOTS = 10;
+const TEXT_BASELINE_RATIO = 0.85;
+const DEFAULT_LINE_THICKNESS_DOTS = 1;
+const REVERSE_BACKGROUND_MARGIN_DOTS = 1;
 
-function eplFontSize(font: string | undefined, size: number | undefined): number {
-  const f = EPL_FONTS[font ?? DEFAULT_FONT];
-  return f ? f.h * (size ?? 1) : (size ?? 1) * FALLBACK_FONT_HEIGHT_UNIT;
+const CANVAS_PADDING_DOTS = 10;
+const DEFAULT_CANVAS_HEIGHT_DOTS = 400;
+const CANVAS_BACKGROUND_COLOR = '#f5f5f4';
+const CANVAS_BORDER_COLOR = '#e5e5e5';
+const CAPTION_COLOR = '#a1a1aa';
+const INK_COLOR = '#000';
+const PAPER_COLOR = '#fff';
+const MONOSPACE_FONT_FAMILY = 'monospace';
+
+function resolveFontSizeDots(font: string | undefined, size: number | undefined): number {
+  const knownFont = EPL_FONTS[font ?? DEFAULT_FONT_CODE];
+  return knownFont ? knownFont.height * (size ?? 1) : (size ?? 1) * FALLBACK_FONT_HEIGHT_DOTS;
 }
 
-function eplCharWidth(font: string | undefined, size: number | undefined): number {
-  const f = EPL_FONTS[font ?? DEFAULT_FONT];
-  return f ? f.w * (size ?? 1) : (size ?? 1) * FALLBACK_CHAR_WIDTH_UNIT;
+function resolveCharWidthDots(font: string | undefined, size: number | undefined): number {
+  const knownFont = EPL_FONTS[font ?? DEFAULT_FONT_CODE];
+  return knownFont ? knownFont.width * (size ?? 1) : (size ?? 1) * FALLBACK_CHAR_WIDTH_DOTS;
 }
 
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function escapeXml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): string {
+  const options = element.options ?? {};
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const fontSizeDots = resolveFontSizeDots(options.font, options.size);
+  const baselineY = y + fontSizeDots * TEXT_BASELINE_RATIO;
+  const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
+
+  if (!options.reverse) {
+    return (
+      `<text x="${x}" y="${baselineY}" fill="${INK_COLOR}" font-size="${fontSizeDots}" ` +
+      `font-family="${MONOSPACE_FONT_FAMILY}"${rotation}>${escapeXml(element.content)}</text>`
+    );
+  }
+
+  const charWidthDots = resolveCharWidthDots(options.font, options.size);
+  const textWidthDots = element.content.length * charWidthDots;
+  const backgroundX = x - REVERSE_BACKGROUND_MARGIN_DOTS;
+  const backgroundY = y - REVERSE_BACKGROUND_MARGIN_DOTS;
+  const backgroundWidth = textWidthDots + REVERSE_BACKGROUND_MARGIN_DOTS * 2;
+  const backgroundHeight = fontSizeDots + REVERSE_BACKGROUND_MARGIN_DOTS * 2;
+  return (
+    `<rect x="${backgroundX}" y="${backgroundY}" width="${backgroundWidth}" ` +
+    `height="${backgroundHeight}" fill="${INK_COLOR}"/>` +
+    `<text x="${x}" y="${baselineY}" fill="${PAPER_COLOR}" font-size="${fontSizeDots}" ` +
+    `font-family="${MONOSPACE_FONT_FAMILY}"${rotation}>${escapeXml(element.content)}</text>`
+  );
+}
+
+function renderBoxElement(element: Extract<PrintElement, { type: 'box' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  if (thickness >= Math.min(options.width, options.height)) {
+    return (
+      `<rect x="${options.x}" y="${options.y}" width="${options.width}" ` +
+      `height="${options.height}" fill="${INK_COLOR}"/>`
+    );
+  }
+  return (
+    `<rect x="${options.x + thickness / 2}" y="${options.y + thickness / 2}" ` +
+    `width="${options.width - thickness}" height="${options.height - thickness}" ` +
+    `fill="none" stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+/**
+ * EPL2 không có lệnh vẽ đường chéo thật — trục ngang/dọc vẽ bằng rect đặc,
+ * còn lại vẽ `<line>` (không đúng với máy in thật, nhưng giữ nguyên hành vi
+ * hiện có, không tự sửa).
+ */
+function renderLineElement(element: Extract<PrintElement, { type: 'line' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  if (options.y1 === options.y2) {
+    const left = Math.min(options.x1, options.x2);
+    const width = Math.abs(options.x2 - options.x1);
+    return `<rect x="${left}" y="${options.y1}" width="${width}" height="${thickness}" fill="${INK_COLOR}"/>`;
+  }
+  if (options.x1 === options.x2) {
+    const top = Math.min(options.y1, options.y2);
+    const height = Math.abs(options.y2 - options.y1);
+    return `<rect x="${options.x1}" y="${top}" width="${thickness}" height="${height}" fill="${INK_COLOR}"/>`;
+  }
+  return (
+    `<line x1="${options.x1}" y1="${options.y1}" x2="${options.x2}" y2="${options.y2}" ` +
+    `stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderDiagonalElement(element: Extract<PrintElement, { type: 'diagonal' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  return (
+    `<line x1="${options.x1}" y1="${options.y1}" x2="${options.x2}" y2="${options.y2}" ` +
+    `stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): string {
+  const { options } = element;
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const rowHeight = resolveFontSizeDots(undefined, 1);
+  validateTableColumns(options.columns);
+  const totalWidth = options.columns.reduce((sum, column) => sum + column.width, 0);
+  const rowBaselineOffset = rowHeight * TEXT_BASELINE_RATIO;
+
+  return formatTable(options.columns, options.rows, totalWidth)
+    .map((line, index) => {
+      const rowY = y + index * rowHeight + rowBaselineOffset;
+      return (
+        `<text x="${x}" y="${rowY}" fill="${INK_COLOR}" font-size="${rowHeight}" ` +
+        `font-family="${MONOSPACE_FONT_FAMILY}">${escapeXml(line)}</text>`
+      );
+    })
+    .join('');
 }
 
 function renderElement(element: PrintElement): string {
   switch (element.type) {
-    case 'text': {
-      const o = element.options ?? {};
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const fs = eplFontSize(o.font, o.size);
-      const cw = eplCharWidth(o.font, o.size);
-      const rotation = o.rotation ? ` transform="rotate(${o.rotation} ${x} ${y})"` : '';
-      if (o.reverse) {
-        const tw = element.content.length * cw;
-        return `<rect x="${x - 1}" y="${y - 1}" width="${tw + 2}" height="${fs + 2}" fill="#000"/><text x="${x}" y="${y + fs * 0.85}" fill="#fff" font-size="${fs}" font-family="monospace"${rotation}>${escapeXml(element.content)}</text>`;
-      }
-      return `<text x="${x}" y="${y + fs * 0.85}" fill="#000" font-size="${fs}" font-family="monospace"${rotation}>${escapeXml(element.content)}</text>`;
-    }
-
-    case 'box': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      if (t >= Math.min(o.width, o.height)) return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#000"/>`;
-      return `<rect x="${o.x + t / 2}" y="${o.y + t / 2}" width="${o.width - t}" height="${o.height - t}" fill="none" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    // Axis-aligned or genuinely diagonal — unlike `EplCompiler`'s `'line'`
-    // case (whose non-axis-aligned fallback is a broken x-span-only
-    // approximation ported as-is from portakal's compiler), portakal's own
-    // EPL *preview* (`lang/epl.ts`) renders this fallback as a real `<line>`
-    // — a genuine, portakal-native disconnect between preview and actual
-    // compiled output (EPL2 has no diagonal print command), ported here
-    // faithfully rather than "fixed" to match the compiler's limitation.
-    case 'line': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      if (o.y1 === o.y2) return `<rect x="${Math.min(o.x1, o.x2)}" y="${o.y1}" width="${Math.abs(o.x2 - o.x1)}" height="${t}" fill="#000"/>`;
-      if (o.x1 === o.x2) return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
-      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    // The non-axis-aligned case `'line'` used to fall back to — moved here
-    // as-is, same precedent `TscPreviewRenderer`'s/`ZplPreviewRenderer`'s own
-    // `'line'`/`'diagonal'` split documents.
-    case 'diagonal': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    // portakal's own EPL preview (`lang/epl.ts`) returns `""` for all of
-    // these — a genuine, portakal-native limitation (not a bug to fix here):
-    // circle/ellipse/reverse/erase/image/raw are recognized element types in
-    // its `LabelElement` union, but none of them have real rendering logic
-    // in its `renderElement()`. Ported as-is.
+    case 'text':
+      return renderTextElement(element);
+    case 'box':
+      return renderBoxElement(element);
+    case 'line':
+      return renderLineElement(element);
+    case 'diagonal':
+      return renderDiagonalElement(element);
+    // Preview EPL chỉ hỗ trợ text/box/line/diagonal/table — các loại còn lại
+    // không có rendering riêng, giữ case rõ ràng để switch luôn exhaustive.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -89,32 +159,8 @@ function renderElement(element: PrintElement): string {
     case 'image':
     case 'raw':
       return '';
-
-    // Real behavior: format the rows into text lines via the shared
-    // `formatTable()` (same helper `EplCompiler`'s `'table'` case uses),
-    // then render each line as its own `<text>`, stacked one default-font
-    // row height apart starting at the table's own y.
-    case 'table': {
-      const o = element.options;
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const rowHeight = eplFontSize(undefined, 1);
-      validateTableColumns(o.columns);
-      const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
-      const lines = formatTable(o.columns, o.rows, totalWidth);
-      return lines
-        .map((line, i) => `<text x="${x}" y="${y + i * rowHeight + rowHeight * 0.85}" fill="#000" font-size="${rowHeight}" font-family="monospace">${escapeXml(line)}</text>`)
-        .join('');
-    }
-
-    // Not in portakal's `renderElement()` (its `LabelElement` union has no
-    // barcode/qrcode variant, same gap `TscPreviewRenderer` documents for
-    // its own barcode/qrcode cases) — kept here only so the switch stays
-    // exhaustive over this package's wider `PrintElement` union.
-    // `cut`/`pageBreak`/`spacer`/`row`/`column` have no visual
-    // representation on the label itself — `cut` is a post-print printer
-    // action, the other 4 are documented no-ops in `EplCompiler` too (no
-    // auto-layout primitive), per the design spec.
+    case 'table':
+      return renderTableElement(element);
     case 'barcode':
     case 'qrcode':
     case 'cut':
@@ -126,29 +172,31 @@ function renderElement(element: PrintElement): string {
   }
 }
 
-const CANVAS_PADDING = 10;
-const DEFAULT_CANVAS_HEIGHT = 400; // matches portakal's own EPL preview fallback
-
-/** Renders an EPL2 document preview as an SVG, using EPL2's own font metrics. */
+/** Render preview EPL2 thành SVG, dùng đúng bảng font của EPL2. */
 export class EplPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {
-    const w = document.widthDots;
-    const h = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT;
-    const pad = CANVAS_PADDING;
-    const svgW = w + pad * 2;
-    const svgH = h + pad * 2;
+    const documentWidth = document.widthDots;
+    const documentHeight = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT_DOTS;
+    const svgWidth = documentWidth + CANVAS_PADDING_DOTS * 2;
+    const svgHeight = documentHeight + CANVAS_PADDING_DOTS * 2;
 
-    let els = '';
-    for (const element of document.elements) els += renderElement(element);
+    let renderedElements = '';
+    for (const element of document.elements) renderedElements += renderElement(element);
+
+    const caption = `${documentWidth}×${documentHeight} dots — EPL`;
 
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}">`,
-      `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#f5f5f4" rx="4"/>`,
-      `<rect x="${pad}" y="${pad}" width="${w}" height="${h}" fill="#fff" stroke="#e5e5e5" stroke-width="1" rx="2"/>`,
-      `<g transform="translate(${pad},${pad})">`,
-      els,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" ` +
+        `width="${svgWidth}" height="${svgHeight}">`,
+      `<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="${CANVAS_BACKGROUND_COLOR}" rx="4"/>`,
+      `<rect x="${CANVAS_PADDING_DOTS}" y="${CANVAS_PADDING_DOTS}" ` +
+        `width="${documentWidth}" height="${documentHeight}" ` +
+        `fill="${PAPER_COLOR}" stroke="${CANVAS_BORDER_COLOR}" stroke-width="1" rx="2"/>`,
+      `<g transform="translate(${CANVAS_PADDING_DOTS},${CANVAS_PADDING_DOTS})">`,
+      renderedElements,
       '</g>',
-      `<text x="${svgW / 2}" y="${svgH - 1}" text-anchor="middle" fill="#a1a1aa" font-size="8" font-family="monospace">${w}×${h} dots — EPL</text>`,
+      `<text x="${svgWidth / 2}" y="${svgHeight - 1}" text-anchor="middle" fill="${CAPTION_COLOR}" font-size="8" ` +
+        `font-family="${MONOSPACE_FONT_FAMILY}">${caption}</text>`,
       '</svg>',
     ].join('\n');
   }
