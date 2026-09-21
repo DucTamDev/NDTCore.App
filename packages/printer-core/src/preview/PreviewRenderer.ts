@@ -3,9 +3,9 @@ import type { PrintElement } from '../document/elements/PrintElement';
 import { formatTable, validateTableColumns } from '../formatting';
 
 /**
- * Default SVG preview renderer, shared by languages with no bespoke preview
- * (DPL, SBPL, IPL). Font sizing is a generic size/yScale heuristic, not a
- * real per-printer font table, matching what those languages delegate to.
+ * Renderer SVG mặc định, dùng chung cho các ngôn ngữ không có preview riêng
+ * (DPL, SBPL, IPL). Cỡ chữ tính theo công thức chung size/yScale, không phải
+ * bảng font thật của từng máy in — khớp với cách các ngôn ngữ này uỷ quyền.
  */
 
 const CANVAS_PADDING_DOTS = 10;
@@ -27,9 +27,9 @@ const PROPORTIONAL_FONT_FAMILY = "'Helvetica Neue', Helvetica, Arial, sans-serif
 const MONOSPACE_FONT_FAMILY = 'monospace';
 
 /**
- * No font-metrics table to derive row spacing from, so a fixed value is used
- * — intentionally duplicated in DplCompiler.ts, which lives in a different
- * layer with no shared module to import from.
+ * Không có bảng font-metrics để tính khoảng cách dòng, nên dùng giá trị cố
+ * định — cố ý trùng lặp với DplCompiler.ts, vì 2 file ở 2 layer khác nhau,
+ * không có module chung nào để import.
  */
 const TABLE_ROW_HEIGHT_DOTS = 16;
 const TABLE_ROW_BASELINE_RATIO = 0.85;
@@ -41,8 +41,8 @@ function escapeXml(text: string): string {
 }
 
 /**
- * `yScale` above this threshold is a real dot height, used directly;
- * otherwise `size` scales a base glyph height.
+ * `yScale` vượt ngưỡng này được coi là chiều cao dots thật, dùng trực tiếp;
+ * ngược lại `size` sẽ nhân với chiều cao glyph cơ sở.
  */
 function resolveFontSizeDots(size: number, yScale?: number): number {
   if (yScale && yScale > YSCALE_TRUST_THRESHOLD_DOTS) return yScale;
@@ -50,8 +50,8 @@ function resolveFontSizeDots(size: number, yScale?: number): number {
 }
 
 /**
- * Fraction of the glyph cell's height used to place the baseline below `y`
- * — the proportional font sits a bit higher than monospace/bitmap fonts.
+ * Tỉ lệ chiều cao ô glyph dùng để đặt baseline bên dưới `y` — font tỉ lệ
+ * (proportional) nằm cao hơn 1 chút so với font monospace/bitmap.
  */
 function resolveBaselineRatio(font?: string): number {
   return font === PROPORTIONAL_FONT_CODE ? PROPORTIONAL_FONT_BASELINE_RATIO : MONOSPACE_FONT_BASELINE_RATIO;
@@ -106,7 +106,7 @@ function renderImageElement(element: Extract<PrintElement, { type: 'image' }>): 
     for (let pixelX = 0; pixelX < bitmap.width; pixelX += step) {
       const byteIndex = pixelY * bitmap.bytesPerRow + Math.floor(pixelX / 8);
       const bitIndex = 7 - (pixelX % 8);
-      // eslint-disable-next-line no-bitwise -- reading one packed pixel bit, per Bitmap's MSB-first convention
+      // eslint-disable-next-line no-bitwise -- đọc 1 bit pixel đã đóng gói, theo quy ước MSB-first của Bitmap
       const isBlack = (bitmap.data[byteIndex] >> bitIndex) & 1;
       if (isBlack) {
         svg +=
@@ -220,9 +220,9 @@ function renderElement(element: PrintElement): string {
     }
     case 'table':
       return renderTableElement(element);
-    // No visual representation on the label: cut is a post-print printer action;
-    // barcode/qrcode/pageBreak/spacer/row/column have no rendering here (documented
-    // no-ops elsewhere too) — kept as explicit cases so the switch stays exhaustive.
+    // Không có biểu diễn hình ảnh trên tem: cut là hành động sau khi in;
+    // barcode/qrcode/pageBreak/spacer/row/column không render ở đây (cũng
+    // là no-op ở các nơi khác) — giữ case rõ ràng để switch luôn exhaustive.
     case 'raw':
     case 'barcode':
     case 'qrcode':
@@ -236,8 +236,8 @@ function renderElement(element: PrintElement): string {
 }
 
 /**
- * Renders a document preview as an SVG, using generic size-based font
- * metrics rather than any one printer language's own font table.
+ * Render preview của document thành SVG, dùng công thức font chung theo
+ * size thay vì bảng font thật của một ngôn ngữ máy in cụ thể nào.
  */
 export function renderPreview(document: ResolvedPrintDocument): string {
   const documentWidth = document.widthDots;
