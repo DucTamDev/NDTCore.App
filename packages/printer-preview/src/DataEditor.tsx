@@ -1,18 +1,7 @@
-import Editor from '@monaco-editor/react';
+import { MonacoEditor, type MonacoEditorProps } from './MonacoEditor';
 
-export interface DataEditorProps {
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-}
+export type DataEditorProps = Omit<MonacoEditorProps, 'language'>;
 
-export function DataEditor({ value, onChange }: DataEditorProps) {
-  return (
-    <Editor
-      height="100%"
-      language="json"
-      value={value}
-      onChange={(next) => onChange(next ?? '')}
-      options={{ minimap: { enabled: false }, fontSize: 13 }}
-    />
-  );
+export function DataEditor(props: DataEditorProps) {
+  return <MonacoEditor {...props} language="json" />;
 }

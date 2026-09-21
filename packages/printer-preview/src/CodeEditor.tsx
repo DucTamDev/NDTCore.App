@@ -1,18 +1,7 @@
-import Editor from '@monaco-editor/react';
+import { MonacoEditor, type MonacoEditorProps } from './MonacoEditor';
 
-export interface CodeEditorProps {
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-}
+export type CodeEditorProps = Omit<MonacoEditorProps, 'language'>;
 
-export function CodeEditor({ value, onChange }: CodeEditorProps) {
-  return (
-    <Editor
-      height="100%"
-      language="typescript"
-      value={value}
-      onChange={(next) => onChange(next ?? '')}
-      options={{ minimap: { enabled: false }, fontSize: 13 }}
-    />
-  );
+export function CodeEditor(props: CodeEditorProps) {
+  return <MonacoEditor {...props} language="typescript" />;
 }
