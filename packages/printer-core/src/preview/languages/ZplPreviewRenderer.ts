@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintPreview } from '../../core';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** ZPL built-in bitmap-font pixel dimensions at 203 DPI, per the Zebra ZPL II Programming Guide's font table. Font "0" (CG Triumvirate) is scalable — its entry is only a base/fallback, the real size comes from `^A`/`^CF`'s own height/width params. */
 const ZPL_FONTS: Record<string, { w: number; h: number }> = {

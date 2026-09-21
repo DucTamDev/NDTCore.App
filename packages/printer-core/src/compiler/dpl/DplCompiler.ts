@@ -5,7 +5,7 @@ import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { DPL_COMMAND } from './DplCommand';
 import { encodeDplBitmapPayload } from './DplEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** Fixed-field record rotation code (`1`-`4`, the text/box/line record's own leading digit) for a given `Rotation`, per Honeywell/Datamax's DPL command reference. */
 function dplRotation(rotation: Rotation | undefined): 1 | 2 | 3 | 4 {

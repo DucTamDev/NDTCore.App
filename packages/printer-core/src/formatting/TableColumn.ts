@@ -1,4 +1,4 @@
-export interface ReceiptColumn {
+export interface TableColumn {
   width: number;
   align?: "left" | "center" | "right";
 }

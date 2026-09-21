@@ -5,7 +5,7 @@ import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { IPL_COMMAND } from './IplCommand';
 import { encodeIplBitmapPayload } from './IplEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 const { STX, ETX, ESC } = IPL_COMMAND;
 

@@ -4,7 +4,7 @@ import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { STAR_PRNT, concatStarPrntBytes } from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {

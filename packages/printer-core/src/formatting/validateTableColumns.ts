@@ -1,4 +1,4 @@
-import type { ReceiptColumn } from './ReceiptColumn';
+import type { TableColumn } from './TableColumn';
 
 /**
  * Validates that every column has a positive width before it reaches
@@ -15,7 +15,7 @@ import type { ReceiptColumn } from './ReceiptColumn';
  * content instead of erroring. Auto-sizing isn't supported yet, so this
  * rejects it explicitly instead of letting it fail silently.
  */
-export function validateTableColumns(columns: ReceiptColumn[]): void {
+export function validateTableColumns(columns: TableColumn[]): void {
   for (const column of columns) {
     if (column.width <= 0) {
       throw new Error(

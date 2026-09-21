@@ -1,4 +1,4 @@
-import { padRight } from './ReceiptFormatter';
+import { padRight } from './RowFormatter';
 
 export function formatPair(left: string, right: string, totalWidth: number): string {
   const rightLen = right.length;

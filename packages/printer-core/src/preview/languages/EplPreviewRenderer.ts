@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintPreview } from '../../core';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** EPL2 built-in bitmap-font pixel dimensions, per the EPL2 Programmer's Guide's font table. */
 const EPL_FONTS: Record<string, { w: number; h: number }> = {

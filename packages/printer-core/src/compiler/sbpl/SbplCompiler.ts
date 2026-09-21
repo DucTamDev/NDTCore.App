@@ -5,7 +5,7 @@ import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { SBPL_COMMAND } from './SbplCommand';
 import { encodeSbplBitmapPayload } from './SbplEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 const ESC = SBPL_COMMAND.ESC;
 

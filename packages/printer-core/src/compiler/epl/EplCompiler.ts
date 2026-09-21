@@ -7,7 +7,7 @@ import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { EPL_COMMAND } from './EplCommand';
 import { encodeEplBitmapPayload } from './EplEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** EPL2 rotation code (`0`/`1`/`2`/`3`, the `A`/`B`/`b` commands' own rotation field) for a given `Rotation`, per the EPL2 Programmer's Guide. */
 function eplRotation(rotation: Rotation | undefined): 0 | 1 | 2 | 3 {

@@ -6,7 +6,7 @@ import type { QrErrorCorrectionLevel } from '../../qrcode';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { CPCL_COMMAND } from './CpclCommand';
 import { encodeCpclBitmapPayload } from './CpclEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 const DEFAULT_FONT = '2';
 

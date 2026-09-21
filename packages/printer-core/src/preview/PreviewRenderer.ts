@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../document';
 import type { PrintElement } from '../builder';
-import { formatTable, validateTableColumns } from '../receipt';
+import { formatTable, validateTableColumns } from '../formatting';
 
 /**
  * Default SVG preview renderer, shared by every language whose own compiled

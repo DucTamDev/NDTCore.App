@@ -8,7 +8,7 @@ import type { TextOptions } from '../../builder/content/TextElement';
 import type { LineOptions } from '../../builder/drawing/LineElement';
 import { ZPL_COMMAND } from './ZplCommand';
 import { encodeZplBitmapPayload } from './ZplEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** `^A`/`^B`/`^BQ` orientation letter for a given `Rotation`, per the Zebra ZPL II Programming Guide's field-orientation parameter (N=normal, R=90° CW, I=180°, B=270° CW). */
 function zplOrientation(rotation: Rotation | undefined): string {

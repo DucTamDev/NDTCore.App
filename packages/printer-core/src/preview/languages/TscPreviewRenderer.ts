@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintPreview } from '../../core';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 /** TSC built-in bitmap-font pixel dimensions, per the TSPL/TSPL2 Programming Manual's font table. */
 const TSC_FONTS: Record<string, { w: number; h: number }> = {

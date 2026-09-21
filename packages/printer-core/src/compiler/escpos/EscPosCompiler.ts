@@ -7,7 +7,7 @@ import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';
 import { encodeEscPosBarcode } from './EscPosBarcodeEncoder';
 import { encodeEscPosQrCode } from './EscPosQrCodeEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {

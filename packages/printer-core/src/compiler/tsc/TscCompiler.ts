@@ -7,7 +7,7 @@ import type { Direction } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import { TSC_COMMAND } from './TscCommand';
 import { encodeTscBitmapPayload } from './TscEncoder';
-import { formatTable, validateTableColumns } from '../../receipt';
+import { formatTable, validateTableColumns } from '../../formatting';
 
 const MM_PER_INCH = 25.4;
 

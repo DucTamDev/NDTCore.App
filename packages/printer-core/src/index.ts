@@ -4,6 +4,7 @@ export * from './document';
 export * from './builder';
 export * from './markup';
 export * from './receipt';
+export * from './formatting';
 export * from './barcode';
 export * from './qrcode';
 export * from './image';

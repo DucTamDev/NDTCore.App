@@ -1,6 +1,6 @@
-import { ReceiptColumn } from './ReceiptColumn';
+import { TableColumn } from './TableColumn';
 
-export function formatRow(columns: ReceiptColumn[], values: string[], totalWidth: number): string {
+export function formatRow(columns: TableColumn[], values: string[], totalWidth: number): string {
   if (columns.length === 0 || values.length === 0) return "";
 
   let assignedWidth = 0;
