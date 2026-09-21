@@ -1,6 +1,6 @@
 import { SbplPreviewRenderer } from '../SbplPreviewRenderer';
-import { renderPreview } from '../../PreviewRenderer';
-import type { ResolvedPrintDocument } from '../../../document';
+import { renderPreview } from '../../../PreviewRenderer';
+import type { ResolvedPrintDocument } from '../../../../document';
 
 const baseDoc: ResolvedPrintDocument = {
   widthDots: 320,

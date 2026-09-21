@@ -1,5 +1,5 @@
 import { TscPreviewRenderer } from '../TscPreviewRenderer';
-import type { PrintElement } from '../../../document/elements/PrintElement';
+import type { PrintElement } from '../../../../document/elements/PrintElement';
 
 describe('TscPreviewRenderer', () => {
   it('renders a <line> element for a diagonal, not a <rect>', () => {

@@ -1,5 +1,5 @@
 import { CpclPreviewRenderer } from '../CpclPreviewRenderer';
-import type { ResolvedPrintDocument } from '../../../document';
+import type { ResolvedPrintDocument } from '../../../../document';
 
 const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
   widthDots: 320,

@@ -1,6 +1,6 @@
-import type { ResolvedPrintDocument } from '../../document';
-import type { PrintPreview } from '../../core';
-import { renderPreview } from '../PreviewRenderer';
+import type { ResolvedPrintDocument } from '../../../document';
+import type { PrintPreview } from '../../../core';
+import { renderPreview } from '../../PreviewRenderer';
 
 /**
  * IPL's preview renderer — a thin delegate to the shared `renderPreview()`,

@@ -1,6 +1,6 @@
-import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
-import type { PrintPreview } from '../../core';
+import type { ResolvedPrintDocument } from '../../../document';
+import type { PrintElement } from '../../../document/elements/PrintElement';
+import type { PrintPreview } from '../../../core';
 
 /** CPCL built-in bitmap-font pixel dimensions, per the Zebra CPCL Font Manual (ZQ210/ZQ220). */
 const CPCL_FONTS: Record<string, { w: number; h: number }> = {

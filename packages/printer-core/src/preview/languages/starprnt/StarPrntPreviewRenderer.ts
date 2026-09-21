@@ -1,5 +1,5 @@
-import type { ResolvedPrintDocument } from '../../document';
-import type { PrintPreview } from '../../core';
+import type { ResolvedPrintDocument } from '../../../document';
+import type { PrintPreview } from '../../../core';
 
 const DEFAULT_RECEIPT_WIDTH_DOTS = 576;
 const LINE_HEIGHT_PAD = 4;
