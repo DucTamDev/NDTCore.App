@@ -1,10 +1,10 @@
 // packages/printer-preview/src/App.tsx
 import { useEffect, useState } from 'react';
 import type { PrinterLanguage } from 'printer-core';
-import { CodeEditor } from './CodeEditor';
-import { DataEditor } from './DataEditor';
-import { PreviewPanel } from './PreviewPanel';
-import { ErrorPanel } from './ErrorPanel';
+import { CodeEditor } from './components/CodeEditor';
+import { DataEditor } from './components/DataEditor';
+import { PreviewPanel } from './components/PreviewPanel';
+import { ErrorPanel } from './components/ErrorPanel';
 import { evaluateTemplate } from './evaluateTemplate';
 import { renderPreviews, defaultLanguageFor, type PagePreview } from './pipeline';
 import { defaultCode, defaultData } from './defaultSample';
