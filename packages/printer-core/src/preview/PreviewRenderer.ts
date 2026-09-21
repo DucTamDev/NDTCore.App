@@ -114,7 +114,8 @@ function renderImageElement(element: Extract<PrintElement, { type: 'image' }>): 
       const byteIndex = pixelY * bitmap.bytesPerRow + Math.floor(pixelX / 8);
       const bitPosition = 7 - (pixelX % 8);
 
-      // eslint-disable-next-line no-bitwise -- đọc 1 bit pixel đã đóng gói, theo quy ước MSB-first của Bitmap
+      // Đọc 1 bit pixel đã đóng gói theo MSB-first.
+      // eslint-disable-next-line no-bitwise
       const isBlackPixel = (bitmap.data[byteIndex] >> bitPosition) & 1;
 
       if (!isBlackPixel) {
