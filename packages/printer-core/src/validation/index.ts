@@ -1,7 +1,5 @@
 export * from './ValidationResult';
 export * from './ValidationIssue';
-export * from './ValidationLevel';
-export * from './PrinterValidator';
 export * from './tsc';
 export * from './zpl';
 export * from './epl';

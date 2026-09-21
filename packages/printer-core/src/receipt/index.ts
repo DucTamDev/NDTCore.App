@@ -1,6 +1,5 @@
 export * from './ReceiptLayout';
 export * from './ReceiptColumn';
-export * from './ReceiptCell';
 export * from './ReceiptFormatter';
 export * from './PairFormatter';
 export * from './TableFormatter';
