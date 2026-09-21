@@ -1,7 +1,7 @@
-import { STAR_PRNT } from '../../language/starprnt/StarPrntCommand';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { STAR_PRNT } from '../../../language/starprnt/StarPrntCommand';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 /** ESC-prefixed command byte -> its fixed parameter-byte count (commands not listed here are assumed to take none). */
 const ESC_PARAM_LENGTH: Record<number, number> = {

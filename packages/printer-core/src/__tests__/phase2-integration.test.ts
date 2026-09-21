@@ -1,7 +1,7 @@
 import { LabelBuilder } from '../document/builder/LabelBuilder';
 import { TscCompiler } from '../language/tsc/TscCompiler';
 import { TscParser } from '../language/tsc/TscParser';
-import { TscValidator } from '../validation/tsc/TscValidator';
+import { TscValidator } from '../validation/languages/tsc/TscValidator';
 import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 import { EscPosParser } from '../language/escpos/EscPosParser';
 import { compileTo, parseFrom, previewFor, validateFor } from '../core/LanguageDispatch';

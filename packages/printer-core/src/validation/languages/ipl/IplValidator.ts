@@ -1,7 +1,7 @@
-import { parseIPL } from '../../language/ipl/IplParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseIPL } from '../../../language/ipl/IplParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 /**
  * `<SI>S` is a raw two-character numeral in practice (`IplCompiler` emits

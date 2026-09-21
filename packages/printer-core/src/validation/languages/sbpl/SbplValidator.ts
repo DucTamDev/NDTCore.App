@@ -1,7 +1,7 @@
-import { parseSBPL } from '../../language/sbpl/SbplParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseSBPL } from '../../../language/sbpl/SbplParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 /**
  * Command types `SbplParser`'s `parseSBPL()` recognizes — anything outside

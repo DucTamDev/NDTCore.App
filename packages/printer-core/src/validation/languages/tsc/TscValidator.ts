@@ -1,7 +1,7 @@
-import { parseTSPL } from '../../language/tsc/TscParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseTSPL } from '../../../language/tsc/TscParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 const MIN_DENSITY = 0;
 const MAX_DENSITY = 15;

@@ -1,7 +1,7 @@
-import { parseZPL } from '../../language/zpl/ZplParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseZPL } from '../../../language/zpl/ZplParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 const MIN_PRINT_WIDTH = 2;
 const MAX_PRINT_WIDTH = 65535;

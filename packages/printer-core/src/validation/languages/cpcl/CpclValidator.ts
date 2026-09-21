@@ -1,7 +1,7 @@
-import { parseCPCL } from '../../language/cpcl/CpclParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseCPCL } from '../../../language/cpcl/CpclParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 const MIN_TONE = 0;
 const MAX_TONE = 200;

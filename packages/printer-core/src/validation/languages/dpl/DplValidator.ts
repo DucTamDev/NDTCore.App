@@ -1,7 +1,7 @@
-import { parseDPL } from '../../language/dpl/DplParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseDPL } from '../../../language/dpl/DplParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 const MIN_DENSITY = 0;
 /** DPL's `D` command is a 1-2 digit field (`DplParser`'s own `/^D\d{1,2}$/` gate caps it at 99), but Datamax/Honeywell hardware's actual documented darkness range is narrower — 0-30 — so this check can still catch a parseable-but-out-of-hardware-range value like `D50`. */

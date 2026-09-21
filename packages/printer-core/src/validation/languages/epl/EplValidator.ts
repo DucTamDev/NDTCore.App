@@ -1,7 +1,7 @@
-import { parseEPL } from '../../language/epl/EplParser';
-import type { PrintValidation } from '../../core';
-import type { ValidationIssue } from '../ValidationIssue';
-import type { ValidationResult } from '../ValidationResult';
+import { parseEPL } from '../../../language/epl/EplParser';
+import type { PrintValidation } from '../../../core';
+import type { ValidationIssue } from '../../ValidationIssue';
+import type { ValidationResult } from '../../ValidationResult';
 
 const MIN_DENSITY = 0;
 const MAX_DENSITY = 15;
