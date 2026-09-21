@@ -7,4 +7,4 @@ export * from './style/BoxStyle';
 export * from './style/LayoutStyle';
 export * from './style/TextStyle';
 export * from './style/VisibilityCondition';
-export * from './builders';
+export * from './builder';
