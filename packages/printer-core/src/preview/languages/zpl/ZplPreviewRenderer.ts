@@ -3,280 +3,357 @@ import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
 
-/** ZPL built-in bitmap-font pixel dimensions at 203 DPI, per the Zebra ZPL II Programming Guide's font table. Font "0" (CG Triumvirate) is scalable — its entry is only a base/fallback, the real size comes from `^A`/`^CF`'s own height/width params. */
-const ZPL_FONTS: Record<string, { w: number; h: number }> = {
-  A: { w: 5, h: 9 },
-  B: { w: 7, h: 11 },
-  C: { w: 10, h: 18 },
-  D: { w: 10, h: 18 },
-  E: { w: 15, h: 28 },
-  F: { w: 13, h: 26 },
-  G: { w: 40, h: 60 },
-  H: { w: 13, h: 21 },
-  P: { w: 18, h: 20 },
-  Q: { w: 24, h: 28 },
-  R: { w: 31, h: 35 },
-  S: { w: 35, h: 40 },
-  T: { w: 42, h: 48 },
-  U: { w: 53, h: 59 },
-  V: { w: 71, h: 80 },
-  '0': { w: 15, h: 18 },
+/**
+ * Kích thước pixel font bitmap có sẵn của ZPL ở 203 DPI, theo Zebra ZPL II
+ * Programming Guide. Font "0" (CG Triumvirate) co giãn được — entry của nó
+ * chỉ là giá trị nền, kích thước thật lấy từ tham số height/width của `^A`/`^CF`.
+ */
+const ZPL_FONTS: Record<string, { width: number; height: number }> = {
+  A: { width: 5, height: 9 },
+  B: { width: 7, height: 11 },
+  C: { width: 10, height: 18 },
+  D: { width: 10, height: 18 },
+  E: { width: 15, height: 28 },
+  F: { width: 13, height: 26 },
+  G: { width: 40, height: 60 },
+  H: { width: 13, height: 21 },
+  P: { width: 18, height: 20 },
+  Q: { width: 24, height: 28 },
+  R: { width: 31, height: 35 },
+  S: { width: 35, height: 40 },
+  T: { width: 42, height: 48 },
+  U: { width: 53, height: 59 },
+  V: { width: 71, height: 80 },
+  '0': { width: 15, height: 18 },
 };
 
-const DEFAULT_FONT = '0';
-/** Above this raw dot height, `o.yScale` (from `^A`/`^CF`'s own height field) is trusted directly rather than `ZPL_FONTS`' fixed table — matches portakal's own threshold. */
-const YSCALE_TRUST_THRESHOLD = 10;
-const DEFAULT_FALLBACK_FONT_SIZE = 18;
+const DEFAULT_FONT_CODE = '0';
+/**
+ * Trên ngưỡng này, `yScale` (từ tham số height của `^A`/`^CF`) được tin dùng
+ * trực tiếp thay vì bảng `ZPL_FONTS` cố định.
+ */
+const YSCALE_TRUST_THRESHOLD_DOTS = 10;
+const DEFAULT_FALLBACK_FONT_SIZE_DOTS = 18;
 const FALLBACK_SIZE_MULTIPLIER = 12;
-
-function isProportionalFont(font: string | undefined): boolean {
-  return (font ?? DEFAULT_FONT) === DEFAULT_FONT;
-}
-
-function zplFontSize(font: string | undefined, size: number | undefined, yScale?: number): number {
-  if (yScale && yScale > YSCALE_TRUST_THRESHOLD) return yScale;
-  const f = ZPL_FONTS[(font ?? DEFAULT_FONT).toUpperCase()];
-  if (f && size) return f.h * size;
-  if (f) return f.h;
-  return size ? size * FALLBACK_SIZE_MULTIPLIER : DEFAULT_FALLBACK_FONT_SIZE;
-}
-
-/** Baseline offset from the top of the character cell, as a fraction of font size — font "0" (proportional) sits slightly higher than the bitmap fonts A-H, per their differing ascent metrics. */
-function zplBaselineRatio(font: string | undefined): number {
-  return isProportionalFont(font) ? 0.78 : 0.82;
-}
-
-function zplFontFamily(font: string | undefined): string {
-  return isProportionalFont(font) ? "'Helvetica Neue', Helvetica, Arial, sans-serif" : 'monospace';
-}
-
-function escapeXml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+const PROPORTIONAL_FONT_BASELINE_RATIO = 0.78;
+const MONOSPACE_FONT_BASELINE_RATIO = 0.82;
+const PROPORTIONAL_FONT_FAMILY = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const MONOSPACE_FONT_FAMILY = 'monospace';
+const TABLE_ROW_BASELINE_RATIO = 0.85;
+const DEFAULT_LINE_THICKNESS_DOTS = 1;
 
 const IMAGE_PREVIEW_MAX_SAMPLES = 100;
 
-/** Placeholder barcode width estimate — Code 128-shaped module count `(dataChars + 2) * 11 + 13`, applied uniformly regardless of the actual symbology, matching portakal's own single-formula raw-ZPL barcode placeholder. */
+const CANVAS_PADDING_DOTS = 10;
+/** 6in @ 203dpi — chiều cao canvas mặc định khi document không khai báo heightDots. */
+const DEFAULT_CANVAS_HEIGHT_DOTS = 1218;
+const CANVAS_BACKGROUND_COLOR = '#f5f5f4';
+const CANVAS_BORDER_COLOR = '#e5e5e5';
+const CAPTION_COLOR = '#a1a1aa';
+const INK_COLOR = '#000';
+const PAPER_COLOR = '#fff';
+
+/**
+ * Ước lượng độ rộng barcode kiểu Code 128: số module `(số ký tự + 2) * 11 + 13`,
+ * áp dụng chung cho mọi symbology, không phân biệt loại mã vạch thật.
+ */
 const BARCODE_QUIET_CHARS = 2;
 const BARCODE_MODULES_PER_CHAR = 11;
 const BARCODE_FRAME_MODULES = 13;
-const BARCODE_TEXT_OFFSET = 15;
-const BARCODE_TEXT_FONT_SIZE = 14;
+const BARCODE_TEXT_OFFSET_DOTS = 15;
+const BARCODE_TEXT_FONT_SIZE_DOTS = 14;
+const DEFAULT_BARCODE_HEIGHT_DOTS = 50;
+const DEFAULT_BARCODE_MODULE_WIDTH_DOTS = 2;
 
-/** QR placeholder module grid — a Version-1 QR is 21x21 modules, each finder pattern occupies a 7x7 corner block. */
+/** Lưới module QR giả lập — QR Version-1 có 21x21 module, mỗi ô finder pattern chiếm góc 7x7. */
 const QR_PLACEHOLDER_MODULES = 21;
 const QR_FINDER_MODULES = 7;
-const QR_TEXT_OFFSET = 15;
-const QR_TEXT_FONT_SIZE = 14;
+const QR_TEXT_OFFSET_DOTS = 15;
+const QR_TEXT_FONT_SIZE_DOTS = 14;
+const DEFAULT_QR_CELL_WIDTH_DOTS = 4;
+
+function isProportionalFont(font: string | undefined): boolean {
+  return (font ?? DEFAULT_FONT_CODE) === DEFAULT_FONT_CODE;
+}
+
+function resolveFontSizeDots(font: string | undefined, size: number | undefined, yScale?: number): number {
+  if (yScale && yScale > YSCALE_TRUST_THRESHOLD_DOTS) return yScale;
+  const knownFont = ZPL_FONTS[(font ?? DEFAULT_FONT_CODE).toUpperCase()];
+  if (knownFont && size) return knownFont.height * size;
+  if (knownFont) return knownFont.height;
+  return size ? size * FALLBACK_SIZE_MULTIPLIER : DEFAULT_FALLBACK_FONT_SIZE_DOTS;
+}
+
+/** Font "0" (proportional) nằm cao hơn 1 chút so với các font bitmap A-H, do ascent khác nhau. */
+function resolveBaselineRatio(font: string | undefined): number {
+  return isProportionalFont(font) ? PROPORTIONAL_FONT_BASELINE_RATIO : MONOSPACE_FONT_BASELINE_RATIO;
+}
+
+function resolveFontFamily(font: string | undefined): string {
+  return isProportionalFont(font) ? PROPORTIONAL_FONT_FAMILY : MONOSPACE_FONT_FAMILY;
+}
+
+function escapeXml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): string {
+  const options = element.options ?? {};
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const fontSizeDots = resolveFontSizeDots(options.font, options.size, options.yScale);
+  const baselineRatio = resolveBaselineRatio(options.font);
+  const fontFamily = resolveFontFamily(options.font);
+  const fontWeight = options.bold ? 'bold' : 'normal';
+  const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
+
+  let textAnchor = '';
+  let textX = x;
+  if (options.maxWidth && options.align === 'center') {
+    textAnchor = ' text-anchor="middle"';
+    textX = x + options.maxWidth / 2;
+  } else if (options.maxWidth && options.align === 'right') {
+    textAnchor = ' text-anchor="end"';
+    textX = x + options.maxWidth;
+  }
+
+  const fill = options.reverse ? PAPER_COLOR : INK_COLOR;
+  const baselineY = Math.round((y + fontSizeDots * baselineRatio) * 100) / 100;
+  return (
+    `<text x="${textX}" y="${baselineY}" fill="${fill}" font-size="${fontSizeDots}" font-weight="${fontWeight}" ` +
+    `font-family="${fontFamily}"${textAnchor}${rotation}>${escapeXml(element.content)}</text>`
+  );
+}
+
+function renderImageElement(element: Extract<PrintElement, { type: 'image' }>): string {
+  const options = element.options ?? {};
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const { bitmap } = element;
+  const targetWidth = options.width ?? bitmap.width;
+  const targetHeight = options.height ?? bitmap.height;
+  const scaleX = targetWidth / bitmap.width;
+  const scaleY = targetHeight / bitmap.height;
+  const step = Math.max(1, Math.floor(Math.max(bitmap.width, bitmap.height) / IMAGE_PREVIEW_MAX_SAMPLES));
+
+  let svg = '';
+  for (let pixelY = 0; pixelY < bitmap.height; pixelY += step) {
+    for (let pixelX = 0; pixelX < bitmap.width; pixelX += step) {
+      const byteIndex = pixelY * bitmap.bytesPerRow + Math.floor(pixelX / 8);
+      const bitIndex = 7 - (pixelX % 8);
+      // eslint-disable-next-line no-bitwise -- đọc 1 bit pixel đã đóng gói, theo quy ước MSB-first của Bitmap
+      const isBlack = (bitmap.data[byteIndex] >> bitIndex) & 1;
+      if (isBlack) {
+        svg +=
+          `<rect x="${x + pixelX * scaleX}" y="${y + pixelY * scaleY}" ` +
+          `width="${step * scaleX}" height="${step * scaleY}" fill="${INK_COLOR}"/>`;
+      }
+    }
+  }
+  return svg;
+}
+
+/**
+ * Lệnh `^GB` của ZPL tô đặc khi thickness chạm cạnh ngắn hơn, và luôn vẽ
+ * viền hướng vào trong từ mép box.
+ */
+function renderBoxElement(element: Extract<PrintElement, { type: 'box' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  const cornerRadius = options.radius ?? 0;
+  if (thickness >= Math.min(options.width, options.height)) {
+    return (
+      `<rect x="${options.x}" y="${options.y}" width="${options.width}" height="${options.height}" ` +
+      `fill="${INK_COLOR}" rx="${cornerRadius}"/>`
+    );
+  }
+  return (
+    `<rect x="${options.x + thickness / 2}" y="${options.y + thickness / 2}" ` +
+    `width="${options.width - thickness}" height="${options.height - thickness}" ` +
+    `fill="none" stroke="${INK_COLOR}" stroke-width="${thickness}" rx="${cornerRadius}"/>`
+  );
+}
+
+function renderLineElement(element: Extract<PrintElement, { type: 'line' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  if (options.y1 === options.y2) {
+    const left = Math.min(options.x1, options.x2);
+    const width = Math.abs(options.x2 - options.x1);
+    return `<rect x="${left}" y="${options.y1}" width="${width}" height="${thickness}" fill="${INK_COLOR}"/>`;
+  }
+  if (options.x1 === options.x2) {
+    const top = Math.min(options.y1, options.y2);
+    const height = Math.abs(options.y2 - options.y1);
+    return `<rect x="${options.x1}" y="${top}" width="${thickness}" height="${height}" fill="${INK_COLOR}"/>`;
+  }
+  return (
+    `<line x1="${options.x1}" y1="${options.y1}" x2="${options.x2}" y2="${options.y2}" ` +
+    `stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderDiagonalElement(element: Extract<PrintElement, { type: 'diagonal' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  return (
+    `<line x1="${options.x1}" y1="${options.y1}" x2="${options.x2}" y2="${options.y2}" ` +
+    `stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderCircleElement(element: Extract<PrintElement, { type: 'circle' }>): string {
+  const { options } = element;
+  const thickness = options.thickness ?? DEFAULT_LINE_THICKNESS_DOTS;
+  const radius = options.diameter / 2;
+  const centerX = options.x + radius;
+  const centerY = options.y + radius;
+  if (thickness >= radius) return `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="${INK_COLOR}"/>`;
+  return (
+    `<circle cx="${centerX}" cy="${centerY}" r="${radius - thickness / 2}" ` +
+    `fill="none" stroke="${INK_COLOR}" stroke-width="${thickness}"/>`
+  );
+}
+
+function renderBarcodeElement(element: Extract<PrintElement, { type: 'barcode' }>): string {
+  const options = element.options;
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const height = options.height ?? DEFAULT_BARCODE_HEIGHT_DOTS;
+  const moduleWidth = options.narrowBarWidth ?? DEFAULT_BARCODE_MODULE_WIDTH_DOTS;
+  const width =
+    (options.content.length + BARCODE_QUIET_CHARS) * BARCODE_MODULES_PER_CHAR * moduleWidth +
+    BARCODE_FRAME_MODULES * moduleWidth;
+  const patternId = `zpl-barcode-${x}-${y}`;
+  const textY = y + height + BARCODE_TEXT_OFFSET_DOTS;
+  const label =
+    options.readable === false
+      ? ''
+      : `<text x="${x + width / 2}" y="${textY}" text-anchor="middle" fill="${INK_COLOR}" ` +
+        `font-size="${BARCODE_TEXT_FONT_SIZE_DOTS}" font-family="${MONOSPACE_FONT_FAMILY}">` +
+        `${escapeXml(options.content)}</text>`;
+
+  return [
+    `<defs><pattern id="${patternId}" width="${moduleWidth * 2}" height="${height}" patternUnits="userSpaceOnUse">`,
+    `<rect width="${moduleWidth}" height="${height}" fill="${INK_COLOR}"/>`,
+    '</pattern></defs>',
+    `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${patternId})"/>`,
+    label,
+  ].join('');
+}
+
+function renderQrCodeElement(element: Extract<PrintElement, { type: 'qrcode' }>): string {
+  const options = element.options;
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const cell = options.cellWidth ?? DEFAULT_QR_CELL_WIDTH_DOTS;
+  const size = QR_PLACEHOLDER_MODULES * cell;
+  const finder = QR_FINDER_MODULES * cell;
+  const textY = y + size + QR_TEXT_OFFSET_DOTS;
+
+  return [
+    `<rect x="${x}" y="${y}" width="${size}" height="${size}" ` +
+      `fill="${PAPER_COLOR}" stroke="${INK_COLOR}" stroke-width="${cell}"/>`,
+    `<rect x="${x}" y="${y}" width="${finder}" height="${finder}" fill="${INK_COLOR}"/>`,
+    `<rect x="${x + size - finder}" y="${y}" width="${finder}" height="${finder}" fill="${INK_COLOR}"/>`,
+    `<rect x="${x}" y="${y + size - finder}" width="${finder}" height="${finder}" fill="${INK_COLOR}"/>`,
+    `<text x="${x + size / 2}" y="${textY}" text-anchor="middle" fill="${INK_COLOR}" ` +
+      `font-size="${QR_TEXT_FONT_SIZE_DOTS}" font-family="${MONOSPACE_FONT_FAMILY}">` +
+      `${escapeXml(options.content)}</text>`,
+  ].join('');
+}
+
+function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): string {
+  const { options } = element;
+  const x = options.x ?? 0;
+  const y = options.y ?? 0;
+  const rowHeight = resolveFontSizeDots(undefined, 1, undefined);
+  validateTableColumns(options.columns);
+  const totalWidth = options.columns.reduce((sum, column) => sum + column.width, 0);
+  const rowBaselineOffset = rowHeight * TABLE_ROW_BASELINE_RATIO;
+
+  return formatTable(options.columns, options.rows, totalWidth)
+    .map((line, index) => {
+      const rowY = y + index * rowHeight + rowBaselineOffset;
+      return (
+        `<text x="${x}" y="${rowY}" fill="${INK_COLOR}" font-size="${rowHeight}" ` +
+        `font-family="${MONOSPACE_FONT_FAMILY}">${escapeXml(line)}</text>`
+      );
+    })
+    .join('');
+}
 
 function renderElement(element: PrintElement): string {
   switch (element.type) {
-    case 'text': {
-      const o = element.options ?? {};
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const fs = zplFontSize(o.font, o.size, o.yScale);
-      const baseline = zplBaselineRatio(o.font);
-      const fontFamily = zplFontFamily(o.font);
-      const weight = o.bold ? 'bold' : 'normal';
-      const transform = o.rotation ? ` transform="rotate(${o.rotation} ${x} ${y})"` : '';
-
-      let anchor = '';
-      let textX = x;
-      if (o.maxWidth && o.align === 'center') {
-        anchor = ' text-anchor="middle"';
-        textX = x + o.maxWidth / 2;
-      } else if (o.maxWidth && o.align === 'right') {
-        anchor = ' text-anchor="end"';
-        textX = x + o.maxWidth;
-      }
-
-      const fill = o.reverse ? '#fff' : '#000';
-      const svgY = Math.round((y + fs * baseline) * 100) / 100;
-      return `<text x="${textX}" y="${svgY}" fill="${fill}" font-size="${fs}" font-weight="${weight}" font-family="${fontFamily}"${anchor}${transform}>${escapeXml(element.content)}</text>`;
-    }
-
-    case 'image': {
-      const o = element.options ?? {};
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const bmp = element.bitmap;
-      const w = o.width ?? bmp.width;
-      const h = o.height ?? bmp.height;
-      const step = Math.max(1, Math.floor(Math.max(bmp.width, bmp.height) / IMAGE_PREVIEW_MAX_SAMPLES));
-      const sx = w / bmp.width;
-      const sy = h / bmp.height;
-      let svg = '';
-      for (let py = 0; py < bmp.height; py += step) {
-        for (let px = 0; px < bmp.width; px += step) {
-          const byteIdx = py * bmp.bytesPerRow + Math.floor(px / 8);
-          const bitIdx = 7 - (px % 8);
-          // eslint-disable-next-line no-bitwise -- reading one packed pixel bit, per Bitmap's MSB-first convention
-          if ((bmp.data[byteIdx] >> bitIdx) & 1) {
-            svg += `<rect x="${x + px * sx}" y="${y + py * sy}" width="${step * sx}" height="${step * sy}" fill="#000"/>`;
-          }
-        }
-      }
-      return svg;
-    }
-
-    case 'box': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      const rx = o.radius ?? 0;
-      // ZPL's ^GB fills solid once thickness reaches the shorter side, and always draws its border inward from the box's own edge.
-      if (t >= Math.min(o.width, o.height)) {
-        return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#000" rx="${rx}"/>`;
-      }
-      return `<rect x="${o.x + t / 2}" y="${o.y + t / 2}" width="${o.width - t}" height="${o.height - t}" fill="none" stroke="#000" stroke-width="${t}" rx="${rx}"/>`;
-    }
-
-    // Axis-aligned only — a genuinely diagonal line is the separate
-    // `'diagonal'` case below, same split `ZplCompiler.ts`'s `'line'`/
-    // `'diagonal'` cases use.
-    case 'line': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      if (o.y1 === o.y2) {
-        return `<rect x="${Math.min(o.x1, o.x2)}" y="${o.y1}" width="${Math.abs(o.x2 - o.x1)}" height="${t}" fill="#000"/>`;
-      }
-      if (o.x1 === o.x2) {
-        return `<rect x="${o.x1}" y="${Math.min(o.y1, o.y2)}" width="${t}" height="${Math.abs(o.y2 - o.y1)}" fill="#000"/>`;
-      }
-      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    case 'diagonal': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      return `<line x1="${o.x1}" y1="${o.y1}" x2="${o.x2}" y2="${o.y2}" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    case 'circle': {
-      const o = element.options;
-      const t = o.thickness ?? 1;
-      const r = o.diameter / 2;
-      if (t >= r) return `<circle cx="${o.x + r}" cy="${o.y + r}" r="${r}" fill="#000"/>`;
-      return `<circle cx="${o.x + r}" cy="${o.y + r}" r="${r - t / 2}" fill="none" stroke="#000" stroke-width="${t}"/>`;
-    }
-
-    // No native ZPL command for an ellipse outline or a standalone
-    // reverse-print region — documented no-op, matching portakal's own
-    // `renderElement()` (which returns `""` for both).
+    case 'text':
+      return renderTextElement(element);
+    case 'image':
+      return renderImageElement(element);
+    case 'box':
+      return renderBoxElement(element);
+    case 'line':
+      return renderLineElement(element);
+    case 'diagonal':
+      return renderDiagonalElement(element);
+    case 'circle':
+      return renderCircleElement(element);
+    // ZPL không có lệnh vẽ ellipse hay vùng reverse-print độc lập — no-op.
     case 'ellipse':
     case 'reverse':
       return '';
-
     case 'erase': {
-      const o = element.options;
-      return `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="#fff"/>`;
+      const { options } = element;
+      return (
+        `<rect x="${options.x}" y="${options.y}" width="${options.width}" ` +
+        `height="${options.height}" fill="${PAPER_COLOR}"/>`
+      );
     }
-
-    // `raw` carries opaque ZPL text (e.g. a barcode field `ZplParser` scraped
-    // back from the compiled stream, since barcode/qrcode have no dedicated
-    // parse-side element shape) — no structured fields to render from.
+    // `raw` chứa text ZPL thô, không có field cấu trúc để render.
     case 'raw':
       return '';
-
-    // Real, structured rendering — unlike `TscPreviewRenderer`'s barcode/
-    // qrcode cases (TSC's own portakal preview never renders barcodes at
-    // all), portakal's ZPL preview *does* render a barcode placeholder, by
-    // regex-scraping a raw ZPL string. `ZplCompiler` gives barcode/qrcode
-    // their own structured `PrintElement` shape instead of stuffing them
-    // into `raw`, so the same striped/finder-pattern placeholder visuals are
-    // rendered directly from that structured config here — no scraping
-    // needed.
-    case 'barcode': {
-      const c = element.options;
-      const x = c.x ?? 0;
-      const y = c.y ?? 0;
-      const height = c.height ?? 50;
-      const moduleWidth = c.narrowBarWidth ?? 2;
-      const width = (c.content.length + BARCODE_QUIET_CHARS) * BARCODE_MODULES_PER_CHAR * moduleWidth + BARCODE_FRAME_MODULES * moduleWidth;
-      const patternId = `zpl-barcode-${x}-${y}`;
-      const textY = y + height + BARCODE_TEXT_OFFSET;
-      const label =
-        c.readable === false
-          ? ''
-          : `<text x="${x + width / 2}" y="${textY}" text-anchor="middle" fill="#000" font-size="${BARCODE_TEXT_FONT_SIZE}" font-family="monospace">${escapeXml(c.content)}</text>`;
-      return [
-        `<defs><pattern id="${patternId}" width="${moduleWidth * 2}" height="${height}" patternUnits="userSpaceOnUse">`,
-        `<rect width="${moduleWidth}" height="${height}" fill="#000"/>`,
-        '</pattern></defs>',
-        `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${patternId})"/>`,
-        label,
-      ].join('');
-    }
-
-    case 'qrcode': {
-      const c = element.options;
-      const x = c.x ?? 0;
-      const y = c.y ?? 0;
-      const cell = c.cellWidth ?? 4;
-      const size = QR_PLACEHOLDER_MODULES * cell;
-      const finder = QR_FINDER_MODULES * cell;
-      const textY = y + size + QR_TEXT_OFFSET;
-      return [
-        `<rect x="${x}" y="${y}" width="${size}" height="${size}" fill="#fff" stroke="#000" stroke-width="${cell}"/>`,
-        `<rect x="${x}" y="${y}" width="${finder}" height="${finder}" fill="#000"/>`,
-        `<rect x="${x + size - finder}" y="${y}" width="${finder}" height="${finder}" fill="#000"/>`,
-        `<rect x="${x}" y="${y + size - finder}" width="${finder}" height="${finder}" fill="#000"/>`,
-        `<text x="${x + size / 2}" y="${textY}" text-anchor="middle" fill="#000" font-size="${QR_TEXT_FONT_SIZE}" font-family="monospace">${escapeXml(c.content)}</text>`,
-      ].join('');
-    }
-
-    // No visual representation on the label itself — `cut` is a post-print
-    // printer action, and the other 4 are documented no-ops in
-    // `ZplCompiler` too (no auto-layout primitive), per the design spec.
+    case 'barcode':
+      return renderBarcodeElement(element);
+    case 'qrcode':
+      return renderQrCodeElement(element);
+    // Không có biểu diễn hình ảnh trên tem: cut là hành động sau khi in;
+    // pageBreak/spacer/row/column không render ở đây (cũng là no-op ở
+    // ZplCompiler).
     case 'cut':
     case 'pageBreak':
     case 'spacer':
     case 'row':
     case 'column':
       return '';
-
-    // Real behavior: format the rows into text lines via the shared
-    // `formatTable()` (same helper `ZplCompiler`'s `'table'` case uses),
-    // then render each line as its own `<text>`, stacked one default-font
-    // row height apart starting at the table's y.
-    case 'table': {
-      const o = element.options;
-      const x = o.x ?? 0;
-      const y = o.y ?? 0;
-      const rowHeight = zplFontSize(undefined, 1);
-      validateTableColumns(o.columns);
-      const totalWidth = o.columns.reduce((sum, column) => sum + column.width, 0);
-      const lines = formatTable(o.columns, o.rows, totalWidth);
-      return lines
-        .map((line, i) => `<text x="${x}" y="${y + i * rowHeight + rowHeight * 0.85}" fill="#000" font-size="${rowHeight}" font-family="monospace">${escapeXml(line)}</text>`)
-        .join('');
-    }
+    case 'table':
+      return renderTableElement(element);
   }
 }
 
-const CANVAS_PADDING = 10;
-const DEFAULT_CANVAS_HEIGHT = 1218; // 6in @ 203dpi — matches portakal's own preview fallback.
-
-/** Renders a ZPL document preview as an SVG, using ZPL's own font metrics and `^GFA` bit-per-pixel model. */
+/** Render preview ZPL thành SVG, dùng đúng bảng font và mô hình bit-per-pixel `^GFA` của ZPL. */
 export class ZplPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {
-    const w = document.widthDots;
-    const h = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT;
-    const pad = CANVAS_PADDING;
-    const svgW = w + pad * 2;
-    const svgH = h + pad * 2;
+    const documentWidth = document.widthDots;
+    const documentHeight = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT_DOTS;
+    const svgWidth = documentWidth + CANVAS_PADDING_DOTS * 2;
+    const svgHeight = documentHeight + CANVAS_PADDING_DOTS * 2;
 
-    let els = '';
-    for (const element of document.elements) els += renderElement(element);
+    let renderedElements = '';
+    for (const element of document.elements) renderedElements += renderElement(element);
+
+    const caption = `${documentWidth}×${documentHeight} dots (${document.dpi} DPI) — ZPL`;
 
     return [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}">`,
-      `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#f5f5f4" rx="4"/>`,
-      `<rect x="${pad}" y="${pad}" width="${w}" height="${h}" fill="#fff" stroke="#e5e5e5" stroke-width="1" rx="2"/>`,
-      `<g transform="translate(${pad},${pad})">`,
-      els,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" ` +
+        `width="${svgWidth}" height="${svgHeight}">`,
+      `<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="${CANVAS_BACKGROUND_COLOR}" rx="4"/>`,
+      `<rect x="${CANVAS_PADDING_DOTS}" y="${CANVAS_PADDING_DOTS}" ` +
+        `width="${documentWidth}" height="${documentHeight}" ` +
+        `fill="${PAPER_COLOR}" stroke="${CANVAS_BORDER_COLOR}" stroke-width="1" rx="2"/>`,
+      `<g transform="translate(${CANVAS_PADDING_DOTS},${CANVAS_PADDING_DOTS})">`,
+      renderedElements,
       '</g>',
-      `<text x="${svgW / 2}" y="${svgH - 1}" text-anchor="middle" fill="#a1a1aa" font-size="8" font-family="monospace">${w}×${h} dots (${document.dpi} DPI) — ZPL</text>`,
+      `<text x="${svgWidth / 2}" y="${svgHeight - 1}" text-anchor="middle" fill="${CAPTION_COLOR}" font-size="8" ` +
+        `font-family="${MONOSPACE_FONT_FAMILY}">${caption}</text>`,
       '</svg>',
     ].join('\n');
   }
