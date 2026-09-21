@@ -1,4 +1,4 @@
-import type { Rotation } from '../types/Rotation';
+import type { Rotation } from '../../types/Rotation';
 import type { BarcodeSymbology } from './BarcodeType';
 
 /**

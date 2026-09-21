@@ -1,4 +1,4 @@
-import type { Rotation } from '../types/Rotation';
+import type { Rotation } from '../../types/Rotation';
 import type { QrErrorCorrectionLevel } from './QrCodeErrorCorrection';
 
 /**

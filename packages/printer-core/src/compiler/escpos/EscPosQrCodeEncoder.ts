@@ -1,4 +1,4 @@
-import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../qrcode';
+import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
 /**

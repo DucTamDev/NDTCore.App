@@ -1,8 +1,8 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../builder';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
-import type { BarcodeSymbology } from '../../barcode';
-import type { QrErrorCorrectionLevel } from '../../qrcode';
+import type { BarcodeSymbology } from '../../symbology/barcode';
+import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
 import type { TextOptions } from '../../builder/content/TextElement';
 import type { LineOptions } from '../../builder/drawing/LineElement';

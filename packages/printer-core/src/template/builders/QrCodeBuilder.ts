@@ -1,7 +1,7 @@
 import { NodeBuilder } from './NodeBuilder';
 import type { BuildContext } from './BuildContext';
 import type { QrCodeNode } from '../nodes/QrCodeNode';
-import type { QrErrorCorrectionLevel } from '../../qrcode';
+import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 
 type QrContent = { readonly kind: 'literal'; readonly value: string } | { readonly kind: 'binding'; readonly path: string };
 

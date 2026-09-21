@@ -1,4 +1,4 @@
-import type { BarcodeConfig, BarcodeSymbology } from '../../barcode';
+import type { BarcodeConfig, BarcodeSymbology } from '../../symbology/barcode';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
 /**

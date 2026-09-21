@@ -1,6 +1,6 @@
 import type { TemplateNodeBase } from './TemplateNodeBase';
 import type { BoxStyle } from '../style/BoxStyle';
-import type { BarcodeSymbology } from '../../barcode';
+import type { BarcodeSymbology } from '../../symbology/barcode';
 
 export interface BarcodeNode extends TemplateNodeBase {
   readonly type: 'barcode';

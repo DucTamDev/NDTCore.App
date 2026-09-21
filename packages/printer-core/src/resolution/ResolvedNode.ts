@@ -1,8 +1,8 @@
 import type { LayoutStyle } from '../template/style/LayoutStyle';
 import type { BoxStyle } from '../template/style/BoxStyle';
 import type { TextStyle } from '../template/style/TextStyle';
-import type { BarcodeSymbology } from '../barcode';
-import type { QrErrorCorrectionLevel } from '../qrcode';
+import type { BarcodeSymbology } from '../symbology/barcode';
+import type { QrErrorCorrectionLevel } from '../symbology/qrcode';
 import type { Bitmap } from '../types';
 
 export type ResolvedNode = ResolvedContainer | ResolvedText | ResolvedLine | ResolvedBarcode | ResolvedQrCode | ResolvedImage;

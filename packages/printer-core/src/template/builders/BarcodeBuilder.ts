@@ -1,7 +1,7 @@
 import { NodeBuilder } from './NodeBuilder';
 import type { BuildContext } from './BuildContext';
 import type { BarcodeNode } from '../nodes/BarcodeNode';
-import type { BarcodeSymbology } from '../../barcode';
+import type { BarcodeSymbology } from '../../symbology/barcode';
 
 type BarcodeContent = { readonly kind: 'literal'; readonly value: string } | { readonly kind: 'binding'; readonly path: string };
 

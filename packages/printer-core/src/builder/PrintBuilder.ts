@@ -1,7 +1,7 @@
 import type { Bitmap } from '../types';
 import type { PrintElement } from './PrintElement';
-import type { BarcodeConfig } from '../barcode';
-import type { QrCodeConfig } from '../qrcode';
+import type { BarcodeConfig } from '../symbology/barcode';
+import type { QrCodeConfig } from '../symbology/qrcode';
 import type { TextOptions } from './content/TextElement';
 import type { ImageOptions } from './content/ImageElement';
 import type { BoxOptions } from './drawing/BoxElement';
