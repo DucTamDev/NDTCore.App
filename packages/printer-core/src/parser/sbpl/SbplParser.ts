@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 /** One decoded SBPL command: its recognized type tag and the raw text it carried, matching portakal's `{cmd, params}` shape in `parsers/sbpl.ts`. */
 export interface SBPLCommand {

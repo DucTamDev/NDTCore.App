@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 /** One decoded IPL command: its recognized type tag and the raw params text it was matched from, matching portakal's `{type, params}` shape in `parsers/ipl.ts`. */
 export interface IPLCommand {

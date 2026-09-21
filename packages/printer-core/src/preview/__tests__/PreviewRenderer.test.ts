@@ -1,6 +1,6 @@
 import { renderPreview } from '../PreviewRenderer';
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
   widthDots: 320,

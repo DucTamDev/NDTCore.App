@@ -2,7 +2,7 @@ import type { ResolvedNode } from '../resolution/ResolvedNode';
 import type { LayoutConfig } from './LayoutConfig';
 import type { TypographyProfile, FontScaleLevel } from './TypographyProfile';
 import type { FontMetrics } from './FontMetrics';
-import type { PrintElement } from '../builder';
+import type { PrintElement } from '../document/elements/PrintElement';
 import type { TextStyle } from '../template/style/TextStyle';
 
 interface Position { readonly x: number; readonly y: number; }

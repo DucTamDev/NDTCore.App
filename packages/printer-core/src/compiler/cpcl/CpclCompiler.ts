@@ -1,5 +1,5 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';

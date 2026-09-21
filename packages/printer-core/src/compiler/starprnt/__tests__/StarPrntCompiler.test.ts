@@ -1,5 +1,5 @@
 import { StarPrntCompiler } from '../StarPrntCompiler';
-import type { PrintElement } from '../../../builder';
+import type { PrintElement } from '../../../document/elements/PrintElement';
 import { STAR_PROFILES } from '../../../profile';
 
 const BASE = { widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward' as const, copies: 1 };

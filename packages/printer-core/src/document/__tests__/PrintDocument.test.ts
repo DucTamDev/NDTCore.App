@@ -1,4 +1,4 @@
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../elements/PrintElement';
 import type { ResolvedPrintDocument } from '../index';
 
 describe('PrintDocument element union', () => {

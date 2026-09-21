@@ -1,7 +1,7 @@
 import { EscPosCompiler } from '../EscPosCompiler';
 import { EscPosParser } from '../../../parser/escpos/EscPosParser';
 import type { EscPosParsedCommand } from '../../../parser/escpos/EscPosParser';
-import type { PrintElement } from '../../../builder';
+import type { PrintElement } from '../../../document/elements/PrintElement';
 
 /** Whether `needle` occurs as a contiguous run inside `haystack` — avoids relying on Node's `Buffer` global. */
 function containsSubsequence(haystack: Uint8Array, needle: Uint8Array): boolean {

@@ -1,4 +1,4 @@
-import type { Unit } from '../types';
+import type { Unit } from '../../../types';
 
 /** A single parsed markup tag. */
 export interface ParsedTag {

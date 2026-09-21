@@ -1,4 +1,4 @@
-import type { PrintElement } from '../builder';
+import type { PrintElement } from '../document/elements/PrintElement';
 
 /**
  * Result of converting printer source code from one `PrinterLanguage` to

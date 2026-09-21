@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 /** One decoded DPL command: its recognized type tag and the raw text it was matched from, matching portakal's `{type, params}` shape in `parsers/dpl.ts`. */
 export interface DPLCommand {

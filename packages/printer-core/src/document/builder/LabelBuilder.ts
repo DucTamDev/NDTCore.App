@@ -1,5 +1,6 @@
-import type { PrintDocument, ResolvedPrintDocument } from '../document';
-import type { Unit } from '../types';
+import type { PrintDocument } from '../PrintDocument';
+import type { ResolvedPrintDocument } from '../ResolvedPrintDocument';
+import type { Unit } from '../../types';
 import { PrintBuilder } from './PrintBuilder';
 
 /**

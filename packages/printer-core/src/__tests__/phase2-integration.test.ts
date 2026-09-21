@@ -1,4 +1,4 @@
-import { LabelBuilder } from '../builder/LabelBuilder';
+import { LabelBuilder } from '../document/builder/LabelBuilder';
 import { TscCompiler } from '../compiler/tsc/TscCompiler';
 import { TscParser } from '../parser/tsc/TscParser';
 import { TscValidator } from '../validation/tsc/TscValidator';

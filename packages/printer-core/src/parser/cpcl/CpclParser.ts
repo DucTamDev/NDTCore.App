@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 /**
  * One decoded CPCL command: its verb and the raw whitespace-split tokens

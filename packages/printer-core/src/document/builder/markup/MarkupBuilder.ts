@@ -5,9 +5,9 @@
  * `reverse`, `erase`, `raw`) maps 1:1 to the matching `PrintBuilder` method.
  */
 
-import type { PrintDocument } from '../document';
-import type { Alignment, Rotation } from '../types';
-import { label, LabelBuilder } from '../builder';
+import type { PrintDocument } from '../../PrintDocument';
+import type { Alignment, Rotation } from '../../../types';
+import { label, LabelBuilder } from '../LabelBuilder';
 import { parseAttrs, getUnit, parseUnitValue } from './MarkupParser';
 
 /** Build a chained `LabelBuilder` call from a `<label>` markup string. */

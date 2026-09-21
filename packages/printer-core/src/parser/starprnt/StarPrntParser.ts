@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 
 /** One decoded Star Line Mode command: its mnemonic name and raw bytes. */
 export interface StarPrntParsedCommand {

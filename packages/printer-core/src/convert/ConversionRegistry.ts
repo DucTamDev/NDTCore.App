@@ -1,7 +1,7 @@
 import type { PrinterLanguage } from '../core/PrinterLanguage';
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
-import type { PrintElement } from '../builder';
+import type { PrintElement } from '../document/elements/PrintElement';
 import { parseTSPL } from '../parser/tsc/TscParser';
 import { TscCompiler } from '../compiler/tsc/TscCompiler';
 import { parseZPL } from '../parser/zpl/ZplParser';

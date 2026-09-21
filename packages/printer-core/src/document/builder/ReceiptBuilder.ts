@@ -1,4 +1,5 @@
-import type { PrintDocument, ResolvedPrintDocument } from '../document';
+import type { PrintDocument } from '../PrintDocument';
+import type { ResolvedPrintDocument } from '../ResolvedPrintDocument';
 import { PrintBuilder } from './PrintBuilder';
 import { LabelBuilder } from './LabelBuilder';
 

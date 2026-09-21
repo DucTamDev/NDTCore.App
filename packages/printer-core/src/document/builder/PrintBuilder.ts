@@ -1,21 +1,21 @@
-import type { Bitmap } from '../types';
-import type { PrintElement } from '../document/elements/PrintElement';
-import type { BarcodeConfig } from '../symbology/barcode';
-import type { QrCodeConfig } from '../symbology/qrcode';
-import type { TextOptions } from '../document/elements/content/TextElement';
-import type { ImageOptions } from '../document/elements/content/ImageElement';
-import type { BoxOptions } from '../document/elements/drawing/BoxElement';
-import type { LineOptions } from '../document/elements/drawing/LineElement';
-import { isDiagonal } from '../document/elements/drawing/DiagonalElement';
-import type { CircleOptions } from '../document/elements/drawing/CircleElement';
-import type { EllipseOptions } from '../document/elements/drawing/EllipseElement';
-import type { ReverseOptions } from '../document/elements/drawing/ReverseElement';
-import type { EraseOptions } from '../document/elements/drawing/EraseElement';
-import type { CutOptions } from '../document/elements/control/CutElement';
-import type { TableOptions } from '../document/elements/layout/TableElement';
-import type { SpacerOptions } from '../document/elements/layout/SpacerElement';
-import type { RowOptions } from '../document/elements/layout/RowElement';
-import type { ColumnOptions } from '../document/elements/layout/ColumnElement';
+import type { Bitmap } from '../../types';
+import type { PrintElement } from '../elements/PrintElement';
+import type { BarcodeConfig } from '../../symbology/barcode';
+import type { QrCodeConfig } from '../../symbology/qrcode';
+import type { TextOptions } from '../elements/content/TextElement';
+import type { ImageOptions } from '../elements/content/ImageElement';
+import type { BoxOptions } from '../elements/drawing/BoxElement';
+import type { LineOptions } from '../elements/drawing/LineElement';
+import { isDiagonal } from '../elements/drawing/DiagonalElement';
+import type { CircleOptions } from '../elements/drawing/CircleElement';
+import type { EllipseOptions } from '../elements/drawing/EllipseElement';
+import type { ReverseOptions } from '../elements/drawing/ReverseElement';
+import type { EraseOptions } from '../elements/drawing/EraseElement';
+import type { CutOptions } from '../elements/control/CutElement';
+import type { TableOptions } from '../elements/layout/TableElement';
+import type { SpacerOptions } from '../elements/layout/SpacerElement';
+import type { RowOptions } from '../elements/layout/RowElement';
+import type { ColumnOptions } from '../elements/layout/ColumnElement';
 
 /**
  * Base class shared by `LabelBuilder` and `ReceiptBuilder` — holds the

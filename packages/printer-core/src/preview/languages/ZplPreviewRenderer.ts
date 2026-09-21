@@ -1,5 +1,5 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../builder';
+import type { PrintElement } from '../../document/elements/PrintElement';
 import type { PrintPreview } from '../../core';
 import { formatTable, validateTableColumns } from '../../formatting';
 
