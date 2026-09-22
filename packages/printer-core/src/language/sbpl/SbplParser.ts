@@ -1,16 +1,11 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
 
-/**
- * Một lệnh SBPL đã giải mã: tag loại nhận diện được cùng phần text thô nó
- * mang, khớp shape `{cmd, params}` của portakal trong `parsers/sbpl.ts`.
- */
 export interface SBPLCommand {
   cmd: string;
   params: string;
 }
 
-/** Kết quả đầy đủ của việc parse một chuỗi nguồn SBPL. */
 export interface SBPLParseResult {
   commands: SBPLCommand[];
   elements: PrintElement[];
@@ -24,10 +19,6 @@ const COMMAND_FIELD_DIGITS = 4;
 /** Độ dài tiền tố font trong lệnh text `K9B` (chính là `'9B'.length`). */
 const TEXT_FIELD_PREFIX_LENGTH = 2;
 
-/**
- * Kết quả giải mã lệnh `K9B` — vừa là bản ghi lệnh thô, vừa là `PrintElement`
- * tương ứng tại vị trí đang theo dõi.
- */
 interface ParsedTextField {
   command: SBPLCommand;
   element: PrintElement;
@@ -47,18 +38,12 @@ function parseTextField(rest: string, x: number, y: number): ParsedTextField {
 }
 
 /**
- * Parse mã nguồn SBPL của SATO thành các lệnh có cấu trúc cộng với khôi phục
- * `PrintElement` — port trực tiếp từ `parseSBPL()` của portakal
- * (`parsers/sbpl.ts`). Grammar của SBPL không có cấu trúc dòng để tách (khác
- * với các lệnh phân tách bằng newline của CPCL/EPL2) — mọi trường đều có tiền
- * tố `<ESC>` và nối liền nhau, nên parser này tách theo chính ký tự điều
- * khiển `ESC` rồi switch theo chữ cái đầu của mỗi đoạn. Chỉ `H`/`V` (theo dõi
- * làm trạng thái vị trí hiện tại) và `K9B` (trường text, dựng thành element
- * `text` tại vị trí đang theo dõi) được đưa vào `elements` — mọi trường nhận
- * diện được khác (`FW` draw, `GM` graphics, các trường barcode tiền tố
- * `B`/`D`/`2D`, `Q` quantity) vẫn được ghi vào `commands` nhưng cố tình không
- * dựng thành element, một giới hạn có sẵn trong chính parser của portakal,
- * không phải lỗi port.
+ * Grammar của SBPL không có cấu trúc dòng để tách (khác CPCL/EPL2 phân tách
+ * bằng newline) — mọi trường đều có tiền tố `<ESC>` nối liền nhau, nên parser
+ * này tách theo chính ký tự điều khiển `ESC` rồi switch theo chữ cái đầu của
+ * mỗi đoạn. Chỉ `H`/`V` (theo dõi vị trí hiện tại) và `K9B` (trường text)
+ * được dựng thành `elements`; các trường nhận diện được khác vẫn ghi vào
+ * `commands` nhưng không có `PrintElement` tương ứng.
  */
 export function parseSBPL(code: string): SBPLParseResult {
   const commands: SBPLCommand[] = [];
@@ -91,13 +76,11 @@ export function parseSBPL(code: string): SBPLParseResult {
         break;
 
       case 'H':
-        // Trường toạ độ X luôn là 4 chữ số ngay sau chữ cái lệnh.
         currentX = Number(rest.slice(0, COMMAND_FIELD_DIGITS)) || 0;
         commands.push({ cmd: 'H', params: rest.slice(0, COMMAND_FIELD_DIGITS) });
         break;
 
       case 'V':
-        // Cùng hình dạng 4 chữ số như 'H', nhưng theo dõi riêng cho trục Y.
         currentY = Number(rest.slice(0, COMMAND_FIELD_DIGITS)) || 0;
         commands.push({ cmd: 'V', params: rest.slice(0, COMMAND_FIELD_DIGITS) });
         break;

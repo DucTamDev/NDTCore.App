@@ -1,10 +1,5 @@
 /**
- * Các hằng số ký tự lệnh của ngôn ngữ máy in SBPL (SATO), đều có tiền tố
- * `<ESC>` (0x1B) — được switch `compileElement()` của `SbplCompiler` và các
- * lệnh thiết lập phiên mà `compileToSBPL()` ghi trước mỗi element sử dụng.
- * Trích xuất từ các chuỗi literal mà `languages/sbpl.ts` của portakal viết
- * trực tiếp trong code, cùng kiểu trích xuất-không-thêm-logic-mới như
- * `CpclCommand.ts`/`DplCommand.ts`.
+ * Hằng số ký tự lệnh SBPL (SATO). Mọi lệnh đều có tiền tố `<ESC>` (0x1B).
  */
 export const SBPL_COMMAND = {
   ESC: '\x1b',
