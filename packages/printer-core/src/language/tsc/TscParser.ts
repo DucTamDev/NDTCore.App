@@ -3,11 +3,11 @@ import type { PrintElement } from '../../document/elements/PrintElement';
 import type { Rotation } from '../../types';
 
 /**
- * Every TSPL/TSPL2 command this parser recognizes, ported from portakal's
- * `parsers/tsc.ts` field-for-field against TSC's vendor command reference.
- * Several fields (e.g. `BLOCK`'s `space`/`align`/`fit`) are declared here
- * because the command grammar supports them, but the parser below doesn't
- * currently populate them — same gap as upstream.
+ * Mọi lệnh TSPL/TSPL2 mà parser này nhận diện được, port lại từng field một
+ * từ `parsers/tsc.ts` của portakal đối chiếu với tài liệu tham chiếu lệnh
+ * của TSC. Một số field (vd. `space`/`align`/`fit` của `BLOCK`) được khai
+ * báo ở đây vì ngữ pháp lệnh có hỗ trợ, nhưng parser bên dưới hiện chưa đọc
+ * chúng — cùng khoảng trống với bản gốc upstream.
  */
 export type TSPLCommand =
   | { cmd: 'SIZE'; widthMM: number; heightMM: number; unit: 'mm' | 'inch' | 'dot' }
@@ -69,7 +69,15 @@ export type TSPLCommand =
   | { cmd: 'BOX'; x: number; y: number; xEnd: number; yEnd: number; thickness: number; radius?: number }
   | { cmd: 'CIRCLE'; x: number; y: number; diameter: number; thickness: number }
   | { cmd: 'ELLIPSE'; x: number; y: number; width: number; height: number; thickness: number }
-  | { cmd: 'CODABLOCK'; x: number; y: number; rotation: number; rowHeight?: number; moduleWidth?: number; content: string }
+  | {
+      cmd: 'CODABLOCK';
+      x: number;
+      y: number;
+      rotation: number;
+      rowHeight?: number;
+      moduleWidth?: number;
+      content: string;
+    }
   | {
       cmd: 'DMATRIX';
       x: number;
@@ -86,7 +94,16 @@ export type TSPLCommand =
     }
   | { cmd: 'ERASE'; x: number; y: number; width: number; height: number }
   | { cmd: 'MAXICODE'; x: number; y: number; mode: number; params: string; content: string }
-  | { cmd: 'PDF417'; x: number; y: number; width: number; height: number; rotation: number; options: string[]; content: string }
+  | {
+      cmd: 'PDF417';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation: number;
+      options: string[];
+      content: string;
+    }
   | {
       cmd: 'AZTEC';
       x: number;
@@ -129,7 +146,17 @@ export type TSPLCommand =
     }
   | { cmd: 'REVERSE'; x: number; y: number; width: number; height: number }
   | { cmd: 'DIAGONAL'; x1: number; y1: number; x2: number; y2: number; thickness: number }
-  | { cmd: 'TEXT'; x: number; y: number; font: string; rotation: number; xMul: number; yMul: number; alignment?: number; content: string }
+  | {
+      cmd: 'TEXT';
+      x: number;
+      y: number;
+      font: string;
+      rotation: number;
+      xMul: number;
+      yMul: number;
+      alignment?: number;
+      content: string;
+    }
   | {
       cmd: 'BLOCK';
       x: number;
@@ -189,7 +216,7 @@ export type TSPLCommand =
   | { cmd: 'GETSETTING'; params: string }
   | { cmd: 'UNKNOWN'; raw: string };
 
-/** Full result of parsing a TSPL/TSPL2 source string. */
+/** Toàn bộ kết quả parse một chuỗi nguồn TSPL/TSPL2. */
 export interface TSPLParseResult {
   commands: TSPLCommand[];
   widthDots: number;
@@ -215,50 +242,752 @@ function toDotsFromUnit(value: number, unit: 'mm' | 'inch' | 'dot', dpi: number)
   return Math.round(value * dpi);
 }
 
-function splitParams(s: string): string[] {
+function splitParams(source: string): string[] {
   const params: string[] = [];
   let current = '';
   let inQuote = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch === '"') {
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index];
+    if (character === '"') {
       inQuote = !inQuote;
-      current += ch;
-    } else if (ch === ',' && !inQuote) {
+      current += character;
+    } else if (character === ',' && !inQuote) {
       params.push(current.trim());
       current = '';
     } else {
-      current += ch;
+      current += character;
     }
   }
   if (current.trim()) params.push(current.trim());
   return params;
 }
 
-function unquote(s: string): string {
-  if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1);
-  return s;
+function unquote(value: string): string {
+  if (value.startsWith('"') && value.endsWith('"')) return value.slice(1, -1);
+  return value;
 }
 
 /**
- * Normalizes an arbitrary parsed rotation number to a valid `Rotation`.
- * TSPL's `TEXT`/`BLOCK` rotation field is free-form text, so a malformed or
- * unusual document (e.g. a non-multiple-of-90 value, or non-numeric text
- * yielding `NaN`) must not be blindly asserted into the 4-value `Rotation`
- * type. Falls back to `0`, TSPL's own unrotated baseline.
+ * Chuẩn hoá một số rotation parse được thành `Rotation` hợp lệ. Trường
+ * rotation của `TEXT`/`BLOCK` trong TSPL là text tự do, nên một tài liệu dị
+ * dạng hoặc khác thường (vd. giá trị không phải bội số của 90, hoặc text
+ * không phải số cho ra `NaN`) không được assert thẳng vào kiểu `Rotation`
+ * chỉ có 4 giá trị. Rơi về `0` — giá trị gốc không xoay của TSPL.
  */
 function normalizeRotation(value: number): Rotation {
   return value === 90 || value === 180 || value === 270 ? value : 0;
 }
 
 /**
- * Parses TSPL/TSPL2 source into structured commands, one physical line at a
- * time. Several `startsWith` checks below only work because of the order
- * they run in (e.g. `GAP` before `GAPDETECT`'s own exclusion, `SET ` before
- * the later GPIO `SET GPO`/`SET GPI` checks, `DOWNLOAD` before the broader
- * `DO` check) — that order is preserved exactly as portakal's `parseTSPL()`
- * has it, since reordering would silently change which branch a line falls
- * into.
+ * Nhiều lệnh TSPL (`TEXT`, `BARCODE`, ...) có thể chèn thêm một trường
+ * alignment (0-3) tuỳ chọn ngay trước trường content cuối cùng, không có
+ * cách nào phân biệt ngoài thử đọc rồi kiểm tra xem nó có phải một số hợp lệ
+ * trong khoảng hay không. `baseIndex` là vị trí param đầu tiên có thể là
+ * alignment (nếu không, chính nó là content).
+ */
+function resolveTrailingAlignmentAndContent(
+  params: string[],
+  baseIndex: number,
+): { alignment?: number; content: string } {
+  if (params.length > baseIndex + 1) {
+    const possibleAlignment = Number(params[baseIndex]);
+    if (!Number.isNaN(possibleAlignment) && possibleAlignment >= 0 && possibleAlignment <= 3) {
+      return { alignment: possibleAlignment, content: unquote(params[baseIndex + 1]) };
+    }
+  }
+  return { content: unquote(params[baseIndex]) };
+}
+
+function parseSizeCommand(
+  line: string,
+  dpi: number,
+): { command: Extract<TSPLCommand, { cmd: 'SIZE' }>; widthDots: number; heightDots: number } | null {
+  const parts = line
+    .slice('SIZE'.length)
+    .trim()
+    .split(',')
+    .map((part) => part.trim());
+  if (parts.length < 2) return null;
+
+  const width = parseUnit(parts[0]);
+  const height = parseUnit(parts[1]);
+  return {
+    command: { cmd: 'SIZE', widthMM: width.value, heightMM: height.value, unit: width.unit },
+    widthDots: toDotsFromUnit(width.value, width.unit, dpi),
+    heightDots: toDotsFromUnit(height.value, height.unit, dpi),
+  };
+}
+
+function parseGapCommand(line: string): Extract<TSPLCommand, { cmd: 'GAP' }> | null {
+  const parts = line
+    .slice('GAP'.length)
+    .trim()
+    .split(',')
+    .map((part) => part.trim());
+  if (parts.length < 2) return null;
+
+  const distance = parseUnit(parts[0]);
+  const offset = parseUnit(parts[1]);
+  return { cmd: 'GAP', distanceMM: distance.value, offsetMM: offset.value, unit: distance.unit };
+}
+
+function parseGapDetectCommand(line: string): Extract<TSPLCommand, { cmd: 'GAPDETECT' }> {
+  const args = line.slice('GAPDETECT'.length).trim();
+  if (!args) return { cmd: 'GAPDETECT' };
+  const parts = args.split(',').map(Number);
+  return { cmd: 'GAPDETECT', paperLen: parts[0], gapLen: parts[1] };
+}
+
+function parseBlineDetectCommand(line: string): Extract<TSPLCommand, { cmd: 'BLINEDETECT' }> {
+  const args = line.slice('BLINEDETECT'.length).trim();
+  if (!args) return { cmd: 'BLINEDETECT' };
+  const parts = args.split(',').map(Number);
+  return { cmd: 'BLINEDETECT', paperLen: parts[0], gapLen: parts[1] };
+}
+
+function parseAutoDetectCommand(line: string): Extract<TSPLCommand, { cmd: 'AUTODETECT' }> {
+  const args = line.slice('AUTODETECT'.length).trim();
+  if (!args) return { cmd: 'AUTODETECT' };
+  const parts = args.split(',').map(Number);
+  return { cmd: 'AUTODETECT', paperLen: parts[0], gapLen: parts[1] };
+}
+
+function parseBlineCommand(line: string): Extract<TSPLCommand, { cmd: 'BLINE' }> | null {
+  const parts = line
+    .slice('BLINE'.length)
+    .trim()
+    .split(',')
+    .map((part) => part.trim());
+  if (parts.length < 2) return null;
+
+  const height = parseUnit(parts[0]);
+  const offset = parseUnit(parts[1]);
+  return { cmd: 'BLINE', height: height.value, offset: offset.value, unit: height.unit };
+}
+
+function parseOffsetCommand(line: string): Extract<TSPLCommand, { cmd: 'OFFSET' }> {
+  const offset = parseUnit(line.slice('OFFSET'.length).trim());
+  return { cmd: 'OFFSET', distance: offset.value, unit: offset.unit };
+}
+
+function parseSpeedCommand(line: string): Extract<TSPLCommand, { cmd: 'SPEED' }> {
+  return { cmd: 'SPEED', value: Number(line.slice('SPEED'.length).trim()) };
+}
+
+function parseDensityCommand(line: string): Extract<TSPLCommand, { cmd: 'DENSITY' }> {
+  return { cmd: 'DENSITY', value: Number(line.slice('DENSITY'.length).trim()) };
+}
+
+function parseDirectionCommand(line: string): Extract<TSPLCommand, { cmd: 'DIRECTION' }> {
+  const args = line
+    .slice('DIRECTION'.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  return {
+    cmd: 'DIRECTION',
+    direction: (args[0] ?? 0) as 0 | 1,
+    mirror: args.length > 1 ? (args[1] as 0 | 1) : undefined,
+  };
+}
+
+function parseReferenceCommand(line: string): Extract<TSPLCommand, { cmd: 'REFERENCE' }> {
+  const args = line
+    .slice('REFERENCE'.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  return { cmd: 'REFERENCE', x: args[0] ?? 0, y: args[1] ?? 0 };
+}
+
+function parseShiftCommand(line: string): Extract<TSPLCommand, { cmd: 'SHIFT' }> {
+  const args = line
+    .slice('SHIFT'.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length >= 2) return { cmd: 'SHIFT', x: args[0], y: args[1] };
+  return { cmd: 'SHIFT', y: args[0] ?? 0 };
+}
+
+function parseCountryCommand(line: string): Extract<TSPLCommand, { cmd: 'COUNTRY' }> {
+  return { cmd: 'COUNTRY', code: line.slice('COUNTRY'.length).trim() };
+}
+
+function parseCodepageCommand(line: string): Extract<TSPLCommand, { cmd: 'CODEPAGE' }> {
+  return { cmd: 'CODEPAGE', codepage: line.slice('CODEPAGE'.length).trim() };
+}
+
+function parseFeedCommand(line: string): Extract<TSPLCommand, { cmd: 'FEED' }> {
+  return { cmd: 'FEED', dots: Number(line.slice('FEED'.length).trim()) };
+}
+
+function parseBackfeedCommand(line: string): Extract<TSPLCommand, { cmd: 'BACKFEED' }> {
+  return { cmd: 'BACKFEED', dots: Number(line.slice('BACKFEED'.length).trim()) };
+}
+
+function parseBackupCommand(line: string): Extract<TSPLCommand, { cmd: 'BACKUP' }> {
+  return { cmd: 'BACKUP', dots: Number(line.slice('BACKUP'.length).trim()) };
+}
+
+function parsePrintCommand(line: string): Extract<TSPLCommand, { cmd: 'PRINT' }> {
+  const args = line
+    .slice('PRINT'.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  return { cmd: 'PRINT', sets: args[0] ?? 1, copies: args.length > 1 ? args[1] : undefined };
+}
+
+function parseSoundCommand(line: string): Extract<TSPLCommand, { cmd: 'SOUND' }> {
+  const args = line
+    .slice('SOUND'.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  return { cmd: 'SOUND', level: args[0] ?? 0, interval: args[1] ?? 1 };
+}
+
+function parseLimitFeedCommand(line: string): Extract<TSPLCommand, { cmd: 'LIMITFEED' }> {
+  const parts = line
+    .slice('LIMITFEED'.length)
+    .trim()
+    .split(',')
+    .map((part) => part.trim());
+  const main = parseUnit(parts[0]);
+  return {
+    cmd: 'LIMITFEED',
+    maxLen: main.value,
+    minPaper: parts.length > 1 ? Number(parts[1].replace(/\s*(mm|dot)/i, '')) : undefined,
+    maxGap: parts.length > 2 ? Number(parts[2].replace(/\s*(mm|dot)/i, '')) : undefined,
+    unit: main.unit,
+  };
+}
+
+function parseSelfTestCommand(line: string): Extract<TSPLCommand, { cmd: 'SELFTEST' }> {
+  const page = line.slice('SELFTEST'.length).trim();
+  return { cmd: 'SELFTEST', page: page || undefined };
+}
+
+function parseDelayCommand(line: string): Extract<TSPLCommand, { cmd: 'DELAY' }> {
+  return { cmd: 'DELAY', ms: Number(line.slice('DELAY'.length).trim()) };
+}
+
+function parseDisplayCommand(line: string): Extract<TSPLCommand, { cmd: 'DISPLAY' }> {
+  return { cmd: 'DISPLAY', params: line.slice('DISPLAY'.length).trim() };
+}
+
+function parseTextCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'TEXT' }>; element: PrintElement } | null {
+  const params = splitParams(line.slice('TEXT '.length).trim());
+  if (params.length < 7) return null;
+
+  const x = Number(params[0]);
+  const y = Number(params[1]);
+  const font = unquote(params[2]);
+  const rotation = Number(params[3]);
+  const xMul = Number(params[4]);
+  const yMul = Number(params[5]);
+  const { alignment, content } = resolveTrailingAlignmentAndContent(params, 6);
+
+  return {
+    command: { cmd: 'TEXT', x, y, font, rotation, xMul, yMul, alignment, content },
+    element: { type: 'text', content, options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul } },
+  };
+}
+
+function parseBlockCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'BLOCK' }>; element: PrintElement } | null {
+  const params = splitParams(line.slice('BLOCK '.length).trim());
+  if (params.length < 9) return null;
+
+  const x = Number(params[0]);
+  const y = Number(params[1]);
+  const width = Number(params[2]);
+  const height = Number(params[3]);
+  const font = unquote(params[4]);
+  const rotation = Number(params[5]);
+  const xMul = Number(params[6]);
+  const yMul = Number(params[7]);
+  const content = unquote(params[params.length - 1]);
+
+  return {
+    command: { cmd: 'BLOCK', x, y, width, height, font, rotation, xMul, yMul, content },
+    element: {
+      type: 'text',
+      content,
+      options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul, maxWidth: width },
+    },
+  };
+}
+
+function parseBarcodeCommand(line: string): Extract<TSPLCommand, { cmd: 'BARCODE' }> | null {
+  const params = splitParams(line.slice('BARCODE '.length).trim());
+  if (params.length < 9) return null;
+
+  const x = Number(params[0]);
+  const y = Number(params[1]);
+  const type = unquote(params[2]);
+  const height = Number(params[3]);
+  const readable = Number(params[4]);
+  const rotation = Number(params[5]);
+  const narrow = Number(params[6]);
+  const wide = Number(params[7]);
+  const { alignment, content } = resolveTrailingAlignmentAndContent(params, 8);
+
+  return { cmd: 'BARCODE', x, y, type, height, readable, rotation, narrow, wide, alignment, content };
+}
+
+function parseBarCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'BAR' }>; element: PrintElement } | null {
+  const args = line
+    .slice('BAR '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 4) return null;
+
+  const [x, y, width, height] = args;
+  return {
+    command: { cmd: 'BAR', x, y, width, height },
+    element: {
+      type: 'line',
+      options: {
+        x1: x,
+        y1: y,
+        x2: x + (width > height ? width : 0),
+        y2: y + (height > width ? height : 0),
+        thickness: Math.min(width, height),
+      },
+    },
+  };
+}
+
+function parseBoxCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'BOX' }>; element: PrintElement } | null {
+  const args = line
+    .slice('BOX '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 5) return null;
+
+  const [x, y, xEnd, yEnd, thickness, radius] = args;
+  return {
+    command: { cmd: 'BOX', x, y, xEnd, yEnd, thickness, radius },
+    element: { type: 'box', options: { x, y, width: xEnd - x, height: yEnd - y, thickness, radius } },
+  };
+}
+
+function parseCircleCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'CIRCLE' }>; element: PrintElement } | null {
+  const args = line
+    .slice('CIRCLE '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 4) return null;
+
+  const [x, y, diameter, thickness] = args;
+  return {
+    command: { cmd: 'CIRCLE', x, y, diameter, thickness },
+    element: { type: 'circle', options: { x, y, diameter, thickness } },
+  };
+}
+
+function parseEllipseCommand(line: string): Extract<TSPLCommand, { cmd: 'ELLIPSE' }> | null {
+  const args = line
+    .slice('ELLIPSE '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 5) return null;
+
+  const [x, y, width, height, thickness] = args;
+  return { cmd: 'ELLIPSE', x, y, width, height, thickness };
+}
+
+function parseDiagonalCommand(
+  line: string,
+): { command: Extract<TSPLCommand, { cmd: 'DIAGONAL' }>; element: PrintElement } | null {
+  const args = line
+    .slice('DIAGONAL '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 5) return null;
+
+  const [x1, y1, x2, y2, thickness] = args;
+  return {
+    command: { cmd: 'DIAGONAL', x1, y1, x2, y2, thickness },
+    element: { type: 'diagonal', options: { x1, y1, x2, y2, thickness } },
+  };
+}
+
+function parseReverseCommand(line: string): Extract<TSPLCommand, { cmd: 'REVERSE' }> | null {
+  const args = line
+    .slice('REVERSE '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 4) return null;
+
+  const [x, y, width, height] = args;
+  return { cmd: 'REVERSE', x, y, width, height };
+}
+
+function parseEraseCommand(line: string): Extract<TSPLCommand, { cmd: 'ERASE' }> | null {
+  const args = line
+    .slice('ERASE '.length)
+    .trim()
+    .split(',')
+    .map(Number);
+  if (args.length < 4) return null;
+
+  const [x, y, width, height] = args;
+  return { cmd: 'ERASE', x, y, width, height };
+}
+
+function parseBitmapCommand(line: string): Extract<TSPLCommand, { cmd: 'BITMAP' }> | null {
+  const params = line.slice('BITMAP '.length).trim().split(',');
+  if (params.length < 5) return null;
+
+  return {
+    cmd: 'BITMAP',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    widthBytes: Number(params[2]),
+    height: Number(params[3]),
+    mode: Number(params[4]),
+  };
+}
+
+function parseQrCodeCommand(line: string): Extract<TSPLCommand, { cmd: 'QRCODE' }> | null {
+  const params = splitParams(line.slice('QRCODE '.length).trim());
+  if (params.length < 7) return null;
+
+  const x = Number(params[0]);
+  const y = Number(params[1]);
+  const ecc = params[2];
+  const cellWidth = Number(params[3]);
+  const mode = params[4];
+  const rotation = Number(params[5]);
+
+  if (params.length >= 9) {
+    const model = params[6];
+    const mask = params[7];
+    const content = unquote(params[8]);
+    return { cmd: 'QRCODE', x, y, ecc, cellWidth, mode, rotation, model, mask, content };
+  }
+  return { cmd: 'QRCODE', x, y, ecc, cellWidth, mode, rotation, content: unquote(params[6]) };
+}
+
+function parseDMatrixCommand(line: string): Extract<TSPLCommand, { cmd: 'DMATRIX' }> | null {
+  const params = splitParams(line.slice('DMATRIX '.length).trim());
+  if (params.length < 5) return null;
+
+  return {
+    cmd: 'DMATRIX',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    width: Number(params[2]),
+    height: Number(params[3]),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parsePdf417Command(line: string): Extract<TSPLCommand, { cmd: 'PDF417' }> | null {
+  const params = splitParams(line.slice('PDF417 '.length).trim());
+  if (params.length < 6) return null;
+
+  return {
+    cmd: 'PDF417',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    width: Number(params[2]),
+    height: Number(params[3]),
+    rotation: Number(params[4]),
+    options: params.slice(5, -1),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseAztecCommand(line: string): Extract<TSPLCommand, { cmd: 'AZTEC' }> | null {
+  const params = splitParams(line.slice('AZTEC '.length).trim());
+  if (params.length < 4) return null;
+
+  return {
+    cmd: 'AZTEC',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    rotation: Number(params[2]),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseMaxiCodeCommand(line: string): Extract<TSPLCommand, { cmd: 'MAXICODE' }> | null {
+  const params = splitParams(line.slice('MAXICODE '.length).trim());
+  if (params.length < 4) return null;
+
+  return {
+    cmd: 'MAXICODE',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    mode: Number(params[2]),
+    params: params.slice(3, -1).join(','),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseMpdf417Command(line: string): Extract<TSPLCommand, { cmd: 'MPDF417' }> | null {
+  const params = splitParams(line.slice('MPDF417 '.length).trim());
+  if (params.length < 4) return null;
+
+  return {
+    cmd: 'MPDF417',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    rotation: Number(params[2]),
+    options: params.slice(3, -1),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseRssCommand(line: string): Extract<TSPLCommand, { cmd: 'RSS' }> | null {
+  const params = splitParams(line.slice('RSS '.length).trim());
+  if (params.length < 7) return null;
+
+  return {
+    cmd: 'RSS',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    sym: unquote(params[2]),
+    rotation: Number(params[3]),
+    pixMult: Number(params[4]),
+    sepHt: Number(params[5]),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseCodablockCommand(line: string): Extract<TSPLCommand, { cmd: 'CODABLOCK' }> | null {
+  const params = splitParams(line.slice('CODABLOCK '.length).trim());
+  if (params.length < 4) return null;
+
+  return {
+    cmd: 'CODABLOCK',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    rotation: Number(params[2]),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parseTlc39Command(line: string): Extract<TSPLCommand, { cmd: 'TLC39' }> | null {
+  const params = splitParams(line.slice('TLC39 '.length).trim());
+  if (params.length < 4) return null;
+
+  return {
+    cmd: 'TLC39',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    rotation: Number(params[2]),
+    content: unquote(params[params.length - 1]),
+  };
+}
+
+function parsePutBmpCommand(line: string): Extract<TSPLCommand, { cmd: 'PUTBMP' }> | null {
+  const params = splitParams(line.slice('PUTBMP '.length).trim());
+  if (params.length < 3) return null;
+
+  return {
+    cmd: 'PUTBMP',
+    x: Number(params[0]),
+    y: Number(params[1]),
+    filename: unquote(params[2]),
+    bpp: params.length > 3 ? Number(params[3]) : undefined,
+    contrast: params.length > 4 ? Number(params[4]) : undefined,
+  };
+}
+
+function parsePutPcxCommand(line: string): Extract<TSPLCommand, { cmd: 'PUTPCX' }> | null {
+  const params = splitParams(line.slice('PUTPCX '.length).trim());
+  if (params.length < 3) return null;
+
+  return { cmd: 'PUTPCX', x: Number(params[0]), y: Number(params[1]), filename: unquote(params[2]) };
+}
+
+/**
+ * Lệnh `SET` tổng quát (`SET <key> <value>`) — LƯU Ý: điều kiện
+ * `upperLine.startsWith('SET ')` cũng khớp với `SET GPO ...`/`SET GPI ...`,
+ * và nhánh này chạy trước hai nhánh `SET GPO`/`SET GPI` chuyên biệt bên dưới
+ * trong `parseTSPL`, nên trên thực tế hai nhánh chuyên biệt đó không bao giờ
+ * chạy tới (dead code). Đây là hành vi đã có sẵn từ trước, được
+ * `parseTSPL`'s doc comment ghi nhận là thứ tự có chủ đích — giữ nguyên,
+ * không phải phạm vi sửa ở đây.
+ */
+function parseSetCommand(line: string): Extract<TSPLCommand, { cmd: 'SET' }> {
+  const rest = line.slice('SET '.length).trim();
+  const spaceIndex = rest.indexOf(' ');
+  if (spaceIndex > 0) {
+    return { cmd: 'SET', key: rest.slice(0, spaceIndex), value: rest.slice(spaceIndex + 1).trim() };
+  }
+  return { cmd: 'SET', key: rest, value: '' };
+}
+
+function parseDownloadCommand(line: string): Extract<TSPLCommand, { cmd: 'DOWNLOAD' }> {
+  const params = splitParams(line.slice('DOWNLOAD'.length).trim());
+  return { cmd: 'DOWNLOAD', filename: unquote(params[params.length - 1] ?? '') };
+}
+
+function parseKillCommand(line: string): Extract<TSPLCommand, { cmd: 'KILL' }> {
+  return { cmd: 'KILL', filename: unquote(line.slice('KILL'.length).trim()) };
+}
+
+function parseRunCommand(line: string): Extract<TSPLCommand, { cmd: 'RUN' }> {
+  return { cmd: 'RUN', filename: unquote(line.slice('RUN'.length).trim()) };
+}
+
+function parseForCommand(line: string): Extract<TSPLCommand, { cmd: 'FOR' }> | null {
+  const match = line.match(/^FOR\s+(\w+)\s*=\s*(.+?)\s+TO\s+(.+?)(?:\s+STEP\s+(.+))?$/i);
+  if (!match) return null;
+  return { cmd: 'FOR', variable: match[1], start: match[2], end: match[3], step: match[4] };
+}
+
+function parseIfCommand(line: string): Extract<TSPLCommand, { cmd: 'IF' }> {
+  return { cmd: 'IF', condition: line.slice('IF '.length).replace(/\s+THEN\s*$/i, '').trim() };
+}
+
+function parseThenCommand(line: string): Extract<TSPLCommand, { cmd: 'THEN' }> {
+  return { cmd: 'THEN', statement: line.slice('THEN '.length).trim() };
+}
+
+function parseElseCommand(line: string): Extract<TSPLCommand, { cmd: 'ELSE' }> {
+  const statement = line.slice('ELSE'.length).trim();
+  return { cmd: 'ELSE', statement: statement || undefined };
+}
+
+function parseWhileCommand(line: string): Extract<TSPLCommand, { cmd: 'WHILE' }> {
+  return { cmd: 'WHILE', condition: line.slice('WHILE '.length).trim() };
+}
+
+function parseDoCommand(line: string): Extract<TSPLCommand, { cmd: 'DO' }> {
+  const condition = line.slice('DO'.length).trim();
+  return { cmd: 'DO', condition: condition || undefined };
+}
+
+function parseLoopCommand(line: string): Extract<TSPLCommand, { cmd: 'LOOP' }> {
+  const condition = line.slice('LOOP'.length).trim();
+  return { cmd: 'LOOP', condition: condition || undefined };
+}
+
+function parseGotoCommand(line: string): Extract<TSPLCommand, { cmd: 'GOTO' }> {
+  return { cmd: 'GOTO', label: line.slice('GOTO '.length).trim() };
+}
+
+function parseGosubCommand(line: string): Extract<TSPLCommand, { cmd: 'GOSUB' }> {
+  return { cmd: 'GOSUB', label: line.slice('GOSUB '.length).trim() };
+}
+
+function parseRemCommand(line: string): Extract<TSPLCommand, { cmd: 'REM' }> {
+  return { cmd: 'REM', comment: line.slice('REM'.length).trim() };
+}
+
+function parseInputCommand(line: string): Extract<TSPLCommand, { cmd: 'INPUT' }> {
+  return { cmd: 'INPUT', prompt: undefined, variable: line.slice('INPUT '.length).trim() };
+}
+
+function parseOutCommand(line: string): Extract<TSPLCommand, { cmd: 'OUT' }> {
+  return { cmd: 'OUT', port: undefined, data: line.slice('OUT '.length).trim() };
+}
+
+function parseOpenCommand(line: string): Extract<TSPLCommand, { cmd: 'OPEN' }> {
+  return { cmd: 'OPEN', params: line.slice('OPEN '.length).trim() };
+}
+
+function parseCloseCommand(line: string): Extract<TSPLCommand, { cmd: 'CLOSE' }> {
+  return { cmd: 'CLOSE', handle: line.slice('CLOSE '.length).trim() };
+}
+
+function parseWriteCommand(line: string): Extract<TSPLCommand, { cmd: 'WRITE' }> {
+  const parts = line.slice('WRITE '.length).trim().split(',', 2);
+  return { cmd: 'WRITE', handle: parts[0].trim(), data: (parts[1] ?? '').trim() };
+}
+
+function parseReadCommand(line: string): Extract<TSPLCommand, { cmd: 'READ' }> {
+  const parts = line.slice('READ '.length).trim().split(',', 2);
+  return { cmd: 'READ', handle: parts[0].trim(), variable: (parts[1] ?? '').trim() };
+}
+
+function parseSeekCommand(line: string): Extract<TSPLCommand, { cmd: 'SEEK' }> {
+  const parts = line.slice('SEEK '.length).trim().split(',', 2);
+  return { cmd: 'SEEK', handle: parts[0].trim(), offset: (parts[1] ?? '').trim() };
+}
+
+function parseCopyCommand(line: string): Extract<TSPLCommand, { cmd: 'COPY' }> {
+  return { cmd: 'COPY', params: line.slice('COPY '.length).trim() };
+}
+
+function parseLabelCommand(line: string): Extract<TSPLCommand, { cmd: 'LABEL' }> {
+  return { cmd: 'LABEL', name: line.slice(0, -1).trim() };
+}
+
+function parseNetCommand(line: string): Extract<TSPLCommand, { cmd: 'NET' }> {
+  const parts = line.slice('NET '.length).trim().split(/\s+/, 2);
+  return { cmd: 'NET', subcommand: parts[0], params: parts[1] ?? '' };
+}
+
+function parseWlanCommand(line: string): Extract<TSPLCommand, { cmd: 'WLAN' }> {
+  const parts = line.slice('WLAN '.length).trim().split(/\s+/, 2);
+  return { cmd: 'WLAN', subcommand: parts[0], params: parts[1] ?? '' };
+}
+
+function parseNfcCommand(line: string): Extract<TSPLCommand, { cmd: 'NFC' }> {
+  const parts = line.slice('NFC '.length).trim().split(/\s+/, 2);
+  return { cmd: 'NFC', subcommand: parts[0], params: parts[1] };
+}
+
+/**
+ * Xem ghi chú về dead code ở `parseSetCommand` — nhánh `SET GPO` không bao
+ * giờ chạy tới vì bị `SET ` tổng quát khớp trước.
+ */
+function parseSetGpoCommand(line: string): Extract<TSPLCommand, { cmd: 'SET_GPO' }> {
+  return { cmd: 'SET_GPO', params: line.slice('SET GPO'.length).trim() };
+}
+
+/**
+ * Xem ghi chú về dead code ở `parseSetCommand` — nhánh `SET GPI` không bao
+ * giờ chạy tới vì bị `SET ` tổng quát khớp trước.
+ */
+function parseSetGpiCommand(line: string): Extract<TSPLCommand, { cmd: 'SET_GPI' }> {
+  return { cmd: 'SET_GPI', params: line.slice('SET GPI'.length).trim() };
+}
+
+function parseGetSensorCommand(line: string): Extract<TSPLCommand, { cmd: 'GETSENSOR' }> {
+  return { cmd: 'GETSENSOR', params: line.slice('GETSENSOR'.length).trim() };
+}
+
+function parseGetSettingCommand(line: string): Extract<TSPLCommand, { cmd: 'GETSETTING' }> {
+  return { cmd: 'GETSETTING', params: line.slice('GETSETTING'.length).trim() };
+}
+
+function parseAssignmentCommand(line: string): Extract<TSPLCommand, { cmd: 'ASSIGNMENT' }> {
+  const equalsIndex = line.indexOf('=');
+  return { cmd: 'ASSIGNMENT', variable: line.slice(0, equalsIndex).trim(), value: line.slice(equalsIndex + 1).trim() };
+}
+
+/**
+ * Parse mã nguồn TSPL/TSPL2 thành các lệnh có cấu trúc, từng dòng vật lý một
+ * lúc. Nhiều điều kiện `startsWith` bên dưới chỉ đúng nhờ đúng thứ tự chúng
+ * chạy (vd. `GAP` chạy trước phần loại trừ `GAPDETECT` của chính nó, `SET `
+ * chạy trước các kiểm tra GPIO `SET GPO`/`SET GPI` phía sau, `DOWNLOAD` chạy
+ * trước kiểm tra `DO` rộng hơn) — thứ tự đó được giữ nguyên y như
+ * `parseTSPL()` của portakal, vì đổi thứ tự sẽ âm thầm làm một dòng rơi vào
+ * nhánh khác.
  */
 export function parseTSPL(code: string): TSPLParseResult {
   const commands: TSPLCommand[] = [];
@@ -270,132 +999,86 @@ export function parseTSPL(code: string): TSPLParseResult {
 
   const lines = code.split(/\r?\n/);
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex].trim();
     if (!line) continue;
 
     const upperLine = line.toUpperCase();
 
     if (upperLine.startsWith('SIZE')) {
-      const args = line.slice(4).trim();
-      const parts = args.split(',').map((s) => s.trim());
-      if (parts.length >= 2) {
-        const w = parseUnit(parts[0]);
-        const h = parseUnit(parts[1]);
-        widthDots = toDotsFromUnit(w.value, w.unit, dpi);
-        heightDots = toDotsFromUnit(h.value, h.unit, dpi);
-        commands.push({ cmd: 'SIZE', widthMM: w.value, heightMM: h.value, unit: w.unit });
+      const parsed = parseSizeCommand(line, dpi);
+      if (parsed) {
+        commands.push(parsed.command);
+        widthDots = parsed.widthDots;
+        heightDots = parsed.heightDots;
       }
       continue;
     }
 
     if (upperLine.startsWith('GAP') && !upperLine.startsWith('GAPDETECT')) {
-      const args = line.slice(3).trim();
-      const parts = args.split(',').map((s) => s.trim());
-      if (parts.length >= 2) {
-        const d = parseUnit(parts[0]);
-        const o = parseUnit(parts[1]);
-        commands.push({ cmd: 'GAP', distanceMM: d.value, offsetMM: o.value, unit: d.unit });
-      }
+      const parsed = parseGapCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('GAPDETECT')) {
-      const args = line.slice(9).trim();
-      if (args) {
-        const parts = args.split(',').map(Number);
-        commands.push({ cmd: 'GAPDETECT', paperLen: parts[0], gapLen: parts[1] });
-      } else {
-        commands.push({ cmd: 'GAPDETECT' });
-      }
+      commands.push(parseGapDetectCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('BLINEDETECT')) {
-      const args = line.slice(11).trim();
-      if (args) {
-        const parts = args.split(',').map(Number);
-        commands.push({ cmd: 'BLINEDETECT', paperLen: parts[0], gapLen: parts[1] });
-      } else {
-        commands.push({ cmd: 'BLINEDETECT' });
-      }
+      commands.push(parseBlineDetectCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('AUTODETECT')) {
-      const args = line.slice(10).trim();
-      if (args) {
-        const parts = args.split(',').map(Number);
-        commands.push({ cmd: 'AUTODETECT', paperLen: parts[0], gapLen: parts[1] });
-      } else {
-        commands.push({ cmd: 'AUTODETECT' });
-      }
+      commands.push(parseAutoDetectCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('BLINE') && !upperLine.startsWith('BLINEDETECT')) {
-      const args = line.slice(5).trim();
-      const parts = args.split(',').map((s) => s.trim());
-      if (parts.length >= 2) {
-        const h = parseUnit(parts[0]);
-        const o = parseUnit(parts[1]);
-        commands.push({ cmd: 'BLINE', height: h.value, offset: o.value, unit: h.unit });
-      }
+      const parsed = parseBlineCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('OFFSET')) {
-      const args = line.slice(6).trim();
-      const o = parseUnit(args);
-      commands.push({ cmd: 'OFFSET', distance: o.value, unit: o.unit });
+      commands.push(parseOffsetCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SPEED')) {
-      const n = Number(line.slice(5).trim());
-      commands.push({ cmd: 'SPEED', value: n });
+      commands.push(parseSpeedCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('DENSITY')) {
-      const n = Number(line.slice(7).trim());
-      commands.push({ cmd: 'DENSITY', value: n });
+      commands.push(parseDensityCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('DIRECTION')) {
-      const args = line.slice(9).trim().split(',').map(Number);
-      commands.push({
-        cmd: 'DIRECTION',
-        direction: (args[0] ?? 0) as 0 | 1,
-        mirror: args.length > 1 ? (args[1] as 0 | 1) : undefined,
-      });
+      commands.push(parseDirectionCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('REFERENCE')) {
-      const args = line.slice(9).trim().split(',').map(Number);
-      commands.push({ cmd: 'REFERENCE', x: args[0] ?? 0, y: args[1] ?? 0 });
+      commands.push(parseReferenceCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SHIFT')) {
-      const args = line.slice(5).trim().split(',').map(Number);
-      if (args.length >= 2) {
-        commands.push({ cmd: 'SHIFT', x: args[0], y: args[1] });
-      } else {
-        commands.push({ cmd: 'SHIFT', y: args[0] ?? 0 });
-      }
+      commands.push(parseShiftCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('COUNTRY')) {
-      commands.push({ cmd: 'COUNTRY', code: line.slice(7).trim() });
+      commands.push(parseCountryCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('CODEPAGE')) {
-      commands.push({ cmd: 'CODEPAGE', codepage: line.slice(8).trim() });
+      commands.push(parseCodepageCommand(line));
       continue;
     }
 
@@ -405,17 +1088,17 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('FEED') && !upperLine.startsWith('FEED_LEN')) {
-      commands.push({ cmd: 'FEED', dots: Number(line.slice(4).trim()) });
+      commands.push(parseFeedCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('BACKFEED')) {
-      commands.push({ cmd: 'BACKFEED', dots: Number(line.slice(8).trim()) });
+      commands.push(parseBackfeedCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('BACKUP')) {
-      commands.push({ cmd: 'BACKUP', dots: Number(line.slice(6).trim()) });
+      commands.push(parseBackupCommand(line));
       continue;
     }
 
@@ -430,14 +1113,12 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('PRINT') && !upperLine.startsWith('PRINTKEY')) {
-      const args = line.slice(5).trim().split(',').map(Number);
-      commands.push({ cmd: 'PRINT', sets: args[0] ?? 1, copies: args.length > 1 ? args[1] : undefined });
+      commands.push(parsePrintCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SOUND')) {
-      const args = line.slice(5).trim().split(',').map(Number);
-      commands.push({ cmd: 'SOUND', level: args[0] ?? 0, interval: args[1] ?? 1 });
+      commands.push(parseSoundCommand(line));
       continue;
     }
 
@@ -447,22 +1128,12 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('LIMITFEED')) {
-      const args = line.slice(9).trim();
-      const parts = args.split(',').map((s) => s.trim());
-      const main = parseUnit(parts[0]);
-      commands.push({
-        cmd: 'LIMITFEED',
-        maxLen: main.value,
-        minPaper: parts.length > 1 ? Number(parts[1].replace(/\s*(mm|dot)/i, '')) : undefined,
-        maxGap: parts.length > 2 ? Number(parts[2].replace(/\s*(mm|dot)/i, '')) : undefined,
-        unit: main.unit,
-      });
+      commands.push(parseLimitFeedCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SELFTEST')) {
-      const page = line.slice(8).trim();
-      commands.push({ cmd: 'SELFTEST', page: page || undefined });
+      commands.push(parseSelfTestCommand(line));
       continue;
     }
 
@@ -472,12 +1143,12 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('DELAY')) {
-      commands.push({ cmd: 'DELAY', ms: Number(line.slice(5).trim()) });
+      commands.push(parseDelayCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('DISPLAY')) {
-      commands.push({ cmd: 'DISPLAY', params: line.slice(7).trim() });
+      commands.push(parseDisplayCommand(line));
       continue;
     }
 
@@ -487,384 +1158,170 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('TEXT ')) {
-      const args = line.slice(5).trim();
-      const params = splitParams(args);
-      if (params.length >= 7) {
-        const x = Number(params[0]);
-        const y = Number(params[1]);
-        const font = unquote(params[2]);
-        const rotation = Number(params[3]);
-        const xMul = Number(params[4]);
-        const yMul = Number(params[5]);
-        let alignment: number | undefined;
-        let content: string;
-
-        if (params.length >= 8) {
-          const possibleAlign = Number(params[6]);
-          if (!Number.isNaN(possibleAlign) && possibleAlign >= 0 && possibleAlign <= 3 && params.length >= 8) {
-            alignment = possibleAlign;
-            content = unquote(params[7]);
-          } else {
-            content = unquote(params[6]);
-          }
-        } else {
-          content = unquote(params[6]);
-        }
-
-        commands.push({ cmd: 'TEXT', x, y, font, rotation, xMul, yMul, alignment, content });
-        elements.push({ type: 'text', content, options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul } });
+      const parsed = parseTextCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('BLOCK ')) {
-      const args = line.slice(6).trim();
-      const params = splitParams(args);
-      if (params.length >= 9) {
-        const x = Number(params[0]);
-        const y = Number(params[1]);
-        const width = Number(params[2]);
-        const height = Number(params[3]);
-        const font = unquote(params[4]);
-        const rotation = Number(params[5]);
-        const xMul = Number(params[6]);
-        const yMul = Number(params[7]);
-        const content = unquote(params[params.length - 1]);
-
-        commands.push({ cmd: 'BLOCK', x, y, width, height, font, rotation, xMul, yMul, content });
-        elements.push({
-          type: 'text',
-          content,
-          options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul, maxWidth: width },
-        });
+      const parsed = parseBlockCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('BARCODE ')) {
-      const args = line.slice(8).trim();
-      const params = splitParams(args);
-      if (params.length >= 9) {
-        const x = Number(params[0]);
-        const y = Number(params[1]);
-        const type = unquote(params[2]);
-        const height = Number(params[3]);
-        const readable = Number(params[4]);
-        const rotation = Number(params[5]);
-        const narrow = Number(params[6]);
-        const wide = Number(params[7]);
-        let alignment: number | undefined;
-        let content: string;
-
-        if (params.length >= 10) {
-          const possibleAlign = Number(params[8]);
-          if (!Number.isNaN(possibleAlign) && possibleAlign >= 0 && possibleAlign <= 3 && params.length >= 10) {
-            alignment = possibleAlign;
-            content = unquote(params[9]);
-          } else {
-            content = unquote(params[8]);
-          }
-        } else {
-          content = unquote(params[8]);
-        }
-
-        commands.push({ cmd: 'BARCODE', x, y, type, height, readable, rotation, narrow, wide, alignment, content });
-      }
+      const parsed = parseBarcodeCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('BAR ')) {
-      const args = line.slice(4).trim().split(',').map(Number);
-      if (args.length >= 4) {
-        const x = args[0];
-        const y = args[1];
-        const w = args[2];
-        const h = args[3];
-        commands.push({ cmd: 'BAR', x, y, width: w, height: h });
-        elements.push({
-          type: 'line',
-          options: {
-            x1: x,
-            y1: y,
-            x2: x + (w > h ? w : 0),
-            y2: y + (h > w ? h : 0),
-            thickness: Math.min(w, h),
-          },
-        });
+      const parsed = parseBarCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('BOX ')) {
-      const args = line.slice(4).trim().split(',').map(Number);
-      if (args.length >= 5) {
-        const x = args[0];
-        const y = args[1];
-        const xEnd = args[2];
-        const yEnd = args[3];
-        const t = args[4];
-        const r = args.length >= 6 ? args[5] : undefined;
-        commands.push({ cmd: 'BOX', x, y, xEnd, yEnd, thickness: t, radius: r });
-        elements.push({ type: 'box', options: { x, y, width: xEnd - x, height: yEnd - y, thickness: t, radius: r } });
+      const parsed = parseBoxCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('CIRCLE ')) {
-      const args = line.slice(7).trim().split(',').map(Number);
-      if (args.length >= 4) {
-        commands.push({ cmd: 'CIRCLE', x: args[0], y: args[1], diameter: args[2], thickness: args[3] });
-        elements.push({ type: 'circle', options: { x: args[0], y: args[1], diameter: args[2], thickness: args[3] } });
+      const parsed = parseCircleCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('ELLIPSE ')) {
-      const args = line.slice(8).trim().split(',').map(Number);
-      if (args.length >= 5) {
-        commands.push({ cmd: 'ELLIPSE', x: args[0], y: args[1], width: args[2], height: args[3], thickness: args[4] });
-      }
+      const parsed = parseEllipseCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('DIAGONAL ')) {
-      const args = line.slice(9).trim().split(',').map(Number);
-      if (args.length >= 5) {
-        commands.push({ cmd: 'DIAGONAL', x1: args[0], y1: args[1], x2: args[2], y2: args[3], thickness: args[4] });
-        elements.push({ type: 'diagonal', options: { x1: args[0], y1: args[1], x2: args[2], y2: args[3], thickness: args[4] } });
+      const parsed = parseDiagonalCommand(line);
+      if (parsed) {
+        commands.push(parsed.command);
+        elements.push(parsed.element);
       }
       continue;
     }
 
     if (upperLine.startsWith('REVERSE ')) {
-      const args = line.slice(8).trim().split(',').map(Number);
-      if (args.length >= 4) {
-        commands.push({ cmd: 'REVERSE', x: args[0], y: args[1], width: args[2], height: args[3] });
-      }
+      const parsed = parseReverseCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('ERASE ')) {
-      const args = line.slice(6).trim().split(',').map(Number);
-      if (args.length >= 4) {
-        commands.push({ cmd: 'ERASE', x: args[0], y: args[1], width: args[2], height: args[3] });
-      }
+      const parsed = parseEraseCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
-    // KNOWN LIMITATION: this only reads the 5 header parameters — it does not
-    // consume the widthBytes*height binary payload bytes that follow the
-    // trailing comma (TscCompiler/encodeTscBitmapPayload append them, see
-    // TscEncoder.ts). Because the whole document is first tokenized into
-    // "lines" via `code.split(/\r?\n/)` above, any payload byte equal to
-    // 0x0D/0x0A splits mid-payload into spurious extra lines, which then
-    // mostly parse as UNKNOWN — corrupting the rest of the command stream.
-    // Real monochrome bitmap data will commonly contain such bytes. This
-    // mirrors portakal's own line-based `parseTSPL()`, which never handled a
-    // binary payload either (it's the same code path the "known-broken"
-    // BITMAP header — no payload at all — came from). Making this
-    // byte-count-aware would mean abandoning line-based tokenization for
-    // BITMAP specifically, which is out of scope for a straight grammar
-    // port: TscParser cannot yet faithfully round-trip (compile -> parse) a
-    // TscCompiler-produced document containing an image element. This does
-    // NOT affect what a real printer receives — the transport sends the
-    // compiled string's raw bytes as-is, so the printer sees the correct
-    // BITMAP command and payload regardless of what this in-package parser
-    // makes of it afterwards.
+    // GIỚI HẠN ĐÃ BIẾT: chỉ đọc 5 tham số header — không tiêu thụ các byte
+    // payload nhị phân widthBytes*height theo sau dấu phẩy cuối (TscCompiler
+    // /encodeTscBitmapPayload nối chúng vào, xem TscEncoder.ts). Vì toàn bộ
+    // tài liệu được tokenize thành các "dòng" bằng `code.split(/\r?\n/)" ở
+    // đầu hàm trước khi chạy tới đây, bất kỳ byte payload nào trùng
+    // 0x0D/0x0A sẽ tách giữa payload thành các dòng thừa giả, hầu hết parse
+    // ra UNKNOWN — làm hỏng phần còn lại của luồng lệnh. Dữ liệu bitmap đơn
+    // sắc thật sự thường chứa những byte như vậy. Đây là mô phỏng đúng
+    // `parseTSPL()` dựa trên dòng của chính portakal, vốn cũng chưa từng xử
+    // lý payload nhị phân (cùng đường mà header BITMAP "known-broken" — vốn
+    // không có payload — sinh ra). Muốn nhận biết theo số byte sẽ phải bỏ
+    // cách tokenize theo dòng riêng cho BITMAP, nằm ngoài phạm vi một bản
+    // port ngữ pháp thuần tuý: TscParser hiện CHƯA thể round-trip trung
+    // thực (compile -> parse) một tài liệu do TscCompiler tạo ra mà có chứa
+    // element image. Điều này KHÔNG ảnh hưởng tới những gì máy in thật nhận
+    // được — tầng transport gửi nguyên byte của chuỗi đã compile, nên máy in
+    // vẫn thấy đúng lệnh BITMAP và payload bất kể parser trong package này
+    // hiểu nó thế nào sau đó.
     if (upperLine.startsWith('BITMAP ')) {
-      const args = line.slice(7).trim();
-      const params = args.split(',');
-      if (params.length >= 5) {
-        commands.push({
-          cmd: 'BITMAP',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          widthBytes: Number(params[2]),
-          height: Number(params[3]),
-          mode: Number(params[4]),
-        });
-      }
+      const parsed = parseBitmapCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('QRCODE ')) {
-      const args = line.slice(7).trim();
-      const params = splitParams(args);
-      if (params.length >= 7) {
-        const x = Number(params[0]);
-        const y = Number(params[1]);
-        const ecc = params[2];
-        const cellWidth = Number(params[3]);
-        const mode = params[4];
-        const rotation = Number(params[5]);
-        let model: string | undefined;
-        let mask: string | undefined;
-        let content: string;
-
-        if (params.length >= 9) {
-          model = params[6];
-          mask = params[7];
-          content = unquote(params[8]);
-        } else {
-          content = unquote(params[6]);
-        }
-
-        commands.push({ cmd: 'QRCODE', x, y, ecc, cellWidth, mode, rotation, model, mask, content });
-      }
+      const parsed = parseQrCodeCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('DMATRIX ')) {
-      const args = line.slice(8).trim();
-      const params = splitParams(args);
-      if (params.length >= 5) {
-        commands.push({
-          cmd: 'DMATRIX',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          width: Number(params[2]),
-          height: Number(params[3]),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseDMatrixCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('PDF417 ')) {
-      const args = line.slice(7).trim();
-      const params = splitParams(args);
-      if (params.length >= 6) {
-        commands.push({
-          cmd: 'PDF417',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          width: Number(params[2]),
-          height: Number(params[3]),
-          rotation: Number(params[4]),
-          options: params.slice(5, -1),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parsePdf417Command(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('AZTEC ')) {
-      const args = line.slice(6).trim();
-      const params = splitParams(args);
-      if (params.length >= 4) {
-        commands.push({
-          cmd: 'AZTEC',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          rotation: Number(params[2]),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseAztecCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('MAXICODE ')) {
-      const args = line.slice(9).trim();
-      const params = splitParams(args);
-      if (params.length >= 4) {
-        commands.push({
-          cmd: 'MAXICODE',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          mode: Number(params[2]),
-          params: params.slice(3, -1).join(','),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseMaxiCodeCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('MPDF417 ')) {
-      const args = line.slice(8).trim();
-      const params = splitParams(args);
-      if (params.length >= 4) {
-        commands.push({
-          cmd: 'MPDF417',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          rotation: Number(params[2]),
-          options: params.slice(3, -1),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseMpdf417Command(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('RSS ')) {
-      const args = line.slice(4).trim();
-      const params = splitParams(args);
-      if (params.length >= 7) {
-        commands.push({
-          cmd: 'RSS',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          sym: unquote(params[2]),
-          rotation: Number(params[3]),
-          pixMult: Number(params[4]),
-          sepHt: Number(params[5]),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseRssCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('CODABLOCK ')) {
-      const args = line.slice(10).trim();
-      const params = splitParams(args);
-      if (params.length >= 4) {
-        commands.push({
-          cmd: 'CODABLOCK',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          rotation: Number(params[2]),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseCodablockCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('TLC39 ')) {
-      const args = line.slice(6).trim();
-      const params = splitParams(args);
-      if (params.length >= 4) {
-        commands.push({
-          cmd: 'TLC39',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          rotation: Number(params[2]),
-          content: unquote(params[params.length - 1]),
-        });
-      }
+      const parsed = parseTlc39Command(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('PUTBMP ')) {
-      const args = line.slice(7).trim();
-      const params = splitParams(args);
-      if (params.length >= 3) {
-        commands.push({
-          cmd: 'PUTBMP',
-          x: Number(params[0]),
-          y: Number(params[1]),
-          filename: unquote(params[2]),
-          bpp: params.length > 3 ? Number(params[3]) : undefined,
-          contrast: params.length > 4 ? Number(params[4]) : undefined,
-        });
-      }
+      const parsed = parsePutBmpCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
     if (upperLine.startsWith('PUTPCX ')) {
-      const args = line.slice(7).trim();
-      const params = splitParams(args);
-      if (params.length >= 3) {
-        commands.push({ cmd: 'PUTPCX', x: Number(params[0]), y: Number(params[1]), filename: unquote(params[2]) });
-      }
+      const parsed = parsePutPcxCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
@@ -874,20 +1331,12 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('SET ')) {
-      const rest = line.slice(4).trim();
-      const spaceIdx = rest.indexOf(' ');
-      if (spaceIdx > 0) {
-        commands.push({ cmd: 'SET', key: rest.slice(0, spaceIdx), value: rest.slice(spaceIdx + 1).trim() });
-      } else {
-        commands.push({ cmd: 'SET', key: rest, value: '' });
-      }
+      commands.push(parseSetCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('DOWNLOAD')) {
-      const args = line.slice(8).trim();
-      const params = splitParams(args);
-      commands.push({ cmd: 'DOWNLOAD', filename: unquote(params[params.length - 1] ?? '') });
+      commands.push(parseDownloadCommand(line));
       continue;
     }
 
@@ -902,8 +1351,7 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('KILL')) {
-      const args = line.slice(4).trim();
-      commands.push({ cmd: 'KILL', filename: unquote(args) });
+      commands.push(parseKillCommand(line));
       continue;
     }
 
@@ -913,15 +1361,13 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('RUN')) {
-      commands.push({ cmd: 'RUN', filename: unquote(line.slice(3).trim()) });
+      commands.push(parseRunCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('FOR ')) {
-      const m = line.match(/^FOR\s+(\w+)\s*=\s*(.+?)\s+TO\s+(.+?)(?:\s+STEP\s+(.+))?$/i);
-      if (m) {
-        commands.push({ cmd: 'FOR', variable: m[1], start: m[2], end: m[3], step: m[4] });
-      }
+      const parsed = parseForCommand(line);
+      if (parsed) commands.push(parsed);
       continue;
     }
 
@@ -963,139 +1409,134 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     if (upperLine.startsWith('IF ')) {
-      commands.push({ cmd: 'IF', condition: line.slice(3).replace(/\s+THEN\s*$/i, '').trim() });
+      commands.push(parseIfCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('THEN ') || upperLine === 'THEN') {
-      commands.push({ cmd: 'THEN', statement: line.slice(5).trim() });
+      commands.push(parseThenCommand(line));
       continue;
     }
 
-    if (upperLine.startsWith('ELSE') && (upperLine === 'ELSE' || upperLine.startsWith('ELSE ') || upperLine.startsWith('ELSEIF'))) {
-      commands.push({ cmd: 'ELSE', statement: line.slice(4).trim() || undefined });
+    // 3 điều kiện dưới đã bao hết mọi dòng bắt đầu bằng "ELSE", không cần kiểm tra thêm.
+    const isElseLine = upperLine === 'ELSE' || upperLine.startsWith('ELSE ') || upperLine.startsWith('ELSEIF');
+    if (isElseLine) {
+      commands.push(parseElseCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('WHILE ')) {
-      commands.push({ cmd: 'WHILE', condition: line.slice(6).trim() });
+      commands.push(parseWhileCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('DO')) {
-      commands.push({ cmd: 'DO', condition: line.slice(2).trim() || undefined });
+      commands.push(parseDoCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('LOOP')) {
-      commands.push({ cmd: 'LOOP', condition: line.slice(4).trim() || undefined });
+      commands.push(parseLoopCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('GOTO ')) {
-      commands.push({ cmd: 'GOTO', label: line.slice(5).trim() });
+      commands.push(parseGotoCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('GOSUB ')) {
-      commands.push({ cmd: 'GOSUB', label: line.slice(6).trim() });
+      commands.push(parseGosubCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('REM ') || upperLine === 'REM') {
-      commands.push({ cmd: 'REM', comment: line.slice(3).trim() });
+      commands.push(parseRemCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('INPUT ')) {
-      commands.push({ cmd: 'INPUT', prompt: undefined, variable: line.slice(6).trim() });
+      commands.push(parseInputCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('OUT ')) {
-      commands.push({ cmd: 'OUT', port: undefined, data: line.slice(4).trim() });
+      commands.push(parseOutCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('OPEN ')) {
-      commands.push({ cmd: 'OPEN', params: line.slice(5).trim() });
+      commands.push(parseOpenCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('CLOSE ')) {
-      commands.push({ cmd: 'CLOSE', handle: line.slice(6).trim() });
+      commands.push(parseCloseCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('WRITE ')) {
-      const parts = line.slice(6).trim().split(',', 2);
-      commands.push({ cmd: 'WRITE', handle: parts[0].trim(), data: (parts[1] ?? '').trim() });
+      commands.push(parseWriteCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('READ ')) {
-      const parts = line.slice(5).trim().split(',', 2);
-      commands.push({ cmd: 'READ', handle: parts[0].trim(), variable: (parts[1] ?? '').trim() });
+      commands.push(parseReadCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SEEK ')) {
-      const parts = line.slice(5).trim().split(',', 2);
-      commands.push({ cmd: 'SEEK', handle: parts[0].trim(), offset: (parts[1] ?? '').trim() });
+      commands.push(parseSeekCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('COPY ')) {
-      commands.push({ cmd: 'COPY', params: line.slice(5).trim() });
+      commands.push(parseCopyCommand(line));
       continue;
     }
 
     if (line.endsWith(':') && !line.includes(',')) {
-      commands.push({ cmd: 'LABEL', name: line.slice(0, -1).trim() });
+      commands.push(parseLabelCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('NET ')) {
-      const parts = line.slice(4).trim().split(/\s+/, 2);
-      commands.push({ cmd: 'NET', subcommand: parts[0], params: parts[1] ?? '' });
+      commands.push(parseNetCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('WLAN ')) {
-      const parts = line.slice(5).trim().split(/\s+/, 2);
-      commands.push({ cmd: 'WLAN', subcommand: parts[0], params: parts[1] ?? '' });
+      commands.push(parseWlanCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('NFC ')) {
-      const parts = line.slice(4).trim().split(/\s+/, 2);
-      commands.push({ cmd: 'NFC', subcommand: parts[0], params: parts[1] });
+      commands.push(parseNfcCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SET GPO')) {
-      commands.push({ cmd: 'SET_GPO', params: line.slice(7).trim() });
+      commands.push(parseSetGpoCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('SET GPI')) {
-      commands.push({ cmd: 'SET_GPI', params: line.slice(7).trim() });
+      commands.push(parseSetGpiCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('GETSENSOR')) {
-      commands.push({ cmd: 'GETSENSOR', params: line.slice(9).trim() });
+      commands.push(parseGetSensorCommand(line));
       continue;
     }
 
     if (upperLine.startsWith('GETSETTING')) {
-      commands.push({ cmd: 'GETSETTING', params: line.slice(10).trim() });
+      commands.push(parseGetSettingCommand(line));
       continue;
     }
 
     if (line.includes('=') && !upperLine.startsWith('SET ') && /^[@\w$]+\s*=/.test(line)) {
-      const eqIdx = line.indexOf('=');
-      commands.push({ cmd: 'ASSIGNMENT', variable: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1).trim() });
+      commands.push(parseAssignmentCommand(line));
       continue;
     }
 
@@ -1105,13 +1546,19 @@ export function parseTSPL(code: string): TSPLParseResult {
   return { commands, widthDots, heightDots, dpi, elements, warnings };
 }
 
-/** Simplified parse — just the label dimensions and preview-renderable elements, for callers that don't need every raw command. */
+/**
+ * Bản parse rút gọn — chỉ trả về kích thước nhãn và các element render được
+ * cho preview, dành cho nơi gọi không cần mọi lệnh thô.
+ */
 export function parseTSC(code: string): { widthDots: number; heightDots: number; elements: PrintElement[] } {
   const result = parseTSPL(code);
   return { widthDots: result.widthDots, heightDots: result.heightDots, elements: result.elements };
 }
 
-/** Decodes a TSPL/TSPL2 command string into structured commands (line-oriented, per-command grammar). */
+/**
+ * Giải mã một chuỗi lệnh TSPL/TSPL2 thành các lệnh có cấu trúc (theo dòng,
+ * theo ngữ pháp từng lệnh).
+ */
 export class TscParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);

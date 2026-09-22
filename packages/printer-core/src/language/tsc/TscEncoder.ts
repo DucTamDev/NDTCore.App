@@ -1,18 +1,17 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Encode a monochrome bitmap as the payload the TSPL2 `BITMAP` command
- * expects immediately after its trailing comma: exactly
- * `bitmap.bytesPerRow * bitmap.height` raw binary bytes (MSB-first, bit 1 =
- * black), with no length prefix or hex-ASCII re-encoding — the header's own
- * `bytesPerRow`/`height` fields already tell the printer how many bytes to
- * read next.
+ * Mã hoá một bitmap đơn sắc thành payload mà lệnh TSPL2 `BITMAP` yêu cầu
+ * ngay sau dấu phẩy cuối cùng của nó: đúng `bitmap.bytesPerRow *
+ * bitmap.height` byte nhị phân thô (MSB trước, bit 1 = đen), không có tiền
+ * tố độ dài hay mã hoá lại dạng hex-ASCII — hai trường `bytesPerRow`/`height`
+ * trong header đã đủ cho máy in biết cần đọc tiếp bao nhiêu byte.
  *
- * portakal's `compileToTSC()` builds the whole document as one `string`, so
- * `TscCompiler` follows suit rather than switching to bytes for this one
- * command — each payload byte is carried as a single raw char code (0-255),
- * the same "one string char per byte" convention `EscPosValidator` already
- * relies on to walk a string source as a byte stream.
+ * `compileToTSC()` của portakal dựng cả tài liệu thành một `string` duy
+ * nhất, nên `TscCompiler` giữ theo cách đó thay vì chuyển sang mảng byte chỉ
+ * riêng cho lệnh này — mỗi byte payload được mang bằng một char code thô
+ * (0-255), cùng quy ước "một ký tự string = một byte" mà `EscPosValidator`
+ * cũng đang dùng để duyệt một chuỗi nguồn như một luồng byte.
  */
 export function encodeTscBitmapPayload(bitmap: Bitmap): string {
   let payload = '';

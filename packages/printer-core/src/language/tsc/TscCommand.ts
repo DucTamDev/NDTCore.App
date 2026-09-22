@@ -1,9 +1,10 @@
 /**
- * TSPL2 command-name literals emitted by `TscCompiler`'s `compileElement()`
- * switch, plus the label-setup commands `compileToTSC()` writes ahead of
- * every element. Kept as one named-constant map (mirroring `EscPosCommand`'s
- * `ESC_POS` object) so every command name is spelled once — ported from the
- * literal strings portakal's `languages/tsc.ts` builds inline.
+ * Các literal tên lệnh TSPL2 mà switch `compileElement()` của `TscCompiler`
+ * phát ra, cộng với các lệnh thiết lập nhãn mà `compileToTSC()` ghi trước
+ * mọi element. Gom thành một named-constant map duy nhất (theo cùng cách
+ * object `ESC_POS` của `EscPosCommand`) để mỗi tên lệnh chỉ được viết ra một
+ * nơi — port lại từ các chuỗi literal mà `languages/tsc.ts` của portakal
+ * viết trực tiếp trong code.
  */
 export const TSC_COMMAND = {
   SIZE: 'SIZE',
@@ -26,10 +27,11 @@ export const TSC_COMMAND = {
   BARCODE: 'BARCODE',
   QRCODE: 'QRCODE',
   /**
-   * `SET CUTTER` — the argument form is `SET CUTTER OFF` or `SET CUTTER <n>`
-   * (no `BATCH` keyword, verified against real TSPL hardware behavior) and
-   * the setting is persistent — once a job sends `SET CUTTER n`, the printer
-   * keeps cutting on later jobs until an explicit `SET CUTTER OFF`.
+   * `SET CUTTER` — dạng tham số là `SET CUTTER OFF` hoặc `SET CUTTER <n>`
+   * (không có từ khoá `BATCH`, đã kiểm chứng trên máy in TSPL thật) và giá
+   * trị này được máy in giữ lại lâu dài — một khi job gửi `SET CUTTER n`,
+   * máy in vẫn tiếp tục cắt ở các job in sau cho tới khi nhận `SET CUTTER OFF`
+   * tường minh.
    */
   SET_CUTTER: 'SET CUTTER',
 } as const;
