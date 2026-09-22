@@ -1,13 +1,10 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Mã hoá bitmap đơn sắc thành payload ASCII-hex mà lệnh `EG` (Expanded
- * Graphics) của CPCL cần: mỗi byte đã đóng gói trong `bitmap.data`
- * (MSB-first, bit 1 = đen — cực tính `EG` của CPCL khớp thẳng với quy ước
- * chuẩn của `Bitmap`, không cần đảo bit như `GW` của EPL2) được biểu diễn
- * bằng hai chữ số hex viết hoa, nối liền không dấu phân cách — cùng dạng
- * ASCII-hex mà `^GFA` của ZPL dùng, theo mục Expanded Graphics của CPCL
- * Programmer's Manual.
+ * Payload ASCII-hex mà lệnh `EG` (Expanded Graphics) của CPCL cần, theo CPCL
+ * Programmer's Manual: mỗi byte hai chữ số hex viết hoa, nối liền không dấu
+ * phân cách. Cực tính bit 1 = đen của `EG` khớp thẳng quy ước `Bitmap` —
+ * không cần đảo bit như `GW` của EPL2.
  */
 export function encodeCpclBitmapPayload(bitmap: Bitmap): string {
   let hex = '';

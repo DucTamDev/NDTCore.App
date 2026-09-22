@@ -1,15 +1,7 @@
 import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
-/**
- * Các byte sub-function "GS ( k" cho QR code, thuộc họ lệnh 2D-symbol trong
- * tài liệu Epson ESC/POS Application Programming Guide (cn = 0x31 cho mọi
- * hàm QR). Không có source nào của portakal port phần này: portakal chưa
- * từng compile QR element. Được suy ra từ chiều decode trong
- * parsers/escpos.ts của portakal (wrapper "GS ( k" tổng quát: GS, (, k, pL,
- * pH, <payload>) làm chuẩn tham chiếu cho cấu trúc byte bên ngoài mà mỗi
- * sub-command phải tạo ra.
- */
+/** Sub-function bytes của họ lệnh "GS ( k" (2D symbol) cho QR code — cn = 0x31 cho mọi hàm QR. */
 const QR_CN = 0x31;
 const QR_FN_SELECT_MODEL = 0x41;
 const QR_FN_SET_MODULE_SIZE = 0x43;
@@ -46,12 +38,7 @@ function clampModuleSize(cellWidth: number | undefined): number {
   return Math.min(MAX_MODULE_SIZE, Math.max(MIN_MODULE_SIZE, Math.round(size)));
 }
 
-/**
- * Encode một `QrCodeConfig` thành chuỗi lệnh ESC/POS "GS ( k" chuẩn: chọn
- * model -> đặt kích thước module -> chọn mức sửa lỗi -> lưu dữ liệu -> in.
- * Máy in tự tính toán và render các module QR thật; chỉ nội dung và tham số
- * layout được gửi đi.
- */
+/** Máy in tự render các module QR từ nội dung + tham số layout gửi qua "GS ( k"; không cần tạo bitmap QR ở client. */
 export function encodeEscPosQrCode(config: QrCodeConfig): Uint8Array {
   const moduleSize = clampModuleSize(config.cellWidth);
   const errorCorrection = ERROR_CORRECTION_CODE[config.errorCorrection ?? 'M'];

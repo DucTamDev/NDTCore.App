@@ -2,28 +2,26 @@ import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
 import { ESC_POS } from './EscPosCommand';
 
-/** Một lệnh ESC/POS đã decode: tên mnemonic, byte gốc, và các tham số đã giải mã. */
 export interface EscPosParsedCommand {
   name: string;
   bytes: number[];
   params: Record<string, unknown>;
 }
 
-/** Kết quả đầy đủ khi parse một byte stream ESC/POS. */
 export interface EscPosParseResult {
   commands: EscPosParsedCommand[];
   elements: PrintElement[];
   warnings: string[];
 }
 
-// Các byte prefix không có mặt trong ESC_POS dùng chung (ESC_POS chỉ chứa các byte compiler cần phát ra).
+// Không có trong ESC_POS dùng chung vì đó chỉ chứa byte mà compiler cần phát ra.
 const DLE_PREFIX = 0x10;
 const FS_PREFIX = 0x1c;
 
 const PRINTABLE_ASCII_MIN = 0x20;
 const PRINTABLE_ASCII_MAX = 0x7e;
 
-// Byte lệnh con của ESC, không trùng với ESC_POS (vốn chỉ chứa các lệnh compiler dùng).
+// Byte lệnh con của ESC, không trùng với ESC_POS.
 const ESC_FONT = 0x4d;
 const ESC_PRINT_MODE = 0x21;
 const ESC_ROTATION = 0x56;
@@ -49,9 +47,7 @@ const GS_K_FORMAT_B_MIN = 65;
 const CUT_FUNCTION_B_FULL = 0x41;
 const CUT_FUNCTION_B_PARTIAL = 0x42;
 
-/**
- * Số giá trị 1 byte — dùng ghép cặp byte thấp/cao thành số 16-bit little-endian.
- */
+/** Hệ số ghép byte thấp/cao thành số 16-bit little-endian. */
 const BYTE_RANGE = 256;
 
 // Byte lệnh con của DLE.
@@ -59,11 +55,7 @@ const DLE_REAL_TIME_STATUS = 0x04;
 const DLE_REAL_TIME_REQUEST = 0x05;
 const DLE_REAL_TIME_SETTING = 0x14;
 
-/**
- * Trạng thái định dạng văn bản đang tích luỹ trong lúc parse — bị các lệnh
- * ESC/GS cập nhật, và được đọc khi gặp một đoạn text in được để dựng lại
- * `TextElement` tương ứng.
- */
+/** Tích luỹ qua các lệnh ESC/GS, được đọc lại khi gặp đoạn text in được để dựng `TextElement`. */
 interface TextRunState {
   align: 'left' | 'center' | 'right';
   bold: boolean;
@@ -460,9 +452,6 @@ function parseFsCommand(data: Uint8Array, offset: number, commands: EscPosParsed
   return offset + 2;
 }
 
-/**
- * Gom dải byte ASCII in được liên tiếp thành `TextElement`, áp trạng thái định dạng hiện tại.
- */
 function parseTextRun(
   data: Uint8Array,
   offset: number,
@@ -494,11 +483,8 @@ function parseTextRun(
 }
 
 /**
- * Decode một byte stream ESC/POS thành các lệnh cộng với `PrintElement` phục
- * hồi được. Được export (khác với class bên dưới, vốn theo kiểu trả về của
- * `PrintParser` chỉ lộ ra `commands`/`warnings`) để các nơi gọi cần chính các
- * element đã phục hồi — ví dụ dùng ESC/POS làm nguồn cross-compile — lấy
- * trực tiếp được.
+ * Export riêng khỏi `EscPosParser` (vốn chỉ trả `commands`/`warnings` theo kiểu `PrintParser`)
+ * vì một số nơi gọi — ví dụ dùng ESC/POS làm nguồn cross-compile — cần trực tiếp các `PrintElement` đã phục hồi.
  */
 export function decodeEscPos(data: Uint8Array): EscPosParseResult {
   const commands: EscPosParsedCommand[] = [];
@@ -547,10 +533,6 @@ export function decodeEscPos(data: Uint8Array): EscPosParseResult {
   return { commands, elements, warnings };
 }
 
-/**
- * Decode một byte stream ESC/POS thành các lệnh có cấu trúc (máy trạng thái nhị phân duyệt theo
- * prefix ESC/GS/DLE/FS).
- */
 export class EscPosParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(bytes: Uint8Array): { commands: unknown[]; warnings: string[] } {
     return decodeEscPos(bytes);

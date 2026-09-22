@@ -1,19 +1,15 @@
 import type { Bitmap } from '../../types';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
-/**
- * Giá trị "n" của ESC 3 n — tắt line spacing để các dòng ảnh in liền nhau, không cách dòng text.
- */
+/** Giá trị "n" của ESC 3 n — tắt line spacing để các dòng ảnh in liền nhau, không cách dòng text. */
 const LINE_SPACING_OVERRIDE = 0;
 
 /** Giá trị "m" của GS v 0 m — chế độ raster bình thường (không nhân đôi width/height). */
 const RASTER_IMAGE_NORMAL_MODE = 0;
 
 /**
- * Encode bitmap đơn sắc thành ảnh raster bit ESC/POS ("GS v 0"). Bọc trong
- * một cặp lệnh line-spacing override (n=0 trước, khôi phục mặc định sau) để
- * các dòng ảnh in liền nhau thay vì cách nhau theo line spacing văn bản
- * thông thường của máy in — cùng cách bọc như case "image" của portakal.
+ * Encode bitmap đơn sắc thành ảnh raster ESC/POS ("GS v 0"), bọc trong cặp lệnh
+ * line-spacing override để các dòng ảnh in liền nhau thay vì cách theo line spacing text.
  */
 export function encodeEscPosImage(bitmap: Bitmap): Uint8Array {
   // Tách chiều rộng/chiều cao thành cặp byte little-endian, theo wire format của GS v 0.

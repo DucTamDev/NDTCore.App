@@ -3,35 +3,27 @@ import type { PrintElement } from '../../document/elements/PrintElement';
 import type { Alignment } from '../../types';
 import { BYTE_VALUE_RANGE, STAR_PRNT, STAR_PRNT_ALIGN_VALUE } from './StarPrntCommand';
 
-/** Một lệnh Star Line Mode đã giải mã: tên gợi nhớ và bytes gốc. */
 export interface StarPrntParsedCommand {
   name: string;
   bytes: number[];
 }
 
-/** Toàn bộ kết quả giải mã 1 luồng byte Star Line Mode. */
 export interface StarPrntParseResult {
   commands: StarPrntParsedCommand[];
   elements: PrintElement[];
   warnings: string[];
 }
 
-/** Trạng thái căn lề/in đậm đang áp dụng khi giải mã tuần tự luồng byte. */
 interface StarPrntParserState {
   currentAlign: Alignment;
   isBold: boolean;
 }
 
-/**
- * Kết quả giải mã 1 lệnh bắt đầu bằng ESC: các command đọc được và vị trí
- * kế tiếp trong luồng byte.
- */
 interface EscapeCommandStep {
   commands: StarPrntParsedCommand[];
   nextIndex: number;
 }
 
-/** Kết quả giải mã 1 đoạn văn bản in được liên tiếp. */
 interface TextRunStep {
   command: StarPrntParsedCommand;
   element: PrintElement;
@@ -45,7 +37,6 @@ function isPrintableAscii(byte: number): boolean {
   return byte >= PRINTABLE_ASCII_MIN && byte <= PRINTABLE_ASCII_MAX;
 }
 
-/** So khớp dãy byte liên tiếp trong `data` bắt đầu từ `startIndex` với `sequence`. */
 function matchesByteSequence(data: Uint8Array, startIndex: number, sequence: readonly number[]): boolean {
   if (startIndex + sequence.length > data.length) return false;
   return sequence.every((byte, offset) => data[startIndex + offset] === byte);
@@ -114,9 +105,8 @@ function parseCutCommand(data: Uint8Array, index: number): EscapeCommandStep {
 
 /**
  * Giải mã 1 khối raster ảnh: "ESC * r A" mở đầu, các bản ghi "b nL nH data"
- * (mỗi bản ghi ứng với 1 hàng ảnh), rồi "ESC * r B" kết thúc. Nếu dữ liệu bị
- * cắt cụt và không có "ESC * r B", vòng lặp chỉ dừng khi hết dữ liệu — giữ
- * nguyên cách xử lý khoan dung này của bản gốc.
+ * (mỗi bản ghi ứng 1 hàng ảnh), rồi "ESC * r B" kết thúc. Nếu dữ liệu bị cắt
+ * cụt và không có "ESC * r B", vòng lặp chạy đến hết dữ liệu thay vì báo lỗi.
  */
 function parseRasterBlock(data: Uint8Array, index: number): EscapeCommandStep {
   const commands: StarPrntParsedCommand[] = [{ name: 'ESC * r A', bytes: [STAR_PRNT.ESC, ...STAR_PRNT.RASTER_ENTER] }];
@@ -152,7 +142,6 @@ function parseGenericEscapeCommand(data: Uint8Array, index: number): EscapeComma
   };
 }
 
-/** Phân loại 1 lệnh ESC theo byte lệnh theo sau, rồi giao lại cho hàm parse tương ứng. */
 function parseEscapeSequence(data: Uint8Array, index: number, state: StarPrntParserState): EscapeCommandStep {
   const commandByte = data[index + 1]!;
 
@@ -192,10 +181,9 @@ function parseTextRun(data: Uint8Array, index: number, state: StarPrntParserStat
 }
 
 /**
- * Giải mã 1 luồng byte Star Line Mode thành các command cộng `PrintElement`
- * khôi phục được. Export cùng lớp bọc bên dưới để phía nhận byte-in —
- * chẳng hạn mục nguồn starprnt của `ConversionRegistry` — có thể gọi thẳng
- * dưới dạng hàm thuần, cùng kiểu mà parser của mọi ngôn ngữ khác cung cấp.
+ * Giải mã 1 luồng byte Star Line Mode thành command và `PrintElement`. Export
+ * dạng hàm thuần (ngoài class `StarPrntParser` bên dưới) để nơi nhận byte-in
+ * trực tiếp, như `ConversionRegistry`, gọi được mà không cần khởi tạo class.
  */
 export function decodeStarPrnt(data: Uint8Array): StarPrntParseResult {
   const commands: StarPrntParsedCommand[] = [];
@@ -240,10 +228,6 @@ export function decodeStarPrnt(data: Uint8Array): StarPrntParseResult {
   return { commands, elements, warnings };
 }
 
-/**
- * Giải mã 1 luồng byte Star Line Mode thành các command có cấu trúc. Port
- * trực tiếp từ `parseStarPRNT()` của portakal.
- */
 export class StarPrntParser implements PrintParser<StarPrntParseResult> {
   parse(source: string | Uint8Array): StarPrntParseResult {
     const bytes = typeof source === 'string' ? new TextEncoder().encode(source) : source;

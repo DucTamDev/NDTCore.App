@@ -2,15 +2,9 @@ import type { BarcodeConfig, BarcodeSymbology } from '../../symbology/barcode';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
 /**
- * Mã chọn symbology cho "GS k" format B (m >= 65), theo tài liệu Epson
- * ESC/POS Application Programming Guide. Dùng thống nhất format B (dữ liệu
- * có tiền tố độ dài) thay vì format A (dữ liệu kết thúc bằng NUL) vì đây là
- * format duy nhất trong hai loại hỗ trợ cả CODE93/CODE128.
- *
- * Không có source nào của portakal port phần này: portakal chưa từng compile
- * barcode element. Bảng ánh xạ này, cùng cấu trúc byte "GS k" bên dưới, được
- * suy ra từ chiều decode trong parsers/escpos.ts của portakal (phần xử lý GS
- * k) làm chuẩn tham chiếu cho hình dạng một lệnh format-B đúng spec.
+ * Mã symbology cho lệnh "GS k" format B (m >= 65). Dùng thống nhất format B
+ * (dữ liệu có tiền tố độ dài) thay vì format A (kết thúc bằng NUL) vì đây là
+ * format duy nhất hỗ trợ cả CODE93 và CODE128.
  */
 const SYMBOLOGY_CODE: Record<BarcodeSymbology, number> = {
   upca: 65,
@@ -27,12 +21,7 @@ const SYMBOLOGY_CODE: Record<BarcodeSymbology, number> = {
 /** In text HRI (human-readable interpretation) bên dưới các vạch mã. */
 const HRI_BELOW_BARS = 2;
 
-/**
- * Encode một `BarcodeConfig` thành chuỗi byte ESC/POS: các lệnh thiết lập
- * width/height/HRI tuỳ chọn, theo sau bởi lệnh barcode "GS k" format B.
- * ESC/POS không có định vị x/y tuyệt đối nên `config.x`/`config.y` không thể
- * encode và bị bỏ qua (cùng giới hạn như mô hình text/receipt).
- */
+/** ESC/POS không có lệnh định vị x/y tuyệt đối nên `config.x`/`config.y` bị bỏ qua. */
 export function encodeEscPosBarcode(config: BarcodeConfig): Uint8Array {
   const chunks: Uint8Array[] = [];
 

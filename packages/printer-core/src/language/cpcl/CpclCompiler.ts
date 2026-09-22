@@ -8,29 +8,20 @@ import { CPCL_COMMAND } from './CpclCommand';
 import { encodeCpclBitmapPayload } from './CpclEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
 
-/** Font mặc định của lệnh `TEXT` khi element không khai báo `options.font`. */
 const DEFAULT_FONT = '2';
 
 /**
- * Chiều cao mỗi dòng (dots) khi xếp chồng các dòng đã format của element
- * `table`. Các dòng bảng được biên dịch qua `compileTextElement` không
- * override font, nên chúng in ở chiều cao glyph của `DEFAULT_FONT` ("2")
- * trong bảng font tích hợp của CPCL (20w x 12h, theo `CPCL_FONTS['2']` của
- * `CpclPreviewRenderer`) — dùng chung con số này với lý do nhất quán mà
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` của `EplCompiler` đã ghi chú.
+ * Chiều cao dòng (dots) khi xếp chồng các dòng đã format của bảng — khớp
+ * chiều cao glyph của font "2" (20w x 12h) trong `CPCL_FONTS` của
+ * `CpclPreviewRenderer`, vì các dòng bảng dùng `DEFAULT_FONT`.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 12;
 
 /**
- * Token loại mã vạch của lệnh `BARCODE` CPCL, theo từng symbology, theo bảng
- * lệnh Bar Code Field trong CPCL Programmer's Manual. Đây là phần mới hoàn
- * toàn — portakal chưa từng biên dịch element barcode cho CPCL (comment của
- * `parsers/cpcl.ts` ghi rõ `BARCODE` chỉ được nhận diện rồi bỏ qua, không có
- * ground truth để đối chiếu). `itf` không có tên loại CPCL riêng — lấy biến
- * thể tài liệu hoá gần nhất (interleaved 2 of 5). Việc hiện/ẩn chữ số dễ đọc
- * bên dưới mã vạch do một lệnh CPCL trạng thái riêng điều khiển chứ không
- * phải tham số inline của `BARCODE`, nên `BarcodeConfig.readable` không được
- * áp dụng ở đây — đây là khoảng trống đã ghi nhận, không phải bỏ sót âm thầm.
+ * Token loại mã vạch của lệnh `BARCODE`, theo bảng Bar Code Field trong CPCL
+ * Programmer's Manual. Việc hiện/ẩn chữ số đọc được bên dưới mã vạch do một
+ * lệnh CPCL trạng thái riêng điều khiển, không phải tham số inline của
+ * `BARCODE` — `BarcodeConfig.readable` không được áp dụng ở đây.
  */
 const CPCL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   code39: '39',
@@ -41,10 +32,7 @@ const CPCL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   ean13: 'EAN13',
   upca: 'UPCA',
   upce: 'UPCE',
-  /**
-   * Biến thể tài liệu hoá gần nhất (Interleaved 2 of 5) — bảng loại mã vạch
-   * gốc của CPCL không có mục "standard" ITF riêng.
-   */
+  // CPCL không có tên loại ITF riêng — dùng biến thể tài liệu hoá gần nhất (Interleaved 2 of 5).
   itf: '2OF5',
 };
 
@@ -54,33 +42,20 @@ const DEFAULT_BARCODE_RATIO = 2;
 
 const DEFAULT_QR_MAGNIFICATION = 6;
 const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
-/**
- * Trường model của `B QR` — model 2 là model hiện hành, được hỗ trợ rộng
- * rãi theo CPCL Programmer's Manual, cùng lựa chọn mà `ZplCompiler` dùng cho
- * trường model của `^BQ`.
- */
+// Model 2 — model QR hiện hành, được hỗ trợ rộng rãi theo CPCL Programmer's Manual.
 const QR_MODEL = 2;
-/**
- * Ký tự chế độ encode của dòng dữ liệu QR CPCL cho chế độ nhập "tự động"
- * (thay vì chọn thủ công byte/số/chữ-số).
- */
+// 'A' chọn chế độ encode tự động (thay vì ép byte/số/chữ-số thủ công).
 const QR_MODE_AUTO = 'A';
 
-const DEFAULT_HEIGHT_DOTS = 400; // khớp giá trị fallback của compiler CPCL gốc trong portakal
+const DEFAULT_HEIGHT_DOTS = 400;
 const MAX_DENSITY = 15;
-/**
- * Thang giá trị riêng của `TONE` (0-200), theo lệnh darkness trong CPCL
- * Programmer's Manual — công thức `(density / 15) * 200` mà portakal dùng
- * để quy đổi từ thang density 0-15 dùng chung trong package này.
- */
+// Thang riêng của TONE (0-200) theo CPCL Programmer's Manual — quy đổi từ thang density 0-15 dùng chung trong package.
 const TONE_SCALE = 200;
 
 /**
- * Lệnh `TEXT`/`TEXTnn`, theo lệnh Text Field trong CPCL Programmer's Manual:
- * `TEXT <font> <size> <x> <y>` kèm theo chuỗi dữ liệu trên dòng riêng ngay
- * sau đó. `size` mặc định là `0` (không phải `1`) ở đây, khớp đúng mặc định
- * của `languages/cpcl.ts` trong portakal — font tích hợp của CPCL coi `0` là
- * size gốc của chính nó, không phải nghĩa "không có chữ".
+ * `TEXT <font> <size> <x> <y>` theo CPCL Programmer's Manual — chuỗi dữ liệu
+ * nằm trên dòng riêng ngay sau, không inline. `size` mặc định `0`: font tích
+ * hợp của CPCL coi đây là size gốc của chính nó, không phải "không có chữ".
  */
 function compileTextElement(content: string, options: TextOptions | undefined): string {
   const textOptions = options ?? {};
@@ -110,24 +85,14 @@ function compileBoxElement(element: Extract<PrintElement, { type: 'box' }>): str
   return `${CPCL_COMMAND.BOX} ${options.x} ${options.y} ${x2} ${y2} ${thickness}`;
 }
 
-/**
- * Lệnh `LINE` gốc của CPCL vẽ đường thẳng giữa hai điểm bất kỳ, thẳng trục
- * hay không đều được — khác với `LO` của EPL2/`^GB` của ZPL, nó không cần
- * tách riêng trường hợp thẳng trục và chéo, nên `'line'` và `'diagonal'`
- * dùng chung hàm này, giữ nguyên theo `languages/cpcl.ts` của portakal.
- */
+// CPCL LINE vẽ được đường bất kỳ giữa hai điểm — không cần tách trục ngang/dọc/chéo, nên
+// 'line' và 'diagonal' dùng chung hàm này.
 function compileLineElement(element: Extract<PrintElement, { type: 'line' | 'diagonal' }>): string {
   const options = element.options;
   const thickness = options.thickness ?? 1;
   return `${CPCL_COMMAND.LINE} ${options.x1} ${options.y1} ${options.x2} ${options.y2} ${thickness}`;
 }
 
-/**
- * Hành vi thật: format các hàng thành dòng chữ qua `formatTable()` dùng
- * chung (cùng helper mà case `'table'` của `EplCompiler`/`ZplCompiler`
- * dùng), rồi phát mỗi dòng thành một lệnh `TEXT` riêng, xếp chồng cách nhau
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` dots tính từ y gốc của bảng.
- */
 function compileTableElement(element: Extract<PrintElement, { type: 'table' }>): string {
   const options = element.options;
   const x = options.x ?? 0;
@@ -140,14 +105,8 @@ function compileTableElement(element: Extract<PrintElement, { type: 'table' }>):
     .join('\r\n');
 }
 
-/**
- * Không có trong portakal (comment của `parsers/cpcl.ts` ghi rõ `BARCODE`
- * chỉ được nhận diện rồi bỏ qua, không có kết quả decode có cấu trúc để làm
- * ground truth) — suy ra từ ngữ pháp lệnh `BARCODE` trong CPCL Programmer's
- * Manual, là cách triển khai tối thiểu đúng đắn, cùng cách tiếp cận dùng cho
- * các khoảng trống tương tự của TSC/ZPL/EPL2. Xem doc comment của
- * `CPCL_BARCODE_TYPE` về mức độ tin cậy của bảng loại mã vạch.
- */
+// Suy ra từ ngữ pháp lệnh BARCODE trong CPCL Programmer's Manual — chưa có ground truth để đối
+// chiếu, nên xác minh lại trên máy in thật.
 function compileBarcodeElement(element: Extract<PrintElement, { type: 'barcode' }>): string {
   const options = element.options;
   const x = options.x ?? 0;
@@ -163,16 +122,10 @@ function compileBarcodeElement(element: Extract<PrintElement, { type: 'barcode' 
 }
 
 /**
- * Không có trong portakal, cùng khoảng trống như `barcode` ở trên. Khối QR
- * 2D của CPCL (`B QR<x>,<y>` / `M<model>` / `U<magnification>` /
- * `<ecc><mode>,<data>` / `ENDQR`) chỉ được đối chiếu với mục QR Code của
- * CPCL Programmer's Manual, không có ground truth nào trong repo này hay
- * trong portakal — đây là phán đoán mức tin cậy thấp hơn, dùng tham số tối
- * thiểu (vị trí, model, độ phóng đại, mức sửa lỗi, nội dung) chứ không phải
- * một bản port đã kiểm chứng đầy đủ; cần xác minh lại trên máy in thật.
- * Không áp dụng rotation — khối QR không có trường xoay inline, cùng loại
- * khoảng trống mà case `^BQ` của `ZplCompiler` đã ghi nhận cho trường
- * orientation riêng của nó.
+ * Cú pháp khối QR CPCL (`B QR<x>,<y>` / `M<model>` / `U<magnification>` /
+ * `<ecc><mode>,<data>` / `ENDQR`) suy ra từ mục QR Code của CPCL Programmer's
+ * Manual, chưa có ground truth để đối chiếu — cần xác minh lại trên máy in
+ * thật. Không hỗ trợ rotation vì khối QR không có trường xoay inline.
  */
 function compileQrcodeElement(element: Extract<PrintElement, { type: 'qrcode' }>): string {
   const options = element.options;
@@ -205,10 +158,8 @@ function compileElement(element: PrintElement): string {
     case 'diagonal':
       return compileLineElement(element);
 
-    // CPCL không có lệnh tích hợp nào để vẽ hình tròn, đường viền ellipse,
-    // vùng reverse-print độc lập, hay vùng erase độc lập — khớp với
-    // `compileToCPCL()` gốc của portakal, trả về `''` cho cả bốn loại thay
-    // vì bịa ra ngữ pháp lệnh mới cho chúng.
+    // CPCL không có lệnh tích hợp để vẽ hình tròn/ellipse/vùng reverse-print/vùng erase độc lập
+    // — no-op thay vì bịa ngữ pháp lệnh mới.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -218,18 +169,15 @@ function compileElement(element: PrintElement): string {
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
 
-    // Không có lệnh cắt giấy CPCL nào được tài liệu hoá (cùng khoảng trống
-    // mà `EplCompiler` của EPL2 gặp) — no-op đã ghi nhận.
+    // Không có lệnh cắt giấy nào được tài liệu hoá trong CPCL — no-op.
     case 'cut':
       return '';
 
     case 'table':
       return compileTableElement(element);
 
-    // Package này lẫn CPCL đều chưa có primitive "ngắt trang" / "đẩy con trỏ
-    // thêm N dots" / "xếp các phần tử con theo hàng-hoặc-cột" — no-op đã ghi
-    // nhận, cùng tiền lệ với các case tương ứng của `EplCompiler`/
-    // `ZplCompiler`, chờ thiết kế auto-layout thật sự (không phải bug).
+    // Package này lẫn CPCL đều chưa có primitive ngắt trang / spacer / layout hàng-cột — no-op
+    // tạm thời, chờ thiết kế auto-layout thật sự (không phải bug).
     case 'pageBreak':
     case 'spacer':
     case 'row':
@@ -244,7 +192,6 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-/** Biên dịch một `ResolvedPrintDocument` thành chuỗi lệnh CPCL. */
 export function compileToCPCL(document: ResolvedPrintDocument): string {
   const lines: string[] = [];
 
@@ -255,8 +202,7 @@ export function compileToCPCL(document: ResolvedPrintDocument): string {
   lines.push(`${CPCL_COMMAND.PAGE_WIDTH} ${document.widthDots}`);
 
   for (const element of document.elements) {
-    // Element no-op (hoặc `raw` rỗng nội dung) biên dịch ra `''` — bỏ qua để
-    // không đẩy một dòng trống thừa vào output nối bằng `\r\n`.
+    // Bỏ qua để tránh dòng trống thừa khi join bằng \r\n (no-op hoặc raw rỗng biên dịch ra '').
     const line = compileElement(element);
     if (line) lines.push(line);
   }

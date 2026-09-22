@@ -93,11 +93,9 @@ function compileBoxElement(options: BoxOptions): string {
 }
 
 /**
- * Chỉ hỗ trợ thẳng hàng theo trục, port nguyên trạng từ `languages/dpl.ts` của
- * portakal (trả về `""` cho một cặp toạ độ không thẳng hàng thay vì tính gần
- * đúng, khác với cách EPL2 tự có fallback đường thẳng riêng của nó).
- * `PrintBuilder.line()` luôn dispatch qua `isDiagonal()` nên trong thực tế
- * không bao giờ tạo ra phần tử `'line'` với toạ độ chéo.
+ * Bản ghi Line Draw của DPL chỉ hỗ trợ thẳng hàng theo trục — trả về chuỗi
+ * rỗng (không vẽ) khi toạ độ chéo. Trong thực tế không xảy ra vì
+ * `PrintBuilder.line()` luôn dispatch qua `isDiagonal()` trước khi tới đây.
  */
 function compileLineElement(options: LineOptions): string {
   const thickness = options.thickness ?? 1;
@@ -121,26 +119,18 @@ function compileLineElement(options: LineOptions): string {
 }
 
 /**
- * Chiều cao mỗi hàng, tính bằng dots, dùng để xếp chồng các dòng đã định
- * dạng của một phần tử `table`. Bản ghi text của DPL không có bảng font
- * metrics để tính ra chiều cao glyph thật (hai trường `h`/`w` của nó chỉ là
- * hệ số nhân kích thước thô, không phải chiều cao pixel đã tính sẵn, khác
- * với bảng font dựng sẵn của EPL2/TSC) — giữ làm một hằng số đặt tên, đóng
- * vai trò giá trị mặc định dự phòng giống hệt vai trò
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` của `EplCompiler`. Cố ý trùng (cùng giá
- * trị, cùng tên) với `preview/PreviewRenderer.ts` — hai nơi này nằm ở hai
- * tầng khác nhau (compile vs. preview), không có module dùng chung nào mà cả
- * hai đã import sẵn, nên import chéo ở đây sẽ tạo phụ thuộc lớn hơn giá trị
- * mà hằng số này đáng có.
+ * Chiều cao mỗi hàng (dots), dùng để xếp chồng các dòng đã format của một
+ * bảng. Bản ghi text DPL không có bảng font metrics để tính chiều cao glyph
+ * thật (`h`/`w` chỉ là hệ số nhân kích thước, không phải pixel đã tính sẵn),
+ * nên đây là giá trị ước lượng mặc định.
+ *
+ * Cố ý trùng giá trị và tên với `DEFAULT_TABLE_ROW_HEIGHT_DOTS` trong
+ * `preview/PreviewRenderer.ts` để bảng preview khớp bảng in thật; import
+ * chéo giữa hai tầng compile/preview không đáng để đổi lấy việc dùng chung
+ * hằng số này.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 
-/**
- * Hành vi thật: định dạng các hàng thành dòng text qua `formatTable()` dùng
- * chung (cùng helper mà case `'table'` của mọi compiler ngôn ngữ khác dùng),
- * rồi phát mỗi dòng thành một bản ghi text riêng, xếp chồng cách nhau
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` tính từ y của bảng.
- */
 function compileTableElement(options: TableOptions): string {
   const x = options.x ?? 0;
   const y = options.y ?? 0;
@@ -166,17 +156,12 @@ function compileElement(element: PrintElement): string {
     case 'line':
       return compileLineElement(element.options);
 
-    // Lệnh Line/Box Draw của DPL không có khả năng vẽ chéo (chỉ có bản ghi
-    // col/row/height/width thẳng hàng theo trục ở case `'line'`/`'box'` trên)
-    // — no-op có chủ đích, cùng tiền lệ với case `'diagonal'` của
-    // `EplCompiler` cho lệnh `LO` cũng chỉ thẳng hàng theo trục của EPL2.
+    // DPL không có lệnh vẽ chéo — no-op có chủ đích, không phải case bị thiếu.
     case 'diagonal':
       return '';
 
-    // DPL không có lệnh gốc nào cho hình tròn, hình elip dạng viền, vùng in
-    // đảo màu hay vùng xoá đứng riêng — no-op có chủ đích, khớp với
-    // `compileElement()` gốc của portakal (trả về `""` cho cả bốn loại) thay
-    // vì tự bịa ra cú pháp bản ghi mới cho chúng.
+    // DPL không có lệnh gốc cho circle/ellipse/reverse-fill/erase — no-op có
+    // chủ đích thay vì bịa cú pháp bản ghi mới cho chúng.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -186,35 +171,24 @@ function compileElement(element: PrintElement): string {
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
 
-    // Không có lệnh cắt giấy (cutter) DPL nào được ghi nhận — `languages/dpl.ts`
-    // của portakal không có logic liên quan tới cắt giấy để port. No-op có
-    // chủ đích, cùng tiền lệ với case `'cut'` của `EplCompiler`.
+    // Không có lệnh cắt giấy nào được ghi nhận trong giao thức DPL — no-op
+    // có chủ đích.
     case 'cut':
       return '';
 
     case 'table':
       return compileTableElement(element.options);
 
-    // Cả DPL lẫn package này đều không có nguyên hàm "ngắt trang" / "đẩy con
-    // trỏ thêm N dots" / "xếp các phần tử con theo hàng-cột" nào — no-op có
-    // chủ đích, cùng tiền lệ với case tương ứng của `EplCompiler`/`ZplCompiler`,
-    // chờ một thiết kế auto-layout thật sự (không phải bug).
+    // Chưa có primitive page-break/spacer/row-column layout trong DPL lẫn
+    // package này — no-op có chủ đích, chờ thiết kế auto-layout (không phải bug).
     case 'pageBreak':
     case 'spacer':
     case 'row':
     case 'column':
       return '';
 
-    // Không có trong portakal (`parsers/dpl.ts` không giải mã có cấu trúc
-    // cho bất kỳ bản ghi dạng mã vạch nào để làm căn cứ) và, khác với các
-    // lệnh mã vạch của EPL2/ZPL/CPCL (đều được đối chiếu bởi tài liệu bên
-    // ngoài có thể kiểm chứng dù không có nguồn portakal), cú pháp Bar Code
-    // Field của DPL không có căn cứ đối chiếu nào truy cập được cho tác vụ
-    // này — không có mốc tham chiếu thật để suy ra bảng chọn loại hay cấu
-    // trúc bản ghi, chỉ có suy đoán. No-op có chủ đích thay vì suy đoán, nhất
-    // quán với cách file này đã xử lý mọi khả năng DPL chưa có tài liệu khác
-    // (`circle`/`ellipse`/`reverse`/`erase` ở trên): thành thật về việc thiếu
-    // thông tin, không bịa ra một bản ghi trông có vẻ hợp lý.
+    // Không có tài liệu tham chiếu đáng tin cậy nào cho cú pháp Bar Code
+    // Field của DPL — no-op có chủ đích thay vì suy đoán cấu trúc bản ghi.
     case 'barcode':
     case 'qrcode':
       return '';
@@ -231,8 +205,8 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
   lines.push(`${DPL_COMMAND.WIDTH}${String(document.widthDots).padStart(FIELD_WIDTH, '0')}`);
 
   for (const element of document.elements) {
-    // Phần tử no-op (hoặc `raw` rỗng nội dung) biên dịch ra `''` — bỏ qua để
-    // không đẩy một dòng trống thừa vào chuỗi kết quả nối bằng `\r\n`.
+    // Bỏ qua phần tử biên dịch ra `''` (no-op hoặc `raw` rỗng) để tránh dòng
+    // trống thừa khi nối bằng `\r\n`.
     const line = compileElement(element);
     if (line) lines.push(line);
   }
@@ -243,17 +217,14 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
 }
 
 /**
- * DPL không có bước mã hoá code-page/byte nào (khác với ESC/POS) — kết quả
- * biên dịch của nó là một chuỗi lệnh thuần tuý, nên `encoding` chỉ được nhận
- * vào để khớp với chữ ký gọi dùng chung của `PrintCompiler`, không dùng vào
- * việc gì khác.
+ * `encoding` chỉ nhận vào để khớp chữ ký `PrintCompiler` dùng chung — DPL
+ * không có bước mã hoá code-page/byte nào (khác ESC/POS), `compile()` luôn
+ * trả về một chuỗi lệnh thuần tuý.
  *
- * Giới hạn đã biết — cùng ràng buộc mã hoá chuỗi hỗn hợp như doc comment của
- * `EplCompiler.compile()`: khi có phần tử `image`, chuỗi trả về xen kẽ text
- * thường (dự định là UTF-8) với payload nhị phân thô của bản ghi ảnh (một mã
- * ký tự JS = một byte thô, từ `encodeDplBitmapPayload`). Bên gọi khi chuyển
- * chuỗi này thành byte để gửi đi không được chạy nó qua một bộ mã hoá UTF-8
- * ngây thơ khi tài liệu có chứa phần tử image.
+ * Giới hạn: khi tài liệu có phần tử `image`, chuỗi trả về xen kẽ text thường
+ * với payload nhị phân thô (1 mã ký tự JS = 1 byte, từ
+ * `encodeDplBitmapPayload`). Bên gọi khi chuyển chuỗi này thành byte để gửi
+ * đi không được chạy qua một bộ mã hoá UTF-8 thông thường.
  */
 export class DplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {

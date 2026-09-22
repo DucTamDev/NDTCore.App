@@ -62,15 +62,11 @@ function compileBoxElement(options: BoxOptions): string {
 }
 
 /**
- * Chỉ xử lý đường thẳng theo trục (axis-aligned) — đường chéo thật sự nằm ở
- * case `'diagonal'` riêng bên dưới. `PrintBuilder.line()` luôn phân luồng qua
- * `isDiagonal()` nên không bao giờ tạo ra phần tử `'line'` với toạ độ chéo,
- * nhưng một `PrintElement` literal dựng tay có thể bỏ qua ràng buộc đó —
- * nhánh cuối dưới đây được giữ nguyên như bản chuyển thể từ
- * `languages/epl.ts` gốc của portakal (nơi không tách riêng line/diagonal):
- * nó vẽ một thanh `LO` chỉ dựa trên độ chênh x, bỏ qua hoàn toàn độ chênh y —
- * một phép xấp xỉ, không phải đường chéo thật, vì lệnh `LO` của EPL2 không có
- * khả năng vẽ chéo.
+ * Chỉ vẽ được đường thẳng theo trục — lệnh `LO` của EPL2 không vẽ được đường
+ * chéo. `PrintBuilder.line()` luôn tách trường hợp chéo sang case `'diagonal'`
+ * riêng, nhưng một `PrintElement` dựng tay có thể bỏ qua ràng buộc đó; nhánh
+ * cuối dưới đây xử lý trường hợp đó bằng cách xấp xỉ theo độ chênh x, bỏ qua
+ * độ chênh y.
  */
 function compileLineElement(options: LineOptions): string {
   const thickness = options.thickness ?? 1;
@@ -87,13 +83,9 @@ function compileLineElement(options: LineOptions): string {
 }
 
 /**
- * Chiều cao mỗi dòng (đơn vị dots) dùng để xếp chồng các dòng đã format của
- * phần tử `table`. Các dòng bảng được compile qua `compileTextElement` không
- * ép font riêng, nên render ở chiều cao glyph của `DEFAULT_FONT` ("2") trong
- * bảng font tích hợp của EPL2 (10w x 16h, theo `EPL_FONTS['2']` của
- * `EplPreviewRenderer`) — giữ làm một hằng số có tên, dùng lại đúng con số
- * đó, cùng lý do nhất quán mà `DEFAULT_TABLE_ROW_HEIGHT_DOTS` của
- * `TscCompiler` đã ghi chú.
+ * Chiều cao dòng (dots) dùng để xếp chồng các dòng bảng — khớp chiều cao
+ * glyph của font mặc định ("2") trong bảng font tích hợp EPL2 (10w x 16h,
+ * xem `EPL_FONTS['2']` của `EplPreviewRenderer`).
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 
@@ -109,13 +101,10 @@ function compileTableElement(options: TableOptions): string {
 }
 
 /**
- * Ký tự chọn loại mã vạch của lệnh `B` trong EPL2, theo bảng lệnh Bar Code
- * Field của EPL2 Programmer's Guide. Mới hoàn toàn — portakal chưa từng
- * compile phần tử barcode cho EPL (case `B`/`b` trong `parsers/epl.ts` của nó
- * chỉ đọc rồi bỏ, không có dữ liệu gốc để đối chiếu). `itf`/`upce` không có
- * mục tương ứng 1:1 rõ ràng trong bảng đã tài liệu hoá — được xấp xỉ từ biến
- * thể gần nhất (xem ghi chú inline), độ tin cậy thấp hơn phần còn lại của
- * bảng này.
+ * Ký tự chọn loại mã vạch của lệnh `B`, theo bảng Bar Code Field của EPL2
+ * Programmer's Guide. `itf`/`upce` không có mục 1:1 rõ ràng trong bảng đã tài
+ * liệu hoá — xấp xỉ từ biến thể gần nhất (xem ghi chú inline), độ tin cậy
+ * thấp hơn phần còn lại của bảng này.
  */
 const EPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   code39: '1',
@@ -125,10 +114,7 @@ const EPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   ean8: '7',
   ean13: '8',
   upca: '9',
-  /**
-   * Biến thể gần nhất đã tài liệu hoá (UPC-Interleaved 2 of 5) — bảng gốc
-   * EPL2 không có mục "ITF chuẩn" riêng.
-   */
+  /** Biến thể gần nhất đã tài liệu hoá (UPC-Interleaved 2 of 5) — không có mục "ITF chuẩn" riêng. */
   itf: 'B',
   /** Không có mục UPC-E riêng trong bảng đã tài liệu hoá — xấp xỉ bằng mã của UPC-A. */
   upce: '9',
@@ -140,14 +126,6 @@ const DEFAULT_WIDE_BAR = 2;
 const DEFAULT_QR_CELL_WIDTH = 4;
 const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 
-/**
- * Không có trong portakal (case `B`/`b` của `parsers/epl.ts` chỉ đọc rồi bỏ,
- * không có dữ liệu gốc để đối chiếu) — suy ra trực tiếp từ ngữ pháp lệnh `B`
- * Bar Code Field trong EPL2 Programmer's Guide, coi đây là cách triển khai
- * đúng tối thiểu, cùng cách tiếp cận đã dùng cho phần thiếu tương ứng của
- * TSC/ZPL. Xem doc comment của `EPL_BARCODE_TYPE` để biết mức độ tin cậy của
- * bảng chọn loại mã vạch.
- */
 function compileBarcodeElement(options: BarcodeConfig): string {
   const x = options.x ?? 0;
   const y = options.y ?? 0;
@@ -163,14 +141,8 @@ function compileBarcodeElement(options: BarcodeConfig): string {
 }
 
 /**
- * Không có trong portakal, cùng khoảng trống như `compileBarcodeElement` ở
- * trên. Khác với ngữ pháp 1D của `B` (đã tài liệu hoá đầy đủ), toàn bộ ngữ
- * pháp tham số của lệnh 2D `b` trong EPL2 không được đối chiếu ở đâu trong
- * repo này lẫn trong portakal — đây là một phán đoán độ tin cậy thấp hơn, chỉ
- * dùng tham số tối thiểu (vị trí, xoay, độ rộng module, mức sửa lỗi, nội
- * dung) chứ không phải bản chuyển thể đã được xác minh đầy đủ; đã ghi vào
- * báo cáo công việc để xác minh lại với máy in thật hoặc EPL2 Programmer's
- * Guide.
+ * Phán đoán mức tin cậy thấp hơn — chỉ dùng tham số tối thiểu (vị trí, xoay,
+ * độ rộng module, mức sửa lỗi, nội dung), chưa kiểm chứng trên máy in thật.
  */
 function compileQrCodeElement(options: QrCodeConfig): string {
   const x = options.x ?? 0;
@@ -196,19 +168,11 @@ function compileElement(element: PrintElement): string {
     case 'line':
       return compileLineElement(element.options);
 
-    // EPL2 không có lệnh vẽ đường chéo gốc nào (`LO` chỉ vẽ được thanh theo
-    // trục) — no-op có chủ đích, cùng tiền lệ với case tương ứng của
-    // `ZplCompiler`/`TscCompiler` cho một khả năng mà ngôn ngữ thực sự không
-    // có. Nhánh không-thẳng-trục của case `'line'` ở trên được giữ nguyên
-    // như bản xấp xỉ gốc (vốn đã sai) của portakal, không dùng lại ở đây vì
-    // nó cũng không phải bộ dựng đường chéo thật.
+    // EPL2 không có lệnh vẽ đường chéo gốc (`LO` chỉ vẽ được thanh theo trục) — no-op có chủ đích.
     case 'diagonal':
       return '';
 
-    // Không có lệnh EPL2 gốc cho hình tròn, đường viền ellipse, vùng
-    // reverse-print độc lập, hay vùng xoá độc lập — no-op có chủ đích, khớp
-    // với `compileToEPL()` gốc của portakal (trả về `''` cho cả bốn loại)
-    // thay vì bịa ra ngữ pháp lệnh mới cho chúng.
+    // Không có lệnh EPL2 gốc cho hình tròn, ellipse, vùng reverse-print hay vùng xoá độc lập — no-op có chủ đích.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -218,25 +182,16 @@ function compileElement(element: PrintElement): string {
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
 
-    // Không có lệnh cắt giấy (cutter) gốc nào được tài liệu hoá trong EPL2
-    // (khác với `^MM` của ZPL hay `SET CUTTER` của TSPL) — `languages/epl.ts`
-    // gốc của portakal không có logic liên quan đến cắt giấy để chuyển thể,
-    // và tập lệnh EPL2 cơ bản (danh sách ký tự lệnh mà `parsers/epl.ts` nhận
-    // diện) cũng không có lệnh cắt giấy riêng. No-op có chủ đích.
+    // Không có lệnh cắt giấy được tài liệu hoá trong EPL2 (khác với `^MM` của
+    // ZPL hay `SET CUTTER` của TSPL) — no-op có chủ đích.
     case 'cut':
       return '';
 
-    // Hành vi thật: format các hàng thành dòng văn bản qua `formatTable()`
-    // dùng chung (cùng hàm mà case `'table'` của `ZplCompiler`/`TscCompiler`
-    // dùng), rồi phát mỗi dòng thành một lệnh `A` riêng, xếp chồng cách nhau
-    // `DEFAULT_TABLE_ROW_HEIGHT_DOTS`, bắt đầu từ toạ độ y của bảng.
     case 'table':
       return compileTableElement(element.options);
 
-    // Cả EPL2 lẫn package này đều chưa có nguyên thuỷ "ngắt trang" / "đẩy con
-    // trỏ thêm N dots" / "xếp các phần tử con theo hàng-hoặc-cột" — no-op có
-    // chủ đích, cùng tiền lệ với case tương ứng của `ZplCompiler`/
-    // `TscCompiler`, chờ một thiết kế auto-layout thật sự (không phải bug).
+    // Chưa có nguyên thuỷ ngắt trang / đẩy con trỏ N dots / xếp phần tử theo
+    // hàng-cột — no-op có chủ đích, chờ thiết kế auto-layout (không phải bug).
     case 'pageBreak':
     case 'spacer':
     case 'row':
@@ -251,7 +206,6 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh EPL2. */
 export function compileToEPL(document: ResolvedPrintDocument): string {
   const lines: string[] = [];
 
@@ -275,16 +229,13 @@ export function compileToEPL(document: ResolvedPrintDocument): string {
 }
 
 /**
- * EPL2 không có bước mã hoá code-page/byte (khác với ESC/POS) — output
- * compile ra chỉ là một chuỗi lệnh thuần, nên `encoding` chỉ được nhận vào để
+ * EPL2 không có bước mã hoá code-page/byte riêng — `encoding` chỉ nhận vào để
  * khớp chữ ký chung của `PrintCompiler`, không thực sự được dùng.
  *
- * Giới hạn đã biết — cùng ràng buộc mã hoá chuỗi trộn lẫn như doc comment của
- * `TscCompiler.compile()`: khi có phần tử `image`, chuỗi trả về xen kẽ văn
- * bản thường (dự định UTF-8) với payload nhị phân thô của `GW` (một char code
- * JS = một byte thô, từ `encodeEplBitmapPayload`). Bên gọi khi chuyển chuỗi
- * này thành byte truyền dây không được chạy nó qua một bộ mã hoá UTF-8 ngây
- * thơ khi tài liệu có chứa phần tử image.
+ * Giới hạn: khi tài liệu có phần tử `image`, chuỗi trả về xen kẽ văn bản
+ * thường (dự định UTF-8) với payload nhị phân thô của `GW` (một char code JS
+ * = một byte thô, từ `encodeEplBitmapPayload`). Bên gọi không được chạy chuỗi
+ * này qua một bộ mã hoá UTF-8 ngây thơ khi chuyển thành byte truyền dây.
  */
 export class EplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {

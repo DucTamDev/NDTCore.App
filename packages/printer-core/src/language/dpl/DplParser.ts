@@ -1,10 +1,7 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
 
-/**
- * Một lệnh DPL đã giải mã: tag loại nhận diện được và đoạn text thô mà nó
- * khớp — cùng hình dạng `{type, params}` với `parsers/dpl.ts` của portakal.
- */
+/** Một lệnh DPL đã giải mã: `type` là tag nhận diện, `params` là đoạn text thô đã khớp. */
 export interface DPLCommand {
   type: string;
   params: string;
@@ -18,22 +15,18 @@ export interface DPLParseResult {
   warnings: string[];
 }
 
-// Khớp với giá trị mặc định dự phòng của chính DPL parser bên portakal.
+// Áp dụng khi mã nguồn không có lệnh WIDTH (`A`).
 const DEFAULT_WIDTH_DOTS = 832;
 
-/**
- * Độ dài tối thiểu để một dòng bắt đầu bằng chữ số được coi là một bản ghi
- * trường cố định hợp lệ — port nguyên trạng từ ngưỡng của portakal.
- */
+// Ngưỡng heuristic để một dòng số được coi là bản ghi trường cố định hợp lệ,
+// không phải giá trị suy trực tiếp từ bố cục trường.
 const MIN_RECORD_LENGTH = 13;
 
 /**
- * Offset mà DPL parser của portakal đoán là vị trí bắt đầu nội dung text của
- * một bản ghi nhãn, bất kể bố cục trường thật của bản ghi đó (rotation + col
- * + row + height + width + một chữ cái đánh dấu loại bản ghi dài ngắn khác
- * nhau). Nó chỉ đúng một cách tình cờ với một số tổ hợp độ dài trường/font —
- * port nguyên trạng như portakal đang có (xem ghi chú "best-effort, dễ vỡ
- * ngay cả ở bản gốc" trong spec), không sửa lại cho đúng.
+ * Offset đoán vị trí bắt đầu nội dung text trong một bản ghi nhãn, bất kể bố
+ * cục trường thật (rotation + col + row + height + width + chữ cái đánh dấu
+ * loại bản ghi dài ngắn khác nhau). Chỉ đúng tình cờ với một số tổ hợp độ
+ * dài trường/font, không phải công thức chính xác — best-effort, dễ vỡ.
  */
 const RECORD_CONTENT_OFFSET_GUESS = 20;
 
@@ -58,17 +51,13 @@ function parseQuantityCommand(line: string): DPLCommand | null {
   return QUANTITY_PATTERN.test(line) ? { type: 'QUANTITY', params: line.slice(1) } : null;
 }
 
-/**
- * Khôi phục best-effort một phần tử `text` từ nội dung ở offset đoán được
- * của bản ghi, theo đúng cách portakal tự làm — trả về `null` khi bản ghi
- * chưa đủ dài để có nội dung, hoặc nội dung đoán được rỗng/không chứa ký tự
- * chữ-số nào.
- */
 function extractRecordTextElement(line: string): PrintElement | null {
   if (line.length <= RECORD_CONTENT_OFFSET_GUESS) {
     return null;
   }
 
+  // Index 0 là chữ số rotation của bản ghi (xem `dplRotation` trong
+  // DplCompiler) — không dùng tới khi khôi phục toạ độ.
   const col = Number(line.slice(1, 5));
   const row = Number(line.slice(5, 9));
   const content = line.slice(Math.min(RECORD_CONTENT_OFFSET_GUESS, line.length));
@@ -79,12 +68,6 @@ function extractRecordTextElement(line: string): PrintElement | null {
   return { type: 'text', content, options: { x: col, y: row } };
 }
 
-/**
- * Parse một dòng bắt đầu bằng chữ số trong lúc đang ở chế độ nhãn thành một
- * bản ghi `RECORD` cộng phần tử `text` khôi phục được (nếu có). portakal
- * cũng giải mã một giá trị `rotation` ở đây (`Number(line[0])`) nhưng không
- * bao giờ dùng tới — chắc chắn không ảnh hưởng gì nên không port lại.
- */
 function parseLabelRecordLine(line: string): { command: DPLCommand | null; element: PrintElement | null } {
   if (line.length < MIN_RECORD_LENGTH) {
     return { command: null, element: null };
@@ -96,16 +79,15 @@ function parseLabelRecordLine(line: string): { command: DPLCommand | null; eleme
 }
 
 /**
- * Parse mã nguồn DPL của Honeywell/Datamax thành các lệnh có cấu trúc cộng
- * một tập `PrintElement` khôi phục best-effort — port trực tiếp từ
- * `parseDPL()` của portakal (`parsers/dpl.ts`). Các bản ghi ở chế độ định
- * dạng nhãn không có ký tự tiền tố nào riêng cho từng lệnh để dựa vào (khác
- * với các lệnh một chữ cái của EPL2 hay cú pháp tiền tố `^`/`~` của ZPL);
- * parser này chỉ nhận diện các lệnh thiết lập cấp tài liệu `D`/`S`/`A`/`Q`
- * cộng `STX L`/`E` để vào/thoát chế độ nhãn — mọi dòng bắt đầu bằng chữ số
- * khác đều được đọc như một `RECORD` trường cố định không rõ nghĩa, với việc
- * khôi phục `PrintElement` giới hạn ở đúng cách trích nội dung text theo
- * offset đoán được mà bản thân portakal cũng dùng.
+ * Parse mã nguồn DPL (Honeywell/Datamax) thành các lệnh có cấu trúc cộng một
+ * tập `PrintElement` khôi phục best-effort.
+ *
+ * Bản ghi ở chế độ định dạng nhãn không có ký tự tiền tố riêng cho từng lệnh
+ * (khác lệnh một chữ cái của EPL2 hay tiền tố `^`/`~` của ZPL) — parser chỉ
+ * nhận diện lệnh thiết lập cấp tài liệu `D`/`S`/`A`/`Q` cộng `STX L`/`E`; mọi
+ * dòng số khác được đọc như một `RECORD` trường cố định không rõ nghĩa, với
+ * việc khôi phục `PrintElement` giới hạn ở offset đoán trong
+ * `RECORD_CONTENT_OFFSET_GUESS`.
  */
 export function parseDPL(code: string): DPLParseResult {
   const commands: DPLCommand[] = [];

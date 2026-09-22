@@ -59,7 +59,7 @@ function compileTextElement(
 
   if (options.size !== undefined && options.size > 1) {
     const magnification = options.size - 1;
-    // Đóng gói hệ số phóng to (giống nhau cho width/height) vào 2 nibble của GS ! n, theo spec.
+    // GS ! n đóng nibble cao=height, nibble thấp=width — ở đây dùng chung 1 giá trị magnification.
     // eslint-disable-next-line no-bitwise
     const nibble = magnification & SIZE_MAGNIFICATION_MASK;
     // eslint-disable-next-line no-bitwise
@@ -126,9 +126,7 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'raw':
       return [typeof element.content === 'string' ? encodeEscPosText(element.content, encoding) : element.content];
 
-    // ESC/POS không có lệnh vẽ vector gốc: box/line/circle/ellipse/reverse/
-    // erase/diagonal vẫn là no-op, giống portakal. Render các element này
-    // thành ảnh raster là ứng viên cho Phase 2/3, ngoài phạm vi ở đây.
+    // ESC/POS không có lệnh vẽ vector nguyên sinh nên các element này là no-op có chủ đích, không phải thiếu sót.
     case 'box':
     case 'line':
     case 'diagonal':
@@ -138,10 +136,7 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'erase':
       return [];
 
-    // Chưa có primitive "ngắt trang" / "advance N dots" / "auto-layout hàng-cột",
-    // và package này chưa có engine auto-layout — đây là placeholder chờ thiết
-    // kế thật, không phải bug (xem gạch đầu dòng PageBreak/Spacer/Row/Column về
-    // hành vi compiler trong design spec).
+    // Package chưa có engine auto-layout hàng-cột — placeholder chờ thiết kế, không phải bug.
     case 'pageBreak':
     case 'spacer':
     case 'row':
@@ -156,7 +151,6 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
   }
 }
 
-/** Compile một `ResolvedPrintDocument` thành các byte lệnh ESC/POS. */
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
   compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): Uint8Array {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];
