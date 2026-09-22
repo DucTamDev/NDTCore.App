@@ -1,8 +1,8 @@
 /**
- * Star Line Mode control byte constants, per Star Micronics' Line Mode
- * command set (the byte layout portakal's `languages/starprnt.ts` and
- * `parsers/starprnt.ts` both encode/decode). Shared by the compiler, the
- * image encoder, and the validator.
+ * Hằng số byte lệnh của Star Line Mode, theo bộ lệnh Line Mode của Star
+ * Micronics (cách bố trí byte này được cả `languages/starprnt.ts` và
+ * `parsers/starprnt.ts` của portakal mã hoá/giải mã). Dùng chung cho
+ * compiler, encoder ảnh và parser.
  */
 export const STAR_PRNT = {
   ESC: 0x1b,
@@ -23,7 +23,38 @@ export const STAR_PRNT = {
   CASH_DRAWER: 0x07, // BEL
 } as const;
 
-/** Concatenate byte chunks into one Uint8Array — same assembly helper shape as `concatEscPosBytes`. */
+/** Giá trị tham số "n" của lệnh căn lề ESC GS a: 0 = trái, 1 = giữa, 2 = phải. */
+export const STAR_PRNT_ALIGN_VALUE = {
+  LEFT: 0,
+  CENTER: 1,
+  RIGHT: 2,
+} as const;
+
+/** Giá trị bật/tắt cho lệnh gạch chân ESC - n. */
+export const STAR_PRNT_UNDERLINE_VALUE = {
+  OFF: 0,
+  ON: 1,
+} as const;
+
+/** Hệ số phóng to mặc định (1x), dùng để đưa lệnh ESC i h w về lại cỡ chữ bình thường. */
+export const STAR_PRNT_DEFAULT_MAGNIFICATION = 1;
+
+/** Giá trị "n" duy nhất mà lệnh cắt giấy ESC d n phát ra trong compiler này — xem StarPrntCompiler. */
+export const STAR_PRNT_CUT_VALUE = 1;
+
+/** Mặt nạ 1 byte, dùng khi tách/ghép số 2-byte little-endian theo định dạng "b nL nH data". */
+export const BYTE_MASK = 0xff;
+
+/** Số bit của 1 byte — dùng khi dịch bit để tách byte thấp/byte cao của số 2-byte little-endian. */
+export const BITS_PER_BYTE = 8;
+
+/** Miền giá trị của 1 byte (0..255), dùng khi ghép byte thấp/byte cao thành số 2-byte little-endian. */
+export const BYTE_VALUE_RANGE = 256;
+
+/**
+ * Gộp các đoạn byte thành một Uint8Array duy nhất — cùng kiểu helper lắp
+ * ráp với `concatEscPosBytes`.
+ */
 export function concatStarPrntBytes(chunks: Uint8Array[]): Uint8Array {
   let total = 0;
   for (const chunk of chunks) total += chunk.length;

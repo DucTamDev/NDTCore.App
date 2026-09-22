@@ -2,50 +2,97 @@ import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../document/elements/PrintElement';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { TextOptions } from '../../document/elements/content/TextElement';
-import { STAR_PRNT, concatStarPrntBytes } from './StarPrntCommand';
+import {
+  BYTE_MASK,
+  STAR_PRNT,
+  STAR_PRNT_ALIGN_VALUE,
+  STAR_PRNT_CUT_VALUE,
+  STAR_PRNT_DEFAULT_MAGNIFICATION,
+  STAR_PRNT_UNDERLINE_VALUE,
+  concatStarPrntBytes,
+} from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {
     case 'center':
-      return 1;
+      return STAR_PRNT_ALIGN_VALUE.CENTER;
     case 'right':
-      return 2;
+      return STAR_PRNT_ALIGN_VALUE.RIGHT;
     default:
-      return 0;
+      return STAR_PRNT_ALIGN_VALUE.LEFT;
   }
 }
 
 function compileTextElement(content: string, options: TextOptions | undefined): Uint8Array[] {
-  const o = options ?? {};
+  const resolvedOptions = options ?? {};
   const chunks: Uint8Array[] = [];
 
-  chunks.push(new Uint8Array([STAR_PRNT.ESC, ...STAR_PRNT.ALIGN, alignByte(o.align)]));
+  chunks.push(new Uint8Array([STAR_PRNT.ESC, ...STAR_PRNT.ALIGN, alignByte(resolvedOptions.align)]));
 
-  if (o.bold) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.BOLD_ON]));
-  if (o.underline) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, 1]));
-
-  if (o.size !== undefined && o.size > 1) {
-    // eslint-disable-next-line no-bitwise -- clamping the magnification factor to a single byte, per ESC i h w's wire format
-    const mag = o.size & 0xff;
-    chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.SIZE, mag, mag]));
+  if (resolvedOptions.bold) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.BOLD_ON]));
+  if (resolvedOptions.underline) {
+    chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, STAR_PRNT_UNDERLINE_VALUE.ON]));
   }
 
-  // Known limitation: text always goes out as UTF-8. Star PRNT output here is
-  // not profile- or code-page-aware the way ESC/POS output is, because this
-  // package has no verified Star Line Mode code-page-select command to emit
-  // (`STAR_PRNT` carries no such constant, and the ported reference has none
-  // either). Non-ASCII content therefore depends on the printer already being
-  // configured for UTF-8.
+  if (resolvedOptions.size !== undefined && resolvedOptions.size > 1) {
+    // Kẹp hệ số phóng to về đúng 1 byte, theo định dạng lệnh "ESC i h w".
+    // eslint-disable-next-line no-bitwise
+    const magnification = resolvedOptions.size & BYTE_MASK;
+    chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.SIZE, magnification, magnification]));
+  }
+
+  // Hạn chế đã biết: văn bản luôn xuất ra dưới dạng UTF-8. Đầu ra Star PRNT ở
+  // đây không nhận biết profile/code-page như đầu ra ESC/POS, vì package này
+  // chưa có lệnh chọn code-page nào của Star Line Mode được xác nhận đáng tin
+  // cậy để phát ra (`STAR_PRNT` không có hằng số nào như vậy, bản gốc được
+  // port cũng không có). Vì vậy nội dung không phải ASCII phụ thuộc vào việc
+  // máy in đã được cấu hình sẵn cho UTF-8.
   chunks.push(new TextEncoder().encode(content));
   chunks.push(new Uint8Array([STAR_PRNT.LF]));
 
-  if (o.bold) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.BOLD_OFF]));
-  if (o.underline) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, 0]));
-  if (o.size !== undefined && o.size > 1) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.SIZE, 1, 1]));
-  chunks.push(new Uint8Array([STAR_PRNT.ESC, ...STAR_PRNT.ALIGN, 0]));
+  if (resolvedOptions.bold) chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.BOLD_OFF]));
+  if (resolvedOptions.underline) {
+    chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, STAR_PRNT_UNDERLINE_VALUE.OFF]));
+  }
+  if (resolvedOptions.size !== undefined && resolvedOptions.size > 1) {
+    chunks.push(
+      new Uint8Array([
+        STAR_PRNT.ESC,
+        STAR_PRNT.SIZE,
+        STAR_PRNT_DEFAULT_MAGNIFICATION,
+        STAR_PRNT_DEFAULT_MAGNIFICATION,
+      ]),
+    );
+  }
+  chunks.push(new Uint8Array([STAR_PRNT.ESC, ...STAR_PRNT.ALIGN, STAR_PRNT_ALIGN_VALUE.LEFT]));
 
+  return chunks;
+}
+
+/**
+ * Compiler Star PRNT của portakal chỉ phát đúng 1 chuỗi byte cắt giấy
+ * (ESC d 1, luôn luôn, ở cuối mọi document) — không có giá trị byte
+ * "full-cut" riêng nào có căn cứ trong nguồn đó, nên cả 'partial' lẫn
+ * 'full' đều map về cùng 1 lệnh ở đây thay vì bịa ra 1 giá trị chưa xác
+ * thực. `rows` cũng không có mã hoá nào có căn cứ (ESC d chỉ nhận đúng 1
+ * tham số cố định) nên bị bỏ qua.
+ */
+function compileCutElement(element: Extract<PrintElement, { type: 'cut' }>): Uint8Array[] {
+  const mode = element.options?.mode ?? 'full';
+  if (mode === 'off') return [];
+
+  return [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.CUT, STAR_PRNT_CUT_VALUE])];
+}
+
+function compileTableElement(element: Extract<PrintElement, { type: 'table' }>): Uint8Array[] {
+  validateTableColumns(element.options.columns);
+  const totalWidth = element.options.columns.reduce((sum, column) => sum + column.width, 0);
+  const lines = formatTable(element.options.columns, element.options.rows, totalWidth);
+
+  const chunks: Uint8Array[] = [];
+  for (const line of lines) chunks.push(...compileTextElement(line, undefined));
   return chunks;
 }
 
@@ -60,9 +107,9 @@ function compileElement(element: PrintElement): Uint8Array[] {
     case 'raw':
       return [typeof element.content === 'string' ? new TextEncoder().encode(element.content) : element.content];
 
-    // Star Line Mode has no native vector-drawing command — box/line/diagonal/
-    // circle/ellipse/reverse/erase stay no-ops, same gap portakal's Star PRNT
-    // and ESC/POS compilers both have.
+    // Star Line Mode không có lệnh vẽ vector gốc nào — box/line/diagonal/
+    // circle/ellipse/reverse/erase đều là no-op, cùng khoảng trống này có ở
+    // cả compiler Star PRNT lẫn ESC/POS của portakal.
     case 'box':
     case 'line':
     case 'diagonal':
@@ -72,66 +119,51 @@ function compileElement(element: PrintElement): Uint8Array[] {
     case 'erase':
       return [];
 
-    // No native "page break" / "advance N dots" / "row-or-column auto-layout"
-    // primitive, and this package has no auto-layout engine yet — same
-    // documented no-op every other language compiler in this package uses.
+    // Không có nguyên hàm "ngắt trang" / "tiến N dot" / "tự động bố cục
+    // hàng-cột", và package này cũng chưa có engine tự động bố cục — cùng
+    // kiểu no-op đã ghi chú ở mọi compiler ngôn ngữ khác trong package.
     case 'pageBreak':
     case 'spacer':
     case 'row':
     case 'column':
       return [];
 
-    // portakal's Star PRNT source has no barcode/QR representation at all —
-    // its internal element union doesn't even include those variants for any
-    // language. Star's real Line Mode command set does define a barcode
-    // ("ESC b ...") and a 2D-symbol ("ESC GS y ...") command family, but
-    // without a grounded, verifiable byte layout to port here (unlike ESC/POS's
-    // "GS k"/"GS ( k", which this package's decode side already exercises),
-    // emitting one would risk inventing an unverified fixed-field record.
-    // Documented no-op, not a bug.
+    // Nguồn Star PRNT của portakal không có biểu diễn barcode/QR nào cả —
+    // union kiểu phần tử nội bộ của nó thậm chí không có các biến thể này
+    // cho bất kỳ ngôn ngữ nào. Bộ lệnh Line Mode thật của Star có định nghĩa
+    // 1 họ lệnh barcode ("ESC b ...") và 1 họ lệnh ký hiệu 2D ("ESC GS y
+    // ..."), nhưng vì không có cấu trúc byte nào được xác thực, có căn cứ để
+    // port ở đây (không như "GS k"/"GS ( k" của ESC/POS mà phía decode của
+    // package này đã kiểm chứng), phát ra lệnh sẽ có nguy cơ tự bịa ra 1 bản
+    // ghi trường cố định chưa được xác thực. No-op có chủ đích, không phải
+    // bug.
     case 'barcode':
     case 'qrcode':
       return [];
 
-    case 'cut': {
-      const mode = element.options?.mode ?? 'full';
-      if (mode === 'off') return [];
+    case 'cut':
+      return compileCutElement(element);
 
-      // portakal's Star PRNT compiler only ever emits one cut byte sequence
-      // (ESC d 1, unconditionally, at the end of every document) — no
-      // distinct full-cut byte value is grounded in that source, so both
-      // 'partial' and 'full' map to the same command here rather than
-      // inventing an unverified one. `rows` has no grounded encoding either
-      // (ESC d takes a single fixed parameter) and is ignored.
-      return [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.CUT, 1])];
-    }
-
-    case 'table': {
-      validateTableColumns(element.options.columns);
-      const totalWidth = element.options.columns.reduce((sum, column) => sum + column.width, 0);
-      const lines = formatTable(element.options.columns, element.options.rows, totalWidth);
-      const chunks: Uint8Array[] = [];
-      for (const line of lines) chunks.push(...compileTextElement(line, undefined));
-      return chunks;
-    }
+    case 'table':
+      return compileTableElement(element);
   }
 }
 
 /**
- * Compiles a `ResolvedPrintDocument` into Star Line Mode bytes.
+ * Biên dịch một `ResolvedPrintDocument` thành bytes Star Line Mode.
  *
- * Unlike portakal's `compileToStarPRNT()`, which always appends `ESC d 1`
- * once at the very end of every document regardless of content, cutting
- * here is driven entirely by `CutElement`s in the document — the same
- * element-driven model every other language compiler in this package uses.
- * Keeping the unconditional trailing cut would make `CutOptions.mode: 'off'`
- * unsatisfiable and would double-cut a document that already places its own
- * `cut` element, so it is not ported; see the `'cut'` case above for what
- * replaces it.
+ * Khác với `compileToStarPRNT()` của portakal — nơi luôn luôn phát `ESC d 1`
+ * đúng 1 lần ở cuối mọi document, bất kể nội dung — việc cắt giấy ở đây hoàn
+ * toàn do các `CutElement` trong document điều khiển, cùng mô hình
+ * element-driven mà mọi compiler ngôn ngữ khác trong package này dùng. Giữ
+ * lại lệnh cắt cuối cùng vô điều kiện sẽ khiến `CutOptions.mode: 'off'`
+ * không thể nào thoả mãn được, và sẽ cắt 2 lần với 1 document đã tự đặt sẵn
+ * 1 element `cut` — nên nó không được port; xem case `'cut'` ở trên để biết
+ * cái gì thay thế nó.
  *
- * `encoding` is accepted for call-shape parity with the other language
- * compilers but is not read: see `compileTextElement` for why Star PRNT text
- * output cannot be encoding-driven yet.
+ * `encoding` được chấp nhận để khớp chữ ký lời gọi với các compiler ngôn ngữ
+ * khác nhưng không được đọc: xem `compileTextElement` để biết lý do đầu ra
+ * văn bản Star PRNT chưa thể điều khiển theo encoding được.
  */
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): Uint8Array {
