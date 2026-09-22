@@ -2,6 +2,8 @@ import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement } from '../../document/elements/PrintElement';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { TextOptions } from '../../document/elements/content/TextElement';
+import type { CutOptions } from '../../document/elements/control/CutElement';
+import type { TableOptions } from '../../document/elements/layout/TableElement';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';
@@ -9,43 +11,101 @@ import { encodeEscPosBarcode } from './EscPosBarcodeEncoder';
 import { encodeEscPosQrCode } from './EscPosQrCodeEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
 
+/** Giá trị "n" của ESC a n (căn lề). */
+const ALIGN_LEFT = 0;
+const ALIGN_CENTER = 1;
+const ALIGN_RIGHT = 2;
+
+/** Giá trị cờ bật/tắt dùng chung cho ESC E n / ESC - n / GS B n (bold, underline, reverse). */
+const FEATURE_ON = 1;
+const FEATURE_OFF = 0;
+
+/** Mặt nạ/độ dịch bit dùng để đóng gói hệ số phóng to width/height vào 2 nibble của GS ! n. */
+const SIZE_MAGNIFICATION_MASK = 0x07;
+const SIZE_HEIGHT_NIBBLE_SHIFT = 4;
+
+/**
+ * Giá trị "m" của GS V m [n] — chọn cắt toàn phần/một phần cho từng dạng lệnh
+ * (function A không feed, function B có feed).
+ */
+const CUT_FUNCTION_A_FULL = 0;
+const CUT_FUNCTION_A_PARTIAL = 1;
+const CUT_FUNCTION_B_FULL = 0x41;
+const CUT_FUNCTION_B_PARTIAL = 0x42;
+
 function alignByte(align: TextOptions['align']): number {
   switch (align) {
     case 'center':
-      return 1;
+      return ALIGN_CENTER;
     case 'right':
-      return 2;
+      return ALIGN_RIGHT;
     default:
-      return 0;
+      return ALIGN_LEFT;
   }
 }
 
-function compileTextElement(content: string, options: TextOptions | undefined, encoding: TextEncodingOptions | undefined): Uint8Array[] {
-  const o = options ?? {};
+function compileTextElement(
+  content: string,
+  rawOptions: TextOptions | undefined,
+  encoding: TextEncodingOptions | undefined,
+): Uint8Array[] {
+  const options = rawOptions ?? {};
   const chunks: Uint8Array[] = [];
 
-  chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.ALIGN, alignByte(o.align)]));
+  chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.ALIGN, alignByte(options.align)]));
 
-  if (o.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, 1]));
-  if (o.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, 1]));
+  if (options.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, FEATURE_ON]));
+  if (options.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, FEATURE_ON]));
 
-  if (o.size !== undefined && o.size > 1) {
-    const mag = o.size - 1;
-    // eslint-disable-next-line no-bitwise -- packing width/height magnification into GS ! n's nibbles, per spec
-    chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, ((mag & 0x07) << 4) | (mag & 0x07)]));
+  if (options.size !== undefined && options.size > 1) {
+    const magnification = options.size - 1;
+    // Đóng gói hệ số phóng to (giống nhau cho width/height) vào 2 nibble của GS ! n, theo spec.
+    // eslint-disable-next-line no-bitwise
+    const nibble = magnification & SIZE_MAGNIFICATION_MASK;
+    // eslint-disable-next-line no-bitwise
+    const sizeByte = (nibble << SIZE_HEIGHT_NIBBLE_SHIFT) | nibble;
+    chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, sizeByte]));
   }
 
-  if (o.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, 1]));
+  if (options.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, FEATURE_ON]));
 
   chunks.push(encodeEscPosText(content, encoding));
   chunks.push(new Uint8Array([ESC_POS.LF]));
 
-  if (o.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, 0]));
-  if (o.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, 0]));
-  if (o.size !== undefined && o.size > 1) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, 0]));
-  if (o.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, 0]));
-  chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.ALIGN, 0]));
+  if (options.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, FEATURE_OFF]));
+  if (options.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, FEATURE_OFF]));
+  if (options.size !== undefined && options.size > 1) {
+    chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, FEATURE_OFF]));
+  }
+  if (options.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, FEATURE_OFF]));
+  chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.ALIGN, ALIGN_LEFT]));
 
+  return chunks;
+}
+
+function compileCutElement(options: CutOptions | undefined): Uint8Array[] {
+  const mode = options?.mode ?? 'full';
+  if (mode === 'off') return [];
+
+  const rows = options?.rows;
+  if (rows !== undefined) {
+    // GS V m n (function B): feed n dòng rồi cắt — m chọn full/partial.
+    const functionByte = mode === 'partial' ? CUT_FUNCTION_B_PARTIAL : CUT_FUNCTION_B_FULL;
+    return [new Uint8Array([ESC_POS.GS, ESC_POS.CUT, functionByte, rows])];
+  }
+
+  // GS V m (function A): cắt ngay tại vị trí hiện tại, không feed — m chọn full/partial.
+  const functionByte = mode === 'partial' ? CUT_FUNCTION_A_PARTIAL : CUT_FUNCTION_A_FULL;
+  return [new Uint8Array([ESC_POS.GS, ESC_POS.CUT, functionByte])];
+}
+
+function compileTableElement(options: TableOptions, encoding: TextEncodingOptions | undefined): Uint8Array[] {
+  validateTableColumns(options.columns);
+  const totalWidth = options.columns.reduce((sum, column) => sum + column.width, 0);
+  const lines = formatTable(options.columns, options.rows, totalWidth);
+
+  const chunks: Uint8Array[] = [];
+  for (const line of lines) chunks.push(...compileTextElement(line, undefined, encoding));
   return chunks;
 }
 
@@ -66,9 +126,9 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'raw':
       return [typeof element.content === 'string' ? encodeEscPosText(element.content, encoding) : element.content];
 
-    // ESC/POS has no native vector-drawing command — box/line/circle/ellipse/
-    // reverse/erase/diagonal stay no-ops, same as portakal. Rendering these to
-    // an image raster instead is a Phase 2/3 candidate, out of scope here.
+    // ESC/POS không có lệnh vẽ vector gốc: box/line/circle/ellipse/reverse/
+    // erase/diagonal vẫn là no-op, giống portakal. Render các element này
+    // thành ảnh raster là ứng viên cho Phase 2/3, ngoài phạm vi ở đây.
     case 'box':
     case 'line':
     case 'diagonal':
@@ -78,44 +138,25 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'erase':
       return [];
 
-    // No native "page break" / "advance N dots" / "row-or-column auto-layout"
-    // primitive, and this package has no auto-layout engine yet — placeholder
-    // pending a real design, not a bug (see design spec's PageBreak/Spacer/
-    // Row/Column compiler-behavior bullet).
+    // Chưa có primitive "ngắt trang" / "advance N dots" / "auto-layout hàng-cột",
+    // và package này chưa có engine auto-layout — đây là placeholder chờ thiết
+    // kế thật, không phải bug (xem gạch đầu dòng PageBreak/Spacer/Row/Column về
+    // hành vi compiler trong design spec).
     case 'pageBreak':
     case 'spacer':
     case 'row':
     case 'column':
       return [];
 
-    case 'cut': {
-      const mode = element.options?.mode ?? 'full';
-      if (mode === 'off') return [];
+    case 'cut':
+      return compileCutElement(element.options);
 
-      const rows = element.options?.rows;
-      if (rows !== undefined) {
-        // GS V m n (function B): feed n lines then cut — m selects full (65) vs partial (66).
-        const m = mode === 'partial' ? 0x42 : 0x41;
-        return [new Uint8Array([ESC_POS.GS, ESC_POS.CUT, m, rows])];
-      }
-
-      // GS V m (function A): cut at the current position, no explicit feed — m selects full (0) vs partial (1).
-      const m = mode === 'partial' ? 1 : 0;
-      return [new Uint8Array([ESC_POS.GS, ESC_POS.CUT, m])];
-    }
-
-    case 'table': {
-      validateTableColumns(element.options.columns);
-      const totalWidth = element.options.columns.reduce((sum, column) => sum + column.width, 0);
-      const lines = formatTable(element.options.columns, element.options.rows, totalWidth);
-      const chunks: Uint8Array[] = [];
-      for (const line of lines) chunks.push(...compileTextElement(line, undefined, encoding));
-      return chunks;
-    }
+    case 'table':
+      return compileTableElement(element.options, encoding);
   }
 }
 
-/** Compiles a `ResolvedPrintDocument` into ESC/POS bytes. */
+/** Compile một `ResolvedPrintDocument` thành các byte lệnh ESC/POS. */
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
   compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): Uint8Array {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];

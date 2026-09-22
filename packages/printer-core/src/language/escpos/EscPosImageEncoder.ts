@@ -2,29 +2,38 @@ import type { Bitmap } from '../../types';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 
 /**
- * Encode a monochrome bitmap as an ESC/POS raster bit image ("GS v 0").
- * Wrapped in a line-spacing override (n=0 before, default after) so image
- * rows print back-to-back instead of with the printer's normal text
- * line spacing between them — same wrapping as portakal's "image" case.
+ * Giá trị "n" của ESC 3 n — tắt line spacing để các dòng ảnh in liền nhau, không cách dòng text.
+ */
+const LINE_SPACING_OVERRIDE = 0;
+
+/** Giá trị "m" của GS v 0 m — chế độ raster bình thường (không nhân đôi width/height). */
+const RASTER_IMAGE_NORMAL_MODE = 0;
+
+/**
+ * Encode bitmap đơn sắc thành ảnh raster bit ESC/POS ("GS v 0"). Bọc trong
+ * một cặp lệnh line-spacing override (n=0 trước, khôi phục mặc định sau) để
+ * các dòng ảnh in liền nhau thay vì cách nhau theo line spacing văn bản
+ * thông thường của máy in — cùng cách bọc như case "image" của portakal.
  */
 export function encodeEscPosImage(bitmap: Bitmap): Uint8Array {
-  // eslint-disable-next-line no-bitwise -- splitting dimensions into little-endian byte pairs, per GS v 0's wire format
+  // Tách chiều rộng/chiều cao thành cặp byte little-endian, theo wire format của GS v 0.
+  // eslint-disable-next-line no-bitwise
   const xL = bitmap.bytesPerRow & 0xff;
-  // eslint-disable-next-line no-bitwise -- see above
+  // eslint-disable-next-line no-bitwise
   const xH = (bitmap.bytesPerRow >> 8) & 0xff;
-  // eslint-disable-next-line no-bitwise -- see above
+  // eslint-disable-next-line no-bitwise
   const yL = bitmap.height & 0xff;
-  // eslint-disable-next-line no-bitwise -- see above
+  // eslint-disable-next-line no-bitwise
   const yH = (bitmap.height >> 8) & 0xff;
 
   const header = new Uint8Array([
     ESC_POS.ESC,
     ESC_POS.LINE_SPACING_SET,
-    0,
+    LINE_SPACING_OVERRIDE,
     ESC_POS.GS,
     ESC_POS.RASTER_IMAGE[0],
     ESC_POS.RASTER_IMAGE[1],
-    0,
+    RASTER_IMAGE_NORMAL_MODE,
     xL,
     xH,
     yL,

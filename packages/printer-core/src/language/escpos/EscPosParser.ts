@@ -1,433 +1,556 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
+import { ESC_POS } from './EscPosCommand';
 
-/** One decoded ESC/POS command: its mnemonic name, raw bytes, and decoded parameters. */
+/** Một lệnh ESC/POS đã decode: tên mnemonic, byte gốc, và các tham số đã giải mã. */
 export interface EscPosParsedCommand {
   name: string;
   bytes: number[];
   params: Record<string, unknown>;
 }
 
-/** Full result of parsing an ESC/POS byte stream. */
+/** Kết quả đầy đủ khi parse một byte stream ESC/POS. */
 export interface EscPosParseResult {
   commands: EscPosParsedCommand[];
   elements: PrintElement[];
   warnings: string[];
 }
 
+// Các byte prefix không có mặt trong ESC_POS dùng chung (ESC_POS chỉ chứa các byte compiler cần phát ra).
+const DLE_PREFIX = 0x10;
+const FS_PREFIX = 0x1c;
+
+const PRINTABLE_ASCII_MIN = 0x20;
+const PRINTABLE_ASCII_MAX = 0x7e;
+
+// Byte lệnh con của ESC, không trùng với ESC_POS (vốn chỉ chứa các lệnh compiler dùng).
+const ESC_FONT = 0x4d;
+const ESC_PRINT_MODE = 0x21;
+const ESC_ROTATION = 0x56;
+const ESC_UPSIDE_DOWN = 0x7b;
+const ESC_FEED_LINES = 0x64;
+const ESC_FEED_DOTS = 0x4a;
+const ESC_CODE_PAGE = 0x74;
+const ESC_PULSE = 0x70;
+
+// Byte lệnh con của GS, không trùng với ESC_POS.
+const GS_FONT = 0x66;
+const GS_AUTO_STATUS_BACK = 0x61;
+const GS_PAPER_SENSOR = 0x72;
+
+/** Mặt nạ/độ dịch bit để giải nén hệ số phóng to width/height từ 2 nibble của GS ! n. */
+const SIZE_NIBBLE_MASK = 0x07;
+const SIZE_NIBBLE_SHIFT = 4;
+
+/** Ngưỡng "m" của GS k: format A kết thúc bằng NUL, format B có tiền tố độ dài. */
+const GS_K_FORMAT_B_MIN = 65;
+
+/** Giá trị "m" của GS V đánh dấu function B (feed n dòng rồi cắt), phân biệt với function A. */
+const CUT_FUNCTION_B_FULL = 0x41;
+const CUT_FUNCTION_B_PARTIAL = 0x42;
+
 /**
- * Decodes an ESC/POS byte stream into commands plus recovered `PrintElement`s.
- * Exported (unlike the class below, whose `PrintParser` return type only
- * exposes `commands`/`warnings`) so callers that need the recovered elements
- * — e.g. using ESC/POS as a cross-compile source — can get them directly.
+ * Số giá trị 1 byte — dùng ghép cặp byte thấp/cao thành số 16-bit little-endian.
+ */
+const BYTE_RANGE = 256;
+
+// Byte lệnh con của DLE.
+const DLE_REAL_TIME_STATUS = 0x04;
+const DLE_REAL_TIME_REQUEST = 0x05;
+const DLE_REAL_TIME_SETTING = 0x14;
+
+/**
+ * Trạng thái định dạng văn bản đang tích luỹ trong lúc parse — bị các lệnh
+ * ESC/GS cập nhật, và được đọc khi gặp một đoạn text in được để dựng lại
+ * `TextElement` tương ứng.
+ */
+interface TextRunState {
+  align: 'left' | 'center' | 'right';
+  bold: boolean;
+  underline: boolean;
+  sizeWidth: number;
+  sizeHeight: number;
+}
+
+function createInitialTextRunState(): TextRunState {
+  return { align: 'left', bold: false, underline: false, sizeWidth: 1, sizeHeight: 1 };
+}
+
+function resetTextRunState(state: TextRunState): void {
+  state.align = 'left';
+  state.bold = false;
+  state.underline = false;
+  state.sizeWidth = 1;
+  state.sizeHeight = 1;
+}
+
+function decodeAlign(value: number): 'left' | 'center' | 'right' {
+  if (value === 1) return 'center';
+  if (value === 2) return 'right';
+  return 'left';
+}
+
+function isPrintableAscii(byte: number): boolean {
+  return byte >= PRINTABLE_ASCII_MIN && byte <= PRINTABLE_ASCII_MAX;
+}
+
+/** Parse "GS k" (barcode): format B (m >= 65, có tiền tố độ dài) hoặc format A (kết thúc bằng NUL). */
+function parseBarcodeCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  if (offset + 2 >= data.length) return offset + 2;
+
+  const symbology = data[offset + 2]!;
+
+  if (symbology >= GS_K_FORMAT_B_MIN) {
+    if (offset + 3 >= data.length) return offset + 3;
+
+    const length = data[offset + 3]!;
+    const barcodeData = data.slice(offset + 4, offset + 4 + length);
+    commands.push({
+      name: 'GS k',
+      bytes: Array.from(data.slice(offset, offset + 4 + length)),
+      params: { type: symbology, length, data: new TextDecoder().decode(barcodeData) },
+    });
+    return offset + 4 + length;
+  }
+
+  const dataStart = offset + 3;
+  let dataEnd = dataStart;
+  while (dataEnd < data.length && data[dataEnd] !== 0) dataEnd++;
+
+  commands.push({
+    name: 'GS k',
+    bytes: Array.from(data.slice(offset, dataEnd + 1)),
+    params: { type: symbology, data: new TextDecoder().decode(data.slice(dataStart, dataEnd)) },
+  });
+  return dataEnd + 1;
+}
+
+/** Parse "GS V" (cắt giấy): function A (cắt ngay, không feed) hoặc function B (feed n dòng rồi cắt). */
+function parseCutCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  if (offset + 2 >= data.length) return offset + 2;
+
+  const mode = data[offset + 2]!;
+  const hasFeedParam = mode === CUT_FUNCTION_B_FULL || mode === CUT_FUNCTION_B_PARTIAL;
+
+  if (!hasFeedParam) {
+    commands.push({ name: 'GS V', bytes: [ESC_POS.GS, ESC_POS.CUT, mode], params: { mode } });
+    return offset + 3;
+  }
+
+  if (offset + 3 >= data.length) return offset + 3;
+
+  const feed = data[offset + 3]!;
+  commands.push({ name: 'GS V', bytes: [ESC_POS.GS, ESC_POS.CUT, mode, feed], params: { mode, feed } });
+  return offset + 4;
+}
+
+/** Parse "GS v 0" (ảnh raster): đọc header 8 byte rồi tính độ dài payload từ bytesPerRow × rows. */
+function parseRasterImageCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  const hasFullHeader = offset + 7 < data.length && data[offset + 2] === ESC_POS.RASTER_IMAGE[1];
+  if (!hasFullHeader) return offset + 2;
+
+  const mode = data[offset + 3]!;
+  const widthLow = data[offset + 4]!;
+  const widthHigh = data[offset + 5]!;
+  const heightLow = data[offset + 6]!;
+  const heightHigh = data[offset + 7]!;
+  const bytesPerRow = widthLow + widthHigh * BYTE_RANGE;
+  const rows = heightLow + heightHigh * BYTE_RANGE;
+  const dataLength = bytesPerRow * rows;
+
+  commands.push({
+    name: 'GS v 0',
+    bytes: Array.from(data.slice(offset, offset + 8)),
+    params: { mode, bytesPerRow, rows, dataLength },
+  });
+  return offset + 8 + dataLength;
+}
+
+/**
+ * Parse "GS ( k" (mã 2D — QR code, v.v.): sub-function "store data" (fn=k, có payload) hoặc các
+ * sub-function khác.
+ */
+function parseTwoDCodeCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  if (offset + 2 >= data.length) return offset + 2;
+
+  const subFunction = data[offset + 2]!;
+  const hasLengthPrefixedPayload = subFunction === ESC_POS.TWO_D_CODE[1] && offset + 4 < data.length;
+
+  if (!hasLengthPrefixedPayload) {
+    commands.push({
+      name: `GS ( ${String.fromCharCode(subFunction)}`,
+      bytes: [ESC_POS.GS, ESC_POS.TWO_D_CODE[0], subFunction],
+      params: {},
+    });
+    return offset + 3;
+  }
+
+  const lengthLow = data[offset + 3]!;
+  const lengthHigh = data[offset + 4]!;
+  const length = lengthLow + lengthHigh * BYTE_RANGE;
+
+  commands.push({
+    name: 'GS ( k',
+    bytes: Array.from(data.slice(offset, offset + 5 + length)),
+    params: { function: subFunction, length },
+  });
+  return offset + 5 + length;
+}
+
+/** Parse một lệnh bắt đầu bằng ESC (0x1b) — `offset` trỏ vào chính byte ESC. */
+function parseEscCommand(
+  data: Uint8Array,
+  offset: number,
+  state: TextRunState,
+  commands: EscPosParsedCommand[],
+): number {
+  const commandByte = data[offset + 1]!;
+
+  switch (commandByte) {
+    case ESC_POS.INIT:
+      commands.push({ name: 'ESC @', bytes: [ESC_POS.ESC, ESC_POS.INIT], params: {} });
+      resetTextRunState(state);
+      return offset + 2;
+
+    case ESC_POS.ALIGN: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      state.align = decodeAlign(value);
+      commands.push({ name: 'ESC a', bytes: [ESC_POS.ESC, ESC_POS.ALIGN, value], params: { align: state.align } });
+      return offset + 3;
+    }
+
+    case ESC_POS.BOLD: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      state.bold = value !== 0;
+      commands.push({ name: 'ESC E', bytes: [ESC_POS.ESC, ESC_POS.BOLD, value], params: { bold: state.bold } });
+      return offset + 3;
+    }
+
+    case ESC_POS.UNDERLINE: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      state.underline = value !== 0;
+      commands.push({
+        name: 'ESC -',
+        bytes: [ESC_POS.ESC, ESC_POS.UNDERLINE, value],
+        params: { underline: state.underline },
+      });
+      return offset + 3;
+    }
+
+    case ESC_FONT: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const font = data[offset + 2]!;
+      commands.push({ name: 'ESC M', bytes: [ESC_POS.ESC, ESC_FONT, font], params: { font } });
+      return offset + 3;
+    }
+
+    case ESC_PRINT_MODE: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const mode = data[offset + 2]!;
+      commands.push({ name: 'ESC !', bytes: [ESC_POS.ESC, ESC_PRINT_MODE, mode], params: { mode } });
+      return offset + 3;
+    }
+
+    case ESC_ROTATION: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const rotation = data[offset + 2]!;
+      commands.push({ name: 'ESC V', bytes: [ESC_POS.ESC, ESC_ROTATION, rotation], params: { rotation } });
+      return offset + 3;
+    }
+
+    case ESC_UPSIDE_DOWN: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      commands.push({
+        name: 'ESC {',
+        bytes: [ESC_POS.ESC, ESC_UPSIDE_DOWN, value],
+        params: { upsideDown: value !== 0 },
+      });
+      return offset + 3;
+    }
+
+    case ESC_FEED_LINES: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const lines = data[offset + 2]!;
+      commands.push({ name: 'ESC d', bytes: [ESC_POS.ESC, ESC_FEED_LINES, lines], params: { lines } });
+      return offset + 3;
+    }
+
+    case ESC_FEED_DOTS: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const dots = data[offset + 2]!;
+      commands.push({ name: 'ESC J', bytes: [ESC_POS.ESC, ESC_FEED_DOTS, dots], params: { dots } });
+      return offset + 3;
+    }
+
+    case ESC_POS.LINE_SPACING_SET: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const spacing = data[offset + 2]!;
+      commands.push({
+        name: 'ESC 3',
+        bytes: [ESC_POS.ESC, ESC_POS.LINE_SPACING_SET, spacing],
+        params: { spacing },
+      });
+      return offset + 3;
+    }
+
+    case ESC_POS.LINE_SPACING_DEFAULT:
+      commands.push({ name: 'ESC 2', bytes: [ESC_POS.ESC, ESC_POS.LINE_SPACING_DEFAULT], params: {} });
+      return offset + 2;
+
+    case ESC_CODE_PAGE: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const codePage = data[offset + 2]!;
+      commands.push({ name: 'ESC t', bytes: [ESC_POS.ESC, ESC_CODE_PAGE, codePage], params: { codePage } });
+      return offset + 3;
+    }
+
+    case ESC_PULSE: {
+      if (offset + 4 >= data.length) return offset + 2;
+      commands.push({
+        name: 'ESC p',
+        bytes: [ESC_POS.ESC, ESC_PULSE, data[offset + 2]!, data[offset + 3]!, data[offset + 4]!],
+        params: { pin: data[offset + 2], onTime: data[offset + 3], offTime: data[offset + 4] },
+      });
+      return offset + 5;
+    }
+
+    default:
+      commands.push({ name: `ESC ${String.fromCharCode(commandByte)}`, bytes: [ESC_POS.ESC, commandByte], params: {} });
+      return offset + 2;
+  }
+}
+
+/** Parse một lệnh bắt đầu bằng GS (0x1d) — `offset` trỏ vào chính byte GS. */
+function parseGsCommand(
+  data: Uint8Array,
+  offset: number,
+  state: TextRunState,
+  commands: EscPosParsedCommand[],
+): number {
+  const commandByte = data[offset + 1]!;
+
+  switch (commandByte) {
+    case ESC_POS.SIZE: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      // Giải nén nibble cao/thấp của GS ! n thành hệ số phóng to chiều rộng/chiều cao, theo spec.
+      // eslint-disable-next-line no-bitwise
+      state.sizeWidth = ((value >> SIZE_NIBBLE_SHIFT) & SIZE_NIBBLE_MASK) + 1;
+      // eslint-disable-next-line no-bitwise
+      state.sizeHeight = (value & SIZE_NIBBLE_MASK) + 1;
+      commands.push({
+        name: 'GS !',
+        bytes: [ESC_POS.GS, ESC_POS.SIZE, value],
+        params: { width: state.sizeWidth, height: state.sizeHeight },
+      });
+      return offset + 3;
+    }
+
+    case ESC_POS.REVERSE: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const value = data[offset + 2]!;
+      commands.push({ name: 'GS B', bytes: [ESC_POS.GS, ESC_POS.REVERSE, value], params: { reverse: value !== 0 } });
+      return offset + 3;
+    }
+
+    case ESC_POS.HRI_POSITION: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const position = data[offset + 2]!;
+      commands.push({ name: 'GS H', bytes: [ESC_POS.GS, ESC_POS.HRI_POSITION, position], params: { position } });
+      return offset + 3;
+    }
+
+    case ESC_POS.BARCODE_HEIGHT: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const height = data[offset + 2]!;
+      commands.push({ name: 'GS h', bytes: [ESC_POS.GS, ESC_POS.BARCODE_HEIGHT, height], params: { height } });
+      return offset + 3;
+    }
+
+    case ESC_POS.BARCODE_WIDTH: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const width = data[offset + 2]!;
+      commands.push({ name: 'GS w', bytes: [ESC_POS.GS, ESC_POS.BARCODE_WIDTH, width], params: { width } });
+      return offset + 3;
+    }
+
+    case GS_FONT: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const font = data[offset + 2]!;
+      commands.push({ name: 'GS f', bytes: [ESC_POS.GS, GS_FONT, font], params: { font } });
+      return offset + 3;
+    }
+
+    case ESC_POS.BARCODE:
+      return parseBarcodeCommand(data, offset, commands);
+
+    case ESC_POS.CUT:
+      return parseCutCommand(data, offset, commands);
+
+    case ESC_POS.RASTER_IMAGE[0]:
+      return parseRasterImageCommand(data, offset, commands);
+
+    case ESC_POS.TWO_D_CODE[0]:
+      return parseTwoDCodeCommand(data, offset, commands);
+
+    case GS_AUTO_STATUS_BACK: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const enable = data[offset + 2]!;
+      commands.push({ name: 'GS a', bytes: [ESC_POS.GS, GS_AUTO_STATUS_BACK, enable], params: { enable } });
+      return offset + 3;
+    }
+
+    case GS_PAPER_SENSOR: {
+      if (offset + 2 >= data.length) return offset + 2;
+      const type = data[offset + 2]!;
+      commands.push({ name: 'GS r', bytes: [ESC_POS.GS, GS_PAPER_SENSOR, type], params: { type } });
+      return offset + 3;
+    }
+
+    default:
+      commands.push({ name: `GS ${String.fromCharCode(commandByte)}`, bytes: [ESC_POS.GS, commandByte], params: {} });
+      return offset + 2;
+  }
+}
+
+/** Parse một lệnh bắt đầu bằng DLE (0x10) — real-time status request, không ảnh hưởng text state. */
+function parseDleCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  const commandByte = data[offset + 1]!;
+
+  if (commandByte === DLE_REAL_TIME_STATUS && offset + 2 < data.length) {
+    const statusType = data[offset + 2]!;
+    commands.push({
+      name: 'DLE EOT',
+      bytes: [DLE_PREFIX, DLE_REAL_TIME_STATUS, statusType],
+      params: { type: statusType },
+    });
+    return offset + 3;
+  }
+
+  if (commandByte === DLE_REAL_TIME_REQUEST && offset + 2 < data.length) {
+    const requestType = data[offset + 2]!;
+    commands.push({
+      name: 'DLE ENQ',
+      bytes: [DLE_PREFIX, DLE_REAL_TIME_REQUEST, requestType],
+      params: { type: requestType },
+    });
+    return offset + 3;
+  }
+
+  if (commandByte === DLE_REAL_TIME_SETTING && offset + 4 < data.length) {
+    commands.push({
+      name: 'DLE DC4',
+      bytes: [DLE_PREFIX, DLE_REAL_TIME_SETTING, data[offset + 2]!, data[offset + 3]!, data[offset + 4]!],
+      params: { fn: data[offset + 2], m: data[offset + 3], t: data[offset + 4] },
+    });
+    return offset + 5;
+  }
+
+  return offset + 2;
+}
+
+/** Parse một lệnh bắt đầu bằng FS (0x1c) — chưa decode tham số, chỉ ghi nhận mnemonic. */
+function parseFsCommand(data: Uint8Array, offset: number, commands: EscPosParsedCommand[]): number {
+  const commandByte = data[offset + 1]!;
+  commands.push({ name: `FS ${String.fromCharCode(commandByte)}`, bytes: [FS_PREFIX, commandByte], params: {} });
+  return offset + 2;
+}
+
+/**
+ * Gom dải byte ASCII in được liên tiếp thành `TextElement`, áp trạng thái định dạng hiện tại.
+ */
+function parseTextRun(
+  data: Uint8Array,
+  offset: number,
+  state: TextRunState,
+  commands: EscPosParsedCommand[],
+  elements: PrintElement[],
+): number {
+  let text = '';
+  let cursor = offset;
+
+  while (cursor < data.length && isPrintableAscii(data[cursor]!)) {
+    text += String.fromCharCode(data[cursor]!);
+    cursor++;
+  }
+
+  commands.push({ name: 'TEXT', bytes: Array.from(new TextEncoder().encode(text)), params: { text } });
+  elements.push({
+    type: 'text',
+    content: text,
+    options: {
+      align: state.align,
+      bold: state.bold || undefined,
+      underline: state.underline || undefined,
+      size: Math.max(state.sizeWidth, state.sizeHeight),
+    },
+  });
+
+  return cursor;
+}
+
+/**
+ * Decode một byte stream ESC/POS thành các lệnh cộng với `PrintElement` phục
+ * hồi được. Được export (khác với class bên dưới, vốn theo kiểu trả về của
+ * `PrintParser` chỉ lộ ra `commands`/`warnings`) để các nơi gọi cần chính các
+ * element đã phục hồi — ví dụ dùng ESC/POS làm nguồn cross-compile — lấy
+ * trực tiếp được.
  */
 export function decodeEscPos(data: Uint8Array): EscPosParseResult {
   const commands: EscPosParsedCommand[] = [];
   const elements: PrintElement[] = [];
   const warnings: string[] = [];
-  let i = 0;
-  let currentAlign: 'left' | 'center' | 'right' = 'left';
-  let isBold = false;
-  let isUnderline = false;
-  let sizeW = 1;
-  let sizeH = 1;
+  const state = createInitialTextRunState();
+  let offset = 0;
 
-  while (i < data.length) {
-    const b = data[i]!;
+  while (offset < data.length) {
+    const byte = data[offset]!;
 
-    if (b === 0x1b && i + 1 < data.length) {
-      const cmd = data[i + 1]!;
-
-      switch (cmd) {
-        case 0x40:
-          commands.push({ name: 'ESC @', bytes: [0x1b, 0x40], params: {} });
-          currentAlign = 'left';
-          isBold = false;
-          isUnderline = false;
-          sizeW = sizeH = 1;
-          i += 2;
-          continue;
-
-        case 0x61:
-          if (i + 2 < data.length) {
-            const n = data[i + 2]!;
-            currentAlign = n === 1 ? 'center' : n === 2 ? 'right' : 'left';
-            commands.push({ name: 'ESC a', bytes: [0x1b, 0x61, n], params: { align: currentAlign } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x45:
-          if (i + 2 < data.length) {
-            isBold = data[i + 2] !== 0;
-            commands.push({ name: 'ESC E', bytes: [0x1b, 0x45, data[i + 2]!], params: { bold: isBold } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x2d:
-          if (i + 2 < data.length) {
-            isUnderline = data[i + 2] !== 0;
-            commands.push({ name: 'ESC -', bytes: [0x1b, 0x2d, data[i + 2]!], params: { underline: isUnderline } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x4d:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC M', bytes: [0x1b, 0x4d, data[i + 2]!], params: { font: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x21:
-          if (i + 2 < data.length) {
-            const n = data[i + 2]!;
-            commands.push({ name: 'ESC !', bytes: [0x1b, 0x21, n], params: { mode: n } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x56:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC V', bytes: [0x1b, 0x56, data[i + 2]!], params: { rotation: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x7b:
-          if (i + 2 < data.length) {
-            commands.push({
-              name: 'ESC {',
-              bytes: [0x1b, 0x7b, data[i + 2]!],
-              params: { upsideDown: data[i + 2] !== 0 },
-            });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x64:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC d', bytes: [0x1b, 0x64, data[i + 2]!], params: { lines: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x4a:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC J', bytes: [0x1b, 0x4a, data[i + 2]!], params: { dots: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x33:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC 3', bytes: [0x1b, 0x33, data[i + 2]!], params: { spacing: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x32:
-          commands.push({ name: 'ESC 2', bytes: [0x1b, 0x32], params: {} });
-          i += 2;
-          continue;
-
-        case 0x74:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'ESC t', bytes: [0x1b, 0x74, data[i + 2]!], params: { codePage: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x70:
-          if (i + 4 < data.length) {
-            commands.push({
-              name: 'ESC p',
-              bytes: [0x1b, 0x70, data[i + 2]!, data[i + 3]!, data[i + 4]!],
-              params: { pin: data[i + 2], onTime: data[i + 3], offTime: data[i + 4] },
-            });
-            i += 5;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        default:
-          commands.push({ name: `ESC ${String.fromCharCode(cmd)}`, bytes: [0x1b, cmd], params: {} });
-          i += 2;
-          continue;
-      }
-    }
-
-    if (b === 0x1d && i + 1 < data.length) {
-      const cmd = data[i + 1]!;
-
-      switch (cmd) {
-        case 0x21:
-          if (i + 2 < data.length) {
-            const n = data[i + 2]!;
-            // eslint-disable-next-line no-bitwise -- unpacking GS ! n's width/height nibbles, per spec
-            sizeW = ((n >> 4) & 0x07) + 1;
-            // eslint-disable-next-line no-bitwise -- see above
-            sizeH = (n & 0x07) + 1;
-            commands.push({ name: 'GS !', bytes: [0x1d, 0x21, n], params: { width: sizeW, height: sizeH } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x42:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS B', bytes: [0x1d, 0x42, data[i + 2]!], params: { reverse: data[i + 2] !== 0 } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x48:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS H', bytes: [0x1d, 0x48, data[i + 2]!], params: { position: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x68:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS h', bytes: [0x1d, 0x68, data[i + 2]!], params: { height: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x77:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS w', bytes: [0x1d, 0x77, data[i + 2]!], params: { width: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x66:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS f', bytes: [0x1d, 0x66, data[i + 2]!], params: { font: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x6b:
-          if (i + 2 < data.length) {
-            const m = data[i + 2]!;
-            if (m >= 65) {
-              if (i + 3 < data.length) {
-                const n = data[i + 3]!;
-                const barcodeData = data.slice(i + 4, i + 4 + n);
-                commands.push({
-                  name: 'GS k',
-                  bytes: Array.from(data.slice(i, i + 4 + n)),
-                  params: { type: m, length: n, data: new TextDecoder().decode(barcodeData) },
-                });
-                i += 4 + n;
-              } else {
-                i += 3;
-              }
-            } else {
-              const start = i + 3;
-              let end = start;
-              while (end < data.length && data[end] !== 0) end++;
-              commands.push({
-                name: 'GS k',
-                bytes: Array.from(data.slice(i, end + 1)),
-                params: { type: m, data: new TextDecoder().decode(data.slice(start, end)) },
-              });
-              i = end + 1;
-            }
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x56:
-          if (i + 2 < data.length) {
-            const m = data[i + 2]!;
-            if (m === 65 || m === 66) {
-              if (i + 3 < data.length) {
-                commands.push({ name: 'GS V', bytes: [0x1d, 0x56, m, data[i + 3]!], params: { mode: m, feed: data[i + 3] } });
-                i += 4;
-              } else {
-                i += 3;
-              }
-            } else {
-              commands.push({ name: 'GS V', bytes: [0x1d, 0x56, m], params: { mode: m } });
-              i += 3;
-            }
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x76:
-          if (i + 7 < data.length && data[i + 2] === 0x30) {
-            const m = data[i + 3]!;
-            const xL = data[i + 4]!;
-            const xH = data[i + 5]!;
-            const yL = data[i + 6]!;
-            const yH = data[i + 7]!;
-            const bytesPerRow = xL + xH * 256;
-            const rows = yL + yH * 256;
-            const dataLen = bytesPerRow * rows;
-            commands.push({
-              name: 'GS v 0',
-              bytes: Array.from(data.slice(i, i + 8)),
-              params: { mode: m, bytesPerRow, rows, dataLength: dataLen },
-            });
-            i += 8 + dataLen;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x28:
-          if (i + 2 < data.length) {
-            const fn = data[i + 2]!;
-            if (fn === 0x6b && i + 4 < data.length) {
-              const pL = data[i + 3]!;
-              const pH = data[i + 4]!;
-              const len = pL + pH * 256;
-              commands.push({
-                name: 'GS ( k',
-                bytes: Array.from(data.slice(i, i + 5 + len)),
-                params: { function: fn, length: len },
-              });
-              i += 5 + len;
-            } else {
-              commands.push({ name: `GS ( ${String.fromCharCode(fn)}`, bytes: [0x1d, 0x28, fn], params: {} });
-              i += 3;
-            }
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x61:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS a', bytes: [0x1d, 0x61, data[i + 2]!], params: { enable: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        case 0x72:
-          if (i + 2 < data.length) {
-            commands.push({ name: 'GS r', bytes: [0x1d, 0x72, data[i + 2]!], params: { type: data[i + 2] } });
-            i += 3;
-          } else {
-            i += 2;
-          }
-          continue;
-
-        default:
-          commands.push({ name: `GS ${String.fromCharCode(cmd)}`, bytes: [0x1d, cmd], params: {} });
-          i += 2;
-          continue;
-      }
-    }
-
-    if (b === 0x10 && i + 1 < data.length) {
-      const cmd = data[i + 1]!;
-      if (cmd === 0x04 && i + 2 < data.length) {
-        commands.push({ name: 'DLE EOT', bytes: [0x10, 0x04, data[i + 2]!], params: { type: data[i + 2] } });
-        i += 3;
-        continue;
-      }
-      if (cmd === 0x05 && i + 2 < data.length) {
-        commands.push({ name: 'DLE ENQ', bytes: [0x10, 0x05, data[i + 2]!], params: { type: data[i + 2] } });
-        i += 3;
-        continue;
-      }
-      if (cmd === 0x14 && i + 4 < data.length) {
-        commands.push({
-          name: 'DLE DC4',
-          bytes: [0x10, 0x14, data[i + 2]!, data[i + 3]!, data[i + 4]!],
-          params: { fn: data[i + 2], m: data[i + 3], t: data[i + 4] },
-        });
-        i += 5;
-        continue;
-      }
-      i += 2;
+    if (byte === ESC_POS.ESC && offset + 1 < data.length) {
+      offset = parseEscCommand(data, offset, state, commands);
       continue;
     }
 
-    if (b === 0x1c && i + 1 < data.length) {
-      const cmd = data[i + 1]!;
-      commands.push({ name: `FS ${String.fromCharCode(cmd)}`, bytes: [0x1c, cmd], params: {} });
-      i += 2;
+    if (byte === ESC_POS.GS && offset + 1 < data.length) {
+      offset = parseGsCommand(data, offset, state, commands);
       continue;
     }
 
-    if (b === 0x0a) {
-      commands.push({ name: 'LF', bytes: [0x0a], params: {} });
-      i++;
+    if (byte === DLE_PREFIX && offset + 1 < data.length) {
+      offset = parseDleCommand(data, offset, commands);
       continue;
     }
 
-    if (b >= 0x20 && b <= 0x7e) {
-      let text = '';
-      while (i < data.length && data[i]! >= 0x20 && data[i]! <= 0x7e) {
-        text += String.fromCharCode(data[i]!);
-        i++;
-      }
-      commands.push({ name: 'TEXT', bytes: Array.from(new TextEncoder().encode(text)), params: { text } });
-      elements.push({
-        type: 'text',
-        content: text,
-        options: {
-          align: currentAlign,
-          bold: isBold || undefined,
-          underline: isUnderline || undefined,
-          size: Math.max(sizeW, sizeH),
-        },
-      });
+    if (byte === FS_PREFIX && offset + 1 < data.length) {
+      offset = parseFsCommand(data, offset, commands);
       continue;
     }
 
-    i++;
+    if (byte === ESC_POS.LF) {
+      commands.push({ name: 'LF', bytes: [ESC_POS.LF], params: {} });
+      offset++;
+      continue;
+    }
+
+    if (isPrintableAscii(byte)) {
+      offset = parseTextRun(data, offset, state, commands, elements);
+      continue;
+    }
+
+    offset++;
   }
 
   return { commands, elements, warnings };
 }
 
-/** Decodes an ESC/POS byte stream into structured commands (binary state machine over ESC/GS/DLE/FS prefixes). */
+/**
+ * Decode một byte stream ESC/POS thành các lệnh có cấu trúc (máy trạng thái nhị phân duyệt theo
+ * prefix ESC/GS/DLE/FS).
+ */
 export class EscPosParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(bytes: Uint8Array): { commands: unknown[]; warnings: string[] } {
     return decodeEscPos(bytes);

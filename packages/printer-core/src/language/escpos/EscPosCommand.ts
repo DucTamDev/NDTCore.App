@@ -1,7 +1,7 @@
 /**
- * ESC/POS control byte constants, per the Epson ESC/POS Application
- * Programming Guide. Shared by the compiler, byte encoders, and the
- * validator (which walks the same command bytes to sanity-check a stream).
+ * Hằng số byte điều khiển ESC/POS, theo tài liệu Epson ESC/POS Application
+ * Programming Guide. Dùng chung bởi compiler, các byte encoder, và validator
+ * (validator duyệt lại chính các byte lệnh này để kiểm tra tính hợp lệ của stream).
  */
 export const ESC_POS = {
   ESC: 0x1b,
@@ -26,7 +26,9 @@ export const ESC_POS = {
   CUT: 0x56, // GS V m [n]
 } as const;
 
-/** Concatenate byte chunks into one Uint8Array — every ESC/POS encoder assembles its output this way. */
+/**
+ * Nối các đoạn byte thành một Uint8Array — mọi encoder ESC/POS đều lắp ráp output theo cách này.
+ */
 export function concatEscPosBytes(chunks: Uint8Array[]): Uint8Array {
   let total = 0;
   for (const chunk of chunks) total += chunk.length;
