@@ -1,14 +1,16 @@
 /**
- * ZPL II command-prefix constants emitted by `ZplCompiler`'s `compileElement()`
- * switch, plus the format-setup commands `compileToZPL()` writes ahead of
- * every element. Kept as one named-constant map (mirroring `TSC_COMMAND` and
- * `ESC_POS`) so every command prefix is spelled once — ported from the
- * literal strings portakal's `languages/zpl.ts` builds inline.
+ * Các hằng số tiền tố lệnh ZPL II mà switch `compileElement()` của
+ * `ZplCompiler` phát ra, cùng các lệnh thiết lập format mà `compileToZPL()`
+ * ghi trước mỗi element. Gom thành một map hằng số duy nhất (giống
+ * `TSC_COMMAND` và `ESC_POS`) để mỗi tiền tố lệnh chỉ được viết ra một nơi —
+ * chuyển thể từ các chuỗi literal mà `languages/zpl.ts` của portakal dựng
+ * trực tiếp trong code.
  *
- * Font (`^A<letter>`) and barcode (`^B<letter>`) commands are not listed
- * here — their second character varies per call (font id / symbology), so
- * `ZplCompiler` builds those literally at the call site, same as
- * `TscCompiler`'s `TSC_BARCODE_TYPE` handles TSPL's per-symbology type string.
+ * Lệnh font (`^A<letter>`) và barcode (`^B<letter>`) không liệt kê ở đây —
+ * ký tự thứ hai của chúng thay đổi theo từng lần gọi (id font / loại mã
+ * vạch), nên `ZplCompiler` tự dựng các lệnh này trực tiếp tại nơi gọi, giống
+ * cách `TSC_BARCODE_TYPE` của `TscCompiler` xử lý chuỗi loại mã vạch riêng
+ * cho từng symbology của TSPL.
  */
 export const ZPL_COMMAND = {
   START_FORMAT: '^XA',
@@ -31,13 +33,13 @@ export const ZPL_COMMAND = {
   BARCODE_FIELD_DEFAULT: '^BY',
   PRINT_QUANTITY: '^PQ',
   /**
-   * `^MM` — Print Mode. `^MMC` selects Cutter mode (persistent — the printer
-   * keeps cutting after every label until the mode is changed again, same
-   * persistence model as TSC's `SET CUTTER`), `^MMT` reverts to Tear-off
-   * (ZPL's default, no-cutter state). Net new — portakal never compiles a
-   * `cut` element for ZPL — derived from the Zebra ZPL II Programming
-   * Guide's `^MM` command, the real cutter-mode command for printers with
-   * cutter hardware.
+   * `^MM` — Print Mode. `^MMC` chọn chế độ Cutter (có tính bền — máy in tiếp
+   * tục cắt sau mỗi label cho đến khi chế độ bị đổi lại, cùng mô hình bền
+   * trạng thái như `SET CUTTER` của TSC), `^MMT` quay lại Tear-off (trạng
+   * thái mặc định của ZPL, không cắt). Hoàn toàn mới — portakal không bao
+   * giờ compile element `cut` cho ZPL — lệnh này được lấy từ `^MM` trong
+   * Zebra ZPL II Programming Guide, lệnh chế độ cắt thật cho máy in có dao
+   * cắt.
    */
   PRINT_MODE: '^MM',
 } as const;

@@ -1,17 +1,18 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Encode a monochrome bitmap as the ASCII-hex payload the ZPL `^GFA` command
- * expects: every packed byte of `bitmap.data` (MSB-first, bit 1 = black,
- * same convention `Bitmap` uses everywhere else in this package) rendered as
- * two uppercase hex digits, back to back with no separators — `^GFA`'s own
- * `a` parameter (ASCII-hex compression) is what tells the printer to decode
- * the following text back into binary this way, per the Zebra ZPL II
- * Programming Guide's Graphic Field command.
+ * Encode bitmap đơn sắc thành payload ASCII-hex mà lệnh ZPL `^GFA` yêu cầu:
+ * mỗi byte đã đóng gói của `bitmap.data` (MSB-first, bit 1 = đen, cùng quy
+ * ước mà `Bitmap` dùng xuyên suốt package này) được render thành hai chữ số
+ * hex viết hoa, nối liền nhau không có ký tự phân cách — tham số `a` của
+ * `^GFA` (nén ASCII-hex) chính là thứ báo cho máy in giải mã phần text theo
+ * sau trở lại thành nhị phân theo cách này, theo lệnh Graphic Field trong
+ * Zebra ZPL II Programming Guide.
  *
- * Direct, unmodified port of portakal's `languages/zpl.ts` image-case hex
- * loop — the plan flags this one as already correct, no bug fix needed here
- * unlike EPL/DPL/IPL's `^GFA`-equivalents in later tasks.
+ * Port trực tiếp, không chỉnh sửa, từ vòng lặp hex xử lý case image trong
+ * `languages/zpl.ts` của portakal — plan đánh dấu đoạn này vốn đã đúng,
+ * không cần sửa lỗi ở đây, khác với các lệnh tương đương `^GFA` của
+ * EPL/DPL/IPL ở các task sau.
  */
 export function encodeZplBitmapPayload(bitmap: Bitmap): string {
   let hex = '';

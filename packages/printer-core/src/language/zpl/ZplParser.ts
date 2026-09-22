@@ -3,13 +3,13 @@ import type { PrintElement } from '../../document/elements/PrintElement';
 import type { Alignment } from '../../types';
 
 /**
- * One decoded ZPL command: its `^`/`~`-prefixed code, the raw text between
- * it and the next command, and that text split on `,` for callers that want
- * positional parameters. Unlike TSPL's `TSPLCommand` (a discriminated union
- * per command), ZPL's own grammar doesn't warrant one — `tokenize()` never
- * needs to know a command's parameter shape to split it from its neighbors,
- * so every command decodes to this one generic shape, matching portakal's
- * `ZPLCommand` interface in `parsers/zpl.ts`.
+ * Một lệnh ZPL đã giải mã: mã lệnh có tiền tố `^`/`~`, phần text thô nằm
+ * giữa nó và lệnh kế tiếp, và phần text đó tách theo dấu `,` cho những nơi
+ * gọi cần tham số theo vị trí. Khác với `TSPLCommand` của TSPL (một
+ * discriminated union riêng cho từng lệnh), ngữ pháp của ZPL không cần kiểu
+ * đó — `tokenize()` không bao giờ cần biết hình dạng tham số của một lệnh để
+ * tách nó khỏi lệnh liền kề, nên mọi lệnh đều giải mã về đúng một hình dạng
+ * chung này, khớp interface `ZPLCommand` của portakal trong `parsers/zpl.ts`.
  */
 export interface ZPLCommand {
   code: string;
@@ -17,7 +17,7 @@ export interface ZPLCommand {
   params: string[];
 }
 
-/** Full result of parsing a ZPL II source string. */
+/** Kết quả đầy đủ của việc parse một chuỗi nguồn ZPL II. */
 export interface ZPLParseResult {
   commands: ZPLCommand[];
   widthDots: number;
@@ -30,14 +30,14 @@ const DEFAULT_WIDTH_DOTS = 812; // 4in @ 203dpi
 const DEFAULT_HEIGHT_DOTS = 1218; // 6in @ 203dpi
 
 /**
- * Tokenizes ZPL source into `{code, rawParams, params}` commands. Every
- * command starts with `^` or `~`; most run until the next `^`/`~`, but three
- * codes need their own read rule because their payload can itself contain
- * those characters: `^FD`/`^FV` (field data) runs until the literal `^FS`
- * marker, `^GF`/`~DG` (graphic field data) and `^FX` (comment) run until the
- * next `^`/`~` same as normal params but are called out separately below to
- * mirror portakal's own branch order — reordering these checks would change
- * which branch a line falls into.
+ * Tokenize nguồn ZPL thành các lệnh `{code, rawParams, params}`. Mọi lệnh
+ * bắt đầu bằng `^` hoặc `~`; đa số đọc đến `^`/`~` kế tiếp, nhưng ba mã lệnh
+ * cần quy tắc đọc riêng vì payload của chúng có thể chứa chính các ký tự đó:
+ * `^FD`/`^FV` (dữ liệu field) đọc đến đúng marker `^FS`, `^GF`/`~DG` (dữ
+ * liệu graphic field) và `^FX` (comment) đọc đến `^`/`~` kế tiếp giống tham
+ * số bình thường nhưng được tách riêng bên dưới để giữ đúng thứ tự nhánh của
+ * portakal — đổi thứ tự các kiểm tra này sẽ làm thay đổi lệnh rơi vào nhánh
+ * nào.
  */
 export function tokenize(code: string): ZPLCommand[] {
   const commands: ZPLCommand[] = [];
@@ -53,29 +53,29 @@ export function tokenize(code: string): ZPLCommand[] {
       const prefix = code[i];
       i++;
 
-      let cmdCode = prefix;
+      let commandCode = prefix;
       if (i < code.length && /[A-Za-z]/.test(code[i])) {
-        cmdCode += code[i].toUpperCase();
+        commandCode += code[i].toUpperCase();
         i++;
       }
       if (i < code.length && /[A-Za-z0-9@]/.test(code[i])) {
-        cmdCode += code[i].toUpperCase();
+        commandCode += code[i].toUpperCase();
         i++;
       }
 
       let rawParams = '';
 
-      if (cmdCode === '^FD' || cmdCode === '^FV') {
+      if (commandCode === '^FD' || commandCode === '^FV') {
         const endMarker = '^FS';
         const endIdx = code.indexOf(endMarker, i);
         if (endIdx >= 0) {
           rawParams = code.slice(i, endIdx).trim();
-          i = endIdx; // ^FS is tokenized as the next command.
+          i = endIdx; // ^FS được tokenize như lệnh kế tiếp.
         } else {
           rawParams = code.slice(i).trim();
           i = code.length;
         }
-      } else if (cmdCode === '^GF' || cmdCode === '~DG' || cmdCode === '^FX') {
+      } else if (commandCode === '^GF' || commandCode === '~DG' || commandCode === '^FX') {
         const start = i;
         while (i < code.length && code[i] !== '^' && code[i] !== '~') i++;
         rawParams = code.slice(start, i).trim();
@@ -88,8 +88,8 @@ export function tokenize(code: string): ZPLCommand[] {
         rawParams = code.slice(start, i).trim();
       }
 
-      const params = rawParams ? rawParams.split(',').map((s) => s.trim()) : [];
-      commands.push({ code: cmdCode, rawParams, params });
+      const params = rawParams ? rawParams.split(',').map((param) => param.trim()) : [];
+      commands.push({ code: commandCode, rawParams, params });
     } else {
       i++;
     }
@@ -99,16 +99,219 @@ export function tokenize(code: string): ZPLCommand[] {
 }
 
 /**
- * Parses ZPL II source into structured commands plus preview-renderable
- * `PrintElement`s. Field state (position, font, reverse, barcode defaults)
- * accumulates across `^FO`/`^FT`...`^FS` — mirroring portakal's
- * `parseZPL()` state machine field-for-field, including the ordering
- * `^A`/`^B` generic-prefix checks run in ahead of the main `switch`.
+ * Trạng thái field tích luỹ qua chuỗi lệnh `^FO`/`^FT`...`^FS` của
+ * `parseZPL()` — vị trí, font hiện hành, cờ reverse, mặc định barcode. Gom
+ * thành một object để mỗi lệnh có thể được xử lý bởi một hàm `applyXxx`/
+ * `buildXxx` riêng thay vì tất cả cùng đóng (closure) trên một loạt biến
+ * `let` trong thân `parseZPL()`.
+ */
+interface ZplParserState {
+  fieldX: number;
+  fieldY: number;
+  labelHomeX: number;
+  labelHomeY: number;
+  labelShift: number;
+  labelTop: number;
+  currentFont: string;
+  currentFontHeight: number;
+  currentFontWidth: number;
+  fieldReverse: boolean;
+  fieldData: string;
+  barcodeType: string;
+  barcodeHeight: number;
+  barcodeModuleWidth: number;
+  fieldBaseline: boolean;
+  fieldBlockWidth: number;
+  fieldBlockJustify: string;
+}
+
+function createInitialParserState(): ZplParserState {
+  return {
+    fieldX: 0,
+    fieldY: 0,
+    labelHomeX: 0,
+    labelHomeY: 0,
+    labelShift: 0,
+    labelTop: 0,
+    currentFont: '0',
+    currentFontHeight: 30,
+    currentFontWidth: 30,
+    fieldReverse: false,
+    fieldData: '',
+    barcodeType: '',
+    // Khớp giá trị fallback mặc định của chính ^BY khi chưa có lệnh ^BY nào chạy.
+    barcodeHeight: 10,
+    barcodeModuleWidth: 2,
+    fieldBaseline: false,
+    fieldBlockWidth: 0,
+    fieldBlockJustify: 'L',
+  };
+}
+
+/** `^A0`/`^AA`.../`^AZ` — chữ cái font nằm ngay trong mã lệnh. */
+function applyFontSizeCommand(state: ZplParserState, command: ZPLCommand): void {
+  state.currentFont = command.code[2];
+  const parts = command.rawParams.split(',');
+  if (!parts[1]) return;
+  state.currentFontHeight = Number(parts[1]) || state.currentFontHeight;
+  state.currentFontWidth = parts[2] ? Number(parts[2]) || state.currentFontHeight : state.currentFontHeight;
+}
+
+/**
+ * `^B0`-`^B9`/`^BA`-`^BZ` — loại barcode nằm ngay trong mã lệnh, trừ `^BY`
+ * (bar code field default, xử lý trong switch).
+ */
+function applyBarcodeTypeCommand(state: ZplParserState, command: ZPLCommand): void {
+  state.barcodeType = command.code;
+  const height = Number(command.params[1]);
+  if (height > 0) state.barcodeHeight = height;
+}
+
+function applyFieldOriginCommand(state: ZplParserState, command: ZPLCommand): void {
+  state.fieldX = Number(command.params[0] ?? 0) + state.labelHomeX + state.labelShift;
+  state.fieldY = Number(command.params[1] ?? 0) + state.labelHomeY + state.labelTop;
+  state.fieldReverse = false;
+  state.fieldBaseline = false;
+  state.fieldBlockWidth = 0;
+}
+
+// `^FT` định vị theo baseline (đáy chữ) thay vì góc trên-trái — được quy đổi
+// lại về góc trên-trái khi field đóng, trong `buildClosedFieldElement()`.
+function applyFieldTypesetCommand(state: ZplParserState, command: ZPLCommand): void {
+  state.fieldX = Number(command.params[0] ?? 0) + state.labelHomeX + state.labelShift;
+  state.fieldY = Number(command.params[1] ?? 0) + state.labelHomeY + state.labelTop;
+  state.fieldBaseline = true;
+  state.fieldBlockWidth = 0;
+}
+
+/**
+ * Dựng `PrintElement` cho field vừa đóng bởi `^FS` — chỉ được gọi khi
+ * `state.fieldData` khác rỗng (do nơi gọi đã guard). Không có shape
+ * `PrintElement` riêng cho barcode ở phía parse (khác với các case
+ * `barcode`/`qrcode` riêng của `ZplCompiler`) — barcode được giữ nguyên là
+ * text ZPL thô dạng `raw`, giống cách portakal làm.
+ */
+function buildClosedFieldElement(state: ZplParserState): PrintElement {
+  const adjustedY = state.fieldBaseline ? state.fieldY - state.currentFontHeight : state.fieldY;
+
+  if (state.barcodeType) {
+    const rawCommand =
+      `^BY${state.barcodeModuleWidth}^FO${state.fieldX},${adjustedY}${state.barcodeType}N,${state.barcodeHeight},Y` +
+      `^FD${state.fieldData}^FS`;
+    return { type: 'raw', content: rawCommand };
+  }
+
+  const align: Alignment | undefined =
+    state.fieldBlockWidth > 0 && state.fieldBlockJustify === 'C'
+      ? 'center'
+      : state.fieldBlockWidth > 0 && state.fieldBlockJustify === 'R'
+        ? 'right'
+        : undefined;
+
+  return {
+    type: 'text',
+    content: state.fieldData,
+    options: {
+      x: state.fieldX,
+      y: adjustedY,
+      font: state.currentFont,
+      size: 1,
+      xScale: state.currentFontWidth,
+      yScale: state.currentFontHeight,
+      reverse: state.fieldReverse || undefined,
+      maxWidth: state.fieldBlockWidth || undefined,
+      align,
+    },
+  };
+}
+
+function applyConfigureFontCommand(state: ZplParserState, command: ZPLCommand): void {
+  if (command.params[0]) state.currentFont = command.params[0];
+  if (!command.params[1]) return;
+  state.currentFontHeight = Number(command.params[1]);
+  state.currentFontWidth = command.params[2] ? Number(command.params[2]) : state.currentFontHeight;
+}
+
+// `^FBwidth,maxLines,lineSpacing,justify,hangingIndent` — `maxLines`/
+// `lineSpacing`/`hangingIndent` không được đọc vì không có gì ở phía sau
+// dùng tới, cùng khoảng trống mà bản thân parser của portakal cũng có.
+function applyFieldBlockCommand(state: ZplParserState, command: ZPLCommand): void {
+  state.fieldBlockWidth = Number(command.params[0] ?? 0);
+  state.fieldBlockJustify = (command.params[3] ?? 'L').toUpperCase();
+}
+
+// `^BYw,r,h` — bar code field default; `r` (tỉ lệ vạch rộng/hẹp) không được
+// theo dõi, giống portakal (không dùng cho Code 128, và cũng không được đọc
+// lại ở đâu khác trong file này).
+function applyBarcodeFieldDefaultCommand(state: ZplParserState, command: ZPLCommand): void {
+  if (command.params[0]) state.barcodeModuleWidth = Number(command.params[0]) || state.barcodeModuleWidth;
+  if (command.params[2]) state.barcodeHeight = Number(command.params[2]) || state.barcodeHeight;
+}
+
+function buildGraphicBoxElement(state: ZplParserState, command: ZPLCommand): PrintElement {
+  const width = Number(command.params[0] ?? 1);
+  const height = Number(command.params[1] ?? 1);
+  const thickness = Number(command.params[2] ?? 1);
+  const color = (command.params[3] ?? 'B').toUpperCase();
+  const cornerIndex = Number(command.params[4] ?? 0);
+  const radius = cornerIndex > 0 ? (cornerIndex / 8) * (Math.min(width, height) / 2) : 0;
+  // Hai nguồn đảo màu độc lập kết hợp ở đây: một `^FR` đang bật sẽ đảo cực
+  // của field đang vẽ, còn tham số màu `W` nghĩa là box đã được yêu cầu vẽ
+  // trắng ngay từ đầu.
+  const isWhite = state.fieldReverse ? color !== 'W' : color === 'W';
+  const isFilled = thickness >= Math.min(width, height);
+
+  if (isWhite && isFilled) {
+    return { type: 'erase', options: { x: state.fieldX, y: state.fieldY, width, height } };
+  }
+  return { type: 'box', options: { x: state.fieldX, y: state.fieldY, width, height, thickness, radius } };
+}
+
+function buildGraphicCircleElement(state: ZplParserState, command: ZPLCommand): PrintElement {
+  const diameter = Number(command.params[0] ?? 1);
+  const thickness = Number(command.params[1] ?? 1);
+  const color = (command.params[2] ?? 'B').toUpperCase();
+  const isWhite = state.fieldReverse ? color !== 'W' : color === 'W';
+
+  if (isWhite && thickness >= diameter / 2) {
+    return { type: 'erase', options: { x: state.fieldX, y: state.fieldY, width: diameter, height: diameter } };
+  }
+  return { type: 'circle', options: { x: state.fieldX, y: state.fieldY, diameter, thickness } };
+}
+
+// `^GD` vốn luôn là đường chéo (khác `BAR` của TSPL, vốn có thể vẽ cả đường
+// thẳng axis-aligned) — ánh xạ thẳng sang `PrintElement` `'diagonal'` của
+// package này, cùng cách chuyển đổi mà `TscParser` áp dụng cho lệnh
+// `DIAGONAL` của chính nó.
+function buildGraphicDiagonalElement(state: ZplParserState, command: ZPLCommand): PrintElement {
+  const width = Number(command.params[0] ?? 1);
+  const height = Number(command.params[1] ?? 1);
+  const thickness = Number(command.params[2] ?? 1);
+  const direction = (command.params[4] ?? 'R').toUpperCase();
+
+  if (direction === 'R') {
+    return {
+      type: 'diagonal',
+      options: { x1: state.fieldX, y1: state.fieldY, x2: state.fieldX + width, y2: state.fieldY + height, thickness },
+    };
+  }
+  return {
+    type: 'diagonal',
+    options: { x1: state.fieldX + width, y1: state.fieldY, x2: state.fieldX, y2: state.fieldY + height, thickness },
+  };
+}
+
+/**
+ * Parse nguồn ZPL II thành các lệnh có cấu trúc cộng với `PrintElement` để
+ * preview. Trạng thái field (vị trí, font, reverse, mặc định barcode) tích
+ * luỹ qua `^FO`/`^FT`...`^FS` — mô phỏng đúng state machine `parseZPL()` của
+ * portakal theo từng field một, kể cả thứ tự các kiểm tra tiền tố chung
+ * `^A`/`^B` chạy trước switch chính.
  *
- * Two pieces of portakal's own tracked state (`^A`'s orientation letter,
- * `^FB`'s max-lines field) are read but never applied to any emitted
- * element there either — dropped here rather than carried as dead state,
- * with no change to what a `parseZPL()` caller observes.
+ * Hai phần trạng thái mà portakal có theo dõi (ký tự orientation của `^A`,
+ * trường max-lines của `^FB`) được đọc nhưng chưa bao giờ áp dụng vào
+ * element phát ra ở đó — bỏ ở đây thay vì giữ lại như trạng thái chết,
+ * không làm thay đổi những gì một nơi gọi `parseZPL()` quan sát được.
  */
 export function parseZPL(code: string): ZPLParseResult {
   const commands = tokenize(code);
@@ -116,76 +319,48 @@ export function parseZPL(code: string): ZPLParseResult {
   const warnings: string[] = [];
   let widthDots = DEFAULT_WIDTH_DOTS;
   let heightDots = DEFAULT_HEIGHT_DOTS;
+  const state = createInitialParserState();
 
-  let fieldX = 0;
-  let fieldY = 0;
-  let labelHomeX = 0;
-  let labelHomeY = 0;
-  let labelShift = 0;
-  let labelTop = 0;
-  let currentFont = '0';
-  let currentFontH = 30;
-  let currentFontW = 30;
-  let fieldReverse = false;
-  let fieldData = '';
-  let barcodeType = '';
-  let barcodeHeight = 10; // matches ^BY's own fallback when no ^BY command has run yet
-  let barcodeModuleWidth = 2; // matches ^BY's own fallback when no ^BY command has run yet
-  let fieldBaseline = false;
-  let fieldBlockWidth = 0;
-  let fieldBlockJustify = 'L';
-
-  for (const cmd of commands) {
-    // `^A0`/`^AA`.../`^AZ` — font letter is part of the command code itself.
-    if (cmd.code.startsWith('^A') && cmd.code.length === 3 && cmd.code !== '^A@') {
-      currentFont = cmd.code[2];
-      const parts = cmd.rawParams.split(',');
-      if (parts[1]) {
-        currentFontH = Number(parts[1]) || currentFontH;
-        currentFontW = parts[2] ? Number(parts[2]) || currentFontH : currentFontH;
-      }
+  for (const command of commands) {
+    if (command.code.startsWith('^A') && command.code.length === 3 && command.code !== '^A@') {
+      applyFontSizeCommand(state, command);
       continue;
     }
 
-    // `^B0`-`^B9`/`^BA`-`^BZ` — barcode type is part of the command code itself, except `^BY` (bar code field default, handled in the switch).
-    if (cmd.code.startsWith('^B') && cmd.code.length === 3 && cmd.code !== '^BY') {
-      barcodeType = cmd.code;
-      if (cmd.params[1]) {
-        const h = Number(cmd.params[1]);
-        if (h > 0) barcodeHeight = h;
-      }
+    if (command.code.startsWith('^B') && command.code.length === 3 && command.code !== '^BY') {
+      applyBarcodeTypeCommand(state, command);
       continue;
     }
 
-    switch (cmd.code) {
+    switch (command.code) {
       case '^XA':
-        fieldX = 0;
-        fieldY = 0;
-        fieldReverse = false;
+        state.fieldX = 0;
+        state.fieldY = 0;
+        state.fieldReverse = false;
         break;
 
       case '^XZ':
         break;
 
       case '^PW':
-        if (cmd.params[0]) widthDots = Number(cmd.params[0]);
+        if (command.params[0]) widthDots = Number(command.params[0]);
         break;
 
       case '^LL':
-        if (cmd.params[0]) heightDots = Number(cmd.params[0]);
+        if (command.params[0]) heightDots = Number(command.params[0]);
         break;
 
       case '^LH':
-        labelHomeX = Number(cmd.params[0] ?? 0);
-        labelHomeY = Number(cmd.params[1] ?? 0);
+        state.labelHomeX = Number(command.params[0] ?? 0);
+        state.labelHomeY = Number(command.params[1] ?? 0);
         break;
 
       case '^LS':
-        labelShift = Number(cmd.params[0] ?? 0);
+        state.labelShift = Number(command.params[0] ?? 0);
         break;
 
       case '^LT':
-        labelTop = Number(cmd.params[0] ?? 0);
+        state.labelTop = Number(command.params[0] ?? 0);
         break;
 
       case '^LR':
@@ -202,67 +377,31 @@ export function parseZPL(code: string): ZPLParseResult {
         break;
 
       case '^FO':
-        fieldX = Number(cmd.params[0] ?? 0) + labelHomeX + labelShift;
-        fieldY = Number(cmd.params[1] ?? 0) + labelHomeY + labelTop;
-        fieldReverse = false;
-        fieldBaseline = false;
-        fieldBlockWidth = 0;
+        applyFieldOriginCommand(state, command);
         break;
 
-      // `^FT` positions by baseline (bottom of text) rather than top-left — converted back to top-left when the field closes, below.
       case '^FT':
-        fieldX = Number(cmd.params[0] ?? 0) + labelHomeX + labelShift;
-        fieldY = Number(cmd.params[1] ?? 0) + labelHomeY + labelTop;
-        fieldBaseline = true;
-        fieldBlockWidth = 0;
+        applyFieldTypesetCommand(state, command);
         break;
 
       case '^FD':
       case '^FV':
-        fieldData = cmd.rawParams;
+        state.fieldData = command.rawParams;
         break;
 
       case '^FS': {
-        if (fieldData) {
-          const adjustedY = fieldBaseline ? fieldY - currentFontH : fieldY;
-
-          if (barcodeType) {
-            // No dedicated barcode `PrintElement` shape exists on the parse
-            // side (unlike `ZplCompiler`'s dedicated `barcode`/`qrcode`
-            // cases) — captured as `raw` ZPL text instead, same as portakal.
-            elements.push({
-              type: 'raw',
-              content: `^BY${barcodeModuleWidth}^FO${fieldX},${adjustedY}${barcodeType}N,${barcodeHeight},Y^FD${fieldData}^FS`,
-            });
-            barcodeType = '';
-          } else {
-            const align: Alignment | undefined =
-              fieldBlockWidth > 0 && fieldBlockJustify === 'C' ? 'center' : fieldBlockWidth > 0 && fieldBlockJustify === 'R' ? 'right' : undefined;
-            elements.push({
-              type: 'text',
-              content: fieldData,
-              options: {
-                x: fieldX,
-                y: adjustedY,
-                font: currentFont,
-                size: 1,
-                xScale: currentFontW,
-                yScale: currentFontH,
-                reverse: fieldReverse || undefined,
-                maxWidth: fieldBlockWidth || undefined,
-                align,
-              },
-            });
-          }
-          fieldData = '';
+        if (state.fieldData) {
+          elements.push(buildClosedFieldElement(state));
+          state.fieldData = '';
+          state.barcodeType = '';
         }
-        fieldReverse = false;
-        fieldBaseline = false;
+        state.fieldReverse = false;
+        state.fieldBaseline = false;
         break;
       }
 
       case '^FR':
-        fieldReverse = true;
+        state.fieldReverse = true;
         break;
 
       case '^FN':
@@ -274,84 +413,38 @@ export function parseZPL(code: string): ZPLParseResult {
         break;
 
       case '^CF':
-        if (cmd.params[0]) currentFont = cmd.params[0];
-        if (cmd.params[1]) {
-          currentFontH = Number(cmd.params[1]);
-          currentFontW = cmd.params[2] ? Number(cmd.params[2]) : currentFontH;
-        }
+        applyConfigureFontCommand(state, command);
         break;
 
       case '^CI':
       case '^CW':
         break;
 
-      // `^FBwidth,maxLines,lineSpacing,justify,hangingIndent` — `maxLines`/`lineSpacing`/`hangingIndent` aren't read since nothing downstream consumes them (same gap portakal's own parser has).
       case '^FB':
-        fieldBlockWidth = Number(cmd.params[0] ?? 0);
-        fieldBlockJustify = (cmd.params[3] ?? 'L').toUpperCase();
+        applyFieldBlockCommand(state, command);
         break;
 
       case '^TB':
         break;
 
-      // `^BYw,r,h` — bar code field default; `r` (wide-to-narrow ratio) isn't tracked, same as portakal (unused for Code 128, and never read back out downstream here either).
       case '^BY':
-        if (cmd.params[0]) barcodeModuleWidth = Number(cmd.params[0]) || barcodeModuleWidth;
-        if (cmd.params[2]) barcodeHeight = Number(cmd.params[2]) || barcodeHeight;
+        applyBarcodeFieldDefaultCommand(state, command);
         break;
 
-      case '^GB': {
-        const w = Number(cmd.params[0] ?? 1);
-        const h = Number(cmd.params[1] ?? 1);
-        const t = Number(cmd.params[2] ?? 1);
-        const color = (cmd.params[3] ?? 'B').toUpperCase();
-        const rIndex = Number(cmd.params[4] ?? 0);
-        const r = rIndex > 0 ? (rIndex / 8) * (Math.min(w, h) / 2) : 0;
-        // Two independent inversion sources combine here: an active `^FR`
-        // flips the drawn field's polarity, and a `W` color argument means
-        // the box was already requested white in the first place.
-        const isWhite = fieldReverse ? color !== 'W' : color === 'W';
-        const isFilled = t >= Math.min(w, h);
-        if (isWhite && isFilled) {
-          elements.push({ type: 'erase', options: { x: fieldX, y: fieldY, width: w, height: h } });
-        } else {
-          elements.push({ type: 'box', options: { x: fieldX, y: fieldY, width: w, height: h, thickness: t, radius: r } });
-        }
-        fieldReverse = false;
+      case '^GB':
+        elements.push(buildGraphicBoxElement(state, command));
+        state.fieldReverse = false;
         break;
-      }
 
-      case '^GC': {
-        const d = Number(cmd.params[0] ?? 1);
-        const t = Number(cmd.params[1] ?? 1);
-        const color = (cmd.params[2] ?? 'B').toUpperCase();
-        const isWhite = fieldReverse ? color !== 'W' : color === 'W';
-        if (isWhite && t >= d / 2) {
-          elements.push({ type: 'erase', options: { x: fieldX, y: fieldY, width: d, height: d } });
-        } else {
-          elements.push({ type: 'circle', options: { x: fieldX, y: fieldY, diameter: d, thickness: t } });
-        }
-        fieldReverse = false;
+      case '^GC':
+        elements.push(buildGraphicCircleElement(state, command));
+        state.fieldReverse = false;
         break;
-      }
 
-      // `^GD` is inherently diagonal (unlike TSPL's `BAR`, which can also
-      // draw an axis-aligned line) — maps straight to this package's
-      // `'diagonal'` `PrintElement`, the same adaptation `TscParser` makes
-      // for its own `DIAGONAL` command.
-      case '^GD': {
-        const w = Number(cmd.params[0] ?? 1);
-        const h = Number(cmd.params[1] ?? 1);
-        const t = Number(cmd.params[2] ?? 1);
-        const dir = (cmd.params[4] ?? 'R').toUpperCase();
-        if (dir === 'R') {
-          elements.push({ type: 'diagonal', options: { x1: fieldX, y1: fieldY, x2: fieldX + w, y2: fieldY + h, thickness: t } });
-        } else {
-          elements.push({ type: 'diagonal', options: { x1: fieldX + w, y1: fieldY, x2: fieldX, y2: fieldY + h, thickness: t } });
-        }
-        fieldReverse = false;
+      case '^GD':
+        elements.push(buildGraphicDiagonalElement(state, command));
+        state.fieldReverse = false;
         break;
-      }
 
       case '^GE':
       case '^GF':
@@ -504,8 +597,8 @@ export function parseZPL(code: string): ZPLParseResult {
         break;
 
       default:
-        if (cmd.code !== '^FS') {
-          warnings.push(`Unknown command: ${cmd.code}`);
+        if (command.code !== '^FS') {
+          warnings.push(`Unknown command: ${command.code}`);
         }
         break;
     }
@@ -514,7 +607,7 @@ export function parseZPL(code: string): ZPLParseResult {
   return { commands, widthDots, heightDots, elements, warnings };
 }
 
-/** Decodes ZPL II source into structured commands (tokenized, per-command grammar). */
+/** Decode chuỗi nguồn ZPL II thành các lệnh có cấu trúc (đã tokenize, theo ngữ pháp từng lệnh). */
 export class ZplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
