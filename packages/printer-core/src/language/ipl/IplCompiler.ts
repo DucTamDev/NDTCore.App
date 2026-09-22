@@ -13,29 +13,19 @@ import { formatTable, validateTableColumns } from '../../formatting';
 
 const { STX, ETX, ESC } = IPL_COMMAND;
 
-/**
- * Bội số kích thước font dùng cho cả clause `h` (height) và `w` (width) của
- * field `H` khi không chọn font tường minh — portakal luôn suy ra cả hai từ
- * cùng một giá trị `size`.
- */
+/** Hệ số quy đổi `size` sang dots, dùng cho cả clause `h` và `w` của field `H` (không hỗ trợ chọn font tường minh). */
 const FONT_SIZE_UNIT_DOTS = 12;
 
-/**
- * Chữ số font-id cố định trong clause `d` (data) của field `H` — portakal
- * không bao giờ đổi giá trị này.
- */
+/** Font id cố định trong clause `d` của field `H` — không hỗ trợ chọn font khác. */
 const TEXT_FONT_ID = 3;
 
-/** Mã charset cố định trong clause `c` của field `H` — portakal không bao giờ đổi giá trị này. */
+/** Charset id cố định trong clause `c` của field `H` — không hỗ trợ đổi charset. */
 const TEXT_CHARSET_ID = 26;
 
 /**
- * Chiều cao mỗi dòng (dots) dùng để xếp chồng các dòng đã format của
- * element `table` thành các field `H` liên tiếp. Field text của IPL không
- * có bảng font-metrics để suy ra chiều cao glyph thật (clause `h`/`w` của
- * nó là bội số kích thước thô, không phải chiều cao pixel đã tính toán) —
- * cùng vai trò fallback-mặc-định mà `DplCompiler.ts`'s
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` đảm nhiệm cho DPL.
+ * Chiều cao mỗi dòng (dots) khi xếp chồng các dòng table thành các field
+ * `H` liên tiếp. IPL không có font-metrics để suy ra chiều cao glyph thật
+ * (clause `h`/`w` của field `H` chỉ là bội số size thô) nên đây là fallback cố định.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 
@@ -54,10 +44,7 @@ const FIELD_FORMAT_AXIS_ALIGNED = 0;
 /** Mã format `f1` — dùng cho `line` khi nằm dọc. */
 const FIELD_FORMAT_VERTICAL = 1;
 
-/**
- * Mã rotation (`0`-`3`, clause `f` riêng của field `H`/`G`) cho một
- * `Rotation`, khớp `iplRotation()` của portakal.
- */
+/** Mã rotation 0-3 cho clause `f` của field `H`/`G` — khác nghĩa với `f` axis-aligned dùng ở box/line. */
 function iplRotation(rotation: Rotation | undefined): 0 | 1 | 2 | 3 {
   switch (rotation) {
     case 90:
@@ -84,11 +71,9 @@ function compileTextField(fieldNum: number, content: string, options: TextOption
 }
 
 /**
- * Xem doc comment của `encodeIplBitmapPayload()` trong `IplEncoder.ts` để
- * biết đầy đủ mức độ tin cậy của cách bố trí clause field này — độ tin cậy
- * THẤP cho cú pháp chính xác, độ tin cậy CAO cho việc payload byte thật giờ
- * theo sau header (case gốc của portakal không emit width, height, lẫn
- * data).
+ * Cú pháp clause header (`w`/`h`) của field Graphic CHƯA được xác minh với
+ * tài liệu IPL chính thức — xem ghi chú độ tin cậy đầy đủ ở
+ * `encodeIplBitmapPayload()` trong `IplEncoder.ts`.
  */
 function compileImageElement(fieldNum: number, options: ImageOptions | undefined, bitmap: Bitmap): string {
   const resolvedOptions = options ?? {};
@@ -110,10 +95,9 @@ function compileBoxElement(fieldNum: number, options: BoxOptions): string {
 }
 
 /**
- * Chỉ hỗ trợ đường thẳng ngang/dọc, port nguyên trạng từ `languages/ipl.ts`
- * của portakal (không emit field nào cho một cặp toạ độ chéo thay vì xấp
- * xỉ nó). `PrintBuilder.line()` luôn dispatch qua `isDiagonal()` nên trên
- * thực tế hàm này không bao giờ nhận toạ độ chéo.
+ * Chỉ hỗ trợ đường ngang/dọc — không emit field cho toạ độ chéo.
+ * `PrintBuilder.line()` luôn dispatch qua `isDiagonal()` trước khi gọi tới
+ * đây nên trên thực tế hàm này không bao giờ nhận toạ độ chéo.
  */
 function compileLineElement(fieldNum: number, options: LineOptions): string {
   const thickness = options.thickness ?? DEFAULT_STROKE_WEIGHT;
@@ -139,14 +123,7 @@ function compileLineElement(fieldNum: number, options: LineOptions): string {
   return '';
 }
 
-/**
- * Format các hàng thành dòng text qua `formatTable()` dùng chung (helper
- * mà mọi case `'table'` của các compiler ngôn ngữ khác cũng dùng), sau đó
- * emit mỗi dòng thành một field `H` riêng, xếp chồng cách nhau
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` bắt đầu từ toạ độ y của table — mỗi hàng
- * nhận một field number riêng qua `nextFieldNum()`, vì field number của IPL
- * định danh từng field riêng biệt trong một format.
- */
+/** Mỗi hàng nhận field number riêng — IPL định danh field theo số này trong phạm vi một format. */
 function compileTableElement(options: TableOptions, nextFieldNum: () => number): string {
   const x = options.x ?? 0;
   const y = options.y ?? 0;
@@ -175,16 +152,12 @@ function compileElement(element: PrintElement, nextFieldNum: () => number): stri
     case 'line':
       return compileLineElement(nextFieldNum(), element.options);
 
-    // Field Line của IPL không có khả năng vẽ chéo (chỉ record ngang/dọc
-    // axis-aligned ở case `'line'` được compile ở trên) — documented no-op,
-    // cùng tiền lệ mà case `'diagonal'` của `DplCompiler`/`EplCompiler` đặt ra.
+    // Field Line của IPL không hỗ trợ vẽ chéo — no-op có chủ đích.
     case 'diagonal':
       return '';
 
-    // IPL không có lệnh gốc cho circle, ellipse outline, vùng reverse-print
-    // độc lập, hay vùng erase độc lập — documented no-op, khớp
-    // `compileElement()` gốc của portakal (trả về rỗng cho cả bốn) thay vì
-    // tự bịa ra cú pháp field mới cho chúng.
+    // IPL không có lệnh gốc cho circle/ellipse/reverse/erase — no-op có chủ
+    // đích, không tự bịa cú pháp field mới.
     case 'circle':
     case 'ellipse':
     case 'reverse':
@@ -194,33 +167,23 @@ function compileElement(element: PrintElement, nextFieldNum: () => number): stri
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
 
-    // Không có lệnh cutter IPL nào được ghi nhận — `languages/ipl.ts` gốc
-    // của portakal không có logic liên quan đến cắt giấy. Documented no-op,
-    // cùng tiền lệ như case `'cut'` của `DplCompiler`.
+    // Không có lệnh cutter nào được ghi nhận trong tài liệu IPL — no-op có chủ đích.
     case 'cut':
       return '';
 
     case 'table':
       return compileTableElement(element.options, nextFieldNum);
 
-    // IPL và package này đều chưa có primitive "page break" / "đẩy con trỏ
-    // thêm N dots" / "xếp các children thành hàng-hoặc-cột" — documented
-    // no-op, cùng tiền lệ như case tương ứng của `DplCompiler`/`ZplCompiler`,
-    // chờ thiết kế auto-layout thật (không phải bug).
+    // Chưa có primitive page-break/spacer/auto-layout hàng-cột — no-op có
+    // chủ đích, chờ thiết kế auto-layout thật (không phải bug).
     case 'pageBreak':
     case 'spacer':
     case 'row':
     case 'column':
       return '';
 
-    // Không có trong portakal (`parsers/ipl.ts` chỉ nhận diện field tiền tố
-    // `B` như một lệnh `FIELD_B` mờ (opaque) — không bao giờ decode
-    // symbology, module width, hay bất kỳ tham số barcode nào khác) và cũng
-    // không có tài liệu bên ngoài thật sự đáng tin để suy ra bảng chọn loại
-    // hoặc cấu trúc record từ đó. Documented no-op, nhất quán với cách file
-    // này đã xử lý mọi khả năng IPL chưa có tài liệu khác
-    // (`circle`/`ellipse`/`reverse`/`erase` ở trên): thừa nhận trung thực
-    // việc thiếu thông tin, không tự bịa ra một record trông hợp lý.
+    // Không đủ tài liệu IPL đáng tin cậy để xác định bảng chọn loại/cấu
+    // trúc record barcode — no-op có chủ đích thay vì tự bịa cú pháp field.
     case 'barcode':
     case 'qrcode':
       return '';
@@ -244,8 +207,7 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
   const nextFieldNum = (): number => ++fieldCounter;
 
   for (const element of document.elements) {
-    // Element no-op (hoặc `raw` rỗng nội dung) compile ra `''` — bỏ qua để
-    // không đẩy một dòng trống thừa vào output nối bằng `\r\n`.
+    // compileElement() trả '' cho no-op — bỏ qua để tránh dòng trống thừa khi join bằng \r\n.
     const line = compileElement(element, nextFieldNum);
     if (line) lines.push(line);
   }
@@ -260,16 +222,12 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
 }
 
 /**
- * IPL không có bước code-page/byte-encoding (khác với ESC/POS) — output đã
- * compile là một chuỗi lệnh thuần tuý, nên `encoding` chỉ được nhận vào để
- * khớp chữ ký chung của `PrintCompiler`, không thực sự được dùng.
+ * `encoding` không được dùng — IPL không có bước code-page/byte-encoding
+ * riêng (khác ESC/POS), tham số này chỉ để khớp chữ ký `PrintCompiler`.
  *
- * Giới hạn đã biết — cùng ràng buộc mixed-string-encoding như doc comment
- * của `DplCompiler.compile()`: khi có element `image`, chuỗi trả về xen kẽ
- * text thông thường (dự định UTF-8) với payload raw-binary của field
- * Graphic (1 mã ký tự JS = 1 byte thô, từ `encodeIplBitmapPayload`). Nơi
- * gọi hàm này khi chuyển chuỗi thành byte trên dây (wire bytes) không được
- * encode qua UTF-8 thô khi document có chứa element image.
+ * Giới hạn: khi có element `image`, chuỗi trả về xen kẽ text thường (dự
+ * định UTF-8) với payload raw-binary của field Graphic (1 ký tự JS = 1
+ * byte thô). Nơi gọi không được encode UTF-8 thẳng khi document có image.
  */
 export class IplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {

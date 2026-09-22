@@ -1,17 +1,11 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
 
-/**
- * Một lệnh IPL đã decode: type tag đã nhận diện và phần text params thô mà
- * nó được match ra, khớp shape `{type, params}` của portakal trong
- * `parsers/ipl.ts`.
- */
 export interface IPLCommand {
   type: string;
   params: string;
 }
 
-/** Kết quả đầy đủ của việc parse một chuỗi nguồn IPL. */
 export interface IPLParseResult {
   commands: IPLCommand[];
   widthDots: number;
@@ -24,9 +18,7 @@ const STX = '\x02';
 const ETX = '\x03';
 const ESC = '\x1b';
 
-/** Khớp giá trị fallback trong chính parser IPL của portakal. */
 const DEFAULT_WIDTH_DOTS = 832;
-/** Khớp giá trị fallback trong chính parser IPL của portakal. */
 const DEFAULT_HEIGHT_DOTS = 400;
 
 /** Độ dày nét mặc định (dots) khi field `W`/`L` không mang clause `w`. */
@@ -36,9 +28,8 @@ const DEFAULT_STROKE_WEIGHT = 1;
 const LINE_DIRECTION_HORIZONTAL = 0;
 
 /**
- * Các chữ cái loại field mà parser nhận diện — `B` (barcode) chỉ được ghi
- * nhận thô thành lệnh, chưa có hằng số tương ứng trong `IplCommand.ts` vì
- * compiler chưa hỗ trợ field này.
+ * `B` (barcode) chỉ được ghi nhận thô thành lệnh — chưa có hằng số tương
+ * ứng trong `IplCommand.ts` vì compiler chưa hỗ trợ field này.
  */
 const FIELD_FRAME_TYPE_CHARS = ['H', 'B', 'L', 'W', 'G'] as const;
 
@@ -49,7 +40,7 @@ const WEIGHT_PATTERN = /w(\d+)/;
 const DIRECTION_PATTERN = /f(\d+)/;
 const TEXT_DATA_PATTERN = /d\d+,(.+)$/;
 
-/** Tách chuỗi nguồn IPL thành các frame theo cặp `STX`/`ETX` (bỏ `STX`/`ETX` khỏi mỗi frame). */
+/** Frame cuối thiếu `ETX` (chuỗi bị cắt cụt) vẫn được giữ tới hết chuỗi thay vì bị bỏ qua. */
 function splitFramesByStxEtx(code: string): string[] {
   const frames: string[] = [];
   let pos = 0;
@@ -67,7 +58,7 @@ function splitFramesByStxEtx(code: string): string[] {
   return frames;
 }
 
-/** Nhận diện một frame có tiền tố `ESC` — lệnh vòng đời format (`C`/`E`/`P`/`M`). */
+/** Frame tiền tố `ESC` là lệnh vòng đời format: `C`/`E`/`P`/`M`. */
 function parseEscFrame(frame: string): IPLCommand {
   const cmdChar = frame[1];
   const params = frame.slice(2);
@@ -86,17 +77,14 @@ function parseEscFrame(frame: string): IPLCommand {
   }
 }
 
-/**
- * Kết quả parse một frame cấu hình `<SI>` — `widthDots`/`heightDots` chỉ
- * có giá trị khi frame thật sự cập nhật chúng.
- */
+/** `widthDots`/`heightDots` chỉ có giá trị khi frame thật sự cập nhật chúng. */
 interface ConfigFrameResult {
   command: IPLCommand;
   widthDots?: number;
   heightDots?: number;
 }
 
-/** Nhận diện một frame cấu hình `<SI>` (label length/width, speed, darkness). */
+/** `<SI>` frame: key `L`=label length, `W`=label width, `S`=speed, `d`=darkness. */
 function parseConfigFrame(frame: string): ConfigFrameResult {
   const rest = frame.replace(/^<?SI>/, '');
   const key = rest[0];
@@ -116,10 +104,7 @@ function parseConfigFrame(frame: string): ConfigFrameResult {
   }
 }
 
-/**
- * Khôi phục một `text` element từ params của field `H`, hoặc `undefined`
- * nếu thiếu clause `o`/`d` bắt buộc.
- */
+/** `undefined` nếu thiếu clause `o`/`d` bắt buộc của field `H`. */
 function recoverTextElement(fieldParams: string): PrintElement | undefined {
   const originMatch = fieldParams.match(ORIGIN_PATTERN);
   const dataMatch = fieldParams.match(TEXT_DATA_PATTERN);
@@ -132,10 +117,7 @@ function recoverTextElement(fieldParams: string): PrintElement | undefined {
   };
 }
 
-/**
- * Khôi phục một `box` element từ params của field `W`, hoặc `undefined`
- * nếu thiếu clause `o`/`l`/`h` bắt buộc.
- */
+/** `undefined` nếu thiếu clause `o`/`l`/`h` bắt buộc của field `W`. */
 function recoverBoxElement(fieldParams: string): PrintElement | undefined {
   const originMatch = fieldParams.match(ORIGIN_PATTERN);
   const lengthMatch = fieldParams.match(LENGTH_PATTERN);
@@ -156,10 +138,7 @@ function recoverBoxElement(fieldParams: string): PrintElement | undefined {
   };
 }
 
-/**
- * Khôi phục một `line` element (ngang hoặc dọc) từ params của field `L`,
- * hoặc `undefined` nếu thiếu clause `o`/`l` bắt buộc.
- */
+/** Field `L` có thể ngang hoặc dọc tuỳ clause `f`; `undefined` nếu thiếu clause `o`/`l` bắt buộc. */
 function recoverLineElement(fieldParams: string): PrintElement | undefined {
   const originMatch = fieldParams.match(ORIGIN_PATTERN);
   const lengthMatch = fieldParams.match(LENGTH_PATTERN);
@@ -179,11 +158,7 @@ function recoverLineElement(fieldParams: string): PrintElement | undefined {
   return { type: 'line', options: { x1: x, y1: y, x2: x, y2: y + length, thickness } };
 }
 
-/**
- * Định tuyến việc khôi phục `PrintElement` theo chữ cái loại field — chỉ
- * `H`/`W`/`L` khôi phục được element, `B`/`G` chưa có logic decode nên trả
- * `undefined`.
- */
+/** Chỉ `H`/`W`/`L` khôi phục được element; `B`/`G` chưa có logic decode nên trả `undefined`. */
 function recoverElementFromField(fieldType: string, fieldParams: string): PrintElement | undefined {
   switch (fieldType) {
     case 'H':
@@ -197,16 +172,12 @@ function recoverElementFromField(fieldType: string, fieldParams: string): PrintE
   }
 }
 
-/** Kết quả parse một frame field (`H`/`B`/`L`/`W`/`G`). */
 interface FieldFrameResult {
   command: IPLCommand;
   element: PrintElement | undefined;
 }
 
-/**
- * Nhận diện một frame field, tách field number khỏi phần params còn lại
- * rồi thử khôi phục `PrintElement` tương ứng.
- */
+/** Field frame IPL có dạng `<fieldNum>;<fieldParams>` ngay sau ký tự loại field. */
 function parseFieldFrame(frame: string): FieldFrameResult {
   const fieldType = frame[0];
   const rest = frame.slice(1);
@@ -226,13 +197,8 @@ function isFieldFrame(frame: string): boolean {
 }
 
 /**
- * Parse mã nguồn IPL (Intermec/Honeywell) thành các lệnh có cấu trúc cộng
- * thêm việc khôi phục best-effort các `PrintElement` — port trực tiếp từ
- * `parseIPL()` của portakal (`parsers/ipl.ts`). IPL đóng khung mỗi lệnh
- * giữa `STX`/`ETX`; parser này tách theo khung đó trước, sau đó phân loại
- * mỗi frame là một lệnh vòng đời format tiền tố `ESC`, một lệnh cấu hình
- * `<SI>`, một trong các field command `H`/`B`/`L`/`W`/`G`, lệnh `R` (print)
- * trơn, hoặc `UNKNOWN`.
+ * Parse mã nguồn IPL (Intermec/Honeywell) thành các lệnh có cấu trúc.
+ * Khôi phục `PrintElement` là best-effort: field thiếu clause bắt buộc bị bỏ qua thay vì lỗi.
  */
 export function parseIPL(code: string): IPLParseResult {
   const commands: IPLCommand[] = [];
@@ -275,7 +241,6 @@ export function parseIPL(code: string): IPLParseResult {
   return { commands, widthDots, heightDots, elements, warnings };
 }
 
-/** Decode mã nguồn IPL thành các lệnh có cấu trúc. */
 export class IplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
