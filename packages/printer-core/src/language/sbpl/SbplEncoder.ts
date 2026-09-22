@@ -1,15 +1,15 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Encode a monochrome bitmap as the ASCII-hex payload SBPL's `<ESC>GM`
- * (Graphics) field expects: every packed byte of `bitmap.data` (MSB-first,
- * bit 1 = black — `Bitmap`'s own standard convention, no inversion needed)
- * rendered as two uppercase hex digits, back to back with no separators —
- * the same ASCII-hex shape CPCL's `EG` and ZPL's `^GFA` use.
+ * Mã hoá bitmap đơn sắc thành payload ASCII-hex mà trường `<ESC>GM` (Graphics)
+ * của SBPL yêu cầu: mỗi byte đã đóng gói của `bitmap.data` (MSB-first, bit 1 =
+ * đen — đúng quy ước chuẩn của `Bitmap`, không cần đảo bit) được biểu diễn
+ * bằng 2 chữ số hex viết hoa, nối liền nhau không có ký tự phân cách — cùng
+ * dạng ASCII-hex mà `EG` của CPCL và `^GFA` của ZPL dùng.
  *
- * Direct, unmodified port of portakal's `languages/sbpl.ts` image-case hex
- * loop — the plan flags this one as already correct, no bug fix needed here
- * unlike EPL2's/TSC's/DPL's/IPL's bitmap commands.
+ * Port trực tiếp, không thay đổi, từ vòng lặp hex của case ảnh trong
+ * `languages/sbpl.ts` của portakal — plan đã đánh dấu đoạn này vốn đã đúng,
+ * không cần sửa lỗi như các lệnh bitmap của EPL2/TSC/DPL/IPL.
  */
 export function encodeSbplBitmapPayload(bitmap: Bitmap): string {
   let hex = '';

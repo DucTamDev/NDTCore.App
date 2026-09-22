@@ -1,32 +1,32 @@
 /**
- * Command-letter constants for SATO's SBPL printer language, all
- * `<ESC>`(0x1B)-prefixed — emitted by `SbplCompiler`'s `compileElement()`
- * switch and the session-setup commands `compileToSBPL()` writes ahead of
- * every element. Extracted from the literal strings portakal's
- * `languages/sbpl.ts` builds inline, same extraction-not-new-logic pattern
- * as `CpclCommand.ts`/`DplCommand.ts`.
+ * Các hằng số ký tự lệnh của ngôn ngữ máy in SBPL (SATO), đều có tiền tố
+ * `<ESC>` (0x1B) — được switch `compileElement()` của `SbplCompiler` và các
+ * lệnh thiết lập phiên mà `compileToSBPL()` ghi trước mỗi element sử dụng.
+ * Trích xuất từ các chuỗi literal mà `languages/sbpl.ts` của portakal viết
+ * trực tiếp trong code, cùng kiểu trích xuất-không-thêm-logic-mới như
+ * `CpclCommand.ts`/`DplCommand.ts`.
  */
 export const SBPL_COMMAND = {
   ESC: '\x1b',
-  /** `A` — Start of Format, opens a label session. */
+  /** `A` — Start of Format, mở một phiên nhãn in. */
   START: 'A',
-  /** `CS` — Clear image buffer. */
+  /** `CS` — Xoá bộ đệm ảnh. */
   CLEAR: 'CS',
-  /** `H` — Set horizontal (X) position, a 4-digit field. */
+  /** `H` — Đặt toạ độ ngang (X), trường 4 chữ số. */
   POSITION_X: 'H',
-  /** `V` — Set vertical (Y) position, a 4-digit field. */
+  /** `V` — Đặt toạ độ dọc (Y), trường 4 chữ số. */
   POSITION_Y: 'V',
-  /** `L` — Set character magnification (horizontal then vertical, 2 digits each). */
+  /** `L` — Đặt hệ số phóng đại ký tự (ngang rồi đến dọc, mỗi bên 2 chữ số). */
   MAGNIFICATION: 'L',
-  /** `K9B` — Text field, font 9B (mixed ASCII/Kanji). */
+  /** `K9B` — Trường text, font 9B (ASCII/Kanji hỗn hợp). */
   TEXT: 'K9B',
-  /** `FW` — Line/box draw field. */
+  /** `FW` — Trường vẽ đường/hộp. */
   DRAW: 'FW',
-  /** `GM` — Graphics (bitmap) field. */
+  /** `GM` — Trường đồ hoạ (bitmap). */
   IMAGE: 'GM',
-  /** `Q` — Quantity (copies) to print, omitted entirely for a single copy. */
+  /** `Q` — Số lượng bản in, bỏ qua hoàn toàn nếu chỉ in 1 bản. */
   QUANTITY: 'Q',
-  /** `Z` — End of Format, prints the label. */
+  /** `Z` — End of Format, in nhãn. */
   END: 'Z',
 } as const;
 

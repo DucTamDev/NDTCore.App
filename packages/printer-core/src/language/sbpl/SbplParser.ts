@@ -1,13 +1,16 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements/PrintElement';
 
-/** One decoded SBPL command: its recognized type tag and the raw text it carried, matching portakal's `{cmd, params}` shape in `parsers/sbpl.ts`. */
+/**
+ * Một lệnh SBPL đã giải mã: tag loại nhận diện được cùng phần text thô nó
+ * mang, khớp shape `{cmd, params}` của portakal trong `parsers/sbpl.ts`.
+ */
 export interface SBPLCommand {
   cmd: string;
   params: string;
 }
 
-/** Full result of parsing an SBPL source string. */
+/** Kết quả đầy đủ của việc parse một chuỗi nguồn SBPL. */
 export interface SBPLParseResult {
   commands: SBPLCommand[];
   elements: PrintElement[];
@@ -16,19 +19,46 @@ export interface SBPLParseResult {
 
 const ESC = '\x1b';
 
+/** Số chữ số của trường số theo sau các lệnh `H`/`V`/`L`, theo SBPL Programming Reference. */
+const COMMAND_FIELD_DIGITS = 4;
+/** Độ dài tiền tố font trong lệnh text `K9B` (chính là `'9B'.length`). */
+const TEXT_FIELD_PREFIX_LENGTH = 2;
+
 /**
- * Parses SATO's SBPL source into structured commands plus a `PrintElement`
- * recovery — ported directly from portakal's `parseSBPL()` (`parsers/sbpl.ts`).
- * SBPL's grammar has no line structure to split on (unlike CPCL/EPL2's
- * newline-delimited commands) — every field is `<ESC>`-prefixed and
- * concatenated back to back, so this parser instead splits on the `ESC`
- * control character itself and switches on each fragment's leading letter.
- * Only `H`/`V` (tracked as running position state) and `K9B` (a text field,
- * turned into a `text` element at the tracked position) feed into
- * `elements` — every other recognized field (`FW` draw, `GM` graphics,
- * `B`/`D`/`2D`-prefixed barcode fields, `Q` quantity) is still recorded in
- * `commands` but intentionally not turned into an element, a portakal-native
- * limitation documented in its own parser, not a port bug.
+ * Kết quả giải mã lệnh `K9B` — vừa là bản ghi lệnh thô, vừa là `PrintElement`
+ * tương ứng tại vị trí đang theo dõi.
+ */
+interface ParsedTextField {
+  command: SBPLCommand;
+  element: PrintElement;
+}
+
+/**
+ * `<ESC>K9B` — trường text (font `9B`, ASCII/Kanji hỗn hợp) là trường duy
+ * nhất trong SBPL có payload giải mã được thành `PrintElement`; `x`/`y` được
+ * truyền vào từ vị trí `H`/`V` gần nhất mà `parseSBPL()` đang theo dõi.
+ */
+function parseTextField(rest: string, x: number, y: number): ParsedTextField {
+  const text = rest.slice(TEXT_FIELD_PREFIX_LENGTH).split(ESC)[0] ?? '';
+  return {
+    command: { cmd: 'TEXT', params: text },
+    element: { type: 'text', content: text, options: { x, y } },
+  };
+}
+
+/**
+ * Parse mã nguồn SBPL của SATO thành các lệnh có cấu trúc cộng với khôi phục
+ * `PrintElement` — port trực tiếp từ `parseSBPL()` của portakal
+ * (`parsers/sbpl.ts`). Grammar của SBPL không có cấu trúc dòng để tách (khác
+ * với các lệnh phân tách bằng newline của CPCL/EPL2) — mọi trường đều có tiền
+ * tố `<ESC>` và nối liền nhau, nên parser này tách theo chính ký tự điều
+ * khiển `ESC` rồi switch theo chữ cái đầu của mỗi đoạn. Chỉ `H`/`V` (theo dõi
+ * làm trạng thái vị trí hiện tại) và `K9B` (trường text, dựng thành element
+ * `text` tại vị trí đang theo dõi) được đưa vào `elements` — mọi trường nhận
+ * diện được khác (`FW` draw, `GM` graphics, các trường barcode tiền tố
+ * `B`/`D`/`2D`, `Q` quantity) vẫn được ghi vào `commands` nhưng cố tình không
+ * dựng thành element, một giới hạn có sẵn trong chính parser của portakal,
+ * không phải lỗi port.
  */
 export function parseSBPL(code: string): SBPLParseResult {
   const commands: SBPLCommand[] = [];
@@ -61,19 +91,19 @@ export function parseSBPL(code: string): SBPLParseResult {
         break;
 
       case 'H':
-        // The X-position field is always the 4 digits right after the letter.
-        currentX = Number(rest.slice(0, 4)) || 0;
-        commands.push({ cmd: 'H', params: rest.slice(0, 4) });
+        // Trường toạ độ X luôn là 4 chữ số ngay sau chữ cái lệnh.
+        currentX = Number(rest.slice(0, COMMAND_FIELD_DIGITS)) || 0;
+        commands.push({ cmd: 'H', params: rest.slice(0, COMMAND_FIELD_DIGITS) });
         break;
 
       case 'V':
-        // Same 4-digit shape as 'H', but tracked separately for the Y axis.
-        currentY = Number(rest.slice(0, 4)) || 0;
-        commands.push({ cmd: 'V', params: rest.slice(0, 4) });
+        // Cùng hình dạng 4 chữ số như 'H', nhưng theo dõi riêng cho trục Y.
+        currentY = Number(rest.slice(0, COMMAND_FIELD_DIGITS)) || 0;
+        commands.push({ cmd: 'V', params: rest.slice(0, COMMAND_FIELD_DIGITS) });
         break;
 
       case 'L':
-        commands.push({ cmd: 'L', params: rest.slice(0, 4) });
+        commands.push({ cmd: 'L', params: rest.slice(0, COMMAND_FIELD_DIGITS) });
         break;
 
       case '%':
@@ -81,15 +111,11 @@ export function parseSBPL(code: string): SBPLParseResult {
         break;
 
       case 'K':
-        // Only the `9B` (mixed ASCII/Kanji) font variant carries a decodable text payload.
+        // Chỉ biến thể font `9B` (ASCII/Kanji hỗn hợp) mang payload text giải mã được.
         if (rest.startsWith('9B')) {
-          const text = rest.slice(2).split(ESC)[0] ?? '';
-          commands.push({ cmd: 'TEXT', params: text });
-          elements.push({
-            type: 'text',
-            content: text,
-            options: { x: currentX, y: currentY },
-          });
+          const { command, element } = parseTextField(rest, currentX, currentY);
+          commands.push(command);
+          elements.push(element);
         } else {
           commands.push({ cmd: 'K', params: rest });
         }
@@ -101,14 +127,14 @@ export function parseSBPL(code: string): SBPLParseResult {
         break;
 
       case 'G':
-        // `GM` is the only graphics sub-command this printer language defines.
+        // `GM` là sub-command đồ hoạ duy nhất mà ngôn ngữ này định nghĩa.
         if (rest.startsWith('M')) {
           commands.push({ cmd: 'GRAPHIC', params: rest });
         }
         break;
 
       case 'F':
-        // `FW` is the only draw sub-command under the `F` prefix.
+        // `FW` là sub-command vẽ duy nhất dưới tiền tố `F`.
         if (rest.startsWith('W')) {
           commands.push({ cmd: 'DRAW', params: rest.slice(1) });
         }
@@ -119,7 +145,7 @@ export function parseSBPL(code: string): SBPLParseResult {
         break;
 
       case '2':
-        // 2D barcode fields are keyed off a leading digit rather than a letter.
+        // Trường barcode 2D được nhận diện qua chữ số đầu thay vì chữ cái.
         if (rest.startsWith('D')) {
           commands.push({ cmd: '2D_BARCODE', params: rest });
         }
@@ -134,7 +160,10 @@ export function parseSBPL(code: string): SBPLParseResult {
   return { commands, elements, warnings };
 }
 
-/** Decodes SBPL source into structured commands (`<ESC>`-delimited, framed by `<ESC>A`/`<ESC>Z`). */
+/**
+ * Giải mã mã nguồn SBPL thành các lệnh có cấu trúc (phân tách bằng `<ESC>`,
+ * đóng khung bởi `<ESC>A`/`<ESC>Z`).
+ */
 export class SbplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
