@@ -1,12 +1,14 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type {
+  PrintElement,
+  TextOptions,
+  ImageOptions,
+  BoxOptions,
+  LineOptions,
+  TableOptions,
+} from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Bitmap, Rotation } from '../../types';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { ImageOptions } from '../../document/elements/content/ImageElement';
-import type { BoxOptions } from '../../document/elements/drawing/BoxElement';
-import type { LineOptions } from '../../document/elements/drawing/LineElement';
-import type { TableOptions } from '../../document/elements/layout/TableElement';
 import { IPL_COMMAND } from './IplCommand';
 import { encodeIplBitmapPayload } from './IplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

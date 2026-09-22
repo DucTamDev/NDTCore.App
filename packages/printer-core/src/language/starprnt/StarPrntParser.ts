@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 import type { Alignment } from '../../types';
 import { BYTE_VALUE_RANGE, STAR_PRNT, STAR_PRNT_ALIGN_VALUE } from './StarPrntCommand';
 

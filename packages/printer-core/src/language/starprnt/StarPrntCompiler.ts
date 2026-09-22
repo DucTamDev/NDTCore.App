@@ -1,7 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement, TextOptions } from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
-import type { TextOptions } from '../../document/elements/content/TextElement';
 import {
   BYTE_MASK,
   STAR_PRNT,

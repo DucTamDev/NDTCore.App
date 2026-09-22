@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 
 /** Một lệnh DPL đã giải mã: `type` là tag nhận diện, `params` là đoạn text thô đã khớp. */
 export interface DPLCommand {

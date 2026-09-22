@@ -1,12 +1,14 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type {
+  PrintElement,
+  TextOptions,
+  ImageElement,
+  BoxElement,
+  LineElement,
+  TableElement,
+} from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation } from '../../types';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { ImageElement } from '../../document/elements/content/ImageElement';
-import type { BoxElement } from '../../document/elements/drawing/BoxElement';
-import type { LineElement } from '../../document/elements/drawing/LineElement';
-import type { TableElement } from '../../document/elements/layout/TableElement';
 import { SBPL_COMMAND } from './SbplCommand';
 import { encodeSbplBitmapPayload } from './SbplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

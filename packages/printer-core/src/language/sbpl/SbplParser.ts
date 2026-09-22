@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 
 export interface SBPLCommand {
   cmd: string;

@@ -1,9 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement, TextOptions, CutOptions, TableOptions } from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { CutOptions } from '../../document/elements/control/CutElement';
-import type { TableOptions } from '../../document/elements/layout/TableElement';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';

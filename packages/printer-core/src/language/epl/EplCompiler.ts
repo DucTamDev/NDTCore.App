@@ -1,14 +1,16 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type {
+  PrintElement,
+  TextOptions,
+  ImageOptions,
+  BoxOptions,
+  LineOptions,
+  TableOptions,
+} from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology, BarcodeConfig } from '../../symbology/barcode';
 import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation, Bitmap } from '../../types';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { ImageOptions } from '../../document/elements/content/ImageElement';
-import type { BoxOptions } from '../../document/elements/drawing/BoxElement';
-import type { LineOptions } from '../../document/elements/drawing/LineElement';
-import type { TableOptions } from '../../document/elements/layout/TableElement';
 import { EPL_COMMAND } from './EplCommand';
 import { encodeEplBitmapPayload } from './EplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

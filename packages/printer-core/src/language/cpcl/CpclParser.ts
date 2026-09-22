@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 
 /**
  * Một lệnh CPCL đã decode: động từ lệnh và các token whitespace-split theo

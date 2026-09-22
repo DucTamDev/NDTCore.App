@@ -1,18 +1,21 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type {
+  PrintElement,
+  TextOptions,
+  ImageElement,
+  BarcodeElement,
+  QrCodeElement,
+  BoxElement,
+  LineElement,
+  LineOptions,
+  CircleElement,
+  CutElement,
+  TableElement,
+} from '../../document/elements';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { ImageElement } from '../../document/elements/content/ImageElement';
-import type { BarcodeElement } from '../../document/elements/content/BarcodeElement';
-import type { QrCodeElement } from '../../document/elements/content/QrCodeElement';
-import type { BoxElement } from '../../document/elements/drawing/BoxElement';
-import type { LineElement, LineOptions } from '../../document/elements/drawing/LineElement';
-import type { CircleElement } from '../../document/elements/drawing/CircleElement';
-import type { CutElement } from '../../document/elements/control/CutElement';
-import type { TableElement } from '../../document/elements/layout/TableElement';
 import { ZPL_COMMAND } from './ZplCommand';
 import { encodeZplBitmapPayload } from './ZplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';

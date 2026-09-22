@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 import { ESC_POS } from './EscPosCommand';
 
 export interface EscPosParsedCommand {
