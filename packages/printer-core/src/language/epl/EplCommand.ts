@@ -1,14 +1,12 @@
 /**
- * EPL2 command-prefix constants emitted by `EplCompiler`'s `compileElement()`
- * switch, plus the label-setup commands `compileToEPL()` writes ahead of
- * every element. Kept as one named-constant map (mirroring `ZPL_COMMAND` and
- * `TSC_COMMAND`) so every command prefix is spelled once — ported from the
- * literal strings portakal's `languages/epl.ts` builds inline.
+ * Các tiền tố lệnh EPL2 mà switch `compileElement()` của `EplCompiler` phát
+ * ra, cùng các lệnh thiết lập nhãn mà `compileToEPL()` ghi trước mỗi phần tử.
+ * Gom vào một map hằng số có tên (giống cách làm của `ZPL_COMMAND` và
+ * `TSC_COMMAND`) để mỗi tiền tố lệnh chỉ xuất hiện một chỗ duy nhất.
  *
- * Text (`A`) and box (`X`)/line (`LO`) are single, fixed prefixes (unlike
- * ZPL's `^A<letter>`/`^B<letter>`, EPL2 doesn't vary these by a second
- * character), so they're listed here directly rather than built at the call
- * site.
+ * Text (`A`) và box (`X`)/line (`LO`) chỉ có một tiền tố cố định (khác với
+ * `^A<letter>`/`^B<letter>` của ZPL, EPL2 không đổi ký tự thứ hai theo loại),
+ * nên được khai báo thẳng ở đây thay vì dựng tại nơi gọi.
  */
 export const EPL_COMMAND = {
   CLEAR_IMAGE_BUFFER: 'N',
@@ -21,9 +19,15 @@ export const EPL_COMMAND = {
   BOX: 'X',
   LINE: 'LO',
   PRINT: 'P',
-  /** `B` — 1D Bar Code Field, per the EPL2 Programmer's Guide. Net new — portakal never compiles a barcode element for EPL. */
+  /**
+   * `B` — trường mã vạch 1D, theo EPL2 Programmer's Guide. Mới hoàn toàn —
+   * portakal chưa từng compile phần tử barcode cho EPL.
+   */
   BARCODE: 'B',
-  /** `b` — 2D Bar Code Field (lowercase, distinct from `B`'s 1D command). Net new — same gap as `BARCODE`. */
+  /**
+   * `b` — trường mã vạch 2D (chữ thường, khác với `B` của mã vạch 1D). Mới
+   * hoàn toàn — cùng lý do với `BARCODE`.
+   */
   TWO_D_BARCODE: 'b',
 } as const;
 
