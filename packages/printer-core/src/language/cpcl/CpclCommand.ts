@@ -1,13 +1,11 @@
 /**
- * CPCL command-verb constants emitted by `CpclCompiler`'s `compileElement()`
- * switch, plus the session-setup commands `compileToCPCL()` writes ahead of
- * every element. Kept as one named-constant map (mirroring `ZPL_COMMAND` and
- * `EPL_COMMAND`) so every command verb is spelled once — ported from the
- * literal strings portakal's `languages/cpcl.ts` builds inline.
+ * Bảng hằng số các động từ lệnh CPCL mà `CpclCompiler` dùng khi biên dịch
+ * (cùng cách tổ chức với `ZPL_COMMAND`/`EPL_COMMAND`) — mỗi động từ lệnh chỉ
+ * viết một lần ở đây, thay vì rải chuỗi literal khắp `CpclCompiler.ts`.
  *
- * `TEXT` is listed as its base verb only — CPCL varies it with a rotation
- * suffix (`TEXT`/`TEXT90`/`TEXT180`/`TEXT270`), so `CpclCompiler` builds the
- * full verb at the call site, same as `ZplCompiler`'s `^A<letter>` handling.
+ * `TEXT` chỉ liệt kê động từ gốc — CPCL biến thể nó theo hậu tố xoay
+ * (`TEXT`/`TEXT90`/`TEXT180`/`TEXT270`), nên `CpclCompiler` tự ghép động từ
+ * đầy đủ tại nơi gọi, giống cách `ZplCompiler` xử lý `^A<letter>`.
  */
 export const CPCL_COMMAND = {
   SESSION_START: '!',
@@ -19,11 +17,17 @@ export const CPCL_COMMAND = {
   BOX: 'BOX',
   LINE: 'LINE',
   PRINT: 'PRINT',
-  /** `BARCODE` — 1D Bar Code command, per the CPCL Programmer's Manual. Net new — portakal never compiles a barcode element for CPCL. */
+  /**
+   * `BARCODE` — lệnh Bar Code 1D, theo CPCL Programmer's Manual. Đây là phần
+   * mới hoàn toàn: portakal chưa từng biên dịch element barcode cho CPCL.
+   */
   BARCODE: 'BARCODE',
-  /** `B QR` — 2D QR Code block opener, per the CPCL Programmer's Manual. Net new, same gap as `BARCODE`. */
+  /**
+   * `B QR` — mở khối QR Code 2D, theo CPCL Programmer's Manual. Cũng là phần
+   * mới, cùng lý do như `BARCODE`.
+   */
   QRCODE_START: 'B QR',
-  /** `ENDQR` — terminates the `B QR` block. */
+  /** `ENDQR` — kết thúc khối `B QR`. */
   QRCODE_END: 'ENDQR',
 } as const;
 

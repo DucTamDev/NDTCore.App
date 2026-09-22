@@ -1,17 +1,13 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Encode a monochrome bitmap as the ASCII-hex payload the CPCL `EG`
- * (Expanded Graphics) command expects: every packed byte of `bitmap.data`
- * (MSB-first, bit 1 = black — CPCL's `EG` polarity matches `Bitmap`'s own
- * standard convention directly, no inversion needed, unlike EPL2's `GW`)
- * rendered as two uppercase hex digits, back to back with no separators —
- * the same ASCII-hex shape ZPL's `^GFA` uses, per the CPCL Programmer's
- * Manual's Expanded Graphics command.
- *
- * Direct, unmodified port of portakal's `languages/cpcl.ts` image-case hex
- * loop — the plan flags this one as already correct, no bug fix needed here
- * unlike EPL2/TSPL's bitmap commands.
+ * Mã hoá bitmap đơn sắc thành payload ASCII-hex mà lệnh `EG` (Expanded
+ * Graphics) của CPCL cần: mỗi byte đã đóng gói trong `bitmap.data`
+ * (MSB-first, bit 1 = đen — cực tính `EG` của CPCL khớp thẳng với quy ước
+ * chuẩn của `Bitmap`, không cần đảo bit như `GW` của EPL2) được biểu diễn
+ * bằng hai chữ số hex viết hoa, nối liền không dấu phân cách — cùng dạng
+ * ASCII-hex mà `^GFA` của ZPL dùng, theo mục Expanded Graphics của CPCL
+ * Programmer's Manual.
  */
 export function encodeCpclBitmapPayload(bitmap: Bitmap): string {
   let hex = '';
