@@ -1,28 +1,28 @@
 import type { Bitmap } from '../../types';
 
 /**
- * Encode a monochrome bitmap as the payload DPL's image record expects
- * immediately after its `1{col}{row}{h}{w}0005` header: exactly
- * `bitmap.bytesPerRow * bitmap.height` raw binary bytes (MSB-first, bit 1 =
- * black — `Bitmap`'s standard convention, unmodified), with no length prefix
- * or hex-ASCII re-encoding — the header's own `h`/`w` fields already tell the
- * printer how many bytes to read next. Same "one string char per byte"
- * convention `TscEncoder.ts`'s `encodeTscBitmapPayload()` and
- * `EplEncoder.ts`'s `encodeEplBitmapPayload()` use, since `DplCompiler`
- * builds the whole document as one `string`, not bytes.
+ * Mã hoá một bitmap đơn sắc thành payload mà bản ghi ảnh của DPL cần ngay
+ * sau header `1{col}{row}{h}{w}0005`: đúng `bitmap.bytesPerRow * bitmap.height`
+ * byte nhị phân thô (MSB-first, bit 1 = đen — đúng quy ước chuẩn của
+ * `Bitmap`, không chỉnh sửa gì), không có tiền tố độ dài hay mã hoá lại
+ * dạng hex-ASCII — hai trường `h`/`w` trong header đã tự nói cho máy in biết
+ * cần đọc bao nhiêu byte tiếp theo. Cùng quy ước "mỗi ký tự string ứng với
+ * một byte" mà `encodeTscBitmapPayload()` của `TscEncoder.ts` và
+ * `encodeEplBitmapPayload()` của `EplEncoder.ts` dùng, vì `DplCompiler` dựng
+ * toàn bộ tài liệu thành một `string`, không phải bytes.
  *
- * Fixes a real bug in portakal's `languages/dpl.ts` image case: it emits
- * only the fixed header with no payload appended at all — an incomplete
- * record no real printer could decode. The same bug class already corrected
- * here for TSC's `BITMAP` and EPL's `GW`. Unlike EPL2's `GW`,
- * portakal documents no inverted-polarity quirk for DPL's image record, so
- * this encoder carries `Bitmap`'s standard polarity through unchanged, same
- * as `encodeTscBitmapPayload()`.
+ * Sửa một bug thật trong case ảnh của `languages/dpl.ts` bên portakal: nó
+ * chỉ phát ra header cố định mà không kèm payload nào — một bản ghi thiếu mà
+ * không máy in thật nào giải mã được. Cùng loại bug này đã được sửa ở đây
+ * cho `BITMAP` của TSC và `GW` của EPL. Khác với `GW` của EPL2, portakal
+ * không ghi nhận điểm bất thường đảo cực (inverted-polarity) nào cho bản ghi
+ * ảnh của DPL, nên encoder này giữ nguyên cực tính chuẩn của `Bitmap`, không
+ * đổi gì, giống như `encodeTscBitmapPayload()`.
  */
 export function encodeDplBitmapPayload(bitmap: Bitmap): string {
   let payload = '';
-  for (let i = 0; i < bitmap.data.length; i++) {
-    payload += String.fromCharCode(bitmap.data[i]);
+  for (let byteIndex = 0; byteIndex < bitmap.data.length; byteIndex++) {
+    payload += String.fromCharCode(bitmap.data[byteIndex]);
   }
   return payload;
 }
