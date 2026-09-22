@@ -4,6 +4,7 @@ import type { Unit } from '../../../types';
 export interface SpacerOptions {
   /** Kích thước spacer, theo đơn vị `unit`. */
   size: number;
+
   /** Đơn vị của `size`. */
   unit?: Unit;
 }

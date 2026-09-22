@@ -11,14 +11,19 @@ import type { QrErrorCorrectionLevel } from './QrCodeErrorCorrection';
 export interface QrCodeConfig {
   /** Toạ độ X, tính bằng dots. */
   x?: number;
+
   /** Toạ độ Y, tính bằng dots. */
   y?: number;
+
   /** Dữ liệu mã hoá trong QR code. */
   content: string;
+
   /** Kích thước 1 module (cell) QR, tính bằng dots. */
   cellWidth?: number;
+
   /** Mức sửa lỗi. */
   errorCorrection?: QrErrorCorrectionLevel;
+
   /** Góc xoay của QR code. */
   rotation?: Rotation;
 }
