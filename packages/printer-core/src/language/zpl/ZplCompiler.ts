@@ -17,11 +17,7 @@ import { ZPL_COMMAND } from './ZplCommand';
 import { encodeZplBitmapPayload } from './ZplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
 
-/**
- * Ký tự hướng cho `^A`/`^B`/`^BQ` theo một `Rotation`, theo tham số
- * field-orientation trong Zebra ZPL II Programming Guide
- * (N=bình thường, R=xoay 90° CW, I=180°, B=xoay 270° CW).
- */
+/** Ký tự field-orientation của `^A`/`^B`/`^BQ`: N=0°, R=90° CW, I=180°, B=270° CW. */
 function zplOrientation(rotation: Rotation | undefined): string {
   switch (rotation) {
     case 90:
@@ -36,18 +32,11 @@ function zplOrientation(rotation: Rotation | undefined): string {
 }
 
 const DEFAULT_FONT = '0';
-/**
- * Chiều cao font `^A`, tính bằng dot, ứng với 1 đơn vị `TextOptions.size` —
- * khớp công thức `(size ?? 1) * 30` của portakal.
- */
+/** Số dot chiều cao font `^A` ứng với 1 đơn vị `TextOptions.size` — hệ số quy đổi riêng của ZPL. */
 const FONT_HEIGHT_UNIT = 30;
-/**
- * Số dòng tối đa của `^FB` — portakal hard-code một giá trị coi như vô hạn
- * thay vì theo dõi giới hạn thật.
- */
+/** Giá trị dùng làm "không giới hạn" cho tham số max-lines của `^FB`. */
 const MAX_FIELD_BLOCK_LINES = 999;
 
-/** Biên dịch một text element thành khối `^FO`...`^A`...`^FD`...`^FS`. */
 function compileTextElement(content: string, options: TextOptions | undefined): string {
   const textOptions = options ?? {};
   const x = textOptions.x ?? 0;
@@ -71,10 +60,7 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
   return command;
 }
 
-/**
- * Chỉ số bo góc ZPL (0-8, theo tham số cuối của `^GB`) gần nhất với bán
- * kính tính bằng dot, tương đối với cạnh ngắn hơn của box.
- */
+/** Chỉ số bo góc `^GB` (0-8) gần nhất với bán kính, tính theo cạnh ngắn hơn của box. */
 const MAX_CORNER_INDEX = 8;
 
 function zplCornerIndex(radiusDots: number | undefined, width: number, height: number): number {
@@ -83,12 +69,6 @@ function zplCornerIndex(radiusDots: number | undefined, width: number, height: n
   return Math.min(MAX_CORNER_INDEX, Math.round((radiusDots / maxRadius) * MAX_CORNER_INDEX));
 }
 
-/**
- * Phát lệnh `^GD` (đường chéo) — dùng chung cho cả nhánh fallback không
- * axis-aligned của case `'line'` lẫn case `'diagonal'` — cùng tiền lệ "giữ
- * nguyên, chuyển vào đây" mà `TscCompiler.ts` áp dụng cho lệnh `DIAGONAL`
- * của chính nó.
- */
 function compileDiagonalElement(options: LineOptions): string {
   const thickness = options.thickness ?? 1;
   const width = Math.abs(options.x2 - options.x1);
@@ -103,11 +83,7 @@ function compileDiagonalElement(options: LineOptions): string {
   );
 }
 
-/**
- * Ký tự symbology `^B<letter>` của ZPL ứng với từng `BarcodeSymbology`,
- * theo bảng lệnh Bar Code Field trong Zebra ZPL II Programming Guide. Hoàn
- * toàn mới — portakal không bao giờ compile element barcode.
- */
+/** Ký tự symbology `^B<letter>` theo bảng lệnh Bar Code Field trong ZPL II Programming Guide. */
 const ZPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   code39: '3',
   code93: 'A',
@@ -123,9 +99,8 @@ const ZPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
 const DEFAULT_BARCODE_HEIGHT = 50;
 const DEFAULT_MODULE_WIDTH = 2;
 /**
- * Tỉ lệ vạch rộng/hẹp của `^BY` — không dùng cho Code 128/Code 93 theo spec,
- * nên chỉ tính khi có đủ cả hai bề rộng vạch; 3 là giá trị mặc định của
- * chính Programming Guide.
+ * Tỉ lệ vạch rộng/hẹp của `^BY` — không dùng cho Code 128/Code 93 theo spec;
+ * 3 là giá trị mặc định của Programming Guide.
  */
 const DEFAULT_WIDE_NARROW_RATIO = 3;
 
@@ -139,14 +114,7 @@ const QR_MODEL = 2;
  */
 const QR_MODE_AUTO = 'A';
 
-/**
- * Chiều cao mỗi dòng, tính bằng dot, dùng để xếp chồng các dòng đã format
- * của một table element. Các dòng của bảng được biên dịch qua
- * `compileTextElement` không override font, nên render ở `DEFAULT_FONT`
- * ("0") với chiều cao 1x của `FONT_HEIGHT_UNIT` (30 dot) — giữ thành một
- * hằng số duy nhất, dùng lại đúng giá trị đó, vì cùng lý do nhất quán mà
- * `DEFAULT_TABLE_ROW_HEIGHT_DOTS` của `TscCompiler` đã ghi chú.
- */
+/** Bằng `FONT_HEIGHT_UNIT` vì các dòng bảng dùng `DEFAULT_FONT` không override size. */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = FONT_HEIGHT_UNIT;
 
 function compileImageElement(element: ImageElement): string {
@@ -206,18 +174,13 @@ function compileCircleElement(element: CircleElement): string {
   );
 }
 
-// `CutOptions.rows` (cắt sau mỗi N label) không có lệnh ZPL tương ứng —
-// `^MM` chế độ cutter cắt sau mỗi label một khi đã bật, khác với `SET
-// CUTTER n` của TSPL, nên cố tình không đọc trường này ở đây.
+// `CutOptions.rows` không có lệnh ZPL tương ứng — `^MM` cắt sau mỗi label
+// một khi bật, không hỗ trợ "cắt mỗi N label" nên trường này bị bỏ qua.
 function compileCutElement(element: CutElement): string {
   const mode = element.options?.mode ?? 'full';
   return mode === 'off' ? `${ZPL_COMMAND.PRINT_MODE}T` : `${ZPL_COMMAND.PRINT_MODE}C`;
 }
 
-// Hành vi thật: format các hàng thành dòng text qua `formatTable()` dùng
-// chung (cùng helper mà case `'table'` của `TscCompiler`/`EscPosCompiler`
-// dùng), rồi phát mỗi dòng thành một text field riêng, xếp chồng cách nhau
-// `DEFAULT_TABLE_ROW_HEIGHT_DOTS`, bắt đầu từ y của table.
 function compileTableElement(element: TableElement): string {
   const options = element.options;
   const x = options.x ?? 0;
@@ -231,10 +194,6 @@ function compileTableElement(element: TableElement): string {
   return compiledLines.join('\n');
 }
 
-// Không có trong portakal (nó cũng không bao giờ compile element
-// barcode/qrcode cho ZPL) — lấy từ logic decode `^B*` trong
-// `parsers/zpl.ts` (ngữ pháp `^BY`/`^B<type>` mà nó nhận diện) làm căn cứ,
-// cùng cách tiếp cận dùng cho phần thiếu tương đương của TSC.
 function compileBarcodeElement(element: BarcodeElement): string {
   const options = element.options;
   const x = options.x ?? 0;
@@ -254,10 +213,8 @@ function compileBarcodeElement(element: BarcodeElement): string {
   );
 }
 
-// Tham số field-orientation của `^BQ` trên firmware thật chỉ hỗ trợ ổn định
-// "N" (không đầy đủ như bộ N/R/I/B của `^A`/`^B<type>`) theo Zebra ZPL II
-// Programming Guide, nên `rotation` không được áp dụng ở đây — một giới hạn
-// đã ghi chú, không phải bị bỏ sót âm thầm.
+// Firmware `^BQ` chỉ hỗ trợ ổn định orientation "N" (không đủ N/R/I/B như
+// `^A`/`^B<type>`) nên `rotation` không được áp dụng ở đây.
 function compileQrcodeElement(element: QrCodeElement): string {
   const options = element.options;
   const x = options.x ?? 0;
@@ -281,13 +238,9 @@ function compileElement(element: PrintElement): string {
     case 'box':
       return compileBoxElement(element);
 
-    // Chỉ axis-aligned — đường chéo thật sự là case `'diagonal'` riêng bên
-    // dưới. `PrintBuilder.line()` luôn phân luồng qua `isDiagonal()` nên
-    // không bao giờ tạo ra element `'line'` với toạ độ chéo, nhưng một
-    // `PrintElement` dựng tay có thể bỏ qua đảm bảo đó — nhánh fallback
-    // trong `compileLineElement` xử lý trường hợp đó (dùng lại đúng lệnh
-    // `^GD` mà case `'diagonal'` dùng), cùng tiền lệ với cách
-    // `TscCompiler.ts` tách `'line'`/`'diagonal'`.
+    // Element 'line' được kỳ vọng axis-aligned (case 'diagonal' xử lý đường
+    // chéo); một PrintElement dựng tay có thể vi phạm điều đó nên
+    // compileLineElement vẫn có fallback xử lý toạ độ chéo.
     case 'line':
       return compileLineElement(element);
 
@@ -297,10 +250,8 @@ function compileElement(element: PrintElement): string {
     case 'circle':
       return compileCircleElement(element);
 
-    // Không có lệnh ZPL gốc nào cho viền ellipse, vùng reverse-print độc
-    // lập, hay vùng erase độc lập — no-op đã ghi chú, khớp với chính
-    // `compileToZPL()` của portakal (trả về `''` cho cả ba) thay vì bịa ra
-    // ngữ pháp lệnh mới cho chúng.
+    // ZPL không có lệnh gốc cho viền ellipse, vùng reverse-print độc lập,
+    // hay vùng erase độc lập — no-op có chủ đích.
     case 'ellipse':
     case 'reverse':
     case 'erase':
@@ -315,11 +266,8 @@ function compileElement(element: PrintElement): string {
     case 'table':
       return compileTableElement(element);
 
-    // Cả ZPL lẫn package này đều không có primitive gốc nào cho "ngắt
-    // trang" / "đẩy con trỏ thêm N dot" / "xếp các phần tử con thành hàng
-    // hoặc cột" — no-op đã ghi chú, cùng tiền lệ với các case tương đương
-    // của `TscCompiler`/`EscPosCompiler`, chờ thiết kế auto-layout thật sự
-    // (không phải bug).
+    // Không có primitive cho ngắt trang / spacer / xếp hàng-cột — no-op có
+    // chủ đích, chờ thiết kế auto-layout.
     case 'pageBreak':
     case 'spacer':
     case 'row':
@@ -334,17 +282,12 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-/**
- * Độ đậm ZPL (`~SD`, 0-30) ứng với 1 đơn vị `ResolvedPrintDocument.density`
- * (0-15, dùng chung giữa các ngôn ngữ) — theo đúng công thức `density * 2`
- * của portakal.
- */
+/** Độ đậm ZPL (`~SD`, 0-30) ứng với 1 đơn vị `ResolvedPrintDocument.density` (0-15, dùng chung giữa các ngôn ngữ). */
 const DARKNESS_SCALE = 2;
 
 /** Giá trị `^CI` cho bảng mã UTF-8 — `^CI28` chọn UTF-8 theo Zebra ZPL II Programming Guide. */
 const CI_ENCODING_UTF8 = 28;
 
-/** Biên dịch một `ResolvedPrintDocument` thành chuỗi lệnh ZPL II. */
 export function compileToZPL(document: ResolvedPrintDocument): string {
   const lines: string[] = [];
 
@@ -370,10 +313,8 @@ export function compileToZPL(document: ResolvedPrintDocument): string {
 }
 
 /**
- * ZPL không có bước code-page/byte-encoding (khác ESC/POS) — output đã biên
- * dịch của nó là một chuỗi lệnh thuần văn bản, nên `encoding` chỉ được nhận
- * vào để khớp chữ ký gọi chung của `PrintCompiler`, không được dùng cho gì
- * khác.
+ * ZPL không có bước code-page/byte-encoding riêng (khác ESC/POS) nên `encoding`
+ * chỉ nhận vào để khớp chữ ký chung của `PrintCompiler`, không được dùng.
  */
 export class ZplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {

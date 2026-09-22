@@ -1,16 +1,8 @@
 /**
- * Các hằng số tiền tố lệnh ZPL II mà switch `compileElement()` của
- * `ZplCompiler` phát ra, cùng các lệnh thiết lập format mà `compileToZPL()`
- * ghi trước mỗi element. Gom thành một map hằng số duy nhất (giống
- * `TSC_COMMAND` và `ESC_POS`) để mỗi tiền tố lệnh chỉ được viết ra một nơi —
- * chuyển thể từ các chuỗi literal mà `languages/zpl.ts` của portakal dựng
- * trực tiếp trong code.
+ * Tiền tố lệnh ZPL II dùng trong `ZplCompiler`.
  *
- * Lệnh font (`^A<letter>`) và barcode (`^B<letter>`) không liệt kê ở đây —
- * ký tự thứ hai của chúng thay đổi theo từng lần gọi (id font / loại mã
- * vạch), nên `ZplCompiler` tự dựng các lệnh này trực tiếp tại nơi gọi, giống
- * cách `TSC_BARCODE_TYPE` của `TscCompiler` xử lý chuỗi loại mã vạch riêng
- * cho từng symbology của TSPL.
+ * Lệnh font (`^A<letter>`) và barcode (`^B<letter>`) không liệt kê ở đây vì
+ * ký tự thứ hai thay đổi theo từng lần gọi (id font / loại mã vạch).
  */
 export const ZPL_COMMAND = {
   START_FORMAT: '^XA',
@@ -33,13 +25,9 @@ export const ZPL_COMMAND = {
   BARCODE_FIELD_DEFAULT: '^BY',
   PRINT_QUANTITY: '^PQ',
   /**
-   * `^MM` — Print Mode. `^MMC` chọn chế độ Cutter (có tính bền — máy in tiếp
-   * tục cắt sau mỗi label cho đến khi chế độ bị đổi lại, cùng mô hình bền
-   * trạng thái như `SET CUTTER` của TSC), `^MMT` quay lại Tear-off (trạng
-   * thái mặc định của ZPL, không cắt). Hoàn toàn mới — portakal không bao
-   * giờ compile element `cut` cho ZPL — lệnh này được lấy từ `^MM` trong
-   * Zebra ZPL II Programming Guide, lệnh chế độ cắt thật cho máy in có dao
-   * cắt.
+   * `^MM` — Print Mode. `^MMC` chọn Cutter: một khi bật, máy in tiếp tục cắt
+   * sau mỗi label cho đến khi đổi lại; `^MMT` quay về Tear-off (mặc định,
+   * không cắt).
    */
   PRINT_MODE: '^MM',
 } as const;

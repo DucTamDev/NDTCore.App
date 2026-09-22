@@ -3,13 +3,10 @@ import type { PrintElement } from '../../document/elements/PrintElement';
 import type { Alignment } from '../../types';
 
 /**
- * Một lệnh ZPL đã giải mã: mã lệnh có tiền tố `^`/`~`, phần text thô nằm
- * giữa nó và lệnh kế tiếp, và phần text đó tách theo dấu `,` cho những nơi
- * gọi cần tham số theo vị trí. Khác với `TSPLCommand` của TSPL (một
- * discriminated union riêng cho từng lệnh), ngữ pháp của ZPL không cần kiểu
- * đó — `tokenize()` không bao giờ cần biết hình dạng tham số của một lệnh để
- * tách nó khỏi lệnh liền kề, nên mọi lệnh đều giải mã về đúng một hình dạng
- * chung này, khớp interface `ZPLCommand` của portakal trong `parsers/zpl.ts`.
+ * Một lệnh ZPL đã giải mã: mã lệnh có tiền tố `^`/`~`, phần text thô nằm giữa nó và
+ * lệnh kế tiếp, tách theo dấu `,` cho tham số theo vị trí. Khác `TSPLCommand` của TSPL
+ * (discriminated union riêng cho từng lệnh) — `tokenize()` không cần biết hình dạng
+ * tham số để tách lệnh khỏi lệnh liền kề, nên mọi lệnh dùng chung một hình dạng này.
  */
 export interface ZPLCommand {
   code: string;
@@ -17,7 +14,6 @@ export interface ZPLCommand {
   params: string[];
 }
 
-/** Kết quả đầy đủ của việc parse một chuỗi nguồn ZPL II. */
 export interface ZPLParseResult {
   commands: ZPLCommand[];
   widthDots: number;
@@ -30,14 +26,9 @@ const DEFAULT_WIDTH_DOTS = 812; // 4in @ 203dpi
 const DEFAULT_HEIGHT_DOTS = 1218; // 6in @ 203dpi
 
 /**
- * Tokenize nguồn ZPL thành các lệnh `{code, rawParams, params}`. Mọi lệnh
- * bắt đầu bằng `^` hoặc `~`; đa số đọc đến `^`/`~` kế tiếp, nhưng ba mã lệnh
- * cần quy tắc đọc riêng vì payload của chúng có thể chứa chính các ký tự đó:
- * `^FD`/`^FV` (dữ liệu field) đọc đến đúng marker `^FS`, `^GF`/`~DG` (dữ
- * liệu graphic field) và `^FX` (comment) đọc đến `^`/`~` kế tiếp giống tham
- * số bình thường nhưng được tách riêng bên dưới để giữ đúng thứ tự nhánh của
- * portakal — đổi thứ tự các kiểm tra này sẽ làm thay đổi lệnh rơi vào nhánh
- * nào.
+ * `^FD`/`^FV` (dữ liệu field) đọc đến đúng marker `^FS` vì payload có thể chứa ký tự
+ * `^`/`~`. `^GF`/`~DG`/`^FX` đọc như nhánh mặc định nhưng không dừng ở `\r`/`\n`, vì
+ * payload (dữ liệu graphic, comment) có thể chứa xuống dòng.
  */
 export function tokenize(code: string): ZPLCommand[] {
   const commands: ZPLCommand[] = [];
@@ -99,11 +90,9 @@ export function tokenize(code: string): ZPLCommand[] {
 }
 
 /**
- * Trạng thái field tích luỹ qua chuỗi lệnh `^FO`/`^FT`...`^FS` của
- * `parseZPL()` — vị trí, font hiện hành, cờ reverse, mặc định barcode. Gom
- * thành một object để mỗi lệnh có thể được xử lý bởi một hàm `applyXxx`/
- * `buildXxx` riêng thay vì tất cả cùng đóng (closure) trên một loạt biến
- * `let` trong thân `parseZPL()`.
+ * Trạng thái field tích luỹ qua chuỗi lệnh `^FO`/`^FT`...`^FS` của `parseZPL()`. Gom
+ * thành object để mỗi lệnh xử lý bằng một hàm `applyXxx`/`buildXxx` riêng nhận state
+ * làm tham số, thay vì đóng (closure) trên nhiều biến `let` trong thân `parseZPL()`.
  */
 interface ZplParserState {
   fieldX: number;
@@ -187,9 +176,9 @@ function applyFieldTypesetCommand(state: ZplParserState, command: ZPLCommand): v
 /**
  * Dựng `PrintElement` cho field vừa đóng bởi `^FS` — chỉ được gọi khi
  * `state.fieldData` khác rỗng (do nơi gọi đã guard). Không có shape
- * `PrintElement` riêng cho barcode ở phía parse (khác với các case
- * `barcode`/`qrcode` riêng của `ZplCompiler`) — barcode được giữ nguyên là
- * text ZPL thô dạng `raw`, giống cách portakal làm.
+ * `PrintElement` riêng cho barcode ở phía parse (khác các case
+ * `barcode`/`qrcode` của `ZplCompiler`) — barcode giữ nguyên dạng text ZPL
+ * thô `raw`.
  */
 function buildClosedFieldElement(state: ZplParserState): PrintElement {
   const adjustedY = state.fieldBaseline ? state.fieldY - state.currentFontHeight : state.fieldY;
@@ -232,17 +221,15 @@ function applyConfigureFontCommand(state: ZplParserState, command: ZPLCommand): 
   state.currentFontWidth = command.params[2] ? Number(command.params[2]) : state.currentFontHeight;
 }
 
-// `^FBwidth,maxLines,lineSpacing,justify,hangingIndent` — `maxLines`/
-// `lineSpacing`/`hangingIndent` không được đọc vì không có gì ở phía sau
-// dùng tới, cùng khoảng trống mà bản thân parser của portakal cũng có.
+// `^FBwidth,maxLines,lineSpacing,justify,hangingIndent` — chỉ `width`/`justify`
+// được dùng, `maxLines`/`lineSpacing`/`hangingIndent` không có gì đọc lại.
 function applyFieldBlockCommand(state: ZplParserState, command: ZPLCommand): void {
   state.fieldBlockWidth = Number(command.params[0] ?? 0);
   state.fieldBlockJustify = (command.params[3] ?? 'L').toUpperCase();
 }
 
 // `^BYw,r,h` — bar code field default; `r` (tỉ lệ vạch rộng/hẹp) không được
-// theo dõi, giống portakal (không dùng cho Code 128, và cũng không được đọc
-// lại ở đâu khác trong file này).
+// theo dõi vì không áp dụng cho Code 128 và không được đọc lại ở đâu khác.
 function applyBarcodeFieldDefaultCommand(state: ZplParserState, command: ZPLCommand): void {
   if (command.params[0]) state.barcodeModuleWidth = Number(command.params[0]) || state.barcodeModuleWidth;
   if (command.params[2]) state.barcodeHeight = Number(command.params[2]) || state.barcodeHeight;
@@ -279,10 +266,8 @@ function buildGraphicCircleElement(state: ZplParserState, command: ZPLCommand): 
   return { type: 'circle', options: { x: state.fieldX, y: state.fieldY, diameter, thickness } };
 }
 
-// `^GD` vốn luôn là đường chéo (khác `BAR` của TSPL, vốn có thể vẽ cả đường
-// thẳng axis-aligned) — ánh xạ thẳng sang `PrintElement` `'diagonal'` của
-// package này, cùng cách chuyển đổi mà `TscParser` áp dụng cho lệnh
-// `DIAGONAL` của chính nó.
+// `^GD` luôn là đường chéo trong ZPL (khác `BAR` của TSPL, có thể vẽ cả
+// đường thẳng axis-aligned) nên ánh xạ thẳng sang `PrintElement` `'diagonal'`.
 function buildGraphicDiagonalElement(state: ZplParserState, command: ZPLCommand): PrintElement {
   const width = Number(command.params[0] ?? 1);
   const height = Number(command.params[1] ?? 1);
@@ -302,16 +287,10 @@ function buildGraphicDiagonalElement(state: ZplParserState, command: ZPLCommand)
 }
 
 /**
- * Parse nguồn ZPL II thành các lệnh có cấu trúc cộng với `PrintElement` để
- * preview. Trạng thái field (vị trí, font, reverse, mặc định barcode) tích
- * luỹ qua `^FO`/`^FT`...`^FS` — mô phỏng đúng state machine `parseZPL()` của
- * portakal theo từng field một, kể cả thứ tự các kiểm tra tiền tố chung
- * `^A`/`^B` chạy trước switch chính.
- *
- * Hai phần trạng thái mà portakal có theo dõi (ký tự orientation của `^A`,
- * trường max-lines của `^FB`) được đọc nhưng chưa bao giờ áp dụng vào
- * element phát ra ở đó — bỏ ở đây thay vì giữ lại như trạng thái chết,
- * không làm thay đổi những gì một nơi gọi `parseZPL()` quan sát được.
+ * Hai kiểm tra tiền tố `^A`/`^B` chạy trước switch chính vì font/loại barcode
+ * nằm ngay trong mã lệnh (`^A0`, `^B3`...), không phải trong `rawParams`. Ký
+ * tự orientation trong tham số của `^A` được tách ra nhưng không áp dụng vào
+ * element — bỏ qua có chủ đích, không giữ làm trạng thái chết.
  */
 export function parseZPL(code: string): ZPLParseResult {
   const commands = tokenize(code);
@@ -607,7 +586,6 @@ export function parseZPL(code: string): ZPLParseResult {
   return { commands, widthDots, heightDots, elements, warnings };
 }
 
-/** Decode chuỗi nguồn ZPL II thành các lệnh có cấu trúc (đã tokenize, theo ngữ pháp từng lệnh). */
 export class ZplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
