@@ -44,11 +44,11 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > logic riêng là việc khác, để sau.
 >
 > **Giới hạn đã biết (không thuộc phạm vi port này):**
-> - Chuỗi string mà `TscCompiler.compile()` trả về trộn lẫn hai kiểu encoding
+> - Chuỗi string mà `TsplCompiler.compile()` trả về trộn lẫn hai kiểu encoding
 >   byte khác nhau (text UTF-8 và payload bitmap dạng latin-1 one-char-per-byte)
->   khi document có element ảnh — xem JSDoc trên `TscCompiler.compile()`
->   (`src/language/tsc/TscCompiler.ts`) để biết chi tiết trước khi dùng output
->   TSC compile ra để gửi máy in thật.
+>   khi document có element ảnh — xem JSDoc trên `TsplCompiler.compile()`
+>   (`src/language/tspl/TsplCompiler.ts`) để biết chi tiết trước khi dùng output
+>   TSPL compile ra để gửi máy in thật.
 > - `Tcvn3Encoder` chỉ phủ một phần bảng mã TCVN3 (partial coverage) — xem
 >   JSDoc trên `Tcvn3Encoder` (`src/encoding/encoders/Tcvn3Encoder.ts`) để biết
 >   phạm vi ký tự đã hỗ trợ.
@@ -174,8 +174,8 @@ src/
 │
 ├── language/                        # MỚI — gộp compiler/{lang} + parser/{lang}
 │   │                                 # (KHÔNG gồm validation, KHÔNG gồm preview)
-│   ├── tsc/       (giữ tên `tsc`, KHÔNG đổi thành `tspl`)
-│   │   ├── TscCommand.ts, TscCompiler.ts, TscEncoder.ts, TscParser.ts, index.ts
+│   ├── tspl/      (đổi tên từ `tsc` — TSC chỉ còn dùng cho tên hãng)
+│   │   ├── TsplCommand.ts, TsplCompiler.ts, TsplEncoder.ts, TsplParser.ts, index.ts
 │   ├── zpl/       ├── ZplCommand.ts, ZplCompiler.ts, ZplEncoder.ts, ZplParser.ts, index.ts
 │   ├── epl/       ├── EplCommand.ts, EplCompiler.ts, EplEncoder.ts, EplParser.ts, index.ts
 │   ├── cpcl/      ├── CpclCommand.ts, CpclCompiler.ts, CpclEncoder.ts, CpclParser.ts, index.ts
@@ -193,7 +193,7 @@ src/
 │   │                                 # cho Dpl/Sbpl/Ipl (giữ nguyên vị trí + nội dung)
 │   ├── index.ts
 │   └── languages/
-│       ├── tsc/TscPreviewRenderer.ts       (MỚI — thêm 1 cấp thư mục theo lang)
+│       ├── tspl/TsplPreviewRenderer.ts     (MỚI — thêm 1 cấp thư mục theo lang)
 │       ├── zpl/ZplPreviewRenderer.ts
 │       ├── epl/EplPreviewRenderer.ts
 │       ├── cpcl/CpclPreviewRenderer.ts
@@ -210,7 +210,7 @@ src/
 │   └── languages/                     # đổi tên từ validation/{lang}/ trực tiếp
 │       │                              # → validation/languages/{lang}/ (thêm 1 cấp
 │       │                              #   `languages/`, khớp preview/languages/)
-│       ├── tsc/TscValidator.ts, index.ts
+│       ├── tspl/TsplValidator.ts, index.ts
 │       ├── zpl/ZplValidator.ts, index.ts
 │       ├── epl/EplValidator.ts, index.ts
 │       ├── cpcl/CpclValidator.ts, index.ts

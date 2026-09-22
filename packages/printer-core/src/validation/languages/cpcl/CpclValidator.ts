@@ -26,7 +26,7 @@ const KNOWN_CPCL_COMMANDS = new Set(['!', 'T', 'VTEXT', 'BOX', 'LINE', 'PAGE-WID
 /**
  * Validates CPCL source — net new, since portakal has no real CPCL
  * validation logic to port: `src/validate.ts`'s `default:` branch (which
- * every not-TSC/not-ZPL language falls into, CPCL included) just pushes one
+ * every not-TSPL/not-ZPL language falls into, CPCL included) just pushes one
  * generic info message. Follows `EscPosValidator.ts`'s precedent of real,
  * useful checks instead of a stub: command presence/ordering (`!` first,
  * `PAGE-WIDTH` present, `PRINT` present), `TONE`/`SPEED` range checks per the

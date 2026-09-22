@@ -1,4 +1,4 @@
-export const TSC_COMMAND = {
+export const TSPL_COMMAND = {
   SIZE: 'SIZE',
   GAP: 'GAP',
   SPEED: 'SPEED',
@@ -25,4 +25,4 @@ export const TSC_COMMAND = {
   SET_CUTTER: 'SET CUTTER',
 } as const;
 
-export type TscCommandName = (typeof TSC_COMMAND)[keyof typeof TSC_COMMAND];
+export type TsplCommandName = (typeof TSPL_COMMAND)[keyof typeof TSPL_COMMAND];

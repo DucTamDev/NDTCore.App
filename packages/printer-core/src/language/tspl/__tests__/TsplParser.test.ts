@@ -1,11 +1,11 @@
-import { TscParser, parseTSPL } from '../TscParser';
-import { TscCompiler } from '../TscCompiler';
+import { TsplParser, parseTSPL } from '../TsplParser';
+import { TsplCompiler } from '../TsplCompiler';
 import type { ResolvedPrintDocument } from '../../../document';
 
-describe('TscParser', () => {
+describe('TsplParser', () => {
   it('parses a SIZE + CLS + TEXT + PRINT sequence', () => {
     const source = 'SIZE 40 mm,30 mm\nGAP 3 mm,0\nCLS\nTEXT 10,10,"3",0,1,1,"Hello"\nPRINT 1\n';
-    const result = new TscParser().parse(source);
+    const result = new TsplParser().parse(source);
     expect(result.warnings).toEqual([]);
     expect(result.commands.length).toBeGreaterThan(0);
   });
@@ -37,7 +37,7 @@ describe('TscParser', () => {
     expect(result.elements).toEqual([{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }]);
   });
 
-  it('round-trips BOX/BARCODE/QRCODE commands emitted by TscCompiler back into structured commands', () => {
+  it('round-trips BOX/BARCODE/QRCODE commands emitted by TsplCompiler back into structured commands', () => {
     const source = [
       'SIZE 40 mm,30 mm',
       'GAP 3 mm,0 mm',
@@ -64,9 +64,9 @@ describe('TscParser', () => {
 
   describe('known limitation: BITMAP payload bytes containing 0x0A fracture re-parsing', () => {
     /**
-     * `TscCompiler`/`encodeTscBitmapPayload` embed the bitmap's raw bytes
+     * `TsplCompiler`/`encodeTsplBitmapPayload` embed the bitmap's raw bytes
      * directly into the `\r\n`-joined TSPL document string (see
-     * TscEncoder.ts). `TscParser` tokenizes the whole document with
+     * TsplEncoder.ts). `TsplParser` tokenizes the whole document with
      * `code.split(/\r?\n/)` *before* any command-specific parsing runs, and
      * the BITMAP branch only reads its 5 header parameters — it has no
      * byte-count-aware logic to consume/skip the payload that follows. A
@@ -83,8 +83,8 @@ describe('TscParser', () => {
      * This is a known, accepted limitation of the line-based parser port
      * (preserving portakal's exact grammar/tokenization, not fixed here) —
      * it does NOT affect what a real printer receives, since the transport
-     * sends the compiled string's bytes as-is. It DOES mean `TscParser`
-     * cannot faithfully round-trip a `TscCompiler`-produced document that
+     * sends the compiled string's bytes as-is. It DOES mean `TsplParser`
+     * cannot faithfully round-trip a `TsplCompiler`-produced document that
      * contains an image element whose payload happens to contain 0x0A.
      * This test pins the CURRENT (broken) parse behavior — traced by hand
      * against the compiled string below and confirmed by running it — so
@@ -103,7 +103,7 @@ describe('TscParser', () => {
         elements: [{ type: 'image', bitmap: { data: new Uint8Array([0x41, 0x0a, 0x42]), width: 24, height: 1, bytesPerRow: 3 }, options: {} }],
       };
 
-      const compiled = new TscCompiler().compile(doc);
+      const compiled = new TsplCompiler().compile(doc);
       // Compiled BITMAP line: `BITMAP 0,0,3,1,0,A\nB` — the payload's own
       // 0x0A byte (between "A" and "B") is indistinguishable from a real
       // line break once the document is tokenized.

@@ -13,7 +13,7 @@ const MAX_SPEED = 12;
  * command set from the EPL2 Programmer's Guide it either decodes into an
  * element or intentionally reads-and-discards) — anything outside this set
  * is flagged below as unrecognized, the same category of finding
- * `ZplValidator`/`TscValidator` forward from their own parsers' `warnings`
+ * `ZplValidator`/`TsplValidator` forward from their own parsers' `warnings`
  * array. `parseEPL` itself doesn't collect that list (ported faithfully from
  * portakal's own `parseEPL()`, which silently skips an unmatched command
  * char rather than warning about it — see `EplParser.ts`'s doc comment), so
@@ -24,13 +24,13 @@ const KNOWN_EPL_COMMANDS = new Set(['N', 'q', 'Q', 'A', 'X', 'L', 'P', 'B', 'b',
 /**
  * Validates EPL2 source — net new, since portakal has no real EPL validation
  * logic to port: `src/validate.ts`'s `default:` branch (which every
- * not-TSC/not-ZPL language falls into, EPL included) just pushes one generic
+ * not-TSPL/not-ZPL language falls into, EPL included) just pushes one generic
  * info message ("Validation for EPL is basic"). Follows `EscPosValidator.ts`'s
  * precedent of real, useful checks instead of a stub: command
  * presence/ordering (`N` first, `q` present, `P` present), `S`/`D` range
  * checks per the EPL2 Programmer's Guide, and unrecognized commands. Re-parses
  * the source via `parseEPL()` to inspect the same structured commands
- * `EplParser` produces, same pattern `ZplValidator`/`TscValidator` use for
+ * `EplParser` produces, same pattern `ZplValidator`/`TsplValidator` use for
  * their own (portakal-sourced) checks.
  */
 export class EplValidator implements PrintValidation {

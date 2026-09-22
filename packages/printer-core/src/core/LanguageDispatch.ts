@@ -21,14 +21,14 @@ function lookup(language: PrinterLanguage, capability: string): PrinterLanguageD
 
 /**
  * Routes a `PrinterLanguage` to its compiler and runs it. Every one of the
- * nine languages — tsc, escpos, zpl, epl, cpcl, dpl, sbpl, starprnt, ipl —
+ * nine languages — tspl, escpos, zpl, epl, cpcl, dpl, sbpl, starprnt, ipl —
  * has a real compiler in this package, so there is no stub branch here.
  */
 export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
   return lookup(language, 'compiler').compiler.compile(document, profile?.features);
 }
 
-/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tsc/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */
+/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tspl/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */
 export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
   return lookup(language, 'parser').parser.parse(source);
 }

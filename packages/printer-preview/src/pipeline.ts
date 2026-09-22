@@ -70,5 +70,5 @@ export function renderPreviews(
 }
 
 export function defaultLanguageFor(template: PrintTemplate): PrinterLanguage {
-  return template.type === PrintTemplateType.Receipt ? 'escpos' : 'tsc';
+  return template.type === PrintTemplateType.Receipt ? 'escpos' : 'tspl';
 }

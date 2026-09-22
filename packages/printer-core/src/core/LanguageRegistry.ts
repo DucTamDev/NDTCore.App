@@ -1,9 +1,9 @@
 import type { PrinterLanguage } from './PrinterLanguage';
 import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
-import { TscCompiler } from '../language/tsc/TscCompiler';
-import { TscParser } from '../language/tsc/TscParser';
-import { TscValidator } from '../validation/languages/tsc/TscValidator';
-import { TscPreviewRenderer } from '../preview/languages/tsc/TscPreviewRenderer';
+import { TsplCompiler } from '../language/tspl/TsplCompiler';
+import { TsplParser } from '../language/tspl/TsplParser';
+import { TsplValidator } from '../validation/languages/tspl/TsplValidator';
+import { TsplPreviewRenderer } from '../preview/languages/tspl/TsplPreviewRenderer';
 import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 import { EscPosParser } from '../language/escpos/EscPosParser';
 import { EscPosValidator } from '../validation/languages/escpos/EscPosValidator';
@@ -46,11 +46,11 @@ import { IplPreviewRenderer } from '../preview/languages/ipl/IplPreviewRenderer'
  * independently valid `PrinterLanguage` values).
  */
 const LANGUAGE_CAPABILITIES: Record<PrinterLanguage, Omit<PrinterLanguageDefinition, 'language'>> = {
-  tsc: {
-    compiler: new TscCompiler(),
-    parser: new TscParser(),
-    validator: new TscValidator(),
-    previewRenderer: new TscPreviewRenderer(),
+  tspl: {
+    compiler: new TsplCompiler(),
+    parser: new TsplParser(),
+    validator: new TsplValidator(),
+    previewRenderer: new TsplPreviewRenderer(),
   },
   escpos: {
     compiler: new EscPosCompiler(),

@@ -9,7 +9,7 @@ import { evaluateTemplate } from './evaluateTemplate';
 import { renderPreviews, defaultLanguageFor, type PagePreview } from './pipeline';
 import { defaultCode, defaultData } from './defaultSample';
 
-const LANGUAGES: readonly PrinterLanguage[] = ['tsc', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'escpos', 'starprnt', 'ipl'];
+const LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'escpos', 'starprnt', 'ipl'];
 const RENDER_DEBOUNCE_MS = 500;
 
 interface RenderOutcome {
@@ -55,7 +55,7 @@ function renderOutcome(
 export function App() {
   const [code, setCode] = useState(defaultCode);
   const [dataText, setDataText] = useState(defaultData);
-  const [language, setLanguage] = useState<PrinterLanguage>('tsc');
+  const [language, setLanguage] = useState<PrinterLanguage>('tspl');
   const [languageTouched, setLanguageTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<readonly PagePreview[]>([]);

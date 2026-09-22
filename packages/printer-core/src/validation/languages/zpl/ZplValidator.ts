@@ -12,7 +12,7 @@ const MAX_PRINT_WIDTH = 65535;
  * range, and unrecognized commands forwarded from the parser — ported
  * directly from portakal's `validateZPL()` (`src/validate.ts` lines
  * 144-189), one of only two languages in portakal with real validation
- * logic (the other being TSC). It re-parses the source via `parseZPL()` to
+ * logic (the other being TSPL). It re-parses the source via `parseZPL()` to
  * inspect the same structured commands `ZplParser` produces.
  */
 export class ZplValidator implements PrintValidation {

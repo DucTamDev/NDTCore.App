@@ -7,7 +7,7 @@ import type { PrintElement } from '../document/elements/PrintElement';
 export interface ConversionResult {
   /**
    * Compiled output in the target language. A string-producing target
-   * (tsc, zpl, epl, cpcl, dpl, sbpl, ipl) returns its native text as-is. A
+   * (tspl, zpl, epl, cpcl, dpl, sbpl, ipl) returns its native text as-is. A
    * byte-producing target (escpos, starprnt) is returned as a binary
    * string — one character per output byte (0-255) — matching this
    * package's existing escpos/starprnt convention (see `EscPosValidator`'s

@@ -15,7 +15,7 @@ const KNOWN_SBPL_COMMANDS = new Set(['START', 'END', 'CLEAR', 'H', 'V', 'L', 'RO
 /**
  * Validates SBPL source — net new, since portakal has no real SBPL
  * validation logic to port (`src/validate.ts`'s `default:` branch, which
- * every not-TSC/not-ZPL language falls into, SBPL included, just pushes one
+ * every not-TSPL/not-ZPL language falls into, SBPL included, just pushes one
  * generic info message). Follows `EscPosValidator.ts`'s precedent of real,
  * useful checks instead of a stub: command presence/ordering (`<ESC>A`
  * first, `<ESC>CS`/`<ESC>Z` present), a sanity check on the `Q` (quantity)

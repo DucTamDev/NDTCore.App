@@ -97,7 +97,7 @@ function parseLineCommand(rest: string): PrintElement | undefined {
 
 /**
  * Một ký tự lệnh không nhận diện được bị bỏ qua âm thầm (không đẩy warning) —
- * khác với `ZplParser`/`TscParser`; việc kiểm tra tập lệnh hợp lệ do
+ * khác với `ZplParser`/`TsplParser`; việc kiểm tra tập lệnh hợp lệ do
  * `EplValidator` đảm nhiệm riêng.
  */
 export function parseEPL(code: string): EPLParseResult {

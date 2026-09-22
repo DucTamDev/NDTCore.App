@@ -1,4 +1,4 @@
-export * from './tsc';
+export * from './tspl';
 export * from './zpl';
 export * from './epl';
 export * from './cpcl';

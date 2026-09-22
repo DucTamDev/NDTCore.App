@@ -1,7 +1,7 @@
 import { LabelBuilder } from '../document/builder/LabelBuilder';
-import { TscCompiler } from '../language/tsc/TscCompiler';
-import { TscParser } from '../language/tsc/TscParser';
-import { TscValidator } from '../validation/languages/tsc/TscValidator';
+import { TsplCompiler } from '../language/tspl/TsplCompiler';
+import { TsplParser } from '../language/tspl/TsplParser';
+import { TsplValidator } from '../validation/languages/tspl/TsplValidator';
 import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 import { EscPosParser } from '../language/escpos/EscPosParser';
 import { compileTo, parseFrom, previewFor, validateFor } from '../core/LanguageDispatch';
@@ -27,18 +27,18 @@ const doc = new LabelBuilder({ width: 40, height: 30, unit: 'mm', dpi: 203 })
   .resolve();
 
 describe('Phase 1 end-to-end', () => {
-  it('compiles, parses, and validates a document as TSC', () => {
-    const tsc = new TscCompiler().compile(doc);
-    expect(new TscValidator().validate(tsc).valid).toBe(true);
-    expect(new TscParser().parse(tsc).commands.length).toBeGreaterThan(0);
+  it('compiles, parses, and validates a document as TSPL', () => {
+    const tspl = new TsplCompiler().compile(doc);
+    expect(new TsplValidator().validate(tspl).valid).toBe(true);
+    expect(new TsplParser().parse(tspl).commands.length).toBeGreaterThan(0);
 
     // `cut` compiles to a `SET CUTTER` command (mode 'full', rows defaulted to 1).
-    const lines = tsc.trim().split('\r\n');
+    const lines = tspl.trim().split('\r\n');
     expect(lines).toContain('SET CUTTER 1');
 
     // `table` compiles its rows into real TEXT commands carrying the cell content.
-    expect(tsc).toContain('Coffee');
-    expect(tsc).toContain('25000');
+    expect(tspl).toContain('Coffee');
+    expect(tspl).toContain('25000');
   });
 
   it('compiles and parses the same document as ESC/POS', () => {
@@ -61,7 +61,7 @@ describe('Phase 1 end-to-end', () => {
 // is an intentional, documented protocol difference (see `LanguageDispatch`'s
 // own unit test, which likewise only runs `validateFor` on the string-source
 // languages), not something this loop should paper over.
-const ALL_LANGUAGES: readonly PrinterLanguage[] = ['tsc', 'escpos', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'starprnt', 'ipl'];
+const ALL_LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'escpos', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'starprnt', 'ipl'];
 const BINARY_LANGUAGES = new Set<PrinterLanguage>(['escpos', 'starprnt']);
 
 describe('Phase 2 end-to-end: full 9-language coverage', () => {

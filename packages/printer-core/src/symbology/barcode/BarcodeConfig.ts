@@ -5,7 +5,7 @@ import type { BarcodeSymbology } from './BarcodeType';
  * Descriptive config for a 1D barcode element.
  *
  * Matches the pass-through model of printer-native barcode commands
- * (TSC `BARCODE`, ESC/POS `GS k`): only a content string and layout
+ * (TSPL `BARCODE`, ESC/POS `GS k`): only a content string and layout
  * parameters are described here — the printer firmware renders the
  * actual bars. Position is x/y only (no width/height) because every
  * printer-native barcode command computes its own rendered box from

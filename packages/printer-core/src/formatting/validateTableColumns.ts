@@ -7,7 +7,7 @@ import type { TableColumn } from './TableColumn';
  * `formatRow()`'s auto-width logic treats any column with `width <= 0` as
  * "auto-size this column", computing `autoWidth = (totalWidth -
  * assignedWidth) / autoCount`. All 3 callers of `formatTable()` in this
- * package (`EscPosCompiler`, `TscCompiler`, `TscPreviewRenderer`) derive
+ * package (`EscPosCompiler`, `TsplCompiler`, `TsplPreviewRenderer`) derive
  * `totalWidth` as the sum of the columns' own `width` values, which makes
  * `totalWidth - assignedWidth` exactly equal to the auto columns' own
  * (non-positive) width — i.e. always zero for a `width: 0` column. That

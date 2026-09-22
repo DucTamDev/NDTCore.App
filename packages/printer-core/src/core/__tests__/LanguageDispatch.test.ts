@@ -15,12 +15,12 @@ const doc: ResolvedPrintDocument = {
 };
 
 describe('LanguageDispatch', () => {
-  it('routes "tsc" to TscCompiler/TscParser/TscValidator/TscPreviewRenderer', () => {
-    const tsc = compileTo('tsc', doc);
-    expect(typeof tsc).toBe('string');
-    expect(parseFrom('tsc', tsc as string).commands.length).toBeGreaterThan(0);
-    expect(validateFor('tsc', tsc as string).valid).toBe(true);
-    expect(previewFor('tsc', doc)).toContain('<svg');
+  it('routes "tspl" to TsplCompiler/TsplParser/TsplValidator/TsplPreviewRenderer', () => {
+    const tspl = compileTo('tspl', doc);
+    expect(typeof tspl).toBe('string');
+    expect(parseFrom('tspl', tspl as string).commands.length).toBeGreaterThan(0);
+    expect(validateFor('tspl', tspl as string).valid).toBe(true);
+    expect(previewFor('tspl', doc)).toContain('<svg');
   });
 
   it('routes "escpos" to EscPosCompiler/EscPosParser/EscPosValidator/EscPosPreviewRenderer', () => {

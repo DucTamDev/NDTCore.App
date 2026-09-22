@@ -3,7 +3,7 @@ import { getProfile, findByLanguage } from '../PrinterProfileResolver';
 describe('PrinterProfileResolver', () => {
   it('resolves a known TSC printer key', () => {
     const profile = getProfile('tsc-te310');
-    expect(profile?.language).toBe('tsc');
+    expect(profile?.language).toBe('tspl');
     expect(profile?.dpi).toBe(300);
   });
 

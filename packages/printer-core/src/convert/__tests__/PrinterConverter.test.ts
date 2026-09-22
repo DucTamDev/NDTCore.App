@@ -8,14 +8,14 @@ function bytesToBinaryString(bytes: number[]): string {
   return String.fromCharCode(...bytes);
 }
 
-/** One 50x30mm label carrying a single text field — the shared input for every "TSC to X" case below. */
-const TSC_SOURCE = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"3",0,1,1,"Hello"\r\nPRINT 1\r\n';
+/** One 50x30mm label carrying a single text field — the shared input for every "TSPL to X" case below. */
+const TSPL_SOURCE = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"3",0,1,1,"Hello"\r\nPRINT 1\r\n';
 
 describe('convert', () => {
-  it('converts a TSC label to recognizable ZPL syntax', () => {
-    const tscSource = TSC_SOURCE;
+  it('converts a TSPL label to recognizable ZPL syntax', () => {
+    const tsplSource = TSPL_SOURCE;
 
-    const result = convert(tscSource, 'tsc', 'zpl');
+    const result = convert(tsplSource, 'tspl', 'zpl');
 
     expect(result.output).toContain('^XA');
     expect(result.output).toContain('^FDHello^FS');
@@ -24,11 +24,11 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts an ESC/POS byte stream to recognizable TSC syntax', () => {
+  it('converts an ESC/POS byte stream to recognizable TSPL syntax', () => {
     // ESC @ (init) + "Hello" (printable ASCII) + LF
     const escposSource = bytesToBinaryString([0x1b, 0x40, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x0a]);
 
-    const result = convert(escposSource, 'escpos', 'tsc');
+    const result = convert(escposSource, 'escpos', 'tspl');
 
     expect(result.output).toContain('SIZE');
     expect(result.output).toContain('CLS');
@@ -52,8 +52,8 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts a TSC label to recognizable EPL syntax', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'epl');
+  it('converts a TSPL label to recognizable EPL syntax', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'epl');
 
     expect(result.output).toContain('A10,10,0,3,1,1,N,"Hello"');
     expect(result.output).toContain('q400');
@@ -71,8 +71,8 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts a TSC label to recognizable CPCL syntax', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'cpcl');
+  it('converts a TSPL label to recognizable CPCL syntax', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'cpcl');
 
     expect(result.output).toContain('TEXT 3 1 10 10\r\nHello');
     expect(result.output).toContain('PAGE-WIDTH 400');
@@ -94,8 +94,8 @@ describe('convert', () => {
     expect(result.elements).toEqual([{ type: 'text', content: '9Hello', options: { x: 10, y: 20 } }]);
   });
 
-  it('converts a TSC label to recognizable DPL syntax', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'dpl');
+  it('converts a TSPL label to recognizable DPL syntax', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'dpl');
 
     expect(result.output).toContain('\x02L');
     expect(result.output).toContain('Hello');
@@ -113,8 +113,8 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts a TSC label to recognizable SBPL syntax', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'sbpl');
+  it('converts a TSPL label to recognizable SBPL syntax', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'sbpl');
 
     expect(result.output).toContain('\x1bA');
     expect(result.output).toContain('\x1bH0010');
@@ -134,8 +134,8 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts a TSC label to recognizable IPL syntax', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'ipl');
+  it('converts a TSPL label to recognizable IPL syntax', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'ipl');
 
     expect(result.output).toContain('\x02\x1bC1\x03');
     expect(result.output).toContain('H1;o10,10');
@@ -155,8 +155,8 @@ describe('convert', () => {
     expect(result.warnings).toEqual([]);
   });
 
-  it('converts a TSC label to a Star PRNT byte stream, returned as a one-char-per-byte binary string', () => {
-    const result = convert(TSC_SOURCE, 'tsc', 'starprnt');
+  it('converts a TSPL label to a Star PRNT byte stream, returned as a one-char-per-byte binary string', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'starprnt');
 
     // ESC @ (initialize) leads every Star PRNT document this package emits.
     expect(result.output.slice(0, 2)).toBe('\x1b\x40');
@@ -171,7 +171,7 @@ describe('convert', () => {
   });
 
   it('throws a clear error for an unregistered target language', () => {
-    expect(() => convert('SIZE 50 mm,30 mm\r\nCLS\r\nPRINT 1\r\n', 'tsc', 'made-up' as PrinterLanguage)).toThrow(UnsupportedLanguageError);
+    expect(() => convert('SIZE 50 mm,30 mm\r\nCLS\r\nPRINT 1\r\n', 'tspl', 'made-up' as PrinterLanguage)).toThrow(UnsupportedLanguageError);
   });
 
   it('derives SUPPORTED_SOURCES/SUPPORTED_TARGETS from ConversionRegistry, covering all 9 languages', () => {

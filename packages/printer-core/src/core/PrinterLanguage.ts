@@ -1,1 +1,1 @@
-export type PrinterLanguage = "tsc" | "zpl" | "epl" | "cpcl" | "dpl" | "sbpl" | "escpos" | "starprnt" | "ipl";
+export type PrinterLanguage = "tspl" | "zpl" | "epl" | "cpcl" | "dpl" | "sbpl" | "escpos" | "starprnt" | "ipl";

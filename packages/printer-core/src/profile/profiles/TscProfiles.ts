@@ -4,7 +4,7 @@ export const TSC_PROFILES: Record<string, PrinterProfile> = {
   'tsc-te200': {
     name: 'TSC TE200',
     vendor: 'TSC',
-    language: 'tsc',
+    language: 'tspl',
     paperWidth: 108,
     dotsPerLine: 832,
     dpi: 203,
@@ -22,7 +22,7 @@ export const TSC_PROFILES: Record<string, PrinterProfile> = {
   'tsc-te310': {
     name: 'TSC TE310',
     vendor: 'TSC',
-    language: 'tsc',
+    language: 'tspl',
     paperWidth: 108,
     dotsPerLine: 1276,
     dpi: 300,

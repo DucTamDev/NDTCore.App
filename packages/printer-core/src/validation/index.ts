@@ -1,6 +1,6 @@
 export * from './ValidationResult';
 export * from './ValidationIssue';
-export * from './languages/tsc';
+export * from './languages/tspl';
 export * from './languages/zpl';
 export * from './languages/epl';
 export * from './languages/escpos';

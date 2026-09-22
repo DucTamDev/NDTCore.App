@@ -1,5 +1,5 @@
 import type { PrintParser } from '../../core';
-import type { PrintElement } from '../../document/elements/PrintElement';
+import type { PrintElement } from '../../document/elements';
 import type { Rotation } from '../../types';
 
 /**
@@ -1215,10 +1215,10 @@ export function parseTSPL(code: string): TSPLParseResult {
     }
 
     // GIỚI HẠN ĐÃ BIẾT: chỉ đọc 5 tham số header, không tiêu thụ payload nhị phân
-    // widthBytes*height theo sau (TscEncoder nối vào lúc compile). Nguồn được tách dòng bằng
+    // widthBytes*height theo sau (TsplEncoder nối vào lúc compile). Nguồn được tách dòng bằng
     // `code.split(/\r?\n/)` trước khi parse, nên byte payload trùng 0x0D/0x0A sẽ bị tách thành
     // các dòng giả, làm hỏng phần lệnh còn lại — ảnh hưởng dữ liệu bitmap đơn sắc thực tế.
-    // TscParser vì vậy không round-trip được (compile -> parse) tài liệu có element image, nhưng
+    // TsplParser vì vậy không round-trip được (compile -> parse) tài liệu có element image, nhưng
     // không ảnh hưởng máy in thật: transport gửi nguyên byte đã compile, không qua parser này.
     if (upperLine.startsWith('BITMAP ')) {
       const parsed = parseBitmapCommand(line);
@@ -1516,7 +1516,7 @@ export function parseTSPL(code: string): TSPLParseResult {
  * Bản parse rút gọn — chỉ trả về kích thước nhãn và các element render được
  * cho preview, dành cho nơi gọi không cần mọi lệnh thô.
  */
-export function parseTSC(code: string): { widthDots: number; heightDots: number; elements: PrintElement[] } {
+export function parseTsplSummary(code: string): { widthDots: number; heightDots: number; elements: PrintElement[] } {
   const result = parseTSPL(code);
   return { widthDots: result.widthDots, heightDots: result.heightDots, elements: result.elements };
 }
@@ -1525,7 +1525,7 @@ export function parseTSC(code: string): { widthDots: number; heightDots: number;
  * Giải mã một chuỗi lệnh TSPL/TSPL2 thành các lệnh có cấu trúc (theo dòng,
  * theo ngữ pháp từng lệnh).
  */
-export class TscParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
+export class TsplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
   parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
     return parseTSPL(code);

@@ -1,36 +1,38 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintElement } from '../../document/elements/PrintElement';
 import type { PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Direction } from '../../types';
-import type { TextOptions } from '../../document/elements/content/TextElement';
-import type { ImageElement } from '../../document/elements/content/ImageElement';
-import type { BarcodeElement } from '../../document/elements/content/BarcodeElement';
-import type { QrCodeElement } from '../../document/elements/content/QrCodeElement';
-import type { BoxElement } from '../../document/elements/drawing/BoxElement';
-import type { LineElement } from '../../document/elements/drawing/LineElement';
-import type { DiagonalElement } from '../../document/elements/drawing/DiagonalElement';
-import type { CircleElement } from '../../document/elements/drawing/CircleElement';
-import type { EllipseElement } from '../../document/elements/drawing/EllipseElement';
-import type { ReverseElement } from '../../document/elements/drawing/ReverseElement';
-import type { EraseElement } from '../../document/elements/drawing/EraseElement';
-import type { CutElement } from '../../document/elements/control/CutElement';
-import type { TableElement } from '../../document/elements/layout/TableElement';
-import { TSC_COMMAND } from './TscCommand';
-import { encodeTscBitmapPayload } from './TscEncoder';
+import type {
+  PrintElement,
+  TextOptions,
+  ImageElement,
+  BarcodeElement,
+  QrCodeElement,
+  BoxElement,
+  LineElement,
+  DiagonalElement,
+  CircleElement,
+  EllipseElement,
+  ReverseElement,
+  EraseElement,
+  CutElement,
+  TableElement,
+} from '../../document/elements';
+import { TSPL_COMMAND } from './TsplCommand';
+import { encodeTsplBitmapPayload } from './TsplEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
 
 const MM_PER_INCH = 25.4;
 
 // Giá trị on-wire của lệnh TSPL2 DIRECTION.
-const TSC_DIRECTION_VALUE: Record<Direction, 0 | 1> = { forward: 0, reverse: 1 };
+const TSPL_DIRECTION_VALUE: Record<Direction, 0 | 1> = { forward: 0, reverse: 1 };
 
 const DEFAULT_FONT = '2';
 const DEFAULT_ROTATION = 0;
 
 // Mã symbology theo cú pháp lệnh BARCODE.
-const TSC_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
+const TSPL_BARCODE_TYPE: Record<BarcodeSymbology, string> = {
   code39: '39',
   code93: '93',
   code128: '128',
@@ -51,7 +53,7 @@ const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 const QR_MODE_AUTO = 'A';
 
 /**
- * Phải khớp `TSC_FONTS['2'].h` bên `TscPreviewRenderer` (20 dot) — các dòng
+ * Phải khớp `TSPL_FONTS['2'].h` bên `TsplPreviewRenderer` (20 dot) — các dòng
  * table dùng `DEFAULT_FONT` không override, nên preview và output in phải
  * đồng bộ chiều cao dòng.
  */
@@ -79,12 +81,12 @@ function compileTextElement(content: string, textOptions: TextOptions | undefine
     const align = options.align === 'center' ? 2 : options.align === 'right' ? 3 : 1;
     const spacing = options.lineSpacing ?? 0;
     return (
-      `${TSC_COMMAND.BLOCK} ${x},${y},${maxWidth},${maxWidth},"${font}",${rotation},` +
+      `${TSPL_COMMAND.BLOCK} ${x},${y},${maxWidth},${maxWidth},"${font}",${rotation},` +
       `${xMul},${yMul},${spacing},${align},"${escaped}"`
     );
   }
 
-  return `${TSC_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${xMul},${yMul},"${escaped}"`;
+  return `${TSPL_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${xMul},${yMul},"${escaped}"`;
 }
 
 function compileImageElement(element: ImageElement): string {
@@ -92,8 +94,8 @@ function compileImageElement(element: ImageElement): string {
   const x = options.x ?? 0;
   const y = options.y ?? 0;
   const bitmap = element.bitmap;
-  const payload = encodeTscBitmapPayload(bitmap);
-  return `${TSC_COMMAND.BITMAP} ${x},${y},${bitmap.bytesPerRow},${bitmap.height},0,${payload}`;
+  const payload = encodeTsplBitmapPayload(bitmap);
+  return `${TSPL_COMMAND.BITMAP} ${x},${y},${bitmap.bytesPerRow},${bitmap.height},0,${payload}`;
 }
 
 function compileBoxElement(element: BoxElement): string {
@@ -102,9 +104,9 @@ function compileBoxElement(element: BoxElement): string {
   const yEnd = options.y + options.height;
   const thickness = options.thickness ?? 1;
   if (options.radius) {
-    return `${TSC_COMMAND.BOX} ${options.x},${options.y},${xEnd},${yEnd},${thickness},${options.radius}`;
+    return `${TSPL_COMMAND.BOX} ${options.x},${options.y},${xEnd},${yEnd},${thickness},${options.radius}`;
   }
-  return `${TSC_COMMAND.BOX} ${options.x},${options.y},${xEnd},${yEnd},${thickness}`;
+  return `${TSPL_COMMAND.BOX} ${options.x},${options.y},${xEnd},${yEnd},${thickness}`;
 }
 
 /**
@@ -117,41 +119,41 @@ function compileLineElement(element: LineElement): string {
   const thickness = options.thickness ?? 1;
   if (options.y1 === options.y2) {
     const width = Math.abs(options.x2 - options.x1);
-    return `${TSC_COMMAND.BAR} ${Math.min(options.x1, options.x2)},${options.y1},${width},${thickness}`;
+    return `${TSPL_COMMAND.BAR} ${Math.min(options.x1, options.x2)},${options.y1},${width},${thickness}`;
   }
   if (options.x1 === options.x2) {
     const height = Math.abs(options.y2 - options.y1);
-    return `${TSC_COMMAND.BAR} ${options.x1},${Math.min(options.y1, options.y2)},${thickness},${height}`;
+    return `${TSPL_COMMAND.BAR} ${options.x1},${Math.min(options.y1, options.y2)},${thickness},${height}`;
   }
-  return `${TSC_COMMAND.DIAGONAL} ${options.x1},${options.y1},${options.x2},${options.y2},${thickness}`;
+  return `${TSPL_COMMAND.DIAGONAL} ${options.x1},${options.y1},${options.x2},${options.y2},${thickness}`;
 }
 
 function compileDiagonalElement(element: DiagonalElement): string {
   const options = element.options;
   const thickness = options.thickness ?? 1;
-  return `${TSC_COMMAND.DIAGONAL} ${options.x1},${options.y1},${options.x2},${options.y2},${thickness}`;
+  return `${TSPL_COMMAND.DIAGONAL} ${options.x1},${options.y1},${options.x2},${options.y2},${thickness}`;
 }
 
 function compileCircleElement(element: CircleElement): string {
   const options = element.options;
   const thickness = options.thickness ?? 1;
-  return `${TSC_COMMAND.CIRCLE} ${options.x},${options.y},${options.diameter},${thickness}`;
+  return `${TSPL_COMMAND.CIRCLE} ${options.x},${options.y},${options.diameter},${thickness}`;
 }
 
 function compileEllipseElement(element: EllipseElement): string {
   const options = element.options;
   const thickness = options.thickness ?? 1;
-  return `${TSC_COMMAND.ELLIPSE} ${options.x},${options.y},${options.width},${options.height},${thickness}`;
+  return `${TSPL_COMMAND.ELLIPSE} ${options.x},${options.y},${options.width},${options.height},${thickness}`;
 }
 
 function compileReverseElement(element: ReverseElement): string {
   const options = element.options;
-  return `${TSC_COMMAND.REVERSE} ${options.x},${options.y},${options.width},${options.height}`;
+  return `${TSPL_COMMAND.REVERSE} ${options.x},${options.y},${options.width},${options.height}`;
 }
 
 function compileEraseElement(element: EraseElement): string {
   const options = element.options;
-  return `${TSC_COMMAND.ERASE} ${options.x},${options.y},${options.width},${options.height}`;
+  return `${TSPL_COMMAND.ERASE} ${options.x},${options.y},${options.width},${options.height}`;
 }
 
 /**
@@ -160,9 +162,9 @@ function compileEraseElement(element: EraseElement): string {
  */
 function compileCutElement(element: CutElement): string {
   const mode = element.options?.mode ?? 'full';
-  if (mode === 'off') return `${TSC_COMMAND.SET_CUTTER} OFF`;
+  if (mode === 'off') return `${TSPL_COMMAND.SET_CUTTER} OFF`;
   const rows = element.options?.rows ?? DEFAULT_CUT_ROWS;
-  return `${TSC_COMMAND.SET_CUTTER} ${rows}`;
+  return `${TSPL_COMMAND.SET_CUTTER} ${rows}`;
 }
 
 function compileTableElement(element: TableElement): string {
@@ -181,14 +183,14 @@ function compileBarcodeElement(element: BarcodeElement): string {
   const options = element.options;
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const type = TSC_BARCODE_TYPE[options.symbology];
+  const type = TSPL_BARCODE_TYPE[options.symbology];
   const height = options.height ?? DEFAULT_BARCODE_HEIGHT;
   const readable = options.readable ? 1 : 0;
   const rotation = options.rotation ?? DEFAULT_ROTATION;
   const narrow = options.narrowBarWidth ?? DEFAULT_NARROW_BAR;
   const wide = options.wideBarWidth ?? DEFAULT_WIDE_BAR;
   const escaped = escapeTsplString(options.content);
-  return `${TSC_COMMAND.BARCODE} ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},"${escaped}"`;
+  return `${TSPL_COMMAND.BARCODE} ${x},${y},"${type}",${height},${readable},${rotation},${narrow},${wide},"${escaped}"`;
 }
 
 function compileQrCodeElement(element: QrCodeElement): string {
@@ -199,7 +201,7 @@ function compileQrCodeElement(element: QrCodeElement): string {
   const cellWidth = options.cellWidth ?? DEFAULT_QR_CELL_WIDTH;
   const rotation = options.rotation ?? DEFAULT_ROTATION;
   const escaped = escapeTsplString(options.content);
-  return `${TSC_COMMAND.QRCODE} ${x},${y},${ecc},${cellWidth},${QR_MODE_AUTO},${rotation},"${escaped}"`;
+  return `${TSPL_COMMAND.QRCODE} ${x},${y},${ecc},${cellWidth},${QR_MODE_AUTO},${rotation},"${escaped}"`;
 }
 
 function compileElement(element: PrintElement): string {
@@ -258,20 +260,20 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh TSC/TSPL2. */
-export function compileToTSC(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh TSPL/TSPL2. */
+export function compileToTSPL(document: ResolvedPrintDocument): string {
   const lines: string[] = [];
   const dpi = document.dpi;
   const widthMM = Math.round((document.widthDots / dpi) * MM_PER_INCH);
   const heightMM = document.heightDots > 0 ? Math.round((document.heightDots / dpi) * MM_PER_INCH) : 0;
   const gapMM = Math.round((document.gapDots / dpi) * MM_PER_INCH);
 
-  lines.push(`${TSC_COMMAND.SIZE} ${widthMM} mm,${heightMM} mm`);
-  lines.push(`${TSC_COMMAND.GAP} ${gapMM} mm,0 mm`);
-  lines.push(`${TSC_COMMAND.SPEED} ${document.speed}`);
-  lines.push(`${TSC_COMMAND.DENSITY} ${document.density}`);
-  lines.push(`${TSC_COMMAND.DIRECTION} ${TSC_DIRECTION_VALUE[document.direction]}`);
-  lines.push(TSC_COMMAND.CLS);
+  lines.push(`${TSPL_COMMAND.SIZE} ${widthMM} mm,${heightMM} mm`);
+  lines.push(`${TSPL_COMMAND.GAP} ${gapMM} mm,0 mm`);
+  lines.push(`${TSPL_COMMAND.SPEED} ${document.speed}`);
+  lines.push(`${TSPL_COMMAND.DENSITY} ${document.density}`);
+  lines.push(`${TSPL_COMMAND.DIRECTION} ${TSPL_DIRECTION_VALUE[document.direction]}`);
+  lines.push(TSPL_COMMAND.CLS);
 
   for (const element of document.elements) {
     // Một element no-op (hoặc `raw` rỗng) compile ra `''` — bỏ qua để không
@@ -280,21 +282,21 @@ export function compileToTSC(document: ResolvedPrintDocument): string {
     if (line) lines.push(line);
   }
 
-  lines.push(`${TSC_COMMAND.PRINT} ${document.copies}`);
+  lines.push(`${TSPL_COMMAND.PRINT} ${document.copies}`);
   return lines.join('\r\n') + '\r\n';
 }
 
 /**
- * TSC không có bước code-page/byte-encoding (khác với ESC/POS) — output đã
+ * TSPL không có bước code-page/byte-encoding (khác với ESC/POS) — output đã
  * compile chỉ là một chuỗi lệnh thuần, nên `encoding` chỉ được nhận vào để
  * khớp chữ ký gọi chung của `PrintCompiler`, không thực sự được dùng.
  */
-export class TscCompiler implements PrintCompiler<string> {
+export class TsplCompiler implements PrintCompiler<string> {
   /**
    * Giới hạn đã biết — trộn lẫn encoding chuỗi khi có element `image`: chuỗi
    * trả về xen kẽ hai quy ước byte không tương thích nhau. Nội dung text (từ
    * element `text`/`block`/`barcode`/`qrcode`) là text UTF-8 thông thường,
-   * nhưng payload `BITMAP` của element `image` được {@link encodeTscBitmapPayload}
+   * nhưng payload `BITMAP` của element `image` được {@link encodeTsplBitmapPayload}
    * dựng theo kiểu "một char code JS = một byte thô" (kiểu latin-1), vì
    * payload đó vốn đã là dữ liệu pixel nhị phân, không phải text.
    *
@@ -308,6 +310,6 @@ export class TscCompiler implements PrintCompiler<string> {
    * đây; đây là ghi chú về một giới hạn đã biết, không phải một chỗ cần sửa.
    */
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToTSC(document);
+    return compileToTSPL(document);
   }
 }

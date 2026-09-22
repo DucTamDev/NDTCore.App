@@ -1,4 +1,4 @@
-import { parseTSPL } from '../../../language/tsc/TscParser';
+import { parseTSPL } from '../../../language/tspl/TsplParser';
 import type { PrintValidation } from '../../../core';
 import type { ValidationIssue } from '../../ValidationIssue';
 import type { ValidationResult } from '../../ValidationResult';
@@ -31,13 +31,13 @@ const LABEL_ELEMENT_COMMANDS = new Set([
 ]);
 
 /**
- * Validates TSC/TSPL2 source: command order (`SIZE` first, `CLS` before any
+ * Validates TSPL/TSPL2 source: command order (`SIZE` first, `CLS` before any
  * label element, `PRINT` present), `DENSITY`/`SPEED` ranges, and unrecognized
  * commands — ported from portakal's `validateTSC()` (`src/validate.ts` lines
  * 64-142), which itself re-parses the source via `parseTSPL()` to inspect
- * the same structured commands `TscParser` produces.
+ * the same structured commands `TsplParser` produces.
  */
-export class TscValidator implements PrintValidation {
+export class TsplValidator implements PrintValidation {
   validate(source: string): ValidationResult {
     if (!source.trim()) {
       return { valid: false, issues: [{ level: 'error', message: 'Empty input' }], errors: 1, warnings: 0, infos: 0 };

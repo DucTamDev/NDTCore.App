@@ -5,7 +5,7 @@ import type { QrErrorCorrectionLevel } from './QrCodeErrorCorrection';
  * Descriptive config for a QR code element.
  *
  * Matches the pass-through model of printer-native 2D barcode commands
- * (TSC `QRCODE`): only a content string and layout parameters are
+ * (TSPL `QRCODE`): only a content string and layout parameters are
  * described here — the printer firmware computes and renders the actual
  * QR modules. Position is x/y only, same as `BarcodeConfig`.
  */

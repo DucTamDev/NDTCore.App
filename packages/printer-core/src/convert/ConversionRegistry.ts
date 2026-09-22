@@ -2,8 +2,8 @@ import type { PrinterLanguage } from '../core/PrinterLanguage';
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
 import type { PrintElement } from '../document/elements/PrintElement';
-import { parseTSPL } from '../language/tsc/TscParser';
-import { TscCompiler } from '../language/tsc/TscCompiler';
+import { parseTSPL } from '../language/tspl/TsplParser';
+import { TsplCompiler } from '../language/tspl/TsplCompiler';
 import { parseZPL } from '../language/zpl/ZplParser';
 import { ZplCompiler } from '../language/zpl/ZplCompiler';
 import { parseEPL } from '../language/epl/EplParser';
@@ -67,12 +67,12 @@ function toBytes(source: string | Uint8Array): Uint8Array {
  * was no technical reason to keep them target-only.
  */
 export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry> = {
-  tsc: {
+  tspl: {
     parse: (source) => {
       const result = parseTSPL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new TscCompiler().compile(document, profile?.features),
+    compile: (document, profile) => new TsplCompiler().compile(document, profile?.features),
   },
   zpl: {
     parse: (source) => {

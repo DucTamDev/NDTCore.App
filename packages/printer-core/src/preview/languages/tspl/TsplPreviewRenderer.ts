@@ -1,10 +1,10 @@
 import type { ResolvedPrintDocument } from '../../../document';
-import type { PrintElement } from '../../../document/elements/PrintElement';
+import type { PrintElement } from '../../../document/elements';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
 
-/** Kích thước pixel font bitmap có sẵn của TSC, theo TSPL/TSPL2 Programming Manual. */
-const TSC_FONTS: Record<string, { width: number; height: number }> = {
+/** Kích thước pixel font bitmap có sẵn của TSPL, theo TSPL/TSPL2 Programming Manual. */
+const TSPL_FONTS: Record<string, { width: number; height: number }> = {
   '1': { width: 8, height: 12 },
   '2': { width: 12, height: 20 },
   '3': { width: 16, height: 24 },
@@ -17,7 +17,7 @@ const TSC_FONTS: Record<string, { width: number; height: number }> = {
 
 const DEFAULT_FONT = '2';
 const DEFAULT_TTF_POINT_SIZE = 12;
-/** Xấp xỉ 1pt ~ 2.82 dots ở 203 DPI — dùng cho font "0"/TrueType không có trong `TSC_FONTS`. */
+/** Xấp xỉ 1pt ~ 2.82 dots ở 203 DPI — dùng cho font "0"/TrueType không có trong `TSPL_FONTS`. */
 const DOTS_PER_POINT_AT_203_DPI = 2.82;
 const TTF_CHAR_WIDTH_RATIO = 1.7;
 
@@ -40,26 +40,26 @@ function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function getTscFont(font: string | undefined) {
-  return TSC_FONTS[font ?? DEFAULT_FONT];
+function getTsplFont(font: string | undefined) {
+  return TSPL_FONTS[font ?? DEFAULT_FONT];
 }
 
 function getFontHeight(font: string | undefined, size: number | undefined, yScale: number | undefined): number {
-  const tscFont = getTscFont(font);
+  const tsplFont = getTsplFont(font);
 
-  if (tscFont) {
+  if (tsplFont) {
     const scale = yScale && yScale > 1 ? yScale : size ?? 1;
-    return tscFont.height * scale;
+    return tsplFont.height * scale;
   }
 
   return (size ?? DEFAULT_TTF_POINT_SIZE) * DOTS_PER_POINT_AT_203_DPI;
 }
 
 function getCharWidth(font: string | undefined, size: number | undefined, xScale: number | undefined): number {
-  const tscFont = getTscFont(font);
+  const tsplFont = getTsplFont(font);
 
-  if (tscFont) {
-    return tscFont.width * (xScale ?? size ?? 1);
+  if (tsplFont) {
+    return tsplFont.width * (xScale ?? size ?? 1);
   }
 
   return (size ?? DEFAULT_TTF_POINT_SIZE) * TTF_CHAR_WIDTH_RATIO;
@@ -312,7 +312,7 @@ function renderElement(element: PrintElement): string {
     case 'table':
       return renderTableElement(element);
 
-    // Preview TSC chỉ render text/vector/image — các loại còn lại không có
+    // Preview TSPL chỉ render text/vector/image — các loại còn lại không có
     // rendering riêng, giữ case rõ ràng để switch luôn exhaustive.
     case 'raw':
     case 'barcode':
@@ -326,8 +326,8 @@ function renderElement(element: PrintElement): string {
   }
 }
 
-/** Render preview TSC thành SVG, dùng đúng bảng font bitmap của TSC. */
-export class TscPreviewRenderer implements PrintPreview {
+/** Render preview TSPL thành SVG, dùng đúng bảng font bitmap của TSPL. */
+export class TsplPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {
     const width = document.widthDots;
     const height = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT;
@@ -341,7 +341,7 @@ export class TscPreviewRenderer implements PrintPreview {
       elements += renderElement(element);
     }
 
-    const caption = `${width}×${height} dots (${document.dpi} DPI) — TSC`;
+    const caption = `${width}×${height} dots (${document.dpi} DPI) — TSPL`;
 
     return [
       `<svg xmlns="http://www.w3.org/2000/svg" ` +

@@ -1,9 +1,9 @@
-import { TscPreviewRenderer } from '../TscPreviewRenderer';
+import { TsplPreviewRenderer } from '../TsplPreviewRenderer';
 import type { PrintElement } from '../../../../document/elements/PrintElement';
 
-describe('TscPreviewRenderer', () => {
+describe('TsplPreviewRenderer', () => {
   it('renders a <line> element for a diagonal, not a <rect>', () => {
-    const svg = new TscPreviewRenderer().preview({
+    const svg = new TsplPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } }],
     });
@@ -12,7 +12,7 @@ describe('TscPreviewRenderer', () => {
 
   it('previews a text element with no options field without throwing', () => {
     expect(() =>
-      new TscPreviewRenderer().preview({
+      new TsplPreviewRenderer().preview({
         widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [{ type: 'text', content: 'x' }],
       }),
@@ -21,7 +21,7 @@ describe('TscPreviewRenderer', () => {
 
   it('previews an image element with no options field without throwing', () => {
     expect(() =>
-      new TscPreviewRenderer().preview({
+      new TsplPreviewRenderer().preview({
         widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [{ type: 'image', bitmap: { data: new Uint8Array([0xff]), width: 8, height: 1, bytesPerRow: 1 } }],
       }),
@@ -29,7 +29,7 @@ describe('TscPreviewRenderer', () => {
   });
 
   it('renders a diagonal-shaped line element (hand-built, not via PrintBuilder.line()) as a <line>, not a vertical <rect>', () => {
-    const svg = new TscPreviewRenderer().preview({
+    const svg = new TsplPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'line', options: { x1: 0, y1: 0, x2: 10, y2: 20 } }],
     });
@@ -38,7 +38,7 @@ describe('TscPreviewRenderer', () => {
 
   it('throws a clear error for a table element with a zero-width column', () => {
     expect(() =>
-      new TscPreviewRenderer().preview({
+      new TsplPreviewRenderer().preview({
         widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [{ type: 'table', options: { x: 0, y: 0, columns: [{ width: 10 }, { width: 0 }], rows: [['a', 'b']] } }],
       }),
@@ -46,7 +46,7 @@ describe('TscPreviewRenderer', () => {
   });
 
   it('renders table row content as text', () => {
-    const svg = new TscPreviewRenderer().preview({
+    const svg = new TsplPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'table', options: { x: 0, y: 0, columns: [{ width: 10 }], rows: [['hello']] } }],
     });
@@ -54,7 +54,7 @@ describe('TscPreviewRenderer', () => {
   });
 
   it('renders nothing for cut/pageBreak/spacer/row/column', () => {
-    const base = new TscPreviewRenderer().preview({
+    const base = new TsplPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1, elements: [],
     });
     // Explicit `PrintElement[]` annotation (rather than inferring the array's
@@ -64,7 +64,7 @@ describe('TscPreviewRenderer', () => {
     // e.g. `RowOptions`/`ColumnOptions` even though `{}` alone is valid.
     const noOpElements: PrintElement[] = [{ type: 'cut' as const }, { type: 'pageBreak' as const }, { type: 'spacer' as const, options: { size: 5 } }, { type: 'row' as const, options: {} }, { type: 'column' as const, options: {} }];
     for (const el of noOpElements) {
-      const svg = new TscPreviewRenderer().preview({
+      const svg = new TsplPreviewRenderer().preview({
         widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [el],
       });
