@@ -2,24 +2,23 @@ import type { Rotation } from '../../types/Rotation';
 import type { QrErrorCorrectionLevel } from './QrCodeErrorCorrection';
 
 /**
- * Descriptive config for a QR code element.
+ * Cấu hình mô tả cho 1 element QR code.
  *
- * Matches the pass-through model of printer-native 2D barcode commands
- * (TSPL `QRCODE`): only a content string and layout parameters are
- * described here — the printer firmware computes and renders the actual
- * QR modules. Position is x/y only, same as `BarcodeConfig`.
+ * Theo đúng mô hình pass-through của lệnh mã 2D gốc máy in (TSPL `QRCODE`):
+ * chỉ mô tả nội dung và tham số layout — firmware máy in tự tính và render
+ * các module QR. Vị trí chỉ có x/y, giống `BarcodeConfig`.
  */
 export interface QrCodeConfig {
-  /** X position in dots. */
+  /** Toạ độ X, tính bằng dots. */
   x?: number;
-  /** Y position in dots. */
+  /** Toạ độ Y, tính bằng dots. */
   y?: number;
-  /** Data encoded in the QR code. */
+  /** Dữ liệu mã hoá trong QR code. */
   content: string;
-  /** Width of one QR module (cell), in dots. */
+  /** Kích thước 1 module (cell) QR, tính bằng dots. */
   cellWidth?: number;
-  /** Error correction level. */
+  /** Mức sửa lỗi. */
   errorCorrection?: QrErrorCorrectionLevel;
-  /** Rotation of the QR code element. */
+  /** Góc xoay của QR code. */
   rotation?: Rotation;
 }

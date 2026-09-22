@@ -2,32 +2,31 @@ import type { Rotation } from '../../types/Rotation';
 import type { BarcodeSymbology } from './BarcodeType';
 
 /**
- * Descriptive config for a 1D barcode element.
+ * Cấu hình mô tả cho 1 element mã vạch 1D.
  *
- * Matches the pass-through model of printer-native barcode commands
- * (TSPL `BARCODE`, ESC/POS `GS k`): only a content string and layout
- * parameters are described here — the printer firmware renders the
- * actual bars. Position is x/y only (no width/height) because every
- * printer-native barcode command computes its own rendered box from
- * `height`/bar widths, not from a caller-supplied box.
+ * Theo đúng mô hình pass-through của lệnh barcode gốc máy in (TSPL `BARCODE`,
+ * ESC/POS `GS k`): chỉ mô tả nội dung và tham số layout — firmware máy in tự
+ * render các vạch. Vị trí chỉ có x/y (không có width/height) vì mọi lệnh
+ * barcode gốc máy in đều tự tính khung render từ `height`/độ rộng vạch, không
+ * nhận khung box do caller truyền vào.
  */
 export interface BarcodeConfig {
-  /** X position in dots. */
+  /** Toạ độ X, tính bằng dots. */
   x?: number;
-  /** Y position in dots. */
+  /** Toạ độ Y, tính bằng dots. */
   y?: number;
-  /** Barcode symbology to render. */
+  /** Symbology (loại mã vạch) cần render. */
   symbology: BarcodeSymbology;
-  /** Data encoded in the barcode. */
+  /** Dữ liệu mã hoá trong mã vạch. */
   content: string;
-  /** Bar height in dots. */
+  /** Chiều cao vạch, tính bằng dots. */
   height?: number;
-  /** Whether to print human-readable text under the bars. */
+  /** In kèm chữ số/ký tự đọc được bên dưới vạch hay không. */
   readable?: boolean;
-  /** Rotation of the barcode element. */
+  /** Góc xoay của mã vạch. */
   rotation?: Rotation;
-  /** Width of the narrow bar module, in dots. */
+  /** Độ rộng module vạch hẹp, tính bằng dots. */
   narrowBarWidth?: number;
-  /** Width of the wide bar module, in dots. */
+  /** Độ rộng module vạch rộng, tính bằng dots. */
   wideBarWidth?: number;
 }

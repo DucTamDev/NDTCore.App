@@ -1,12 +1,12 @@
 import type { Point } from '../../../types';
 
-/** Options for a horizontal row layout — net-new, no portakal equivalent. */
+/** Options cho 1 container layout theo hàng ngang. */
 export interface RowOptions extends Point {
-  /** Gap between children, in dots. */
+  /** Khoảng cách giữa các phần tử con, tính bằng dots. */
   gap?: number;
 }
 
-/** A horizontal row layout container. */
+/** Một container layout theo hàng ngang. */
 export interface RowElement {
   type: 'row';
   options: RowOptions;

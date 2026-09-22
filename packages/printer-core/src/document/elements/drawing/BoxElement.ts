@@ -1,16 +1,20 @@
-/** Options for a rectangle (box) element. */
+/** Options cho 1 element hình chữ nhật (box). */
 export interface BoxOptions {
+  /** Toạ độ X góc trên-trái, tính bằng dots. */
   x: number;
+  /** Toạ độ Y góc trên-trái, tính bằng dots. */
   y: number;
+  /** Chiều rộng box, tính bằng dots. */
   width: number;
+  /** Chiều cao box, tính bằng dots. */
   height: number;
-  /** Stroke width in dots; printer default is 1 when omitted. */
+  /** Độ dày nét vẽ, tính bằng dots; máy in mặc định 1 khi bỏ trống. */
   thickness?: number;
-  /** Corner rounding radius, in dots — 0/omitted means square corners. */
+  /** Bán kính bo góc, tính bằng dots — 0/bỏ trống nghĩa là góc vuông. */
   radius?: number;
 }
 
-/** A rectangle (box) outline. */
+/** Một hình chữ nhật (box) viền. */
 export interface BoxElement {
   type: 'box';
   options: BoxOptions;

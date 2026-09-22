@@ -1,10 +1,7 @@
-/**
- * Marker options for a page break — net-new, no portakal equivalent.
- * Carries no configuration, only a position in the element list.
- */
+/** Options đánh dấu ngắt trang — không mang cấu hình, chỉ đánh dấu vị trí trong danh sách element. */
 export type PageBreakOptions = Record<string, never>;
 
-/** A page-break marker — carries no configuration, only a position in the element list. */
+/** Một dấu ngắt trang — không mang cấu hình, chỉ đánh dấu vị trí trong danh sách element. */
 export interface PageBreakElement {
   type: 'pageBreak';
 }

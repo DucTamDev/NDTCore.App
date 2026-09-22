@@ -1,12 +1,12 @@
 import type { Point } from '../../../types';
 
-/** Options for a vertical column layout — net-new, no portakal equivalent. */
+/** Options cho 1 container layout theo cột dọc. */
 export interface ColumnOptions extends Point {
-  /** Gap between children, in dots. */
+  /** Khoảng cách giữa các phần tử con, tính bằng dots. */
   gap?: number;
 }
 
-/** A vertical column layout container. */
+/** Một container layout theo cột dọc. */
 export interface ColumnElement {
   type: 'column';
   options: ColumnOptions;

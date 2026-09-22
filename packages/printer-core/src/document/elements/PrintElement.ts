@@ -18,12 +18,15 @@ import type { RowElement } from './layout/RowElement';
 import type { ColumnElement } from './layout/ColumnElement';
 
 /**
- * Discriminated union of every element a `PrintBuilder` can produce.
- * Each variant owns its exact shape (no `Record<string, unknown>` bridge),
- * so compilers and parsers narrow on `type` and get the real options
- * interface for free. Each variant is defined alongside its own `*Options`
- * type in its own `content/`/`drawing/`/`layout/`/`control/` file — this
- * file only assembles the union.
+ * Union phân biệt (discriminated union) của mọi loại element mà `PrintBuilder`
+ * có thể tạo ra. Mỗi variant có shape riêng (không dùng `Record<string, unknown>`
+ * chung chung), nên compiler/parser narrow theo `type` là lấy đúng interface
+ * options tương ứng. Mỗi variant định nghĩa ở file riêng trong
+ * `content/`/`drawing/`/`layout/`/`control/` — file này chỉ gộp lại thành union.
+ *
+ * Mọi field hình học (x/y/width/height/thickness/radius/...) ở tất cả variant
+ * đều tính bằng dots — ngoại lệ duy nhất là `SpacerOptions.unit`, vì spacer vẫn
+ * có thể khai báo theo mm/inch.
  */
 export type PrintElement =
   | TextElement

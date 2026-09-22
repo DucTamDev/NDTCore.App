@@ -1,12 +1,14 @@
 import type { Unit } from '../../../types';
 
-/** Options for a fixed-size spacer — net-new, no portakal equivalent. */
+/** Options cho 1 spacer kích thước cố định. */
 export interface SpacerOptions {
+  /** Kích thước spacer, theo đơn vị `unit`. */
   size: number;
+  /** Đơn vị của `size`. */
   unit?: Unit;
 }
 
-/** A fixed-size spacer. */
+/** Một spacer kích thước cố định. */
 export interface SpacerElement {
   type: 'spacer';
   options: SpacerOptions;
