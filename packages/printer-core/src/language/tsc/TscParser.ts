@@ -3,11 +3,9 @@ import type { PrintElement } from '../../document/elements/PrintElement';
 import type { Rotation } from '../../types';
 
 /**
- * Mọi lệnh TSPL/TSPL2 mà parser này nhận diện được, port lại từng field một
- * từ `parsers/tsc.ts` của portakal đối chiếu với tài liệu tham chiếu lệnh
- * của TSC. Một số field (vd. `space`/`align`/`fit` của `BLOCK`) được khai
- * báo ở đây vì ngữ pháp lệnh có hỗ trợ, nhưng parser bên dưới hiện chưa đọc
- * chúng — cùng khoảng trống với bản gốc upstream.
+ * Toàn bộ lệnh TSPL/TSPL2 mà parser nhận diện.
+ * Một số field (vd. `space`/`align`/`fit` của `BLOCK`) được khai báo theo ngữ pháp lệnh
+ * nhưng parser hiện chưa đọc giá trị của chúng.
  */
 export type TSPLCommand =
   | { cmd: 'SIZE'; widthMM: number; heightMM: number; unit: 'mm' | 'inch' | 'dot' }
@@ -268,22 +266,17 @@ function unquote(value: string): string {
 }
 
 /**
- * Chuẩn hoá một số rotation parse được thành `Rotation` hợp lệ. Trường
- * rotation của `TEXT`/`BLOCK` trong TSPL là text tự do, nên một tài liệu dị
- * dạng hoặc khác thường (vd. giá trị không phải bội số của 90, hoặc text
- * không phải số cho ra `NaN`) không được assert thẳng vào kiểu `Rotation`
- * chỉ có 4 giá trị. Rơi về `0` — giá trị gốc không xoay của TSPL.
+ * Trường rotation của `TEXT`/`BLOCK` trong TSPL là text tự do nên có thể ra giá trị
+ * dị dạng hoặc `NaN`; những trường hợp đó rơi về `0` thay vì một bội số hợp lệ của 90.
  */
 function normalizeRotation(value: number): Rotation {
   return value === 90 || value === 180 || value === 270 ? value : 0;
 }
 
 /**
- * Nhiều lệnh TSPL (`TEXT`, `BARCODE`, ...) có thể chèn thêm một trường
- * alignment (0-3) tuỳ chọn ngay trước trường content cuối cùng, không có
- * cách nào phân biệt ngoài thử đọc rồi kiểm tra xem nó có phải một số hợp lệ
- * trong khoảng hay không. `baseIndex` là vị trí param đầu tiên có thể là
- * alignment (nếu không, chính nó là content).
+ * TSPL không đánh dấu rõ field alignment (0-3) tuỳ chọn đứng trước content cuối —
+ * chỉ phân biệt được bằng cách thử parse số rồi kiểm tra có nằm trong [0,3] hay không.
+ * `baseIndex` là vị trí param đầu tiên có thể là alignment; nếu không hợp lệ thì chính nó là content.
  */
 function resolveTrailingAlignmentAndContent(
   params: string[],
@@ -822,13 +815,9 @@ function parsePutPcxCommand(line: string): Extract<TSPLCommand, { cmd: 'PUTPCX' 
 }
 
 /**
- * Lệnh `SET` tổng quát (`SET <key> <value>`) — LƯU Ý: điều kiện
- * `upperLine.startsWith('SET ')` cũng khớp với `SET GPO ...`/`SET GPI ...`,
- * và nhánh này chạy trước hai nhánh `SET GPO`/`SET GPI` chuyên biệt bên dưới
- * trong `parseTSPL`, nên trên thực tế hai nhánh chuyên biệt đó không bao giờ
- * chạy tới (dead code). Đây là hành vi đã có sẵn từ trước, được
- * `parseTSPL`'s doc comment ghi nhận là thứ tự có chủ đích — giữ nguyên,
- * không phải phạm vi sửa ở đây.
+ * Lệnh `SET` tổng quát (`SET <key> <value>`).
+ * Trong `parseTSPL`, `startsWith('SET ')` khớp cả `SET GPO`/`SET GPI` và chạy trước hai nhánh
+ * chuyên biệt đó, nên `parseSetGpoCommand`/`parseSetGpiCommand` không bao giờ được gọi — có chủ đích.
  */
 function parseSetCommand(line: string): Extract<TSPLCommand, { cmd: 'SET' }> {
   const rest = line.slice('SET '.length).trim();
@@ -951,18 +940,12 @@ function parseNfcCommand(line: string): Extract<TSPLCommand, { cmd: 'NFC' }> {
   return { cmd: 'NFC', subcommand: parts[0], params: parts[1] };
 }
 
-/**
- * Xem ghi chú về dead code ở `parseSetCommand` — nhánh `SET GPO` không bao
- * giờ chạy tới vì bị `SET ` tổng quát khớp trước.
- */
+/** Không bao giờ được gọi — xem ghi chú dead-code ở `parseSetCommand`. */
 function parseSetGpoCommand(line: string): Extract<TSPLCommand, { cmd: 'SET_GPO' }> {
   return { cmd: 'SET_GPO', params: line.slice('SET GPO'.length).trim() };
 }
 
-/**
- * Xem ghi chú về dead code ở `parseSetCommand` — nhánh `SET GPI` không bao
- * giờ chạy tới vì bị `SET ` tổng quát khớp trước.
- */
+/** Không bao giờ được gọi — xem ghi chú dead-code ở `parseSetCommand`. */
 function parseSetGpiCommand(line: string): Extract<TSPLCommand, { cmd: 'SET_GPI' }> {
   return { cmd: 'SET_GPI', params: line.slice('SET GPI'.length).trim() };
 }
@@ -981,13 +964,9 @@ function parseAssignmentCommand(line: string): Extract<TSPLCommand, { cmd: 'ASSI
 }
 
 /**
- * Parse mã nguồn TSPL/TSPL2 thành các lệnh có cấu trúc, từng dòng vật lý một
- * lúc. Nhiều điều kiện `startsWith` bên dưới chỉ đúng nhờ đúng thứ tự chúng
- * chạy (vd. `GAP` chạy trước phần loại trừ `GAPDETECT` của chính nó, `SET `
- * chạy trước các kiểm tra GPIO `SET GPO`/`SET GPI` phía sau, `DOWNLOAD` chạy
- * trước kiểm tra `DO` rộng hơn) — thứ tự đó được giữ nguyên y như
- * `parseTSPL()` của portakal, vì đổi thứ tự sẽ âm thầm làm một dòng rơi vào
- * nhánh khác.
+ * Thứ tự các nhánh `startsWith` bên dưới có ý nghĩa: `GAP` phải chạy trước phần loại trừ
+ * `GAPDETECT` của chính nó, `SET ` chạy trước `SET GPO`/`SET GPI`, `DOWNLOAD` chạy trước `DO` —
+ * đổi thứ tự sẽ âm thầm làm một dòng rơi vào nhánh khác.
  */
 export function parseTSPL(code: string): TSPLParseResult {
   const commands: TSPLCommand[] = [];
@@ -1235,24 +1214,12 @@ export function parseTSPL(code: string): TSPLParseResult {
       continue;
     }
 
-    // GIỚI HẠN ĐÃ BIẾT: chỉ đọc 5 tham số header — không tiêu thụ các byte
-    // payload nhị phân widthBytes*height theo sau dấu phẩy cuối (TscCompiler
-    // /encodeTscBitmapPayload nối chúng vào, xem TscEncoder.ts). Vì toàn bộ
-    // tài liệu được tokenize thành các "dòng" bằng `code.split(/\r?\n/)" ở
-    // đầu hàm trước khi chạy tới đây, bất kỳ byte payload nào trùng
-    // 0x0D/0x0A sẽ tách giữa payload thành các dòng thừa giả, hầu hết parse
-    // ra UNKNOWN — làm hỏng phần còn lại của luồng lệnh. Dữ liệu bitmap đơn
-    // sắc thật sự thường chứa những byte như vậy. Đây là mô phỏng đúng
-    // `parseTSPL()` dựa trên dòng của chính portakal, vốn cũng chưa từng xử
-    // lý payload nhị phân (cùng đường mà header BITMAP "known-broken" — vốn
-    // không có payload — sinh ra). Muốn nhận biết theo số byte sẽ phải bỏ
-    // cách tokenize theo dòng riêng cho BITMAP, nằm ngoài phạm vi một bản
-    // port ngữ pháp thuần tuý: TscParser hiện CHƯA thể round-trip trung
-    // thực (compile -> parse) một tài liệu do TscCompiler tạo ra mà có chứa
-    // element image. Điều này KHÔNG ảnh hưởng tới những gì máy in thật nhận
-    // được — tầng transport gửi nguyên byte của chuỗi đã compile, nên máy in
-    // vẫn thấy đúng lệnh BITMAP và payload bất kể parser trong package này
-    // hiểu nó thế nào sau đó.
+    // GIỚI HẠN ĐÃ BIẾT: chỉ đọc 5 tham số header, không tiêu thụ payload nhị phân
+    // widthBytes*height theo sau (TscEncoder nối vào lúc compile). Nguồn được tách dòng bằng
+    // `code.split(/\r?\n/)` trước khi parse, nên byte payload trùng 0x0D/0x0A sẽ bị tách thành
+    // các dòng giả, làm hỏng phần lệnh còn lại — ảnh hưởng dữ liệu bitmap đơn sắc thực tế.
+    // TscParser vì vậy không round-trip được (compile -> parse) tài liệu có element image, nhưng
+    // không ảnh hưởng máy in thật: transport gửi nguyên byte đã compile, không qua parser này.
     if (upperLine.startsWith('BITMAP ')) {
       const parsed = parseBitmapCommand(line);
       if (parsed) commands.push(parsed);
@@ -1418,7 +1385,6 @@ export function parseTSPL(code: string): TSPLParseResult {
       continue;
     }
 
-    // 3 điều kiện dưới đã bao hết mọi dòng bắt đầu bằng "ELSE", không cần kiểm tra thêm.
     const isElseLine = upperLine === 'ELSE' || upperLine.startsWith('ELSE ') || upperLine.startsWith('ELSEIF');
     if (isElseLine) {
       commands.push(parseElseCommand(line));
