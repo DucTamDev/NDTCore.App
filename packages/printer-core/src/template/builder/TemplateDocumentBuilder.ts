@@ -1,7 +1,5 @@
 import type { CatalogDescription } from '../../catalog';
-import type { TemplateIssue } from '../parse/TemplateIssue';
-import { validateTemplateAgainstCatalog } from '../parse/validateTemplateAgainstCatalog';
-import { validateTemplateStructure } from '../parse/validateTemplateStructure';
+import { validateTemplateAgainstCatalog, validateTemplateStructure, type TemplateIssue } from '../parse';
 import {
   TEMPLATE_SCHEMA_VERSION,
   type PaperSize,
@@ -44,6 +42,7 @@ export type RootContent<TCatalog extends CatalogShape> =
 
 /** Lỗi khi `build()` gặp template không hợp lệ; `issues` chứa từng lỗi kèm vị trí. */
 export class TemplateBuildError extends Error {
+  /** Từng lỗi kèm vị trí JSON, để hiển thị cho người dùng. */
   constructor(readonly issues: readonly TemplateIssue[]) {
     super(`Template không hợp lệ:\n${issues.map((issue) => `- ${issue.path}: ${issue.message}`).join('\n')}`);
     this.name = 'TemplateBuildError';
