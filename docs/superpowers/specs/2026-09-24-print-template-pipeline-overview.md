@@ -15,6 +15,22 @@ Doc này chốt khung kiến trúc và cách chia việc. Chi tiết từng ph�
 5. **Chỉ Compiler biết capability của máy in.** Việc máy in không làm được thì Compiler báo qua kênh `warnings`, không âm thầm bỏ qua.
 6. **Preview chạy đúng pipeline in thật**, cùng `PrintTarget`, chỉ khác bước xuất cuối (SVG thay vì byte).
 
+## Quy ước code (bắt buộc cho mọi sub-spec)
+
+Áp dụng cho mọi file viết mới hoặc sửa khi triển khai A-D:
+
+1. **Field summary:** mỗi field của type/interface export có 1 dòng JSDoc **tiếng Việt** nêu ý nghĩa, đơn vị (dots, mm, `Length`...), mặc định/ràng buộc nếu có. Chỉ bỏ qua field mà tên đã hiển nhiên tuyệt đối (VD `bold`).
+2. **Cách dòng:** 1 dòng trống giữa các field (kèm JSDoc của nó) trong interface; dòng trống giữa các khối logic trong hàm.
+3. **Comment trong implementation:** tiếng Việt, ngắn, chỉ giải thích WHY (constraint protocol, giới hạn phần cứng, hành vi không hiển nhiên). Không mô tả lại code, không kể lịch sử.
+4. **Độ dài dòng ≤ 120 ký tự**, đo bằng số ký tự thật (Node `line.length`), không đo bằng byte.
+5. **Nesting ≤ 3 cấp**, dùng guard clause/early return.
+6. **1 hàm 1 trách nhiệm:** switch theo loại node/element thì mỗi case là 1 hàm riêng, switch chỉ điều phối. Không hàm lồng trong hàm.
+7. **Không magic number:** hằng số `UPPER_SNAKE_CASE`, tên nói rõ đơn vị.
+8. **Tên đầy đủ, không viết tắt** (`options` không `o`); identifier và tên file bằng tiếng Anh.
+9. **Import module khác qua barrel `index.ts`**, không deep import vào file implementation.
+10. **Hàm ≥ 3 tham số** viết mỗi tham số 1 dòng.
+11. **Verify trước mỗi commit:** type-check, test, eslint 0 error, line-length.
+
 ## Pipeline
 
 ```
