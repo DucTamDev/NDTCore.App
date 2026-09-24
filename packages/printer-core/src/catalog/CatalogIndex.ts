@@ -2,6 +2,7 @@ import type { CatalogDescription, CollectionDescription, VariableDescription } f
 
 /** 1 biến trong bảng tra, kèm collection sở hữu. */
 export interface IndexedVariable {
+  /** Metadata của biến lấy từ `catalog.describe()`. */
   readonly description: VariableDescription;
 
   /** Tên collection sở hữu biến; `null` là biến gốc. */
@@ -10,6 +11,7 @@ export interface IndexedVariable {
 
 /** 1 collection trong bảng tra, kèm collection cha. */
 export interface IndexedCollection {
+  /** Metadata của collection lấy từ `catalog.describe()`. */
   readonly description: CollectionDescription;
 
   /** Tên collection cha; `null` là collection cấp 1. */

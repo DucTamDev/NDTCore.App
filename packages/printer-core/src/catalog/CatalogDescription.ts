@@ -8,6 +8,7 @@ export interface VariableDescription {
   /** Tên hiển thị cho người dùng. */
   readonly label: string;
 
+  /** Kiểu giá trị của biến, quyết định format mặc định và luật validate. */
   readonly type: VariableType;
 
   /** Cho phép rỗng hay không. */
