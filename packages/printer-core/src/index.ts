@@ -13,6 +13,7 @@ export * from './convert';
 export * from './profile';
 export * from './transport';
 export * from './testing';
+export * from './catalog';
 export * from './template';
 export * from './resolution';
 export * from './layout';
