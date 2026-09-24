@@ -1,158 +1,66 @@
-import type { PrintTemplate } from '../template/PrintTemplate';
-import type { TemplateNode } from '../template/nodes/TemplateNode';
-import type { Bitmap } from '../types';
-import type { PrintData } from './PrintData';
-import type { ResolvedNode } from './ResolvedNode';
+import { createCatalogIndex, type Catalog } from '../catalog';
+import type { TemplateDocument, TemplateNode } from '../template';
+import type { AssetProvider } from './AssetProvider';
+import { countPages } from './countPages';
+import { createRootFrame, type ResolveContext } from './ResolveContext';
 import type { ResolvedPage } from './ResolvedPage';
+import { ResolveError } from './ResolveError';
+import { resolveNode } from './resolveNode';
 
-type Scope = { readonly data: unknown; readonly parent: Scope | null };
+/** Nguồn phụ trợ cho 1 lần resolve. */
+export interface ResolveOptions<TData> {
+  /** Catalog mà template dùng; `id` phải khớp `template.catalog`. */
+  readonly catalog: Catalog<TData>;
 
-function getPath(value: unknown, path: string): unknown {
-  return path.split('.').reduce<unknown>((current, key) => {
-    if (current === null || typeof current !== 'object') return undefined;
-    if (!Object.prototype.hasOwnProperty.call(current, key)) return undefined;
-    return (current as Record<string, unknown>)[key];
-  }, value);
+  /** Ảnh đã tải + decode sẵn. */
+  readonly assets: AssetProvider;
 }
 
-function lookup(scope: Scope, path: string): unknown {
-  let current: Scope | null = scope;
-  while (current) {
-    const value = getPath(current.data, path);
-    if (value !== undefined) return value;
-    current = current.parent;
-  }
-  return undefined;
-}
+// Khi đếm trang chưa biết tổng số trang; điều kiện dùng `$page` ở bước đếm được coi như đang ở trang 1/1.
+const COUNTING_PAGE = { pageNumber: 1, pageCount: 1 };
 
-function evaluateVisibility(node: TemplateNode, scope: Scope): boolean {
-  if (!('visibleWhen' in node) || !node.visibleWhen) return true;
-  const condition = node.visibleWhen;
-  if (condition.type === 'exists') return lookup(scope, condition.binding) !== undefined;
-  return lookup(scope, condition.binding) === condition.value;
-}
-
-class ResolveError extends Error {
-  constructor(readonly nodeId: string, message: string) { super(message); }
-}
-
-function resolveNode(node: TemplateNode, scope: Scope): ResolvedNode | null {
-  if (!evaluateVisibility(node, scope)) return null;
-
-  switch (node.type) {
-    case 'container':
-      return {
-        type: 'container',
-        id: node.id,
-        style: node.style,
-        children: node.children.map((child) => resolveNode(child, scope)).filter((child): child is ResolvedNode => child !== null),
-      };
-
-    case 'text': {
-      if (node.text !== undefined) return { type: 'text', id: node.id, value: node.text, style: node.style };
-      if (node.binding === undefined) throw new ResolveError(node.id, `TextNode "${node.id}" has neither text nor binding`);
-      const value = lookup(scope, node.binding);
-      if (value === undefined) throw new ResolveError(node.id, `binding "${node.binding}" not found for node "${node.id}"`);
-      return { type: 'text', id: node.id, value: String(value), style: node.style };
-    }
-
-    case 'line':
-      return { type: 'line', id: node.id, thickness: node.thickness, style: node.style };
-
-    case 'barcode': {
-      const value = node.content ?? (node.binding !== undefined ? lookup(scope, node.binding) : undefined);
-      if (value === undefined) throw new ResolveError(node.id, `barcode "${node.id}" has no content/binding value`);
-      return { type: 'barcode', id: node.id, value: String(value), symbology: node.symbology, readable: node.readable, style: node.style };
-    }
-
-    case 'qrcode': {
-      const value = node.content ?? (node.binding !== undefined ? lookup(scope, node.binding) : undefined);
-      if (value === undefined) throw new ResolveError(node.id, `qrcode "${node.id}" has no content/binding value`);
-      return { type: 'qrcode', id: node.id, value: String(value), errorCorrection: node.errorCorrection, style: node.style };
-    }
-
-    case 'image': {
-      const bitmap = node.bitmap ?? (node.binding !== undefined ? lookup(scope, node.binding) : undefined);
-      if (bitmap === undefined) throw new ResolveError(node.id, `image "${node.id}" has no bitmap/binding value`);
-      if (typeof bitmap !== 'object' || bitmap === null || !('data' in bitmap) || !('width' in bitmap) || !('height' in bitmap) || !('bytesPerRow' in bitmap)) {
-        throw new ResolveError(node.id, `image "${node.id}" binding value is not a valid Bitmap`);
-      }
-      return { type: 'image', id: node.id, bitmap: bitmap as Bitmap, style: node.style };
-    }
-
-    case 'repeat': {
-      const items = lookup(scope, node.binding);
-      if (!Array.isArray(items)) throw new ResolveError(node.id, `repeat "${node.id}" binding "${node.binding}" is not an array`);
-      const children = items
-        .map((item) => resolveNode(node.template, { data: item, parent: scope }))
-        .filter((child): child is ResolvedNode => child !== null);
-      return { type: 'container', id: node.id, children };
-    }
-  }
-}
-
-function countPaginatingItems(node: TemplateNode, scope: Scope, counts: number[]): void {
-  if (!evaluateVisibility(node, scope)) return;
-
-  if (node.type === 'repeat') {
-    const items = lookup(scope, node.binding);
-    const perPage = node.maxItemsPerPage;
-    if (perPage !== undefined && Number.isFinite(perPage) && perPage > 0 && Array.isArray(items)) {
-      counts.push(Math.ceil(items.length / perPage));
-    }
-    // Do not recurse into a RepeatNode's own template — nested paginating
-    // repeats are out of scope (see spec's "Ngoài phạm vi").
-    return;
-  }
-  if (node.type === 'container') {
-    for (const child of node.children) countPaginatingItems(child, scope, counts);
-  }
-}
-
-function resolveNodeForPage(node: TemplateNode, scope: Scope, pageIndex: number): ResolvedNode | null {
-  if (!evaluateVisibility(node, scope)) return null;
-
-  if (node.type === 'repeat') {
-    const items = lookup(scope, node.binding);
-    if (!Array.isArray(items)) throw new ResolveError(node.id, `repeat "${node.id}" binding "${node.binding}" is not an array`);
-    const slice = node.maxItemsPerPage !== undefined ? items.slice(pageIndex * node.maxItemsPerPage, (pageIndex + 1) * node.maxItemsPerPage) : items;
-    const children = slice
-      .map((item) => resolveNode(node.template, { data: item, parent: scope }))
-      .filter((child): child is ResolvedNode => child !== null);
-    return { type: 'container', id: node.id, children };
-  }
-
-  if (node.type === 'container') {
-    return {
-      type: 'container',
-      id: node.id,
-      style: node.style,
-      children: node.children.map((child) => resolveNodeForPage(child, scope, pageIndex)).filter((child): child is ResolvedNode => child !== null),
-    };
-  }
-
-  return resolveNode(node, scope);
-}
-
+/** Ghép template với data qua catalog: giá trị biến, format, ẩn/hiện, lặp/expand/phân trang, tra ảnh. */
 export class DocumentResolver {
-  resolve(template: PrintTemplate, data: PrintData): readonly ResolvedPage[] {
-    const scope: Scope = { data, parent: null };
-    const pageCounts: number[] = [];
-    countPaginatingItems(template.root, scope, pageCounts);
-    const pageCount = Math.max(1, ...pageCounts, 0) || 1;
-
-    const pages: ResolvedPage[] = [];
-    for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-      try {
-        const node = resolveNodeForPage(template.root, scope, pageIndex);
-        pages.push({ status: 'ok', pageIndex, node: node ?? { type: 'container', id: template.root.id, children: [] } });
-      } catch (error) {
-        if (error instanceof ResolveError) pages.push({ status: 'error', pageIndex, nodeId: error.nodeId, message: error.message });
-        else throw error;
-      }
+  /**
+   * Resolve thành các trang; lỗi data (thiếu biến bắt buộc, thiếu ảnh...) được cô lập theo trang.
+   * Throw nếu template không dùng catalog được truyền vào — đó là lỗi lập trình, không phải lỗi data.
+   */
+  resolve<TData>(
+    template: TemplateDocument,
+    data: TData,
+    options: ResolveOptions<TData>,
+  ): readonly ResolvedPage[] {
+    if (template.catalog !== options.catalog.id) {
+      throw new Error(`Template dùng catalog "${template.catalog}", không phải "${options.catalog.id}"`);
     }
-    return pages;
+
+    const baseContext: ResolveContext = {
+      catalog: options.catalog,
+      index: createCatalogIndex(options.catalog.describe()),
+      assets: options.assets,
+      frames: [createRootFrame(data)],
+      page: COUNTING_PAGE,
+    };
+    const pageCount = countPages(template.root, baseContext);
+
+    return Array.from({ length: pageCount }, (_, pageIndex) =>
+      resolvePage(template.root, { ...baseContext, page: { pageNumber: pageIndex + 1, pageCount } }),
+    );
   }
 }
 
-export function createDocumentResolver(): DocumentResolver { return new DocumentResolver(); }
+function resolvePage(root: TemplateNode, context: ResolveContext): ResolvedPage {
+  const pageIndex = context.page.pageNumber - 1;
+  try {
+    const node = resolveNode(root, context);
+    return { status: 'ok', pageIndex, node: node ?? { type: 'container', id: root.id, children: [] } };
+  } catch (error) {
+    if (!(error instanceof ResolveError)) throw error;
+    return { status: 'error', pageIndex, nodeId: error.nodeId, message: error.message };
+  }
+}
+
+/** Tạo resolver. */
+export function createDocumentResolver(): DocumentResolver {
+  return new DocumentResolver();
+}

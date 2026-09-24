@@ -1,114 +1,362 @@
-import { createDocumentResolver } from '../DocumentResolver';
-import { PrintTemplateType } from '../../template/PrintTemplateType';
-import type { LabelTemplate } from '../../template/PrintTemplate';
-import type { PrintData } from '../PrintData';
+import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
+import { defineCatalog, defineCollection } from '../../catalog';
+import type { TemplateDocument, TemplateMedia, TemplateNode } from '../../template';
+import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE, type TestOrder } from '../../testing';
+import type { Bitmap } from '../../types';
+
+const LOGO_BITMAP: Bitmap = { data: new Uint8Array(8), width: 8, height: 8, bytesPerRow: 1 };
+const NO_ASSETS: AssetProvider = { get: () => undefined };
+const LOGO_ASSETS: AssetProvider = { get: (assetId) => (assetId === 'store-logo@v1' ? LOGO_BITMAP : undefined) };
 
 const resolver = createDocumentResolver();
 
-function label(root: LabelTemplate['root']): LabelTemplate {
-  return { id: 't1', version: 1, type: PrintTemplateType.Label, config: { widthDots: 400, heightDots: 240, dpi: 203 }, root };
+function documentWith(root: TemplateNode, media: TemplateMedia = 'receipt'): TemplateDocument {
+  return {
+    schemaVersion: 1,
+    id: 'template',
+    name: 'Template',
+    catalog: 'test-order',
+    media,
+    locale: 'vi-VN',
+    paper: media === 'label' ? { widthMm: 50, heightMm: 30 } : { widthMm: 72 },
+    root,
+  };
 }
 
-describe('DocumentResolver', () => {
-  it('resolves a literal TextNode to its literal value', () => {
-    const pages = resolver.resolve(label({ type: 'text', id: 't1', text: 'MY SHOP' }), {});
-    expect(pages).toEqual([{ status: 'ok', pageIndex: 0, node: { type: 'text', id: 't1', value: 'MY SHOP' } }]);
-  });
+function resolvePages(
+  root: TemplateNode,
+  data: TestOrder = TEST_ORDER_SAMPLE,
+  assets: AssetProvider = NO_ASSETS,
+): readonly ResolvedPage[] {
+  return resolver.resolve(documentWith(root), data, { catalog: TEST_ORDER_CATALOG, assets });
+}
 
-  it('resolves a bound TextNode via a dotted path', () => {
-    const data: PrintData = { product: { name: 'Milk Tea' } };
-    const pages = resolver.resolve(label({ type: 'text', id: 't1', binding: 'product.name' }), data);
-    expect(pages[0]).toEqual({ status: 'ok', pageIndex: 0, node: { type: 'text', id: 't1', value: 'Milk Tea' } });
-  });
+/** Mọi chuỗi text trong cây, theo thứ tự duyệt. */
+function textsOf(node: ResolvedNode): readonly string[] {
+  if (node.type === 'text') return [node.value];
+  if (node.type === 'container') return node.children.flatMap(textsOf);
+  return [];
+}
 
-  it('drops a node whose visibleWhen "exists" condition is false', () => {
-    const tree = label({
-      type: 'container', id: 'root', children: [
-        { type: 'text', id: 't1', text: 'always' },
-        { type: 'text', id: 't2', text: 'conditional', visibleWhen: { type: 'exists', binding: 'discount' } },
+function pageTexts(page: ResolvedPage): readonly string[] {
+  if (page.status !== 'ok') throw new Error(`trang ${page.pageIndex} lỗi: ${page.message}`);
+  return textsOf(page.node);
+}
+
+function itemLabel(): TemplateNode {
+  return {
+    type: 'repeat',
+    id: 'items',
+    collection: 'items',
+    expand: 'quantity',
+    maxItemsPerPage: 1,
+    template: {
+      type: 'text',
+      id: 'label',
+      content: [
+        { var: 'itemName' },
+        { text: ' ' },
+        { var: '$position' },
+        { text: '/' },
+        { var: '$total' },
+        { text: ' ly ' },
+        { var: '$unit' },
+        { text: '/' },
+        { var: '$unitCount' },
       ],
-    });
-    const pages = resolver.resolve(tree, {});
-    const root = pages[0].status === 'ok' ? pages[0].node : null;
-    expect(root?.type).toBe('container');
-    if (root?.type === 'container') expect(root.children).toHaveLength(1);
+    },
+  };
+}
+
+describe('DocumentResolver — nội dung', () => {
+  it('ghép segment chữ + biến, format mặc định theo kiểu và format khai báo', () => {
+    const root: TemplateNode = {
+      type: 'text',
+      id: 'header',
+      content: [
+        { var: 'tableName' },
+        { text: ' · ' },
+        { var: 'createdAt', format: { type: 'datetime', pattern: 'HH:mm' } },
+        { text: ' · giảm ' },
+        { var: 'discount' },
+      ],
+    };
+
+    expect(pageTexts(resolvePages(root)[0])).toEqual(['Bàn 5 · 10:30 · giảm 5.000đ']);
   });
 
-  it('keeps a node whose visibleWhen "equals" condition matches', () => {
-    const tree = label({
-      type: 'text', id: 't1', text: 'paid', visibleWhen: { type: 'equals', binding: 'status', value: 'paid' },
-    });
-    const pages = resolver.resolve(tree, { status: 'paid' });
-    expect(pages[0]).toMatchObject({ status: 'ok' });
+  it('biến optional rỗng in chuỗi rỗng', () => {
+    const root: TemplateNode = { type: 'text', id: 'table', content: [{ text: 'Bàn: ' }, { var: 'tableName' }] };
+    const takeAway: TestOrder = { ...TEST_ORDER_SAMPLE, tableName: undefined };
+
+    expect(pageTexts(resolvePages(root, takeAway)[0])).toEqual(['Bàn: ']);
   });
 
-  it('expands a RepeatNode into a ResolvedContainer with one child per item', () => {
-    const tree = label({
-      type: 'repeat', id: 'r1', binding: 'toppings',
-      template: { type: 'text', id: 'item', binding: 'name' },
-    });
-    const data: PrintData = { toppings: [{ name: 'Pearl' }, { name: 'Cheese' }] };
-    const pages = resolver.resolve(tree, data);
-    const node = pages[0].status === 'ok' ? pages[0].node : null;
-    expect(node?.type).toBe('container');
-    if (node?.type === 'container') {
-      expect(node.children).toEqual([
-        { type: 'text', id: 'item', value: 'Pearl' },
-        { type: 'text', id: 'item', value: 'Cheese' },
-      ]);
-    }
+  it('biến bắt buộc rỗng thành trang lỗi có nodeId', () => {
+    const root: TemplateNode = { type: 'text', id: 'code', content: [{ var: 'orderCode' }] };
+    const noCode = { ...TEST_ORDER_SAMPLE, code: undefined } as unknown as TestOrder;
+
+    expect(resolvePages(root, noCode)).toEqual([
+      { status: 'error', pageIndex: 0, nodeId: 'code', message: 'biến "orderCode" không có giá trị' },
+    ]);
   });
 
-  it('resolves an item-scoped binding with fallback to the outer scope', () => {
-    const tree = label({
-      type: 'repeat', id: 'r1', binding: 'items',
+  it('giá trị không hợp format thành trang lỗi', () => {
+    const root: TemplateNode = { type: 'text', id: 'time', content: [{ var: 'createdAt' }] };
+    const badTime: TestOrder = { ...TEST_ORDER_SAMPLE, createdAt: 'hôm qua' };
+    const [page] = resolvePages(root, badTime);
+
+    expect(page.status).toBe('error');
+    if (page.status === 'error') expect(page.message).toContain('biến "createdAt"');
+  });
+
+  it('barcode/QR dùng chung segment', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { type: 'barcode', id: 'barcode', content: [{ var: 'orderCode' }], symbology: 'code128' },
+        { type: 'qrcode', id: 'qr', content: [{ text: 'https://ndt.vn/o/' }, { var: 'orderCode' }] },
+      ],
+    };
+    const [page] = resolvePages(root);
+
+    expect(page.status === 'ok' && page.node.type === 'container' && page.node.children).toEqual([
+      { type: 'barcode', id: 'barcode', value: 'HD001', symbology: 'code128' },
+      { type: 'qrcode', id: 'qr', value: 'https://ndt.vn/o/HD001' },
+    ]);
+  });
+});
+
+describe('DocumentResolver — scope tường minh', () => {
+  it('biến collection dùng ngoài vòng lặp thành trang lỗi', () => {
+    const root: TemplateNode = { type: 'text', id: 'name', content: [{ var: 'itemName' }] };
+
+    expect(resolvePages(root)[0]).toMatchObject({ status: 'error', nodeId: 'name' });
+  });
+
+  it('biến gốc trong vòng lặp luôn đọc từ data gốc, không bị field trùng tên của phần tử che', () => {
+    const lines = defineCollection({
+      label: 'Dòng',
+      get: (order: { readonly lines: readonly { readonly code: string }[] }) => order.lines,
+      variables: { lineCode: { label: 'Mã dòng', type: 'string', get: (line) => line.code } },
+    });
+    const catalog = defineCatalog({
+      id: 'shadow',
+      version: 1,
+      sample: { code: 'ORDER', lines: [{ code: 'LINE' }] },
+      variables: { orderCode: { label: 'Mã đơn', type: 'string', get: (order) => order.code } },
+      collections: { lines },
+    });
+    const template: TemplateDocument = {
+      ...documentWith({
+        type: 'repeat',
+        id: 'lines',
+        collection: 'lines',
+        template: { type: 'text', id: 'text', content: [{ var: 'orderCode' }, { text: '/' }, { var: 'lineCode' }] },
+      }),
+      catalog: 'shadow',
+    };
+
+    const [page] = resolver.resolve(template, catalog.sample, { catalog, assets: NO_ASSETS });
+
+    expect(pageTexts(page)).toEqual(['ORDER/LINE']);
+  });
+
+  it('collection lồng đọc từ phần tử của collection cha', () => {
+    const root: TemplateNode = {
+      type: 'repeat',
+      id: 'items',
+      collection: 'items',
       template: {
-        type: 'container', id: 'row', children: [
-          { type: 'text', id: 'name', binding: 'name' },
-          { type: 'text', id: 'store', binding: 'storeName' },
+        type: 'repeat',
+        id: 'toppings',
+        collection: 'toppings',
+        template: {
+          type: 'text',
+          id: 'topping',
+          content: [{ var: 'itemName' }, { text: ' + ' }, { var: 'toppingName' }],
+        },
+      },
+    };
+
+    expect(pageTexts(resolvePages(root)[0])).toEqual(['Trà sữa + Trân châu']);
+  });
+});
+
+describe('DocumentResolver — lặp, expand, phân trang', () => {
+  it('expand mỗi ly 1 tem: $position/$total tính sau expand, $unit/$unitCount theo từng món', () => {
+    const pages = resolvePages(itemLabel());
+
+    expect(pages.map((page) => pageTexts(page)[0])).toEqual([
+      'Trà sữa 1/5 ly 1/3',
+      'Trà sữa 2/5 ly 2/3',
+      'Trà sữa 3/5 ly 3/3',
+      'Cà phê 4/5 ly 1/2',
+      'Cà phê 5/5 ly 2/2',
+    ]);
+  });
+
+  it('maxItemsPerPage áp dụng trên danh sách sau expand', () => {
+    const root: TemplateNode = { ...itemLabel(), maxItemsPerPage: 2 } as TemplateNode;
+    const pages = resolvePages(root);
+
+    expect(pages.map((page) => pageTexts(page).length)).toEqual([2, 2, 1]);
+  });
+
+  it('$page/$pageCount dùng được ở mọi chỗ', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        itemLabel(),
+        {
+          type: 'text',
+          id: 'footer',
+          content: [{ text: 'Trang ' }, { var: '$page' }, { text: '/' }, { var: '$pageCount' }],
+        },
+      ],
+    };
+
+    expect(resolvePages(root).map((page) => pageTexts(page)[1])).toEqual([
+      'Trang 1/5',
+      'Trang 2/5',
+      'Trang 3/5',
+      'Trang 4/5',
+      'Trang 5/5',
+    ]);
+  });
+
+  it('repeat không phân trang in mọi phần tử trên 1 trang', () => {
+    const root: TemplateNode = {
+      type: 'repeat',
+      id: 'items',
+      collection: 'items',
+      template: { type: 'text', id: 'name', content: [{ var: 'itemName' }] },
+    };
+
+    expect(resolvePages(root).map(pageTexts)).toEqual([['Trà sữa', 'Cà phê']]);
+  });
+
+  it('repeat bị ẩn không tạo thêm trang', () => {
+    const root: TemplateNode = { ...itemLabel(), visibleWhen: { op: 'eq', var: 'orderCode', value: 'KHÁC' } };
+
+    expect(resolvePages(root)).toHaveLength(1);
+  });
+
+  it('expand không phải số nguyên dương thành trang lỗi', () => {
+    const zeroQuantity: TestOrder = {
+      ...TEST_ORDER_SAMPLE,
+      items: [{ ...TEST_ORDER_SAMPLE.items[0], quantity: 0 }],
+    };
+
+    expect(resolvePages(itemLabel(), zeroQuantity)).toEqual([
+      {
+        status: 'error',
+        pageIndex: 0,
+        nodeId: 'items',
+        message: 'expand "quantity" phải là số nguyên dương, nhận "0"',
+      },
+    ]);
+  });
+
+  it('collection không phải mảng thành trang lỗi thay vì throw', () => {
+    const broken = { ...TEST_ORDER_SAMPLE, items: undefined } as unknown as TestOrder;
+
+    expect(resolvePages(itemLabel(), broken)[0]).toMatchObject({ status: 'error', nodeId: 'items' });
+  });
+});
+
+describe('DocumentResolver — điều kiện', () => {
+  function visibleTextFor(condition: NonNullable<TemplateNode['visibleWhen']>): readonly string[] {
+    const root: TemplateNode = { type: 'text', id: 'text', content: [{ text: 'X' }], visibleWhen: condition };
+    return pageTexts(resolvePages(root)[0]);
+  }
+
+  it.each([
+    [{ op: 'exists', var: 'tableName' }, ['X']],
+    [{ op: 'notEmpty', var: 'tableName' }, ['X']],
+    [{ op: 'eq', var: 'orderCode', value: 'HD001' }, ['X']],
+    [{ op: 'neq', var: 'orderCode', value: 'HD001' }, []],
+    [{ op: 'gt', var: 'discount', value: 0 }, ['X']],
+    [{ op: 'gte', var: 'discount', value: 5000 }, ['X']],
+    [{ op: 'lt', var: 'discount', value: 5000 }, []],
+    [{ op: 'lte', var: 'discount', value: 4999 }, []],
+    [{ op: 'gt', var: 'orderCode', value: 0 }, []],
+    [{ op: 'and', conditions: [{ op: 'exists', var: 'tableName' }, { op: 'gt', var: 'discount', value: 0 }] }, ['X']],
+    [{ op: 'or', conditions: [{ op: 'lt', var: 'discount', value: 0 }, { op: 'exists', var: 'orderCode' }] }, ['X']],
+    [{ op: 'not', condition: { op: 'exists', var: 'tableName' } }, []],
+  ] as const)('%j', (condition, expected) => {
+    expect(visibleTextFor(condition)).toEqual(expected);
+  });
+
+  it('notEmpty sai với chuỗi rỗng, exists đúng', () => {
+    const emptyTable: TestOrder = { ...TEST_ORDER_SAMPLE, tableName: '' };
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { type: 'text', id: 'a', content: [{ text: 'exists' }], visibleWhen: { op: 'exists', var: 'tableName' } },
+        { type: 'text', id: 'b', content: [{ text: 'notEmpty' }], visibleWhen: { op: 'notEmpty', var: 'tableName' } },
+      ],
+    };
+
+    expect(pageTexts(resolvePages(root, emptyTable)[0])).toEqual(['exists']);
+  });
+});
+
+describe('DocumentResolver — ảnh', () => {
+  it('tra bitmap theo mã asset lấy từ biến', () => {
+    const root: TemplateNode = { type: 'image', id: 'logo', source: { var: 'storeLogo' } };
+    const [page] = resolvePages(root, TEST_ORDER_SAMPLE, LOGO_ASSETS);
+
+    expect(page).toEqual({ status: 'ok', pageIndex: 0, node: { type: 'image', id: 'logo', bitmap: LOGO_BITMAP } });
+  });
+
+  it('biến ảnh optional rỗng thì bỏ qua ảnh', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [{ type: 'image', id: 'logo', source: { var: 'storeLogo' } }],
+    };
+    const noLogo: TestOrder = { ...TEST_ORDER_SAMPLE, storeLogo: undefined };
+    const [page] = resolvePages(root, noLogo, LOGO_ASSETS);
+
+    expect(page.status === 'ok' && page.node.type === 'container' && page.node.children).toEqual([]);
+  });
+
+  it('thiếu asset chỉ làm lỗi đúng trang cần ảnh đó, trang khác vẫn in được', () => {
+    const root: TemplateNode = {
+      ...itemLabel(),
+      template: {
+        type: 'container',
+        id: 'item',
+        children: [
+          { type: 'text', id: 'name', content: [{ var: 'itemName' }] },
+          {
+            type: 'image',
+            id: 'coffee-icon',
+            source: { asset: 'coffee@v1' },
+            visibleWhen: { op: 'eq', var: 'itemName', value: 'Cà phê' },
+          },
         ],
       },
-    });
-    const data: PrintData = { storeName: 'My Shop', items: [{ name: 'Tea' }] };
-    const pages = resolver.resolve(tree, data);
-    const node = pages[0].status === 'ok' ? pages[0].node : null;
-    expect(node?.type).toBe('container');
-    if (node?.type === 'container') {
-      const row = node.children[0];
-      expect(row.type).toBe('container');
-      if (row.type === 'container') {
-        expect(row.children).toEqual([
-          { type: 'text', id: 'name', value: 'Tea' },
-          { type: 'text', id: 'store', value: 'My Shop' },
-        ]);
-      }
-    }
-  });
+    } as TemplateNode;
 
-  it('returns a page-scoped error when a binding path is missing', () => {
-    const pages = resolver.resolve(label({ type: 'text', id: 't1', binding: 'product.name' }), {});
-    expect(pages).toEqual([{ status: 'error', pageIndex: 0, nodeId: 't1', message: expect.stringContaining('product.name') }]);
-  });
+    const statuses = resolvePages(root).map((page) => page.status);
 
-  it('returns a page-scoped error when RepeatNode.binding is not an array', () => {
-    const tree = label({ type: 'repeat', id: 'r1', binding: 'toppings', template: { type: 'text', id: 'x', binding: 'name' } });
-    const pages = resolver.resolve(tree, { toppings: 'not-an-array' });
-    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 'r1' });
+    expect(statuses).toEqual(['ok', 'ok', 'ok', 'error', 'error']);
   });
+});
 
-  it('errors when a TextNode has neither text nor binding', () => {
-    const pages = resolver.resolve(label({ type: 'text', id: 't1' }), {});
-    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 't1' });
-  });
+describe('DocumentResolver — catalog', () => {
+  it('throw khi template dùng catalog khác catalog truyền vào', () => {
+    const template = { ...documentWith({ type: 'text', id: 't', content: [] }), catalog: 'kitchen' };
 
-  it('errors on a binding that names an inherited Object.prototype member instead of resolving it', () => {
-    const pages = resolver.resolve(label({ type: 'text', id: 't1', binding: 'toString' }), {});
-    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 't1' });
-  });
+    const options = { catalog: TEST_ORDER_CATALOG, assets: NO_ASSETS };
 
-  it('returns a page-scoped error when an ImageNode binding value is not a valid Bitmap', () => {
-    const tree = label({ type: 'image', id: 'img1', binding: 'logo' });
-    const pages = resolver.resolve(tree, { logo: 'not-a-bitmap' });
-    expect(pages[0]).toMatchObject({ status: 'error', nodeId: 'img1' });
+    expect(() => resolver.resolve(template, TEST_ORDER_SAMPLE, options)).toThrow(
+      'Template dùng catalog "kitchen", không phải "test-order"',
+    );
   });
 });
