@@ -1,4 +1,6 @@
-# Semantic PrintElement & Compiler Warnings — Design Spec
+# Semantic PrintElement & Compiler Warnings — Design Spec (Sub-spec C)
+
+Thuộc kiến trúc tổng: `2026-09-24-print-template-pipeline-overview.md`. Đơn vị template (`Length`) do sub-spec A (`2026-09-24-template-model-design.md`) định nghĩa — spec này chỉ làm việc với dots, từ tầng `PrintElement` trở xuống.
 
 ## Bối cảnh
 
@@ -103,8 +105,8 @@ Xoá hàm `toMagnification()` và hằng số `DOTS_PER_MAGNIFICATION_STEP`. Dò
 ```ts
 // Trước:
 options: { x, y, size: toMagnification(node.style?.fontSize), align, bold }
-// Sau:
-options: { x, y, fontSize: node.style?.fontSize, align, bold }
+// Sau (fontSize đã được đổi Length → dots ở đầu Layout, theo sub-spec A mục 11):
+options: { x, y, fontSize: fontSizeDots, align, bold }
 ```
 
 `LayoutEngine` không còn import/biết gì liên quan tới magnification hay font code của bất kỳ ngôn ngữ nào.
