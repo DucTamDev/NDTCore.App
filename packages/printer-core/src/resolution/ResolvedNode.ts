@@ -45,6 +45,7 @@ export interface ResolvedLine {
   /** Độ dày nét; bỏ trống là mặc định của máy in. */
   readonly thickness?: Length;
 
+  /** Kiểu nét: liền hoặc đứt. */
   readonly pattern: LinePattern;
 
   /** Style khung; bỏ trống dùng mặc định của layout. */
@@ -60,6 +61,7 @@ export interface ResolvedBarcode {
   /** Dữ liệu mã hoá. */
   readonly value: string;
 
+  /** Loại mã vạch, VD `code128`. */
   readonly symbology: BarcodeSymbology;
 
   /** In kèm chữ đọc được. */
@@ -81,6 +83,7 @@ export interface ResolvedQrCode {
   /** Dữ liệu mã hoá. */
   readonly value: string;
 
+  /** Mức sửa lỗi; bỏ trống là mặc định của máy in. */
   readonly errorCorrection?: QrErrorCorrectionLevel;
 
   /** Cạnh 1 module. */
