@@ -1,4 +1,3 @@
-import { LabelBuilder } from '../document/builder/LabelBuilder';
 import { TsplCompiler } from '../language/tspl/TsplCompiler';
 import { TsplParser } from '../language/tspl/TsplParser';
 import { TsplValidator } from '../validation/languages/tspl/TsplValidator';
@@ -6,25 +5,36 @@ import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 import { EscPosParser } from '../language/escpos/EscPosParser';
 import { compileTo, parseFrom, previewFor, validateFor } from '../core/LanguageDispatch';
 import type { PrinterLanguage } from '../core/PrinterLanguage';
+import type { ResolvedPrintDocument } from '../document';
 
-// `.cut()` and `.table()` are the 2 newly-wired element types with real
-// (non-no-op) compiler behavior — exercised here alongside the original
-// `.text()`/`.barcode()` pair to prove they survive the same fluent chain
-// and resolve/compile pipeline as the rest of the element set.
-const doc = new LabelBuilder({ width: 40, height: 30, unit: 'mm', dpi: 203 })
-  .text('Hello World', { x: 10, y: 10, size: 2 })
-  .barcode({ symbology: 'code128', content: '123456789' })
-  .table({
-    x: 0,
-    y: 80,
-    columns: [
-      { width: 10, align: 'left' },
-      { width: 6, align: 'right' },
-    ],
-    rows: [['Coffee', '25000']],
-  })
-  .cut({ mode: 'full' })
-  .resolve();
+// Mô phỏng document 40mm × 30mm @ 203 dpi để test hành vi compile thật của `.cut` và `.table`.
+const doc: ResolvedPrintDocument = {
+  widthDots: 320,
+  heightDots: 240,
+  dpi: 203,
+  gapDots: 24,
+  speed: 4,
+  density: 8,
+  direction: 'forward',
+  copies: 1,
+  elements: [
+    { type: 'text', content: 'Hello World', options: { x: 10, y: 10, size: 2 } },
+    { type: 'barcode', options: { symbology: 'code128', content: '123456789' } },
+    {
+      type: 'table',
+      options: {
+        x: 0,
+        y: 80,
+        columns: [
+          { width: 10, align: 'left' },
+          { width: 6, align: 'right' },
+        ],
+        rows: [['Coffee', '25000']],
+      },
+    },
+    { type: 'cut', options: { mode: 'full' } },
+  ],
+};
 
 describe('Phase 1 end-to-end', () => {
   it('compiles, parses, and validates a document as TSPL', () => {
