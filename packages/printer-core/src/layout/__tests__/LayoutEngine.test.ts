@@ -1,245 +1,289 @@
-import { createLayoutEngine } from '../LayoutEngine';
-import { ApproximateFontMetrics } from '../ApproximateFontMetrics';
-import type { ResolvedNode } from '../../resolution/ResolvedNode';
-import type { LayoutConfig } from '../LayoutConfig';
-import type { TypographyProfile } from '../TypographyProfile';
+import { ApproximateFontMetrics, createLayoutEngine, type LayoutConfig, type TypographyProfile } from '..';
+import type { ResolvedNode } from '../../resolution';
+import { mm, pt, px } from '../../template';
+
+/** Ở 96 dpi, 1px = đúng 1 dot — test đặt số liệu bằng px để đọc thẳng ra dots. */
+const DOTS_EQUAL_PIXELS_DPI = 96;
 
 const engine = createLayoutEngine();
 const fontMetrics = new ApproximateFontMetrics();
 const typography: TypographyProfile = { fontScaleLevels: [{ id: 'default', fontScale: 1, lineHeightScale: 1 }] };
-const receiptConfig: LayoutConfig = { widthDots: 576, dpi: 203 };
+
+/** Khổ giấy tính bằng mm tương ứng số dots ở 96 dpi. */
+function millimetersForDots(dots: number): number {
+  return (dots * 25.4) / DOTS_EQUAL_PIXELS_DPI;
+}
+
+const receiptConfig: LayoutConfig = {
+  paper: { widthMm: millimetersForDots(576) },
+  media: 'receipt',
+  dpi: DOTS_EQUAL_PIXELS_DPI,
+};
+
+function textNode(
+  id: string,
+  value: string,
+  fontSizePixels = 10,
+): ResolvedNode {
+  return { type: 'text', id, value, style: { fontSize: px(fontSizePixels) } };
+}
 
 describe('LayoutEngine', () => {
-  it('maps a single ResolvedText to a TextElement at x=0,y=0', () => {
-    const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hello', style: { fontSize: 20 } };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+  it('text đơn thành 1 TextElement tại x=0, y=0', () => {
+    const elements = engine.resolve(textNode('t1', 'Hello', 20), receiptConfig, typography, fontMetrics);
+
     expect(elements).toHaveLength(1);
-    // fontSize 20 dots -> magnification round(20/12) = 2 (options.size is a 1-8 multiplier, not dots).
+    // 20 dots → hệ số phóng đại round(20/12) = 2.
     expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: 2 } });
   });
 
-  it('stacks column children vertically with gap', () => {
+  it('xếp con theo cột có gap', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { direction: 'column', gap: 10 },
-      children: [
-        { type: 'text', id: 't1', value: 'A', style: { fontSize: 10 } },
-        { type: 'text', id: 't2', value: 'B', style: { fontSize: 10 } },
-      ],
+      type: 'container',
+      id: 'root',
+      style: { direction: 'column', gap: px(10) },
+      children: [textNode('t1', 'A'), textNode('t2', 'B')],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    expect(elements).toHaveLength(2);
-    const [first, second] = elements;
+    const [first, second] = engine.resolve(root, receiptConfig, typography, fontMetrics);
     if (first.type !== 'text' || second.type !== 'text') throw new Error('expected text elements');
+
     expect(first.options?.y).toBe(0);
-    expect(second.options?.y).toBeGreaterThan(first.options?.y ?? 0);
+    expect(second.options?.y).toBe(fontMetrics.measure('A', { fontSize: 10 }).heightDots + 10);
   });
 
-  it('lays out row children horizontally with gap', () => {
+  it('xếp con theo hàng có gap', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { direction: 'row', gap: 20 },
-      children: [
-        { type: 'text', id: 't1', value: 'A', style: { fontSize: 10 } },
-        { type: 'text', id: 't2', value: 'B', style: { fontSize: 10 } },
-      ],
+      type: 'container',
+      id: 'root',
+      style: { direction: 'row', gap: px(20) },
+      children: [textNode('t1', 'A'), textNode('t2', 'B')],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    const [first, second] = elements;
+    const [first, second] = engine.resolve(root, receiptConfig, typography, fontMetrics);
     if (first.type !== 'text' || second.type !== 'text') throw new Error('expected text elements');
+
     expect(first.options?.x).toBe(0);
-    expect(second.options?.x).toBeGreaterThan(first.options?.x ?? 0);
+    expect(second.options?.x).toBe(fontMetrics.measure('A', { fontSize: 10 }).widthDots + 20);
   });
 
-  it('applies padding as an offset for the container\'s children', () => {
+  it('padding dịch vị trí node con', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { padding: { top: 8, right: 8, bottom: 8, left: 8 } },
-      children: [{ type: 'text', id: 't1', value: 'A', style: { fontSize: 10 } }],
+      type: 'container',
+      id: 'root',
+      style: { padding: { top: px(8), right: px(8), bottom: px(8), left: px(8) } },
+      children: [textNode('t1', 'A')],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    if (elements[0].type !== 'text') throw new Error('expected text element');
-    expect(elements[0].options?.x).toBe(8);
-    expect(elements[0].options?.y).toBe(8);
+    const [element] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+
+    expect(element).toMatchObject({ type: 'text', options: { x: 8, y: 8 } });
   });
 
-  it('includes a container\'s own padding in its measured height (affects sibling placement)', () => {
+  it('padding của container tính vào chiều cao, node kế tiếp không đè lên', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { direction: 'column' },
+      type: 'container',
+      id: 'root',
+      style: { direction: 'column' },
       children: [
         {
-          type: 'container', id: 'inner', style: { direction: 'column', padding: { top: 8, right: 0, bottom: 8, left: 0 } },
-          children: [{ type: 'text', id: 't1', value: 'A', style: { fontSize: 10 } }],
+          type: 'container',
+          id: 'inner',
+          style: { direction: 'column', padding: { top: px(8), right: px(0), bottom: px(8), left: px(0) } },
+          children: [textNode('t1', 'A')],
         },
-        { type: 'text', id: 't2', value: 'B', style: { fontSize: 10 } },
+        textNode('t2', 'B'),
       ],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    const [inner, sibling] = elements;
-    if (inner.type !== 'text' || sibling.type !== 'text') throw new Error('expected text elements');
-    const contentHeight = fontMetrics.measure('A', { fontSize: 10 }).heightDots;
-    // Sibling starts after the inner container's full measured height (content + top/bottom padding),
-    // not just its content height — otherwise it would overlap the inner container's padding.
-    expect(sibling.options?.y).toBe(contentHeight + 8 + 8);
+    const [, sibling] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    if (sibling.type !== 'text') throw new Error('expected text element');
+
+    expect(sibling.options?.y).toBe(fontMetrics.measure('A', { fontSize: 10 }).heightDots + 8 + 8);
   });
 
-  it('maps ResolvedBarcode/ResolvedQrCode/ResolvedImage/ResolvedLine to their PrintElement', () => {
+  it('barcode/QR/image/line thành đúng loại PrintElement', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { direction: 'column' },
+      type: 'container',
+      id: 'root',
+      style: { direction: 'column' },
       children: [
         { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', readable: true },
         { type: 'qrcode', id: 'q1', value: 'XYZ' },
         { type: 'image', id: 'i1', bitmap: { width: 1, height: 1, bytesPerRow: 1, data: new Uint8Array([0]) } },
-        { type: 'line', id: 'l1', thickness: 2 },
+        { type: 'line', id: 'l1', thickness: px(2), pattern: 'solid' },
       ],
     };
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    expect(elements.map((e) => e.type)).toEqual(['barcode', 'qrcode', 'image', 'line']);
+
+    expect(elements.map((element) => element.type)).toEqual(['barcode', 'qrcode', 'image', 'line']);
   });
 
-  it('produces no PrintElement for a ResolvedContainer itself', () => {
+  it('container rỗng không sinh element', () => {
     const root: ResolvedNode = { type: 'container', id: 'root', children: [] };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    expect(elements).toEqual([]);
+
+    expect(engine.resolve(root, receiptConfig, typography, fontMetrics)).toEqual([]);
   });
 
-  it('wraps text longer than the available width into multiple TextElements at increasing y', () => {
-    const longText = 'This is a very long line of receipt text that should not fit on a single narrow line of a thermal printer';
-    const narrowConfig: LayoutConfig = { widthDots: 100, dpi: 203 };
-    const root: ResolvedNode = { type: 'text', id: 't1', value: longText, style: { fontSize: 10 } };
-
-    const singleLineWidth = fontMetrics.measure(longText, { fontSize: 10 }).widthDots;
-    const elements = engine.resolve(root, narrowConfig, typography, fontMetrics);
+  it('text dài hơn chiều rộng được ngắt thành nhiều dòng, y tăng dần', () => {
+    const longText = 'This is a very long line of receipt text that should not fit on a single narrow line';
+    const narrowConfig: LayoutConfig = { ...receiptConfig, paper: { widthMm: millimetersForDots(100) } };
+    const elements = engine.resolve(textNode('t1', longText), narrowConfig, typography, fontMetrics);
 
     expect(elements.length).toBeGreaterThan(1);
-    let previousY = -Infinity;
-    for (const el of elements) {
-      if (el.type !== 'text') throw new Error('expected text element');
-      expect(el.options?.y ?? 0).toBeGreaterThan(previousY);
-      previousY = el.options?.y ?? 0;
-      expect(fontMetrics.measure(el.content, { fontSize: 10 }).widthDots).toBeLessThan(singleLineWidth);
-    }
+    const ys = elements.map((element) => (element.type === 'text' ? (element.options?.y ?? 0) : -1));
+    expect([...ys].sort((left, right) => left - right)).toEqual(ys);
+    expect(new Set(ys).size).toBe(ys.length);
   });
 
-  it('does not overlap a line, barcode, qrcode, and text stacked in a column', () => {
+  it('line, barcode, QR, text xếp cột không đè nhau', () => {
     const root: ResolvedNode = {
-      type: 'container', id: 'root', style: { direction: 'column' },
+      type: 'container',
+      id: 'root',
+      style: { direction: 'column' },
       children: [
-        { type: 'line', id: 'l1', thickness: 2 },
+        { type: 'line', id: 'l1', thickness: px(2), pattern: 'solid' },
         { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', readable: true },
         { type: 'qrcode', id: 'q1', value: 'XYZ' },
-        { type: 'text', id: 't1', value: 'Hello', style: { fontSize: 10 } },
+        textNode('t1', 'Hello'),
       ],
     };
     const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-    expect(elements).toHaveLength(4);
-    const ys = elements.map((el) => ('options' in el && el.options && 'y' in el.options ? (el.options.y ?? 0) : 0));
-    expect(new Set(ys).size).toBe(ys.length);
-    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+    const ys = elements.map((element) => {
+      if (element.type === 'line') return element.options.y1;
+      if (element.type === 'barcode' || element.type === 'qrcode') return element.options.y ?? 0;
+      return element.type === 'text' ? (element.options?.y ?? 0) : -1;
+    });
+
+    expect(ys).toEqual([0, 2, 82, 202]);
   });
 
-  describe('fontSize (dots) -> options.size (1-8 magnification) conversion', () => {
-    it('converts a typical dots-based fontSize into a magnification in range 1-8', () => {
-      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 24 } };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      if (elements[0].type !== 'text') throw new Error('expected text element');
-      const size = elements[0].options?.size;
-      expect(size).not.toBe(24);
-      expect(size).toBeGreaterThanOrEqual(1);
-      expect(size).toBeLessThanOrEqual(8);
+  describe('cỡ chữ (dots) → hệ số phóng đại 1-8', () => {
+    it('không đặt fontSize thì dùng DEFAULT_FONT_SIZE (12px)', () => {
+      const withoutSize: ResolvedNode = { type: 'text', id: 't1', value: 'Hi' };
+      const withDefault: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: px(12) } };
+      const config: LayoutConfig = { ...receiptConfig, dpi: 203 };
+
+      expect(engine.resolve(withoutSize, config, typography, fontMetrics)).toEqual(
+        engine.resolve(withDefault, config, typography, fontMetrics),
+      );
     });
 
-    it('leaves options.size undefined when no fontSize style is set', () => {
-      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi' };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      if (elements[0].type !== 'text') throw new Error('expected text element');
-      expect(elements[0].options?.size).toBeUndefined();
-    });
+    it('cỡ rất nhỏ kẹp về 1, cỡ rất lớn kẹp về 8', () => {
+      const [small] = engine.resolve(textNode('t1', 'Hi', 1), receiptConfig, typography, fontMetrics);
+      const [large] = engine.resolve(textNode('t1', 'Hi', 200), receiptConfig, typography, fontMetrics);
 
-    it('clamps a very small fontSize to a minimum magnification of 1', () => {
-      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 1 } };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      if (elements[0].type !== 'text') throw new Error('expected text element');
-      expect(elements[0].options?.size).toBe(1);
-    });
-
-    it('clamps a very large fontSize to a maximum magnification of 8', () => {
-      const root: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: 200 } };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      if (elements[0].type !== 'text') throw new Error('expected text element');
-      expect(elements[0].options?.size).toBe(8);
+      expect(small).toMatchObject({ options: { size: 1 } });
+      expect(large).toMatchObject({ options: { size: 8 } });
     });
   });
 
-  describe('row with justifyContent: space-between (name ...... price idiom)', () => {
-    it('produces a single table element for exactly 2 text children with space-between', () => {
-      const root: ResolvedNode = {
-        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
-        children: [
-          { type: 'text', id: 'name', value: 'Milk Tea' },
-          { type: 'text', id: 'price', value: '45,000' },
-        ],
-      };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      expect(elements).toHaveLength(1);
-      const [el] = elements;
-      if (el.type !== 'table') throw new Error('expected table element');
-      expect(el.options.columns).toHaveLength(2);
-      expect(el.options.columns[0].align).toBe('left');
-      expect(el.options.columns[1].align).toBe('right');
-      expect(el.options.rows).toEqual([['Milk Tea', '45,000']]);
-      const rightWidth = fontMetrics.measure('45,000', {}).widthDots;
-      expect(el.options.columns[1].width).toBe(rightWidth);
+  describe('hàng space-between (idiom "tên ...... giá")', () => {
+    type Justify = 'start' | 'space-between' | undefined;
+
+    function row(justifyContent: Justify, children: readonly ResolvedNode[]): ResolvedNode {
+      return { type: 'container', id: 'root', style: { direction: 'row', justifyContent }, children };
+    }
+
+    function typesOf(root: ResolvedNode): readonly string[] {
+      return engine.resolve(root, receiptConfig, typography, fontMetrics).map((element) => element.type);
+    }
+
+    it('đúng 2 text với space-between thành 1 TableElement 2 cột', () => {
+      const root = row('space-between', [
+        { type: 'text', id: 'name', value: 'Milk Tea' },
+        { type: 'text', id: 'price', value: '45,000' },
+      ]);
+      const [element] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      if (element.type !== 'table') throw new Error('expected table element');
+
+      const rightWidthDots = fontMetrics.measure('45,000', { fontSize: 12 }).widthDots;
+      expect(element.options.columns).toEqual([
+        { width: 576 - rightWidthDots, align: 'left' },
+        { width: rightWidthDots, align: 'right' },
+      ]);
+      expect(element.options.rows).toEqual([['Milk Tea', '45,000']]);
     });
 
-    it('falls through to individual text elements when justifyContent is not space-between', () => {
-      const root: ResolvedNode = {
-        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'start' },
-        children: [
-          { type: 'text', id: 'name', value: 'Milk Tea' },
-          { type: 'text', id: 'price', value: '45,000' },
-        ],
-      };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      expect(elements).toHaveLength(2);
-      expect(elements.every((e) => e.type === 'text')).toBe(true);
+    it('không đúng dạng thì xếp từng element riêng', () => {
+      const [a, b, c] = [textNode('a', 'A'), textNode('b', 'B'), textNode('c', 'C')];
+      const barcodeNode: ResolvedNode = { type: 'barcode', id: 'code', value: 'ABC', symbology: 'code128' };
+
+      expect(typesOf(row('start', [a, b]))).toEqual(['text', 'text']);
+      expect(typesOf(row(undefined, [a, b]))).toEqual(['text', 'text']);
+      expect(typesOf(row('space-between', [a, b, c]))).toEqual(['text', 'text', 'text']);
+      expect(typesOf(row('space-between', [barcodeNode, a]))).toEqual(['barcode', 'text']);
+    });
+  });
+
+  describe('đổi Length → dots theo DPI', () => {
+    const paddedText: ResolvedNode = {
+      type: 'container',
+      id: 'root',
+      style: { padding: { top: mm(2), right: mm(2), bottom: mm(2), left: mm(2) } },
+      children: [{ type: 'text', id: 't1', value: 'A', style: { fontSize: pt(9) } }],
+    };
+
+    it.each([
+      [203, 16],
+      [300, 24],
+    ])('%i dpi: padding 2mm = %i dots, kích thước vật lý giữ nguyên', (dpi, expectedDots) => {
+      const config: LayoutConfig = { paper: { widthMm: 50, heightMm: 30 }, media: 'label', dpi };
+      const [element] = engine.resolve(paddedText, config, typography, fontMetrics);
+      if (element.type !== 'text') throw new Error('expected text element');
+
+      expect(element.options?.x).toBe(expectedDots);
+      expect(((element.options?.x ?? 0) / dpi) * 25.4).toBeCloseTo(2, 1);
     });
 
-    it('falls through to individual text elements when justifyContent is unset', () => {
-      const root: ResolvedNode = {
-        type: 'container', id: 'root', style: { direction: 'row' },
-        children: [
-          { type: 'text', id: 'name', value: 'Milk Tea' },
-          { type: 'text', id: 'price', value: '45,000' },
-        ],
-      };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      expect(elements).toHaveLength(2);
-      expect(elements.every((e) => e.type === 'text')).toBe(true);
+    it('độ dày nét nhỏ hơn 1 dot vẫn giữ tối thiểu 1 dot', () => {
+      const root: ResolvedNode = { type: 'line', id: 'l1', thickness: pt(0.1), pattern: 'solid' };
+      const [element] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+
+      expect(element).toMatchObject({ type: 'line', options: { thickness: 1 } });
     });
 
-    it('falls through to individual text elements when there are 3 children', () => {
+    it('chiều cao vạch barcode và cỡ module QR đổi sang dots', () => {
       const root: ResolvedNode = {
-        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
+        type: 'container',
+        id: 'root',
         children: [
-          { type: 'text', id: 'a', value: 'A' },
-          { type: 'text', id: 'b', value: 'B' },
-          { type: 'text', id: 'c', value: 'C' },
+          { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', barHeight: mm(10) },
+          { type: 'qrcode', id: 'q1', value: 'XYZ', moduleSize: mm(0.5) },
         ],
       };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      expect(elements).toHaveLength(3);
-      expect(elements.every((e) => e.type === 'text')).toBe(true);
+      const [barcode, qrcode] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+
+      expect(barcode).toMatchObject({ type: 'barcode', options: { height: 80 } });
+      expect(qrcode).toMatchObject({ type: 'qrcode', options: { cellWidth: 4, y: 80 } });
+    });
+  });
+
+  describe('nét đứt', () => {
+    it('tách thành các đoạn 1mm cách nhau 1mm, không vượt quá độ dài nét', () => {
+      const root: ResolvedNode = {
+        type: 'line',
+        id: 'l1',
+        pattern: 'dashed',
+        style: { width: { type: 'fixed', value: mm(10) } },
+      };
+      const elements = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+      const segments = elements.map((element) =>
+        element.type === 'line' ? [element.options.x1, element.options.x2] : [],
+      );
+
+      // 10mm = 80 dots, 1mm = 8 dots → đoạn bắt đầu ở 0, 16, 32, 48, 64.
+      expect(segments).toEqual([
+        [0, 8],
+        [16, 24],
+        [32, 40],
+        [48, 56],
+        [64, 72],
+      ]);
     });
 
-    it('falls through to individual elements when a child is not text (e.g. barcode)', () => {
-      const root: ResolvedNode = {
-        type: 'container', id: 'root', style: { direction: 'row', justifyContent: 'space-between' },
-        children: [
-          { type: 'barcode', id: 'b1', value: 'ABC', symbology: 'code128', readable: true },
-          { type: 'text', id: 'price', value: '45,000' },
-        ],
-      };
-      const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
-      expect(elements).toHaveLength(2);
-      expect(elements.map((e) => e.type)).toEqual(['barcode', 'text']);
+    it('nét liền vẫn là 1 LineElement', () => {
+      const root: ResolvedNode = { type: 'line', id: 'l1', pattern: 'solid' };
+
+      expect(engine.resolve(root, receiptConfig, typography, fontMetrics)).toEqual([
+        { type: 'line', options: { x1: 0, y1: 0, x2: 576, y2: 0, thickness: undefined } },
+      ]);
     });
   });
 });

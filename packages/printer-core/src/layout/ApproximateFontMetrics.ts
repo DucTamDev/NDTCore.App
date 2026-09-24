@@ -1,6 +1,6 @@
 import type { FontMetrics } from './FontMetrics';
 import type { TextMeasurement } from './TextMeasurement';
-import type { TextStyle } from '../template/style/TextStyle';
+import type { LayoutTextStyle } from './LayoutNode';
 
 const DEFAULT_FONT_SIZE_DOTS = 10;
 /** Hệ số leading mặc định khi `style.lineHeight` bỏ trống — chiều cao dòng = fontSize × hệ số này. */
@@ -8,11 +8,11 @@ const DEFAULT_LINE_HEIGHT_RATIO = 1.2;
 /** Độ rộng ước lượng 1 ký tự, tính bằng dots, tại fontSize mốc chuẩn 10 dots. */
 const DOTS_PER_CHAR_AT_DEFAULT_FONT_SIZE = 6;
 
-function resolveFontSize(style: TextStyle): number {
+function resolveFontSize(style: LayoutTextStyle): number {
   return style.fontSize ?? DEFAULT_FONT_SIZE_DOTS;
 }
 
-function resolveLineHeight(style: TextStyle, fontSize: number): number {
+function resolveLineHeight(style: LayoutTextStyle, fontSize: number): number {
   return style.lineHeight ?? fontSize * DEFAULT_LINE_HEIGHT_RATIO;
 }
 
@@ -27,7 +27,7 @@ function dotsPerChar(fontSize: number): number {
  * cao cả dòng (glyph + khoảng cách dòng) — cùng quy ước fontSize/line-height của CSS.
  */
 export class ApproximateFontMetrics implements FontMetrics {
-  measure(text: string, style: TextStyle): TextMeasurement {
+  measure(text: string, style: LayoutTextStyle): TextMeasurement {
     const fontSize = resolveFontSize(style);
     const lineHeight = resolveLineHeight(style, fontSize);
     const lines = text.split('\n');
@@ -36,7 +36,7 @@ export class ApproximateFontMetrics implements FontMetrics {
     return { widthDots, heightDots: lines.length * lineHeight, lineCount: lines.length };
   }
 
-  wrap(text: string, maxWidthDots: number, style: TextStyle): readonly string[] {
+  wrap(text: string, maxWidthDots: number, style: LayoutTextStyle): readonly string[] {
     const fontSize = resolveFontSize(style);
     const maxChars = Math.max(1, Math.floor(maxWidthDots / dotsPerChar(fontSize)));
 
