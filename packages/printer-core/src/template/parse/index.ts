@@ -8,3 +8,4 @@ export {
   type TemplateMigrations,
   type MigrationResult,
 } from './migrateTemplate';
+export { validateTemplateAgainstCatalog, type CatalogValidationResult } from './validateTemplateAgainstCatalog';
