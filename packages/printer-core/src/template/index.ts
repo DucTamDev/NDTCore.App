@@ -19,3 +19,4 @@ export * from './nodes/RepeatNode';
 export * from './nodes/TemplateNode';
 export * from './format';
 export * from './parse';
+export * from './builder';
