@@ -74,61 +74,34 @@ src/
 │   ├── Alignment.ts, Bitmap.ts, Direction.ts, FontStyle.ts, FontWeight.ts,
 │   │   Point.ts, Rect.ts, Rotation.ts, Size.ts, Unit.ts, index.ts
 │
-├── template/                  # KHÔNG đổi
-│   ├── PrintTemplate.ts, PrintTemplateType.ts, index.ts
+├── catalog/                   # Cầu nối template ↔ data: biến có tên theo loại nội dung
+│   ├── VariableType.ts, VariableSpec.ts, CatalogCollection.ts, CatalogDescription.ts,
+│   │   Catalog.ts, BuiltInVariable.ts, CatalogRegistry.ts, describeCatalog.ts,
+│   │   defineCatalog.ts, CatalogIndex.ts, index.ts
+│
+├── template/                  # TemplateDocument JSON thuần, độc lập DPI
+│   ├── TemplateDocument.ts, index.ts
+│   ├── style/                  # Length.ts, Dimension.ts, Insets.ts, BoxStyle.ts,
+│   │                           # LayoutStyle.ts, TextStyle.ts
+│   ├── content/                # Segment.ts, ValueFormat.ts, Condition.ts
 │   ├── nodes/                  # TemplateNode.ts, TemplateNodeBase.ts, ContainerNode.ts,
-│   │   │                       # TextNode.ts, ImageNode.ts, BarcodeNode.ts,
-│   │   │   QrCodeNode.ts, LineNode.ts, RepeatNode.ts
-│   ├── style/                 # KHÔNG đổi vị trí (đã tách sẵn)
-│   │   ├── BoxStyle.ts, Dimension.ts, Insets.ts, LayoutStyle.ts, TextStyle.ts,
-│   │   │   VisibilityCondition.ts
-│   ├── builder/                # đổi tên từ `builders/` (số nhiều) → `builder/`
-│   │   │                       # (số ít, khớp `document/builder/` mới)
-│   │   ├── BarcodeBuilder.ts, BuildContext.ts, ContainerBuilder.ts,
-│   │   │   ImageBuilder.ts, LabelTemplateBuilder.ts, LineBuilder.ts,
-│   │   │   NodeBuilder.ts, QrCodeBuilder.ts, ReceiptTemplateBuilder.ts,
-│   │   │   RepeatBuilder.ts, TextBuilder.ts, conditions.ts, dimensions.ts,
-│   │   │   index.ts
-│   └── index.ts
+│   │                           # TextNode.ts, ImageNode.ts, BarcodeNode.ts,
+│   │                           # QrCodeNode.ts, LineNode.ts, RepeatNode.ts
+│   ├── format/                 # formatter vi-VN tự cài đặt (không dùng Intl)
+│   ├── parse/                  # parseTemplate, migrateTemplate, validate cấu trúc,
+│   │                           # validateTemplateAgainstCatalog
+│   └── builder/                # DSL: labelTemplate/receiptTemplate(catalog), scope.var/repeat
 │
-├── resolution/                 # KHÔNG đổi
-│   ├── DocumentResolver.ts, PrintData.ts, ResolvedNode.ts, ResolvedPage.ts,
-│   │   index.ts
+├── resolution/                 # Ghép template + data qua catalog, stack scope tường minh
+│   ├── DocumentResolver.ts, ResolveContext.ts, readVariable.ts, resolveContent.ts,
+│   │   evaluateCondition.ts, readRepeatEntries.ts, resolveNode.ts, countPages.ts,
+│   │   collectAssetIds.ts, AssetProvider.ts, ResolvedNode.ts, ResolvedPage.ts,
+│   │   ResolveError.ts, index.ts
 │
-├── layout/                     # KHÔNG đổi
-│   ├── ApproximateFontMetrics.ts, FontMetrics.ts,
-│   │   LayoutConfig.ts, LayoutEngine.ts, TextMeasurement.ts,
-│   │   TypographyProfile.ts, index.ts
-│
-├── document/
-│   ├── PrintDocument.ts, PrintDocumentOptions.ts, ResolvedPrintDocument.ts,
-│   │   PrintElementType.ts, index.ts    # KHÔNG đổi vị trí (đã ở document/)
-│   │
-│   ├── elements/                # MỚI — gộp builder/PrintElement.ts +
-│   │   │                        # builder/content|drawing|layout|printer/*
-│   │   ├── PrintElement.ts      # từ builder/PrintElement.ts (union type)
-│   │   ├── content/             # từ builder/content/
-│   │   │   ├── BarcodeElement.ts, ImageElement.ts, QrCodeElement.ts,
-│   │   │   │   RawElement.ts, TextElement.ts, index.ts
-│   │   ├── drawing/              # từ builder/drawing/ — KHÔNG chia nhỏ thêm
-│   │   │   │                     # thành shape/line/effect (xem "Quyết định
-│   │   │   │                     # KHÔNG áp dụng" bên dưới)
-│   │   │   ├── BoxElement.ts, CircleElement.ts, DiagonalElement.ts,
-│   │   │   │   EllipseElement.ts, EraseElement.ts, LineElement.ts,
-│   │   │   │   ReverseElement.ts, index.ts
-│   │   ├── layout/                # từ builder/layout/
-│   │   │   ├── ColumnElement.ts, PageBreakElement.ts, RowElement.ts,
-│   │   │   │   SpacerElement.ts, TableElement.ts, index.ts
-│   │   └── control/                # từ builder/printer/ (đổi tên `printer`→`control`,
-│   │       │                        # khớp đúng ý nghĩa: CutElement là lệnh điều
-│   │       │                        # khiển máy in, không phải nội dung in)
-│   │       ├── CutElement.ts, index.ts
-│   │
-│   └── builder/                  # MỚI — gộp builder/{Print,Label,Receipt}Builder.ts
-│       │                         # + markup/ (front-end khác tạo LabelBuilder)
-│       ├── PrintBuilder.ts, LabelBuilder.ts, ReceiptBuilder.ts, index.ts
-│       └── markup/                # từ markup/ (root cũ)
-│           ├── MarkupBuilder.ts, MarkupParser.ts, index.ts
+├── layout/                     # Đổi Length → dots theo DPI rồi xếp vị trí
+│   ├── LayoutConfig.ts, lengthToDots.ts, LayoutNode.ts, toLayoutNode.ts,
+│   │   LayoutEngine.ts, FontMetrics.ts, ApproximateFontMetrics.ts,
+│   │   TextMeasurement.ts, TypographyProfile.ts, index.ts
 │
 ├── symbology/                    # MỚI — gộp barcode/ + qrcode/ (root cũ)
 │   ├── barcode/
@@ -237,10 +210,10 @@ src/
 │   │   UsbTransport.ts, index.ts
 │
 ├── testing/                             # KHÔNG đổi
-│   ├── HexDump.ts, MockPrinterTransport.ts, PrintDataAssertion.ts, index.ts
+│   ├── HexDump.ts, MockPrinterTransport.ts, PrintDataAssertion.ts, OrderTestCatalog.ts, index.ts
 │
 └── __tests__/                            # KHÔNG đổi (integration test ở root)
-    ├── layout-engine-integration.test.ts, phase2-integration.test.ts
+    ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
 ```
 
 ## Scripts
