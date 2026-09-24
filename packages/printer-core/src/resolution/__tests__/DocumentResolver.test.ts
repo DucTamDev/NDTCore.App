@@ -265,6 +265,26 @@ describe('DocumentResolver — lặp, expand, phân trang', () => {
 
     expect(resolvePages(itemLabel(), broken)[0]).toMatchObject({ status: 'error', nodeId: 'items' });
   });
+
+  it('1 phần tử expand sai chỉ làm lỗi đúng trang của nó, các trang khác vẫn in được', () => {
+    const order: TestOrder = {
+      ...TEST_ORDER_SAMPLE,
+      items: [
+        TEST_ORDER_SAMPLE.items[0],
+        { ...TEST_ORDER_SAMPLE.items[1], name: 'Trà đá', quantity: 0 },
+        TEST_ORDER_SAMPLE.items[1],
+      ],
+    };
+    const pages = resolvePages(itemLabel(), order);
+
+    expect(pages).toHaveLength(6);
+    expect(pages.map((page) => page.status)).toEqual(['ok', 'ok', 'ok', 'error', 'ok', 'ok']);
+    expect(pages[3]).toMatchObject({
+      status: 'error',
+      nodeId: 'items',
+      message: 'expand "quantity" phải là số nguyên dương, nhận "0"',
+    });
+  });
 });
 
 describe('DocumentResolver — điều kiện', () => {

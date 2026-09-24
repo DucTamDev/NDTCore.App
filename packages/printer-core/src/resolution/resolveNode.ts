@@ -123,6 +123,8 @@ function resolveRepeat(node: RepeatNode, context: ResolveContext): ResolvedConta
   const children: ResolvedNode[] = [];
   for (let index = range.start; index < range.end; index++) {
     const entry = entries[index];
+    if (entry.error !== undefined) throw new ResolveError(node.id, entry.error);
+
     const itemContext = pushFrame(context, {
       collection: node.collection,
       item: entry.item,

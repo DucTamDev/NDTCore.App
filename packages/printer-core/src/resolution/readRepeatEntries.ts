@@ -13,6 +13,9 @@ export interface RepeatEntry {
 
   /** Tổng số bản sao của phần tử. */
   readonly unitCount: number;
+
+  /** Lỗi của riêng phần tử này (VD expand sai); chỉ trang chứa phần tử này báo lỗi. */
+  readonly error?: string;
 }
 
 /** Đọc mảng phần tử của collection từ đúng tầng scope cha, rồi expand nếu có. */
@@ -38,6 +41,7 @@ export function readCollectionItems(node: RepeatNode, context: ResolveContext): 
   return items;
 }
 
+// Lỗi expand của 1 phần tử chỉ làm lỗi trang chứa phần tử đó — không được làm hỏng cả lượt in.
 function expandItem(
   node: RepeatNode,
   item: unknown,
@@ -45,8 +49,13 @@ function expandItem(
 ): readonly RepeatEntry[] {
   if (node.expand === undefined) return [{ item, unit: 1, unitCount: 1 }];
 
-  const unitCount = readExpandCount(node, node.expand, item, context);
-  return Array.from({ length: unitCount }, (_, index) => ({ item, unit: index + 1, unitCount }));
+  try {
+    const unitCount = readExpandCount(node, node.expand, item, context);
+    return Array.from({ length: unitCount }, (_, index) => ({ item, unit: index + 1, unitCount }));
+  } catch (error) {
+    if (!(error instanceof ResolveError)) throw error;
+    return [{ item, unit: 1, unitCount: 1, error: error.message }];
+  }
 }
 
 function readExpandCount(
