@@ -1,35 +1,66 @@
 import { describe, it, expect } from 'vitest';
-import { labelTemplate, receiptTemplate, column, text, repeat } from 'printer-core';
-import { renderPreviews, defaultLanguageFor } from '../pipeline';
+import { column, defineCatalog, defineCollection, labelTemplate, receiptTemplate, text } from 'printer-core';
+import { defaultLanguageFor, renderPreviews } from '../pipeline';
+
+interface DemoData {
+  readonly title: string;
+  readonly items: readonly { readonly name?: string }[];
+}
+
+const items = defineCollection({
+  label: 'Món',
+  get: (data: DemoData) => data.items,
+  variables: { itemName: { label: 'Tên món', type: 'string', get: (item) => item.name } },
+});
+
+const catalog = defineCatalog({
+  id: 'demo',
+  version: 1,
+  sample: { title: 'Xin chào', items: [] } as DemoData,
+  variables: { title: { label: 'Tiêu đề', type: 'string', get: (data) => data.title } },
+  collections: { items },
+});
+
+function label() {
+  return labelTemplate(catalog).id('label').name('Tem').paper({ widthMm: 50, heightMm: 30 });
+}
 
 describe('renderPreviews', () => {
-  it('renders a single-page SVG for a simple label', () => {
-    const template = labelTemplate()
-      .size({ widthDots: 400, heightDots: 240, dpi: 203 })
-      .root(column().children(text.binding('name')))
+  it('render 1 trang SVG cho label đơn giản', () => {
+    const template = label()
+      .root((scope) => column().children(text([scope.var('title')])))
       .build();
-    const previews = renderPreviews(template, { name: 'Hello' }, 'tspl');
+    const previews = renderPreviews(template, catalog, { title: 'Hello', items: [] }, 'tspl');
+
     expect(previews).toHaveLength(1);
     expect(previews[0].status).toBe('ok');
     if (previews[0].status === 'ok') expect(previews[0].svg).toContain('<svg');
   });
 
-  it('isolates a per-page resolve error without affecting other pages', () => {
-    const template = labelTemplate()
-      .size({ widthDots: 400, heightDots: 240, dpi: 203 })
-      .root(repeat('items').maxItemsPerPage(1).template(column().children(text.binding('name'))))
+  it('lỗi 1 trang không ảnh hưởng trang khác', () => {
+    const template = label()
+      .root((scope) =>
+        scope
+          .repeat({ collection: 'items' }, (item) => column().children(text([item.var('itemName')])))
+          .maxItemsPerPage(1),
+      )
       .build();
-    const previews = renderPreviews(template, { items: [{ name: 'A' }, {}, { name: 'C' }] }, 'tspl');
-    expect(previews).toHaveLength(3);
-    expect(previews[0].status).toBe('ok');
-    expect(previews[1].status).toBe('error');
-    expect(previews[2].status).toBe('ok');
+    const data: DemoData = { title: 'x', items: [{ name: 'A' }, {}, { name: 'C' }] };
+    const previews = renderPreviews(template, catalog, data, 'tspl');
+
+    expect(previews.map((preview) => preview.status)).toEqual(['ok', 'error', 'ok']);
   });
 
-  it('defaultLanguageFor picks escpos for receipts, tspl for labels', () => {
-    const label = labelTemplate().size({ widthDots: 1, heightDots: 1, dpi: 1 }).root(text.literal('x')).build();
-    const receipt = receiptTemplate().size({ widthDots: 1, dpi: 1 }).root(text.literal('x')).build();
-    expect(defaultLanguageFor(label)).toBe('tspl');
+  it('defaultLanguageFor: receipt → escpos, label → tspl', () => {
+    const labelDocument = label().root(text('x')).build();
+    const receipt = receiptTemplate(catalog)
+      .id('receipt')
+      .name('Hoá đơn')
+      .paper({ widthMm: 72 })
+      .root(text('x'))
+      .build();
+
+    expect(defaultLanguageFor(labelDocument)).toBe('tspl');
     expect(defaultLanguageFor(receipt)).toBe('escpos');
   });
 });

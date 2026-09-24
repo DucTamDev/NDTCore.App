@@ -9,7 +9,17 @@ import { evaluateTemplate } from './evaluateTemplate';
 import { renderPreviews, defaultLanguageFor, type PagePreview } from './pipeline';
 import { defaultCode, defaultData } from './defaultSample';
 
-const LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'escpos', 'starprnt', 'ipl'];
+const LANGUAGES: readonly PrinterLanguage[] = [
+  'tspl',
+  'zpl',
+  'epl',
+  'cpcl',
+  'dpl',
+  'sbpl',
+  'escpos',
+  'starprnt',
+  'ipl',
+];
 const RENDER_DEBOUNCE_MS = 500;
 
 interface RenderOutcome {
@@ -44,7 +54,7 @@ function renderOutcome(
 
   const languageToUse = languageTouched ? language : defaultLanguageFor(evaluated.template);
   try {
-    const previews = renderPreviews(evaluated.template, parsed.data as Record<string, unknown>, languageToUse);
+    const previews = renderPreviews(evaluated.template, evaluated.catalog, parsed.data, languageToUse);
     return { error: null, previews, language: languageToUse };
   } catch (pipelineError) {
     const message = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);

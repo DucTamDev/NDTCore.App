@@ -1,15 +1,16 @@
 import {
+  ApproximateFontMetrics,
   createDocumentResolver,
   createLayoutEngine,
-  ApproximateFontMetrics,
+  paperSizeToDots,
   previewFor,
-  PrintTemplateType,
-  type PrintTemplate,
-  type PrintData,
-  type TypographyProfile,
+  type AssetProvider,
+  type Catalog,
   type PrinterLanguage,
-  type ResolvedPrintDocument,
   type ResolvedPage,
+  type ResolvedPrintDocument,
+  type TemplateDocument,
+  type TypographyProfile,
 } from 'printer-core';
 
 const DEFAULT_TYPOGRAPHY: TypographyProfile = {
@@ -20,6 +21,12 @@ const DEFAULT_TYPOGRAPHY: TypographyProfile = {
   ],
 };
 
+/** DPI giả lập máy in cho preview — phổ biến nhất ở máy in nhiệt/tem. */
+const PREVIEW_DPI = 203;
+
+/** Preview chưa hỗ trợ ảnh: mọi mã asset đều không tìm thấy (trang dùng ảnh sẽ báo lỗi). */
+const NO_ASSETS: AssetProvider = { get: () => undefined };
+
 const fontMetrics = new ApproximateFontMetrics();
 const resolver = createDocumentResolver();
 const layoutEngine = createLayoutEngine();
@@ -29,15 +36,16 @@ export type PagePreview =
   | { readonly status: 'error'; readonly pageIndex: number; readonly message: string };
 
 function buildResolvedDocument(
-  template: PrintTemplate,
+  template: TemplateDocument,
   page: Extract<ResolvedPage, { status: 'ok' }>,
 ): ResolvedPrintDocument {
-  const elements = layoutEngine.resolve(page.node, template.config, DEFAULT_TYPOGRAPHY, fontMetrics);
-  const heightDots = template.type === PrintTemplateType.Label ? template.config.heightDots : undefined;
+  const layoutConfig = { paper: template.paper, media: template.media, dpi: PREVIEW_DPI };
+  const elements = layoutEngine.resolve(page.node, layoutConfig, DEFAULT_TYPOGRAPHY, fontMetrics);
+  const paper = paperSizeToDots(template.paper, PREVIEW_DPI);
   return {
-    widthDots: template.config.widthDots,
-    heightDots: heightDots ?? 0,
-    dpi: template.config.dpi,
+    widthDots: paper.widthDots,
+    heightDots: paper.heightDots ?? 0,
+    dpi: PREVIEW_DPI,
     gapDots: 0,
     speed: 4,
     density: 8,
@@ -47,7 +55,11 @@ function buildResolvedDocument(
   };
 }
 
-function renderPage(template: PrintTemplate, page: ResolvedPage, language: PrinterLanguage): PagePreview {
+function renderPage(
+  template: TemplateDocument,
+  page: ResolvedPage,
+  language: PrinterLanguage,
+): PagePreview {
   if (page.status === 'error') {
     return { status: 'error', pageIndex: page.pageIndex, message: `${page.nodeId}: ${page.message}` };
   }
@@ -61,14 +73,15 @@ function renderPage(template: PrintTemplate, page: ResolvedPage, language: Print
 }
 
 export function renderPreviews(
-  template: PrintTemplate,
-  data: PrintData,
+  template: TemplateDocument,
+  catalog: Catalog<unknown>,
+  data: unknown,
   language: PrinterLanguage,
 ): readonly PagePreview[] {
-  const pages = resolver.resolve(template, data);
+  const pages = resolver.resolve(template, data, { catalog, assets: NO_ASSETS });
   return pages.map((page) => renderPage(template, page, language));
 }
 
-export function defaultLanguageFor(template: PrintTemplate): PrinterLanguage {
-  return template.type === PrintTemplateType.Receipt ? 'escpos' : 'tspl';
+export function defaultLanguageFor(template: TemplateDocument): PrinterLanguage {
+  return template.media === 'receipt' ? 'escpos' : 'tspl';
 }

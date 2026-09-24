@@ -1,13 +1,20 @@
 import * as ts from 'typescript';
 import * as PrinterCore from 'printer-core';
-import type { PrintTemplate } from 'printer-core';
+import { parseTemplate, type Catalog, type TemplateDocument } from 'printer-core';
 
 export type EvaluateResult =
-  | { readonly status: 'ok'; readonly template: PrintTemplate }
+  | { readonly status: 'ok'; readonly template: TemplateDocument; readonly catalog: Catalog<unknown> }
   | { readonly status: 'error'; readonly stage: 'transpile' | 'runtime'; readonly message: string };
 
-const EXPORT_DEFAULT_HINT =
-  'Code phải export default 1 PrintTemplate (ví dụ: export default labelTemplate().size(...).root(...).build();).';
+/** Module mà code người dùng xuất ra: `export const catalog` + `export default` template. */
+interface EvaluatedModule {
+  default?: unknown;
+  catalog?: unknown;
+}
+
+const EXPORT_HINT =
+  'Code phải `export const catalog = defineCatalog(...)` và `export default labelTemplate(catalog)...build()` ' +
+  '(hoặc receiptTemplate) — default export phải là 1 TemplateDocument.';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -34,22 +41,36 @@ function requireShim(name: string): unknown {
   throw new Error(`Cannot require "${name}" — only "printer-core" is available here.`);
 }
 
-function isPrintTemplateShape(value: unknown): value is PrintTemplate {
-  return typeof value === 'object' && value !== null && 'root' in value && 'config' in value;
+function isCatalog(value: unknown): value is Catalog<unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const candidate = value as Partial<Record<keyof Catalog<unknown>, unknown>>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.describe === 'function' &&
+    typeof candidate.readVariable === 'function' &&
+    typeof candidate.readCollection === 'function'
+  );
+}
+
+function toEvaluateResult(exported: EvaluatedModule): EvaluateResult {
+  if (!isCatalog(exported.catalog)) return { status: 'error', stage: 'runtime', message: EXPORT_HINT };
+
+  const parsed = parseTemplate(exported.default);
+  if (!parsed.ok) {
+    const issues = parsed.issues.map((issue) => `- ${issue.path}: ${issue.message}`).join('\n');
+    return { status: 'error', stage: 'runtime', message: `${EXPORT_HINT}\n${issues}` };
+  }
+  return { status: 'ok', template: parsed.template, catalog: exported.catalog };
 }
 
 function executeAndValidate(js: string): EvaluateResult {
   try {
-    const moduleObj: { exports: { default?: unknown } } = { exports: {} };
-    // eslint-disable-next-line no-new-func -- deliberately executes user-authored template code; documented non-sandboxed dev-tool behavior
+    const moduleObj: { exports: EvaluatedModule } = { exports: {} };
+    // eslint-disable-next-line no-new-func -- công cụ dev, chủ đích chạy code template người dùng viết (không sandbox)
     const fn = new Function('module', 'exports', 'require', js);
     fn(moduleObj, moduleObj.exports, requireShim);
-
-    const template = moduleObj.exports.default;
-    if (!isPrintTemplateShape(template)) {
-      return { status: 'error', stage: 'runtime', message: EXPORT_DEFAULT_HINT };
-    }
-    return { status: 'ok', template };
+    return toEvaluateResult(moduleObj.exports);
   } catch (error) {
     return { status: 'error', stage: 'runtime', message: errorMessage(error) };
   }
