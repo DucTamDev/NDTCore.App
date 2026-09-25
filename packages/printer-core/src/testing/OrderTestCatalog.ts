@@ -2,6 +2,7 @@ import { defineCatalog, defineCollection } from '../catalog';
 
 /** Topping của 1 món trong data test. */
 export interface TestTopping {
+  /** Tên topping. */
   readonly name: string;
 
   /** Giá topping, đơn vị đồng. */
@@ -10,6 +11,7 @@ export interface TestTopping {
 
 /** 1 món trong data test. */
 export interface TestOrderItem {
+  /** Tên món. */
   readonly name: string;
 
   /** Số lượng, dùng cho `expand`. */
@@ -21,6 +23,7 @@ export interface TestOrderItem {
   /** Ghi chú món; có thể không có. */
   readonly note?: string;
 
+  /** Danh sách topping của món. */
   readonly toppings: readonly TestTopping[];
 }
 
@@ -41,6 +44,7 @@ export interface TestOrder {
   /** Mã asset logo cửa hàng; có thể không có. */
   readonly storeLogo?: string;
 
+  /** Danh sách món trong đơn. */
   readonly items: readonly TestOrderItem[];
 }
 

@@ -107,25 +107,25 @@ src/
 │   ├── PrintDocument.ts, PrintDocumentOptions.ts, ResolvedPrintDocument.ts,
 │   │   PrintElementType.ts, index.ts    # KHÔNG đổi vị trí (đã ở document/)
 │   │
-│   ├── elements/                # MỚI — gộp builder/PrintElement.ts +
-│   │   │                        # builder/content|drawing|layout|printer/*
-│   │   ├── PrintElement.ts      # từ builder/PrintElement.ts (union type)
-│   │   ├── content/             # từ builder/content/
-│   │   │   ├── BarcodeElement.ts, ImageElement.ts, QrCodeElement.ts,
-│   │   │   │   RawElement.ts, TextElement.ts, index.ts
-│   │   ├── drawing/              # từ builder/drawing/ — KHÔNG chia nhỏ thêm
-│   │   │   │                     # thành shape/line/effect (xem "Quyết định
-│   │   │   │                     # KHÔNG áp dụng" bên dưới)
-│   │   │   ├── BoxElement.ts, CircleElement.ts, DiagonalElement.ts,
-│   │   │   │   EllipseElement.ts, EraseElement.ts, LineElement.ts,
-│   │   │   │   ReverseElement.ts, index.ts
-│   │   ├── layout/                # từ builder/layout/
-│   │   │   ├── ColumnElement.ts, PageBreakElement.ts, RowElement.ts,
-│   │   │   │   SpacerElement.ts, TableElement.ts, index.ts
-│   │   └── control/                # từ builder/printer/ (đổi tên `printer`→`control`,
-│   │       │                        # khớp đúng ý nghĩa: CutElement là lệnh điều
-│   │       │                        # khiển máy in, không phải nội dung in)
-│   │       ├── CutElement.ts, index.ts
+│   └── elements/                # MỚI — gộp builder/PrintElement.ts +
+│       │                        # builder/content|drawing|layout|printer/*
+│       ├── PrintElement.ts      # từ builder/PrintElement.ts (union type)
+│       ├── content/             # từ builder/content/
+│       │   ├── BarcodeElement.ts, ImageElement.ts, QrCodeElement.ts,
+│       │   │   RawElement.ts, TextElement.ts, index.ts
+│       ├── drawing/              # từ builder/drawing/ — KHÔNG chia nhỏ thêm
+│       │   │                     # thành shape/line/effect (xem "Quyết định
+│       │   │                     # KHÔNG áp dụng" bên dưới)
+│       │   ├── BoxElement.ts, CircleElement.ts, DiagonalElement.ts,
+│       │   │   EllipseElement.ts, EraseElement.ts, LineElement.ts,
+│       │   │   ReverseElement.ts, index.ts
+│       ├── layout/                # từ builder/layout/
+│       │   ├── ColumnElement.ts, PageBreakElement.ts, RowElement.ts,
+│       │   │   SpacerElement.ts, TableElement.ts, index.ts
+│       └── control/                # từ builder/printer/ (đổi tên `printer`→`control`,
+│           │                        # khớp đúng ý nghĩa: CutElement là lệnh điều
+│           │                        # khiển máy in, không phải nội dung in)
+│           ├── CutElement.ts, index.ts
 │
 ├── symbology/                    # MỚI — gộp barcode/ + qrcode/ (root cũ)
 │   ├── barcode/
@@ -233,10 +233,10 @@ src/
 │   ├── BluetoothTransport.ts, NetworkTransport.ts, PrinterTransport.ts,
 │   │   UsbTransport.ts, index.ts
 │
-├── testing/                             # KHÔNG đổi
+├── testing/
 │   ├── HexDump.ts, MockPrinterTransport.ts, OrderTestCatalog.ts, PrintDataAssertion.ts, index.ts
 │
-└── __tests__/                            # KHÔNG đổi (integration test ở root)
+└── __tests__/                            # integration test ở root
     ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
 ```
 

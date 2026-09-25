@@ -88,6 +88,7 @@ export interface LayoutContainer {
   /** Style bố cục, đã đổi sang dots; bỏ trống dùng mặc định của layout. */
   readonly style?: LayoutContainerStyle;
 
+  /** Danh sách node con. */
   readonly children: readonly LayoutNode[];
 }
 

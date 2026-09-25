@@ -20,6 +20,7 @@ export interface ResolvedContainer {
   /** Style bố cục; bỏ trống dùng mặc định của layout. */
   readonly style?: LayoutStyle;
 
+  /** Danh sách node con. */
   readonly children: readonly ResolvedNode[];
 }
 
