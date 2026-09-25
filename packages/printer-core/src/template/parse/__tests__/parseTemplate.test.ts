@@ -125,6 +125,12 @@ describe('parseTemplate', () => {
     expect(issuePaths(json)).toEqual(['root.content[0]', 'root.content[1].format.type']);
   });
 
+  it('báo lỗi segment có cả text lẫn var', () => {
+    const json = withRoot({ type: 'text', id: 'text', content: [{ text: 'x', var: 'orderCode' }] });
+
+    expect(issuePaths(json)).toEqual(['root.content[0]']);
+  });
+
   it('báo lỗi điều kiện sai dạng, kể cả điều kiện lồng', () => {
     const json = withRoot({
       type: 'text',

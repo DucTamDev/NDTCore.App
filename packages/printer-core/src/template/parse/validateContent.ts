@@ -45,11 +45,17 @@ export function validateCondition(cursor: JsonCursor): void {
 function validateSegment(cursor: JsonCursor): void {
   if (!cursor.expectObject()) return;
 
-  if (cursor.has('text')) {
+  const hasText = cursor.has('text');
+  const hasVar = cursor.has('var');
+  if (hasText && hasVar) {
+    cursor.report('segment chỉ được có 1 trong 2 field "text" hoặc "var"');
+    return;
+  }
+  if (hasText) {
     if (typeof cursor.field('text').value !== 'string') cursor.field('text').report('phải là chuỗi');
     return;
   }
-  if (!cursor.has('var')) {
+  if (!hasVar) {
     cursor.report('segment phải có "text" hoặc "var"');
     return;
   }

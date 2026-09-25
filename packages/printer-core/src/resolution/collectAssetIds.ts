@@ -1,12 +1,13 @@
 import { createCatalogIndex, type Catalog } from '../catalog';
 import type { ImageNode, RepeatNode, TemplateDocument, TemplateNode } from '../template';
+import type { AssetProvider } from './AssetProvider';
 import { readCollectionItems } from './readRepeatEntries';
 import { readVariableValue } from './readVariable';
-import { createRootFrame, pushFrame, type ResolveContext } from './ResolveContext';
+import { COUNTING_PAGE, createRootFrame, pushFrame, type ResolveContext } from './ResolveContext';
 import { ResolveError } from './ResolveError';
 
 /** Asset rỗng — chỉ dùng khi duyệt cây để thu mã asset, không tra ảnh. */
-const NO_ASSETS = { get: () => undefined };
+const NO_ASSETS: AssetProvider = { get: () => undefined };
 
 /**
  * Mã asset cần tải trước khi resolve: asset tĩnh trong template + giá trị các biến kiểu `asset` đang dùng
@@ -22,7 +23,7 @@ export function collectAssetIds<TData>(
     index: createCatalogIndex(catalog.describe()),
     assets: NO_ASSETS,
     frames: [createRootFrame(data)],
-    page: { pageNumber: 1, pageCount: 1 },
+    page: COUNTING_PAGE,
   };
   const assetIds = new Set<string>();
   collectFromNode(template.root, context, assetIds);

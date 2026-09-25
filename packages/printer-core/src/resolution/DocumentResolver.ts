@@ -2,7 +2,7 @@ import { createCatalogIndex, type Catalog } from '../catalog';
 import type { TemplateDocument, TemplateNode } from '../template';
 import type { AssetProvider } from './AssetProvider';
 import { countPages } from './countPages';
-import { createRootFrame, type ResolveContext } from './ResolveContext';
+import { COUNTING_PAGE, createRootFrame, type ResolveContext } from './ResolveContext';
 import type { ResolvedPage } from './ResolvedPage';
 import { ResolveError } from './ResolveError';
 import { resolveNode } from './resolveNode';
@@ -15,9 +15,6 @@ export interface ResolveOptions<TData> {
   /** Ảnh đã tải + decode sẵn. */
   readonly assets: AssetProvider;
 }
-
-// Khi đếm trang chưa biết tổng số trang; điều kiện dùng `$page` ở bước đếm được coi như đang ở trang 1/1.
-const COUNTING_PAGE = { pageNumber: 1, pageCount: 1 };
 
 /** Ghép template với data qua catalog: giá trị biến, format, ẩn/hiện, lặp/expand/phân trang, tra ảnh. */
 export class DocumentResolver {

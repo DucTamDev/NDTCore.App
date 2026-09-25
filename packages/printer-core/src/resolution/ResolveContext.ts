@@ -37,6 +37,9 @@ export interface PageInfo {
   readonly pageCount: number;
 }
 
+/** Trang giả lập khi đếm trang (chưa biết tổng số trang thật) — `$page`/`$pageCount` đọc được là 1/1. */
+export const COUNTING_PAGE: PageInfo = { pageNumber: 1, pageCount: 1 };
+
 /** Trạng thái khi resolve 1 node. */
 export interface ResolveContext {
   /** Catalog dùng để đọc biến/collection từ data. */

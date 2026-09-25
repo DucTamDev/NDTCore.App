@@ -8,7 +8,7 @@ import {
   type Length,
   type TextStyle,
 } from '../template';
-import { lengthToDots, optionalLengthToDots, strokeLengthToDots } from './lengthToDots';
+import { lengthToDots, optionalLengthToDots, optionalStrokeLengthToDots, strokeLengthToDots } from './lengthToDots';
 import type {
   LayoutBoxStyle,
   LayoutContainerStyle,
@@ -45,7 +45,7 @@ export function toLayoutNode(node: ResolvedNode, dpi: number): LayoutNode {
     case 'qrcode':
       return {
         ...node,
-        moduleSize: node.moduleSize && strokeLengthToDots(node.moduleSize, dpi),
+        moduleSize: optionalStrokeLengthToDots(node.moduleSize, dpi),
         style: toBoxStyle(node.style, dpi),
       };
     case 'image':
@@ -57,7 +57,7 @@ function toLayoutLine(node: ResolvedLine, dpi: number): LayoutLine {
   return {
     type: 'line',
     id: node.id,
-    thickness: node.thickness && strokeLengthToDots(node.thickness, dpi),
+    thickness: optionalStrokeLengthToDots(node.thickness, dpi),
     dash: node.pattern === 'dashed' ? dashFor(dpi) : undefined,
     style: toBoxStyle(node.style, dpi),
   };

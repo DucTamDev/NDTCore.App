@@ -109,11 +109,17 @@ function resolveAssetId(node: ImageNode, context: ResolveContext): string | unde
 
   const variable = node.source.var;
   const value = readVariableValue(context, variable, node.id);
-  if ((value === undefined || value === null) && isOptionalVariable(context, variable)) return undefined;
+  if (isEmptyOptionalAssetValue(context, variable, value)) return undefined;
   if (typeof value !== 'string' || value === '') {
     throw new ResolveError(node.id, `biến ảnh "${variable}" phải là mã asset, nhận "${String(value)}"`);
   }
   return value;
+}
+
+// Chuỗi rỗng cũng coi là "không có giá trị" của biến optional — data BE có thể trả '' thay vì thiếu field.
+function isEmptyOptionalAssetValue(context: ResolveContext, variable: string, value: unknown): boolean {
+  if (!isOptionalVariable(context, variable)) return false;
+  return value === undefined || value === null || value === '';
 }
 
 function resolveRepeat(node: RepeatNode, context: ResolveContext): ResolvedContainer {

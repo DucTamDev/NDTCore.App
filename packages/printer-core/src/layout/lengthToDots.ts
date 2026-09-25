@@ -30,6 +30,11 @@ export function optionalLengthToDots(length: Length | undefined, dpi: number): n
   return length === undefined ? undefined : lengthToDots(length, dpi);
 }
 
+/** Như `optionalLengthToDots` nhưng tối thiểu 1 dot — dùng cho độ dày nét và cỡ module tuỳ chọn. */
+export function optionalStrokeLengthToDots(length: Length | undefined, dpi: number): number | undefined {
+  return length === undefined ? undefined : strokeLengthToDots(length, dpi);
+}
+
 /** Đổi khổ giấy (mm) sang dots. */
 export function paperSizeToDots(paper: PaperSize, dpi: number): PaperDots {
   const widthDots = lengthToDots({ value: paper.widthMm, unit: 'mm' }, dpi);

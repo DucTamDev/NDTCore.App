@@ -26,7 +26,7 @@ export interface CatalogValidationResult {
 }
 
 /** Scope tại 1 vị trí trong cây node. */
-interface TemplateScope {
+interface ValidationScope {
   /** Các collection đang được `repeat`, từ ngoài vào trong. */
   readonly collections: readonly string[];
 
@@ -56,7 +56,7 @@ const FORMAT_COMPATIBLE_TYPES: Readonly<Record<ValueFormat['type'], readonly Var
 /** Kiểu của mọi biến có sẵn. */
 const BUILT_IN_VARIABLE_TYPE: VariableType = 'number';
 
-const ROOT_SCOPE: TemplateScope = { collections: [], expanded: false };
+const ROOT_SCOPE: ValidationScope = { collections: [], expanded: false };
 
 /**
  * Kiểm tra template khớp catalog: biến tồn tại và dùng đúng scope, collection/expand hợp lệ, ảnh dùng biến
@@ -90,7 +90,7 @@ function checkNode(
   check: CatalogCheck,
   node: TemplateNode,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   if (node.visibleWhen) checkCondition(check, node.visibleWhen, `${path}.visibleWhen`, scope);
 
@@ -118,7 +118,7 @@ function checkSegments(
   check: CatalogCheck,
   segments: readonly Segment[],
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   segments.forEach((segment, index) => {
     if (!('var' in segment)) return;
@@ -143,7 +143,7 @@ function checkImage(
   check: CatalogCheck,
   node: ImageNode,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   if (!('var' in node.source)) return;
 
@@ -158,7 +158,7 @@ function checkRepeat(
   check: CatalogCheck,
   node: RepeatNode,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   const collection = check.index.collections.get(node.collection);
   if (!collection) {
@@ -172,7 +172,7 @@ function checkRepeat(
   }
   if (node.expand !== undefined) checkExpand(check, node, `${path}.expand`);
 
-  const innerScope: TemplateScope = {
+  const innerScope: ValidationScope = {
     collections: [...scope.collections, node.collection],
     expanded: node.expand !== undefined,
   };
@@ -198,7 +198,7 @@ function checkCondition(
   check: CatalogCheck,
   condition: Condition,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   switch (condition.op) {
     case 'and':
@@ -220,7 +220,7 @@ function checkVariableUse(
   check: CatalogCheck,
   name: string,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): VariableType | undefined {
   if (isBuiltInVariableName(name)) {
     checkBuiltInVariableScope(check, name, path, scope);
@@ -246,7 +246,7 @@ function checkBuiltInVariableScope(
   check: CatalogCheck,
   name: BuiltInVariableName,
   path: string,
-  scope: TemplateScope,
+  scope: ValidationScope,
 ): void {
   const required = BUILT_IN_VARIABLE_SCOPES[name];
   if (required === 'repeat' && scope.collections.length === 0) {

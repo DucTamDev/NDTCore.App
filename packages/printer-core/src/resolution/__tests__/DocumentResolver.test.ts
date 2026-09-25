@@ -227,6 +227,45 @@ describe('DocumentResolver — lặp, expand, phân trang', () => {
     ]);
   });
 
+  it('repeat phân trang cạnh 1 repeat không phân trang: mọi trang đều có đủ danh sách không phân trang', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        itemLabel(),
+        {
+          type: 'repeat',
+          id: 'names',
+          collection: 'items',
+          template: { type: 'text', id: 'name', content: [{ var: 'itemName' }] },
+        },
+      ],
+    };
+    const pages = resolvePages(root);
+
+    expect(pages).toHaveLength(5);
+    pages.forEach((page) => expect(pageTexts(page).slice(-2)).toEqual(['Trà sữa', 'Cà phê']));
+  });
+
+  it('2 repeat phân trang cạnh nhau: số trang = max của cả 2', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { ...itemLabel(), maxItemsPerPage: 2 } as TemplateNode,
+        {
+          type: 'repeat',
+          id: 'names',
+          collection: 'items',
+          maxItemsPerPage: 1,
+          template: { type: 'text', id: 'name', content: [{ var: 'itemName' }] },
+        },
+      ],
+    };
+
+    expect(resolvePages(root)).toHaveLength(3);
+  });
+
   it('repeat không phân trang in mọi phần tử trên 1 trang', () => {
     const root: TemplateNode = {
       type: 'repeat',
@@ -376,6 +415,18 @@ describe('DocumentResolver — ảnh', () => {
     };
     const noLogo: TestOrder = { ...TEST_ORDER_SAMPLE, storeLogo: undefined };
     const [page] = resolvePages(root, noLogo, LOGO_ASSETS);
+
+    expect(page.status === 'ok' && page.node.type === 'container' && page.node.children).toEqual([]);
+  });
+
+  it('biến ảnh optional chuỗi rỗng cũng bỏ qua ảnh', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [{ type: 'image', id: 'logo', source: { var: 'storeLogo' } }],
+    };
+    const emptyLogo: TestOrder = { ...TEST_ORDER_SAMPLE, storeLogo: '' };
+    const [page] = resolvePages(root, emptyLogo, LOGO_ASSETS);
 
     expect(page.status === 'ok' && page.node.type === 'container' && page.node.children).toEqual([]);
   });
