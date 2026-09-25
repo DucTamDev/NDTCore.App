@@ -28,7 +28,8 @@ import { formatTable, validateTableColumns } from '../../formatting';
 /** Tên ngôn ngữ trong câu cảnh báo. */
 const TSPL_LANGUAGE_NAME = 'TSPL';
 
-const CUT_PARTIAL_WARNING = 'CutOptions.mode "partial" được in như "full" — TSPL không phân biệt cắt một phần.';
+const CUT_PARTIAL_WARNING =
+  'CutOptions.mode "partial" bị bỏ qua — compiler TSPL phát cùng 1 lệnh cắt cho "partial" và "full".';
 
 const MM_PER_INCH = 25.4;
 
@@ -210,6 +211,13 @@ function compileQrCodeElement(element: QrCodeElement): string {
   return `${TSPL_COMMAND.QRCODE} ${x},${y},${ecc},${cellWidth},${QR_MODE_AUTO},${rotation},"${escaped}"`;
 }
 
+/** TSPL chỉ phát được lệnh dạng chuỗi — nội dung `raw` dạng bytes bị bỏ qua kèm cảnh báo. */
+function compileRawElement(element: Extract<PrintElement, { type: 'raw' }>, warnings: CompileWarnings): string {
+  if (typeof element.content === 'string') return element.content;
+  warnings.unsupportedRawBytes();
+  return '';
+}
+
 function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
@@ -240,7 +248,7 @@ function compileElement(element: PrintElement, warnings: CompileWarnings): strin
       return compileEraseElement(element);
 
     case 'raw':
-      return typeof element.content === 'string' ? element.content : '';
+      return compileRawElement(element, warnings);
 
     case 'cut':
       return compileCutElement(element, warnings);

@@ -254,6 +254,9 @@ src/
   qua/gộp và element ngôn ngữ không có lệnh tương ứng; `output` giữ nguyên hành vi cũ (element không hỗ
   trợ vẫn không phát lệnh nào). Cảnh báo trùng nội dung chỉ xuất hiện 1 lần; `cut` với `mode: 'off'`
   không cảnh báo vì không yêu cầu cắt.
+- Với các compiler chỉ phát output dạng chuỗi (TSPL, ZPL, EPL, CPCL, DPL, SBPL, IPL), element `raw` mang
+  nội dung `Uint8Array` bị bỏ qua (output vẫn là `''` như trước) kèm cảnh báo — ESC/POS và Star PRNT phát
+  output dạng byte nên không bị giới hạn này.
 
 | Ngôn ngữ | Element bị bỏ qua (có cảnh báo) | Field bị bỏ/gộp (có cảnh báo) |
 |---|---|---|

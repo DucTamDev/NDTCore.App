@@ -146,6 +146,13 @@ function compileTableElement(options: TableOptions, nextFieldNum: () => number):
     .join('\r\n');
 }
 
+/** IPL chỉ phát được lệnh dạng chuỗi — nội dung `raw` dạng bytes bị bỏ qua kèm cảnh báo. */
+function compileRawElement(element: Extract<PrintElement, { type: 'raw' }>, warnings: CompileWarnings): string {
+  if (typeof element.content === 'string') return element.content;
+  warnings.unsupportedRawBytes();
+  return '';
+}
+
 function compileElement(
   element: PrintElement,
   nextFieldNum: () => number,
@@ -181,7 +188,7 @@ function compileElement(
       return '';
 
     case 'raw':
-      return typeof element.content === 'string' ? element.content : '';
+      return compileRawElement(element, warnings);
 
     case 'table':
       return compileTableElement(element.options, nextFieldNum);

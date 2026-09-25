@@ -27,6 +27,11 @@ export class CompileWarnings {
     this.unsupportedElement('cut');
   }
 
+  /** Cảnh báo element `raw` mang nội dung dạng bytes bị bỏ qua vì ngôn ngữ này chỉ phát được lệnh dạng chuỗi. */
+  unsupportedRawBytes(): void {
+    this.add(`RawElement dạng bytes bị bỏ qua — ${this.languageName} chỉ nhận lệnh dạng chuỗi.`);
+  }
+
   /** Danh sách cảnh báo theo thứ tự xuất hiện. */
   toArray(): readonly string[] {
     return [...this.messages];

@@ -145,6 +145,16 @@ describe('CpclCompiler', () => {
     expect(output).toContain('! U1 setvar "device.friendly_name" "test"');
   });
 
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const compiler = new CpclCompiler();
+    const bytesElement = { type: 'raw' as const, content: new Uint8Array([1, 2, 3]) };
+    const withBytes = compiler.compile({ ...baseDoc, elements: [bytesElement] });
+    const empty = compiler.compile({ ...baseDoc, elements: [] });
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — CPCL chỉ nhận lệnh dạng chuỗi.']);
+  });
+
   it('produces identical output for circle/ellipse/reverse/erase/cut no-ops vs. an empty-elements document', () => {
     const compilerA = new CpclCompiler();
     const compilerB = new CpclCompiler();
@@ -227,7 +237,7 @@ describe('CpclCompiler — cỡ chữ và cảnh báo', () => {
     );
   });
 
-  it('cảnh báo khi barcode khai báo readable', () => {
+  it('cảnh báo khi barcode khai báo readable: true', () => {
     const barcode = { symbology: 'code128' as const, content: '123' };
     const withReadable = new CpclCompiler().compile({
       ...baseDoc,
@@ -243,6 +253,16 @@ describe('CpclCompiler — cỡ chữ và cảnh báo', () => {
         'không phải tham số của BARCODE.',
     ]);
     expect(withoutReadable.warnings).toEqual([]);
+  });
+
+  it('không cảnh báo khi barcode khai báo readable: false — CPCL vốn đã không in chữ dưới mã vạch', () => {
+    const barcode = { symbology: 'code128' as const, content: '123', readable: false };
+    const { warnings } = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'barcode', options: barcode }],
+    });
+
+    expect(warnings).toEqual([]);
   });
 
   it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {

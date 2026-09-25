@@ -109,6 +109,16 @@ describe('IplCompiler', () => {
     expect(output).toContain('CUSTOM_CMD');
   });
 
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const compiler = new IplCompiler();
+    const bytesElement = { type: 'raw' as const, content: new Uint8Array([1, 2, 3]) };
+    const withBytes = compiler.compile({ ...baseDoc, elements: [bytesElement] });
+    const empty = compiler.compile({ ...baseDoc, elements: [] });
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — IPL chỉ nhận lệnh dạng chuỗi.']);
+  });
+
   it('compiles a table element into stacked H field records carrying its cell content, one field number per row', () => {
     const compiler = new IplCompiler();
     const output = compiler.compile({

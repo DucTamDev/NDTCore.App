@@ -202,4 +202,12 @@ describe('ZplCompiler — cỡ chữ và cảnh báo', () => {
       ['ellipse', 'reverse', 'erase'].map((type) => `Element "${type}" bị bỏ qua — ZPL không có lệnh tương ứng.`),
     );
   });
+
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const withBytes = compileElements([{ type: 'raw', content: new Uint8Array([1, 2, 3]) }]);
+    const empty = compileElements([]);
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — ZPL chỉ nhận lệnh dạng chuỗi.']);
+  });
 });

@@ -182,7 +182,7 @@ describe('StarPrntCompiler', () => {
 
     expect(warnings).toEqual([
       'CutOptions.rows bị bỏ qua — lệnh cắt ESC d của Star PRNT chỉ nhận 1 tham số cố định.',
-      'CutOptions.mode "partial" được in như "full" — Star PRNT không có lệnh cắt một phần riêng.',
+      'CutOptions.mode "partial" bị bỏ qua — compiler Star PRNT phát cùng 1 lệnh cắt cho "partial" và "full".',
     ]);
   });
 

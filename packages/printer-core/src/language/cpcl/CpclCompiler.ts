@@ -119,7 +119,8 @@ function compileBarcodeElement(
   warnings: CompileWarnings,
 ): string {
   const options = element.options;
-  if (options.readable !== undefined) warnings.add(BARCODE_READABLE_WARNING);
+  // readable: false đã đúng hành vi mặc định của CPCL (không in chữ dưới mã vạch), chỉ readable: true mới bị bỏ qua.
+  if (options.readable === true) warnings.add(BARCODE_READABLE_WARNING);
   const x = options.x ?? 0;
   const y = options.y ?? 0;
   const type = CPCL_BARCODE_TYPE[options.symbology];
@@ -154,6 +155,13 @@ function compileQrcodeElement(element: Extract<PrintElement, { type: 'qrcode' }>
   return qrLines.join('\r\n');
 }
 
+/** CPCL chỉ phát được lệnh dạng chuỗi — nội dung `raw` dạng bytes bị bỏ qua kèm cảnh báo. */
+function compileRawElement(element: Extract<PrintElement, { type: 'raw' }>, warnings: CompileWarnings): string {
+  if (typeof element.content === 'string') return element.content;
+  warnings.unsupportedRawBytes();
+  return '';
+}
+
 function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
@@ -183,7 +191,7 @@ function compileElement(element: PrintElement, warnings: CompileWarnings): strin
       return '';
 
     case 'raw':
-      return typeof element.content === 'string' ? element.content : '';
+      return compileRawElement(element, warnings);
 
     case 'table':
       return compileTableElement(element);

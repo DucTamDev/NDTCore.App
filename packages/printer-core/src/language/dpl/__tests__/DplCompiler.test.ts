@@ -169,6 +169,15 @@ describe('DplCompiler', () => {
     expect(output).toContain('CUSTOM');
   });
 
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const compiler = new DplCompiler();
+    const withBytes = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: new Uint8Array([1, 2, 3]) }] });
+    const empty = compiler.compile({ ...baseDoc, elements: [] });
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — DPL chỉ nhận lệnh dạng chuỗi.']);
+  });
+
   it('produces identical output for diagonal/circle/ellipse/reverse/erase/cut no-ops vs. an empty-elements document', () => {
     const compilerA = new DplCompiler();
     const compilerB = new DplCompiler();

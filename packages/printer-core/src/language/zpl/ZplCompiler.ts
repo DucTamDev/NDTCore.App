@@ -238,6 +238,13 @@ function compileQrcodeElement(element: QrCodeElement, warnings: CompileWarnings)
   );
 }
 
+/** ZPL chỉ phát được lệnh dạng chuỗi — nội dung `raw` dạng bytes bị bỏ qua kèm cảnh báo. */
+function compileRawElement(element: Extract<PrintElement, { type: 'raw' }>, warnings: CompileWarnings): string {
+  if (typeof element.content === 'string') return element.content;
+  warnings.unsupportedRawBytes();
+  return '';
+}
+
 function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
@@ -270,7 +277,7 @@ function compileElement(element: PrintElement, warnings: CompileWarnings): strin
       return '';
 
     case 'raw':
-      return typeof element.content === 'string' ? element.content : '';
+      return compileRawElement(element, warnings);
 
     case 'cut':
       return compileCutElement(element, warnings);

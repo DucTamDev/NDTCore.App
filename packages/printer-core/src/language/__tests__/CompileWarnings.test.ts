@@ -38,4 +38,11 @@ describe('CompileWarnings', () => {
 
     expect(warnings.toArray()).toEqual([]);
   });
+
+  it('raw content dạng bytes thì báo rõ ngôn ngữ chỉ nhận chuỗi', () => {
+    const warnings = new CompileWarnings('TSPL');
+    warnings.unsupportedRawBytes();
+
+    expect(warnings.toArray()).toEqual(['RawElement dạng bytes bị bỏ qua — TSPL chỉ nhận lệnh dạng chuỗi.']);
+  });
 });

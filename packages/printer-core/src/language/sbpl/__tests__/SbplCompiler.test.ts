@@ -140,6 +140,16 @@ describe('SbplCompiler', () => {
     expect(output).toContain('\x1bKC1');
   });
 
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const compiler = new SbplCompiler();
+    const bytesElement = { type: 'raw' as const, content: new Uint8Array([1, 2, 3]) };
+    const withBytes = compiler.compile({ ...baseDoc, elements: [bytesElement] });
+    const empty = compiler.compile({ ...baseDoc, elements: [] });
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — SBPL chỉ nhận lệnh dạng chuỗi.']);
+  });
+
   it('emits ESC Q with the copy count when copies > 1, and omits it for a single copy', () => {
     const compiler = new SbplCompiler();
     const multi = compiler.compile({ ...baseDoc, copies: 3, elements: [] }).output;

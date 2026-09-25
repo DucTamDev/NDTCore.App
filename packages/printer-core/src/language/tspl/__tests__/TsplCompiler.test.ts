@@ -229,7 +229,7 @@ describe('TsplCompiler — cỡ chữ và cảnh báo', () => {
 
   it('cảnh báo khi cắt partial vì TSPL không phân biệt, cắt full thì không', () => {
     expect(compileElements([{ type: 'cut', options: { mode: 'partial' } }]).warnings).toEqual([
-      'CutOptions.mode "partial" được in như "full" — TSPL không phân biệt cắt một phần.',
+      'CutOptions.mode "partial" bị bỏ qua — compiler TSPL phát cùng 1 lệnh cắt cho "partial" và "full".',
     ]);
     expect(compileElements([{ type: 'cut', options: { mode: 'full' } }]).warnings).toEqual([]);
   });
@@ -243,5 +243,13 @@ describe('TsplCompiler — cỡ chữ và cảnh báo', () => {
     ]);
 
     expect(warnings).toEqual([]);
+  });
+
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const withBytes = compileElements([{ type: 'raw', content: new Uint8Array([1, 2, 3]) }]);
+    const empty = compileElements([]);
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — TSPL chỉ nhận lệnh dạng chuỗi.']);
   });
 });

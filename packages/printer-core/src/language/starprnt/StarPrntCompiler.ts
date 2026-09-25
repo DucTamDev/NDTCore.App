@@ -22,7 +22,7 @@ const CUT_ROWS_WARNING = 'CutOptions.rows bị bỏ qua — lệnh cắt ESC d c
 
 /** Cảnh báo khi cắt một phần bị gộp thành cắt toàn phần. */
 const CUT_PARTIAL_WARNING =
-  'CutOptions.mode "partial" được in như "full" — Star PRNT không có lệnh cắt một phần riêng.';
+  'CutOptions.mode "partial" bị bỏ qua — compiler Star PRNT phát cùng 1 lệnh cắt cho "partial" và "full".';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {

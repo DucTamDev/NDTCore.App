@@ -169,6 +169,16 @@ describe('EplCompiler', () => {
     expect(output).toContain('OD');
   });
 
+  it('cảnh báo và bỏ qua raw content dạng bytes', () => {
+    const compiler = new EplCompiler();
+    const bytesElement = { type: 'raw' as const, content: new Uint8Array([1, 2, 3]) };
+    const withBytes = compiler.compile({ ...baseDoc, elements: [bytesElement] });
+    const empty = compiler.compile({ ...baseDoc, elements: [] });
+
+    expect(withBytes.output).toBe(empty.output);
+    expect(withBytes.warnings).toEqual(['RawElement dạng bytes bị bỏ qua — EPL chỉ nhận lệnh dạng chuỗi.']);
+  });
+
   it('produces identical output for diagonal/circle/ellipse/reverse/erase/cut no-ops vs. an empty-elements document', () => {
     const compilerA = new EplCompiler();
     const compilerB = new EplCompiler();
