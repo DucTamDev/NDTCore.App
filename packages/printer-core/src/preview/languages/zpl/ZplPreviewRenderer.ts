@@ -2,41 +2,9 @@ import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
+import { ZplFontMetrics } from '../../../language';
 
-/**
- * Kích thước pixel font bitmap có sẵn của ZPL ở 203 DPI, theo Zebra ZPL II
- * Programming Guide. Font "0" (CG Triumvirate) co giãn được — entry của nó
- * chỉ là giá trị nền, kích thước thật lấy từ tham số height/width của `^A`/`^CF`.
- */
-const ZPL_FONTS: Record<string, { width: number; height: number }> = {
-  A: { width: 5, height: 9 },
-  B: { width: 7, height: 11 },
-  C: { width: 10, height: 18 },
-  D: { width: 10, height: 18 },
-  E: { width: 15, height: 28 },
-  F: { width: 13, height: 26 },
-  G: { width: 40, height: 60 },
-  H: { width: 13, height: 21 },
-  P: { width: 18, height: 20 },
-  Q: { width: 24, height: 28 },
-  R: { width: 31, height: 35 },
-  S: { width: 35, height: 40 },
-  T: { width: 42, height: 48 },
-  U: { width: 53, height: 59 },
-  V: { width: 71, height: 80 },
-  '0': { width: 15, height: 18 },
-};
-
-const DEFAULT_FONT_CODE = '0';
-/**
- * Trên ngưỡng này, `yScale` (từ tham số height của `^A`/`^CF`) được tin dùng
- * trực tiếp thay vì bảng `ZPL_FONTS` cố định.
- */
-const YSCALE_TRUST_THRESHOLD = 10;
-const DEFAULT_FALLBACK_FONT_SIZE = 18;
-const FALLBACK_SIZE_MULTIPLIER = 12;
 const PROPORTIONAL_FONT_BASELINE_RATIO = 0.78;
-const MONOSPACE_FONT_BASELINE_RATIO = 0.82;
 const PROPORTIONAL_FONT_FAMILY = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 const MONOSPACE_FONT_FAMILY = 'monospace';
 const TABLE_ROW_BASELINE_RATIO = 0.85;
@@ -72,32 +40,9 @@ const QR_TEXT_OFFSET = 15;
 const QR_TEXT_FONT_SIZE = 14;
 const DEFAULT_QR_CELL_WIDTH = 4;
 
-function isProportionalFont(font: string | undefined): boolean {
-  return (font ?? DEFAULT_FONT_CODE) === DEFAULT_FONT_CODE;
-}
-
-function getZplFont(font: string | undefined) {
-  return ZPL_FONTS[(font ?? DEFAULT_FONT_CODE).toUpperCase()];
-}
-
-function getFontSize(
-  font: string | undefined,
-  size: number | undefined,
-  yScale: number | undefined,
-): number {
-  if (yScale && yScale > YSCALE_TRUST_THRESHOLD) return yScale;
-  const zplFont = getZplFont(font);
-  if (zplFont) return zplFont.height * (size ?? 1);
-  return size ? size * FALLBACK_SIZE_MULTIPLIER : DEFAULT_FALLBACK_FONT_SIZE;
-}
-
-/** Font "0" (proportional) nằm cao hơn 1 chút so với các font bitmap A-H, do ascent khác nhau. */
-function getBaselineRatio(font: string | undefined): number {
-  return isProportionalFont(font) ? PROPORTIONAL_FONT_BASELINE_RATIO : MONOSPACE_FONT_BASELINE_RATIO;
-}
-
-function getFontFamily(font: string | undefined): string {
-  return isProportionalFont(font) ? PROPORTIONAL_FONT_FAMILY : MONOSPACE_FONT_FAMILY;
+/** Chiều cao chữ thật khi máy in ZPL in cỡ chữ này — cùng tham số `^A` mà compiler phát. */
+function getFontSize(fontSize: number | undefined): number {
+  return ZplFontMetrics.fontSizeToNative(fontSize).heightDots;
 }
 
 function escapeXml(text: string): string {
@@ -108,9 +53,10 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
   const options = element.options ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const fontSize = getFontSize(options.font, options.size, options.yScale);
-  const baselineRatio = getBaselineRatio(options.font);
-  const fontFamily = getFontFamily(options.font);
+  const fontSize = getFontSize(options.fontSize);
+  // Compiler luôn in text bằng font 0 (CG Triumvirate, chữ tỉ lệ).
+  const baselineRatio = PROPORTIONAL_FONT_BASELINE_RATIO;
+  const fontFamily = PROPORTIONAL_FONT_FAMILY;
   const fontWeight = options.bold ? 'bold' : 'normal';
   const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
 
@@ -282,7 +228,7 @@ function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): 
   const { options } = element;
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const rowHeight = getFontSize(undefined, 1, undefined);
+  const rowHeight = getFontSize(undefined);
   const rowBaselineOffset = rowHeight * TABLE_ROW_BASELINE_RATIO;
 
   validateTableColumns(options.columns);

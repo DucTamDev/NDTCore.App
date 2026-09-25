@@ -182,6 +182,16 @@ describe('convert', () => {
     expect([...SUPPORTED_SOURCES].sort()).toEqual(registryKeys);
     expect([...SUPPORTED_TARGETS].sort()).toEqual(registryKeys);
   });
+});
+
+describe('convert — cảnh báo', () => {
+  it('gộp cảnh báo compile của ngôn ngữ đích vào kết quả', () => {
+    const source = 'SIZE 50 mm,30 mm\r\nCLS\r\nCIRCLE 10,10,50,2\r\nPRINT 1\r\n';
+
+    expect(convert(source, 'tspl', 'epl').warnings).toEqual([
+      'Element "circle" bị bỏ qua — EPL không có lệnh tương ứng.',
+    ]);
+  });
 
   it('TSPL → TSPL giữ nguyên chiều cao chữ in ra dù mã font có thể đổi', () => {
     const source = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"3",0,2,2,"Big"\r\nPRINT 1\r\n';

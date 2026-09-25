@@ -157,3 +157,49 @@ describe('ZplCompiler', () => {
     expect(output).toContain('^GFA,2,2,2,FF00');
   });
 });
+
+describe('ZplCompiler — cỡ chữ và cảnh báo', () => {
+  function compileElements(elements: ResolvedPrintDocument['elements']) {
+    return new ZplCompiler().compile({ ...baseDoc, elements });
+  }
+
+  it('fontSize (dots) thành chiều cao/rộng của ^A0', () => {
+    const { output } = compileElements([{ type: 'text', content: 'Hi', options: { x: 1, y: 2, fontSize: 24 } }]);
+
+    expect(output).toContain('^FO1,2^A0N,24,24^FDHi^FS');
+  });
+
+  it('không khai báo fontSize thì dùng ^A0 cao 30 dots', () => {
+    const { output } = compileElements([{ type: 'text', content: 'Hi', options: { x: 1, y: 2 } }]);
+
+    expect(output).toContain('^FO1,2^A0N,30,30^FDHi^FS');
+  });
+
+  it('cảnh báo CutOptions.rows vì ZPL chỉ cắt sau mỗi label', () => {
+    expect(compileElements([{ type: 'cut', options: { mode: 'full', rows: 3 } }]).warnings).toEqual([
+      'CutOptions.rows bị bỏ qua — ZPL chỉ hỗ trợ cắt sau mỗi label, không hỗ trợ cắt mỗi N label.',
+    ]);
+    expect(compileElements([{ type: 'cut', options: { mode: 'full' } }]).warnings).toEqual([]);
+    expect(compileElements([{ type: 'cut', options: { mode: 'off', rows: 3 } }]).warnings).toEqual([]);
+  });
+
+  it('cảnh báo QrCodeConfig.rotation khác 0', () => {
+    expect(compileElements([{ type: 'qrcode', options: { content: 'x', rotation: 90 } }]).warnings).toEqual([
+      'QrCodeConfig.rotation bị bỏ qua — lệnh ^BQ của ZPL chỉ in ổn định ở hướng N.',
+    ]);
+    expect(compileElements([{ type: 'qrcode', options: { content: 'x', rotation: 0 } }]).warnings).toEqual([]);
+  });
+
+  it('cảnh báo ellipse/reverse/erase, không cảnh báo circle', () => {
+    const { warnings } = compileElements([
+      { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+      { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+      { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+      { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+    ]);
+
+    expect(warnings).toEqual(
+      ['ellipse', 'reverse', 'erase'].map((type) => `Element "${type}" bị bỏ qua — ZPL không có lệnh tương ứng.`),
+    );
+  });
+});

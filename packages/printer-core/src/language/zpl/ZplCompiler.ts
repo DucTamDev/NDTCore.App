@@ -16,9 +16,18 @@ import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../co
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
+import { CompileWarnings } from '../CompileWarnings';
 import { ZPL_COMMAND } from './ZplCommand';
 import { encodeZplBitmapPayload } from './ZplEncoder';
+import { ZplFontMetrics } from './ZplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const ZPL_LANGUAGE_NAME = 'ZPL';
+
+const CUT_ROWS_WARNING = 'CutOptions.rows bị bỏ qua — ZPL chỉ hỗ trợ cắt sau mỗi label, không hỗ trợ cắt mỗi N label.';
+
+const QR_ROTATION_WARNING = 'QrCodeConfig.rotation bị bỏ qua — lệnh ^BQ của ZPL chỉ in ổn định ở hướng N.';
 
 /** Ký tự field-orientation của `^A`/`^B`/`^BQ`: N=0°, R=90° CW, I=180°, B=270° CW. */
 function zplOrientation(rotation: Rotation | undefined): string {
@@ -34,9 +43,6 @@ function zplOrientation(rotation: Rotation | undefined): string {
   }
 }
 
-const DEFAULT_FONT = '0';
-/** Số dot chiều cao font `^A` ứng với 1 đơn vị `TextOptions.size` — hệ số quy đổi riêng của ZPL. */
-const FONT_HEIGHT_UNIT = 30;
 /** Giá trị dùng làm "không giới hạn" cho tham số max-lines của `^FB`. */
 const MAX_FIELD_BLOCK_LINES = 999;
 
@@ -45,12 +51,10 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
   const x = textOptions.x ?? 0;
   const y = textOptions.y ?? 0;
   const orientation = zplOrientation(textOptions.rotation);
-  const font = textOptions.font ?? DEFAULT_FONT;
-  const h = (textOptions.size ?? 1) * FONT_HEIGHT_UNIT;
-  const w = textOptions.xScale ?? h;
+  const { font, heightDots, widthDots } = ZplFontMetrics.fontSizeToNative(textOptions.fontSize);
 
   let command = `${ZPL_COMMAND.FIELD_ORIGIN}${x},${y}`;
-  command += `^A${font}${orientation},${h},${w}`;
+  command += `^A${font}${orientation},${heightDots},${widthDots}`;
 
   if (textOptions.maxWidth) {
     const justify = textOptions.align === 'center' ? 'C' : textOptions.align === 'right' ? 'R' : 'L';
@@ -117,8 +121,8 @@ const QR_MODEL = 2;
  */
 const QR_MODE_AUTO = 'A';
 
-/** Bằng `FONT_HEIGHT_UNIT` vì các dòng bảng dùng `DEFAULT_FONT` không override size. */
-const DEFAULT_TABLE_ROW_HEIGHT_DOTS = FONT_HEIGHT_UNIT;
+/** Dòng bảng không có cỡ chữ riêng nên cao bằng chữ ở cỡ mặc định. */
+const DEFAULT_TABLE_ROW_HEIGHT_DOTS = ZplFontMetrics.fontSizeToNative(undefined).heightDots;
 
 function compileImageElement(element: ImageElement): string {
   const options = element.options ?? {};
@@ -179,9 +183,12 @@ function compileCircleElement(element: CircleElement): string {
 
 // `CutOptions.rows` không có lệnh ZPL tương ứng — `^MM` cắt sau mỗi label
 // một khi bật, không hỗ trợ "cắt mỗi N label" nên trường này bị bỏ qua.
-function compileCutElement(element: CutElement): string {
+function compileCutElement(element: CutElement, warnings: CompileWarnings): string {
   const mode = element.options?.mode ?? 'full';
-  return mode === 'off' ? `${ZPL_COMMAND.PRINT_MODE}T` : `${ZPL_COMMAND.PRINT_MODE}C`;
+  if (mode === 'off') return `${ZPL_COMMAND.PRINT_MODE}T`;
+
+  if (element.options?.rows !== undefined) warnings.add(CUT_ROWS_WARNING);
+  return `${ZPL_COMMAND.PRINT_MODE}C`;
 }
 
 function compileTableElement(element: TableElement): string {
@@ -218,8 +225,9 @@ function compileBarcodeElement(element: BarcodeElement): string {
 
 // Firmware `^BQ` chỉ hỗ trợ ổn định orientation "N" (không đủ N/R/I/B như
 // `^A`/`^B<type>`) nên `rotation` không được áp dụng ở đây.
-function compileQrcodeElement(element: QrCodeElement): string {
+function compileQrcodeElement(element: QrCodeElement, warnings: CompileWarnings): string {
   const options = element.options;
+  if (options.rotation !== undefined && options.rotation !== 0) warnings.add(QR_ROTATION_WARNING);
   const x = options.x ?? 0;
   const y = options.y ?? 0;
   const magnification = options.cellWidth ?? DEFAULT_QR_MAGNIFICATION;
@@ -230,7 +238,7 @@ function compileQrcodeElement(element: QrCodeElement): string {
   );
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -254,17 +262,18 @@ function compileElement(element: PrintElement): string {
       return compileCircleElement(element);
 
     // ZPL không có lệnh gốc cho viền ellipse, vùng reverse-print độc lập,
-    // hay vùng erase độc lập — no-op có chủ đích.
+    // hay vùng erase độc lập — bỏ qua và báo cảnh báo.
     case 'ellipse':
     case 'reverse':
     case 'erase':
+      warnings.unsupportedElement(element.type);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
 
     case 'cut':
-      return compileCutElement(element);
+      return compileCutElement(element, warnings);
 
     case 'table':
       return compileTableElement(element);
@@ -281,7 +290,7 @@ function compileElement(element: PrintElement): string {
       return compileBarcodeElement(element);
 
     case 'qrcode':
-      return compileQrcodeElement(element);
+      return compileQrcodeElement(element, warnings);
   }
 }
 
@@ -291,8 +300,10 @@ const DARKNESS_SCALE = 2;
 /** Giá trị `^CI` cho bảng mã UTF-8 — `^CI28` chọn UTF-8 theo Zebra ZPL II Programming Guide. */
 const CI_ENCODING_UTF8 = 28;
 
-export function compileToZPL(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh ZPL II kèm cảnh báo. */
+export function compileToZPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(ZPL_LANGUAGE_NAME);
 
   lines.push(ZPL_COMMAND.START_FORMAT);
   lines.push(`${ZPL_COMMAND.PRINT_WIDTH}${document.widthDots}`);
@@ -306,13 +317,13 @@ export function compileToZPL(document: ResolvedPrintDocument): string {
   for (const element of document.elements) {
     // Một element no-op (hoặc `raw` rỗng) biên dịch ra `''` — bỏ qua để
     // không đẩy một dòng trống thừa vào output nối bằng `\n`.
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
   lines.push(`${ZPL_COMMAND.PRINT_QUANTITY}${document.copies}`);
   lines.push(ZPL_COMMAND.END_FORMAT);
-  return lines.join('\n') + '\n';
+  return { output: lines.join('\n') + '\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -321,6 +332,6 @@ export function compileToZPL(document: ResolvedPrintDocument): string {
  */
 export class ZplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToZPL(document), warnings: [] };
+    return compileToZPL(document);
   }
 }

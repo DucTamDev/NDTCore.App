@@ -1,6 +1,7 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
 import type { Alignment } from '../../types';
+import { ZplFontMetrics } from './ZplFontMetrics';
 
 /**
  * Một lệnh ZPL đã giải mã: mã lệnh có tiền tố `^`/`~`, phần text thô nằm giữa nó và
@@ -203,10 +204,7 @@ function buildClosedFieldElement(state: ZplParserState): PrintElement {
     options: {
       x: state.fieldX,
       y: adjustedY,
-      font: state.currentFont,
-      size: 1,
-      xScale: state.currentFontWidth,
-      yScale: state.currentFontHeight,
+      fontSize: ZplFontMetrics.nativeToFontSize(state.currentFontHeight),
       reverse: state.fieldReverse || undefined,
       maxWidth: state.fieldBlockWidth || undefined,
       align,

@@ -22,7 +22,11 @@ describe('ZplParser', () => {
     expect(result.widthDots).toBe(320);
     expect(result.heightDots).toBe(240);
     expect(result.elements).toEqual([
-      { type: 'text', content: 'Hello', options: { x: 10, y: 20, font: '0', size: 1, xScale: 30, yScale: 30, reverse: undefined, maxWidth: undefined, align: undefined } },
+      {
+        type: 'text',
+        content: 'Hello',
+        options: { x: 10, y: 20, fontSize: 30, reverse: undefined, maxWidth: undefined, align: undefined },
+      },
     ]);
   });
 
@@ -30,7 +34,11 @@ describe('ZplParser', () => {
     const source = '^XA^FT10,50^A0N,20,20^FDBase^FS^XZ';
     const result = parseZPL(source);
     expect(result.elements).toEqual([
-      { type: 'text', content: 'Base', options: { x: 10, y: 30, font: '0', size: 1, xScale: 20, yScale: 20, reverse: undefined, maxWidth: undefined, align: undefined } },
+      {
+        type: 'text',
+        content: 'Base',
+        options: { x: 10, y: 30, fontSize: 20, reverse: undefined, maxWidth: undefined, align: undefined },
+      },
     ]);
   });
 
