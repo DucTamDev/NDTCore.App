@@ -171,23 +171,28 @@ src/
 │
 ├── language/                        # MỚI — gộp compiler/{lang} + parser/{lang}
 │   │                                 # (KHÔNG gồm validation, KHÔNG gồm preview)
+│   ├── CompileWarnings.ts            # gom cảnh báo của 1 lần compile (field bỏ/gộp, element không hỗ trợ)
+│   ├── BitmapFont.ts                 # chọn font bitmap + hệ số phóng đại (TSPL, EPL, CPCL)
+│   ├── MagnifiedFont.ts              # 1 font phóng đại nguyên (DPL, SBPL, ESC/POS, Star PRNT)
 │   ├── tspl/      (đổi tên từ `tsc` — TSC chỉ còn dùng cho tên hãng)
-│   │   ├── TsplCommand.ts, TsplCompiler.ts, TsplEncoder.ts, TsplParser.ts, index.ts
-│   ├── zpl/       ├── ZplCommand.ts, ZplCompiler.ts, ZplEncoder.ts, ZplParser.ts, index.ts
-│   ├── epl/       ├── EplCommand.ts, EplCompiler.ts, EplEncoder.ts, EplParser.ts, index.ts
-│   ├── cpcl/      ├── CpclCommand.ts, CpclCompiler.ts, CpclEncoder.ts, CpclParser.ts, index.ts
-│   ├── dpl/       ├── DplCommand.ts, DplCompiler.ts, DplEncoder.ts, DplParser.ts, index.ts
-│   ├── ipl/       ├── IplCommand.ts, IplCompiler.ts, IplEncoder.ts, IplParser.ts, index.ts
-│   ├── sbpl/      ├── SbplCommand.ts, SbplCompiler.ts, SbplEncoder.ts, SbplParser.ts, index.ts
+│   │   ├── TsplCommand.ts, TsplCompiler.ts, TsplEncoder.ts, TsplFontMetrics.ts, TsplParser.ts, index.ts
+│   ├── zpl/       ├── ZplCommand.ts, ZplCompiler.ts, ZplEncoder.ts, ZplFontMetrics.ts, ZplParser.ts, index.ts
+│   ├── epl/       ├── EplCommand.ts, EplCompiler.ts, EplEncoder.ts, EplFontMetrics.ts, EplParser.ts, index.ts
+│   ├── cpcl/      ├── CpclCommand.ts, CpclCompiler.ts, CpclEncoder.ts, CpclFontMetrics.ts, CpclParser.ts,
+│   │              │   index.ts
+│   ├── dpl/       ├── DplCommand.ts, DplCompiler.ts, DplEncoder.ts, DplFontMetrics.ts, DplParser.ts, index.ts
+│   ├── ipl/       ├── IplCommand.ts, IplCompiler.ts, IplEncoder.ts, IplFontMetrics.ts, IplParser.ts, index.ts
+│   ├── sbpl/      ├── SbplCommand.ts, SbplCompiler.ts, SbplEncoder.ts, SbplFontMetrics.ts, SbplParser.ts,
+│   │              │   index.ts
 │   ├── escpos/    ├── EscPosCommand.ts, EscPosCompiler.ts, EscPosCodePage.ts,
-│   │              │   EscPosBarcodeEncoder.ts, EscPosImageEncoder.ts,
+│   │              │   EscPosBarcodeEncoder.ts, EscPosImageEncoder.ts, EscPosFontMetrics.ts,
 │   │              │   EscPosQrCodeEncoder.ts, EscPosParser.ts, index.ts
 │   └── starprnt/  └── StarPrntCommand.ts, StarPrntCompiler.ts, StarPrntEncoder.ts,
-│                      StarPrntParser.ts, index.ts
+│                      StarPrntFontMetrics.ts, StarPrntParser.ts, index.ts
 │
 ├── preview/                          # THU GỌN + thêm per-language subfolder
-│   ├── PreviewRenderer.ts            # KHÔNG đổi — implementation dùng chung
-│   │                                 # cho Dpl/Sbpl/Ipl (giữ nguyên vị trí + nội dung)
+│   ├── PreviewRenderer.ts            # implementation dùng chung cho Dpl/Sbpl/Ipl — chiều cao
+│   │                                 # chữ do FontMetrics của ngôn ngữ gọi truyền vào
 │   ├── index.ts
 │   └── languages/
 │       ├── tspl/TsplPreviewRenderer.ts     (MỚI — thêm 1 cấp thư mục theo lang)
@@ -239,6 +244,26 @@ src/
 └── __tests__/                            # integration test ở root
     ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
 ```
+
+## Cỡ chữ và cảnh báo compile
+
+- `TextOptions.fontSize` (dots) là field cỡ chữ duy nhất của `PrintElement` text. Mỗi ngôn ngữ tự quy đổi
+  sang lệnh native qua `language/{lang}/{Lang}FontMetrics.ts` — đây là nguồn dữ liệu font duy nhất, dùng
+  chung cho compiler, parser (dựng lại `fontSize` best-effort) và preview.
+- `PrintCompiler.compile()` và `compileTo()` trả `{ output, warnings }`. `warnings` liệt kê field bị bỏ
+  qua/gộp và element ngôn ngữ không có lệnh tương ứng; `output` giữ nguyên hành vi cũ (element không hỗ
+  trợ vẫn không phát lệnh nào). Cảnh báo trùng nội dung chỉ xuất hiện 1 lần; `cut` với `mode: 'off'`
+  không cảnh báo vì không yêu cầu cắt.
+
+| Ngôn ngữ | Element bị bỏ qua (có cảnh báo) | Field bị bỏ/gộp (có cảnh báo) |
+|---|---|---|
+| TSPL | — | `CutOptions.mode: 'partial'` in như `'full'` |
+| EPL | diagonal, circle, ellipse, reverse, erase, cut | — |
+| CPCL | circle, ellipse, reverse, erase, cut | `BarcodeConfig.readable` |
+| ZPL | ellipse, reverse, erase | `CutOptions.rows`, `QrCodeConfig.rotation` |
+| DPL, SBPL, IPL | diagonal, circle, ellipse, reverse, erase, cut, barcode, qrcode | — |
+| ESC/POS | box, line, diagonal, circle, ellipse, reverse, erase | — |
+| Star PRNT | box, line, diagonal, circle, ellipse, reverse, erase, barcode, qrcode | `CutOptions.rows`, `CutOptions.mode: 'partial'` |
 
 ## Scripts
 
