@@ -77,8 +77,8 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
 }
 
 /**
- * SBPL không có bảng font-metrics để suy ra chiều cao glyph thực (trường `L`
- * chỉ là hệ số phóng đại thô, không phải chiều cao pixel) — dùng fallback cố định.
+ * `TableOptions` không khai báo `fontSize` cho từng dòng nên không có cỡ
+ * chữ để tra `SbplFontMetrics` (trường `L` là hệ số phóng đại) — dùng fallback cố định.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 

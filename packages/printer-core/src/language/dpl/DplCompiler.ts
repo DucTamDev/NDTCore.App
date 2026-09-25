@@ -128,9 +128,8 @@ function compileLineElement(options: LineOptions): string {
 
 /**
  * Chiều cao mỗi hàng (dots), dùng để xếp chồng các dòng đã format của một
- * bảng. Bản ghi text DPL không có bảng font metrics để tính chiều cao glyph
- * thật (`h`/`w` chỉ là hệ số nhân kích thước, không phải pixel đã tính sẵn),
- * nên đây là giá trị ước lượng mặc định.
+ * bảng. `TableOptions` không khai báo `fontSize` cho từng hàng nên không có
+ * cỡ chữ để tra `DplFontMetrics` — đây là giá trị ước lượng mặc định.
  *
  * Cố ý trùng giá trị và tên với `DEFAULT_TABLE_ROW_HEIGHT_DOTS` trong
  * `preview/PreviewRenderer.ts` để bảng preview khớp bảng in thật; import

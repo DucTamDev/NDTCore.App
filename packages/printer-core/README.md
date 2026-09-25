@@ -44,7 +44,7 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > logic riêng là việc khác, để sau.
 >
 > **Giới hạn đã biết (không thuộc phạm vi port này):**
-> - Chuỗi string mà `TsplCompiler.compile()` trả về trộn lẫn hai kiểu encoding
+> - Chuỗi string trong `TsplCompiler.compile().output` trộn lẫn hai kiểu encoding
 >   byte khác nhau (text UTF-8 và payload bitmap dạng latin-1 one-char-per-byte)
 >   khi document có element ảnh — xem JSDoc trên `TsplCompiler.compile()`
 >   (`src/language/tspl/TsplCompiler.ts`) để biết chi tiết trước khi dùng output

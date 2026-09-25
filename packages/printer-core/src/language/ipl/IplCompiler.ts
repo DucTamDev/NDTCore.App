@@ -28,8 +28,8 @@ const TEXT_CHARSET_ID = 26;
 
 /**
  * Chiều cao mỗi dòng (dots) khi xếp chồng các dòng table thành các field
- * `H` liên tiếp. IPL không có font-metrics để suy ra chiều cao glyph thật
- * (clause `h`/`w` của field `H` chỉ là bội số size thô) nên đây là fallback cố định.
+ * `H` liên tiếp. `TableOptions` không khai báo `fontSize` cho từng dòng nên
+ * không có cỡ chữ để tra `IplFontMetrics` — đây là fallback cố định.
  */
 const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
 

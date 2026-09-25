@@ -24,9 +24,9 @@ const MONOSPACE_FONT_FAMILY = 'monospace';
 export type FontHeightResolver = (fontSizeDots: number | undefined) => number;
 
 /**
- * Không có bảng font-metrics để tính khoảng cách dòng, nên dùng giá trị cố
- * định — cố ý trùng lặp với DplCompiler.ts, vì 2 file ở 2 layer khác nhau,
- * không có module chung nào để import.
+ * `TableOptions` không khai báo `fontSize` cho từng dòng nên không gọi được
+ * `fontHeight()` — dùng giá trị cố định, cố ý trùng lặp với DplCompiler.ts,
+ * vì 2 file ở 2 layer khác nhau, không có module chung nào để import.
  */
 const TABLE_ROW_HEIGHT = 16;
 const TABLE_ROW_BASELINE_RATIO = 0.85;

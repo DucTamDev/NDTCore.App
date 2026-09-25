@@ -102,9 +102,7 @@ interface ZplParserState {
   labelHomeY: number;
   labelShift: number;
   labelTop: number;
-  currentFont: string;
   currentFontHeight: number;
-  currentFontWidth: number;
   fieldReverse: boolean;
   fieldData: string;
   barcodeType: string;
@@ -123,9 +121,7 @@ function createInitialParserState(): ZplParserState {
     labelHomeY: 0,
     labelShift: 0,
     labelTop: 0,
-    currentFont: '0',
     currentFontHeight: 30,
-    currentFontWidth: 30,
     fieldReverse: false,
     fieldData: '',
     barcodeType: '',
@@ -140,11 +136,9 @@ function createInitialParserState(): ZplParserState {
 
 /** `^A0`/`^AA`.../`^AZ` — chữ cái font nằm ngay trong mã lệnh. */
 function applyFontSizeCommand(state: ZplParserState, command: ZPLCommand): void {
-  state.currentFont = command.code[2];
   const parts = command.rawParams.split(',');
   if (!parts[1]) return;
   state.currentFontHeight = Number(parts[1]) || state.currentFontHeight;
-  state.currentFontWidth = parts[2] ? Number(parts[2]) || state.currentFontHeight : state.currentFontHeight;
 }
 
 /**
@@ -213,10 +207,8 @@ function buildClosedFieldElement(state: ZplParserState): PrintElement {
 }
 
 function applyConfigureFontCommand(state: ZplParserState, command: ZPLCommand): void {
-  if (command.params[0]) state.currentFont = command.params[0];
   if (!command.params[1]) return;
   state.currentFontHeight = Number(command.params[1]);
-  state.currentFontWidth = command.params[2] ? Number(command.params[2]) : state.currentFontHeight;
 }
 
 // `^FBwidth,maxLines,lineSpacing,justify,hangingIndent` — chỉ `width`/`justify`
