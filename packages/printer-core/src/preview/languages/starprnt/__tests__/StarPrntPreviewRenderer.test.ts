@@ -34,4 +34,13 @@ describe('StarPrntPreviewRenderer', () => {
     // no such handling — the text stays plain black-on-white, no `fill="#000"/>` box.
     expect(svg).not.toContain('fill="#000"/>');
   });
+
+  it('vẽ chữ với chiều cao Star PRNT thật in ra cho fontSize 50 (làm tròn về hệ số 2)', () => {
+    const svg = new StarPrntPreviewRenderer().preview({
+      ...BASE,
+      elements: [{ type: 'text', content: 'hi', options: { fontSize: 50 } }],
+    });
+
+    expect(svg).toContain('font-size="48"');
+  });
 });

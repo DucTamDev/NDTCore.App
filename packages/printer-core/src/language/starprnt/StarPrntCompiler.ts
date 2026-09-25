@@ -2,7 +2,6 @@ import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions } from '../../document/elements';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import {
-  BYTE_MASK,
   STAR_PRNT,
   STAR_PRNT_ALIGN_VALUE,
   STAR_PRNT_CUT_VALUE,
@@ -12,6 +11,18 @@ import {
 } from './StarPrntCommand';
 import { encodeStarPrntImage } from './StarPrntEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
+import { CompileWarnings } from '../CompileWarnings';
+import { StarPrntFontMetrics } from './StarPrntFontMetrics';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const STAR_PRNT_LANGUAGE_NAME = 'Star PRNT';
+
+/** Cảnh báo khi `CutOptions.rows` bị bỏ qua. */
+const CUT_ROWS_WARNING = 'CutOptions.rows bị bỏ qua — lệnh cắt ESC d của Star PRNT chỉ nhận 1 tham số cố định.';
+
+/** Cảnh báo khi cắt một phần bị gộp thành cắt toàn phần. */
+const CUT_PARTIAL_WARNING =
+  'CutOptions.mode "partial" được in như "full" — Star PRNT không có lệnh cắt một phần riêng.';
 
 function alignByte(align: TextOptions['align']): number {
   switch (align) {
@@ -35,10 +46,8 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
     chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, STAR_PRNT_UNDERLINE_VALUE.ON]));
   }
 
-  if (resolvedOptions.size !== undefined && resolvedOptions.size > 1) {
-    // Kẹp hệ số phóng to về đúng 1 byte, theo định dạng lệnh "ESC i h w".
-    // eslint-disable-next-line no-bitwise
-    const magnification = resolvedOptions.size & BYTE_MASK;
+  const magnification = StarPrntFontMetrics.fontSizeToMagnification(resolvedOptions.fontSize);
+  if (magnification > 1) {
     chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.SIZE, magnification, magnification]));
   }
 
@@ -52,7 +61,7 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
   if (resolvedOptions.underline) {
     chunks.push(new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.UNDERLINE, STAR_PRNT_UNDERLINE_VALUE.OFF]));
   }
-  if (resolvedOptions.size !== undefined && resolvedOptions.size > 1) {
+  if (magnification > 1) {
     chunks.push(
       new Uint8Array([
         STAR_PRNT.ESC,
@@ -72,9 +81,15 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
  * Mode, nên 'partial' và 'full' đều dùng chung `STAR_PRNT_CUT_VALUE`. `rows`
  * bị bỏ qua vì ESC d chỉ nhận đúng 1 tham số cố định.
  */
-function compileCutElement(element: Extract<PrintElement, { type: 'cut' }>): Uint8Array[] {
+function compileCutElement(
+  element: Extract<PrintElement, { type: 'cut' }>,
+  warnings: CompileWarnings,
+): Uint8Array[] {
   const mode = element.options?.mode ?? 'full';
   if (mode === 'off') return [];
+
+  if (element.options?.rows !== undefined) warnings.add(CUT_ROWS_WARNING);
+  if (mode === 'partial') warnings.add(CUT_PARTIAL_WARNING);
 
   return [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.CUT, STAR_PRNT_CUT_VALUE])];
 }
@@ -89,7 +104,7 @@ function compileTableElement(element: Extract<PrintElement, { type: 'table' }>):
   return chunks;
 }
 
-function compileElement(element: PrintElement): Uint8Array[] {
+function compileElement(element: PrintElement, warnings: CompileWarnings): Uint8Array[] {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -100,7 +115,7 @@ function compileElement(element: PrintElement): Uint8Array[] {
     case 'raw':
       return [typeof element.content === 'string' ? new TextEncoder().encode(element.content) : element.content];
 
-    // Star Line Mode không có lệnh vẽ vector nào; các loại này là no-op có chủ đích.
+    // Star Line Mode không có lệnh vẽ vector nào — bỏ qua và báo cảnh báo.
     case 'box':
     case 'line':
     case 'diagonal':
@@ -108,6 +123,7 @@ function compileElement(element: PrintElement): Uint8Array[] {
     case 'ellipse':
     case 'reverse':
     case 'erase':
+      warnings.unsupportedElement(element.type);
       return [];
 
     // Star Line Mode không có nguyên hàm ngắt trang / tiến N dot / tự động bố
@@ -120,13 +136,14 @@ function compileElement(element: PrintElement): Uint8Array[] {
 
     // Star Line Mode có định nghĩa lệnh barcode ("ESC b ...") và ký hiệu 2D
     // ("ESC GS y ..."), nhưng không có cấu trúc byte nào ở đây được xác thực
-    // đủ để phát ra mà không phải đoán mò field. No-op có chủ đích, không phải bug.
+    // đủ để phát ra mà không phải đoán mò field — bỏ qua và báo cảnh báo.
     case 'barcode':
     case 'qrcode':
+      warnings.unsupportedElement(element.type);
       return [];
 
     case 'cut':
-      return compileCutElement(element);
+      return compileCutElement(element, warnings);
 
     case 'table':
       return compileTableElement(element);
@@ -144,11 +161,12 @@ function compileElement(element: PrintElement): Uint8Array[] {
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.INIT])];
+    const warnings = new CompileWarnings(STAR_PRNT_LANGUAGE_NAME);
 
     for (const element of document.elements) {
-      chunks.push(...compileElement(element));
+      chunks.push(...compileElement(element, warnings));
     }
 
-    return { output: concatStarPrntBytes(chunks), warnings: [] };
+    return { output: concatStarPrntBytes(chunks), warnings: warnings.toArray() };
   }
 }

@@ -1,9 +1,9 @@
 import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
+import { StarPrntFontMetrics } from '../../../language';
 
 const DEFAULT_RECEIPT_WIDTH = 576;
-const BASE_FONT_HEIGHT = 12;
 const LINE_HEIGHT_PAD = 4;
 const TOP_MARGIN = 10;
 const CANVAS_PADDING = 5;
@@ -32,9 +32,9 @@ function resolveTextX(align: string, receiptWidth: number): number {
   return TEXT_EDGE_MARGIN;
 }
 
-/** Chiều cao dòng theo hệ số phóng đại `size` của Star PRNT (base 12 dots/bước). */
-function resolveFontSize(size: number): number {
-  return size * BASE_FONT_HEIGHT;
+/** Chiều cao chữ Star PRNT thật in ra — cỡ chữ làm tròn về hệ số phóng đại gần nhất như compiler. */
+function resolveFontSize(fontSizeDots: number | undefined): number {
+  return StarPrntFontMetrics.magnificationToFontSize(StarPrntFontMetrics.fontSizeToMagnification(fontSizeDots));
 }
 
 /**
@@ -47,7 +47,7 @@ function renderTextLine(
   y: number,
 ): string {
   const options = element.options ?? {};
-  const fontSize = resolveFontSize(options.size ?? 1);
+  const fontSize = resolveFontSize(options.fontSize);
   const align = options.align ?? 'left';
   const textAnchor = resolveTextAnchor(align);
   const x = resolveTextX(align, receiptWidth);
@@ -71,7 +71,7 @@ export class StarPrntPreviewRenderer implements PrintPreview {
     for (const element of document.elements) {
       if (element.type !== 'text') continue;
       body += renderTextLine(element, receiptWidth, y);
-      y += resolveFontSize(element.options?.size ?? 1) + LINE_HEIGHT_PAD;
+      y += resolveFontSize(element.options?.fontSize) + LINE_HEIGHT_PAD;
     }
 
     const contentHeight = Math.max(y + TOP_MARGIN, MIN_CANVAS_HEIGHT);

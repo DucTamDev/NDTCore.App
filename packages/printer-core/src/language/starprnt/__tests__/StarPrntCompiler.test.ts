@@ -49,11 +49,9 @@ describe('StarPrntCompiler', () => {
     expect(offIdx).toBeGreaterThan(onIdx);
   });
 
-  it('generates Star size magnification: ESC i h w', () => {
-    const bytes = Array.from(
-      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Big', options: { size: 3 } }] })
-        .output,
-    );
+  it('fontSize 72 → ESC i 3 3 (phóng đại 3 lần font 24 dots)', () => {
+    const elements: PrintElement[] = [{ type: 'text', content: 'Big', options: { fontSize: 72 } }];
+    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements }).output);
     const idx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x69);
     expect(idx).toBeGreaterThan(-1);
     expect(bytes[idx + 2]).toBe(3);
@@ -134,7 +132,7 @@ describe('StarPrntCompiler', () => {
 
   it('accepts an encoding argument without changing its output (Star PRNT text is not yet encoding-driven)', () => {
     const encoding = STAR_PROFILES['star-tsp143']!.features;
-    const elements: PrintElement[] = [{ type: 'text', content: 'Profile', options: { bold: true, size: 2 } }];
+    const elements: PrintElement[] = [{ type: 'text', content: 'Profile', options: { bold: true, fontSize: 48 } }];
 
     const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, encoding).output;
     const withoutEncoding = new StarPrntCompiler().compile({ ...BASE, elements }).output;
@@ -164,5 +162,63 @@ describe('StarPrntCompiler', () => {
       const withEl = new StarPrntCompiler().compile({ ...BASE, elements: [el] }).output;
       expect(withEl).toEqual(without);
     }
+  });
+
+  it('fontSize 24 là cỡ gốc nên không phát ESC i', () => {
+    const elements: PrintElement[] = [{ type: 'text', content: 'Hi', options: { fontSize: 24 } }];
+    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements }).output);
+
+    expect(bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x69)).toBe(-1);
+  });
+
+  it('cảnh báo CutOptions.rows bị bỏ qua và mode partial bị gộp, mỗi loại 1 lần', () => {
+    const { warnings } = new StarPrntCompiler().compile({
+      ...BASE,
+      elements: [
+        { type: 'cut', options: { mode: 'partial', rows: 3 } },
+        { type: 'cut', options: { mode: 'partial', rows: 2 } },
+      ],
+    });
+
+    expect(warnings).toEqual([
+      'CutOptions.rows bị bỏ qua — lệnh cắt ESC d của Star PRNT chỉ nhận 1 tham số cố định.',
+      'CutOptions.mode "partial" được in như "full" — Star PRNT không có lệnh cắt một phần riêng.',
+    ]);
+  });
+
+  it('cut full không rows và cut off thì không có cảnh báo', () => {
+    const { warnings } = new StarPrntCompiler().compile({
+      ...BASE,
+      elements: [
+        { type: 'cut', options: { mode: 'full' } },
+        { type: 'cut', options: { mode: 'off', rows: 3 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cảnh báo từng loại element Star PRNT không có lệnh, mỗi loại 1 lần', () => {
+    const { warnings } = new StarPrntCompiler().compile({
+      ...BASE,
+      elements: [
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+        { type: 'line', options: { x1: 0, y1: 0, x2: 10, y2: 0 } },
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 5, y2: 5 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 10 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 10 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 10, height: 5 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 10, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 10, height: 10 } },
+        { type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } },
+        { type: 'qrcode', options: { content: 'hello-qr' } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['box', 'line', 'diagonal', 'circle', 'ellipse', 'reverse', 'erase', 'barcode', 'qrcode'].map(
+        (type) => `Element "${type}" bị bỏ qua — Star PRNT không có lệnh tương ứng.`,
+      ),
+    );
   });
 });
