@@ -78,6 +78,7 @@ function collectFromRepeat(
       total: 0,
       unit: 0,
       unitCount: 0,
+      expanded: false,
     });
     collectFromNode(repeat.template, itemContext, assetIds);
   }

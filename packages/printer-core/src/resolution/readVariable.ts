@@ -1,4 +1,9 @@
-import { isBuiltInVariableName, type BuiltInVariableName, type VariableType } from '../catalog';
+import {
+  BUILT_IN_VARIABLE_SCOPES,
+  isBuiltInVariableName,
+  type BuiltInVariableName,
+  type VariableType,
+} from '../catalog';
 import { findScopeFrame, innermostFrame, type ResolveContext } from './ResolveContext';
 import { errorMessage, ResolveError } from './ResolveError';
 
@@ -22,7 +27,10 @@ export function readVariableValue(
   name: string,
   nodeId: string,
 ): unknown {
-  if (isBuiltInVariableName(name)) return BUILT_IN_VARIABLE_READERS[name](context);
+  if (isBuiltInVariableName(name)) {
+    checkBuiltInVariableScope(context, name, nodeId);
+    return BUILT_IN_VARIABLE_READERS[name](context);
+  }
 
   const variable = context.index.variables.get(name);
   if (!variable) throw new ResolveError(nodeId, `catalog không có biến "${name}"`);
@@ -31,6 +39,21 @@ export function readVariableValue(
   if (!frame) throw new ResolveError(nodeId, `biến "${name}" chỉ dùng được trong vòng lặp "${variable.collection}"`);
 
   return readFromCatalog(nodeId, name, () => context.catalog.readVariable(name, frame.item));
+}
+
+/** Chặn biến có sẵn dùng sai scope (VD `$position` ở ngoài repeat) — nếu không sẽ âm thầm in giá trị `0`. */
+function checkBuiltInVariableScope(
+  context: ResolveContext,
+  name: BuiltInVariableName,
+  nodeId: string,
+): void {
+  const required = BUILT_IN_VARIABLE_SCOPES[name];
+  if (required === 'repeat' && context.frames.length === 1) {
+    throw new ResolveError(nodeId, `biến "${name}" chỉ dùng được bên trong repeat`);
+  }
+  if (required === 'expand' && !innermostFrame(context).expanded) {
+    throw new ResolveError(nodeId, `biến "${name}" chỉ dùng được bên trong repeat có expand`);
+  }
 }
 
 /** Kiểu của biến; biến có sẵn luôn là `number`. */

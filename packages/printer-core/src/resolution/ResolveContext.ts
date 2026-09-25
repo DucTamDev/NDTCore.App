@@ -23,6 +23,9 @@ export interface ScopeFrame {
 
   /** Tổng số bản sao của phần tử; 1 nếu không expand, 0 ở tầng gốc. */
   readonly unitCount: number;
+
+  /** `repeat` của tầng này có `expand` hay không; `false` ở tầng gốc. */
+  readonly expanded: boolean;
 }
 
 /** Thông tin trang đang resolve. */
@@ -54,7 +57,7 @@ export interface ResolveContext {
 
 /** Tầng scope gốc chứa data của cả document. */
 export function createRootFrame(data: unknown): ScopeFrame {
-  return { collection: null, item: data, position: 0, total: 0, unit: 0, unitCount: 0 };
+  return { collection: null, item: data, position: 0, total: 0, unit: 0, unitCount: 0, expanded: false };
 }
 
 /** Context mới với thêm 1 tầng scope ở trong cùng. */

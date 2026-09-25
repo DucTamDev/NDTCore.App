@@ -132,6 +132,7 @@ function resolveRepeat(node: RepeatNode, context: ResolveContext): ResolvedConta
       total: entries.length,
       unit: entry.unit,
       unitCount: entry.unitCount,
+      expanded: node.expand !== undefined,
     });
     const child = resolveNode(node.template, itemContext);
     if (child) children.push(child);

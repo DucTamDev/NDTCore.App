@@ -287,6 +287,41 @@ describe('DocumentResolver — lặp, expand, phân trang', () => {
   });
 });
 
+describe('DocumentResolver — biến có sẵn dùng sai scope', () => {
+  it('$position ở gốc (không trong repeat) thành trang lỗi', () => {
+    const root: TemplateNode = { type: 'text', id: 'pos', content: [{ var: '$position' }] };
+
+    expect(resolvePages(root)[0]).toEqual({
+      status: 'error',
+      pageIndex: 0,
+      nodeId: 'pos',
+      message: 'biến "$position" chỉ dùng được bên trong repeat',
+    });
+  });
+
+  it('$unit trong repeat không có expand thành trang lỗi', () => {
+    const root: TemplateNode = {
+      type: 'repeat',
+      id: 'items',
+      collection: 'items',
+      template: { type: 'text', id: 'unit', content: [{ var: '$unit' }] },
+    };
+
+    expect(resolvePages(root)[0]).toEqual({
+      status: 'error',
+      pageIndex: 0,
+      nodeId: 'unit',
+      message: 'biến "$unit" chỉ dùng được bên trong repeat có expand',
+    });
+  });
+
+  it('$page ở gốc vẫn in bình thường', () => {
+    const root: TemplateNode = { type: 'text', id: 'page', content: [{ var: '$page' }] };
+
+    expect(pageTexts(resolvePages(root)[0])).toEqual(['1']);
+  });
+});
+
 describe('DocumentResolver — điều kiện', () => {
   function visibleTextFor(condition: NonNullable<TemplateNode['visibleWhen']>): readonly string[] {
     const root: TemplateNode = { type: 'text', id: 'text', content: [{ text: 'X' }], visibleWhen: condition };
