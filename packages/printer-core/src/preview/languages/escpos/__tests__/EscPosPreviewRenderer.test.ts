@@ -25,4 +25,13 @@ describe('EscPosPreviewRenderer', () => {
     });
     expect(svg).toContain('<svg');
   });
+
+  it('vẽ chữ với chiều cao ESC/POS thật in ra cho fontSize 50 (làm tròn về hệ số 2)', () => {
+    const svg = new EscPosPreviewRenderer().preview({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'hi', options: { fontSize: 50 } }],
+    });
+
+    expect(svg).toContain('font-size="48"');
+  });
 });

@@ -1,6 +1,7 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
 import { ESC_POS } from './EscPosCommand';
+import { EscPosFontMetrics } from './EscPosFontMetrics';
 
 export interface EscPosParsedCommand {
   name: string;
@@ -475,7 +476,7 @@ function parseTextRun(
       align: state.align,
       bold: state.bold || undefined,
       underline: state.underline || undefined,
-      size: Math.max(state.sizeWidth, state.sizeHeight),
+      fontSize: EscPosFontMetrics.magnificationToFontSize(Math.max(state.sizeWidth, state.sizeHeight)),
     },
   });
 

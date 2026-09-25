@@ -30,4 +30,13 @@ describe('EscPosParser', () => {
     expect(textElement?.options.align).toBe('center');
     expect(textElement?.options.bold).toBe(true);
   });
+
+  it('dựng fontSize từ hệ số phóng đại GS ! theo font A 24 dots', () => {
+    const bytes = new Uint8Array([0x1d, 0x21, 0x11, ...new TextEncoder().encode('Hi'), 0x0a]);
+    const result = new EscPosParser().parse(bytes) as unknown as {
+      elements: Array<{ type: string; options: Record<string, unknown> }>;
+    };
+
+    expect(result.elements.find((el) => el.type === 'text')?.options.fontSize).toBe(48);
+  });
 });

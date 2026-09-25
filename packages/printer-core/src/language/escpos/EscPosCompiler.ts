@@ -7,6 +7,11 @@ import { encodeEscPosImage } from './EscPosImageEncoder';
 import { encodeEscPosBarcode } from './EscPosBarcodeEncoder';
 import { encodeEscPosQrCode } from './EscPosQrCodeEncoder';
 import { formatTable, validateTableColumns } from '../../formatting';
+import { CompileWarnings } from '../CompileWarnings';
+import { EscPosFontMetrics } from './EscPosFontMetrics';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const ESC_POS_LANGUAGE_NAME = 'ESC/POS';
 
 /** Giá trị "n" của ESC a n (căn lề). */
 const ALIGN_LEFT = 0;
@@ -17,9 +22,8 @@ const ALIGN_RIGHT = 2;
 const FEATURE_ON = 1;
 const FEATURE_OFF = 0;
 
-/** Mặt nạ/độ dịch bit dùng để đóng gói hệ số phóng to width/height vào 2 nibble của GS ! n. */
-const SIZE_MAGNIFICATION_MASK = 0x07;
-const SIZE_HEIGHT_NIBBLE_SHIFT = 4;
+/** Độ dịch bit của nibble độ rộng trong `GS ! n` — nibble thấp là độ cao. */
+const SIZE_WIDTH_NIBBLE_SHIFT = 4;
 
 /**
  * Giá trị "m" của GS V m [n] — chọn cắt toàn phần/một phần cho từng dạng lệnh
@@ -54,13 +58,12 @@ function compileTextElement(
   if (options.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, FEATURE_ON]));
   if (options.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, FEATURE_ON]));
 
-  if (options.size !== undefined && options.size > 1) {
-    const magnification = options.size - 1;
-    // GS ! n đóng nibble cao=height, nibble thấp=width — ở đây dùng chung 1 giá trị magnification.
+  const magnification = EscPosFontMetrics.fontSizeToMagnification(options.fontSize);
+  if (magnification > 1) {
+    // Mỗi nibble lưu (hệ số - 1); phóng đại đều 2 chiều để giữ tỉ lệ chữ.
+    const nibble = magnification - 1;
     // eslint-disable-next-line no-bitwise
-    const nibble = magnification & SIZE_MAGNIFICATION_MASK;
-    // eslint-disable-next-line no-bitwise
-    const sizeByte = (nibble << SIZE_HEIGHT_NIBBLE_SHIFT) | nibble;
+    const sizeByte = (nibble << SIZE_WIDTH_NIBBLE_SHIFT) | nibble;
     chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, sizeByte]));
   }
 
@@ -71,9 +74,7 @@ function compileTextElement(
 
   if (options.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, FEATURE_OFF]));
   if (options.underline) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.UNDERLINE, FEATURE_OFF]));
-  if (options.size !== undefined && options.size > 1) {
-    chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, FEATURE_OFF]));
-  }
+  if (magnification > 1) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.SIZE, FEATURE_OFF]));
   if (options.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, FEATURE_OFF]));
   chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.ALIGN, ALIGN_LEFT]));
 
@@ -106,7 +107,11 @@ function compileTableElement(options: TableOptions, encoding: TextEncodingOption
   return chunks;
 }
 
-function compileElement(element: PrintElement, encoding: TextEncodingOptions | undefined): Uint8Array[] {
+function compileElement(
+  element: PrintElement,
+  encoding: TextEncodingOptions | undefined,
+  warnings: CompileWarnings,
+): Uint8Array[] {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options, encoding);
@@ -123,7 +128,7 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'raw':
       return [typeof element.content === 'string' ? encodeEscPosText(element.content, encoding) : element.content];
 
-    // ESC/POS không có lệnh vẽ vector nguyên sinh nên các element này là no-op có chủ đích, không phải thiếu sót.
+    // ESC/POS không có lệnh vẽ vector nguyên sinh — bỏ qua và báo cảnh báo.
     case 'box':
     case 'line':
     case 'diagonal':
@@ -131,6 +136,7 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
     case 'ellipse':
     case 'reverse':
     case 'erase':
+      warnings.unsupportedElement(element.type);
       return [];
 
     // Package chưa có engine auto-layout hàng-cột — placeholder chờ thiết kế, không phải bug.
@@ -151,11 +157,12 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
   compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];
+    const warnings = new CompileWarnings(ESC_POS_LANGUAGE_NAME);
 
     for (const element of document.elements) {
-      chunks.push(...compileElement(element, encoding));
+      chunks.push(...compileElement(element, encoding, warnings));
     }
 
-    return { output: concatEscPosBytes(chunks), warnings: [] };
+    return { output: concatEscPosBytes(chunks), warnings: warnings.toArray() };
   }
 }

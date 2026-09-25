@@ -5,3 +5,4 @@ export * from './EscPosImageEncoder';
 export * from './EscPosBarcodeEncoder';
 export * from './EscPosQrCodeEncoder';
 export * from './EscPosParser';
+export * from './EscPosFontMetrics';

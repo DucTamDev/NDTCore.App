@@ -37,7 +37,13 @@ describe('convert', () => {
     expect(result.output).toContain('TEXT');
     expect(result.output).toContain('"Hello"');
     expect(result.output).toContain('PRINT');
-    expect(result.elements).toEqual([{ type: 'text', content: 'Hello', options: { align: 'left', bold: undefined, underline: undefined, size: 1 } }]);
+    expect(result.elements).toEqual([
+      {
+        type: 'text',
+        content: 'Hello',
+        options: { align: 'left', bold: undefined, underline: undefined, fontSize: 24 },
+      },
+    ]);
   });
 
   it('converts an EPL label to recognizable ZPL syntax', () => {

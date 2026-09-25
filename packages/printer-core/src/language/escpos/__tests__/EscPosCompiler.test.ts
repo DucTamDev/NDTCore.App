@@ -200,4 +200,67 @@ describe('EscPosCompiler', () => {
       expect(withEl).toEqual(without);
     }
   });
+
+  it('fontSize 48 → GS ! 0x11 (phóng đại 2 lần mỗi chiều) trước chữ và reset GS ! 0 sau chữ', () => {
+    const bytes = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'Hi', options: { fontSize: 48 } }],
+    }).output;
+
+    expect(containsSubsequence(bytes, new Uint8Array([0x1d, 0x21, 0x11, 0x48, 0x69, 0x0a]))).toBe(true);
+    expect(containsSubsequence(bytes, new Uint8Array([0x1d, 0x21, 0x00]))).toBe(true);
+  });
+
+  it('fontSize 24 là cỡ gốc của font A nên không phát GS !', () => {
+    const bytes = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'Hi', options: { fontSize: 24 } }],
+    }).output;
+
+    expect(containsSubsequence(bytes, new Uint8Array([0x1d, 0x21]))).toBe(false);
+  });
+
+  it('cảnh báo từng loại element ESC/POS không có lệnh vẽ, mỗi loại 1 lần', () => {
+    const { warnings } = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+        { type: 'line', options: { x1: 0, y1: 0, x2: 10, y2: 0 } },
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['box', 'line', 'diagonal', 'circle', 'ellipse', 'reverse', 'erase'].map(
+        (type) => `Element "${type}" bị bỏ qua — ESC/POS không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('element được hỗ trợ thì không có cảnh báo', () => {
+    const { warnings } = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [
+        { type: 'text', content: 'Hi', options: { fontSize: 48 } },
+        { type: 'qrcode', options: { x: 0, y: 0, content: 'hi' } },
+        { type: 'cut', options: { mode: 'partial', rows: 3 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cỡ chữ mặc định của template (12px ≈ 25.4 dots ở 203 dpi) in cỡ thường, không phát GS !', () => {
+    const bytes = new EscPosCompiler().compile({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'Hi', options: { fontSize: 25.375 } }],
+    }).output;
+
+    expect(containsSubsequence(bytes, new Uint8Array([0x1d, 0x21]))).toBe(false);
+  });
 });
