@@ -1,10 +1,16 @@
 import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintPreview } from '../../../core';
+import { SbplFontMetrics } from '../../../language';
 import { renderPreview } from '../../PreviewRenderer';
 
-/** Preview renderer của SBPL — chỉ uỷ quyền cho `renderPreview()` dùng chung, không có tuỳ biến riêng cho SBPL. */
+/** Chiều cao chữ SBPL thật in ra — cỡ chữ làm tròn về hệ số phóng đại gần nhất như compiler. */
+function sbplFontHeight(fontSizeDots: number | undefined): number {
+  return SbplFontMetrics.magnificationToFontSize(SbplFontMetrics.fontSizeToMagnification(fontSizeDots));
+}
+
+/** Preview renderer của SBPL — uỷ quyền cho `renderPreview()` dùng chung với chiều cao chữ từ `SbplFontMetrics`. */
 export class SbplPreviewRenderer implements PrintPreview {
   preview(document: ResolvedPrintDocument): string {
-    return renderPreview(document);
+    return renderPreview(document, sbplFontHeight);
   }
 }

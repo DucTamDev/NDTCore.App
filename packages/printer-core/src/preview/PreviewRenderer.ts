@@ -4,8 +4,8 @@ import { formatTable, validateTableColumns } from '../formatting';
 
 /**
  * Renderer SVG mặc định, dùng chung cho các ngôn ngữ không có preview riêng
- * (DPL, SBPL, IPL). Cỡ chữ tính theo công thức chung size/yScale, không phải
- * bảng font thật của từng máy in — khớp với cách các ngôn ngữ này uỷ quyền.
+ * (DPL, SBPL, IPL). Chiều cao chữ do ngôn ngữ gọi truyền vào qua `FontHeightResolver`
+ * từ FontMetrics của nó, để preview khớp đúng cỡ chữ compiler phát ra.
  */
 
 const CANVAS_PADDING = 10;
@@ -17,14 +17,11 @@ const INK_COLOR = '#000';
 const PAPER_COLOR = '#fff';
 const DEFAULT_LINE_THICKNESS = 1;
 
-const MIN_FONT_SIZE = 8;
-const BASE_GLYPH_HEIGHT = 12;
-const YSCALE_TRUST_THRESHOLD = 10;
-const PROPORTIONAL_FONT_BASELINE_RATIO = 0.78;
 const MONOSPACE_FONT_BASELINE_RATIO = 0.82;
-const PROPORTIONAL_FONT_CODE = '0';
-const PROPORTIONAL_FONT_FAMILY = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 const MONOSPACE_FONT_FAMILY = 'monospace';
+
+/** Chiều cao chữ thật (dots) mà máy in sẽ in cho một cỡ chữ ngữ nghĩa — lấy từ FontMetrics của ngôn ngữ. */
+export type FontHeightResolver = (fontSizeDots: number | undefined) => number;
 
 /**
  * Không có bảng font-metrics để tính khoảng cách dòng, nên dùng giá trị cố
@@ -40,34 +37,14 @@ function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/**
- * `yScale` vượt ngưỡng này được coi là chiều cao dots thật, dùng trực tiếp;
- * ngược lại `size` sẽ nhân với chiều cao glyph cơ sở.
- */
-function resolveFontSize(size: number, yScale: number | undefined): number {
-  if (yScale && yScale > YSCALE_TRUST_THRESHOLD) return yScale;
-  return Math.max(MIN_FONT_SIZE, size * BASE_GLYPH_HEIGHT);
-}
-
-/**
- * Tỉ lệ chiều cao ô glyph dùng để đặt baseline bên dưới `y` — font tỉ lệ
- * (proportional) nằm cao hơn 1 chút so với font monospace/bitmap.
- */
-function resolveBaselineRatio(font: string | undefined): number {
-  return font === PROPORTIONAL_FONT_CODE ? PROPORTIONAL_FONT_BASELINE_RATIO : MONOSPACE_FONT_BASELINE_RATIO;
-}
-
-function resolveFontFamily(font: string | undefined): string {
-  return font === PROPORTIONAL_FONT_CODE ? PROPORTIONAL_FONT_FAMILY : MONOSPACE_FONT_FAMILY;
-}
-
-function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): string {
+function renderTextElement(
+  element: Extract<PrintElement, { type: 'text' }>,
+  fontHeight: FontHeightResolver,
+): string {
   const options = element.options ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const fontSize = resolveFontSize(options.size ?? 1, options.yScale);
-  const baselineRatio = resolveBaselineRatio(options.font);
-  const fontFamily = resolveFontFamily(options.font);
+  const fontSize = fontHeight(options.fontSize);
   const fontWeight = options.bold ? 'bold' : 'normal';
   const textDecoration = options.underline ? ' text-decoration="underline"' : '';
   const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
@@ -84,12 +61,12 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
   }
 
   const fill = options.reverse ? PAPER_COLOR : INK_COLOR;
-  const baselineY = Math.round((y + fontSize * baselineRatio) * 100) / 100;
+  const baselineY = Math.round((y + fontSize * MONOSPACE_FONT_BASELINE_RATIO) * 100) / 100;
 
   return (
     `<text x="${textX}" y="${baselineY}" fill="${fill}" ` +
     `font-size="${fontSize}" font-weight="${fontWeight}" ` +
-    `font-family="${fontFamily}"${textAnchor}${textDecoration}${rotation}>` +
+    `font-family="${MONOSPACE_FONT_FAMILY}"${textAnchor}${textDecoration}${rotation}>` +
     `${escapeXml(element.content)}</text>`
   );
 }
@@ -221,10 +198,10 @@ function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): 
     .join('');
 }
 
-function renderElement(element: PrintElement): string {
+function renderElement(element: PrintElement, fontHeight: FontHeightResolver): string {
   switch (element.type) {
     case 'text':
-      return renderTextElement(element);
+      return renderTextElement(element, fontHeight);
 
     case 'image':
       return renderImageElement(element);
@@ -276,11 +253,8 @@ function renderElement(element: PrintElement): string {
   }
 }
 
-/**
- * Render preview của document thành SVG, dùng công thức font chung theo
- * size thay vì bảng font thật của một ngôn ngữ máy in cụ thể nào.
- */
-export function renderPreview(document: ResolvedPrintDocument): string {
+/** Render preview của document thành SVG; `fontHeight` quy đổi cỡ chữ theo FontMetrics của ngôn ngữ gọi. */
+export function renderPreview(document: ResolvedPrintDocument, fontHeight: FontHeightResolver): string {
   const documentWidth = document.widthDots;
   const documentHeight = document.heightDots > 0 ? document.heightDots : DEFAULT_CANVAS_HEIGHT;
   const svgWidth = documentWidth + CANVAS_PADDING * 2;
@@ -289,7 +263,7 @@ export function renderPreview(document: ResolvedPrintDocument): string {
   let renderedElements = '';
 
   for (const element of document.elements) {
-    renderedElements += renderElement(element);
+    renderedElements += renderElement(element, fontHeight);
   }
 
   const captionText = `${documentWidth}×${documentHeight} dots (${document.dpi} DPI)`;

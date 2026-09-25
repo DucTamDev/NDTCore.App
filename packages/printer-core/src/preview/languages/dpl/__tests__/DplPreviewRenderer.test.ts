@@ -1,5 +1,4 @@
 import { DplPreviewRenderer } from '../DplPreviewRenderer';
-import { renderPreview } from '../../../PreviewRenderer';
 import type { ResolvedPrintDocument } from '../../../../document';
 
 const baseDoc: ResolvedPrintDocument = {
@@ -15,10 +14,15 @@ const baseDoc: ResolvedPrintDocument = {
 };
 
 describe('DplPreviewRenderer', () => {
-  it('delegates straight to the shared renderPreview(), with no DPL-specific customization', () => {
-    const svg = new DplPreviewRenderer().preview(baseDoc);
+  it('vẽ chữ với chiều cao DPL thật in ra cho fontSize 30 (làm tròn lên hệ số 3)', () => {
+    const doc: ResolvedPrintDocument = {
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 5, y: 5, fontSize: 30 } }],
+    };
 
-    expect(svg).toBe(renderPreview(baseDoc));
+    const svg = new DplPreviewRenderer().preview(doc);
+
+    expect(svg).toContain('font-size="36"');
   });
 
   it('renders a non-empty SVG containing the text content', () => {

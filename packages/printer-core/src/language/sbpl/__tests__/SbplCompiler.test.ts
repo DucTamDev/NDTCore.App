@@ -26,7 +26,7 @@ describe('SbplCompiler', () => {
     const compiler = new SbplCompiler();
     const output = compiler.compile({
       ...baseDoc,
-      elements: [{ type: 'text', content: 'Hello SATO', options: { x: 100, y: 50, size: 2 } }],
+      elements: [{ type: 'text', content: 'Hello SATO', options: { x: 100, y: 50, fontSize: 24 } }],
     }).output;
 
     expect(output).toContain('\x1bH0100');
@@ -233,5 +233,49 @@ describe('SbplCompiler', () => {
     }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
+  });
+
+  it('cảnh báo từng loại element SBPL không có lệnh, mỗi loại 1 lần', () => {
+    const { warnings } = new SbplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'cut', options: { mode: 'full' } },
+        { type: 'barcode', options: { x: 0, y: 0, symbology: 'code128', content: '123' } },
+        { type: 'qrcode', options: { x: 0, y: 0, content: 'hi' } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['diagonal', 'circle', 'ellipse', 'reverse', 'erase', 'cut', 'barcode', 'qrcode'].map(
+        (type) => `Element "${type}" bị bỏ qua — SBPL không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('element được hỗ trợ thì không có cảnh báo', () => {
+    const { warnings } = new SbplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'text', content: 'Hi', options: { fontSize: 24 } },
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {
+    const { warnings } = new SbplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    expect(warnings).toEqual([]);
   });
 });

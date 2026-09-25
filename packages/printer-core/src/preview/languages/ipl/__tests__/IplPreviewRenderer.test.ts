@@ -1,5 +1,4 @@
 import { IplPreviewRenderer } from '../IplPreviewRenderer';
-import { renderPreview } from '../../../PreviewRenderer';
 import type { ResolvedPrintDocument } from '../../../../document';
 
 const baseDoc: ResolvedPrintDocument = {
@@ -15,10 +14,15 @@ const baseDoc: ResolvedPrintDocument = {
 };
 
 describe('IplPreviewRenderer', () => {
-  it('delegates straight to the shared renderPreview(), with no IPL-specific customization', () => {
-    const svg = new IplPreviewRenderer().preview(baseDoc);
+  it('vẽ chữ với chiều cao IPL thật in ra cho fontSize 30', () => {
+    const doc: ResolvedPrintDocument = {
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 5, y: 5, fontSize: 30 } }],
+    };
 
-    expect(svg).toBe(renderPreview(baseDoc));
+    const svg = new IplPreviewRenderer().preview(doc);
+
+    expect(svg).toContain('font-size="30"');
   });
 
   it('renders a non-empty SVG containing the text content', () => {

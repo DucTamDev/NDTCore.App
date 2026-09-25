@@ -242,4 +242,56 @@ describe('IplCompiler', () => {
     // confirming no stray bytes leak between payload and frame close.
     expect(output.slice(headerIndex + header.length + 3, headerIndex + header.length + 4)).toBe('\x03');
   });
+
+  it('fontSize 30 → clause h30 và w30 tính bằng dots', () => {
+    const { output } = new IplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 5, y: 5, fontSize: 30 } }],
+    });
+
+    expect(output).toContain(';h30;w30;');
+  });
+  it('cảnh báo từng loại element IPL không có lệnh, mỗi loại 1 lần', () => {
+    const { warnings } = new IplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'cut', options: { mode: 'full' } },
+        { type: 'barcode', options: { x: 0, y: 0, symbology: 'code128', content: '123' } },
+        { type: 'qrcode', options: { x: 0, y: 0, content: 'hi' } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['diagonal', 'circle', 'ellipse', 'reverse', 'erase', 'cut', 'barcode', 'qrcode'].map(
+        (type) => `Element "${type}" bị bỏ qua — IPL không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('element được hỗ trợ thì không có cảnh báo', () => {
+    const { warnings } = new IplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'text', content: 'Hi', options: { fontSize: 24 } },
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {
+    const { warnings } = new IplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    expect(warnings).toEqual([]);
+  });
 });

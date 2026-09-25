@@ -9,9 +9,14 @@ import type {
 } from '../../document/elements';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation, Bitmap } from '../../types';
+import { CompileWarnings } from '../CompileWarnings';
 import { DPL_COMMAND } from './DplCommand';
 import { encodeDplBitmapPayload } from './DplEncoder';
+import { DplFontMetrics } from './DplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const DPL_LANGUAGE_NAME = 'DPL';
 
 /**
  * Độ rộng cố định (số chữ số, đệm số 0 bên trái) của phần lớn trường số
@@ -40,7 +45,8 @@ const IMAGE_RECORD_TYPE_FIELD = '0005';
 /** Trường mẫu (pattern) cố định của bản ghi Line — bản ghi Box không có trường này. */
 const LINE_RECORD_PATTERN_FIELD = '0002';
 
-const DEFAULT_FONT = '9';
+/** Font duy nhất compiler dùng; cỡ chữ đạt được bằng hệ số phóng đại, xem `DplFontMetrics`. */
+const TEXT_FONT = '9';
 
 /**
  * Mã xoay bản ghi (`1`-`4`, chữ số đầu của bản ghi text/box/line) ứng với
@@ -64,12 +70,12 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
   const x = resolvedOptions.x ?? 0;
   const y = resolvedOptions.y ?? 0;
   const rotationCode = dplRotation(resolvedOptions.rotation);
-  const font = resolvedOptions.font ?? DEFAULT_FONT;
-  const heightField = String(resolvedOptions.size ?? 1).padStart(FIELD_WIDTH, '0');
+  const magnification = DplFontMetrics.fontSizeToMagnification(resolvedOptions.fontSize);
+  const heightField = String(magnification).padStart(FIELD_WIDTH, '0');
   const widthField = heightField;
   const col = String(x).padStart(FIELD_WIDTH, '0');
   const row = String(y).padStart(FIELD_WIDTH, '0');
-  return `${rotationCode}${col}${row}${heightField}${widthField}${TEXT_RECORD_RESERVED_FIELD}${font}${content}`;
+  return `${rotationCode}${col}${row}${heightField}${widthField}${TEXT_RECORD_RESERVED_FIELD}${TEXT_FONT}${content}`;
 }
 
 function compileImageElement(bitmap: Bitmap, options: ImageOptions | undefined): string {
@@ -144,7 +150,7 @@ function compileTableElement(options: TableOptions): string {
     .join('\r\n');
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -158,25 +164,24 @@ function compileElement(element: PrintElement): string {
     case 'line':
       return compileLineElement(element.options);
 
-    // DPL không có lệnh vẽ chéo — no-op có chủ đích, không phải case bị thiếu.
+    // DPL không có lệnh vẽ chéo, circle/ellipse/reverse-fill/erase, cắt giấy; cũng chưa có tài liệu đáng tin
+    // cho cú pháp Bar Code Field — bỏ qua và báo cảnh báo thay vì bịa cú pháp bản ghi mới.
     case 'diagonal':
-      return '';
-
-    // DPL không có lệnh gốc cho circle/ellipse/reverse-fill/erase — no-op có
-    // chủ đích thay vì bịa cú pháp bản ghi mới cho chúng.
     case 'circle':
     case 'ellipse':
     case 'reverse':
     case 'erase':
+    case 'barcode':
+    case 'qrcode':
+      warnings.unsupportedElement(element.type);
+      return '';
+
+    case 'cut':
+      warnings.unsupportedCut(element.options);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
-
-    // Không có lệnh cắt giấy nào được ghi nhận trong giao thức DPL — no-op
-    // có chủ đích.
-    case 'cut':
-      return '';
 
     case 'table':
       return compileTableElement(element.options);
@@ -188,18 +193,13 @@ function compileElement(element: PrintElement): string {
     case 'row':
     case 'column':
       return '';
-
-    // Không có tài liệu tham chiếu đáng tin cậy nào cho cú pháp Bar Code
-    // Field của DPL — no-op có chủ đích thay vì suy đoán cấu trúc bản ghi.
-    case 'barcode':
-    case 'qrcode':
-      return '';
   }
 }
 
-/** Biên dịch một `ResolvedPrintDocument` thành chuỗi lệnh DPL của Honeywell/Datamax. */
-export function compileToDPL(document: ResolvedPrintDocument): string {
+/** Biên dịch một `ResolvedPrintDocument` thành chuỗi lệnh DPL của Honeywell/Datamax kèm cảnh báo. */
+export function compileToDPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(DPL_LANGUAGE_NAME);
 
   lines.push(DPL_COMMAND.ENTER_LABEL_FORMAT);
   lines.push(`${DPL_COMMAND.DENSITY}${String(document.density).padStart(DENSITY_SPEED_FIELD_WIDTH, '0')}`);
@@ -209,13 +209,13 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
   for (const element of document.elements) {
     // Bỏ qua phần tử biên dịch ra `''` (no-op hoặc `raw` rỗng) để tránh dòng
     // trống thừa khi nối bằng `\r\n`.
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
   lines.push(`${DPL_COMMAND.QUANTITY}${String(document.copies).padStart(FIELD_WIDTH, '0')}`);
   lines.push(DPL_COMMAND.END);
-  return lines.join('\r\n') + '\r\n';
+  return { output: lines.join('\r\n') + '\r\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -230,6 +230,6 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
  */
 export class DplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToDPL(document), warnings: [] };
+    return compileToDPL(document);
   }
 }

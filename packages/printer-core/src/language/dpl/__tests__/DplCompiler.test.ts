@@ -221,4 +221,56 @@ describe('DplCompiler', () => {
 
     expect(noOpOutput).toBe(emptyOutput);
   });
+
+  it('fontSize 24 → font 9 phóng đại 2 lần ở cả trường cao và rộng', () => {
+    const { output } = new DplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 5, y: 5, fontSize: 24 } }],
+    });
+
+    expect(output).toContain('1' + '0005' + '0005' + '0002' + '0002' + '000' + '9' + 'Hi');
+  });
+  it('cảnh báo từng loại element DPL không có lệnh, mỗi loại 1 lần', () => {
+    const { warnings } = new DplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'cut', options: { mode: 'full' } },
+        { type: 'barcode', options: { x: 0, y: 0, symbology: 'code128', content: '123' } },
+        { type: 'qrcode', options: { x: 0, y: 0, content: 'hi' } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['diagonal', 'circle', 'ellipse', 'reverse', 'erase', 'cut', 'barcode', 'qrcode'].map(
+        (type) => `Element "${type}" bị bỏ qua — DPL không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('element được hỗ trợ thì không có cảnh báo', () => {
+    const { warnings } = new DplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'text', content: 'Hi', options: { fontSize: 24 } },
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {
+    const { warnings } = new DplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    expect(warnings).toEqual([]);
+  });
 });

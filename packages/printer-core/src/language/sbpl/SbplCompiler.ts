@@ -9,9 +9,14 @@ import type {
 } from '../../document/elements';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation } from '../../types';
+import { CompileWarnings } from '../CompileWarnings';
 import { SBPL_COMMAND } from './SbplCommand';
 import { encodeSbplBitmapPayload } from './SbplEncoder';
+import { SbplFontMetrics } from './SbplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const SBPL_LANGUAGE_NAME = 'SBPL';
 
 const ESC = SBPL_COMMAND.ESC;
 const SBPL_LINE_SEPARATOR = '\r\n';
@@ -28,8 +33,6 @@ const THICKNESS_FIELD_DIGITS = 2;
 /** Số chữ số tiền tố độ dài payload trong trường đồ hoạ (`GM`). */
 const IMAGE_SIZE_FIELD_DIGITS = 5;
 
-/** Hệ số phóng đại mặc định khi `TextOptions.size` không được set. */
-const DEFAULT_TEXT_MAGNIFICATION = 1;
 /**
  * Độ dày nét vẽ mặc định của máy in khi `thickness` không được set (áp dụng
  * cho cả box lẫn line).
@@ -66,8 +69,8 @@ function compileTextElement(content: string, options: TextOptions | undefined): 
   ];
   // Rotation 0 để mặc định máy in tự xử lý, không phát `<ESC>%0` tường minh.
   if (options?.rotation) lines.push(sbplRotationCommand(options.rotation));
-  const rawMagnification = options?.size ?? DEFAULT_TEXT_MAGNIFICATION;
-  const magnification = String(rawMagnification).padStart(MAGNIFICATION_FIELD_DIGITS, '0');
+  const magnificationValue = SbplFontMetrics.fontSizeToMagnification(options?.fontSize);
+  const magnification = String(magnificationValue).padStart(MAGNIFICATION_FIELD_DIGITS, '0');
   lines.push(`${ESC}${SBPL_COMMAND.MAGNIFICATION}${magnification}${magnification}`);
   lines.push(`${ESC}${SBPL_COMMAND.TEXT}${content}`);
   return lines.join(SBPL_LINE_SEPARATOR);
@@ -140,7 +143,7 @@ function compileTableElement(element: TableElement): string {
     .join(SBPL_LINE_SEPARATOR);
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -154,23 +157,24 @@ function compileElement(element: PrintElement): string {
     case 'line':
       return compileLineElement(element);
 
-    // `<ESC>FW` không vẽ chéo được thật sự (chỉ axis-aligned) — no-op.
+    // `<ESC>FW` không vẽ chéo được; SBPL không có lệnh hình tròn/ellipse/reverse/erase hay cutter; cấu trúc
+    // trường barcode 1D/2D của SATO chưa được tài liệu nào xác thực — bỏ qua và báo cảnh báo.
     case 'diagonal':
-      return '';
-
-    // Không có lệnh SBPL gốc cho hình tròn, ellipse, reverse-print, hoặc erase độc lập.
     case 'circle':
     case 'ellipse':
     case 'reverse':
     case 'erase':
+    case 'barcode':
+    case 'qrcode':
+      warnings.unsupportedElement(element.type);
+      return '';
+
+    case 'cut':
+      warnings.unsupportedCut(element.options);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
-
-    // Không có lệnh cutter SBPL gốc.
-    case 'cut':
-      return '';
 
     case 'table':
       return compileTableElement(element);
@@ -182,29 +186,24 @@ function compileElement(element: PrintElement): string {
     case 'row':
     case 'column':
       return '';
-
-    // Cấu trúc trường barcode 1D/2D thực tế của SATO không được xác thực bởi
-    // tài liệu nào sẵn có — no-op thay vì đoán mò bảng chọn loại/field shape.
-    case 'barcode':
-    case 'qrcode':
-      return '';
   }
 }
 
 /**
- * Compile một `ResolvedPrintDocument` thành chuỗi lệnh SBPL của SATO. Lệnh
+ * Compile một `ResolvedPrintDocument` thành chuỗi lệnh SBPL của SATO kèm cảnh báo. Lệnh
  * thiết lập phiên của SBPL không mang trường width/height/speed/density —
  * các thiết lập đó được cấu hình ở cấp máy in, ngoài phạm vi document này.
  */
-export function compileToSBPL(document: ResolvedPrintDocument): string {
+export function compileToSBPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(SBPL_LANGUAGE_NAME);
 
   lines.push(`${ESC}${SBPL_COMMAND.START}`);
   lines.push(`${ESC}${SBPL_COMMAND.CLEAR}`);
 
   for (const element of document.elements) {
     // Bỏ qua kết quả rỗng (element no-op) để không đẩy dòng trống thừa vào output.
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
@@ -213,7 +212,7 @@ export function compileToSBPL(document: ResolvedPrintDocument): string {
     lines.push(`${ESC}${SBPL_COMMAND.QUANTITY}${document.copies}`);
   }
   lines.push(`${ESC}${SBPL_COMMAND.END}`);
-  return lines.join(SBPL_LINE_SEPARATOR) + SBPL_LINE_SEPARATOR;
+  return { output: lines.join(SBPL_LINE_SEPARATOR) + SBPL_LINE_SEPARATOR, warnings: warnings.toArray() };
 }
 
 /**
@@ -222,6 +221,6 @@ export function compileToSBPL(document: ResolvedPrintDocument): string {
  */
 export class SbplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToSBPL(document), warnings: [] };
+    return compileToSBPL(document);
   }
 }

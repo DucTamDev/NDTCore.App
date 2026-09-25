@@ -9,14 +9,16 @@ import type {
 } from '../../document/elements';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Bitmap, Rotation } from '../../types';
+import { CompileWarnings } from '../CompileWarnings';
 import { IPL_COMMAND } from './IplCommand';
 import { encodeIplBitmapPayload } from './IplEncoder';
+import { IplFontMetrics } from './IplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
 
 const { STX, ETX, ESC } = IPL_COMMAND;
 
-/** Hệ số quy đổi `size` sang dots, dùng cho cả clause `h` và `w` của field `H` (không hỗ trợ chọn font tường minh). */
-const FONT_SIZE_UNIT_DOTS = 12;
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const IPL_LANGUAGE_NAME = 'IPL';
 
 /** Font id cố định trong clause `d` của field `H` — không hỗ trợ chọn font khác. */
 const TEXT_FONT_ID = 3;
@@ -60,14 +62,18 @@ function iplRotation(rotation: Rotation | undefined): 0 | 1 | 2 | 3 {
   }
 }
 
-function compileTextField(fieldNum: number, content: string, options: TextOptions | undefined): string {
+function compileTextField(
+  fieldNum: number,
+  content: string,
+  options: TextOptions | undefined,
+): string {
   const resolvedOptions = options ?? {};
   const x = resolvedOptions.x ?? 0;
   const y = resolvedOptions.y ?? 0;
   const rotationCode = iplRotation(resolvedOptions.rotation);
-  const size = (resolvedOptions.size ?? 1) * FONT_SIZE_UNIT_DOTS;
+  const { heightDots, widthDots } = IplFontMetrics.fontSizeToNative(resolvedOptions.fontSize);
   return (
-    `${STX}${IPL_COMMAND.FIELD_TEXT}${fieldNum};o${x},${y};f${rotationCode};h${size};w${size};` +
+    `${STX}${IPL_COMMAND.FIELD_TEXT}${fieldNum};o${x},${y};f${rotationCode};h${heightDots};w${widthDots};` +
     `c${TEXT_CHARSET_ID};d${TEXT_FONT_ID},${content}${ETX}`
   );
 }
@@ -140,7 +146,11 @@ function compileTableElement(options: TableOptions, nextFieldNum: () => number):
     .join('\r\n');
 }
 
-function compileElement(element: PrintElement, nextFieldNum: () => number): string {
+function compileElement(
+  element: PrintElement,
+  nextFieldNum: () => number,
+  warnings: CompileWarnings,
+): string {
   switch (element.type) {
     case 'text':
       return compileTextField(nextFieldNum(), element.content, element.options);
@@ -154,24 +164,24 @@ function compileElement(element: PrintElement, nextFieldNum: () => number): stri
     case 'line':
       return compileLineElement(nextFieldNum(), element.options);
 
-    // Field Line của IPL không hỗ trợ vẽ chéo — no-op có chủ đích.
+    // Field Line của IPL không vẽ chéo; IPL không có lệnh circle/ellipse/reverse/erase hay cutter; không đủ
+    // tài liệu đáng tin cho cấu trúc record barcode — bỏ qua và báo cảnh báo thay vì bịa cú pháp field.
     case 'diagonal':
-      return '';
-
-    // IPL không có lệnh gốc cho circle/ellipse/reverse/erase — no-op có chủ
-    // đích, không tự bịa cú pháp field mới.
     case 'circle':
     case 'ellipse':
     case 'reverse':
     case 'erase':
+    case 'barcode':
+    case 'qrcode':
+      warnings.unsupportedElement(element.type);
+      return '';
+
+    case 'cut':
+      warnings.unsupportedCut(element.options);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
-
-    // Không có lệnh cutter nào được ghi nhận trong tài liệu IPL — no-op có chủ đích.
-    case 'cut':
-      return '';
 
     case 'table':
       return compileTableElement(element.options, nextFieldNum);
@@ -183,18 +193,13 @@ function compileElement(element: PrintElement, nextFieldNum: () => number): stri
     case 'row':
     case 'column':
       return '';
-
-    // Không đủ tài liệu IPL đáng tin cậy để xác định bảng chọn loại/cấu
-    // trúc record barcode — no-op có chủ đích thay vì tự bịa cú pháp field.
-    case 'barcode':
-    case 'qrcode':
-      return '';
   }
 }
 
-/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh IPL (Intermec/Honeywell). */
-export function compileToIPL(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh IPL (Intermec/Honeywell) kèm cảnh báo. */
+export function compileToIPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(IPL_LANGUAGE_NAME);
 
   lines.push(`${STX}${ESC}${IPL_COMMAND.CREATE_FORMAT}${ETX}`);
   lines.push(`${STX}${ESC}${IPL_COMMAND.PROGRAM_MODE}${ETX}`);
@@ -210,7 +215,7 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
 
   for (const element of document.elements) {
     // compileElement() trả '' cho no-op — bỏ qua để tránh dòng trống thừa khi join bằng \r\n.
-    const line = compileElement(element, nextFieldNum);
+    const line = compileElement(element, nextFieldNum, warnings);
     if (line) lines.push(line);
   }
 
@@ -220,7 +225,7 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
   }
   lines.push(`${STX}${ESC}${IPL_COMMAND.END_FORMAT}${ETX}`);
 
-  return lines.join('\r\n') + '\r\n';
+  return { output: lines.join('\r\n') + '\r\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -233,6 +238,6 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
  */
 export class IplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToIPL(document), warnings: [] };
+    return compileToIPL(document);
   }
 }
