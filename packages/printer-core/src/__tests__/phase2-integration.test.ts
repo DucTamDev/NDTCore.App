@@ -18,7 +18,7 @@ const doc: ResolvedPrintDocument = {
   direction: 'forward',
   copies: 1,
   elements: [
-    { type: 'text', content: 'Hello World', options: { x: 10, y: 10, size: 2 } },
+    { type: 'text', content: 'Hello World', options: { x: 10, y: 10, fontSize: 24 } },
     { type: 'barcode', options: { symbology: 'code128', content: '123456789' } },
     {
       type: 'table',
