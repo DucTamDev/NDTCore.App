@@ -10,6 +10,9 @@ import {
 /** Hệ số nhân của lệnh TEXT/BLOCK TSPL nhận giá trị 1-10. */
 const TSPL_MAX_MAGNIFICATION = 10;
 
+/** Số dots trên 1 point ở 203 dpi (203/72) — TSPL quy đổi cỡ chữ font scalable/TrueType theo point, không phải dots. */
+const TSPL_DOTS_PER_POINT_AT_203_DPI = 203 / 72;
+
 /** Font bitmap có sẵn của TSPL, theo TSPL/TSPL2 Programming Manual. */
 const TSPL_FONT_SET: BitmapFontSet = {
   fonts: {
@@ -28,6 +31,14 @@ const TSPL_FONT_SET: BitmapFontSet = {
   maxMagnification: TSPL_MAX_MAGNIFICATION,
 };
 
+/**
+ * Font `"0"` (CG Triumvirate scalable) và mọi font TrueType nạp thêm (tên kết thúc `.TTF`) không nằm trong
+ * bảng font bitmap — tham số x/y-multiplication của lệnh TEXT/BLOCK khi đó là point size, không phải hệ số nhân.
+ */
+function isTsplScalableFont(font: string): boolean {
+  return font === '0' || font.toUpperCase().endsWith('.TTF');
+}
+
 /** Quy đổi cỡ chữ (dots) ↔ font + hệ số nhân của lệnh TEXT/BLOCK TSPL — nguồn font duy nhất của TSPL. */
 export const TsplFontMetrics = {
   /** Font + hệ số nhân gần cỡ chữ nhất; bỏ trống cỡ chữ thì dùng font `2` ở hệ số 1. */
@@ -35,8 +46,9 @@ export const TsplFontMetrics = {
     return chooseBitmapFont(fontSizeDots, TSPL_FONT_SET);
   },
 
-  /** Chiều cao chữ thật (dots) của 1 cặp font + hệ số nhân đọc từ lệnh TSPL. */
+  /** Chiều cao chữ thật (dots) của 1 cặp font + hệ số nhân/point-size đọc từ lệnh TSPL. */
   nativeToFontSize(font: string, magnification: number): number {
+    if (isTsplScalableFont(font)) return magnification * TSPL_DOTS_PER_POINT_AT_203_DPI;
     return bitmapFontHeight(font, magnification, TSPL_FONT_SET);
   },
 

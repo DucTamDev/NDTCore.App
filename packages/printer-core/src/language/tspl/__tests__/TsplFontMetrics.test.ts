@@ -35,7 +35,16 @@ describe('TsplFontMetrics', () => {
   });
 
   it('đọc ngược font lạ theo font mặc định', () => {
-    expect(TsplFontMetrics.nativeToFontSize('0', 2)).toBe(40);
-    expect(TsplFontMetrics.characterSize('0')).toEqual({ width: 12, height: 20 });
+    expect(TsplFontMetrics.nativeToFontSize('9', 2)).toBe(40);
+    expect(TsplFontMetrics.characterSize('9')).toEqual({ width: 12, height: 20 });
+  });
+
+  it('font "0" (scalable CG Triumvirate) đọc theo point size, không phải hệ số nhân', () => {
+    expect(TsplFontMetrics.nativeToFontSize('0', 12)).toBeCloseTo(12 * (203 / 72));
+  });
+
+  it('font TrueType (.TTF) đọc theo point size, không phân biệt hoa/thường', () => {
+    expect(TsplFontMetrics.nativeToFontSize('ARIAL.TTF', 12)).toBeCloseTo(12 * (203 / 72));
+    expect(TsplFontMetrics.nativeToFontSize('arial.ttf', 12)).toBeCloseTo(12 * (203 / 72));
   });
 });

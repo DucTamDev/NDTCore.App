@@ -208,4 +208,16 @@ describe('convert — cảnh báo', () => {
     expect(firstPass.elements[0]).toMatchObject({ options: { fontSize: 48 } });
     expect(secondPass.elements[0]).toMatchObject({ options: { fontSize: 48 } });
   });
+
+  it('TSPL → TSPL đọc font "0" (scalable) theo point size, compile lại chọn font bitmap gần nhất', () => {
+    const source = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"0",0,12,12,"Scalable"\r\nPRINT 1\r\n';
+
+    const firstPass = convert(source, 'tspl', 'tspl');
+
+    expect(firstPass.elements[0]).toMatchObject({ options: { fontSize: expect.closeTo(12 * (203 / 72)) } });
+
+    const secondPass = convert(firstPass.output as string, 'tspl', 'tspl');
+
+    expect(secondPass.elements[0]).toMatchObject({ options: { fontSize: expect.closeTo(32) } });
+  });
 });
