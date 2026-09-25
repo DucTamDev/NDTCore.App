@@ -41,7 +41,7 @@ function firstTextSize(
 ): number | undefined {
   const [first] = engine.resolve(root, config, typography, fontMetrics);
   if (first.type !== 'text') throw new Error('expected text element');
-  return first.options?.size;
+  return first.options?.fontSize;
 }
 
 describe('LayoutEngine — tự thu nhỏ chữ', () => {
@@ -58,8 +58,7 @@ describe('LayoutEngine — tự thu nhỏ chữ', () => {
       ],
     };
 
-    // 40 dots ở mức 1 → hệ số round(40/12) = 3.
-    expect(firstTextSize(tallColumn(50, 40), receipt, typography)).toBe(3);
+    expect(firstTextSize(tallColumn(50, 40), receipt, typography)).toBe(40);
   });
 
   it('label chọn mức lớn nhất còn vừa chiều cao tem', () => {
@@ -71,8 +70,8 @@ describe('LayoutEngine — tự thu nhỏ chữ', () => {
       ],
     };
 
-    // 10 dòng cỡ 20 tràn 100 dots; chỉ mức 0.25 vừa → 5 dots → hệ số 1.
-    expect(firstTextSize(tallColumn(10, 20), labelConfig(400, 100), typography)).toBe(1);
+    // 10 dòng cỡ 20 tràn 100 dots; chỉ mức 0.25 vừa → 5 dots.
+    expect(firstTextSize(tallColumn(10, 20), labelConfig(400, 100), typography)).toBe(5);
   });
 
   it('label không vừa ở mức nào thì dùng mức nhỏ nhất, không throw', () => {
@@ -83,7 +82,7 @@ describe('LayoutEngine — tự thu nhỏ chữ', () => {
       ],
     };
 
-    expect(firstTextSize(tallColumn(100, 40), labelConfig(400, 10), typography)).toBe(1);
+    expect(firstTextSize(tallColumn(100, 40), labelConfig(400, 10), typography)).toBe(4);
   });
 
   it('thu nhỏ đồng đều cả cây, không chỉ phần bị tràn', () => {
@@ -110,8 +109,8 @@ describe('LayoutEngine — tự thu nhỏ chữ', () => {
     const [header, item] = engine.resolve(root, labelConfig(400, 50), typography, fontMetrics);
     if (header.type !== 'text' || item.type !== 'text') throw new Error('expected text elements');
 
-    expect(header.options?.size).toBe(item.options?.size);
-    // 20 × 0.5 = 10 dots → hệ số 1 (chưa thu nhỏ là 2).
-    expect(header.options?.size).toBe(1);
+    expect(header.options?.fontSize).toBe(item.options?.fontSize);
+    // 20 × 0.5 = 10 dots.
+    expect(header.options?.fontSize).toBe(10);
   });
 });

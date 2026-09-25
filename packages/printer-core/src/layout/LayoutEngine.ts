@@ -53,13 +53,6 @@ const QR_APPROXIMATE_SIZE_DOTS = 120;
 
 const DEFAULT_LINE_THICKNESS_DOTS = 1;
 
-// `TextOptions.size` của compiler là hệ số phóng đại 1-8 của font máy in, không phải dots — ~12 dots cho 1 bậc.
-const DOTS_PER_MAGNIFICATION_STEP = 12;
-
-const MIN_MAGNIFICATION = 1;
-
-const MAX_MAGNIFICATION = 8;
-
 /** Xếp vị trí các node đã resolve thành `PrintElement[]` (dots) theo khổ giấy + DPI của máy in đích. */
 export class LayoutEngine {
   /** Label tự chọn mức thu nhỏ chữ lớn nhất còn vừa chiều cao tem; receipt luôn dùng mức đầu tiên. */
@@ -219,12 +212,6 @@ function lineLengthDots(node: LayoutLine, availableWidthDots: number): number {
   return width?.type === 'fixed' ? width.value : availableWidthDots;
 }
 
-function toMagnification(fontSizeDots: number | undefined): number | undefined {
-  if (fontSizeDots === undefined) return undefined;
-  const magnification = Math.round(fontSizeDots / DOTS_PER_MAGNIFICATION_STEP);
-  return Math.min(MAX_MAGNIFICATION, Math.max(MIN_MAGNIFICATION, magnification));
-}
-
 function arrange(
   node: LayoutNode,
   origin: Position,
@@ -267,7 +254,7 @@ function arrangeText(
       options: {
         x: origin.x,
         y: lineY,
-        size: toMagnification(node.style.fontSize),
+        fontSize: node.style.fontSize,
         align: node.style.textAlign,
         bold: node.style.fontWeight === 'bold',
       },

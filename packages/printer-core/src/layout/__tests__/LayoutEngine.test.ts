@@ -33,8 +33,7 @@ describe('LayoutEngine', () => {
     const elements = engine.resolve(textNode('t1', 'Hello', 20), receiptConfig, typography, fontMetrics);
 
     expect(elements).toHaveLength(1);
-    // 20 dots → hệ số phóng đại round(20/12) = 2.
-    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, size: 2 } });
+    expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, fontSize: 20 } });
   });
 
   it('xếp con theo cột có gap', () => {
@@ -154,7 +153,7 @@ describe('LayoutEngine', () => {
     expect(ys).toEqual([0, 2, 82, 202]);
   });
 
-  describe('cỡ chữ (dots) → hệ số phóng đại 1-8', () => {
+  describe('cỡ chữ đi thẳng xuống element (dots)', () => {
     it('không đặt fontSize thì dùng DEFAULT_FONT_SIZE (12px)', () => {
       const withoutSize: ResolvedNode = { type: 'text', id: 't1', value: 'Hi' };
       const withDefault: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: px(12) } };
@@ -165,12 +164,12 @@ describe('LayoutEngine', () => {
       );
     });
 
-    it('cỡ rất nhỏ kẹp về 1, cỡ rất lớn kẹp về 8', () => {
+    it('không kẹp cỡ rất nhỏ hay rất lớn — quy đổi là việc của compiler', () => {
       const [small] = engine.resolve(textNode('t1', 'Hi', 1), receiptConfig, typography, fontMetrics);
       const [large] = engine.resolve(textNode('t1', 'Hi', 200), receiptConfig, typography, fontMetrics);
 
-      expect(small).toMatchObject({ options: { size: 1 } });
-      expect(large).toMatchObject({ options: { size: 8 } });
+      expect(small).toMatchObject({ options: { fontSize: 1 } });
+      expect(large).toMatchObject({ options: { fontSize: 200 } });
     });
   });
 
