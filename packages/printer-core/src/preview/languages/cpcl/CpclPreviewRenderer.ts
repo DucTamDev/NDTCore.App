@@ -1,20 +1,8 @@
 import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
+import { CpclFontMetrics } from '../../../language';
 
-/** Kích thước pixel font bitmap có sẵn của CPCL, theo Zebra CPCL Font Manual (ZQ210/ZQ220). */
-const CPCL_FONTS: Record<string, { width: number; height: number }> = {
-  '0': { width: 8, height: 9 },
-  '1': { width: 16, height: 48 },
-  '2': { width: 20, height: 12 },
-  '4': { width: 25, height: 47 },
-  '5': { width: 16, height: 24 },
-  '6': { width: 28, height: 27 },
-  '7': { width: 12, height: 24 },
-};
-
-const DEFAULT_FONT = '2';
-const FALLBACK_FONT_HEIGHT = 12;
 const TEXT_BASELINE_RATIO = 0.85;
 const DEFAULT_LINE_THICKNESS = 1;
 
@@ -27,14 +15,9 @@ const INK_COLOR = '#000';
 const PAPER_COLOR = '#fff';
 const FONT_FAMILY = 'monospace';
 
-function getCpclFont(font: string | undefined) {
-  return CPCL_FONTS[font ?? DEFAULT_FONT];
-}
-
-function resolveFontSize(font: string | undefined, size: number | undefined): number {
-  const cpclFont = getCpclFont(font);
-  if (cpclFont) return cpclFont.height * Math.max(1, size ?? 1);
-  return (size ?? 1) * FALLBACK_FONT_HEIGHT;
+/** Chiều cao chữ thật khi máy in CPCL in cỡ chữ này — cùng font mà compiler chọn. */
+function resolveFontSize(fontSize: number | undefined): number {
+  return CpclFontMetrics.characterSize(CpclFontMetrics.fontSizeToNative(fontSize).font).height;
 }
 
 function escapeXml(text: string): string {
@@ -45,7 +28,7 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
   const options = element.options ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const fontSize = resolveFontSize(options.font, options.size);
+  const fontSize = resolveFontSize(options.fontSize);
   const baselineY = y + fontSize * TEXT_BASELINE_RATIO;
 
   return (

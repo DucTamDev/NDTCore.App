@@ -69,14 +69,14 @@ describe('convert', () => {
 
     expect(result.output).toContain('^XA');
     expect(result.output).toContain('^FDHello CPCL^FS');
-    expect(result.elements).toEqual([{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, font: '2', size: 0 } }]);
+    expect(result.elements).toEqual([{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, fontSize: 12 } }]);
     expect(result.warnings).toEqual([]);
   });
 
   it('converts a TSPL label to recognizable CPCL syntax', () => {
     const result = convert(TSPL_SOURCE, 'tspl', 'cpcl');
 
-    expect(result.output).toContain('TEXT 2 0 10 10\r\nHello');
+    expect(result.output).toContain('TEXT 5 0 10 10\r\nHello');
     expect(result.output).toContain('PAGE-WIDTH 400');
     expect(result.output).toContain('PRINT');
   });

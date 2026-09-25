@@ -16,14 +16,14 @@ describe('CpclParser', () => {
     expect(result.dpi).toBe(203);
     expect(result.heightDots).toBe(240);
     expect(result.widthDots).toBe(320);
-    expect(result.elements).toEqual([{ type: 'text', content: 'Hello', options: { x: 10, y: 20, font: '2', size: 0 } }]);
+    expect(result.elements).toEqual([{ type: 'text', content: 'Hello', options: { x: 10, y: 20, fontSize: 12 } }]);
   });
 
   it('parses a rotated text field (TEXT90) into the right element, consuming the data line that follows', () => {
     const source = 'TEXT90 5 1 5 5\r\nRot';
     const result = parseCPCL(source);
 
-    expect(result.elements).toEqual([{ type: 'text', content: 'Rot', options: { x: 5, y: 5, font: '5', size: 1 } }]);
+    expect(result.elements).toEqual([{ type: 'text', content: 'Rot', options: { x: 5, y: 5, fontSize: 24 } }]);
   });
 
   it('parses a BOX command into a box PrintElement', () => {

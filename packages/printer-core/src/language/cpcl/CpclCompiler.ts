@@ -3,18 +3,27 @@ import type { PrintElement, TextOptions } from '../../document/elements';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
+import { CompileWarnings } from '../CompileWarnings';
 import { CPCL_COMMAND } from './CpclCommand';
 import { encodeCpclBitmapPayload } from './CpclEncoder';
+import { CpclFontMetrics } from './CpclFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
 
-const DEFAULT_FONT = '2';
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const CPCL_LANGUAGE_NAME = 'CPCL';
 
-/**
- * Chiều cao dòng (dots) khi xếp chồng các dòng đã format của bảng — khớp
- * chiều cao glyph của font "2" (20w x 12h) trong `CPCL_FONTS` của
- * `CpclPreviewRenderer`, vì các dòng bảng dùng `DEFAULT_FONT`.
- */
-const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 12;
+const BARCODE_READABLE_WARNING =
+  'BarcodeConfig.readable bị bỏ qua — CPCL bật/tắt chữ dưới mã vạch bằng lệnh trạng thái riêng, ' +
+  'không phải tham số của BARCODE.';
+
+/** Trường `size` của lệnh `TEXT`: `0` là cỡ gốc của font. */
+const CPCL_BASE_FONT_SIZE = 0;
+
+/** Chiều cao dòng bảng — bảng không có cỡ chữ riêng nên dùng font mặc định. */
+const DEFAULT_TABLE_ROW_HEIGHT_DOTS = CpclFontMetrics.nativeToFontSize(
+  CpclFontMetrics.fontSizeToNative(undefined).font,
+  CPCL_BASE_FONT_SIZE,
+);
 
 /**
  * Token loại mã vạch của lệnh `BARCODE`, theo bảng Bar Code Field trong CPCL
@@ -53,18 +62,17 @@ const TONE_SCALE = 200;
 
 /**
  * `TEXT <font> <size> <x> <y>` theo CPCL Programmer's Manual — chuỗi dữ liệu
- * nằm trên dòng riêng ngay sau, không inline. `size` mặc định `0`: font tích
- * hợp của CPCL coi đây là size gốc của chính nó, không phải "không có chữ".
+ * nằm trên dòng riêng ngay sau, không inline. `size` luôn `0` (cỡ gốc của font):
+ * cỡ chữ được đáp ứng bằng cách chọn font, xem `CpclFontMetrics`.
  */
 function compileTextElement(content: string, options: TextOptions | undefined): string {
   const textOptions = options ?? {};
   const x = textOptions.x ?? 0;
   const y = textOptions.y ?? 0;
-  const font = textOptions.font ?? DEFAULT_FONT;
-  const size = textOptions.size ?? 0;
+  const { font } = CpclFontMetrics.fontSizeToNative(textOptions.fontSize);
   const rotation = textOptions.rotation ?? 0;
   const command = rotation === 0 ? CPCL_COMMAND.TEXT : `${CPCL_COMMAND.TEXT}${rotation}`;
-  return `${command} ${font} ${size} ${x} ${y}\r\n${content}`;
+  return `${command} ${font} ${CPCL_BASE_FONT_SIZE} ${x} ${y}\r\n${content}`;
 }
 
 function compileImageElement(element: Extract<PrintElement, { type: 'image' }>): string {
@@ -106,8 +114,12 @@ function compileTableElement(element: Extract<PrintElement, { type: 'table' }>):
 
 // Suy ra từ ngữ pháp lệnh BARCODE trong CPCL Programmer's Manual — chưa có ground truth để đối
 // chiếu, nên xác minh lại trên máy in thật.
-function compileBarcodeElement(element: Extract<PrintElement, { type: 'barcode' }>): string {
+function compileBarcodeElement(
+  element: Extract<PrintElement, { type: 'barcode' }>,
+  warnings: CompileWarnings,
+): string {
   const options = element.options;
+  if (options.readable !== undefined) warnings.add(BARCODE_READABLE_WARNING);
   const x = options.x ?? 0;
   const y = options.y ?? 0;
   const type = CPCL_BARCODE_TYPE[options.symbology];
@@ -142,7 +154,7 @@ function compileQrcodeElement(element: Extract<PrintElement, { type: 'qrcode' }>
   return qrLines.join('\r\n');
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -157,20 +169,21 @@ function compileElement(element: PrintElement): string {
     case 'diagonal':
       return compileLineElement(element);
 
-    // CPCL không có lệnh tích hợp để vẽ hình tròn/ellipse/vùng reverse-print/vùng erase độc lập
-    // — no-op thay vì bịa ngữ pháp lệnh mới.
+    // CPCL không có lệnh vẽ hình tròn/ellipse/vùng reverse-print/vùng erase độc lập, cũng không có lệnh
+    // cắt giấy được tài liệu hoá — bỏ qua và báo cảnh báo thay vì bịa ngữ pháp lệnh mới.
     case 'circle':
     case 'ellipse':
     case 'reverse':
     case 'erase':
+      warnings.unsupportedElement(element.type);
+      return '';
+
+    case 'cut':
+      warnings.unsupportedCut(element.options);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
-
-    // Không có lệnh cắt giấy nào được tài liệu hoá trong CPCL — no-op.
-    case 'cut':
-      return '';
 
     case 'table':
       return compileTableElement(element);
@@ -184,15 +197,17 @@ function compileElement(element: PrintElement): string {
       return '';
 
     case 'barcode':
-      return compileBarcodeElement(element);
+      return compileBarcodeElement(element, warnings);
 
     case 'qrcode':
       return compileQrcodeElement(element);
   }
 }
 
-export function compileToCPCL(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh CPCL kèm cảnh báo. */
+export function compileToCPCL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(CPCL_LANGUAGE_NAME);
 
   const height = document.heightDots > 0 ? document.heightDots : DEFAULT_HEIGHT_DOTS;
   lines.push(`${CPCL_COMMAND.SESSION_START} 0 ${document.dpi} ${document.dpi} ${height} ${document.copies}`);
@@ -202,12 +217,12 @@ export function compileToCPCL(document: ResolvedPrintDocument): string {
 
   for (const element of document.elements) {
     // Bỏ qua để tránh dòng trống thừa khi join bằng \r\n (no-op hoặc raw rỗng biên dịch ra '').
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
   lines.push(CPCL_COMMAND.PRINT);
-  return lines.join('\r\n') + '\r\n';
+  return { output: lines.join('\r\n') + '\r\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -217,6 +232,6 @@ export function compileToCPCL(document: ResolvedPrintDocument): string {
  */
 export class CpclCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToCPCL(document), warnings: [] };
+    return compileToCPCL(document);
   }
 }

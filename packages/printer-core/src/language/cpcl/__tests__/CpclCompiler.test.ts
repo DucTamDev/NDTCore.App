@@ -17,10 +17,10 @@ describe('CpclCompiler', () => {
     const compiler = new CpclCompiler();
     const output = compiler.compile({
       ...baseDoc,
-      elements: [{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, font: '5', size: 1 } }],
+      elements: [{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, fontSize: 24 } }],
     }).output;
 
-    expect(output).toContain('TEXT 5 1 10 20\r\nHello CPCL');
+    expect(output).toContain('TEXT 5 0 10 20\r\nHello CPCL');
   });
 
   it('appends the rotation to the TEXT command name when rotated', () => {
@@ -195,5 +195,62 @@ describe('CpclCompiler', () => {
     }).output;
 
     expect(output).toContain('B QR10,10\r\nM2\r\nU6\r\nMA,hello\r\nENDQR');
+  });
+});
+
+describe('CpclCompiler — cỡ chữ và cảnh báo', () => {
+  it('không khai báo fontSize thì dùng font 2 ở cỡ gốc', () => {
+    const { output } = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 1, y: 2 } }],
+    });
+
+    expect(output).toContain('TEXT 2 0 1 2\r\nHi');
+  });
+
+  it('cảnh báo element CPCL không có lệnh', () => {
+    const { warnings } = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'cut' },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['circle', 'ellipse', 'reverse', 'erase', 'cut'].map(
+        (type) => `Element "${type}" bị bỏ qua — CPCL không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('cảnh báo khi barcode khai báo readable', () => {
+    const barcode = { symbology: 'code128' as const, content: '123' };
+    const withReadable = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'barcode', options: { ...barcode, readable: true } }],
+    });
+    const withoutReadable = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'barcode', options: barcode }],
+    });
+
+    expect(withReadable.warnings).toEqual([
+      'BarcodeConfig.readable bị bỏ qua — CPCL bật/tắt chữ dưới mã vạch bằng lệnh trạng thái riêng, ' +
+        'không phải tham số của BARCODE.',
+    ]);
+    expect(withoutReadable.warnings).toEqual([]);
+  });
+
+  it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {
+    const { warnings } = new CpclCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    expect(warnings).toEqual([]);
   });
 });

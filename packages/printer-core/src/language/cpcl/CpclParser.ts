@@ -1,5 +1,6 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
+import { CpclFontMetrics } from './CpclFontMetrics';
 
 /**
  * Một lệnh CPCL đã decode: động từ lệnh và các token whitespace-split theo
@@ -59,7 +60,7 @@ function parseTextElement(parts: string[], content: string): PrintElement {
   return {
     type: 'text',
     content,
-    options: { x, y, font, size },
+    options: { x, y, fontSize: CpclFontMetrics.nativeToFontSize(font, size) },
   };
 }
 
