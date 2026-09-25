@@ -72,7 +72,7 @@ describe('pipeline template → resolve → layout → compile', () => {
       direction: 'forward',
       copies: 1,
       elements,
-    });
+    }).output;
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(bytes.length).toBeGreaterThan(0);
   });

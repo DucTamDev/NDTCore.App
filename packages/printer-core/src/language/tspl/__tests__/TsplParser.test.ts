@@ -103,7 +103,7 @@ describe('TsplParser', () => {
         elements: [{ type: 'image', bitmap: { data: new Uint8Array([0x41, 0x0a, 0x42]), width: 24, height: 1, bytesPerRow: 3 }, options: {} }],
       };
 
-      const compiled = new TsplCompiler().compile(doc);
+      const compiled = new TsplCompiler().compile(doc).output;
       // Compiled BITMAP line: `BITMAP 0,0,3,1,0,A\nB` — the payload's own
       // 0x0A byte (between "A" and "B") is indistinguishable from a real
       // line break once the document is tokenized.

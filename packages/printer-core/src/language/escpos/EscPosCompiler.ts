@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions, CutOptions, TableOptions } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';
@@ -149,13 +149,13 @@ function compileElement(element: PrintElement, encoding: TextEncodingOptions | u
 }
 
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): Uint8Array {
+  compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];
 
     for (const element of document.elements) {
       chunks.push(...compileElement(element, encoding));
     }
 
-    return concatEscPosBytes(chunks);
+    return { output: concatEscPosBytes(chunks), warnings: [] };
   }
 }

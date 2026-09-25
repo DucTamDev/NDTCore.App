@@ -1,6 +1,7 @@
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
 import type { ValidationResult } from '../validation/ValidationResult';
+import type { CompileResult } from './PrintCompiler';
 import type { PrinterLanguage } from './PrinterLanguage';
 import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
 import { LANGUAGE_REGISTRY } from './LanguageRegistry';
@@ -24,7 +25,11 @@ function lookup(language: PrinterLanguage, capability: string): PrinterLanguageD
  * nine languages — tspl, escpos, zpl, epl, cpcl, dpl, sbpl, starprnt, ipl —
  * has a real compiler in this package, so there is no stub branch here.
  */
-export function compileTo(language: PrinterLanguage, document: ResolvedPrintDocument, profile?: PrinterProfile): string | Uint8Array {
+export function compileTo(
+  language: PrinterLanguage,
+  document: ResolvedPrintDocument,
+  profile?: PrinterProfile,
+): CompileResult<string | Uint8Array> {
   return lookup(language, 'compiler').compiler.compile(document, profile?.features);
 }
 

@@ -7,7 +7,7 @@ import type {
   LineElement,
   TableElement,
 } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation } from '../../types';
 import { SBPL_COMMAND } from './SbplCommand';
 import { encodeSbplBitmapPayload } from './SbplEncoder';
@@ -221,7 +221,7 @@ export function compileToSBPL(document: ResolvedPrintDocument): string {
  * khớp chữ ký chung của `PrintCompiler`, không thực sự được dùng.
  */
 export class SbplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToSBPL(document);
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+    return { output: compileToSBPL(document), warnings: [] };
   }
 }

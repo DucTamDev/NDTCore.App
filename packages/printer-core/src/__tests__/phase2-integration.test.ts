@@ -38,7 +38,7 @@ const doc: ResolvedPrintDocument = {
 
 describe('Phase 1 end-to-end', () => {
   it('compiles, parses, and validates a document as TSPL', () => {
-    const tspl = new TsplCompiler().compile(doc);
+    const tspl = new TsplCompiler().compile(doc).output;
     expect(new TsplValidator().validate(tspl).valid).toBe(true);
     expect(new TsplParser().parse(tspl).commands.length).toBeGreaterThan(0);
 
@@ -52,7 +52,7 @@ describe('Phase 1 end-to-end', () => {
   });
 
   it('compiles and parses the same document as ESC/POS', () => {
-    const bytes = new EscPosCompiler().compile(doc);
+    const bytes = new EscPosCompiler().compile(doc).output;
     expect(new EscPosParser().parse(bytes).commands.length).toBeGreaterThan(0);
 
     // `cut` compiles to a `GS V m` sequence (mode 'full', no explicit rows -> function A, m=0x00).
@@ -77,7 +77,7 @@ const BINARY_LANGUAGES = new Set<PrinterLanguage>(['escpos', 'starprnt']);
 describe('Phase 2 end-to-end: full 9-language coverage', () => {
   describe.each(ALL_LANGUAGES)('%s', (language) => {
     it('compiles, parses, validates, and previews the representative document', () => {
-      const compiled = compileTo(language, doc);
+      const compiled = compileTo(language, doc).output;
       const isBinary = BINARY_LANGUAGES.has(language);
       expect(compiled instanceof Uint8Array).toBe(isBinary);
 

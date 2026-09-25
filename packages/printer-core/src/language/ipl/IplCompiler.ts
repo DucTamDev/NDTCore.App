@@ -7,7 +7,7 @@ import type {
   LineOptions,
   TableOptions,
 } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Bitmap, Rotation } from '../../types';
 import { IPL_COMMAND } from './IplCommand';
 import { encodeIplBitmapPayload } from './IplEncoder';
@@ -232,7 +232,7 @@ export function compileToIPL(document: ResolvedPrintDocument): string {
  * byte thô). Nơi gọi không được encode UTF-8 thẳng khi document có image.
  */
 export class IplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToIPL(document);
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+    return { output: compileToIPL(document), warnings: [] };
   }
 }

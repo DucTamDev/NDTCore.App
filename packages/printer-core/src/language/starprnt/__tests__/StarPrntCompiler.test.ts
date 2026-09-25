@@ -6,24 +6,30 @@ const BASE = { widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, de
 
 describe('StarPrntCompiler', () => {
   it('starts with ESC @ (initialize)', () => {
-    const bytes = new StarPrntCompiler().compile({ ...BASE, elements: [] });
+    const bytes = new StarPrntCompiler().compile({ ...BASE, elements: [] }).output;
     expect(Array.from(bytes.slice(0, 2))).toEqual([0x1b, 0x40]);
   });
 
   it('returns a Uint8Array', () => {
-    const bytes = new StarPrntCompiler().compile({ ...BASE, elements: [] });
+    const bytes = new StarPrntCompiler().compile({ ...BASE, elements: [] }).output;
     expect(bytes).toBeInstanceOf(Uint8Array);
   });
 
   it('generates text content followed by a line feed', () => {
-    const bytes = new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Hello Star' }] });
+    const bytes = new StarPrntCompiler().compile({
+      ...BASE,
+      elements: [{ type: 'text', content: 'Hello Star' }],
+    }).output;
     const text = new TextDecoder().decode(bytes);
     expect(text).toContain('Hello Star');
   });
 
   it('generates Star alignment: ESC GS a n for a centered text element', () => {
     const bytes = Array.from(
-      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Center', options: { align: 'center' } }] }),
+      new StarPrntCompiler().compile({
+        ...BASE,
+        elements: [{ type: 'text', content: 'Center', options: { align: 'center' } }],
+      }).output,
     );
     const idx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x1d && bytes[i + 2] === 0x61);
     expect(idx).toBeGreaterThan(-1);
@@ -32,7 +38,10 @@ describe('StarPrntCompiler', () => {
 
   it('generates Star bold: ESC E (on) then ESC F (off)', () => {
     const bytes = Array.from(
-      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Bold', options: { bold: true } }] }),
+      new StarPrntCompiler().compile({
+        ...BASE,
+        elements: [{ type: 'text', content: 'Bold', options: { bold: true } }],
+      }).output,
     );
     const onIdx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x45);
     const offIdx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x46);
@@ -42,7 +51,8 @@ describe('StarPrntCompiler', () => {
 
   it('generates Star size magnification: ESC i h w', () => {
     const bytes = Array.from(
-      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Big', options: { size: 3 } }] }),
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'Big', options: { size: 3 } }] })
+        .output,
     );
     const idx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x69);
     expect(idx).toBeGreaterThan(-1);
@@ -52,7 +62,9 @@ describe('StarPrntCompiler', () => {
 
   it('generates Star raster mode for an image element, one raster row per bitmap row', () => {
     const bitmap = { data: new Uint8Array([0xff, 0x00, 0xaa, 0x55]), width: 8, height: 4, bytesPerRow: 1 };
-    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'image', bitmap, options: {} }] }));
+    const bytes = Array.from(
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'image', bitmap, options: {} }] }).output,
+    );
 
     const enterIdx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x2a && bytes[i + 2] === 0x72 && bytes[i + 3] === 0x41);
     const exitIdx = bytes.findIndex((b, i) => b === 0x1b && bytes[i + 1] === 0x2a && bytes[i + 2] === 0x72 && bytes[i + 3] === 0x42);
@@ -67,28 +79,39 @@ describe('StarPrntCompiler', () => {
   });
 
   it('passes raw bytes straight through', () => {
-    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'raw', content: new Uint8Array([0x07]) }] }));
+    const bytes = Array.from(
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'raw', content: new Uint8Array([0x07]) }] }).output,
+    );
     expect(bytes).toContain(0x07);
   });
 
   it('emits ESC d 1 for a cut element with mode "partial"', () => {
-    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'cut', options: { mode: 'partial' } }] }));
+    const bytes = Array.from(
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'cut', options: { mode: 'partial' } }] }).output,
+    );
     expect(bytes.slice(-3)).toEqual([0x1b, 0x64, 1]);
   });
 
   it('emits the same ESC d 1 command for a cut element with mode "full" (no distinct full-cut byte is grounded in the source protocol)', () => {
-    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'cut', options: { mode: 'full' } }] }));
+    const bytes = Array.from(
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'cut', options: { mode: 'full' } }] }).output,
+    );
     expect(bytes.slice(-3)).toEqual([0x1b, 0x64, 1]);
   });
 
   it('emits nothing for a cut element with mode "off"', () => {
-    const withCut = new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'cut', options: { mode: 'off' } }] });
-    const without = new StarPrntCompiler().compile({ ...BASE, elements: [] });
+    const withCut = new StarPrntCompiler().compile({
+      ...BASE,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    }).output;
+    const without = new StarPrntCompiler().compile({ ...BASE, elements: [] }).output;
     expect(withCut).toEqual(without);
   });
 
   it('does not append a trailing cut when no cut element is present', () => {
-    const bytes = Array.from(new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'no cut here' }] }));
+    const bytes = Array.from(
+      new StarPrntCompiler().compile({ ...BASE, elements: [{ type: 'text', content: 'no cut here' }] }).output,
+    );
     expect(bytes.slice(-3)).not.toEqual([0x1b, 0x64, 1]);
   });
 
@@ -96,7 +119,7 @@ describe('StarPrntCompiler', () => {
     const bytes = new StarPrntCompiler().compile({
       ...BASE,
       elements: [{ type: 'table', options: { columns: [{ width: 10 }], rows: [['hello']] } }],
-    });
+    }).output;
     expect(new TextDecoder().decode(bytes)).toContain('hello');
   });
 
@@ -105,7 +128,7 @@ describe('StarPrntCompiler', () => {
       new StarPrntCompiler().compile({
         ...BASE,
         elements: [{ type: 'table', options: { columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
@@ -113,8 +136,8 @@ describe('StarPrntCompiler', () => {
     const encoding = STAR_PROFILES['star-tsp143']!.features;
     const elements: PrintElement[] = [{ type: 'text', content: 'Profile', options: { bold: true, size: 2 } }];
 
-    const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, encoding);
-    const withoutEncoding = new StarPrntCompiler().compile({ ...BASE, elements });
+    const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, encoding).output;
+    const withoutEncoding = new StarPrntCompiler().compile({ ...BASE, elements }).output;
 
     expect(withEncoding).toEqual(withoutEncoding);
     expect(new TextDecoder().decode(withEncoding)).toContain('Profile');
@@ -136,9 +159,9 @@ describe('StarPrntCompiler', () => {
       { type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } },
       { type: 'qrcode', options: { content: 'hello-qr' } },
     ];
-    const without = new StarPrntCompiler().compile({ ...BASE, elements: [] });
+    const without = new StarPrntCompiler().compile({ ...BASE, elements: [] }).output;
     for (const el of noOpElements) {
-      const withEl = new StarPrntCompiler().compile({ ...BASE, elements: [el] });
+      const withEl = new StarPrntCompiler().compile({ ...BASE, elements: [el] }).output;
       expect(withEl).toEqual(without);
     }
   });

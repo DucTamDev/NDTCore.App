@@ -1,5 +1,5 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Direction } from '../../types';
@@ -309,7 +309,7 @@ export class TsplCompiler implements PrintCompiler<string> {
    * UTF-8 cho phần còn lại) mà package này chưa hỗ trợ — nằm ngoài phạm vi ở
    * đây; đây là ghi chú về một giới hạn đã biết, không phải một chỗ cần sửa.
    */
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToTSPL(document);
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+    return { output: compileToTSPL(document), warnings: [] };
   }
 }

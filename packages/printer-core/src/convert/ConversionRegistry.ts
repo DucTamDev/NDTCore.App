@@ -1,3 +1,4 @@
+import type { CompileResult } from '../core';
 import type { PrinterLanguage } from '../core/PrinterLanguage';
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
@@ -32,7 +33,7 @@ export interface ParsedSource {
 /** One `PrinterLanguage`'s parse/compile pair, looked up by `PrinterConverter`. */
 export interface ConversionRegistryEntry {
   parse: (source: string | Uint8Array) => ParsedSource;
-  compile: (document: ResolvedPrintDocument, profile?: PrinterProfile) => string | Uint8Array;
+  compile: (document: ResolvedPrintDocument, profile?: PrinterProfile) => CompileResult<string | Uint8Array>;
 }
 
 function toText(source: string | Uint8Array): string {

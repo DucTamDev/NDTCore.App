@@ -16,7 +16,10 @@ const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
 describe('ZplCompiler', () => {
   it('compiles a text element to ^FO/^FD carrying its position and content', () => {
     const compiler = new ZplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Hello', options: { x: 10, y: 20 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hello', options: { x: 10, y: 20 } }],
+    }).output;
 
     expect(output).toContain('^FO10,20');
     expect(output).toContain('^FDHello^FS');
@@ -24,7 +27,7 @@ describe('ZplCompiler', () => {
 
   it('wraps the whole document in ^XA...^XZ with ^PW/^LL/^PQ set from the document', () => {
     const compiler = new ZplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [] });
+    const output = compiler.compile({ ...baseDoc, elements: [] }).output;
 
     expect(output.startsWith('^XA')).toBe(true);
     expect(output).toContain('^PW320');
@@ -38,7 +41,7 @@ describe('ZplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } }],
-    });
+    }).output;
 
     const parsed = new ZplParser().parse(output);
     expect(parsed.warnings).toEqual([]);
@@ -66,7 +69,7 @@ describe('ZplCompiler', () => {
           },
         },
       ],
-    });
+    }).output;
 
     expect(output).toContain('hello');
     expect(output).toContain('world');
@@ -91,7 +94,7 @@ describe('ZplCompiler', () => {
             options: { x: 5, y: 20, columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] },
           },
         ],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
@@ -99,7 +102,7 @@ describe('ZplCompiler', () => {
     const compilerA = new ZplCompiler();
     const compilerB = new ZplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
@@ -107,7 +110,7 @@ describe('ZplCompiler', () => {
         { type: 'reverse', options: { x: 0, y: 0, width: 10, height: 10 } },
         { type: 'erase', options: { x: 0, y: 0, width: 10, height: 10 } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -116,18 +119,18 @@ describe('ZplCompiler', () => {
     const compilerA = new ZplCompiler();
     const compilerB = new ZplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [{ type: 'pageBreak' }, { type: 'spacer', options: { size: 10 } }, { type: 'row', options: {} }, { type: 'column', options: {} }],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
 
   it('emits ^MMC for cut mode "full" and ^MMT for cut mode "off"', () => {
-    const on = new ZplCompiler().compile({ ...baseDoc, elements: [{ type: 'cut', options: { mode: 'full' } }] });
-    const off = new ZplCompiler().compile({ ...baseDoc, elements: [{ type: 'cut', options: { mode: 'off' } }] });
+    const on = new ZplCompiler().compile({ ...baseDoc, elements: [{ type: 'cut', options: { mode: 'full' } }] }).output;
+    const off = new ZplCompiler().compile({ ...baseDoc, elements: [{ type: 'cut', options: { mode: 'off' } }] }).output;
 
     expect(on).toContain('^MMC');
     expect(off).toContain('^MMT');
@@ -135,7 +138,10 @@ describe('ZplCompiler', () => {
 
   it('emits a DIAGONAL-style ^GD command for a diagonal element, not a ^GB box', () => {
     const compiler = new ZplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('^GD100,50,2,B,R');
   });
@@ -143,7 +149,10 @@ describe('ZplCompiler', () => {
   it('appends the actual bitmap bytes as uppercase hex after the ^GFA header', () => {
     const compiler = new ZplCompiler();
     const bitmap = { data: new Uint8Array([0xff, 0x00]), width: 16, height: 1, bytesPerRow: 2 };
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'image', bitmap, options: { x: 0, y: 0 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'image', bitmap, options: { x: 0, y: 0 } }],
+    }).output;
 
     expect(output).toContain('^GFA,2,2,2,FF00');
   });

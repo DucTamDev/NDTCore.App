@@ -17,6 +17,9 @@ export interface ConversionResult {
   output: string;
   /** Elements recovered from parsing the source, before target compilation. */
   elements: PrintElement[];
-  /** Warnings raised while parsing the source (e.g. unrecognized commands). */
+  /**
+   * Cảnh báo khi parse source (VD lệnh không nhận diện được) và khi compile sang
+   * ngôn ngữ đích (VD element không hỗ trợ).
+   */
   warnings: string[];
 }

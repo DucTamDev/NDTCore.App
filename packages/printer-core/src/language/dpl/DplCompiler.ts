@@ -7,7 +7,7 @@ import type {
   LineOptions,
   TableOptions,
 } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { Rotation, Bitmap } from '../../types';
 import { DPL_COMMAND } from './DplCommand';
 import { encodeDplBitmapPayload } from './DplEncoder';
@@ -229,7 +229,7 @@ export function compileToDPL(document: ResolvedPrintDocument): string {
  * đi không được chạy qua một bộ mã hoá UTF-8 thông thường.
  */
 export class DplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToDPL(document);
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+    return { output: compileToDPL(document), warnings: [] };
   }
 }

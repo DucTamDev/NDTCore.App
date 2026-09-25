@@ -54,7 +54,7 @@ export function convert(source: string, from: PrinterLanguage, to: PrinterLangua
   };
 
   const compiled = targetEntry.compile(document);
-  const output = typeof compiled === 'string' ? compiled : bytesToBinaryString(compiled);
+  const output = typeof compiled.output === 'string' ? compiled.output : bytesToBinaryString(compiled.output);
 
-  return { output, elements: parsed.elements, warnings: parsed.warnings };
+  return { output, elements: parsed.elements, warnings: [...parsed.warnings, ...compiled.warnings] };
 }

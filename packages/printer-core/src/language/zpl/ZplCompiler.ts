@@ -12,7 +12,7 @@ import type {
   CutElement,
   TableElement,
 } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
@@ -320,7 +320,7 @@ export function compileToZPL(document: ResolvedPrintDocument): string {
  * chỉ nhận vào để khớp chữ ký chung của `PrintCompiler`, không được dùng.
  */
 export class ZplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): string {
-    return compileToZPL(document);
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+    return { output: compileToZPL(document), warnings: [] };
   }
 }

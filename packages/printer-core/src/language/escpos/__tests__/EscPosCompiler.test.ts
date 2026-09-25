@@ -35,7 +35,7 @@ describe('EscPosCompiler', () => {
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
       undefined, // falls back to DEFAULT_ENCODING (nativeUtf8: false)
-    );
+    ).output;
     const naiveUtf8 = new TextEncoder().encode('café');
     // The café substring should NOT appear as raw UTF-8 bytes when a non-native-UTF8 encoding is used.
     expect(containsSubsequence(bytes, naiveUtf8)).toBe(false);
@@ -57,7 +57,7 @@ describe('EscPosCompiler', () => {
         elements: [{ type: 'text', content: 'café', options: {} }],
       },
       nativeUtf8Encoding,
-    );
+    ).output;
     const naiveUtf8 = new TextEncoder().encode('café');
     expect(containsSubsequence(bytes, naiveUtf8)).toBe(true);
   });
@@ -74,7 +74,7 @@ describe('EscPosCompiler', () => {
       direction: 'forward',
       copies: 1,
       elements: [{ type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } }],
-    });
+    }).output;
     const parsed = new EscPosParser().parse(bytes);
     expect(parsed.commands.length).toBeGreaterThan(0);
   });
@@ -91,7 +91,7 @@ describe('EscPosCompiler', () => {
       direction: 'forward',
       copies: 1,
       elements: [{ type: 'barcode', options: { symbology: 'code128', content: 'ABC123' } }],
-    });
+    }).output;
     const parsed = new EscPosParser().parse(bytes) as { commands: EscPosParsedCommand[]; warnings: string[] };
     const barcodeCommand = parsed.commands.find((c) => c.name === 'GS k');
 
@@ -112,7 +112,7 @@ describe('EscPosCompiler', () => {
       direction: 'forward',
       copies: 1,
       elements: [{ type: 'qrcode', options: { content: 'hello-qr' } }],
-    });
+    }).output;
     const parsed = new EscPosParser().parse(bytes) as { commands: EscPosParsedCommand[]; warnings: string[] };
     const twoDCommands = parsed.commands.filter((c) => c.name === 'GS ( k');
 
@@ -129,7 +129,7 @@ describe('EscPosCompiler', () => {
     const bytes = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'full' } }],
-    });
+    }).output;
     expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x00]));
   });
 
@@ -137,7 +137,7 @@ describe('EscPosCompiler', () => {
     const bytes = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'full', rows: 3 } }],
-    });
+    }).output;
     // GS V m n (function B): m=0x41 selects full cut, n=3 feeds 3 lines before cutting.
     expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x41, 0x03]));
   });
@@ -146,7 +146,7 @@ describe('EscPosCompiler', () => {
     const bytes = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'partial', rows: 5 } }],
-    });
+    }).output;
     expect(Array.from(bytes)).toEqual(expect.arrayContaining([0x1d, 0x56, 0x42, 0x05]));
   });
 
@@ -154,11 +154,11 @@ describe('EscPosCompiler', () => {
     const withCut = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'off' } }],
-    });
+    }).output;
     const withoutCut = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [],
-    });
+    }).output;
     expect(withCut).toEqual(withoutCut);
   });
 
@@ -166,7 +166,7 @@ describe('EscPosCompiler', () => {
     const bytes = new EscPosCompiler().compile({
       widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'table', options: { columns: [{ width: 10 }], rows: [['hello']] } }],
-    });
+    }).output;
     const text = new TextDecoder().decode(bytes);
     expect(text).toContain('hello');
   });
@@ -176,7 +176,7 @@ describe('EscPosCompiler', () => {
       new EscPosCompiler().compile({
         widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [{ type: 'table', options: { columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
@@ -192,11 +192,11 @@ describe('EscPosCompiler', () => {
       const withEl = new EscPosCompiler().compile({
         widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [el],
-      });
+      }).output;
       const without = new EscPosCompiler().compile({
         widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
         elements: [],
-      });
+      }).output;
       expect(withEl).toEqual(without);
     }
   });

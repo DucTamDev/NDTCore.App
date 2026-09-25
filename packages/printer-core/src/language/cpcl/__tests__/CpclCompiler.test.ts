@@ -15,21 +15,27 @@ const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
 describe('CpclCompiler', () => {
   it('compiles a text element to a TEXT command with its position and content on the following line', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, font: '5', size: 1 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hello CPCL', options: { x: 10, y: 20, font: '5', size: 1 } }],
+    }).output;
 
     expect(output).toContain('TEXT 5 1 10 20\r\nHello CPCL');
   });
 
   it('appends the rotation to the TEXT command name when rotated', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Rot', options: { x: 5, y: 5, rotation: 90 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Rot', options: { x: 5, y: 5, rotation: 90 } }],
+    }).output;
 
     expect(output).toContain('TEXT90 2 0 5 5\r\nRot');
   });
 
   it('wraps the whole document with !/TONE/SPEED/PAGE-WIDTH header commands and a trailing PRINT', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [] });
+    const output = compiler.compile({ ...baseDoc, elements: [] }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines[0]).toBe('! 0 203 203 240 1');
@@ -42,28 +48,40 @@ describe('CpclCompiler', () => {
   it('emits an EG command with the hex-encoded bitmap payload', () => {
     const compiler = new CpclCompiler();
     const bitmap = { data: new Uint8Array([0xff, 0x00, 0xa5]), width: 24, height: 1, bytesPerRow: 3 };
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'image', bitmap, options: { x: 10, y: 10 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'image', bitmap, options: { x: 10, y: 10 } }],
+    }).output;
 
     expect(output).toContain('EG 3 1 10 10 FF00A5');
   });
 
   it('generates a box command', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'box', options: { x: 5, y: 5, width: 200, height: 100, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'box', options: { x: 5, y: 5, width: 200, height: 100, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('BOX 5 5 205 105 2');
   });
 
   it('generates a LINE command for an axis-aligned line', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'line', options: { x1: 10, y1: 50, x2: 300, y2: 50, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'line', options: { x1: 10, y1: 50, x2: 300, y2: 50, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('LINE 10 50 300 50 2');
   });
 
   it('generates the same LINE command shape for a genuinely diagonal line, since CPCL LINE draws between any two points', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('LINE 0 0 100 50 2');
   });
@@ -86,7 +104,7 @@ describe('CpclCompiler', () => {
           },
         },
       ],
-    });
+    }).output;
 
     expect(output).toContain('hello');
     expect(output).toContain('world');
@@ -106,20 +124,23 @@ describe('CpclCompiler', () => {
       compiler.compile({
         ...baseDoc,
         elements: [{ type: 'table', options: { x: 5, y: 20, columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
   it('handles multiple copies', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, copies: 10, elements: [] });
+    const output = compiler.compile({ ...baseDoc, copies: 10, elements: [] }).output;
 
     expect(output.trim().split('\r\n')[0]).toBe('! 0 203 203 240 10');
   });
 
   it('handles raw passthrough', () => {
     const compiler = new CpclCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: '! U1 setvar "device.friendly_name" "test"' }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'raw', content: '! U1 setvar "device.friendly_name" "test"' }],
+    }).output;
 
     expect(output).toContain('! U1 setvar "device.friendly_name" "test"');
   });
@@ -128,7 +149,7 @@ describe('CpclCompiler', () => {
     const compilerA = new CpclCompiler();
     const compilerB = new CpclCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
@@ -138,7 +159,7 @@ describe('CpclCompiler', () => {
         { type: 'erase', options: { x: 0, y: 0, width: 10, height: 10 } },
         { type: 'cut', options: { mode: 'full' } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -147,11 +168,11 @@ describe('CpclCompiler', () => {
     const compilerA = new CpclCompiler();
     const compilerB = new CpclCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [{ type: 'pageBreak' }, { type: 'spacer', options: { size: 10 } }, { type: 'row', options: {} }, { type: 'column', options: {} }],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -161,7 +182,7 @@ describe('CpclCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } }],
-    });
+    }).output;
 
     expect(output).toContain('BARCODE 128 2 2 50 5 5 123456789');
   });
@@ -171,7 +192,7 @@ describe('CpclCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'qrcode', options: { x: 10, y: 10, content: 'hello' } }],
-    });
+    }).output;
 
     expect(output).toContain('B QR10,10\r\nM2\r\nU6\r\nMA,hello\r\nENDQR');
   });

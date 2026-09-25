@@ -15,7 +15,7 @@ const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
 describe('IplCompiler', () => {
   it('wraps the whole document with create-format/program-mode headers and a trailing print/end-format', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [] });
+    const output = compiler.compile({ ...baseDoc, elements: [] }).output;
 
     expect(output).toContain('\x02\x1bC1\x03');
     expect(output).toContain('\x02\x1bP\x03');
@@ -25,7 +25,7 @@ describe('IplCompiler', () => {
 
   it('generates label size config from heightDots/widthDots', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, heightDots: 240, widthDots: 320, elements: [] });
+    const output = compiler.compile({ ...baseDoc, heightDots: 240, widthDots: 320, elements: [] }).output;
 
     expect(output).toContain('<SI>L240');
     expect(output).toContain('<SI>W320');
@@ -33,7 +33,7 @@ describe('IplCompiler', () => {
 
   it('generates speed and density config', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, speed: 6, density: 10, elements: [] });
+    const output = compiler.compile({ ...baseDoc, speed: 6, density: 10, elements: [] }).output;
 
     expect(output).toContain('<SI>S60');
     expect(output).toContain('<SI>d10');
@@ -41,14 +41,17 @@ describe('IplCompiler', () => {
 
   it('generates multiple copies', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, copies: 5, elements: [] });
+    const output = compiler.compile({ ...baseDoc, copies: 5, elements: [] }).output;
 
     expect(output).toContain('\x1bM5');
   });
 
   it('compiles a text element to an H field record carrying its position and content', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Hello IPL', options: { x: 50, y: 30 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hello IPL', options: { x: 50, y: 30 } }],
+    }).output;
 
     expect(output).toContain('H1;o50,30');
     expect(output).toContain('Hello IPL');
@@ -56,7 +59,10 @@ describe('IplCompiler', () => {
 
   it('encodes rotation 90 as format code 1 in the H field', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Rotated', options: { x: 10, y: 20, rotation: 90 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Rotated', options: { x: 10, y: 20, rotation: 90 } }],
+    }).output;
 
     expect(output).toContain(';f1;');
   });
@@ -66,7 +72,7 @@ describe('IplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'box', options: { x: 10, y: 20, width: 200, height: 100, thickness: 2 } }],
-    });
+    }).output;
 
     expect(output).toContain('W1;o10,20');
     expect(output).toContain('l200');
@@ -79,7 +85,7 @@ describe('IplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'line', options: { x1: 10, y1: 50, x2: 300, y2: 50, thickness: 2 } }],
-    });
+    }).output;
 
     expect(output).toContain('L1;o10,50');
     expect(output).toContain('l290');
@@ -90,7 +96,7 @@ describe('IplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'line', options: { x1: 50, y1: 10, x2: 50, y2: 200 } }],
-    });
+    }).output;
 
     expect(output).toContain(';f1;');
     expect(output).toContain('l190');
@@ -98,7 +104,7 @@ describe('IplCompiler', () => {
 
   it('handles raw passthrough', () => {
     const compiler = new IplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: 'CUSTOM_CMD' }] });
+    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: 'CUSTOM_CMD' }] }).output;
 
     expect(output).toContain('CUSTOM_CMD');
   });
@@ -121,7 +127,7 @@ describe('IplCompiler', () => {
           },
         },
       ],
-    });
+    }).output;
 
     expect(output).toContain('hello');
     expect(output).toContain('world');
@@ -137,7 +143,7 @@ describe('IplCompiler', () => {
       compiler.compile({
         ...baseDoc,
         elements: [{ type: 'table', options: { x: 5, y: 20, columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
@@ -145,7 +151,7 @@ describe('IplCompiler', () => {
     const compilerA = new IplCompiler();
     const compilerB = new IplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
@@ -156,7 +162,7 @@ describe('IplCompiler', () => {
         { type: 'erase', options: { x: 0, y: 0, width: 10, height: 10 } },
         { type: 'cut', options: { mode: 'full' } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -170,14 +176,14 @@ describe('IplCompiler', () => {
     const compilerA = new IplCompiler();
     const compilerB = new IplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
         { type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } },
         { type: 'qrcode', options: { x: 10, y: 10, content: 'hello' } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -186,11 +192,11 @@ describe('IplCompiler', () => {
     const compilerA = new IplCompiler();
     const compilerB = new IplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [{ type: 'pageBreak' }, { type: 'spacer', options: { size: 10 } }, { type: 'row', options: {} }, { type: 'column', options: {} }],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -207,7 +213,7 @@ describe('IplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'image', bitmap: { data: new Uint8Array([0xff, 0x00]), width: 16, height: 1, bytesPerRow: 2 }, options: { x: 5, y: 6 } }],
-    });
+    }).output;
 
     const header = '\x02G1;o5,6;f0;w2;h1;';
     const headerIndex = output.indexOf(header);
@@ -220,7 +226,10 @@ describe('IplCompiler', () => {
   it('appends exactly bytesPerRow * height payload bytes after the graphic field header, matching bitmap.data byte for byte', () => {
     const compiler = new IplCompiler();
     const bitmap = { data: new Uint8Array([0xff, 0x00, 0xa5]), width: 24, height: 1, bytesPerRow: 3 };
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'image', bitmap, options: { x: 1, y: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'image', bitmap, options: { x: 1, y: 2 } }],
+    }).output;
 
     const header = '\x02G1;o1,2;f0;w3;h1;';
     const headerIndex = output.indexOf(header);

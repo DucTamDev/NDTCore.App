@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions } from '../../document/elements';
-import type { PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
 import {
   BYTE_MASK,
   STAR_PRNT,
@@ -142,13 +142,13 @@ function compileElement(element: PrintElement): Uint8Array[] {
  * `compileTextElement` (đầu ra văn bản luôn UTF-8).
  */
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): Uint8Array {
+  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.INIT])];
 
     for (const element of document.elements) {
       chunks.push(...compileElement(element));
     }
 
-    return concatStarPrntBytes(chunks);
+    return { output: concatStarPrntBytes(chunks), warnings: [] };
   }
 }

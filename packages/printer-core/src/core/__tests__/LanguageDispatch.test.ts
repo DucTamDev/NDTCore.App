@@ -15,8 +15,15 @@ const doc: ResolvedPrintDocument = {
 };
 
 describe('LanguageDispatch', () => {
+  it('compileTo trả output kèm danh sách cảnh báo', () => {
+    const result = compileTo('tspl', doc);
+
+    expect(typeof result.output).toBe('string');
+    expect(result.warnings).toEqual([]);
+  });
+
   it('routes "tspl" to TsplCompiler/TsplParser/TsplValidator/TsplPreviewRenderer', () => {
-    const tspl = compileTo('tspl', doc);
+    const tspl = compileTo('tspl', doc).output;
     expect(typeof tspl).toBe('string');
     expect(parseFrom('tspl', tspl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('tspl', tspl as string).valid).toBe(true);
@@ -24,14 +31,14 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "escpos" to EscPosCompiler/EscPosParser/EscPosValidator/EscPosPreviewRenderer', () => {
-    const bytes = compileTo('escpos', doc);
+    const bytes = compileTo('escpos', doc).output;
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(parseFrom('escpos', bytes as Uint8Array).commands.length).toBeGreaterThan(0);
     expect(previewFor('escpos', doc)).toContain('<svg');
   });
 
   it('routes "zpl" to ZplCompiler/ZplParser/ZplValidator/ZplPreviewRenderer', () => {
-    const zpl = compileTo('zpl', doc);
+    const zpl = compileTo('zpl', doc).output;
     expect(typeof zpl).toBe('string');
     expect(parseFrom('zpl', zpl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('zpl', zpl as string).valid).toBe(true);
@@ -39,7 +46,7 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "epl" to EplCompiler/EplParser/EplValidator/EplPreviewRenderer', () => {
-    const epl = compileTo('epl', doc);
+    const epl = compileTo('epl', doc).output;
     expect(typeof epl).toBe('string');
     expect(parseFrom('epl', epl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('epl', epl as string).valid).toBe(true);
@@ -47,7 +54,7 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "cpcl" to CpclCompiler/CpclParser/CpclValidator/CpclPreviewRenderer', () => {
-    const cpcl = compileTo('cpcl', doc);
+    const cpcl = compileTo('cpcl', doc).output;
     expect(typeof cpcl).toBe('string');
     expect(parseFrom('cpcl', cpcl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('cpcl', cpcl as string).valid).toBe(true);
@@ -55,7 +62,7 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "dpl" to DplCompiler/DplParser/DplValidator/DplPreviewRenderer', () => {
-    const dpl = compileTo('dpl', doc);
+    const dpl = compileTo('dpl', doc).output;
     expect(typeof dpl).toBe('string');
     expect(parseFrom('dpl', dpl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('dpl', dpl as string).valid).toBe(true);
@@ -63,7 +70,7 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "sbpl" to SbplCompiler/SbplParser/SbplValidator/SbplPreviewRenderer', () => {
-    const sbpl = compileTo('sbpl', doc);
+    const sbpl = compileTo('sbpl', doc).output;
     expect(typeof sbpl).toBe('string');
     expect(parseFrom('sbpl', sbpl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('sbpl', sbpl as string).valid).toBe(true);
@@ -71,14 +78,14 @@ describe('LanguageDispatch', () => {
   });
 
   it('routes "starprnt" to StarPrntCompiler/StarPrntParser/StarPrntValidator/StarPrntPreviewRenderer', () => {
-    const bytes = compileTo('starprnt', doc);
+    const bytes = compileTo('starprnt', doc).output;
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(parseFrom('starprnt', bytes as Uint8Array).commands.length).toBeGreaterThan(0);
     expect(previewFor('starprnt', doc)).toContain('<svg');
   });
 
   it('routes "ipl" to IplCompiler/IplParser/IplValidator/IplPreviewRenderer', () => {
-    const ipl = compileTo('ipl', doc);
+    const ipl = compileTo('ipl', doc).output;
     expect(typeof ipl).toBe('string');
     expect(parseFrom('ipl', ipl as string).commands.length).toBeGreaterThan(0);
     expect(validateFor('ipl', ipl as string).valid).toBe(true);
@@ -87,7 +94,7 @@ describe('LanguageDispatch', () => {
 
   it('throws a clear UnsupportedLanguageError for an unknown language', () => {
     const unknown = 'unknown' as unknown as Parameters<typeof compileTo>[0];
-    expect(() => compileTo(unknown, doc)).toThrow(UnsupportedLanguageError);
+    expect(() => compileTo(unknown, doc).output).toThrow(UnsupportedLanguageError);
     expect(() => parseFrom(unknown, '')).toThrow(UnsupportedLanguageError);
     expect(() => validateFor(unknown, '')).toThrow(UnsupportedLanguageError);
     expect(() => previewFor(unknown, doc)).toThrow(UnsupportedLanguageError);

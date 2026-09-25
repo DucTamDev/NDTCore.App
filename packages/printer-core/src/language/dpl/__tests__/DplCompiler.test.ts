@@ -15,7 +15,7 @@ const baseDoc: Omit<ResolvedPrintDocument, 'elements'> = {
 describe('DplCompiler', () => {
   it('wraps the whole document with an STX L header, D/S/A setup commands, a trailing Q and E', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [] });
+    const output = compiler.compile({ ...baseDoc, elements: [] }).output;
 
     expect(output).toContain('\x02L');
     expect(output).toContain('D08');
@@ -27,14 +27,17 @@ describe('DplCompiler', () => {
 
   it('handles multiple copies', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, copies: 5, elements: [] });
+    const output = compiler.compile({ ...baseDoc, copies: 5, elements: [] }).output;
 
     expect(output).toContain('Q0005');
   });
 
   it('compiles a text element to a fixed-field record carrying its position and content', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Hello DPL', options: { x: 10, y: 20 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hello DPL', options: { x: 10, y: 20 } }],
+    }).output;
 
     expect(output).toContain('0010');
     expect(output).toContain('0020');
@@ -43,7 +46,10 @@ describe('DplCompiler', () => {
 
   it('encodes rotation 90 as record rotation code 2', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'text', content: 'Rot', options: { x: 10, y: 20, rotation: 90 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Rot', options: { x: 10, y: 20, rotation: 90 } }],
+    }).output;
 
     const lines = output.split('\r\n').filter((l) => l.includes('Rot'));
     expect(lines).toHaveLength(1);
@@ -52,7 +58,10 @@ describe('DplCompiler', () => {
 
   it('generates a box record carrying its position and dimensions', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'box', options: { x: 5, y: 5, width: 100, height: 80, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'box', options: { x: 5, y: 5, width: 100, height: 80, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('0005');
     expect(output).toContain('0100');
@@ -61,7 +70,10 @@ describe('DplCompiler', () => {
 
   it('generates a horizontal line record', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'line', options: { x1: 10, y1: 50, x2: 300, y2: 50, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'line', options: { x1: 10, y1: 50, x2: 300, y2: 50, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('0010');
     expect(output).toContain('0050');
@@ -70,7 +82,10 @@ describe('DplCompiler', () => {
 
   it('generates a vertical line record', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'line', options: { x1: 10, y1: 10, x2: 10, y2: 90, thickness: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'line', options: { x1: 10, y1: 10, x2: 10, y2: 90, thickness: 2 } }],
+    }).output;
 
     expect(output).toContain('0010');
     expect(output).toContain('0080');
@@ -81,7 +96,7 @@ describe('DplCompiler', () => {
     const output = compiler.compile({
       ...baseDoc,
       elements: [{ type: 'image', bitmap: { data: new Uint8Array([0xff, 0x00]), width: 16, height: 1, bytesPerRow: 2 }, options: { x: 0, y: 0 } }],
-    });
+    }).output;
 
     // Header: rotation('1') + col(0000) + row(0000) + h(0001, =height) + w(0002, =bytesPerRow) + fixed('0005').
     // Portakal's buggy version emits exactly this and nothing more — proving
@@ -97,7 +112,10 @@ describe('DplCompiler', () => {
   it('appends exactly bytesPerRow * height payload bytes after the image header, matching bitmap.data byte for byte', () => {
     const compiler = new DplCompiler();
     const bitmap = { data: new Uint8Array([0xff, 0x00, 0xa5]), width: 24, height: 1, bytesPerRow: 3 };
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'image', bitmap, options: { x: 1, y: 2 } }] });
+    const output = compiler.compile({
+      ...baseDoc,
+      elements: [{ type: 'image', bitmap, options: { x: 1, y: 2 } }],
+    }).output;
 
     const header = '1000100020001' + '0003' + '0005';
     const headerIndex = output.indexOf(header);
@@ -126,7 +144,7 @@ describe('DplCompiler', () => {
           },
         },
       ],
-    });
+    }).output;
 
     expect(output).toContain('hello');
     expect(output).toContain('world');
@@ -140,13 +158,13 @@ describe('DplCompiler', () => {
       compiler.compile({
         ...baseDoc,
         elements: [{ type: 'table', options: { x: 5, y: 20, columns: [{ width: 10 }, { width: 0 }], rows: [['hello', 'world']] } }],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
   it('handles raw passthrough', () => {
     const compiler = new DplCompiler();
-    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: 'CUSTOM' }] });
+    const output = compiler.compile({ ...baseDoc, elements: [{ type: 'raw', content: 'CUSTOM' }] }).output;
 
     expect(output).toContain('CUSTOM');
   });
@@ -155,7 +173,7 @@ describe('DplCompiler', () => {
     const compilerA = new DplCompiler();
     const compilerB = new DplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
@@ -166,7 +184,7 @@ describe('DplCompiler', () => {
         { type: 'erase', options: { x: 0, y: 0, width: 10, height: 10 } },
         { type: 'cut', options: { mode: 'full' } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -179,14 +197,14 @@ describe('DplCompiler', () => {
     const compilerA = new DplCompiler();
     const compilerB = new DplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
         { type: 'barcode', options: { x: 5, y: 5, symbology: 'code128', content: '123456789' } },
         { type: 'qrcode', options: { x: 10, y: 10, content: 'hello' } },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });
@@ -195,11 +213,11 @@ describe('DplCompiler', () => {
     const compilerA = new DplCompiler();
     const compilerB = new DplCompiler();
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [{ type: 'pageBreak' }, { type: 'spacer', options: { size: 10 } }, { type: 'row', options: {} }, { type: 'column', options: {} }],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });

@@ -8,7 +8,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'image', bitmap: { data: new Uint8Array([0xff, 0x00]), width: 16, height: 1, bytesPerRow: 2 }, options: {} }],
-    });
+    }).output;
     expect(output).toContain('BITMAP');
     expect(output.trim().endsWith('BITMAP 0,0,2,1,0,')).toBe(false); // must not end with a bare trailing comma
   });
@@ -19,7 +19,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'image', bitmap, options: {} }],
-    });
+    }).output;
 
     const headerIndex = output.indexOf('BITMAP 0,0,2,1,0,');
     expect(headerIndex).toBeGreaterThanOrEqual(0);
@@ -36,7 +36,7 @@ describe('TsplCompiler', () => {
         { type: 'text', content: 'Hello', options: { x: 10, y: 10 } },
         { type: 'box', options: { x: 0, y: 0, width: 100, height: 50, thickness: 2 } },
       ],
-    });
+    }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines[0]).toBe('SIZE 40 mm,30 mm');
@@ -51,7 +51,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'text', content: 'Say "hello"', options: { x: 10, y: 10 } }],
-    });
+    }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines).toContain('TEXT 10,10,"2",0,1,1,"Say \\"hello\\""');
@@ -65,7 +65,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'diagonal', options: { x1: 0, y1: 0, x2: 100, y2: 50, thickness: 2 } }],
-    });
+    }).output;
 
     expect(output).toContain('DIAGONAL 0,0,100,50,2');
     expect(output).not.toContain('BAR ');
@@ -76,7 +76,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'line', options: { x1: 0, y1: 10, x2: 100, y2: 10, thickness: 2 } }],
-    });
+    }).output;
 
     expect(output).toContain('BAR 0,10,100,2');
     expect(output).not.toContain('DIAGONAL');
@@ -87,7 +87,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'off' } }],
-    });
+    }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines).toContain('SET CUTTER OFF');
@@ -98,7 +98,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'full', rows: 3 } }],
-    });
+    }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines).toContain('SET CUTTER 3');
@@ -109,7 +109,7 @@ describe('TsplCompiler', () => {
     const output = compiler.compile({
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
       elements: [{ type: 'cut', options: { mode: 'partial' } }],
-    });
+    }).output;
 
     const lines = output.trim().split('\r\n');
     expect(lines).toContain('SET CUTTER 1');
@@ -133,7 +133,7 @@ describe('TsplCompiler', () => {
           },
         },
       ],
-    });
+    }).output;
 
     expect(output).toContain(TSPL_COMMAND.TEXT);
     expect(output).toContain('hello');
@@ -165,7 +165,7 @@ describe('TsplCompiler', () => {
             },
           },
         ],
-      }),
+      }).output,
     ).toThrow(/positive width/);
   });
 
@@ -176,7 +176,7 @@ describe('TsplCompiler', () => {
       widthDots: 320, heightDots: 240, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
     };
 
-    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] });
+    const emptyOutput = compilerA.compile({ ...baseDoc, elements: [] }).output;
     const noOpOutput = compilerB.compile({
       ...baseDoc,
       elements: [
@@ -185,7 +185,7 @@ describe('TsplCompiler', () => {
         { type: 'row', options: {} },
         { type: 'column', options: {} },
       ],
-    });
+    }).output;
 
     expect(noOpOutput).toBe(emptyOutput);
   });

@@ -8,16 +8,19 @@ export interface TextOptions {
   /** Toạ độ Y, tính bằng dots. */
   y?: number;
 
-  /** Tên/mã font gốc của máy in — ý nghĩa khác nhau tuỳ từng ngôn ngữ. */
+  /** Cỡ chữ (chiều cao glyph danh nghĩa), dots; mỗi compiler tự quy đổi sang font/hệ số phóng đại của máy in. */
+  fontSize?: number;
+
+  /** @deprecated Dùng `fontSize`. Tên/mã font gốc của máy in — ý nghĩa khác nhau tuỳ từng ngôn ngữ. */
   font?: string;
 
-  /** Hệ số phóng đại font (thường 1-8 tuỳ ngôn ngữ). */
+  /** @deprecated Dùng `fontSize`. Hệ số phóng đại font (thường 1-8 tuỳ ngôn ngữ). */
   size?: number;
 
-  /** Hệ số phóng đại ngang riêng, dùng cho ngôn ngữ tách scale x/y khỏi `size`. */
+  /** @deprecated Dùng `fontSize`. Hệ số phóng đại ngang riêng. */
   xScale?: number;
 
-  /** Hệ số phóng đại dọc riêng, dùng cho ngôn ngữ tách scale x/y khỏi `size`. */
+  /** @deprecated Dùng `fontSize`. Hệ số phóng đại dọc riêng. */
   yScale?: number;
 
   /** Góc xoay của text. */
