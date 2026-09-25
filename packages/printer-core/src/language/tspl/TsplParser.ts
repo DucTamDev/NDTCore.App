@@ -1,6 +1,7 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
 import type { Rotation } from '../../types';
+import { TsplFontMetrics } from './TsplFontMetrics';
 
 /**
  * Toàn bộ lệnh TSPL/TSPL2 mà parser nhận diện.
@@ -486,7 +487,11 @@ function parseTextCommand(
 
   return {
     command: { cmd: 'TEXT', x, y, font, rotation, xMul, yMul, alignment, content },
-    element: { type: 'text', content, options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul } },
+    element: {
+      type: 'text',
+      content,
+      options: { x, y, fontSize: TsplFontMetrics.nativeToFontSize(font, yMul), rotation: normalizeRotation(rotation) },
+    },
   };
 }
 
@@ -511,7 +516,13 @@ function parseBlockCommand(
     element: {
       type: 'text',
       content,
-      options: { x, y, font, rotation: normalizeRotation(rotation), size: xMul, maxWidth: width },
+      options: {
+        x,
+        y,
+        fontSize: TsplFontMetrics.nativeToFontSize(font, yMul),
+        rotation: normalizeRotation(rotation),
+        maxWidth: width,
+      },
     },
   };
 }

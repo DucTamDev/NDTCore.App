@@ -2,24 +2,7 @@ import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
-
-/** Kích thước pixel font bitmap có sẵn của TSPL, theo TSPL/TSPL2 Programming Manual. */
-const TSPL_FONTS: Record<string, { width: number; height: number }> = {
-  '1': { width: 8, height: 12 },
-  '2': { width: 12, height: 20 },
-  '3': { width: 16, height: 24 },
-  '4': { width: 24, height: 32 },
-  '5': { width: 32, height: 48 },
-  '6': { width: 14, height: 19 },
-  '7': { width: 21, height: 27 },
-  '8': { width: 14, height: 25 },
-};
-
-const DEFAULT_FONT = '2';
-const DEFAULT_TTF_POINT_SIZE = 12;
-/** Xấp xỉ 1pt ~ 2.82 dots ở 203 DPI — dùng cho font "0"/TrueType không có trong `TSPL_FONTS`. */
-const DOTS_PER_POINT_AT_203_DPI = 2.82;
-const TTF_CHAR_WIDTH_RATIO = 1.7;
+import { TsplFontMetrics } from '../../../language';
 
 const TEXT_BASELINE_RATIO = 0.85;
 const DEFAULT_LINE_THICKNESS = 1;
@@ -40,29 +23,15 @@ function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function getTsplFont(font: string | undefined) {
-  return TSPL_FONTS[font ?? DEFAULT_FONT];
+/** Chiều cao chữ thật khi máy in TSPL in cỡ chữ này — cùng font/hệ số mà compiler chọn. */
+function getFontHeight(fontSize: number | undefined): number {
+  const native = TsplFontMetrics.fontSizeToNative(fontSize);
+  return TsplFontMetrics.nativeToFontSize(native.font, native.magnification);
 }
 
-function getFontHeight(font: string | undefined, size: number | undefined, yScale: number | undefined): number {
-  const tsplFont = getTsplFont(font);
-
-  if (tsplFont) {
-    const scale = yScale && yScale > 1 ? yScale : size ?? 1;
-    return tsplFont.height * scale;
-  }
-
-  return (size ?? DEFAULT_TTF_POINT_SIZE) * DOTS_PER_POINT_AT_203_DPI;
-}
-
-function getCharWidth(font: string | undefined, size: number | undefined, xScale: number | undefined): number {
-  const tsplFont = getTsplFont(font);
-
-  if (tsplFont) {
-    return tsplFont.width * (xScale ?? size ?? 1);
-  }
-
-  return (size ?? DEFAULT_TTF_POINT_SIZE) * TTF_CHAR_WIDTH_RATIO;
+function getCharWidth(fontSize: number | undefined): number {
+  const native = TsplFontMetrics.fontSizeToNative(fontSize);
+  return TsplFontMetrics.characterSize(native.font).width * native.magnification;
 }
 
 function renderText(
@@ -88,7 +57,7 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
   const options = element.options ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const fontSize = getFontHeight(options.font, options.size, options.yScale);
+  const fontSize = getFontHeight(options.fontSize);
   const baselineY = y + fontSize * TEXT_BASELINE_RATIO;
   const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
 
@@ -96,7 +65,7 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
     return renderText(element.content, x, baselineY, fontSize, options.bold ?? false, rotation, INK_COLOR);
   }
 
-  const charWidth = getCharWidth(options.font, options.size, options.xScale);
+  const charWidth = getCharWidth(options.fontSize);
   const backgroundWidth = element.content.length * charWidth + REVERSE_MARGIN * 2;
   const backgroundHeight = fontSize + REVERSE_MARGIN * 2;
 
@@ -250,7 +219,7 @@ function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): 
   const { options } = element;
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const rowHeight = getFontHeight(undefined, 1, undefined);
+  const rowHeight = getFontHeight(undefined);
   const rowBaselineOffset = rowHeight * TEXT_BASELINE_RATIO;
 
   validateTableColumns(options.columns);

@@ -1,5 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import { CompileWarnings } from '../CompileWarnings';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Direction } from '../../types';
@@ -21,14 +22,19 @@ import type {
 } from '../../document/elements';
 import { TSPL_COMMAND } from './TsplCommand';
 import { encodeTsplBitmapPayload } from './TsplEncoder';
+import { TsplFontMetrics } from './TsplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const TSPL_LANGUAGE_NAME = 'TSPL';
+
+const CUT_PARTIAL_WARNING = 'CutOptions.mode "partial" được in như "full" — TSPL không phân biệt cắt một phần.';
 
 const MM_PER_INCH = 25.4;
 
 // Giá trị on-wire của lệnh TSPL2 DIRECTION.
 const TSPL_DIRECTION_VALUE: Record<Direction, 0 | 1> = { forward: 0, reverse: 1 };
 
-const DEFAULT_FONT = '2';
 const DEFAULT_ROTATION = 0;
 
 // Mã symbology theo cú pháp lệnh BARCODE.
@@ -52,12 +58,13 @@ const DEFAULT_QR_ECC: QrErrorCorrectionLevel = 'M';
 // Trường mode của lệnh QRCODE: 'A' (auto) hoặc 'M' (manual) — luôn dùng auto.
 const QR_MODE_AUTO = 'A';
 
-/**
- * Phải khớp `TSPL_FONTS['2'].h` bên `TsplPreviewRenderer` (20 dot) — các dòng
- * table dùng `DEFAULT_FONT` không override, nên preview và output in phải
- * đồng bộ chiều cao dòng.
- */
-const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 20;
+/** Font của dòng table — table không có cỡ chữ riêng nên dùng font mặc định. */
+const TABLE_ROW_FONT = TsplFontMetrics.fontSizeToNative(undefined);
+
+const DEFAULT_TABLE_ROW_HEIGHT_DOTS = TsplFontMetrics.nativeToFontSize(
+  TABLE_ROW_FONT.font,
+  TABLE_ROW_FONT.magnification,
+);
 
 const DEFAULT_CUT_ROWS = 1;
 
@@ -70,10 +77,8 @@ function compileTextElement(content: string, textOptions: TextOptions | undefine
   const options = textOptions ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const font = options.font ?? DEFAULT_FONT;
+  const { font, magnification } = TsplFontMetrics.fontSizeToNative(options.fontSize);
   const rotation = options.rotation ?? DEFAULT_ROTATION;
-  const xMul = options.xScale ?? options.size ?? 1;
-  const yMul = options.yScale ?? options.size ?? 1;
   const escaped = escapeTsplString(content);
 
   if (options.maxWidth) {
@@ -82,11 +87,11 @@ function compileTextElement(content: string, textOptions: TextOptions | undefine
     const spacing = options.lineSpacing ?? 0;
     return (
       `${TSPL_COMMAND.BLOCK} ${x},${y},${maxWidth},${maxWidth},"${font}",${rotation},` +
-      `${xMul},${yMul},${spacing},${align},"${escaped}"`
+      `${magnification},${magnification},${spacing},${align},"${escaped}"`
     );
   }
 
-  return `${TSPL_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${xMul},${yMul},"${escaped}"`;
+  return `${TSPL_COMMAND.TEXT} ${x},${y},"${font}",${rotation},${magnification},${magnification},"${escaped}"`;
 }
 
 function compileImageElement(element: ImageElement): string {
@@ -160,9 +165,10 @@ function compileEraseElement(element: EraseElement): string {
  * TSPL không phân biệt cắt full/partial (không có khái niệm như `GS V` của
  * ESC/POS) — `mode` chỉ dùng để chọn bật/tắt cutter.
  */
-function compileCutElement(element: CutElement): string {
+function compileCutElement(element: CutElement, warnings: CompileWarnings): string {
   const mode = element.options?.mode ?? 'full';
   if (mode === 'off') return `${TSPL_COMMAND.SET_CUTTER} OFF`;
+  if (mode === 'partial') warnings.add(CUT_PARTIAL_WARNING);
   const rows = element.options?.rows ?? DEFAULT_CUT_ROWS;
   return `${TSPL_COMMAND.SET_CUTTER} ${rows}`;
 }
@@ -204,7 +210,7 @@ function compileQrCodeElement(element: QrCodeElement): string {
   return `${TSPL_COMMAND.QRCODE} ${x},${y},${ecc},${cellWidth},${QR_MODE_AUTO},${rotation},"${escaped}"`;
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -237,7 +243,7 @@ function compileElement(element: PrintElement): string {
       return typeof element.content === 'string' ? element.content : '';
 
     case 'cut':
-      return compileCutElement(element);
+      return compileCutElement(element, warnings);
 
     case 'table':
       return compileTableElement(element);
@@ -260,9 +266,10 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh TSPL/TSPL2. */
-export function compileToTSPL(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh TSPL/TSPL2 kèm cảnh báo. */
+export function compileToTSPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(TSPL_LANGUAGE_NAME);
   const dpi = document.dpi;
   const widthMM = Math.round((document.widthDots / dpi) * MM_PER_INCH);
   const heightMM = document.heightDots > 0 ? Math.round((document.heightDots / dpi) * MM_PER_INCH) : 0;
@@ -278,12 +285,12 @@ export function compileToTSPL(document: ResolvedPrintDocument): string {
   for (const element of document.elements) {
     // Một element no-op (hoặc `raw` rỗng) compile ra `''` — bỏ qua để không
     // đẩy một dòng trống thừa vào output nối bằng `\r\n`.
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
   lines.push(`${TSPL_COMMAND.PRINT} ${document.copies}`);
-  return lines.join('\r\n') + '\r\n';
+  return { output: lines.join('\r\n') + '\r\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -310,6 +317,6 @@ export class TsplCompiler implements PrintCompiler<string> {
    * đây; đây là ghi chú về một giới hạn đã biết, không phải một chỗ cần sửa.
    */
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToTSPL(document), warnings: [] };
+    return compileToTSPL(document);
   }
 }

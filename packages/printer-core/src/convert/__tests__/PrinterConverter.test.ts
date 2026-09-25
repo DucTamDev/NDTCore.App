@@ -20,7 +20,9 @@ describe('convert', () => {
     expect(result.output).toContain('^XA');
     expect(result.output).toContain('^FDHello^FS');
     expect(result.output).toContain('^XZ');
-    expect(result.elements).toEqual([{ type: 'text', content: 'Hello', options: { x: 10, y: 10, font: '3', rotation: 0, size: 1 } }]);
+    expect(result.elements).toEqual([
+      { type: 'text', content: 'Hello', options: { x: 10, y: 10, fontSize: 24, rotation: 0 } },
+    ]);
     expect(result.warnings).toEqual([]);
   });
 
@@ -55,7 +57,7 @@ describe('convert', () => {
   it('converts a TSPL label to recognizable EPL syntax', () => {
     const result = convert(TSPL_SOURCE, 'tspl', 'epl');
 
-    expect(result.output).toContain('A10,10,0,3,1,1,N,"Hello"');
+    expect(result.output).toContain('A10,10,0,2,1,1,N,"Hello"');
     expect(result.output).toContain('q400');
     expect(result.warnings).toEqual([]);
   });
@@ -74,7 +76,7 @@ describe('convert', () => {
   it('converts a TSPL label to recognizable CPCL syntax', () => {
     const result = convert(TSPL_SOURCE, 'tspl', 'cpcl');
 
-    expect(result.output).toContain('TEXT 3 1 10 10\r\nHello');
+    expect(result.output).toContain('TEXT 2 0 10 10\r\nHello');
     expect(result.output).toContain('PAGE-WIDTH 400');
     expect(result.output).toContain('PRINT');
   });
@@ -179,5 +181,15 @@ describe('convert', () => {
     expect(registryKeys).toHaveLength(9);
     expect([...SUPPORTED_SOURCES].sort()).toEqual(registryKeys);
     expect([...SUPPORTED_TARGETS].sort()).toEqual(registryKeys);
+  });
+
+  it('TSPL → TSPL giữ nguyên chiều cao chữ in ra dù mã font có thể đổi', () => {
+    const source = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"3",0,2,2,"Big"\r\nPRINT 1\r\n';
+
+    const firstPass = convert(source, 'tspl', 'tspl');
+    const secondPass = convert(firstPass.output as string, 'tspl', 'tspl');
+
+    expect(firstPass.elements[0]).toMatchObject({ options: { fontSize: 48 } });
+    expect(secondPass.elements[0]).toMatchObject({ options: { fontSize: 48 } });
   });
 });

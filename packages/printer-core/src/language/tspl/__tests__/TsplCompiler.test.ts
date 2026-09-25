@@ -190,3 +190,58 @@ describe('TsplCompiler', () => {
     expect(noOpOutput).toBe(emptyOutput);
   });
 });
+
+describe('TsplCompiler — cỡ chữ và cảnh báo', () => {
+  const baseDocument: Omit<ResolvedPrintDocument, 'elements'> = {
+    widthDots: 320,
+    heightDots: 240,
+    dpi: 203,
+    gapDots: 24,
+    speed: 4,
+    density: 8,
+    direction: 'forward',
+    copies: 1,
+  };
+
+  function compileElements(elements: ResolvedPrintDocument['elements']) {
+    return new TsplCompiler().compile({ ...baseDocument, elements });
+  }
+
+  it('chọn font + hệ số nhân theo fontSize (dots)', () => {
+    const { output } = compileElements([{ type: 'text', content: 'Hi', options: { x: 10, y: 10, fontSize: 40 } }]);
+
+    expect(output).toContain('TEXT 10,10,"2",0,2,2,"Hi"');
+  });
+
+  it('không khai báo fontSize thì dùng font 2 ở hệ số 1', () => {
+    const { output } = compileElements([{ type: 'text', content: 'Hi', options: { x: 10, y: 10 } }]);
+
+    expect(output).toContain('TEXT 10,10,"2",0,1,1,"Hi"');
+  });
+
+  it('BLOCK dùng cùng font + hệ số với TEXT', () => {
+    const { output } = compileElements([
+      { type: 'text', content: 'Hi', options: { x: 0, y: 0, fontSize: 48, maxWidth: 200 } },
+    ]);
+
+    expect(output).toContain('BLOCK 0,0,200,200,"5",0,1,1,0,1,"Hi"');
+  });
+
+  it('cảnh báo khi cắt partial vì TSPL không phân biệt, cắt full thì không', () => {
+    expect(compileElements([{ type: 'cut', options: { mode: 'partial' } }]).warnings).toEqual([
+      'CutOptions.mode "partial" được in như "full" — TSPL không phân biệt cắt một phần.',
+    ]);
+    expect(compileElements([{ type: 'cut', options: { mode: 'full' } }]).warnings).toEqual([]);
+  });
+
+  it('element TSPL hỗ trợ đầy đủ thì không có cảnh báo', () => {
+    const { warnings } = compileElements([
+      { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+      { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+      { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+      { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+    ]);
+
+    expect(warnings).toEqual([]);
+  });
+});
