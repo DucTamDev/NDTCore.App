@@ -16,7 +16,7 @@ describe('EplParser', () => {
     expect(result.widthDots).toBe(320);
     expect(result.heightDots).toBe(240);
     expect(result.elements).toEqual([
-      { type: 'text', content: 'Hello', options: { x: 10, y: 20, rotation: 0, font: '2', size: 1, reverse: undefined } },
+      { type: 'text', content: 'Hello', options: { x: 10, y: 20, rotation: 0, fontSize: 16, reverse: undefined } },
     ]);
   });
 
@@ -24,7 +24,9 @@ describe('EplParser', () => {
     const source = 'A5,5,1,3,2,2,R,"Rot"';
     const result = parseEPL(source);
 
-    expect(result.elements).toEqual([{ type: 'text', content: 'Rot', options: { x: 5, y: 5, rotation: 90, font: '3', size: 2, reverse: true } }]);
+    expect(result.elements).toEqual([
+      { type: 'text', content: 'Rot', options: { x: 5, y: 5, rotation: 90, fontSize: 40, reverse: true } },
+    ]);
   });
 
   it('parses an X command into a box PrintElement', () => {

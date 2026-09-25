@@ -99,4 +99,10 @@ describe('LanguageDispatch', () => {
     expect(() => validateFor(unknown, '')).toThrow(UnsupportedLanguageError);
     expect(() => previewFor(unknown, doc)).toThrow(UnsupportedLanguageError);
   });
+
+  it('compileTo dùng chung compiler đã đăng ký nhưng cảnh báo không dồn sang lần compile sau', () => {
+    compileTo('epl', { ...doc, elements: [{ type: 'circle', options: { x: 0, y: 0, diameter: 10 } }] });
+
+    expect(compileTo('epl', doc).warnings).toEqual([]);
+  });
 });

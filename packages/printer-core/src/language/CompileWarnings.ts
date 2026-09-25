@@ -1,4 +1,4 @@
-import type { PrintElement } from '../document';
+import type { CutOptions, PrintElement } from '../document';
 
 /**
  * Gom cảnh báo trong 1 lần compile. Trùng nội dung thì chỉ giữ 1, để document có nhiều element
@@ -18,6 +18,13 @@ export class CompileWarnings {
   /** Cảnh báo cả element bị bỏ qua vì ngôn ngữ không có lệnh tương ứng. */
   unsupportedElement(elementType: PrintElement['type']): void {
     this.add(`Element "${elementType}" bị bỏ qua — ${this.languageName} không có lệnh tương ứng.`);
+  }
+
+  /** Cảnh báo element `cut` bị bỏ qua; `mode: 'off'` nghĩa là không cần cắt nên không có gì để báo. */
+  unsupportedCut(options: CutOptions | undefined): void {
+    if (options?.mode === 'off') return;
+
+    this.unsupportedElement('cut');
   }
 
   /** Danh sách cảnh báo theo thứ tự xuất hiện. */

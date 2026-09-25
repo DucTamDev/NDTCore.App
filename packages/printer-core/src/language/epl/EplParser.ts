@@ -1,6 +1,7 @@
 import type { PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
 import type { Rotation } from '../../types';
+import { EplFontMetrics } from './EplFontMetrics';
 
 /**
  * Một lệnh EPL2 đã giải mã: ký tự lệnh một chữ cái, theo sau là phần văn bản
@@ -52,8 +53,7 @@ function parseTextCommand(line: string): PrintElement | undefined {
       x: Number(match[1]),
       y: Number(match[2]),
       rotation: eplRotationFromCode(Number(match[3])),
-      font: match[4],
-      size: Number(match[5]),
+      fontSize: EplFontMetrics.nativeToFontSize(match[4], Number(match[6])),
       reverse: match[7] === 'R' || undefined,
     },
   };

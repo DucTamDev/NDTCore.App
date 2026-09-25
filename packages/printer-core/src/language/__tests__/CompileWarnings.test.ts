@@ -24,4 +24,18 @@ describe('CompileWarnings', () => {
   it('chưa thêm gì thì rỗng', () => {
     expect(new CompileWarnings('TSPL').toArray()).toEqual([]);
   });
+
+  it('cut bật (mặc định full) thì báo element cut bị bỏ qua', () => {
+    const warnings = new CompileWarnings('EPL');
+    warnings.unsupportedCut(undefined);
+
+    expect(warnings.toArray()).toEqual(['Element "cut" bị bỏ qua — EPL không có lệnh tương ứng.']);
+  });
+
+  it('cut tắt (mode off) thì không có gì để báo', () => {
+    const warnings = new CompileWarnings('EPL');
+    warnings.unsupportedCut({ mode: 'off' });
+
+    expect(warnings.toArray()).toEqual([]);
+  });
 });

@@ -11,9 +11,14 @@ import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../co
 import type { BarcodeSymbology, BarcodeConfig } from '../../symbology/barcode';
 import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation, Bitmap } from '../../types';
+import { CompileWarnings } from '../CompileWarnings';
 import { EPL_COMMAND } from './EplCommand';
 import { encodeEplBitmapPayload } from './EplEncoder';
+import { EplFontMetrics } from './EplFontMetrics';
 import { formatTable, validateTableColumns } from '../../formatting';
+
+/** Tên ngôn ngữ trong câu cảnh báo. */
+const EPL_LANGUAGE_NAME = 'EPL';
 
 /**
  * Mã xoay EPL2 (`0`/`1`/`2`/`3` — trường xoay riêng của lệnh `A`/`B`/`b`) ứng
@@ -32,20 +37,15 @@ function eplRotation(rotation: Rotation | undefined): 0 | 1 | 2 | 3 {
   }
 }
 
-const DEFAULT_FONT = '2';
-
 function compileTextElement(content: string, options: TextOptions | undefined): string {
   const resolvedOptions = options ?? {};
   const x = resolvedOptions.x ?? 0;
   const y = resolvedOptions.y ?? 0;
   const rotationCode = eplRotation(resolvedOptions.rotation);
-  const font = resolvedOptions.font ?? DEFAULT_FONT;
-  const horizontalMultiplier = resolvedOptions.xScale ?? resolvedOptions.size ?? 1;
-  const verticalMultiplier = resolvedOptions.yScale ?? resolvedOptions.size ?? 1;
+  const { font, magnification } = EplFontMetrics.fontSizeToNative(resolvedOptions.fontSize);
   const reverseFlag = resolvedOptions.reverse ? 'R' : 'N';
   const header = `${EPL_COMMAND.TEXT}${x},${y},${rotationCode},${font}`;
-  const scale = `${horizontalMultiplier},${verticalMultiplier}`;
-  return `${header},${scale},${reverseFlag},"${content}"`;
+  return `${header},${magnification},${magnification},${reverseFlag},"${content}"`;
 }
 
 function compileImageElement(bitmap: Bitmap, options: ImageOptions | undefined): string {
@@ -84,12 +84,13 @@ function compileLineElement(options: LineOptions): string {
   return `${EPL_COMMAND.LINE}${options.x1},${options.y1},${width},${thickness}`;
 }
 
-/**
- * Chiều cao dòng (dots) dùng để xếp chồng các dòng bảng — khớp chiều cao
- * glyph của font mặc định ("2") trong bảng font tích hợp EPL2 (10w x 16h,
- * xem `EPL_FONTS['2']` của `EplPreviewRenderer`).
- */
-const DEFAULT_TABLE_ROW_HEIGHT_DOTS = 16;
+/** Font của dòng bảng — bảng không có cỡ chữ riêng nên dùng font mặc định. */
+const TABLE_ROW_FONT = EplFontMetrics.fontSizeToNative(undefined);
+
+const DEFAULT_TABLE_ROW_HEIGHT_DOTS = EplFontMetrics.nativeToFontSize(
+  TABLE_ROW_FONT.font,
+  TABLE_ROW_FONT.magnification,
+);
 
 function compileTableElement(options: TableOptions): string {
   const x = options.x ?? 0;
@@ -156,7 +157,7 @@ function compileQrCodeElement(options: QrCodeConfig): string {
   return `${header},${cellWidth},${errorCorrection},"${options.content}"`;
 }
 
-function compileElement(element: PrintElement): string {
+function compileElement(element: PrintElement, warnings: CompileWarnings): string {
   switch (element.type) {
     case 'text':
       return compileTextElement(element.content, element.options);
@@ -170,24 +171,22 @@ function compileElement(element: PrintElement): string {
     case 'line':
       return compileLineElement(element.options);
 
-    // EPL2 không có lệnh vẽ đường chéo gốc (`LO` chỉ vẽ được thanh theo trục) — no-op có chủ đích.
+    // EPL2 không có lệnh vẽ đường chéo (`LO` chỉ vẽ thanh theo trục), hình tròn, ellipse, vùng reverse,
+    // vùng xoá hay cắt giấy (khác `^MM` của ZPL, `SET CUTTER` của TSPL) — bỏ qua và báo cảnh báo.
     case 'diagonal':
-      return '';
-
-    // Không có lệnh EPL2 gốc cho hình tròn, ellipse, vùng reverse-print hay vùng xoá độc lập — no-op có chủ đích.
     case 'circle':
     case 'ellipse':
     case 'reverse':
     case 'erase':
+      warnings.unsupportedElement(element.type);
+      return '';
+
+    case 'cut':
+      warnings.unsupportedCut(element.options);
       return '';
 
     case 'raw':
       return typeof element.content === 'string' ? element.content : '';
-
-    // Không có lệnh cắt giấy được tài liệu hoá trong EPL2 (khác với `^MM` của
-    // ZPL hay `SET CUTTER` của TSPL) — no-op có chủ đích.
-    case 'cut':
-      return '';
 
     case 'table':
       return compileTableElement(element.options);
@@ -208,8 +207,10 @@ function compileElement(element: PrintElement): string {
   }
 }
 
-export function compileToEPL(document: ResolvedPrintDocument): string {
+/** Compile một `ResolvedPrintDocument` thành chuỗi lệnh EPL2 kèm cảnh báo. */
+export function compileToEPL(document: ResolvedPrintDocument): CompileResult<string> {
   const lines: string[] = [];
+  const warnings = new CompileWarnings(EPL_LANGUAGE_NAME);
 
   lines.push(EPL_COMMAND.CLEAR_IMAGE_BUFFER);
   lines.push(`${EPL_COMMAND.LABEL_WIDTH}${document.widthDots}`);
@@ -222,12 +223,12 @@ export function compileToEPL(document: ResolvedPrintDocument): string {
   for (const element of document.elements) {
     // Một phần tử no-op (hoặc `raw` rỗng) compile ra `''` — bỏ qua để không
     // đẩy một dòng trống thừa vào chuỗi kết quả nối bằng `\n`.
-    const line = compileElement(element);
+    const line = compileElement(element, warnings);
     if (line) lines.push(line);
   }
 
   lines.push(`${EPL_COMMAND.PRINT}${document.copies}`);
-  return lines.join('\n') + '\n';
+  return { output: lines.join('\n') + '\n', warnings: warnings.toArray() };
 }
 
 /**
@@ -241,6 +242,6 @@ export function compileToEPL(document: ResolvedPrintDocument): string {
  */
 export class EplCompiler implements PrintCompiler<string> {
   compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
-    return { output: compileToEPL(document), warnings: [] };
+    return compileToEPL(document);
   }
 }

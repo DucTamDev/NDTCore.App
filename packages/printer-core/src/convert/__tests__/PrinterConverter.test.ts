@@ -49,7 +49,7 @@ describe('convert', () => {
     expect(result.output).toContain('^FDHello EPL^FS');
     expect(result.output).toContain('^XZ');
     expect(result.elements).toEqual([
-      { type: 'text', content: 'Hello EPL', options: { x: 10, y: 20, rotation: 0, font: '2', size: 1, reverse: undefined } },
+      { type: 'text', content: 'Hello EPL', options: { x: 10, y: 20, rotation: 0, fontSize: 16, reverse: undefined } },
     ]);
     expect(result.warnings).toEqual([]);
   });
@@ -57,7 +57,7 @@ describe('convert', () => {
   it('converts a TSPL label to recognizable EPL syntax', () => {
     const result = convert(TSPL_SOURCE, 'tspl', 'epl');
 
-    expect(result.output).toContain('A10,10,0,2,1,1,N,"Hello"');
+    expect(result.output).toContain('A10,10,0,4,1,1,N,"Hello"');
     expect(result.output).toContain('q400');
     expect(result.warnings).toEqual([]);
   });

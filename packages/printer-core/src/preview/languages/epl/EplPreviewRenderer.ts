@@ -2,19 +2,8 @@ import type { ResolvedPrintDocument } from '../../../document';
 import type { PrintElement } from '../../../document/elements/PrintElement';
 import type { PrintPreview } from '../../../core';
 import { formatTable, validateTableColumns } from '../../../formatting';
+import { EplFontMetrics } from '../../../language';
 
-/** Kích thước pixel font bitmap có sẵn của EPL2, theo EPL2 Programmer's Guide. */
-const EPL_FONTS: Record<string, { width: number; height: number }> = {
-  '1': { width: 8, height: 12 },
-  '2': { width: 10, height: 16 },
-  '3': { width: 12, height: 20 },
-  '4': { width: 14, height: 24 },
-  '5': { width: 32, height: 48 },
-};
-
-const DEFAULT_FONT = '2';
-const FALLBACK_FONT_HEIGHT = 16;
-const FALLBACK_CHAR_WIDTH = 10;
 const TEXT_BASELINE_RATIO = 0.85;
 const DEFAULT_LINE_THICKNESS = 1;
 const REVERSE_MARGIN = 1;
@@ -28,18 +17,15 @@ const INK_COLOR = '#000';
 const PAPER_COLOR = '#fff';
 const FONT_FAMILY = 'monospace';
 
-function getEplFont(font: string | undefined) {
-  return EPL_FONTS[font ?? DEFAULT_FONT];
+/** Chiều cao chữ thật khi máy in EPL2 in cỡ chữ này — cùng font/hệ số mà compiler chọn. */
+function getFontHeight(fontSize: number | undefined): number {
+  const native = EplFontMetrics.fontSizeToNative(fontSize);
+  return EplFontMetrics.nativeToFontSize(native.font, native.magnification);
 }
 
-function getFontHeight(font: string | undefined, size: number | undefined): number {
-  const eplFont = getEplFont(font);
-  return eplFont ? eplFont.height * (size ?? 1) : (size ?? 1) * FALLBACK_FONT_HEIGHT;
-}
-
-function getCharWidth(font: string | undefined, size: number | undefined): number {
-  const eplFont = getEplFont(font);
-  return eplFont ? eplFont.width * (size ?? 1) : (size ?? 1) * FALLBACK_CHAR_WIDTH;
+function getCharWidth(fontSize: number | undefined): number {
+  const native = EplFontMetrics.fontSizeToNative(fontSize);
+  return EplFontMetrics.characterSize(native.font).width * native.magnification;
 }
 
 function escapeXml(text: string): string {
@@ -64,7 +50,7 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
   const options = element.options ?? {};
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const fontSize = getFontHeight(options.font, options.size);
+  const fontSize = getFontHeight(options.fontSize);
   const baselineY = y + fontSize * TEXT_BASELINE_RATIO;
   const rotation = options.rotation ? ` transform="rotate(${options.rotation} ${x} ${y})"` : '';
 
@@ -72,7 +58,7 @@ function renderTextElement(element: Extract<PrintElement, { type: 'text' }>): st
     return renderText(element.content, x, baselineY, fontSize, rotation, INK_COLOR);
   }
 
-  const charWidth = getCharWidth(options.font, options.size);
+  const charWidth = getCharWidth(options.fontSize);
   const textWidth = element.content.length * charWidth;
   const backgroundWidth = textWidth + REVERSE_MARGIN * 2;
   const backgroundHeight = fontSize + REVERSE_MARGIN * 2;
@@ -149,7 +135,7 @@ function renderTableElement(element: Extract<PrintElement, { type: 'table' }>): 
   const { options } = element;
   const x = options.x ?? 0;
   const y = options.y ?? 0;
-  const rowHeight = getFontHeight(undefined, 1);
+  const rowHeight = getFontHeight(undefined);
   const rowBaselineOffset = rowHeight * TEXT_BASELINE_RATIO;
 
   validateTableColumns(options.columns);

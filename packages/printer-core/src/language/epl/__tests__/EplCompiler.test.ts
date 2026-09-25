@@ -17,7 +17,7 @@ describe('EplCompiler', () => {
     const compiler = new EplCompiler();
     const output = compiler.compile({
       ...baseDoc,
-      elements: [{ type: 'text', content: 'Hello EPL', options: { x: 10, y: 20, font: '3', size: 2 } }],
+      elements: [{ type: 'text', content: 'Hello EPL', options: { x: 10, y: 20, fontSize: 40 } }],
     }).output;
 
     expect(output).toContain('A10,20,0,3,2,2,N,"Hello EPL"');
@@ -220,5 +220,58 @@ describe('EplCompiler', () => {
     }).output;
 
     expect(output).toContain('b10,10,0,"QR",4,M,"hello"');
+  });
+});
+
+describe('EplCompiler — cỡ chữ và cảnh báo', () => {
+  it('không khai báo fontSize thì dùng font 2 ở hệ số 1', () => {
+    const { output } = new EplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'text', content: 'Hi', options: { x: 1, y: 2 } }],
+    });
+
+    expect(output).toContain('A1,2,0,2,1,1,N,"Hi"');
+  });
+
+  it('cảnh báo từng loại element EPL2 không có lệnh, mỗi loại 1 lần', () => {
+    const { warnings } = new EplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'diagonal', options: { x1: 0, y1: 0, x2: 10, y2: 10 } },
+        { type: 'circle', options: { x: 0, y: 0, diameter: 20 } },
+        { type: 'circle', options: { x: 5, y: 5, diameter: 20 } },
+        { type: 'ellipse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'reverse', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'erase', options: { x: 0, y: 0, width: 20, height: 10 } },
+        { type: 'cut', options: { mode: 'full' } },
+      ],
+    });
+
+    expect(warnings).toEqual(
+      ['diagonal', 'circle', 'ellipse', 'reverse', 'erase', 'cut'].map(
+        (type) => `Element "${type}" bị bỏ qua — EPL không có lệnh tương ứng.`,
+      ),
+    );
+  });
+
+  it('element được hỗ trợ thì không có cảnh báo', () => {
+    const { warnings } = new EplCompiler().compile({
+      ...baseDoc,
+      elements: [
+        { type: 'text', content: 'Hi', options: { fontSize: 24 } },
+        { type: 'box', options: { x: 0, y: 0, width: 10, height: 10 } },
+      ],
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it('cut tắt (mode off) không cần lệnh cắt nên không cảnh báo', () => {
+    const { warnings } = new EplCompiler().compile({
+      ...baseDoc,
+      elements: [{ type: 'cut', options: { mode: 'off' } }],
+    });
+
+    expect(warnings).toEqual([]);
   });
 });
