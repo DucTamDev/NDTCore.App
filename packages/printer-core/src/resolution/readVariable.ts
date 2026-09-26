@@ -16,6 +16,8 @@ const BUILT_IN_VARIABLE_READERS: Readonly<Record<BuiltInVariableName, BuiltInVar
   $unitCount: (context) => innermostFrame(context).unitCount,
   $page: (context) => context.page.pageNumber,
   $pageCount: (context) => context.page.pageCount,
+  $part: (context) => context.page.part?.number ?? 1,
+  $partCount: (context) => context.page.part?.count ?? 1,
 };
 
 /**

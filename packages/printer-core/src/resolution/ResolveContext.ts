@@ -28,6 +28,21 @@ export interface ScopeFrame {
   readonly expanded: boolean;
 }
 
+/** Phần tem của 1 phần tử khi `repeat` lồng bị tách sang nhiều tem. */
+export interface PagePart {
+  /** `id` của repeat ngoài cùng chứa `repeat` lồng được tách. */
+  readonly repeatId: string;
+
+  /** Vị trí (từ 0) của phần tử repeat ngoài cùng được in trên trang này. */
+  readonly itemIndex: number;
+
+  /** Thứ tự phần, từ 1. */
+  readonly number: number;
+
+  /** Tổng số phần của phần tử. */
+  readonly count: number;
+}
+
 /** Thông tin trang đang resolve. */
 export interface PageInfo {
   /** Số trang, đếm từ 1. */
@@ -35,6 +50,9 @@ export interface PageInfo {
 
   /** Tổng số trang. */
   readonly pageCount: number;
+
+  /** Phần tem của trang; không có khi template không tách `repeat` lồng hoặc trang không ứng với phần tử nào. */
+  readonly part?: PagePart;
 }
 
 /** Trang giả lập khi đếm trang (chưa biết tổng số trang thật) — `$page`/`$pageCount` đọc được là 1/1. */

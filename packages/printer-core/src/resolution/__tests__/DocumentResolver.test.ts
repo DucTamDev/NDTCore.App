@@ -1,6 +1,6 @@
 import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
 import { defineCatalog, defineCollection } from '../../catalog';
-import type { TemplateDocument, TemplateMedia, TemplateNode } from '../../template';
+import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
 import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE, type TestOrder } from '../../testing';
 import type { Bitmap } from '../../types';
 
@@ -358,6 +358,27 @@ describe('DocumentResolver — biến có sẵn dùng sai scope', () => {
     const root: TemplateNode = { type: 'text', id: 'page', content: [{ var: '$page' }] };
 
     expect(pageTexts(resolvePages(root)[0])).toEqual(['1']);
+  });
+
+  it('$part/$partCount dùng được ở mọi chỗ, là 1/1 khi không tách tem', () => {
+    const partContent: TextNode['content'] = [{ var: '$part' }, { text: '/' }, { var: '$partCount' }];
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { type: 'text', id: 'part', content: partContent },
+        {
+          type: 'repeat',
+          id: 'items',
+          collection: 'items',
+          expand: 'quantity',
+          maxItemsPerPage: 1,
+          template: { type: 'text', id: 'item-part', content: partContent },
+        },
+      ],
+    };
+
+    expect(resolvePages(root).map(pageTexts)).toEqual(Array.from({ length: 5 }, () => ['1/1', '1/1']));
   });
 });
 

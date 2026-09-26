@@ -1,5 +1,13 @@
 /** Tên các biến có sẵn, không cần khai báo trong catalog. */
-export type BuiltInVariableName = '$position' | '$total' | '$unit' | '$unitCount' | '$page' | '$pageCount';
+export type BuiltInVariableName =
+  | '$position'
+  | '$total'
+  | '$unit'
+  | '$unitCount'
+  | '$page'
+  | '$pageCount'
+  | '$part'
+  | '$partCount';
 
 /** Nơi dùng được 1 biến có sẵn: mọi chỗ / trong `repeat` / trong `repeat` có `expand`. */
 export type BuiltInVariableScope = 'document' | 'repeat' | 'expand';
@@ -15,6 +23,8 @@ export const BUILT_IN_VARIABLE_SCOPES: Readonly<Record<BuiltInVariableName, Buil
   $unitCount: 'expand',
   $page: 'document',
   $pageCount: 'document',
+  $part: 'document',
+  $partCount: 'document',
 };
 
 /** Kiểm tra 1 tên có phải biến có sẵn không. */
