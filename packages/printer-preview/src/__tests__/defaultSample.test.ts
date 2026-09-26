@@ -23,5 +23,14 @@ describe('defaultSample', () => {
 
     const previews = renderPreviews(evaluated.template, evaluated.catalog, data, 'tspl');
     expect(previews.map((preview) => preview.status)).toEqual(Array.from({ length: 6 }, () => 'ok'));
+
+    const firstCupLabels = previews.slice(0, 3).map((preview) => (preview.status === 'ok' ? preview.svg : ''));
+    expect(firstCupLabels.map((svg) => svg.includes('45.000đ'))).toEqual([true, false, false]);
+    expect(firstCupLabels[0]).toContain('+ Topping 4');
+    expect(firstCupLabels[0]).not.toContain('+ Topping 5');
+    expect(firstCupLabels[1]).toContain('+ Topping 5');
+    expect(firstCupLabels[1]).toContain('+ Topping 8');
+    expect(firstCupLabels[2]).toContain('+ Topping 9');
+    expect(firstCupLabels.map((svg) => /\(tiếp (\d)\/3\)/.exec(svg)?.[1])).toEqual(['1', '2', '3']);
   });
 });
