@@ -1,8 +1,22 @@
 import { EscPosCompiler } from '../language';
 import { ApproximateFontMetrics, createLayoutEngine, paperSizeToDots, type TypographyProfile } from '../layout';
 import { collectAssetIds, createDocumentResolver, type AssetProvider } from '../resolution';
-import { barcode, column, gt, image, line, mm, parseTemplate, px, receiptTemplate, row, text } from '../template';
-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE } from '../testing';
+import {
+  barcode,
+  column,
+  eq,
+  gt,
+  image,
+  labelTemplate,
+  line,
+  mm,
+  parseTemplate,
+  px,
+  receiptTemplate,
+  row,
+  text,
+} from '../template';
+import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE, type TestOrder } from '../testing';
 import type { Bitmap } from '../types';
 
 // Không có @types/node trong package RN; require() chỉ dùng để khẳng định module cũ đã bị xoá.
@@ -80,5 +94,56 @@ describe('pipeline template → resolve → layout → compile', () => {
   it('templates/ và binding/ cũ không còn import được', () => {
     expect(() => require('../templates')).toThrow();
     expect(() => require('../binding')).toThrow();
+  });
+
+  it('tem món nhiều topping tách sang tem tiếp: JSON round-trip → resolve → layout từng tem', () => {
+    const built = labelTemplate(TEST_ORDER_CATALOG)
+      .id('split-label')
+      .name('Tem tách topping')
+      .paper({ widthMm: 50, heightMm: 30 })
+      .root((scope) =>
+        scope
+          .repeat({ collection: 'items', expand: 'quantity' }, (item) =>
+            column().children(
+              text([item.var('itemName')]).bold(),
+              text([item.var('itemTotal')]).visibleWhen(eq('$part', 1)),
+              item
+                .repeat({ collection: 'toppings' }, (topping) => text([topping.var('toppingName')]))
+                .maxItemsPerPage(2),
+              text([{ text: '(tiếp ' }, item.var('$part'), { text: '/' }, item.var('$partCount'), { text: ')' }])
+                .visibleWhen(gt('$partCount', 1)),
+            ),
+          )
+          .maxItemsPerPage(1),
+      )
+      .build();
+    const parsed = parseTemplate(JSON.parse(JSON.stringify(built)));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    const template = parsed.template;
+
+    const toppings = ['Trân châu', 'Thạch dừa', 'Pudding', 'Kem cheese', 'Nha đam'].map(name => ({
+      name,
+      price: 5000,
+    }));
+    const order: TestOrder = {
+      ...TEST_ORDER_SAMPLE,
+      items: [{ name: 'Trà sữa', quantity: 1, price: 45000, toppings }],
+    };
+    const pages = createDocumentResolver().resolve(template, order, {
+      catalog: TEST_ORDER_CATALOG,
+      assets: { get: () => undefined },
+    });
+
+    const config = { paper: template.paper, media: template.media, dpi: PRINTER_DPI };
+    const texts = pages.map((page) => {
+      if (page.status !== 'ok') throw new Error(page.message);
+      const elements = createLayoutEngine().resolve(page.node, config, TYPOGRAPHY, new ApproximateFontMetrics());
+      return elements.flatMap((element) => (element.type === 'text' ? [element.content] : []));
+    });
+    expect(texts).toEqual([
+      ['Trà sữa', '45.000đ', 'Trân châu', 'Thạch dừa', '(tiếp 1/3)'],
+      ['Trà sữa', 'Pudding', 'Kem cheese', '(tiếp 2/3)'],
+      ['Trà sữa', 'Nha đam', '(tiếp 3/3)'],
+    ]);
   });
 });

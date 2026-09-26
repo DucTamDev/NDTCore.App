@@ -1,5 +1,7 @@
 import {
   column,
+  eq,
+  gt,
   insets,
   labelTemplate,
   mm,
@@ -154,5 +156,33 @@ describe('labelTemplate / receiptTemplate', () => {
     };
 
     expect(checkTypesOnly).toBeInstanceOf(Function);
+  });
+
+  it('maxItemsPerPage trên repeat lồng và biến $part/$partCount ra đúng JSON, qua được parseTemplate', () => {
+    const template = labelTemplate(TEST_ORDER_CATALOG)
+      .id('split-label')
+      .name('Tem tách topping')
+      .paper({ widthMm: 50, heightMm: 30 })
+      .root((scope) =>
+        scope
+          .repeat({ collection: 'items', expand: 'quantity' }, (item) =>
+            column().children(
+              text([item.var('itemName')]).visibleWhen(eq('$part', 1)),
+              item
+                .repeat({ collection: 'toppings' }, (topping) => text([topping.var('toppingName')]))
+                .maxItemsPerPage(4),
+              text([{ text: '(tiếp ' }, item.var('$part'), { text: '/' }, item.var('$partCount'), { text: ')' }])
+                .visibleWhen(gt('$partCount', 1)),
+            ),
+          )
+          .maxItemsPerPage(1),
+      )
+      .build();
+
+    const outer = template.root;
+    if (outer.type !== 'repeat' || outer.template.type !== 'container') throw new Error('cấu trúc sai');
+    expect(outer.template.children[1]).toMatchObject({ type: 'repeat', collection: 'toppings', maxItemsPerPage: 4 });
+    expect(outer.template.children[2]).toMatchObject({ visibleWhen: { op: 'gt', var: '$partCount', value: 1 } });
+    expect(parseTemplate(JSON.parse(JSON.stringify(template)))).toEqual({ ok: true, template });
   });
 });

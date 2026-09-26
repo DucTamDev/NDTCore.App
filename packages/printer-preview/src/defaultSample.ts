@@ -2,6 +2,8 @@ export const defaultCode = `import {
   column,
   defineCatalog,
   defineCollection,
+  eq,
+  gt,
   insets,
   labelTemplate,
   mm,
@@ -73,8 +75,10 @@ export default labelTemplate(catalog)
           .gap(mm(1))
           .children(
             text([product.var('productName')]).fontSize(px(16)).bold(),
-            text([product.var('productPrice')]),
-            product.repeat({ collection: 'toppings' }, (topping) => text([{ text: '+ ' }, topping.var('toppingName')])),
+            text([product.var('productPrice')]).visibleWhen(eq('$part', 1)),
+            product
+              .repeat({ collection: 'toppings' }, (topping) => text([{ text: '+ ' }, topping.var('toppingName')]))
+              .maxItemsPerPage(4),
             text([
               product.var('orderCode'),
               { text: ' · ' },
@@ -82,6 +86,8 @@ export default labelTemplate(catalog)
               { text: '/' },
               product.var('$unitCount'),
             ]),
+            text([{ text: '(tiếp ' }, product.var('$part'), { text: '/' }, product.var('$partCount'), { text: ')' }])
+              .visibleWhen(gt('$partCount', 1)),
           ),
       )
       .maxItemsPerPage(1),

@@ -94,7 +94,7 @@ src/
 │
 ├── resolution/                 # Ghép template + data qua catalog, stack scope tường minh
 │   ├── DocumentResolver.ts, ResolveContext.ts, readVariable.ts, resolveContent.ts,
-│   │   evaluateCondition.ts, readRepeatEntries.ts, resolveNode.ts, countPages.ts,
+│   │   evaluateCondition.ts, readRepeatEntries.ts, resolveNode.ts, planPages.ts,
 │   │   collectAssetIds.ts, AssetProvider.ts, ResolvedNode.ts, ResolvedPage.ts,
 │   │   ResolveError.ts, index.ts
 │
@@ -243,6 +243,16 @@ src/
 └── __tests__/                            # integration test ở root
     ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
 ```
+
+## Phân trang tem
+
+- `repeat` ngoài cùng có `maxItemsPerPage` chia phần tử (sau `expand`) thành từng trang/tem.
+- `repeat` lồng ngay bên trong nó cũng có thể khai báo `maxItemsPerPage` (VD topping mỗi tem tối đa 4); phần dư in
+  sang tem tiếp theo, tem tiếp in lại toàn bộ nội dung của phần tử. Điều kiện: repeat ngoài cùng có
+  `maxItemsPerPage` là 1, chỉ lồng 1 tầng, và chỉ 1 repeat ngoài cùng được chứa repeat lồng tách tem —
+  `parseTemplate` báo lỗi nếu vi phạm.
+- Biến có sẵn `$part`/`$partCount` (dùng ở mọi chỗ) cho biết tem thứ mấy trong phần tử; là 1/1 khi không tách tem.
+  VD chỉ in giá ở tem đầu: `visibleWhen(eq('$part', 1))`.
 
 ## Cỡ chữ và cảnh báo compile
 
