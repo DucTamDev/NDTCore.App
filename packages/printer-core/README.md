@@ -1,270 +1,102 @@
 # printer-core
 
-Core thuần TypeScript cho feature máy in của NDTCorePOS: mô hình document/label,
-compiler + parser + validator + preview cho các ngôn ngữ máy in, mã hoá
-barcode/QR/ảnh (dithering), receipt layout. Năng lực máy in đích truyền vào compiler qua `PrinterFeatures`.
+Core thuần TypeScript cho feature máy in của NDTCorePOS, không dependency, không phụ thuộc React Native.
 
-Mục tiêu dài hạn là mirror đầy đủ chức năng của
-[portakal](https://github.com/productdevbook/portakal) (SDK ngôn ngữ máy in mã
-nguồn mở, zero-dependency) — không trim bớt ngôn ngữ, để giữ khả năng mở rộng
-sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng hôm nay.
+Package hỗ trợ 2 ngôn ngữ máy in mà app dùng: **TSPL** (máy in tem) và **ESC/POS** (máy in hoá đơn). Luồng chính:
 
-> **Trạng thái hiện tại: đầy đủ, package đã hoàn chỉnh.** Cả 9 ngôn ngữ máy in
-> và `convert/` đều đã có logic thật — không còn file placeholder (`export {}`)
-> nào. Cụ thể:
->
-> **Đã có logic thật:**
-> - Nền tảng: types, document model, core dispatch (`PrintCompiler`/`Parser`/
->   `Preview`/`Validation` theo ngôn ngữ)
-> - Encoding: code page (Cp437/858/866/857, Windows1252/1258) + tiếng Việt
->   (TCVN3, CP1258)
-> - `image/`: dithering ảnh (threshold, Floyd-Steinberg, Atkinson, ordered)
-> - `symbology/barcode/`, `symbology/qrcode/`: lớp mô tả + validate (chưa render ảnh module thật)
-> - `receipt/`: layout công thức in hoá đơn (pair/table/separator, word wrap)
-> - `PrinterFeatures` (`core/`): năng lực máy in đích (dao cắt, ngăn kéo tiền,
->   kiểu ảnh, CJK, UTF-8, code page) do app khai báo, truyền vào `compileTo()`;
->   dữ liệu máy in theo hãng/model là việc của app
-> - `document/builder/`: fluent builder API (PrintBuilder/LabelBuilder/ReceiptBuilder)
->   và `document/builder/markup/`: markup DSL kiểu HTML (`<label>...</label>`)
-> - **Cả 9 ngôn ngữ máy in** (TSC/TSPL, ESC/POS, ZPL, EPL, CPCL, DPL, SBPL,
->   Star PRNT, IPL): đầy đủ pipeline compile → parse → validate → preview (SVG)
-> - `convert/`: cross-compiler giữa các ngôn ngữ (parse ngôn ngữ A → dựng lại
->   `PrintElement[]` → compile sang ngôn ngữ B)
-> - `testing/` (PrintDataAssertion, HexDump, catalog đơn hàng dùng cho test)
->
-> Có bài test tích hợp end-to-end thật chứng minh cả 9 ngôn ngữ hoạt động đúng:
-> `src/__tests__/phase2-integration.test.ts` — dựng một document thật (text +
-> barcode + table + cut), compile/parse/validate/preview lần lượt qua tất cả
-> 9 `PrinterLanguage` bằng `core/LanguageDispatch.ts`, cộng thêm 2 test chi
-> tiết riêng cho ESC/POS và TSC kế thừa từ Phase 1.
->
-> **Chưa có consumer nào dùng package này** — app hiện vẫn giữ logic in ấn
-> trùng lặp của riêng nó. Việc chuyển app sang dùng `printer-core` thay vì
-> logic riêng là việc khác, để sau.
->
-> **Giới hạn đã biết (không thuộc phạm vi port này):**
-> - Chuỗi string trong `TsplCompiler.compile().output` trộn lẫn hai kiểu encoding
->   byte khác nhau (text UTF-8 và payload bitmap dạng latin-1 one-char-per-byte)
->   khi document có element ảnh — xem JSDoc trên `TsplCompiler.compile()`
->   (`src/language/tspl/TsplCompiler.ts`) để biết chi tiết trước khi dùng output
->   TSPL compile ra để gửi máy in thật.
-> - `Tcvn3Encoder` chỉ phủ một phần bảng mã TCVN3 (partial coverage) — xem
->   JSDoc trên `Tcvn3Encoder` (`src/encoding/encoders/Tcvn3Encoder.ts`) để biết
->   phạm vi ký tự đã hỗ trợ.
+```text
+TemplateDocument (JSON, DSL) ──parseTemplate──▶ resolve (catalog + data) ──▶ layout (dots)
+  ──▶ PrintElement[] ──compileTo──▶ lệnh TSPL / ESC/POS  { output, warnings }
+                     └─previewFor─▶ SVG xem trước
+```
+
+- **Template:** `TemplateDocument` là JSON thuần, độc lập DPI; DSL `labelTemplate`/`receiptTemplate` sinh ra nó.
+- **Dữ liệu:** biến đọc qua catalog (`defineCatalog`), không trỏ thẳng vào data.
+- **Compile:** mỗi ngôn ngữ có compiler, parser (đọc ngược lệnh), validator, preview SVG. Năng lực máy in đích
+  truyền vào qua `PrinterFeatures`.
+- **Chuyển đổi:** `convert()` chuyển lệnh giữa TSPL và ESC/POS.
+- **Phụ trợ:** mã hoá chữ theo code page (CP437/857/858/866, Windows-1252/1258), xử lý ảnh (dithering) và mô tả
+  barcode/QR.
+
+**Giới hạn đã biết:** khi document có ảnh, chuỗi trong `TsplCompiler.compile().output` trộn text UTF-8 với payload
+bitmap dạng 1 ký tự = 1 byte. Xem JSDoc của `TsplCompiler.compile()` trước khi gửi output này tới máy in thật.
 
 ## Ranh giới với `src/features/printer`
 
-- **`printer-core`** — tính toán thuần, đồng bộ, không phụ thuộc React Native:
-  dựng document/label, biên dịch ra lệnh máy in, parse ngược, validate, preview
-  SVG, mã hoá bitmap/barcode/QR. Không biết gì về USB/Bluetooth/LAN, AsyncStorage
-  hay React; chỉ nhận năng lực máy in đích qua `PrinterFeatures`.
-- **`src/features/printer`** (giữ nguyên) — mọi thứ cần I/O hoặc API của React
-  Native: transport (USB/BT/LAN), adapter (native/library/vendor), dữ liệu máy in
-  theo hãng/model (map sang `PrinterFeatures`), kết nối,
-  discovery, permission, storage, hook, component UI, orchestration
-  (PrintScheduler/PrintService).
+- **`printer-core`:** tính toán thuần, đồng bộ.
+  - Dựng template, resolve, layout, biên dịch ra lệnh máy in, parse ngược, validate.
+  - Preview SVG, mã hoá bitmap/barcode/QR.
+  - Không biết gì về USB/Bluetooth/LAN, AsyncStorage hay React; chỉ nhận năng lực máy in đích qua
+    `PrinterFeatures`.
+- **`src/features/printer`** (app): mọi thứ cần I/O hoặc API của React Native.
+  - Transport (USB/BT/LAN), adapter (native/library/vendor).
+  - Dữ liệu máy in theo hãng/model (map sang `PrinterFeatures`).
+  - Kết nối, discovery, permission, storage, hook, component UI.
+  - Orchestration (PrintScheduler/PrintService).
 
 ## Cấu trúc
 
 ```text
 src/
 ├── index.ts
-│
-├── types/                     # KHÔNG đổi — primitive/value types thực sự generic
-│   ├── Alignment.ts, Bitmap.ts, Direction.ts, FontStyle.ts, FontWeight.ts,
-│   │   Point.ts, Rect.ts, Rotation.ts, Size.ts, Unit.ts, index.ts
-│
-├── catalog/                   # Cầu nối template ↔ data: biến có tên theo loại nội dung
-│   ├── VariableType.ts, VariableSpec.ts, CatalogCollection.ts, CatalogDescription.ts,
-│   │   Catalog.ts, BuiltInVariable.ts, CatalogRegistry.ts, describeCatalog.ts,
-│   │   defineCatalog.ts, CatalogIndex.ts, index.ts
-│
-├── template/                  # TemplateDocument JSON thuần, độc lập DPI
-│   ├── TemplateDocument.ts, index.ts
-│   ├── style/                  # Length.ts, Dimension.ts, Insets.ts, BoxStyle.ts,
-│   │                           # LayoutStyle.ts, TextStyle.ts
-│   ├── content/                # Segment.ts, ValueFormat.ts, Condition.ts
-│   ├── nodes/                  # TemplateNode.ts, TemplateNodeBase.ts, ContainerNode.ts,
-│   │                           # TextNode.ts, ImageNode.ts, BarcodeNode.ts,
-│   │                           # QrCodeNode.ts, LineNode.ts, RepeatNode.ts
-│   ├── format/                 # formatter vi-VN tự cài đặt (không dùng Intl)
-│   ├── parse/                  # parseTemplate, migrateTemplate, validate cấu trúc,
-│   │                           # validateTemplateAgainstCatalog
-│   └── builder/                # DSL: labelTemplate/receiptTemplate(catalog), scope.var/repeat
-│
-├── resolution/                 # Ghép template + data qua catalog, stack scope tường minh
-│   ├── DocumentResolver.ts, ResolveContext.ts, readVariable.ts, resolveContent.ts,
-│   │   evaluateCondition.ts, readRepeatEntries.ts, resolveNode.ts, planPages.ts,
-│   │   collectAssetIds.ts, AssetProvider.ts, ResolvedNode.ts, ResolvedPage.ts,
-│   │   ResolveError.ts, index.ts
-│
-├── layout/                     # Đổi Length → dots theo DPI rồi xếp vị trí
-│   ├── LayoutConfig.ts, lengthToDots.ts, LayoutNode.ts, toLayoutNode.ts,
-│   │   LayoutEngine.ts, FontMetrics.ts, ApproximateFontMetrics.ts,
-│   │   TextMeasurement.ts, TypographyProfile.ts, index.ts
-│
-├── document/
-│   ├── PrintDocument.ts, ResolvedPrintDocument.ts, index.ts    # KHÔNG đổi vị trí (đã ở document/)
-│   │
-│   └── elements/                # MỚI — gộp builder/PrintElement.ts +
-│       │                        # builder/content|drawing|layout|printer/*
-│       ├── PrintElement.ts      # từ builder/PrintElement.ts (union type)
-│       ├── content/             # từ builder/content/
-│       │   ├── BarcodeElement.ts, ImageElement.ts, QrCodeElement.ts,
-│       │   │   RawElement.ts, TextElement.ts, index.ts
-│       ├── drawing/              # từ builder/drawing/ — KHÔNG chia nhỏ thêm
-│       │   │                     # thành shape/line/effect (xem "Quyết định
-│       │   │                     # KHÔNG áp dụng" bên dưới)
-│       │   ├── BoxElement.ts, CircleElement.ts, DiagonalElement.ts,
-│       │   │   EllipseElement.ts, EraseElement.ts, LineElement.ts,
-│       │   │   ReverseElement.ts, index.ts
-│       ├── layout/                # từ builder/layout/
-│       │   ├── ColumnElement.ts, PageBreakElement.ts, RowElement.ts,
-│       │   │   SpacerElement.ts, TableElement.ts, index.ts
-│       └── control/                # từ builder/printer/ (đổi tên `printer`→`control`,
-│           │                        # khớp đúng ý nghĩa: CutElement là lệnh điều
-│           │                        # khiển máy in, không phải nội dung in)
-│           ├── CutElement.ts, index.ts
-│
-├── symbology/                    # MỚI — gộp barcode/ + qrcode/ (root cũ)
-│   ├── barcode/
-│   │   ├── BarcodeConfig.ts, BarcodeType.ts, BarcodeValidator.ts, index.ts
-│   └── qrcode/
-│       ├── QrCodeConfig.ts, QrCodeErrorCorrection.ts, QrCodeModel.ts,
-│       │   QrCodeValidator.ts, index.ts
-│
-├── formatting/                    # MỚI — phần dùng chung, generic của receipt/ cũ
-│   ├── TableColumn.ts             # rename từ receipt/ReceiptColumn.ts
-│   ├── PairFormatter.ts           # KHÔNG đổi tên, chỉ đổi vị trí
-│   ├── TableFormatter.ts          # KHÔNG đổi tên, chỉ đổi vị trí
-│   ├── SeparatorFormatter.ts      # KHÔNG đổi tên, chỉ đổi vị trí
-│   ├── WordWrapper.ts             # KHÔNG đổi tên, chỉ đổi vị trí
-│   ├── RowFormatter.ts            # rename từ receipt/ReceiptFormatter.ts
-│   ├── validateTableColumns.ts    # KHÔNG đổi tên, chỉ đổi vị trí
-│   └── index.ts
-│
-├── receipt/                        # THU GỌN — chỉ còn phần thật sự receipt-specific
-│   ├── ReceiptLayout.ts            # cập nhật import TableColumn thay ReceiptColumn
-│   └── index.ts
-│
-├── image/                          # KHÔNG đổi
-│   ├── ImageCrop.ts, ImageDither.ts, ImageResize.ts, ImageSource.ts,
-│   │   ImageThreshold.ts, ImageTransform.ts, MonochromeBitmap.ts,
-│   │   RgbaImage.ts, index.ts
-│   └── dithering/
-│       ├── AtkinsonDither.ts, DitherAlgorithm.ts, FloydSteinbergDither.ts,
-│       │   OrderedDither.ts, ThresholdDither.ts, index.ts
-│
-├── encoding/                       # KHÔNG đổi
-│   ├── CodePage.ts, CodePageEncoder.ts, EncodingResult.ts, index.ts
-│   └── encoders/
-│       ├── Cp437Encoder.ts, Cp857Encoder.ts, Cp858Encoder.ts,
-│       │   Cp866Encoder.ts, Tcvn3Encoder.ts, Utf8Encoder.ts,
-│       │   Windows1252Encoder.ts, Windows1258Encoder.ts, index.ts
-│
-├── core/                           # THU GỌN — chỉ còn contract, KHÔNG implementation
-│   ├── LanguageDispatch.ts, LanguageRegistry.ts, PrinterLanguage.ts,
-│   │   PrinterLanguageDefinition.ts, PrinterCoreError.ts,
-│   │   PrintCompiler.ts, PrintParser.ts, PrintPreview.ts, PrintValidation.ts,
-│   │   PrinterFeatures.ts, index.ts     # PrinterFeatures: năng lực máy in đích truyền vào compiler
-│
-├── language/                        # MỚI — gộp compiler/{lang} + parser/{lang}
-│   │                                 # (KHÔNG gồm validation, KHÔNG gồm preview)
-│   ├── CompileWarnings.ts            # gom cảnh báo của 1 lần compile (field bỏ/gộp, element không hỗ trợ)
-│   ├── BitmapFont.ts                 # chọn font bitmap + hệ số phóng đại (TSPL, EPL, CPCL)
-│   ├── MagnifiedFont.ts              # 1 font phóng đại nguyên (DPL, SBPL, ESC/POS, Star PRNT)
-│   ├── tspl/      (đổi tên từ `tsc` — TSC chỉ còn dùng cho tên hãng)
-│   │   ├── TsplCommand.ts, TsplCompiler.ts, TsplEncoder.ts, TsplFontMetrics.ts, TsplParser.ts, index.ts
-│   ├── zpl/       ├── ZplCommand.ts, ZplCompiler.ts, ZplEncoder.ts, ZplFontMetrics.ts, ZplParser.ts, index.ts
-│   ├── epl/       ├── EplCommand.ts, EplCompiler.ts, EplEncoder.ts, EplFontMetrics.ts, EplParser.ts, index.ts
-│   ├── cpcl/      ├── CpclCommand.ts, CpclCompiler.ts, CpclEncoder.ts, CpclFontMetrics.ts, CpclParser.ts,
-│   │              │   index.ts
-│   ├── dpl/       ├── DplCommand.ts, DplCompiler.ts, DplEncoder.ts, DplFontMetrics.ts, DplParser.ts, index.ts
-│   ├── ipl/       ├── IplCommand.ts, IplCompiler.ts, IplEncoder.ts, IplFontMetrics.ts, IplParser.ts, index.ts
-│   ├── sbpl/      ├── SbplCommand.ts, SbplCompiler.ts, SbplEncoder.ts, SbplFontMetrics.ts, SbplParser.ts,
-│   │              │   index.ts
-│   ├── escpos/    ├── EscPosCommand.ts, EscPosCompiler.ts, EscPosCodePage.ts,
-│   │              │   EscPosBarcodeEncoder.ts, EscPosImageEncoder.ts, EscPosFontMetrics.ts,
-│   │              │   EscPosQrCodeEncoder.ts, EscPosParser.ts, index.ts
-│   └── starprnt/  └── StarPrntCommand.ts, StarPrntCompiler.ts, StarPrntEncoder.ts,
-│                      StarPrntFontMetrics.ts, StarPrntParser.ts, index.ts
-│
-├── preview/                          # THU GỌN + thêm per-language subfolder
-│   ├── PreviewRenderer.ts            # implementation dùng chung cho Dpl/Sbpl/Ipl — chiều cao
-│   │                                 # chữ do FontMetrics của ngôn ngữ gọi truyền vào
-│   ├── index.ts
-│   └── languages/
-│       ├── tspl/TsplPreviewRenderer.ts     (MỚI — thêm 1 cấp thư mục theo lang)
-│       ├── zpl/ZplPreviewRenderer.ts
-│       ├── epl/EplPreviewRenderer.ts
-│       ├── cpcl/CpclPreviewRenderer.ts
-│       ├── dpl/DplPreviewRenderer.ts
-│       ├── ipl/IplPreviewRenderer.ts
-│       ├── sbpl/SbplPreviewRenderer.ts
-│       ├── escpos/EscPosPreviewRenderer.ts
-│       └── starprnt/StarPrntPreviewRenderer.ts
-│       (mỗi thư mục có index.ts riêng — MỚI)
-│
-├── validation/                        # THU GỌN + languages/{lang}/ giữ nguyên
-│   │                                  # cấu trúc hiện có (đã đúng theo pattern mới)
-│   ├── ValidationIssue.ts, ValidationResult.ts, index.ts
-│   └── languages/                     # đổi tên từ validation/{lang}/ trực tiếp
-│       │                              # → validation/languages/{lang}/ (thêm 1 cấp
-│       │                              #   `languages/`, khớp preview/languages/)
-│       ├── tspl/TsplValidator.ts, index.ts
-│       ├── zpl/ZplValidator.ts, index.ts
-│       ├── epl/EplValidator.ts, index.ts
-│       ├── cpcl/CpclValidator.ts, index.ts
-│       ├── dpl/DplValidator.ts, index.ts
-│       ├── ipl/IplValidator.ts, index.ts
-│       ├── sbpl/SbplValidator.ts, index.ts
-│       ├── escpos/EscPosValidator.ts, index.ts
-│       └── starprnt/StarPrntValidator.ts, index.ts
-│
-├── convert/                            # KHÔNG đổi tên (giữ nguyên `convert`,
-│   │                                   # không đổi thành `conversion`)
-│   ├── ConversionPath.ts, ConversionRegistry.ts, ConversionResult.ts,
-│   │   PrinterConverter.ts, index.ts
-│
-├── testing/
-│   ├── HexDump.ts, OrderTestCatalog.ts, PrintDataAssertion.ts, index.ts
-│
-└── __tests__/                            # integration test ở root
-    ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
+├── types/          # Alignment, Bitmap, Direction, Point, Rect, Rotation, Size, Unit
+├── catalog/        # biến có tên theo loại nội dung: defineCatalog, defineCollection, CatalogIndex, biến có sẵn
+├── template/       # TemplateDocument JSON độc lập DPI
+│   ├── style/      # Length, Dimension, Insets, BoxStyle, LayoutStyle, TextStyle
+│   ├── content/    # Segment, ValueFormat, Condition
+│   ├── nodes/      # TemplateNode và các node container/text/image/barcode/qrcode/line/repeat
+│   ├── format/     # formatter vi-VN tự cài đặt (không dùng Intl)
+│   ├── parse/      # parseTemplate, migrateTemplate, validate cấu trúc/tách tem/theo catalog
+│   └── builder/    # DSL labelTemplate/receiptTemplate(catalog), scope.var/repeat
+├── resolution/     # ghép template + data qua catalog, kế hoạch trang (planPages), tách repeat lồng
+├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[]
+├── document/       # ResolvedPrintDocument + PrintElement (content/drawing/layout/control)
+├── core/           # contract: PrinterLanguage, PrintCompiler/Parser/Preview/Validation, PrinterFeatures,
+│                   # registry + dispatch compileTo/parseFrom/validateFor/previewFor
+├── language/       # BitmapFont (TSPL), MagnifiedFont (ESC/POS), CompileWarnings
+│   ├── tspl/       # TsplCommand, TsplCompiler, TsplEncoder, TsplFontMetrics, TsplParser
+│   └── escpos/     # EscPosCommand, EscPosCompiler, EscPosCodePage, EscPos{Barcode,Image,QrCode}Encoder,
+│                   # EscPosFontMetrics, EscPosParser
+├── preview/languages/{tspl,escpos}/      # preview SVG theo từng ngôn ngữ
+├── validation/     # ValidationIssue, ValidationResult + languages/{tspl,escpos}/ validator
+├── convert/        # convert() giữa các ngôn ngữ, ConversionRegistry, SUPPORTED_SOURCES/TARGETS
+├── formatting/     # TableColumn, formatTable/formatRow, validateTableColumns (bảng trong element table)
+├── encoding/       # CodePage, encodeTextForPrinter + encoders/ (CP437/857/858/866, Windows-1252/1258, UTF-8)
+├── image/          # crop/resize/threshold/dither ảnh thành bitmap đơn sắc + dithering/
+├── symbology/      # barcode/ và qrcode/: cấu hình + validate
+└── testing/        # OrderTestCatalog — catalog đơn hàng + data mẫu dùng chung cho test (không export ra ngoài)
 ```
+
+Test đặt trong `__tests__/` cạnh file nguồn; test tích hợp ở `src/__tests__/`.
 
 ## Phân trang tem
 
 - `repeat` ngoài cùng có `maxItemsPerPage` chia phần tử (sau `expand`) thành từng trang/tem.
-- `repeat` lồng ngay bên trong nó cũng có thể khai báo `maxItemsPerPage` (VD topping mỗi tem tối đa 4); phần dư in
-  sang tem tiếp theo, tem tiếp in lại toàn bộ nội dung của phần tử. Điều kiện: repeat ngoài cùng có
-  `maxItemsPerPage` là 1, chỉ lồng 1 tầng, và chỉ 1 repeat ngoài cùng được chứa repeat lồng tách tem —
-  `parseTemplate` báo lỗi nếu vi phạm.
+- `repeat` lồng ngay bên trong nó cũng có thể khai báo `maxItemsPerPage` (VD topping mỗi tem tối đa 4):
+  - Phần dư in sang tem tiếp theo; tem tiếp in lại toàn bộ nội dung của phần tử.
+  - Điều kiện: repeat ngoài cùng có `maxItemsPerPage` là 1, chỉ lồng 1 tầng, và chỉ 1 repeat ngoài cùng được chứa
+    repeat lồng tách tem. `parseTemplate` báo lỗi nếu vi phạm.
 - Biến có sẵn `$part`/`$partCount` (dùng ở mọi chỗ) cho biết tem thứ mấy trong phần tử; là 1/1 khi không tách tem.
   VD chỉ in giá ở tem đầu: `visibleWhen(eq('$part', 1))`.
 
 ## Cỡ chữ và cảnh báo compile
 
-- `TextOptions.fontSize` (dots) là field cỡ chữ duy nhất của `PrintElement` text. Mỗi ngôn ngữ tự quy đổi
-  sang lệnh native qua `language/{lang}/{Lang}FontMetrics.ts` — đây là nguồn dữ liệu font duy nhất, dùng
-  chung cho compiler, parser (dựng lại `fontSize` best-effort) và preview.
-- `PrintCompiler.compile()` và `compileTo()` trả `{ output, warnings }`. `warnings` liệt kê field bị bỏ
-  qua/gộp và element ngôn ngữ không có lệnh tương ứng; `output` giữ nguyên hành vi cũ (element không hỗ
-  trợ vẫn không phát lệnh nào). Cảnh báo trùng nội dung chỉ xuất hiện 1 lần; `cut` với `mode: 'off'`
-  không cảnh báo vì không yêu cầu cắt.
-- Với các compiler chỉ phát output dạng chuỗi (TSPL, ZPL, EPL, CPCL, DPL, SBPL, IPL), element `raw` mang
-  nội dung `Uint8Array` bị bỏ qua (output vẫn là `''` như trước) kèm cảnh báo — ESC/POS và Star PRNT phát
-  output dạng byte nên không bị giới hạn này.
+- **Cỡ chữ:** `TextOptions.fontSize` (dots) là field cỡ chữ duy nhất của `PrintElement` text.
+  - Mỗi ngôn ngữ quy đổi sang lệnh native qua `language/{lang}/{Lang}FontMetrics.ts`.
+  - Đây là nguồn dữ liệu font duy nhất, dùng chung cho compiler, parser (dựng lại `fontSize` best-effort) và
+    preview.
+- **Kết quả compile:** `PrintCompiler.compile()` và `compileTo()` trả `{ output, warnings }`.
+  - `warnings` liệt kê field bị bỏ qua/gộp và element ngôn ngữ không có lệnh tương ứng.
+  - `output` không phát lệnh nào cho element không hỗ trợ.
+  - Cảnh báo trùng nội dung chỉ xuất hiện 1 lần.
+  - `cut` với `mode: 'off'` không cảnh báo vì không yêu cầu cắt.
+- **Element `raw` với TSPL:** TSPL phát output dạng chuỗi, nên `raw` mang nội dung `Uint8Array` bị bỏ qua kèm
+  cảnh báo. ESC/POS phát output dạng byte nên không có giới hạn này.
 
 | Ngôn ngữ | Element bị bỏ qua (có cảnh báo) | Field bị bỏ/gộp (có cảnh báo) |
 |---|---|---|
 | TSPL | — | `CutOptions.mode: 'partial'` in như `'full'` |
-| EPL | diagonal, circle, ellipse, reverse, erase, cut | — |
-| CPCL | circle, ellipse, reverse, erase, cut | `BarcodeConfig.readable` |
-| ZPL | ellipse, reverse, erase | `CutOptions.rows`, `QrCodeConfig.rotation` |
-| DPL, SBPL, IPL | diagonal, circle, ellipse, reverse, erase, cut, barcode, qrcode | — |
 | ESC/POS | box, line, diagonal, circle, ellipse, reverse, erase | — |
-| Star PRNT | box, line, diagonal, circle, ellipse, reverse, erase, barcode, qrcode | `CutOptions.rows`, `CutOptions.mode: 'partial'` |
 
 ## Scripts
 

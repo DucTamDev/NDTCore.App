@@ -9,7 +9,6 @@ export * from './language';
 export * from './preview';
 export * from './validation';
 export * from './convert';
-export * from './testing';
 export * from './catalog';
 export * from './template';
 export * from './resolution';
