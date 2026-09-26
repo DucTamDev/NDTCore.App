@@ -18,11 +18,11 @@ export const CP866: CodePage = {
     ...buildRange(0xe0, 16, 0x0440), // р-я
     0xf0: 'Ё',
     0xf1: 'ё',
-    0xf2: 'Є', // Ukrainian
+    0xf2: 'Є', // tiếng Ukraina
     0xf3: 'є',
     0xf4: 'Ї',
     0xf5: 'ї',
-    0xf6: 'Ў', // Belarusian
+    0xf6: 'Ў', // tiếng Belarus
     0xf7: 'ў',
   },
 };

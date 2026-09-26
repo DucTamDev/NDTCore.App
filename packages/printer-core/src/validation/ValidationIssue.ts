@@ -3,7 +3,7 @@ export interface ValidationIssue {
   /** Mức độ: lỗi, cảnh báo, thông tin. */
   level: 'error' | 'warning' | 'info';
 
-  /** Dòng lệnh chứa vấn đề (từ 1); bỏ trống với nguồn dạng byte. */
+  /** Dòng lệnh chứa vấn đề, tính từ 1. Hiện chưa validator nào gán field này. */
   line?: number;
 
   /** Tên lệnh liên quan. */
