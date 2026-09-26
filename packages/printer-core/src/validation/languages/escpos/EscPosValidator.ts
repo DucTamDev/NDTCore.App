@@ -3,7 +3,7 @@ import type { PrintValidation } from '../../../core';
 import type { ValidationIssue } from '../../ValidationIssue';
 import type { ValidationResult } from '../../ValidationResult';
 
-/** ESC-prefixed command byte -> its fixed parameter-byte count (commands not listed here are assumed to take none). */
+/** Byte lệnh sau ESC → số byte tham số cố định; lệnh không có trong bảng coi như không có tham số. */
 const ESC_PARAM_LENGTH: Record<number, number> = {
   0x40: 0,
   0x61: 1,
@@ -21,7 +21,7 @@ const ESC_PARAM_LENGTH: Record<number, number> = {
   0x70: 3,
 };
 
-/** GS-prefixed command byte -> its fixed parameter-byte count. 0x6b/0x56/0x76/0x28 are variable-length and handled separately. */
+/** Byte lệnh sau GS → số byte tham số cố định; 0x6b/0x56/0x76/0x28 dài thay đổi nên xử lý riêng. */
 const GS_PARAM_LENGTH: Record<number, number> = {
   0x21: 1,
   0x42: 1,
@@ -33,12 +33,12 @@ const GS_PARAM_LENGTH: Record<number, number> = {
   0x72: 1,
 };
 
-/** "GS k" symbology byte values >= this select the length-prefixed format B; below it, the NUL-terminated format A. */
+/** Mã symbology của "GS k" từ giá trị này trở lên là dạng B (có byte độ dài); thấp hơn là dạng A (kết thúc NUL). */
 const BARCODE_FORMAT_B_MIN_TYPE = 65;
 
 function bytesFromSource(source: string): Uint8Array {
   const bytes = new Uint8Array(source.length);
-  // eslint-disable-next-line no-bitwise -- clamping each char code to a single byte
+  // eslint-disable-next-line no-bitwise -- giữ đúng 1 byte cho mỗi ký tự
   for (let i = 0; i < source.length; i++) bytes[i] = source.charCodeAt(i) & 0xff;
   return bytes;
 }
@@ -47,7 +47,7 @@ function isPrintableOrExtended(byte: number): boolean {
   return (byte >= 0x20 && byte <= 0x7e) || byte >= 0x80;
 }
 
-/** Skips a "GS k" barcode command (either NUL-terminated format A or length-prefixed format B) and returns the next index. */
+/** Bỏ qua lệnh barcode "GS k" (dạng A kết thúc NUL hoặc dạng B có độ dài), trả vị trí tiếp theo. */
 function skipBarcode(bytes: Uint8Array, i: number): number {
   if (i + 2 >= bytes.length) return i + 2;
   const m = bytes[i + 2]!;
@@ -59,7 +59,7 @@ function skipBarcode(bytes: Uint8Array, i: number): number {
   return end + 1;
 }
 
-/** Skips a "GS ( k" 2D-symbol command (QR, PDF417, ...) and returns the next index. */
+/** Bỏ qua lệnh mã 2D "GS ( k" (QR, PDF417...), trả vị trí tiếp theo. */
 function skipTwoDCode(bytes: Uint8Array, i: number): number {
   if (bytes[i + 2] !== ESC_POS.TWO_D_CODE[1] || i + 4 >= bytes.length) return i + 3;
   const len = bytes[i + 3]! + bytes[i + 4]! * 256;
@@ -67,9 +67,8 @@ function skipTwoDCode(bytes: Uint8Array, i: number): number {
 }
 
 /**
- * Checks a "GS v 0" raster-image header against the bytes actually available in the
- * buffer. Returns the next index to resume scanning from, or -1 when the image's
- * declared data length overflows the buffer (a genuinely malformed stream).
+ * Đối chiếu header ảnh raster "GS v 0" với số byte thật còn lại. Trả vị trí quét tiếp, hoặc -1 khi độ dài dữ liệu ảnh
+ * khai báo vượt quá dữ liệu (luồng byte hỏng thật).
  */
 function skipRasterImage(bytes: Uint8Array, i: number): number {
   if (i + 7 >= bytes.length) return i + 2;
@@ -81,13 +80,9 @@ function skipRasterImage(bytes: Uint8Array, i: number): number {
 }
 
 /**
- * Minimal, heuristic ESC/POS validator — net new, since portakal's `validate()`
- * never accepted "escpos" as a source language. Walks the byte stream (encoded
- * one byte per character, per `PrintValidation`'s string-source contract),
- * skipping every command it recognizes, and flags two conditions: a raster
- * image whose declared byte count overflows the buffer, and stray bytes that
- * fall outside both the printable/extended ranges and any recognized command
- * (a rough "this might not be valid ESC/POS" signal, not a full re-parse).
+ * Kiểm tra ESC/POS theo kiểu dò nhanh, không parse đầy đủ. Nguồn là chuỗi 1 ký tự = 1 byte (theo contract chuỗi của
+ * `PrintValidation`). Bỏ qua mọi lệnh nhận ra được và báo 2 trường hợp: ảnh raster khai báo dài hơn dữ liệu, và byte
+ * lạc không thuộc vùng in được lẫn lệnh nào — chỉ là dấu hiệu "có thể không phải ESC/POS hợp lệ".
  */
 export class EscPosValidator implements PrintValidation {
   validate(source: string): ValidationResult {

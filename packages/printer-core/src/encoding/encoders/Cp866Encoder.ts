@@ -8,7 +8,7 @@ function buildRange(byteStart: number, count: number, unicodeStart: number): Rec
   return chars;
 }
 
-/** CP866 — Cyrillic (Russian, Ukrainian, Belarusian). Ported from portakal/src/encoding.ts CP866_CHARS. */
+/** CP866 — chữ Kirin (Nga, Ukraina, Belarus). */
 export const CP866: CodePage = {
   id: 866,
   name: 'CP866',

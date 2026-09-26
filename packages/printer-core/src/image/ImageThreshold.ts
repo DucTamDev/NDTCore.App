@@ -1,3 +1,2 @@
-// Canonical implementation lives in `dithering/ThresholdDither.ts`; re-exported here for callers
-// that want direct-threshold conversion without going through the dither dispatch.
+// Cho phép đổi ảnh theo ngưỡng trực tiếp, không qua bước chọn thuật toán dither.
 export { ditherThreshold } from './dithering/ThresholdDither';

@@ -1,6 +1,6 @@
 import type { CodePage } from '../CodePage';
 
-/** Latin supplement 0xA0-0xFF is 1:1 with Unicode U+00A0-U+00FF, as in Windows-1252. */
+/** Vùng 0xA0-0xFF của Windows-1252 trùng 1:1 với Unicode U+00A0-U+00FF. */
 function buildLatinSupplement(): Record<number, string> {
   const chars: Record<number, string> = {};
   for (let i = 0; i < 96; i++) {
@@ -9,7 +9,7 @@ function buildLatinSupplement(): Record<number, string> {
   return chars;
 }
 
-/** Windows-1252 — Western European (Latin 1). Ported from portakal/src/encoding.ts CP1252_CHARS. */
+/** Windows-1252 — Tây Âu (Latin 1). */
 export const Windows1252: CodePage = {
   id: 1252,
   name: 'Windows1252',

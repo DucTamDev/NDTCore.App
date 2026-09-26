@@ -1,24 +1,18 @@
 import type { BarcodeConfig } from './BarcodeConfig';
 
-/**
- * A validation finding for a barcode (or QR code) config.
- *
- * Deliberately a minimal local shape: this predates the shared `validation/`
- * folder and its language-specific `ValidationIssue` type, and stays
- * independent of it.
- */
+/** 1 vấn đề tìm thấy khi kiểm tra cấu hình barcode hoặc QR code. */
 export interface BarcodeValidationIssue {
+  /** Mức độ: lỗi hoặc cảnh báo. */
   level: 'error' | 'warning';
+
+  /** Mô tả vấn đề. */
   message: string;
 }
 
 const EAN13_LENGTHS = [12, 13];
 const EAN8_LENGTHS = [7, 8];
 
-/**
- * Validates a `BarcodeConfig` against printer-native constraints, without
- * computing or rendering any actual bars.
- */
+/** Kiểm tra `BarcodeConfig` theo giới hạn của lệnh barcode máy in (không tự vẽ vạch). */
 export function validateBarcodeConfig(config: BarcodeConfig): BarcodeValidationIssue[] {
   const issues: BarcodeValidationIssue[] = [];
 

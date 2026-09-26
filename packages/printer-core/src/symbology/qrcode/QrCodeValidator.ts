@@ -1,13 +1,10 @@
 import type { BarcodeValidationIssue } from '../barcode/BarcodeValidator';
 import type { QrCodeConfig } from './QrCodeConfig';
 
-/** Practical ceiling for QR alphanumeric-mode payloads. */
+/** Độ dài tối đa dùng được trong thực tế của nội dung QR dạng chữ số + chữ. */
 const MAX_QR_CONTENT_LENGTH = 7089;
 
-/**
- * Validates a `QrCodeConfig` against printer-native constraints, without
- * computing or rendering any actual QR modules.
- */
+/** Kiểm tra `QrCodeConfig` theo giới hạn của lệnh QR máy in (không tự tính module). */
 export function validateQrCodeConfig(config: QrCodeConfig): BarcodeValidationIssue[] {
   const issues: BarcodeValidationIssue[] = [];
 

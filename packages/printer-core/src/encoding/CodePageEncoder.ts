@@ -7,17 +7,18 @@ import { CP866 } from './encoders/Cp866Encoder';
 import { CP857 } from './encoders/Cp857Encoder';
 import { encodeUtf8Passthrough } from './encoders/Utf8Encoder';
 
-const REPLACEMENT_BYTE = 0x3f; // '?'
+/** Byte thay cho ký tự không có trong code page nào: dấu '?'. */
+const REPLACEMENT_BYTE = 0x3f;
 
-/** Available code pages in lookup priority order. */
+/** Code page theo thứ tự ưu tiên khi tự dò. */
 const CODE_PAGE_LIST: CodePage[] = [CP437, CP858, Windows1252, CP866, CP857];
 
-/** All registered code pages, keyed by id. */
+/** Mọi code page đã đăng ký, theo số hiệu. */
 export const CODE_PAGES: Record<number, CodePage> = Object.fromEntries(
   CODE_PAGE_LIST.map((codePage) => [codePage.id, codePage])
 );
 
-/** char -> byte reverse index per code page, built once so encodeText doesn't rescan `chars` per character. */
+/** Bảng tra ký tự → byte của từng code page, dựng 1 lần để không phải quét `chars` cho mỗi ký tự. */
 const REVERSE_INDEX: ReadonlyMap<CodePage, ReadonlyMap<string, number>> = new Map(
   CODE_PAGE_LIST.map((codePage) => [
     codePage,
@@ -25,7 +26,7 @@ const REVERSE_INDEX: ReadonlyMap<CodePage, ReadonlyMap<string, number>> = new Ma
   ])
 );
 
-/** Find a registered code page by id. */
+/** Tìm code page đã đăng ký theo số hiệu. */
 export function findCodePage(id: number): CodePage | undefined {
   return CODE_PAGES[id];
 }
@@ -39,16 +40,11 @@ function findByte(char: string, codePages: readonly CodePage[]): { codePage: Cod
 }
 
 /**
- * Encode text into printer bytes using code-page lookup for non-ASCII characters.
+ * Mã hoá chữ thành byte máy in; ký tự ngoài ASCII tra theo code page.
  *
- * When `preferredCodePage` is given and registered, the returned `codePage` is always that code
- * page (even for ASCII-only text) — callers use this to force a printer to switch to a specific
- * code page. Otherwise the code page is auto-detected from the first non-ASCII character that
- * needs one, or stays null when the text is plain ASCII.
- *
- * Note: unlike portakal's `encodeText` (which returns per-segment code-page switches as an
- * array), this returns a single `EncodingResult` with one `codePage` — text needing multiple
- * incompatible code pages at once is not supported by this simplified shape.
+ * Có `preferredCodePage` (đã đăng ký) thì luôn trả đúng code page đó, kể cả khi chữ toàn ASCII, để nơi gọi ép máy in
+ * chuyển sang code page này. Không có thì dò theo ký tự ngoài ASCII đầu tiên; chữ toàn ASCII thì `codePage` là null.
+ * Chỉ trả 1 code page cho cả chuỗi: chữ cần nhiều code page khác nhau cùng lúc thì ký tự thiếu thành '?'.
  */
 export function encodeText(text: string, preferredCodePage?: number): EncodingResult {
   const forcedCodePage = preferredCodePage !== undefined ? findCodePage(preferredCodePage) : undefined;
@@ -80,12 +76,8 @@ export function encodeText(text: string, preferredCodePage?: number): EncodingRe
 }
 
 /**
- * Encode text for a specific printer's text-encoding capabilities.
- *
- * Fix vs. portakal: portakal's `encodeTextForPrinter` accepts a `nativeUtf8`-shaped flag but never
- * branches on it, always doing code-page lookup. Here, when `encoding.nativeUtf8` is true,
- * text is sent as raw UTF-8 (no code-page switch); otherwise it falls back to `encodeText` using
- * the printer's first declared code page.
+ * Mã hoá chữ theo năng lực của máy in: máy nhận UTF-8 thì gửi thẳng UTF-8, không chuyển code page; ngược lại dùng
+ * code page đầu tiên máy khai báo.
  */
 export function encodeTextForPrinter(text: string, encoding: { nativeUtf8: boolean; codePages: number[] }): EncodingResult {
   if (encoding.nativeUtf8) {

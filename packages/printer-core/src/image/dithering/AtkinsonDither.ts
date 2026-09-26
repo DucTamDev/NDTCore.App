@@ -1,4 +1,4 @@
-/** Atkinson dithering — propagates only 75% of the quantization error to 6 neighbors (1/8 each). */
+/** Dither Atkinson: chỉ lan 75% sai số sang 6 điểm lân cận (mỗi điểm 1/8), ảnh sáng và rõ nét hơn. */
 export function ditherAtkinson(gray: Uint8Array, width: number, height: number): Uint8Array {
   const err = new Float32Array(gray.length);
   for (let i = 0; i < gray.length; i++) err[i] = gray[i]!;

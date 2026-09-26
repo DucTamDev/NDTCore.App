@@ -1,7 +1,7 @@
 import type { CodePage } from '../CodePage';
 import { CP437 } from './Cp437Encoder';
 
-/** CP858 — CP437 plus the Euro sign at 0xD5. Ported from portakal/src/encoding.ts CP858_CHARS. */
+/** CP858 — CP437 thêm ký hiệu Euro ở byte 0xD5. */
 export const CP858: CodePage = {
   id: 858,
   name: 'CP858',

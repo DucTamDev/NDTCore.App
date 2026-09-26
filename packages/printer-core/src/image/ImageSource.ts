@@ -1,9 +1,11 @@
-/**
- * Parameter-object form of an RGBA image (data + dimensions), for callers that prefer
- * passing a single object instead of separate positional arguments.
- */
+/** Ảnh RGBA gói trong 1 object (dữ liệu + kích thước). */
 export interface ImageSource {
+  /** Dữ liệu RGBA, 4 byte mỗi điểm, theo hàng. */
   data: Uint8Array | Uint8ClampedArray;
+
+  /** Chiều rộng, tính bằng điểm ảnh. */
   width: number;
+
+  /** Chiều cao, tính bằng điểm ảnh. */
   height: number;
 }

@@ -1,4 +1,4 @@
-/** Resize an RGBA image using nearest-neighbor sampling. */
+/** Đổi kích thước ảnh RGBA bằng lấy mẫu điểm gần nhất. */
 export function resizeNearestNeighbor(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,

@@ -1,5 +1,2 @@
-/**
- * QR error correction level, as accepted by TSPL's `QRCODE` command's
- * `ecc` field ("L" | "M" | "Q" | "H", per the QR spec's own ECC letters).
- */
+/** Mức sửa lỗi QR theo chuẩn QR, cũng là giá trị field `ecc` của lệnh `QRCODE` TSPL. */
 export type QrErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';

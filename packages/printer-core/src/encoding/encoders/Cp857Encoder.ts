@@ -12,7 +12,7 @@ function withoutSharpS(chars: Record<number, string>): Record<number, string> {
   return result;
 }
 
-/** CP857 — Turkish (CP437 minus ß, plus Turkish letters). Ported from portakal/src/encoding.ts CP857_CHARS. */
+/** CP857 — tiếng Thổ Nhĩ Kỳ (CP437 bỏ ß, thêm chữ Thổ Nhĩ Kỳ). */
 export const CP857: CodePage = {
   id: 857,
   name: 'CP857',

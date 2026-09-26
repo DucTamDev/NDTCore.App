@@ -1,4 +1,4 @@
-/** Simple threshold dithering: pixels below `threshold` become black (0), others white (255). */
+/** Đổi theo ngưỡng: điểm dưới `threshold` thành đen (0), còn lại trắng (255). */
 export function ditherThreshold(
   gray: Uint8Array,
   width: number,

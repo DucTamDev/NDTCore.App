@@ -1,6 +1,6 @@
 import type { Rect } from '../types/Rect';
 
-/** Crop an RGBA image to `region` via a straightforward per-row copy. */
+/** Cắt ảnh RGBA theo vùng `region`. */
 export function cropRgba(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,

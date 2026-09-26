@@ -1,10 +1,19 @@
 import type { ValidationIssue } from './ValidationIssue';
 
-/** Outcome of validating printer source: whether it's error-free, plus every issue found and severity counts. */
+/** Kết quả kiểm tra lệnh máy in. */
 export interface ValidationResult {
+  /** Không có lỗi mức `error`. */
   valid: boolean;
+
+  /** Mọi vấn đề tìm thấy. */
   issues: ValidationIssue[];
+
+  /** Số vấn đề mức `error`. */
   errors: number;
+
+  /** Số vấn đề mức `warning`. */
   warnings: number;
+
+  /** Số vấn đề mức `info`. */
   infos: number;
 }

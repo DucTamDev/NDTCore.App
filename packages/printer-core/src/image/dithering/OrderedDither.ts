@@ -1,4 +1,4 @@
-/** 4x4 Bayer ordered dithering matrix. */
+/** Ma trận Bayer 4x4. */
 const BAYER4 = [
   [0, 8, 2, 10],
   [12, 4, 14, 6],
@@ -6,7 +6,7 @@ const BAYER4 = [
   [15, 7, 13, 5],
 ];
 
-/** Ordered dithering using a 4x4 Bayer matrix. */
+/** Dither theo ma trận Bayer 4x4, cho hoa văn đều, không lan sai số. */
 export function ditherOrdered(gray: Uint8Array, width: number, height: number): Uint8Array {
   const out = new Uint8Array(gray.length);
   for (let y = 0; y < height; y++) {

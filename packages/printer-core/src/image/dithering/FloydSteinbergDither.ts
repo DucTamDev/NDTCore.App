@@ -1,10 +1,10 @@
-/** Floyd-Steinberg error diffusion dithering (serpentine scan). */
+/** Dither Floyd-Steinberg, quét zigzag để tránh vệt sai số lệch về 1 phía. */
 export function ditherFloydSteinberg(gray: Uint8Array, width: number, height: number): Uint8Array {
   const err = new Float32Array(gray.length);
   for (let i = 0; i < gray.length; i++) err[i] = gray[i]!;
 
   for (let y = 0; y < height; y++) {
-    // eslint-disable-next-line no-bitwise -- parity check for serpentine scan direction
+    // eslint-disable-next-line no-bitwise -- hàng chẵn/lẻ quyết định chiều quét
     const ltr = (y & 1) === 0;
     const xStart = ltr ? 0 : width - 1;
     const xEnd = ltr ? width : -1;

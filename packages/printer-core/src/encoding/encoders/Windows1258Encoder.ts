@@ -1,16 +1,12 @@
 import type { CodePage } from '../CodePage';
 
 /**
- * Windows-1258 (CP1258, "Windows Vietnamese") — standard Microsoft code page. Bytes 0x81, 0x8A,
- * 0x8D, 0x8E, 0x8F, 0x90, 0x9A, 0x9D, 0x9E are undefined in the standard and intentionally omitted.
+ * Windows-1258 (CP1258, tiếng Việt). Các byte 0x81, 0x8A, 0x8D, 0x8E, 0x8F, 0x90, 0x9A, 0x9D, 0x9E không được chuẩn
+ * định nghĩa nên không liệt kê.
  *
- * Five bytes (0xCC, 0xD2, 0xDE, 0xEC, 0xF2) hold Vietnamese combining tone marks (grave/hook
- * above/tilde/acute/dot below) rather than standalone letters — CP1258 composes a base Latin
- * letter followed by one of these bytes to render a toned vowel, since not every Vietnamese
- * vowel+tone combination has its own single-byte slot.
- *
- * Values cross-checked against the WHATWG "windows-1258" mapping shipped in this repo's own
- * iconv-lite dependency (node_modules/iconv-lite/encodings/sbcs-data-generated.js).
+ * 5 byte 0xCC, 0xD2, 0xDE, 0xEC, 0xF2 là dấu thanh tổ hợp (huyền, hỏi, ngã, sắc, nặng), không phải chữ đứng riêng:
+ * CP1258 ghép chữ Latin gốc với 1 byte dấu thanh, vì không phải tổ hợp nguyên âm + dấu nào cũng có ô 1 byte riêng.
+ * Giá trị đối chiếu với bảng "windows-1258" của WHATWG.
  */
 export const Windows1258: CodePage = {
   id: 1258,

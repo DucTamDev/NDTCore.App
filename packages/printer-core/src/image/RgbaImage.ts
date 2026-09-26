@@ -1,8 +1,6 @@
 /**
- * Reduces RGBA pixel data to a single-channel grayscale buffer. Since thermal
- * paper has no notion of transparency, translucent pixels are first flattened
- * onto an opaque white backdrop before the RGB channels are folded down to a
- * brightness value using the BT.601 luma weights.
+ * Đổi RGBA thành ảnh xám 1 kênh. Giấy in nhiệt không có trong suốt, nên điểm trong suốt được phủ lên nền trắng trước
+ * khi tính độ sáng theo trọng số BT.601.
  */
 export function rgbaToGrayscale(
   rgba: Uint8Array | Uint8ClampedArray,
@@ -15,17 +13,17 @@ export function rgbaToGrayscale(
     const g = rgba[i * 4 + 1]!;
     const b = rgba[i * 4 + 2]!;
     const a = rgba[i * 4 + 3]!;
-    // Blend each channel toward white (255) in proportion to how transparent the pixel is
+    // Càng trong suốt càng gần màu trắng của giấy.
     const rr = (r * a + 255 * (255 - a)) / 255;
     const gg = (g * a + 255 * (255 - a)) / 255;
     const bb = (b * a + 255 * (255 - a)) / 255;
-    // BT.601 luma weights — green contributes the most to perceived brightness, blue the least
+    // Mắt người nhạy với xanh lá nhất, xanh dương kém nhất.
     gray[i] = Math.round(0.299 * rr + 0.587 * gg + 0.114 * bb);
   }
   return gray;
 }
 
-/** Named alias for {@link rgbaToGrayscale}, matching this module's `RgbaImage` public API. */
+/** Tên khác của {@link rgbaToGrayscale}. */
 export function toGrayscale(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,

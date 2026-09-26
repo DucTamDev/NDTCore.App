@@ -4,7 +4,7 @@ import { ditherFloydSteinberg } from './dithering/FloydSteinbergDither';
 import { ditherAtkinson } from './dithering/AtkinsonDither';
 import { ditherOrdered } from './dithering/OrderedDither';
 
-/** Dispatch to the dithering algorithm named by `algorithm`, producing 8-bit output (0 or 255 per pixel). */
+/** Dither ảnh xám theo thuật toán `algorithm`; mỗi điểm ra 0 hoặc 255. */
 export function applyDither(
   gray: Uint8Array,
   width: number,

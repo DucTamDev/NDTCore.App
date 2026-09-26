@@ -1,19 +1,9 @@
 import type { TableColumn } from './TableColumn';
 
 /**
- * Validates that every column has a positive width before it reaches
- * `formatTable()`/`formatRow()`.
- *
- * `formatRow()`'s auto-width logic treats any column with `width <= 0` as
- * "auto-size this column", computing `autoWidth = (totalWidth -
- * assignedWidth) / autoCount`. All 3 callers of `formatTable()` in this
- * package (`EscPosCompiler`, `TsplCompiler`, `TsplPreviewRenderer`) derive
- * `totalWidth` as the sum of the columns' own `width` values, which makes
- * `totalWidth - assignedWidth` exactly equal to the auto columns' own
- * (non-positive) width — i.e. always zero for a `width: 0` column. That
- * column then renders as an empty string, silently dropping real cell
- * content instead of erroring. Auto-sizing isn't supported yet, so this
- * rejects it explicitly instead of letting it fail silently.
+ * Bắt buộc mọi cột có độ rộng dương trước khi vào `formatTable()`/`formatRow()`. `formatRow()` coi `width <= 0` là
+ * cột tự co giãn, nhưng mọi nơi gọi đều tính tổng độ rộng từ chính các cột nên cột đó luôn rộng 0 và mất nội dung
+ * âm thầm — báo lỗi rõ thay vì in thiếu.
  */
 export function validateTableColumns(columns: TableColumn[]): void {
   for (const column of columns) {

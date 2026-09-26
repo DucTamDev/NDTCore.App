@@ -1,6 +1,6 @@
 import type { CodePage } from '../CodePage';
 
-/** CP437 — US/Standard Europe, default code page on most ESC/POS printers. Ported from portakal/src/encoding.ts CP437_CHARS. */
+/** CP437 — Mỹ/Tây Âu, code page mặc định trên phần lớn máy in ESC/POS. */
 export const CP437: CodePage = {
   id: 437,
   name: 'CP437',

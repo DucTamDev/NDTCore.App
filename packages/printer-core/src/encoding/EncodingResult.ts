@@ -1,11 +1,13 @@
 import type { CodePage } from './CodePage';
 
-/** Result of encoding text for a printer: the raw bytes plus which code page (if any) they assume. */
+/** Kết quả mã hoá chữ cho máy in: byte và code page mà byte đó giả định. */
 export interface EncodingResult {
-  /** Encoded bytes, ready to send to the printer. */
+  /** Byte đã mã hoá, gửi thẳng tới máy in. */
   bytes: Uint8Array;
-  /** Code page the bytes were encoded against, or null when no code page was needed/used (ASCII-only or UTF-8 passthrough). */
+
+  /** Code page của byte; null khi không cần code page (toàn ASCII hoặc gửi thẳng UTF-8). */
   codePage: CodePage | null;
-  /** Characters that could not be mapped to any code page and were replaced with '?'. */
+
+  /** Ký tự không có trong code page nào, đã thay bằng '?'. */
   unmappedChars: string[];
 }

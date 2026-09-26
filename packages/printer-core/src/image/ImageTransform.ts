@@ -4,7 +4,7 @@ import { packBitmap } from './MonochromeBitmap';
 import { rgbaToGrayscale } from './RgbaImage';
 import { applyDither } from './ImageDither';
 
-/** Convert an RGBA image to a {@link MonochromeBitmap} using the specified dithering algorithm. */
+/** Đổi ảnh RGBA thành {@link MonochromeBitmap} bằng thuật toán dither đã chọn. */
 export function imageToMonochrome(
   rgba: Uint8Array | Uint8ClampedArray,
   width: number,

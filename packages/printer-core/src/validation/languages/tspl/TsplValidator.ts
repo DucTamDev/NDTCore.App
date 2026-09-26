@@ -8,11 +8,11 @@ const MAX_DENSITY = 15;
 const MIN_SPEED = 1;
 const MAX_SPEED = 18;
 
-/** How much of an `UNKNOWN` command's raw text to surface, for the `command` field vs. the full `message`. */
+/** Số ký tự của lệnh `UNKNOWN` hiển thị ở field `command` (ngắn) so với `message` (đầy đủ hơn). */
 const UNKNOWN_COMMAND_PREVIEW_LENGTH = 20;
 const UNKNOWN_MESSAGE_PREVIEW_LENGTH = 40;
 
-/** Commands that draw something on the label — used to check `CLS` comes before the first one. */
+/** Lệnh vẽ lên tem — `CLS` phải đứng trước lệnh đầu tiên trong nhóm này. */
 const LABEL_ELEMENT_COMMANDS = new Set([
   'TEXT',
   'BLOCK',
@@ -31,11 +31,8 @@ const LABEL_ELEMENT_COMMANDS = new Set([
 ]);
 
 /**
- * Validates TSPL/TSPL2 source: command order (`SIZE` first, `CLS` before any
- * label element, `PRINT` present), `DENSITY`/`SPEED` ranges, and unrecognized
- * commands — ported from portakal's `validateTSC()` (`src/validate.ts` lines
- * 64-142), which itself re-parses the source via `parseTSPL()` to inspect
- * the same structured commands `TsplParser` produces.
+ * Kiểm tra lệnh TSPL/TSPL2: thứ tự lệnh (`SIZE` đầu tiên, `CLS` trước mọi element, có `PRINT`), khoảng giá trị
+ * `DENSITY`/`SPEED` và lệnh không nhận ra. Parse lại bằng `parseTSPL()` để kiểm tra trên cùng cấu trúc lệnh với parser.
  */
 export class TsplValidator implements PrintValidation {
   validate(source: string): ValidationResult {
