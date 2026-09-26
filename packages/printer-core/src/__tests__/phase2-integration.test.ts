@@ -65,16 +65,11 @@ describe('Phase 1 end-to-end', () => {
   });
 });
 
-// All 9 `PrinterLanguage` values now have a real implementation (Phase 2
-// complete). Two of them — "escpos" and "starprnt" — compile to raw
-// `Uint8Array` (binary protocols); the rest compile to `string`. That split
-// is an intentional, documented protocol difference (see `LanguageDispatch`'s
-// own unit test, which likewise only runs `validateFor` on the string-source
-// languages), not something this loop should paper over.
-const ALL_LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'escpos', 'zpl', 'epl', 'cpcl', 'dpl', 'sbpl', 'starprnt', 'ipl'];
-const BINARY_LANGUAGES = new Set<PrinterLanguage>(['escpos', 'starprnt']);
+// ESC/POS compile ra `Uint8Array` (giao thức nhị phân), TSPL ra `string`; validateFor chỉ nhận chuỗi.
+const ALL_LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'escpos'];
+const BINARY_LANGUAGES = new Set<PrinterLanguage>(['escpos']);
 
-describe('Phase 2 end-to-end: full 9-language coverage', () => {
+describe('Phase 2 end-to-end: mọi ngôn ngữ được hỗ trợ', () => {
   describe.each(ALL_LANGUAGES)('%s', (language) => {
     it('compiles, parses, validates, and previews the representative document', () => {
       const compiled = compileTo(language, doc).output;

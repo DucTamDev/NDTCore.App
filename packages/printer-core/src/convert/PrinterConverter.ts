@@ -1,10 +1,9 @@
-import type { PrinterLanguage } from '../core/PrinterLanguage';
+import { UnsupportedLanguageError, type PrinterLanguage } from '../core';
 import type { ResolvedPrintDocument } from '../document';
-import { UnsupportedLanguageError } from '../core/PrinterCoreError';
 import { ConversionRegistry, type ConversionRegistryEntry } from './ConversionRegistry';
 import type { ConversionResult } from './ConversionResult';
 
-/** Fallback label dimensions for a source language whose parser has no notion of them (e.g. sbpl) or didn't find a sizing command in this particular document (e.g. dpl) — matches portakal's own `convert()` fallback. */
+/** Khổ tem mặc định (dots) khi lệnh nguồn không khai báo khổ, VD ESC/POS không có lệnh khổ giấy. */
 const DEFAULT_WIDTH_DOTS = 320;
 const DEFAULT_HEIGHT_DOTS = 240;
 
@@ -14,7 +13,7 @@ const DEFAULT_SPEED = 4;
 const DEFAULT_DENSITY = 8;
 const DEFAULT_COPIES = 1;
 
-/** Encodes compiled bytes as the same one-character-per-byte binary string `ConversionResult.output` documents. */
+/** Đổi byte đã compile thành chuỗi 1 ký tự = 1 byte, theo quy ước của `ConversionResult.output`. */
 function bytesToBinaryString(bytes: Uint8Array): string {
   let out = '';
   for (let i = 0; i < bytes.length; i++) out += String.fromCharCode(bytes[i]);
@@ -28,12 +27,8 @@ function lookup(language: PrinterLanguage, capability: 'conversion source' | 'co
 }
 
 /**
- * Converts printer source code from one `PrinterLanguage` to another: parses
- * `source` into this package's shared `PrintElement[]` representation via
- * `from`'s registered parser, wraps it in a minimal `ResolvedPrintDocument`,
- * then compiles it for `to` via its registered compiler. Ported from
- * portakal's `convert()`, now dispatching through `ConversionRegistry`
- * instead of two switch statements.
+ * Chuyển lệnh máy in từ ngôn ngữ `from` sang `to`: parse thành `PrintElement[]`, gói vào document với thiết lập
+ * mặc định, rồi compile sang ngôn ngữ đích.
  */
 export function convert(source: string, from: PrinterLanguage, to: PrinterLanguage): ConversionResult {
   const sourceEntry = lookup(from, 'conversion source');

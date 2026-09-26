@@ -1,22 +1,16 @@
-import type { PrintElement } from '../document/elements/PrintElement';
+import type { PrintElement } from '../document';
 
-/**
- * Result of converting printer source code from one `PrinterLanguage` to
- * another (see `convert()` in `PrinterConverter.ts`).
- */
+/** Kết quả chuyển lệnh máy in từ ngôn ngữ này sang ngôn ngữ khác (xem `convert()`). */
 export interface ConversionResult {
   /**
-   * Compiled output in the target language. A string-producing target
-   * (tspl, zpl, epl, cpcl, dpl, sbpl, ipl) returns its native text as-is. A
-   * byte-producing target (escpos, starprnt) is returned as a binary
-   * string — one character per output byte (0-255) — matching this
-   * package's existing escpos/starprnt convention (see `EscPosValidator`'s
-   * `bytesFromSource()`). Recover the raw bytes with
-   * `Uint8Array.from(output, (c) => c.charCodeAt(0))`.
+   * Lệnh ở ngôn ngữ đích. TSPL trả nguyên chuỗi lệnh; ESC/POS (ra byte) trả chuỗi 1 ký tự = 1 byte (0-255), lấy
+   * lại byte bằng `Uint8Array.from(output, (c) => c.charCodeAt(0))`.
    */
   output: string;
-  /** Elements recovered from parsing the source, before target compilation. */
+
+  /** Element dựng lại khi parse lệnh nguồn, trước khi compile sang ngôn ngữ đích. */
   elements: PrintElement[];
+
   /**
    * Cảnh báo khi parse source (VD lệnh không nhận diện được) và khi compile sang
    * ngôn ngữ đích (VD element không hỗ trợ).

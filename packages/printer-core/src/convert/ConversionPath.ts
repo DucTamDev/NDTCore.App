@@ -1,23 +1,20 @@
-import type { PrinterLanguage } from '../core/PrinterLanguage';
+import type { PrinterLanguage } from '../core';
 import { ConversionRegistry } from './ConversionRegistry';
 
-/** A single source-to-target conversion pair. */
+/** 1 cặp chuyển đổi nguồn → đích. */
 export interface ConversionPath {
+  /** Ngôn ngữ của lệnh nguồn. */
   from: PrinterLanguage;
+
+  /** Ngôn ngữ cần chuyển sang. */
   to: PrinterLanguage;
 }
 
-/**
- * Derived from `ConversionRegistry`'s own keys rather than hand-maintained,
- * so this list can never drift out of sync with what the registry actually
- * supports — unlike portakal's `SUPPORTED_SOURCES`/`SUPPORTED_TARGETS`,
- * which are two separately hand-written arrays that could silently diverge
- * from `parseSource()`/`compileTarget()`'s own switch statements.
- */
+// Lấy từ chính key của registry để danh sách không bao giờ lệch với những gì registry hỗ trợ.
 const REGISTERED_LANGUAGES = Object.keys(ConversionRegistry) as PrinterLanguage[];
 
-/** Every `PrinterLanguage` usable as a conversion source. */
+/** Các ngôn ngữ dùng được làm nguồn chuyển đổi. */
 export const SUPPORTED_SOURCES: PrinterLanguage[] = [...REGISTERED_LANGUAGES];
 
-/** Every `PrinterLanguage` usable as a conversion target. */
+/** Các ngôn ngữ dùng được làm đích chuyển đổi. */
 export const SUPPORTED_TARGETS: PrinterLanguage[] = [...REGISTERED_LANGUAGES];

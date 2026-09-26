@@ -1,37 +1,28 @@
-import type { CompileResult } from '../core';
-import type { PrinterLanguage } from '../core/PrinterLanguage';
-import type { ResolvedPrintDocument } from '../document';
-import type { PrintElement } from '../document/elements/PrintElement';
-import { parseTSPL } from '../language/tspl/TsplParser';
-import { TsplCompiler } from '../language/tspl/TsplCompiler';
-import { parseZPL } from '../language/zpl/ZplParser';
-import { ZplCompiler } from '../language/zpl/ZplCompiler';
-import { parseEPL } from '../language/epl/EplParser';
-import { EplCompiler } from '../language/epl/EplCompiler';
-import { parseCPCL } from '../language/cpcl/CpclParser';
-import { CpclCompiler } from '../language/cpcl/CpclCompiler';
-import { parseDPL } from '../language/dpl/DplParser';
-import { DplCompiler } from '../language/dpl/DplCompiler';
-import { parseSBPL } from '../language/sbpl/SbplParser';
-import { SbplCompiler } from '../language/sbpl/SbplCompiler';
-import { decodeEscPos } from '../language/escpos/EscPosParser';
-import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
-import { decodeStarPrnt } from '../language/starprnt/StarPrntParser';
-import { StarPrntCompiler } from '../language/starprnt/StarPrntCompiler';
-import { parseIPL } from '../language/ipl/IplParser';
-import { IplCompiler } from '../language/ipl/IplCompiler';
+import type { CompileResult, PrinterLanguage } from '../core';
+import type { PrintElement, ResolvedPrintDocument } from '../document';
+import { decodeEscPos, EscPosCompiler, parseTSPL, TsplCompiler } from '../language';
 
-/** Elements plus whatever dimension/warning data a language's parser is able to recover from source code. Width/height are omitted (not `0`) when a language's parser has no notion of them, so `PrinterConverter` can tell "not provided" apart from a real `0`. */
+/** Những gì parser của 1 ngôn ngữ dựng lại được từ lệnh máy in. */
 export interface ParsedSource {
+  /** Element dựng lại từ lệnh. */
   elements: PrintElement[];
+
+  /** Khổ ngang (dots); bỏ trống khi ngôn ngữ không có lệnh khai báo khổ, để phân biệt với giá trị 0 thật. */
   widthDots?: number;
+
+  /** Chiều dài tem (dots); bỏ trống khi ngôn ngữ không có lệnh khai báo, để phân biệt với giá trị 0 thật. */
   heightDots?: number;
+
+  /** Lệnh không nhận diện được hoặc dữ liệu hỏng gặp khi parse. */
   warnings: string[];
 }
 
-/** One `PrinterLanguage`'s parse/compile pair, looked up by `PrinterConverter`. */
+/** Cặp parse/compile của 1 ngôn ngữ mà `convert()` tra cứu. */
 export interface ConversionRegistryEntry {
+  /** Đọc lệnh máy in thành element. */
   parse: (source: string | Uint8Array) => ParsedSource;
+
+  /** Compile document thành lệnh của ngôn ngữ này. */
   compile: (document: ResolvedPrintDocument) => CompileResult<string | Uint8Array>;
 }
 
@@ -40,77 +31,30 @@ function toText(source: string | Uint8Array): string {
 }
 
 /**
- * Byte-oriented languages (escpos, starprnt) treat a `string` source as a
- * binary string — one character per byte (0-255) — the same convention
- * `EscPosValidator`/`StarPrntValidator` already use, so a value produced by
- * `PrinterConverter`'s own byte-target encoding round-trips back into bytes
- * without going through a lossy text codec (e.g. UTF-8) that would corrupt
- * any byte >= 0x80.
+ * ESC/POS nhận `string` theo quy ước 1 ký tự = 1 byte (0-255), giống `EscPosValidator`, để output byte của chính
+ * `convert()` đọc ngược lại được; giải mã qua UTF-8 sẽ làm hỏng mọi byte >= 0x80.
  */
 function toBytes(source: string | Uint8Array): Uint8Array {
   if (source instanceof Uint8Array) return source;
   const bytes = new Uint8Array(source.length);
-  // eslint-disable-next-line no-bitwise -- clamping each char code to a single byte
+  // eslint-disable-next-line no-bitwise -- giữ đúng 1 byte cho mỗi ký tự
   for (let i = 0; i < source.length; i++) bytes[i] = source.charCodeAt(i) & 0xff;
   return bytes;
 }
 
-/**
- * Looks up a `PrinterLanguage`'s parser and compiler for cross-compilation.
- * Replaces portakal's two hardcoded switch statements (`parseSource()`/
- * `compileTarget()` in `convert.ts`) with a genuine lookup table.
- *
- * Unlike portakal's `SourceLanguage`, every language here is a valid
- * conversion source, including escpos and starprnt: their parsers
- * (`decodeEscPos`, `decodeStarPrnt`) already recover real `PrintElement[]`
- * from byte input, the same as any text-protocol language's parser — there
- * was no technical reason to keep them target-only.
- */
+/** Parse/compile của từng ngôn ngữ, dùng khi chuyển lệnh từ ngôn ngữ này sang ngôn ngữ khác. */
 export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry> = {
   tspl: {
     parse: (source) => {
       const result = parseTSPL(toText(source));
-      return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
+      return {
+        elements: result.elements,
+        widthDots: result.widthDots,
+        heightDots: result.heightDots,
+        warnings: result.warnings,
+      };
     },
     compile: (document) => new TsplCompiler().compile(document),
-  },
-  zpl: {
-    parse: (source) => {
-      const result = parseZPL(toText(source));
-      return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
-    },
-    compile: (document) => new ZplCompiler().compile(document),
-  },
-  epl: {
-    parse: (source) => {
-      const result = parseEPL(toText(source));
-      // EPL's own parser initializes heightDots to 0 when no `Q` (label
-      // length) command appears — falsy, not a real dimension, so it's
-      // dropped here and left for PrinterConverter's default to fill in.
-      return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots || undefined, warnings: result.warnings };
-    },
-    compile: (document) => new EplCompiler().compile(document),
-  },
-  cpcl: {
-    parse: (source) => {
-      const result = parseCPCL(toText(source));
-      return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
-    },
-    compile: (document) => new CpclCompiler().compile(document),
-  },
-  dpl: {
-    parse: (source) => {
-      const result = parseDPL(toText(source));
-      return { elements: result.elements, widthDots: result.widthDots, warnings: result.warnings };
-    },
-    compile: (document) => new DplCompiler().compile(document),
-  },
-  sbpl: {
-    parse: (source) => {
-      const result = parseSBPL(toText(source));
-      return { elements: result.elements, warnings: result.warnings };
-    },
-    compile: (document) => new SbplCompiler().compile(document),
   },
   escpos: {
     parse: (source) => {
@@ -118,19 +62,5 @@ export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry
       return { elements: result.elements, warnings: result.warnings };
     },
     compile: (document) => new EscPosCompiler().compile(document),
-  },
-  starprnt: {
-    parse: (source) => {
-      const result = decodeStarPrnt(toBytes(source));
-      return { elements: result.elements, warnings: result.warnings };
-    },
-    compile: (document) => new StarPrntCompiler().compile(document),
-  },
-  ipl: {
-    parse: (source) => {
-      const result = parseIPL(toText(source));
-      return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
-    },
-    compile: (document) => new IplCompiler().compile(document),
   },
 };

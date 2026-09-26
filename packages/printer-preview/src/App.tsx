@@ -9,17 +9,7 @@ import { evaluateTemplate } from './evaluateTemplate';
 import { renderPreviews, defaultLanguageFor, type PagePreview } from './pipeline';
 import { defaultCode, defaultData } from './defaultSample';
 
-const LANGUAGES: readonly PrinterLanguage[] = [
-  'tspl',
-  'zpl',
-  'epl',
-  'cpcl',
-  'dpl',
-  'sbpl',
-  'escpos',
-  'starprnt',
-  'ipl',
-];
+const LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'escpos'];
 const RENDER_DEBOUNCE_MS = 500;
 
 interface RenderOutcome {
