@@ -51,6 +51,39 @@ function issuePaths(json: unknown): readonly string[] {
   return result.ok ? [] : result.issues.map((issue) => issue.path);
 }
 
+function issuesOf(json: unknown): readonly { path: string; message: string }[] {
+  const result = parseTemplate(json);
+  return result.ok ? [] : result.issues.map((issue) => ({ path: issue.path, message: issue.message }));
+}
+
+function toppingRepeatJson(template: unknown = toppingNameJson(), maxItemsPerPage?: number): Record<string, unknown> {
+  return {
+    type: 'repeat',
+    id: 'toppings',
+    collection: 'toppings',
+    ...(maxItemsPerPage === undefined ? {} : { maxItemsPerPage }),
+    template,
+  };
+}
+
+function toppingNameJson(): Record<string, unknown> {
+  return { type: 'text', id: 'topping-name', content: [{ var: 'toppingName' }] };
+}
+
+function itemRepeatJson(
+  id: string,
+  template: unknown,
+  maxItemsPerPage?: number,
+): Record<string, unknown> {
+  return {
+    type: 'repeat',
+    id,
+    collection: 'items',
+    ...(maxItemsPerPage === undefined ? {} : { maxItemsPerPage }),
+    template,
+  };
+}
+
 describe('parseTemplate', () => {
   it('chấp nhận template hợp lệ và trả đúng object', () => {
     const json = validLabelJson();
@@ -160,5 +193,59 @@ describe('parseTemplate', () => {
     });
 
     expect(issuePaths(json)).toEqual(['root.collection', 'root.maxItemsPerPage']);
+  });
+
+  it('chấp nhận repeat lồng tách tem khi repeat ngoài cùng có maxItemsPerPage là 1', () => {
+    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 1));
+
+    expect(issuesOf(json)).toEqual([]);
+  });
+
+  it('báo lỗi repeat lồng tách tem khi repeat ngoài cùng có maxItemsPerPage khác 1', () => {
+    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 2));
+
+    expect(issuesOf(json)).toEqual([
+      {
+        path: 'root.template.maxItemsPerPage',
+        message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage là 1',
+      },
+    ]);
+  });
+
+  it('báo lỗi repeat lồng tách tem khi repeat ngoài cùng không phân trang', () => {
+    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4)));
+
+    expect(issuesOf(json)).toEqual([
+      {
+        path: 'root.template.maxItemsPerPage',
+        message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage',
+      },
+    ]);
+  });
+
+  it('báo lỗi maxItemsPerPage ở repeat lồng từ tầng 2 trở xuống', () => {
+    const deeper = { ...toppingRepeatJson(toppingNameJson(), 2), id: 'deeper' };
+    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(deeper), 1));
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'root.template.template.maxItemsPerPage', message: 'chỉ tách tem được repeat lồng 1 tầng' },
+    ]);
+  });
+
+  it('báo lỗi khi hơn 1 repeat ngoài cùng chứa repeat lồng tách tem', () => {
+    const secondName = { ...toppingNameJson(), id: 'second-topping-name' };
+    const secondToppings = { ...toppingRepeatJson(secondName, 4), id: 'second-toppings' };
+    const json = withRoot({
+      type: 'container',
+      id: 'root',
+      children: [
+        itemRepeatJson('first', toppingRepeatJson(toppingNameJson(), 4), 1),
+        itemRepeatJson('second', secondToppings, 1),
+      ],
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'root.children[1]', message: 'chỉ 1 repeat ngoài cùng được chứa repeat lồng có maxItemsPerPage' },
+    ]);
   });
 });

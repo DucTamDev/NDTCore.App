@@ -2,6 +2,7 @@ import { TEMPLATE_SCHEMA_VERSION } from '../TemplateDocument';
 import { JsonCursor } from './JsonCursor';
 import type { TemplateIssue } from './TemplateIssue';
 import { validateNode } from './validateNode';
+import { validateRepeatPagination } from './validateRepeatPagination';
 
 const MEDIA_TYPES: readonly string[] = ['label', 'receipt'];
 const LOCALES: readonly string[] = ['vi-VN'];
@@ -21,6 +22,8 @@ export function validateTemplateStructure(document: unknown): readonly TemplateI
   cursor.field('locale').expectOneOf(LOCALES);
   validatePaper(cursor);
   validateNode(cursor.field('root'), new Set());
+  // Ràng buộc tách tem dựa trên cấu trúc hợp lệ; chạy trên cấu trúc lỗi sẽ báo trùng lỗi kiểu.
+  if (issues.length === 0) validateRepeatPagination(cursor.field('root'));
 
   return issues;
 }
