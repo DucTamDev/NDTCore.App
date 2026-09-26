@@ -8,6 +8,9 @@ function bytesToBinaryString(bytes: number[]): string {
   return String.fromCharCode(...bytes);
 }
 
+/** One 50x30mm label carrying a single text field — the shared input for every "TSPL to X" case below. */
+const TSPL_SOURCE = 'SIZE 50 mm,30 mm\r\nCLS\r\nTEXT 10,10,"3",0,1,1,"Hello"\r\nPRINT 1\r\n';
+
 describe('convert', () => {
   it('converts an ESC/POS byte stream to recognizable TSPL syntax', () => {
     // ESC @ (init) + "Hello" (printable ASCII) + LF
@@ -27,6 +30,14 @@ describe('convert', () => {
         options: { align: 'left', bold: undefined, underline: undefined, fontSize: 24 },
       },
     ]);
+  });
+
+  it('converts a TSPL label to an ESC/POS byte stream, returned as a one-char-per-byte binary string', () => {
+    const result = convert(TSPL_SOURCE, 'tspl', 'escpos');
+
+    // ESC @ (initialize) leads every ESC/POS document this package emits.
+    expect(result.output.slice(0, 2)).toBe('\x1b\x40');
+    expect(result.output).toContain('Hello');
   });
 
   it('throws a clear error for an unregistered source language', () => {
