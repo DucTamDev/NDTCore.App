@@ -55,7 +55,10 @@ export interface PageInfo {
   readonly part?: PagePart;
 }
 
-/** Trang giả lập khi đếm trang (chưa biết tổng số trang thật) — `$page`/`$pageCount` đọc được là 1/1. */
+/**
+ * Trang giả lập khi đếm trang (chưa biết tổng số trang thật) — `$page`/`$pageCount` và `$part`/`$partCount` đều
+ * đọc được là 1/1, và không có `part`.
+ */
 export const COUNTING_PAGE: PageInfo = { pageNumber: 1, pageCount: 1 };
 
 /** Trạng thái khi resolve 1 node. */

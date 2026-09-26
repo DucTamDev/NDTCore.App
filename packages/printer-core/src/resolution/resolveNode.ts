@@ -146,7 +146,7 @@ function entryRangeForPage(
 ): EntryRange {
   const perPage = node.maxItemsPerPage;
   if (perPage === undefined) return { start: 0, end: total };
-  if (context.frames.length === 1) return pagedRepeatRange(node, context.page, total);
+  if (context.frames.length === 1) return pagedRepeatRange(node, context.page, perPage, total);
   return partRange(context.page.part, perPage, total);
 }
 
@@ -154,14 +154,14 @@ function entryRangeForPage(
 function pagedRepeatRange(
   node: RepeatNode,
   page: PageInfo,
+  perPage: number,
   total: number,
 ): EntryRange {
   if (page.part?.repeatId === node.id) return clampRange(page.part.itemIndex, 1, total);
-  const perPage = node.maxItemsPerPage ?? 1;
   return clampRange((page.pageNumber - 1) * perPage, perPage, total);
 }
 
-// Không có phần tem (template chưa qua validate đặt `maxItemsPerPage` ở chỗ không tách tem) thì in cả danh sách.
+// Giả định template đã qua `validateRepeatPagination`; trang không có phần tem thì in cả danh sách.
 function partRange(
   part: PagePart | undefined,
   perPage: number,

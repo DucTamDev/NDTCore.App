@@ -25,7 +25,11 @@ export class RepeatBuilder extends TemplateNodeBuilder<RepeatNode> {
     this.templateBuilder = templateBuilder;
   }
 
-  /** Số phần tử tối đa mỗi trang (tính sau khi expand); VD mỗi tem 1 ly thì truyền 1. */
+  /**
+   * Số phần tử tối đa mỗi trang (tính sau khi expand); bỏ trống là không phân trang. Ở `repeat` lồng ngay trong
+   * repeat ngoài cùng có `maxItemsPerPage` là 1: số phần tử tối đa mỗi tem, phần dư in sang tem tiếp theo. VD mỗi
+   * tem 1 ly thì truyền 1.
+   */
   maxItemsPerPage(value: number): this {
     this.perPage = value;
     return this;
