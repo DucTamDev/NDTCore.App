@@ -2,16 +2,16 @@
 
 Core thuần TypeScript cho feature máy in của NDTCorePOS: mô hình document/label,
 compiler + parser + validator + preview cho các ngôn ngữ máy in, mã hoá
-barcode/QR/ảnh (dithering), receipt layout, printer profile theo hãng.
+barcode/QR/ảnh (dithering), receipt layout. Năng lực máy in đích truyền vào compiler qua `PrinterFeatures`.
 
 Mục tiêu dài hạn là mirror đầy đủ chức năng của
 [portakal](https://github.com/productdevbook/portakal) (SDK ngôn ngữ máy in mã
 nguồn mở, zero-dependency) — không trim bớt ngôn ngữ, để giữ khả năng mở rộng
 sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng hôm nay.
 
-> **Trạng thái hiện tại: đầy đủ, package đã hoàn chỉnh.** Cả 9 ngôn ngữ máy in,
-> `convert/`, và toàn bộ profile theo hãng đều đã có logic thật — không còn
-> file placeholder (`export {}`) nào. Cụ thể:
+> **Trạng thái hiện tại: đầy đủ, package đã hoàn chỉnh.** Cả 9 ngôn ngữ máy in
+> và `convert/` đều đã có logic thật — không còn file placeholder (`export {}`)
+> nào. Cụ thể:
 >
 > **Đã có logic thật:**
 > - Nền tảng: types, document model, core dispatch (`PrintCompiler`/`Parser`/
@@ -21,17 +21,16 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 > - `image/`: dithering ảnh (threshold, Floyd-Steinberg, Atkinson, ordered)
 > - `symbology/barcode/`, `symbology/qrcode/`: lớp mô tả + validate (chưa render ảnh module thật)
 > - `receipt/`: layout công thức in hoá đơn (pair/table/separator, word wrap)
-> - `profile/`: đầy đủ — cả 9 file hãng (Generic, Epson, TSC, Bixolon, Citizen,
->   Honeywell, Sato, Star, Zebra) đều có dữ liệu thật
+> - `PrinterFeatures` (`core/`): năng lực máy in đích (dao cắt, ngăn kéo tiền,
+>   kiểu ảnh, CJK, UTF-8, code page) do app khai báo, truyền vào `compileTo()`;
+>   dữ liệu máy in theo hãng/model là việc của app
 > - `document/builder/`: fluent builder API (PrintBuilder/LabelBuilder/ReceiptBuilder)
 >   và `document/builder/markup/`: markup DSL kiểu HTML (`<label>...</label>`)
 > - **Cả 9 ngôn ngữ máy in** (TSC/TSPL, ESC/POS, ZPL, EPL, CPCL, DPL, SBPL,
 >   Star PRNT, IPL): đầy đủ pipeline compile → parse → validate → preview (SVG)
 > - `convert/`: cross-compiler giữa các ngôn ngữ (parse ngôn ngữ A → dựng lại
 >   `PrintElement[]` → compile sang ngôn ngữ B)
-> - `transport/` — **chỉ định nghĩa interface theo đúng thiết kế**, I/O thật
->   (USB/BT/LAN) vẫn thuộc về app, không phải nợ kỹ thuật
-> - `testing/` (MockPrinterTransport, PrintDataAssertion, HexDump...)
+> - `testing/` (PrintDataAssertion, HexDump, catalog đơn hàng dùng cho test)
 >
 > Có bài test tích hợp end-to-end thật chứng minh cả 9 ngôn ngữ hoạt động đúng:
 > `src/__tests__/phase2-integration.test.ts` — dựng một document thật (text +
@@ -57,10 +56,11 @@ sang các giao thức máy in khác ngoài ESC/POS + TSPL mà app đang dùng h�
 
 - **`printer-core`** — tính toán thuần, đồng bộ, không phụ thuộc React Native:
   dựng document/label, biên dịch ra lệnh máy in, parse ngược, validate, preview
-  SVG, mã hoá bitmap/barcode/QR, printer profile. Không biết gì về USB/Bluetooth/
-  LAN thật, AsyncStorage, hay React — `transport/` ở đây chỉ là interface mô tả.
+  SVG, mã hoá bitmap/barcode/QR. Không biết gì về USB/Bluetooth/LAN, AsyncStorage
+  hay React; chỉ nhận năng lực máy in đích qua `PrinterFeatures`.
 - **`src/features/printer`** (giữ nguyên) — mọi thứ cần I/O hoặc API của React
-  Native: transport thật (USB/BT/LAN), adapter (native/library/vendor), kết nối,
+  Native: transport (USB/BT/LAN), adapter (native/library/vendor), dữ liệu máy in
+  theo hãng/model (map sang `PrinterFeatures`), kết nối,
   discovery, permission, storage, hook, component UI, orchestration
   (PrintScheduler/PrintService).
 
@@ -166,7 +166,7 @@ src/
 │   ├── LanguageDispatch.ts, LanguageRegistry.ts, PrinterLanguage.ts,
 │   │   PrinterLanguageDefinition.ts, PrinterCoreError.ts,
 │   │   PrintCompiler.ts, PrintParser.ts, PrintPreview.ts, PrintValidation.ts,
-│   │   index.ts                     # KHÔNG đổi tên file nào, chỉ giữ nguyên vị trí
+│   │   PrinterFeatures.ts, index.ts     # PrinterFeatures: năng lực máy in đích truyền vào compiler
 │
 ├── language/                        # MỚI — gộp compiler/{lang} + parser/{lang}
 │   │                                 # (KHÔNG gồm validation, KHÔNG gồm preview)
@@ -226,19 +226,8 @@ src/
 │   ├── ConversionPath.ts, ConversionRegistry.ts, ConversionResult.ts,
 │   │   PrinterConverter.ts, index.ts
 │
-├── profile/                            # KHÔNG đổi
-│   ├── PrinterProfile.ts, PrinterProfileResolver.ts, PrinterVendor.ts, index.ts
-│   └── profiles/
-│       ├── BixolonProfiles.ts, CitizenProfiles.ts, EpsonProfiles.ts,
-│       │   GenericProfile.ts, HoneywellProfiles.ts, SatoProfiles.ts,
-│       │   StarProfiles.ts, TscProfiles.ts, ZebraProfiles.ts, index.ts
-│
-├── transport/                          # KHÔNG đổi
-│   ├── BluetoothTransport.ts, NetworkTransport.ts, PrinterTransport.ts,
-│   │   UsbTransport.ts, index.ts
-│
 ├── testing/
-│   ├── HexDump.ts, MockPrinterTransport.ts, OrderTestCatalog.ts, PrintDataAssertion.ts, index.ts
+│   ├── HexDump.ts, OrderTestCatalog.ts, PrintDataAssertion.ts, index.ts
 │
 └── __tests__/                            # integration test ở root
     ├── template-pipeline-integration.test.ts, phase2-integration.test.ts
