@@ -9,10 +9,10 @@ import type {
   TextNode,
 } from '../template';
 import { isNodeVisible } from './evaluateCondition';
-import { readRepeatEntries } from './readRepeatEntries';
+import { entryFrame, readRepeatEntries } from './readRepeatEntries';
 import { isOptionalVariable, readVariableValue } from './readVariable';
 import { resolveContent } from './resolveContent';
-import { pushFrame, type ResolveContext } from './ResolveContext';
+import { pushFrame, type PageInfo, type PagePart, type ResolveContext } from './ResolveContext';
 import type {
   ResolvedBarcode,
   ResolvedContainer,
@@ -131,30 +131,50 @@ function resolveRepeat(node: RepeatNode, context: ResolveContext): ResolvedConta
     const entry = entries[index];
     if (entry.error !== undefined) throw new ResolveError(node.id, entry.error);
 
-    const itemContext = pushFrame(context, {
-      collection: node.collection,
-      item: entry.item,
-      position: index + 1,
-      total: entries.length,
-      unit: entry.unit,
-      unitCount: entry.unitCount,
-      expanded: node.expand !== undefined,
-    });
+    const itemContext = pushFrame(context, entryFrame(node, entry, index, entries.length));
     const child = resolveNode(node.template, itemContext);
     if (child) children.push(child);
   }
   return { type: 'container', id: node.id, children };
 }
 
-// Chỉ `repeat` cấp ngoài cùng (không nằm trong repeat khác) mới phân trang, giống hành vi cũ.
+// `repeat` ngoài cùng chia theo trang; `repeat` lồng chỉ bị chia khi trang đang in 1 phần của phần tử.
 function entryRangeForPage(
   node: RepeatNode,
   context: ResolveContext,
   total: number,
 ): EntryRange {
   const perPage = node.maxItemsPerPage;
-  if (perPage === undefined || context.frames.length > 1) return { start: 0, end: total };
+  if (perPage === undefined) return { start: 0, end: total };
+  if (context.frames.length === 1) return pagedRepeatRange(node, context.page, total);
+  return partRange(context.page.part, perPage, total);
+}
 
-  const start = (context.page.pageNumber - 1) * perPage;
-  return { start, end: Math.min(total, start + perPage) };
+// Repeat mang `repeat` lồng bị tách tem in đúng 1 phần tử của kế hoạch trang thay vì chia đều theo trang.
+function pagedRepeatRange(
+  node: RepeatNode,
+  page: PageInfo,
+  total: number,
+): EntryRange {
+  if (page.part?.repeatId === node.id) return clampRange(page.part.itemIndex, 1, total);
+  const perPage = node.maxItemsPerPage ?? 1;
+  return clampRange((page.pageNumber - 1) * perPage, perPage, total);
+}
+
+// Không có phần tem (template chưa qua validate đặt `maxItemsPerPage` ở chỗ không tách tem) thì in cả danh sách.
+function partRange(
+  part: PagePart | undefined,
+  perPage: number,
+  total: number,
+): EntryRange {
+  if (!part) return { start: 0, end: total };
+  return clampRange((part.number - 1) * perPage, perPage, total);
+}
+
+function clampRange(
+  start: number,
+  size: number,
+  total: number,
+): EntryRange {
+  return { start: Math.min(start, total), end: Math.min(total, start + size) };
 }

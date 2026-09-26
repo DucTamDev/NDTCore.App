@@ -1,6 +1,6 @@
 import type { RepeatNode } from '../template';
 import { readFromCatalog } from './readVariable';
-import { findScopeFrame, type ResolveContext } from './ResolveContext';
+import { findScopeFrame, type ResolveContext, type ScopeFrame } from './ResolveContext';
 import { ResolveError } from './ResolveError';
 
 /** 1 phần tử của `repeat` sau khi expand. */
@@ -21,6 +21,24 @@ export interface RepeatEntry {
 /** Đọc mảng phần tử của collection từ đúng tầng scope cha, rồi expand nếu có. */
 export function readRepeatEntries(node: RepeatNode, context: ResolveContext): readonly RepeatEntry[] {
   return readCollectionItems(node, context).flatMap((item) => expandItem(node, item, context));
+}
+
+/** Tầng scope của phần tử thứ `index` (từ 0) trong danh sách `total` phần tử sau expand. */
+export function entryFrame(
+  node: RepeatNode,
+  entry: RepeatEntry,
+  index: number,
+  total: number,
+): ScopeFrame {
+  return {
+    collection: node.collection,
+    item: entry.item,
+    position: index + 1,
+    total,
+    unit: entry.unit,
+    unitCount: entry.unitCount,
+    expanded: node.expand !== undefined,
+  };
 }
 
 /** Mảng phần tử raw của collection (chưa expand). */

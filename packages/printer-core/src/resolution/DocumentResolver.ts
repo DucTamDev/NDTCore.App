@@ -1,8 +1,8 @@
 import { createCatalogIndex, type Catalog } from '../catalog';
 import type { TemplateDocument, TemplateNode } from '../template';
 import type { AssetProvider } from './AssetProvider';
-import { countPages } from './countPages';
-import { COUNTING_PAGE, createRootFrame, type ResolveContext } from './ResolveContext';
+import { planPages } from './planPages';
+import { COUNTING_PAGE, createRootFrame, type PagePart, type ResolveContext } from './ResolveContext';
 import type { ResolvedPage } from './ResolvedPage';
 import { ResolveError } from './ResolveError';
 import { resolveNode } from './resolveNode';
@@ -38,12 +38,21 @@ export class DocumentResolver {
       frames: [createRootFrame(data)],
       page: COUNTING_PAGE,
     };
-    const pageCount = countPages(template.root, baseContext);
+    const parts = planPages(template.root, baseContext);
 
-    return Array.from({ length: pageCount }, (_, pageIndex) =>
-      resolvePage(template.root, { ...baseContext, page: { pageNumber: pageIndex + 1, pageCount } }),
+    return parts.map((part, pageIndex) =>
+      resolvePage(template.root, { ...baseContext, page: pageInfo(pageIndex, parts.length, part) }),
     );
   }
+}
+
+function pageInfo(
+  pageIndex: number,
+  pageCount: number,
+  part: PagePart | undefined,
+): ResolveContext['page'] {
+  const page = { pageNumber: pageIndex + 1, pageCount };
+  return part ? { ...page, part } : page;
 }
 
 function resolvePage(root: TemplateNode, context: ResolveContext): ResolvedPage {

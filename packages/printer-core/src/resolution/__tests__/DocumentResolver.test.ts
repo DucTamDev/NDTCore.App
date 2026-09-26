@@ -1,7 +1,13 @@
 import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
 import { defineCatalog, defineCollection } from '../../catalog';
 import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE, type TestOrder } from '../../testing';
+import {
+  TEST_ORDER_CATALOG,
+  TEST_ORDER_SAMPLE,
+  type TestOrder,
+  type TestOrderItem,
+  type TestTopping,
+} from '../../testing';
 import type { Bitmap } from '../../types';
 
 const LOGO_BITMAP: Bitmap = { data: new Uint8Array(8), width: 8, height: 8, bytesPerRow: 1 };
@@ -323,6 +329,203 @@ describe('DocumentResolver — lặp, expand, phân trang', () => {
       nodeId: 'items',
       message: 'expand "quantity" phải là số nguyên dương, nhận "0"',
     });
+  });
+});
+
+function toppingsOf(count: number): readonly TestTopping[] {
+  return Array.from({ length: count }, (_, index) => ({ name: `T${index + 1}`, price: 5000 }));
+}
+
+function drink(
+  name: string,
+  quantity: number,
+  toppingCount: number,
+): TestOrderItem {
+  return { name, quantity, price: 45000, toppings: toppingsOf(toppingCount) };
+}
+
+function orderWith(items: readonly TestOrderItem[]): TestOrder {
+  return { ...TEST_ORDER_SAMPLE, items };
+}
+
+function toppingRepeat(id: string, toppingsPerPart: number): TemplateNode {
+  return {
+    type: 'repeat',
+    id,
+    collection: 'toppings',
+    maxItemsPerPage: toppingsPerPart,
+    template: {
+      type: 'text',
+      id: `${id}-name`,
+      content: [{ var: 'toppingName' }, { text: ' ' }, { var: '$position' }, { text: '/' }, { var: '$total' }],
+    },
+  };
+}
+
+/** Tem món: mỗi ly 1 tem, topping tách theo `toppingsPerPart`, dòng cuối là phần tem. */
+function toppingLabel(partRepeats: readonly TemplateNode[] = [toppingRepeat('toppings', 4)]): TemplateNode {
+  return {
+    type: 'repeat',
+    id: 'items',
+    collection: 'items',
+    expand: 'quantity',
+    maxItemsPerPage: 1,
+    template: {
+      type: 'container',
+      id: 'item',
+      children: [
+        {
+          type: 'text',
+          id: 'name',
+          content: [{ var: 'itemName' }, { text: ' ' }, { var: '$unit' }, { text: '/' }, { var: '$unitCount' }],
+        },
+        ...partRepeats,
+        {
+          type: 'text',
+          id: 'part',
+          content: [{ text: 'phần ' }, { var: '$part' }, { text: '/' }, { var: '$partCount' }],
+        },
+      ],
+    },
+  };
+}
+
+describe('DocumentResolver — tách repeat lồng sang nhiều tem', () => {
+  it('9 topping, mỗi tem 4 → 3 tem nhóm 4/4/1, $position tuyệt đối, $part/$partCount theo phần', () => {
+    const pages = resolvePages(toppingLabel(), orderWith([drink('Trà sữa', 1, 9)]));
+
+    expect(pages.map(pageTexts)).toEqual([
+      ['Trà sữa 1/1', 'T1 1/9', 'T2 2/9', 'T3 3/9', 'T4 4/9', 'phần 1/3'],
+      ['Trà sữa 1/1', 'T5 5/9', 'T6 6/9', 'T7 7/9', 'T8 8/9', 'phần 2/3'],
+      ['Trà sữa 1/1', 'T9 9/9', 'phần 3/3'],
+    ]);
+  });
+
+  it('số topping chia hết cho N thì không sinh tem rỗng', () => {
+    const pages = resolvePages(toppingLabel(), orderWith([drink('Trà sữa', 1, 8)]));
+
+    expect(pages.map((page) => pageTexts(page).at(-1))).toEqual(['phần 1/2', 'phần 2/2']);
+  });
+
+  it('món số lượng 2 lặp đủ các phần cho từng ly; $page đánh số liên tục', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { type: 'text', id: 'page', content: [{ var: '$page' }, { text: '/' }, { var: '$pageCount' }] },
+        toppingLabel(),
+      ],
+    };
+
+    const pages = resolvePages(root, orderWith([drink('Trà sữa', 2, 5)]));
+
+    expect(pages.map(pageTexts)).toEqual([
+      ['1/4', 'Trà sữa 1/2', 'T1 1/5', 'T2 2/5', 'T3 3/5', 'T4 4/5', 'phần 1/2'],
+      ['2/4', 'Trà sữa 1/2', 'T5 5/5', 'phần 2/2'],
+      ['3/4', 'Trà sữa 2/2', 'T1 1/5', 'T2 2/5', 'T3 3/5', 'T4 4/5', 'phần 1/2'],
+      ['4/4', 'Trà sữa 2/2', 'T5 5/5', 'phần 2/2'],
+    ]);
+  });
+
+  it('món không có topping vẫn in 1 tem, $part/$partCount là 1/1', () => {
+    const pages = resolvePages(toppingLabel(), orderWith([drink('Cà phê', 1, 0)]));
+
+    expect(pages.map(pageTexts)).toEqual([['Cà phê 1/1', 'phần 1/1']]);
+  });
+
+  it('nhiều món có số phần khác nhau xếp theo thứ tự món rồi tới phần', () => {
+    const pages = resolvePages(toppingLabel(), orderWith([drink('Trà sữa', 1, 5), drink('Cà phê', 1, 1)]));
+
+    expect(pages.map((page) => [pageTexts(page)[0], pageTexts(page).at(-1)])).toEqual([
+      ['Trà sữa 1/1', 'phần 1/2'],
+      ['Trà sữa 1/1', 'phần 2/2'],
+      ['Cà phê 1/1', 'phần 1/1'],
+    ]);
+  });
+
+  it('2 repeat lồng trong cùng món: số phần theo repeat dài nhất, repeat ngắn rỗng ở phần dư', () => {
+    const root = toppingLabel([toppingRepeat('by-two', 2), toppingRepeat('by-four', 4)]);
+
+    const pages = resolvePages(root, orderWith([drink('Trà sữa', 1, 5)]));
+
+    expect(pages.map(pageTexts)).toEqual([
+      ['Trà sữa 1/1', 'T1 1/5', 'T2 2/5', 'T1 1/5', 'T2 2/5', 'T3 3/5', 'T4 4/5', 'phần 1/3'],
+      ['Trà sữa 1/1', 'T3 3/5', 'T4 4/5', 'T5 5/5', 'phần 2/3'],
+      ['Trà sữa 1/1', 'T5 5/5', 'phần 3/3'],
+    ]);
+  });
+
+  it('món expand lỗi chỉ làm lỗi đúng 1 trang của nó, món khác vẫn tách tem', () => {
+    const pages = resolvePages(toppingLabel(), orderWith([drink('Trà sữa', 0, 5), drink('Cà phê', 1, 5)]));
+
+    expect(pages.map((page) => page.status)).toEqual(['error', 'ok', 'ok']);
+    expect(pages.slice(1).map((page) => pageTexts(page).at(-1))).toEqual(['phần 1/2', 'phần 2/2']);
+  });
+
+  it('repeat lồng nằm trong node đang bị ẩn vẫn được đếm phần, chỉ không in topping', () => {
+    const hiddenToppings: TemplateNode = {
+      type: 'container',
+      id: 'hidden',
+      visibleWhen: { op: 'eq', var: 'itemName', value: 'không có món này' },
+      children: [toppingRepeat('toppings', 4)],
+    };
+
+    const pages = resolvePages(toppingLabel([hiddenToppings]), orderWith([drink('Trà sữa', 1, 5)]));
+
+    expect(pages.map(pageTexts)).toEqual([
+      ['Trà sữa 1/1', 'phần 1/2'],
+      ['Trà sữa 1/1', 'phần 2/2'],
+    ]);
+  });
+
+  it('repeat ngoài cùng khác dài hơn thì các trang dư không in món tách tem, $part về 1/1', () => {
+    const root: TemplateNode = {
+      type: 'container',
+      id: 'root',
+      children: [
+        { type: 'text', id: 'root-part', content: [{ var: '$part' }, { text: '/' }, { var: '$partCount' }] },
+        {
+          type: 'repeat',
+          id: 'items',
+          collection: 'items',
+          maxItemsPerPage: 1,
+          template: {
+            type: 'container',
+            id: 'item',
+            children: [{ type: 'text', id: 'name', content: [{ var: 'itemName' }] }, toppingRepeat('toppings', 2)],
+          },
+        },
+        {
+          type: 'repeat',
+          id: 'units',
+          collection: 'items',
+          expand: 'quantity',
+          maxItemsPerPage: 1,
+          template: { type: 'text', id: 'unit', content: [{ text: 'ly ' }, { var: '$unit' }] },
+        },
+      ],
+    };
+
+    const pages = resolvePages(root, orderWith([drink('Trà sữa', 3, 3)]));
+
+    expect(pages.map(pageTexts)).toEqual([
+      ['1/2', 'Trà sữa', 'T1 1/3', 'T2 2/3', 'ly 1'],
+      ['2/2', 'Trà sữa', 'T3 3/3', 'ly 2'],
+      ['1/1', 'ly 3'],
+    ]);
+  });
+
+  it('repeat ngoài không phân trang thì repeat lồng in đủ topping (template chưa qua validate)', () => {
+    const root: TemplateNode = {
+      type: 'repeat',
+      id: 'items',
+      collection: 'items',
+      template: toppingRepeat('toppings', 2),
+    };
+
+    const pages = resolvePages(root, orderWith([drink('Trà sữa', 1, 3)]));
+
+    expect(pages.map(pageTexts)).toEqual([['T1 1/3', 'T2 2/3', 'T3 3/3']]);
   });
 });
 
