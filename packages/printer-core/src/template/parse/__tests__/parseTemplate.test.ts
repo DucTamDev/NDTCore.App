@@ -248,4 +248,24 @@ describe('parseTemplate', () => {
       { path: 'root.children[1]', message: 'chỉ 1 repeat ngoài cùng được chứa repeat lồng có maxItemsPerPage' },
     ]);
   });
+
+  it('không báo trùng lỗi MULTIPLE_CARRIERS khi repeat ngoài cùng thứ 2 chưa phân trang', () => {
+    const unpagedName = { ...toppingNameJson(), id: 'unpaged-topping-name' };
+    const unpagedToppings = { ...toppingRepeatJson(unpagedName, 4), id: 'unpaged-toppings' };
+    const json = withRoot({
+      type: 'container',
+      id: 'root',
+      children: [
+        itemRepeatJson('valid-carrier', toppingRepeatJson(toppingNameJson(), 4), 1),
+        itemRepeatJson('unpaged-outer', unpagedToppings),
+      ],
+    });
+
+    expect(issuesOf(json)).toEqual([
+      {
+        path: 'root.children[1].template.maxItemsPerPage',
+        message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage',
+      },
+    ]);
+  });
 });

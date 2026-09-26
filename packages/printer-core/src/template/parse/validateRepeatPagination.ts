@@ -16,10 +16,24 @@ const MULTIPLE_CARRIERS_MESSAGE = 'chỉ 1 repeat ngoài cùng được chứa r
  * `children` là mảng và mọi repeat có `template`.
  */
 export function validateRepeatPagination(root: JsonCursor): void {
-  const partCarriers = findRepeats(root, false).filter(validateNestedRepeats);
-  for (const carrier of partCarriers.slice(1)) {
+  const outerRepeats = findRepeats(root, false);
+  for (const outer of outerRepeats) validateNestedRepeats(outer);
+
+  const carriers = outerRepeats.filter(isPartCarrier);
+  for (const carrier of carriers.slice(1)) {
     carrier.report(MULTIPLE_CARRIERS_MESSAGE);
   }
+}
+
+// Repeat lồng trực tiếp dưới `outer` có repeat nào khai báo `maxItemsPerPage` hay không.
+function hasPartRepeats(outer: JsonCursor): boolean {
+  return findRepeats(outer.field('template'), false).some((nested) => nested.has('maxItemsPerPage'));
+}
+
+// "Mang" phần tem hợp lệ: chỉ tính repeat có đúng `maxItemsPerPage` 1 và có repeat lồng tách tem — tránh đếm
+// nhầm repeat chưa phân trang (lỗi này đã báo riêng bằng OUTER_NOT_PAGED_MESSAGE) vào luật "chỉ 1 carrier".
+function isPartCarrier(outer: JsonCursor): boolean {
+  return outer.field('maxItemsPerPage').value === PART_CARRIER_ITEMS_PER_PAGE && hasPartRepeats(outer);
 }
 
 /** Các repeat gần nhất bên dưới `node`; `deep` thì lấy cả repeat nằm trong `template` của repeat khác. */
@@ -30,14 +44,12 @@ function findRepeats(node: JsonCursor, deep: boolean): readonly JsonCursor[] {
   return deep ? [node, ...findRepeats(node.field('template'), true)] : [node];
 }
 
-// Trả `true` nếu repeat ngoài cùng có repeat lồng khai báo `maxItemsPerPage`.
-function validateNestedRepeats(outer: JsonCursor): boolean {
+function validateNestedRepeats(outer: JsonCursor): void {
   const nestedRepeats = findRepeats(outer.field('template'), false);
   for (const nested of nestedRepeats) rejectDeeperPagination(nested);
 
   const partRepeats = nestedRepeats.filter((nested) => nested.has('maxItemsPerPage'));
   for (const partRepeat of partRepeats) checkOuterPagination(outer, partRepeat);
-  return partRepeats.length > 0;
 }
 
 function checkOuterPagination(outer: JsonCursor, partRepeat: JsonCursor): void {
