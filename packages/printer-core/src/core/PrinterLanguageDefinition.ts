@@ -1,22 +1,23 @@
 import type { PrintCompiler } from './PrintCompiler';
-import type { PrintParser } from './PrintParser';
+import type { ParsedCommands, PrintParser } from './PrintParser';
 import type { PrintValidation } from './PrintValidation';
 import type { PrintPreview } from './PrintPreview';
 import type { PrinterLanguage } from './PrinterLanguage';
 
-/**
- * One `PrinterLanguage`'s full capability set, bundled together so
- * `LanguageRegistry.ts` can build one `Record<PrinterLanguage, ...>` instead
- * of four parallel switch statements — a language missing a capability is
- * now a compile-time error (an incomplete `Record`) instead of a runtime
- * `UnsupportedLanguageError` only surfacing when that exact combination is
- * called. Mirrors `convert/ConversionRegistry.ts`'s registry-over-switch
- * shape, extended here to cover validator and preview too.
- */
+/** Đủ bộ xử lý của 1 ngôn ngữ, gom lại để registry khai báo mỗi ngôn ngữ đúng 1 lần. */
 export interface PrinterLanguageDefinition {
+  /** Ngôn ngữ mà bộ xử lý này phục vụ. */
   readonly language: PrinterLanguage;
+
+  /** Biên dịch document thành lệnh máy in. */
   readonly compiler: PrintCompiler<string | Uint8Array>;
-  readonly parser: PrintParser<{ commands: unknown[]; warnings: string[] }>;
+
+  /** Đọc ngược lệnh máy in thành danh sách lệnh + cảnh báo. */
+  readonly parser: PrintParser<ParsedCommands>;
+
+  /** Kiểm tra cú pháp chuỗi lệnh. */
   readonly validator: PrintValidation;
+
+  /** Vẽ preview SVG của document. */
   readonly previewRenderer: PrintPreview;
 }

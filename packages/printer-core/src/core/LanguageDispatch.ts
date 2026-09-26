@@ -1,30 +1,24 @@
 import type { ResolvedPrintDocument } from '../document';
 import type { PrinterProfile } from '../profile';
-import type { ValidationResult } from '../validation/ValidationResult';
+import type { ValidationResult } from '../validation';
 import type { CompileResult } from './PrintCompiler';
+import type { ParsedCommands } from './PrintParser';
 import type { PrinterLanguage } from './PrinterLanguage';
 import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
 import { LANGUAGE_REGISTRY } from './LanguageRegistry';
 import { UnsupportedLanguageError } from './PrinterCoreError';
 
 /**
- * `LANGUAGE_REGISTRY` is a `Record<PrinterLanguage, ...>`, so this lookup
- * can never actually miss for a real `PrinterLanguage` value — the check
- * stays because `language` may arrive from outside type-checked code (e.g.
- * an untyped string from JSON or user input), the same defensive shape
- * `PrinterConverter.ts`'s own `lookup()` uses.
+ * Theo kiểu thì registry luôn đủ ngôn ngữ, nhưng `language` có thể đến từ dữ liệu chưa kiểm tra kiểu (JSON,
+ * input người dùng) nên vẫn phải báo lỗi rõ thay vì văng `undefined`.
  */
 function lookup(language: PrinterLanguage, capability: string): PrinterLanguageDefinition {
-  const definition = LANGUAGE_REGISTRY[language];
+  const definition: PrinterLanguageDefinition | undefined = LANGUAGE_REGISTRY[language];
   if (!definition) throw new UnsupportedLanguageError(language, capability);
   return definition;
 }
 
-/**
- * Routes a `PrinterLanguage` to its compiler and runs it. Every one of the
- * nine languages — tspl, escpos, zpl, epl, cpcl, dpl, sbpl, starprnt, ipl —
- * has a real compiler in this package, so there is no stub branch here.
- */
+/** Compile document sang ngôn ngữ `language`; `profile` chỉ dùng để chọn cách mã hoá chữ. */
 export function compileTo(
   language: PrinterLanguage,
   document: ResolvedPrintDocument,
@@ -33,17 +27,17 @@ export function compileTo(
   return lookup(language, 'compiler').compiler.compile(document, profile?.features);
 }
 
-/** Routes a `PrinterLanguage` to its parser. `source` must be the shape that language's compiler produces: `string` for tspl/zpl/epl/cpcl/dpl/sbpl/ipl, `Uint8Array` for escpos/starprnt. */
-export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
+/** `source` phải đúng dạng compiler của ngôn ngữ đó sinh ra: byte cho ESC/POS và Star PRNT, chuỗi cho còn lại. */
+export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): ParsedCommands {
   return lookup(language, 'parser').parser.parse(source);
 }
 
-/** Routes a `PrinterLanguage` to its validator. */
+/** Kiểm tra cú pháp chuỗi lệnh của ngôn ngữ `language`. */
 export function validateFor(language: PrinterLanguage, source: string): ValidationResult {
   return lookup(language, 'validator').validator.validate(source);
 }
 
-/** Routes a `PrinterLanguage` to its SVG preview renderer. */
+/** Vẽ preview SVG của document theo ngôn ngữ `language`. */
 export function previewFor(language: PrinterLanguage, document: ResolvedPrintDocument): string {
   return lookup(language, 'preview renderer').previewRenderer.preview(document);
 }

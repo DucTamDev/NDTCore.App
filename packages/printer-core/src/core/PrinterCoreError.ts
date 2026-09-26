@@ -1,14 +1,8 @@
 import type { PrinterLanguage } from './PrinterLanguage';
 
-/**
- * Thrown by printer-core's language dispatch (`compileTo`/`parseFrom`/
- * `validateFor`/`previewFor` in `LanguageDispatch.ts`) when asked to handle
- * a `PrinterLanguage` that has no compiler/parser/validator/preview
- * implementation in this package yet. Defined locally, not imported from
- * elsewhere in the app, since `packages/printer-core` is framework-agnostic
- * and self-contained — it does not depend on any app-specific code.
- */
+/** Ném ra khi được yêu cầu xử lý 1 ngôn ngữ không có trong registry. */
 export class UnsupportedLanguageError extends Error {
+  /** Ngôn ngữ không được hỗ trợ. */
   readonly language: PrinterLanguage;
 
   constructor(language: PrinterLanguage, capability: string) {

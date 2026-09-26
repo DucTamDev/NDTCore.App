@@ -1,8 +1,11 @@
 import type { ResolvedPrintDocument } from '../document';
 
-/** The subset of `PrinterProfile.features` a compiler needs to choose how to encode text — never the full printer profile. */
+/** Phần thông tin mã hoá chữ lấy từ `PrinterProfile.features` — compiler không cần cả profile. */
 export interface TextEncodingOptions {
+  /** Máy in nhận thẳng UTF-8, không cần đổi chữ sang code page. */
   nativeUtf8?: boolean;
+
+  /** Code page máy in hỗ trợ, theo số hiệu code page (VD 437, 1258). */
   codePages?: number[];
 }
 
@@ -16,10 +19,8 @@ export interface CompileResult<TOutput> {
 }
 
 /**
- * `encoding` is part of the contract so every language compiler can be invoked
- * through one uniform call shape. Only `EscPosCompiler` acts on it today (code
- * page / text-encoding selection); the rest accept and ignore it until their
- * protocol has a grounded encoding-selection command to drive from it.
+ * Biên dịch document thành lệnh máy in. Hiện chỉ ESC/POS dùng `encoding` để chọn code page; ngôn ngữ khác
+ * vẫn nhận tham số này để mọi compiler được gọi theo cùng 1 chữ ký.
  */
 export interface PrintCompiler<TOutput = string | Uint8Array> {
   compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): CompileResult<TOutput>;
