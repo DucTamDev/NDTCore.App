@@ -27,7 +27,7 @@ export function compileTo(
   return lookup(language, 'compiler').compiler.compile(document, features);
 }
 
-/** `source` phải đúng dạng compiler của ngôn ngữ đó sinh ra: byte cho ESC/POS và Star PRNT, chuỗi cho còn lại. */
+/** `source` phải đúng dạng compiler của ngôn ngữ đó sinh ra: byte cho ESC/POS, chuỗi cho TSPL. */
 export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): ParsedCommands {
   return lookup(language, 'parser').parser.parse(source);
 }

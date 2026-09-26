@@ -1,7 +1,7 @@
 import type { CodePage } from '../CodePage';
 import { CP437 } from './Cp437Encoder';
 
-const SHARP_S_BYTE = 0xe1; // ß — CP437's byte at this position is dropped from CP857 (no ß in Turkish).
+const SHARP_S_BYTE = 0xe1; // ß — byte này của CP437 bị bỏ trong CP857 (tiếng Thổ Nhĩ Kỳ không có ß).
 
 function withoutSharpS(chars: Record<number, string>): Record<number, string> {
   const result: Record<number, string> = {};
@@ -18,8 +18,8 @@ export const CP857: CodePage = {
   name: 'CP857',
   chars: {
     ...withoutSharpS(CP437.chars),
-    0x8d: 'ı', // dotless i (overrides CP437's ì)
-    0x98: 'İ', // dotted I (overrides CP437's ÿ)
+    0x8d: 'ı', // i không chấm (đè lên ì của CP437)
+    0x98: 'İ', // I có chấm (đè lên ÿ của CP437)
     0x9e: 'Ş',
     0x9f: 'ş',
     0xa0: 'Ğ',

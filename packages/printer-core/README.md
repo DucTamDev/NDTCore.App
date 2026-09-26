@@ -15,11 +15,13 @@ TemplateDocument (JSON, DSL) ──parseTemplate──▶ resolve (catalog + dat
 - **Compile:** mỗi ngôn ngữ có compiler, parser (đọc ngược lệnh), validator, preview SVG. Năng lực máy in đích
   truyền vào qua `PrinterFeatures`.
 - **Chuyển đổi:** `convert()` chuyển lệnh giữa TSPL và ESC/POS.
-- **Phụ trợ:** mã hoá chữ theo code page (CP437/857/858/866, Windows-1252/1258), xử lý ảnh (dithering) và mô tả
+- **Phụ trợ:** mã hoá chữ theo code page (CP437/857/858/866, Windows-1252), xử lý ảnh (dithering) và mô tả
   barcode/QR.
 
 **Giới hạn đã biết:** khi document có ảnh, chuỗi trong `TsplCompiler.compile().output` trộn text UTF-8 với payload
 bitmap dạng 1 ký tự = 1 byte. Xem JSDoc của `TsplCompiler.compile()` trước khi gửi output này tới máy in thật.
+CP1258 (tiếng Việt) có encoder nhưng chưa nằm trong danh sách code page được dò, nên với máy ESC/POS không bật
+`nativeUtf8`, chữ tiếng Việt có dấu bị in thành `?`.
 
 ## Ranh giới với `src/features/printer`
 

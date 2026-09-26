@@ -7,6 +7,6 @@ export const CP858: CodePage = {
   name: 'CP858',
   chars: {
     ...CP437.chars,
-    0xd5: '€', // Euro sign
+    0xd5: '€', // dấu Euro
   },
 };

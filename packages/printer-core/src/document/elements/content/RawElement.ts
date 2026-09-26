@@ -4,6 +4,6 @@
  */
 export interface RawElement {
   type: 'raw';
-  /** Nội dung chèn thẳng — chuỗi lệnh (hầu hết ngôn ngữ) hoặc byte thô (ESC/POS, Star PRNT). */
+  /** Nội dung chèn thẳng — chuỗi lệnh (TSPL) hoặc byte thô (ESC/POS). */
   content: string | Uint8Array;
 }

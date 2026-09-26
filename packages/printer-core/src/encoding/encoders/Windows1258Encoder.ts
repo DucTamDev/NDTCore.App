@@ -79,13 +79,13 @@ export const Windows1258: CodePage = {
     0xc9: 'É',
     0xca: 'Ê',
     0xcb: 'Ë',
-    0xcc: '̀', // combining grave accent (huyền)
+    0xcc: '̀', // dấu huyền (combining grave accent)
     0xcd: 'Í',
     0xce: 'Î',
     0xcf: 'Ï',
     0xd0: 'Đ',
     0xd1: 'Ñ',
-    0xd2: '̉', // combining hook above (hỏi)
+    0xd2: '̉', // dấu hỏi (combining hook above)
     0xd3: 'Ó',
     0xd4: 'Ô',
     0xd5: 'Ơ',
@@ -97,7 +97,7 @@ export const Windows1258: CodePage = {
     0xdb: 'Û',
     0xdc: 'Ü',
     0xdd: 'Ư',
-    0xde: '̃', // combining tilde (ngã)
+    0xde: '̃', // dấu ngã (combining tilde)
     0xdf: 'ß',
     0xe0: 'à',
     0xe1: 'á',
@@ -111,13 +111,13 @@ export const Windows1258: CodePage = {
     0xe9: 'é',
     0xea: 'ê',
     0xeb: 'ë',
-    0xec: '́', // combining acute accent (sắc)
+    0xec: '́', // dấu sắc (combining acute accent)
     0xed: 'í',
     0xee: 'î',
     0xef: 'ï',
     0xf0: 'đ',
     0xf1: 'ñ',
-    0xf2: '̣', // combining dot below (nặng)
+    0xf2: '̣', // dấu nặng (combining dot below)
     0xf3: 'ó',
     0xf4: 'ô',
     0xf5: 'ơ',
