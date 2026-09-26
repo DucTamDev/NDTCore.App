@@ -1,7 +1,6 @@
 export * from './core';
 export * from './types';
 export * from './document';
-export * from './receipt';
 export * from './formatting';
 export * from './symbology';
 export * from './image';

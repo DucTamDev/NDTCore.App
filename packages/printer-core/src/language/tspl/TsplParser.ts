@@ -1524,15 +1524,6 @@ export function parseTSPL(code: string): TSPLParseResult {
 }
 
 /**
- * Bản parse rút gọn — chỉ trả về kích thước nhãn và các element render được
- * cho preview, dành cho nơi gọi không cần mọi lệnh thô.
- */
-export function parseTsplSummary(code: string): { widthDots: number; heightDots: number; elements: PrintElement[] } {
-  const result = parseTSPL(code);
-  return { widthDots: result.widthDots, heightDots: result.heightDots, elements: result.elements };
-}
-
-/**
  * Giải mã một chuỗi lệnh TSPL/TSPL2 thành các lệnh có cấu trúc (theo dòng,
  * theo ngữ pháp từng lệnh).
  */

@@ -5,6 +5,4 @@ export * from './Unit';
 export * from './Alignment';
 export * from './Rotation';
 export * from './Direction';
-export * from './FontWeight';
-export * from './FontStyle';
 export * from './Bitmap';

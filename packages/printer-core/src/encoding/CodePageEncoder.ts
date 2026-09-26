@@ -30,17 +30,6 @@ export function findCodePage(id: number): CodePage | undefined {
   return CODE_PAGES[id];
 }
 
-/** Check if a string contains only ASCII printable characters (plus newline/CR). */
-export function isASCII(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const codePoint = text.charCodeAt(i);
-    if (codePoint < 0x20 || codePoint > 0x7e) {
-      if (codePoint !== 0x0a && codePoint !== 0x0d) return false;
-    }
-  }
-  return true;
-}
-
 function findByte(char: string, codePages: readonly CodePage[]): { codePage: CodePage; byte: number } | null {
   for (const codePage of codePages) {
     const byte = REVERSE_INDEX.get(codePage)?.get(char);

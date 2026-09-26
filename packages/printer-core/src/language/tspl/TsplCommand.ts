@@ -24,5 +24,3 @@ export const TSPL_COMMAND = {
    */
   SET_CUTTER: 'SET CUTTER',
 } as const;
-
-export type TsplCommandName = (typeof TSPL_COMMAND)[keyof typeof TSPL_COMMAND];

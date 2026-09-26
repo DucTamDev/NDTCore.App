@@ -1,7 +1,7 @@
 import type { PrintElement } from '../elements/PrintElement';
 import type { ResolvedPrintDocument } from '../index';
 
-describe('PrintDocument element union', () => {
+describe('PrintElement / ResolvedPrintDocument', () => {
   it('accepts a barcode element alongside portakal-native element types', () => {
     const elements: PrintElement[] = [
       { type: 'text', content: 'hi', options: {} },
