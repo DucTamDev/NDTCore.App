@@ -7,7 +7,7 @@ import type {
   LineOptions,
   TableOptions,
 } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import type { Rotation, Bitmap } from '../../types';
 import { CompileWarnings } from '../CompileWarnings';
 import { DPL_COMMAND } from './DplCommand';
@@ -225,7 +225,7 @@ export function compileToDPL(document: ResolvedPrintDocument): CompileResult<str
 }
 
 /**
- * `encoding` chỉ nhận vào để khớp chữ ký `PrintCompiler` dùng chung — DPL
+ * `features` chỉ nhận vào để khớp chữ ký `PrintCompiler` dùng chung — DPL
  * không có bước mã hoá code-page/byte nào (khác ESC/POS), `compile()` luôn
  * trả về một chuỗi lệnh thuần tuý.
  *
@@ -235,7 +235,7 @@ export function compileToDPL(document: ResolvedPrintDocument): CompileResult<str
  * đi không được chạy qua một bộ mã hoá UTF-8 thông thường.
  */
 export class DplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToDPL(document);
   }
 }

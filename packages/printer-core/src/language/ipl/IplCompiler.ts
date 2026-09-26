@@ -7,7 +7,7 @@ import type {
   LineOptions,
   TableOptions,
 } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import type { Bitmap, Rotation } from '../../types';
 import { CompileWarnings } from '../CompileWarnings';
 import { IPL_COMMAND } from './IplCommand';
@@ -236,7 +236,7 @@ export function compileToIPL(document: ResolvedPrintDocument): CompileResult<str
 }
 
 /**
- * `encoding` không được dùng — IPL không có bước code-page/byte-encoding
+ * `features` không được dùng — IPL không có bước code-page/byte-encoding
  * riêng (khác ESC/POS), tham số này chỉ để khớp chữ ký `PrintCompiler`.
  *
  * Giới hạn: khi có element `image`, chuỗi trả về xen kẽ text thường (dự
@@ -244,7 +244,7 @@ export function compileToIPL(document: ResolvedPrintDocument): CompileResult<str
  * byte thô). Nơi gọi không được encode UTF-8 thẳng khi document có image.
  */
 export class IplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToIPL(document);
   }
 }

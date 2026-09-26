@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions, CutOptions, TableOptions } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import { ESC_POS, concatEscPosBytes } from './EscPosCommand';
 import { encodeEscPosText } from './EscPosCodePage';
 import { encodeEscPosImage } from './EscPosImageEncoder';
@@ -48,7 +48,7 @@ function alignByte(align: TextOptions['align']): number {
 function compileTextElement(
   content: string,
   rawOptions: TextOptions | undefined,
-  encoding: TextEncodingOptions | undefined,
+  features: PrinterFeatures | undefined,
 ): Uint8Array[] {
   const options = rawOptions ?? {};
   const chunks: Uint8Array[] = [];
@@ -69,7 +69,7 @@ function compileTextElement(
 
   if (options.reverse) chunks.push(new Uint8Array([ESC_POS.GS, ESC_POS.REVERSE, FEATURE_ON]));
 
-  chunks.push(encodeEscPosText(content, encoding));
+  chunks.push(encodeEscPosText(content, features));
   chunks.push(new Uint8Array([ESC_POS.LF]));
 
   if (options.bold) chunks.push(new Uint8Array([ESC_POS.ESC, ESC_POS.BOLD, FEATURE_OFF]));
@@ -97,24 +97,24 @@ function compileCutElement(options: CutOptions | undefined): Uint8Array[] {
   return [new Uint8Array([ESC_POS.GS, ESC_POS.CUT, functionByte])];
 }
 
-function compileTableElement(options: TableOptions, encoding: TextEncodingOptions | undefined): Uint8Array[] {
+function compileTableElement(options: TableOptions, features: PrinterFeatures | undefined): Uint8Array[] {
   validateTableColumns(options.columns);
   const totalWidth = options.columns.reduce((sum, column) => sum + column.width, 0);
   const lines = formatTable(options.columns, options.rows, totalWidth);
 
   const chunks: Uint8Array[] = [];
-  for (const line of lines) chunks.push(...compileTextElement(line, undefined, encoding));
+  for (const line of lines) chunks.push(...compileTextElement(line, undefined, features));
   return chunks;
 }
 
 function compileElement(
   element: PrintElement,
-  encoding: TextEncodingOptions | undefined,
+  features: PrinterFeatures | undefined,
   warnings: CompileWarnings,
 ): Uint8Array[] {
   switch (element.type) {
     case 'text':
-      return compileTextElement(element.content, element.options, encoding);
+      return compileTextElement(element.content, element.options, features);
 
     case 'image':
       return [encodeEscPosImage(element.bitmap)];
@@ -126,7 +126,7 @@ function compileElement(
       return [encodeEscPosQrCode(element.options)];
 
     case 'raw':
-      return [typeof element.content === 'string' ? encodeEscPosText(element.content, encoding) : element.content];
+      return [typeof element.content === 'string' ? encodeEscPosText(element.content, features) : element.content];
 
     // ESC/POS không có lệnh vẽ vector nguyên sinh — bỏ qua và báo cảnh báo.
     case 'box':
@@ -150,17 +150,17 @@ function compileElement(
       return compileCutElement(element.options);
 
     case 'table':
-      return compileTableElement(element.options, encoding);
+      return compileTableElement(element.options, features);
   }
 }
 
 export class EscPosCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
+  compile(document: ResolvedPrintDocument, features?: PrinterFeatures): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([ESC_POS.ESC, ESC_POS.INIT])];
     const warnings = new CompileWarnings(ESC_POS_LANGUAGE_NAME);
 
     for (const element of document.elements) {
-      chunks.push(...compileElement(element, encoding, warnings));
+      chunks.push(...compileElement(element, features, warnings));
     }
 
     return { output: concatEscPosBytes(chunks), warnings: warnings.toArray() };

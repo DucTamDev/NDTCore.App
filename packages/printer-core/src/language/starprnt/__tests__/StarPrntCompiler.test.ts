@@ -1,6 +1,6 @@
 import { StarPrntCompiler } from '../StarPrntCompiler';
 import type { PrintElement } from '../../../document/elements/PrintElement';
-import { STAR_PROFILES } from '../../../profile';
+import type { PrinterFeatures } from '../../../core';
 
 const BASE = { widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward' as const, copies: 1 };
 
@@ -130,11 +130,11 @@ describe('StarPrntCompiler', () => {
     ).toThrow(/positive width/);
   });
 
-  it('accepts an encoding argument without changing its output (Star PRNT text is not yet encoding-driven)', () => {
-    const encoding = STAR_PROFILES['star-tsp143']!.features;
+  it('accepts a features argument without changing its output (Star PRNT text is not yet encoding-driven)', () => {
+    const features: PrinterFeatures = { cutter: 'partial', nativeUtf8: false, codePages: [437, 858] };
     const elements: PrintElement[] = [{ type: 'text', content: 'Profile', options: { bold: true, fontSize: 48 } }];
 
-    const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, encoding).output;
+    const withEncoding = new StarPrntCompiler().compile({ ...BASE, elements }, features).output;
     const withoutEncoding = new StarPrntCompiler().compile({ ...BASE, elements }).output;
 
     expect(withEncoding).toEqual(withoutEncoding);

@@ -1,7 +1,6 @@
 import type { CompileResult } from '../core';
 import type { PrinterLanguage } from '../core/PrinterLanguage';
 import type { ResolvedPrintDocument } from '../document';
-import type { PrinterProfile } from '../profile';
 import type { PrintElement } from '../document/elements/PrintElement';
 import { parseTSPL } from '../language/tspl/TsplParser';
 import { TsplCompiler } from '../language/tspl/TsplCompiler';
@@ -33,7 +32,7 @@ export interface ParsedSource {
 /** One `PrinterLanguage`'s parse/compile pair, looked up by `PrinterConverter`. */
 export interface ConversionRegistryEntry {
   parse: (source: string | Uint8Array) => ParsedSource;
-  compile: (document: ResolvedPrintDocument, profile?: PrinterProfile) => CompileResult<string | Uint8Array>;
+  compile: (document: ResolvedPrintDocument) => CompileResult<string | Uint8Array>;
 }
 
 function toText(source: string | Uint8Array): string {
@@ -73,14 +72,14 @@ export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry
       const result = parseTSPL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new TsplCompiler().compile(document, profile?.features),
+    compile: (document) => new TsplCompiler().compile(document),
   },
   zpl: {
     parse: (source) => {
       const result = parseZPL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new ZplCompiler().compile(document, profile?.features),
+    compile: (document) => new ZplCompiler().compile(document),
   },
   epl: {
     parse: (source) => {
@@ -90,48 +89,48 @@ export const ConversionRegistry: Record<PrinterLanguage, ConversionRegistryEntry
       // dropped here and left for PrinterConverter's default to fill in.
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots || undefined, warnings: result.warnings };
     },
-    compile: (document, profile) => new EplCompiler().compile(document, profile?.features),
+    compile: (document) => new EplCompiler().compile(document),
   },
   cpcl: {
     parse: (source) => {
       const result = parseCPCL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new CpclCompiler().compile(document, profile?.features),
+    compile: (document) => new CpclCompiler().compile(document),
   },
   dpl: {
     parse: (source) => {
       const result = parseDPL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new DplCompiler().compile(document, profile?.features),
+    compile: (document) => new DplCompiler().compile(document),
   },
   sbpl: {
     parse: (source) => {
       const result = parseSBPL(toText(source));
       return { elements: result.elements, warnings: result.warnings };
     },
-    compile: (document, profile) => new SbplCompiler().compile(document, profile?.features),
+    compile: (document) => new SbplCompiler().compile(document),
   },
   escpos: {
     parse: (source) => {
       const result = decodeEscPos(toBytes(source));
       return { elements: result.elements, warnings: result.warnings };
     },
-    compile: (document, profile) => new EscPosCompiler().compile(document, profile?.features),
+    compile: (document) => new EscPosCompiler().compile(document),
   },
   starprnt: {
     parse: (source) => {
       const result = decodeStarPrnt(toBytes(source));
       return { elements: result.elements, warnings: result.warnings };
     },
-    compile: (document, profile) => new StarPrntCompiler().compile(document, profile?.features),
+    compile: (document) => new StarPrntCompiler().compile(document),
   },
   ipl: {
     parse: (source) => {
       const result = parseIPL(toText(source));
       return { elements: result.elements, widthDots: result.widthDots, heightDots: result.heightDots, warnings: result.warnings };
     },
-    compile: (document, profile) => new IplCompiler().compile(document, profile?.features),
+    compile: (document) => new IplCompiler().compile(document),
   },
 };

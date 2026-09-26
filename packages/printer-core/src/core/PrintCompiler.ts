@@ -1,13 +1,5 @@
 import type { ResolvedPrintDocument } from '../document';
-
-/** Phần thông tin mã hoá chữ lấy từ `PrinterProfile.features` — compiler không cần cả profile. */
-export interface TextEncodingOptions {
-  /** Máy in nhận thẳng UTF-8, không cần đổi chữ sang code page. */
-  nativeUtf8?: boolean;
-
-  /** Code page máy in hỗ trợ, theo số hiệu code page (VD 437, 1258). */
-  codePages?: number[];
-}
+import type { PrinterFeatures } from './PrinterFeatures';
 
 /** Kết quả compile: lệnh máy in + cảnh báo về những gì máy in không làm được. */
 export interface CompileResult<TOutput> {
@@ -19,9 +11,9 @@ export interface CompileResult<TOutput> {
 }
 
 /**
- * Biên dịch document thành lệnh máy in. Hiện chỉ ESC/POS dùng `encoding` để chọn code page; ngôn ngữ khác
- * vẫn nhận tham số này để mọi compiler được gọi theo cùng 1 chữ ký.
+ * Biên dịch document thành lệnh máy in. Hiện chỉ ESC/POS đọc `features` (chọn code page); ngôn ngữ khác vẫn
+ * nhận tham số này để mọi compiler được gọi theo cùng 1 chữ ký.
  */
 export interface PrintCompiler<TOutput = string | Uint8Array> {
-  compile(document: ResolvedPrintDocument, encoding?: TextEncodingOptions): CompileResult<TOutput>;
+  compile(document: ResolvedPrintDocument, features?: PrinterFeatures): CompileResult<TOutput>;
 }

@@ -1,5 +1,5 @@
 import type { ResolvedPrintDocument } from '../../document';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import { CompileWarnings } from '../CompileWarnings';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
@@ -303,7 +303,7 @@ export function compileToTSPL(document: ResolvedPrintDocument): CompileResult<st
 
 /**
  * TSPL không có bước code-page/byte-encoding (khác với ESC/POS) — output đã
- * compile chỉ là một chuỗi lệnh thuần, nên `encoding` chỉ được nhận vào để
+ * compile chỉ là một chuỗi lệnh thuần, nên `features` chỉ được nhận vào để
  * khớp chữ ký gọi chung của `PrintCompiler`, không thực sự được dùng.
  */
 export class TsplCompiler implements PrintCompiler<string> {
@@ -324,7 +324,7 @@ export class TsplCompiler implements PrintCompiler<string> {
    * UTF-8 cho phần còn lại) mà package này chưa hỗ trợ — nằm ngoài phạm vi ở
    * đây; đây là ghi chú về một giới hạn đã biết, không phải một chỗ cần sửa.
    */
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToTSPL(document);
   }
 }

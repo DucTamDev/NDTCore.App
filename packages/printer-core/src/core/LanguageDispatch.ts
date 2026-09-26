@@ -1,7 +1,7 @@
 import type { ResolvedPrintDocument } from '../document';
-import type { PrinterProfile } from '../profile';
 import type { ValidationResult } from '../validation';
 import type { CompileResult } from './PrintCompiler';
+import type { PrinterFeatures } from './PrinterFeatures';
 import type { ParsedCommands } from './PrintParser';
 import type { PrinterLanguage } from './PrinterLanguage';
 import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
@@ -18,13 +18,13 @@ function lookup(language: PrinterLanguage, capability: string): PrinterLanguageD
   return definition;
 }
 
-/** Compile document sang ngôn ngữ `language`; `profile` chỉ dùng để chọn cách mã hoá chữ. */
+/** Compile document sang ngôn ngữ `language` cho máy in có năng lực `features`. */
 export function compileTo(
   language: PrinterLanguage,
   document: ResolvedPrintDocument,
-  profile?: PrinterProfile,
+  features?: PrinterFeatures,
 ): CompileResult<string | Uint8Array> {
-  return lookup(language, 'compiler').compiler.compile(document, profile?.features);
+  return lookup(language, 'compiler').compiler.compile(document, features);
 }
 
 /** `source` phải đúng dạng compiler của ngôn ngữ đó sinh ra: byte cho ESC/POS và Star PRNT, chuỗi cho còn lại. */

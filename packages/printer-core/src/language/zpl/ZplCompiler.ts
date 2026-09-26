@@ -12,7 +12,7 @@ import type {
   CutElement,
   TableElement,
 } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation } from '../../types';
@@ -334,11 +334,11 @@ export function compileToZPL(document: ResolvedPrintDocument): CompileResult<str
 }
 
 /**
- * ZPL không có bước code-page/byte-encoding riêng (khác ESC/POS) nên `encoding`
+ * ZPL không có bước code-page/byte-encoding riêng (khác ESC/POS) nên `features`
  * chỉ nhận vào để khớp chữ ký chung của `PrintCompiler`, không được dùng.
  */
 export class ZplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToZPL(document);
   }
 }

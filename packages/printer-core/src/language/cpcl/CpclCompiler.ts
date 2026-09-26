@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import type { BarcodeSymbology } from '../../symbology/barcode';
 import type { QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import { CompileWarnings } from '../CompileWarnings';
@@ -235,11 +235,11 @@ export function compileToCPCL(document: ResolvedPrintDocument): CompileResult<st
 
 /**
  * CPCL không có bước code-page/byte-encoding nào (khác với ESC/POS) — output
- * đã biên dịch của nó chỉ là chuỗi lệnh thuần, nên `encoding` chỉ được nhận
+ * đã biên dịch của nó chỉ là chuỗi lệnh thuần, nên `features` chỉ được nhận
  * vào để khớp chữ ký gọi dùng chung của `PrintCompiler`, không thực sự dùng.
  */
 export class CpclCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToCPCL(document);
   }
 }

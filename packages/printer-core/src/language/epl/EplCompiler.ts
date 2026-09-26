@@ -7,7 +7,7 @@ import type {
   LineOptions,
   TableOptions,
 } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import type { BarcodeSymbology, BarcodeConfig } from '../../symbology/barcode';
 import type { QrCodeConfig, QrErrorCorrectionLevel } from '../../symbology/qrcode';
 import type { Rotation, Bitmap } from '../../types';
@@ -239,7 +239,7 @@ export function compileToEPL(document: ResolvedPrintDocument): CompileResult<str
 }
 
 /**
- * EPL2 không có bước mã hoá code-page/byte riêng — `encoding` chỉ nhận vào để
+ * EPL2 không có bước mã hoá code-page/byte riêng — `features` chỉ nhận vào để
  * khớp chữ ký chung của `PrintCompiler`, không thực sự được dùng.
  *
  * Giới hạn: khi tài liệu có phần tử `image`, chuỗi trả về xen kẽ văn bản
@@ -248,7 +248,7 @@ export function compileToEPL(document: ResolvedPrintDocument): CompileResult<str
  * này qua một bộ mã hoá UTF-8 ngây thơ khi chuyển thành byte truyền dây.
  */
 export class EplCompiler implements PrintCompiler<string> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<string> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<string> {
     return compileToEPL(document);
   }
 }

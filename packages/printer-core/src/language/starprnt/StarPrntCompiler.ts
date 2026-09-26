@@ -1,6 +1,6 @@
 import type { ResolvedPrintDocument } from '../../document';
 import type { PrintElement, TextOptions } from '../../document/elements';
-import type { CompileResult, PrintCompiler, TextEncodingOptions } from '../../core';
+import type { CompileResult, PrintCompiler, PrinterFeatures } from '../../core';
 import {
   STAR_PRNT,
   STAR_PRNT_ALIGN_VALUE,
@@ -155,11 +155,11 @@ function compileElement(element: PrintElement, warnings: CompileWarnings): Uint8
  * động phát `ESC d 1` ở cuối) — nếu không, `CutOptions.mode: 'off'` sẽ không
  * thể thoả mãn và document tự đặt `cut` sẽ bị cắt 2 lần.
  *
- * `_encoding` chỉ để khớp chữ ký `PrintCompiler` chung, không được đọc — xem
+ * `_features` chỉ để khớp chữ ký `PrintCompiler` chung, không được đọc — xem
  * `compileTextElement` (đầu ra văn bản luôn UTF-8).
  */
 export class StarPrntCompiler implements PrintCompiler<Uint8Array> {
-  compile(document: ResolvedPrintDocument, _encoding?: TextEncodingOptions): CompileResult<Uint8Array> {
+  compile(document: ResolvedPrintDocument, _features?: PrinterFeatures): CompileResult<Uint8Array> {
     const chunks: Uint8Array[] = [new Uint8Array([STAR_PRNT.ESC, STAR_PRNT.INIT])];
     const warnings = new CompileWarnings(STAR_PRNT_LANGUAGE_NAME);
 
