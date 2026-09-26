@@ -104,7 +104,7 @@ src/
 │   │   TextMeasurement.ts, TypographyProfile.ts, index.ts
 │
 ├── document/
-│   ├── PrintDocument.ts, PrintDocumentOptions.ts, ResolvedPrintDocument.ts,
+│   ├── PrintDocument.ts, ResolvedPrintDocument.ts,
 │   │   PrintElementType.ts, index.ts    # KHÔNG đổi vị trí (đã ở document/)
 │   │
 │   └── elements/                # MỚI — gộp builder/PrintElement.ts +
