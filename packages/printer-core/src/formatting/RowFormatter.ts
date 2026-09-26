@@ -41,8 +41,3 @@ export function alignText(text: string, width: number, align: "left" | "center" 
       return truncated + " ".repeat(padding);
   }
 }
-
-export function padRight(text: string, width: number): string {
-  if (text.length >= width) return text.slice(0, width);
-  return text + " ".repeat(width - text.length);
-}
