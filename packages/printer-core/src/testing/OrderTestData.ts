@@ -1,4 +1,4 @@
-import { defineTemplateData, defineCollection } from '../template/data';
+import { defineCollection, defineTemplateData } from '../template/data';
 
 /** Topping của 1 món trong data test. */
 export interface TestTopping {

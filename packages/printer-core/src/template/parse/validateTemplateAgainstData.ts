@@ -1,3 +1,6 @@
+import type { Condition } from '../content/Condition';
+import type { Segment } from '../content/Segment';
+import type { ValueFormat } from '../content/ValueFormat';
 import {
   BUILT_IN_VARIABLE_SCOPES,
   createTemplateDataIndex,
@@ -7,9 +10,6 @@ import {
   type TemplateDataIndex,
   type VariableType,
 } from '../data';
-import type { Condition } from '../content/Condition';
-import type { Segment } from '../content/Segment';
-import type { ValueFormat } from '../content/ValueFormat';
 import type { ImageNode } from '../nodes/ImageNode';
 import type { RepeatNode } from '../nodes/RepeatNode';
 import type { TemplateNode } from '../nodes/TemplateNode';

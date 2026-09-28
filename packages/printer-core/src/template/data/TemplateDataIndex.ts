@@ -1,4 +1,4 @@
-import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
+import type { CollectionDescription, TemplateDataDescription, VariableDescription } from './TemplateDataDescription';
 
 /** 1 biến trong bảng tra, kèm collection sở hữu. */
 export interface IndexedVariable {

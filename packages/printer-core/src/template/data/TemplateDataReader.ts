@@ -23,7 +23,7 @@ export function createTemplateDataReader(
   collections: CollectionDefinitionMap<unknown>,
 ): TemplateDataReader {
   const lookup: NameLookup = { variables: new Map(), collections: new Map() };
-  registerScope(lookup, variables, collections);
+  addScope(lookup, variables, collections);
 
   return {
     readVariable: (name, source) => readVariableByName(lookup, name, source),
@@ -31,20 +31,20 @@ export function createTemplateDataReader(
   };
 }
 
-function registerScope(
+function addScope(
   lookup: NameLookup,
   variables: VariableDefinitionMap<unknown>,
   collections: CollectionDefinitionMap<unknown>,
 ): void {
-  for (const [name, spec] of Object.entries(variables)) {
+  for (const [name, definition] of Object.entries(variables)) {
     assertNameAvailable(lookup, name);
-    lookup.variables.set(name, spec);
+    lookup.variables.set(name, definition);
   }
 
   for (const [name, collection] of Object.entries(collections)) {
     assertNameAvailable(lookup, name);
     lookup.collections.set(name, collection);
-    registerScope(lookup, collection.variables, collection.collections);
+    addScope(lookup, collection.variables, collection.collections);
   }
 }
 
@@ -63,9 +63,9 @@ function readVariableByName(
   name: string,
   source: unknown,
 ): unknown {
-  const spec = lookup.variables.get(name);
-  if (!spec) throw new Error(`Dữ liệu template không có biến "${name}"`);
-  return spec.get(source);
+  const definition = lookup.variables.get(name);
+  if (!definition) throw new Error(`Dữ liệu template không có biến "${name}"`);
+  return definition.get(source);
 }
 
 function readCollectionByName(

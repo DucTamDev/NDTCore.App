@@ -1,5 +1,5 @@
-import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { ImageNode, RepeatNode, TemplateDocument, TemplateNode } from '../template';
+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { AssetProvider } from './AssetProvider';
 import { readCollectionItems } from './readRepeatEntries';
 import { readVariableValue } from './readVariable';

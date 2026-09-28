@@ -1,6 +1,6 @@
-import type { TemplateDataDefinition, TemplateDataDefinitionInput } from './TemplateDataDefinition';
 import type { CollectionDefinitionMap, EmptyCollectionMap } from './CollectionDefinition';
 import { describeTemplateData } from './describeTemplateData';
+import type { TemplateDataDefinition, TemplateDataDefinitionInput } from './TemplateDataDefinition';
 import { createTemplateDataReader } from './TemplateDataReader';
 import type { VariableDefinitionMap } from './VariableDefinition';
 

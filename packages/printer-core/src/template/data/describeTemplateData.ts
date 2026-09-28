@@ -1,6 +1,6 @@
-import type { TemplateDataDefinition } from './TemplateDataDefinition';
 import type { CollectionDefinitionMap } from './CollectionDefinition';
-import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
+import type { TemplateDataDefinition } from './TemplateDataDefinition';
+import type { CollectionDescription, TemplateDataDescription, VariableDescription } from './TemplateDataDescription';
 import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
 
 /** Metadata JSON thuần (bỏ mọi hàm `get`) của phần khai báo, cho designer/BE và cho validate template. */
@@ -16,7 +16,7 @@ export function describeTemplateData(
 }
 
 function describeVariables(variables: VariableDefinitionMap<unknown>): readonly VariableDescription[] {
-  return Object.entries(variables).map(([name, spec]) => describeVariable(name, spec));
+  return Object.entries(variables).map(([name, definition]) => describeVariable(name, definition));
 }
 
 function describeCollections(collections: CollectionDefinitionMap<unknown>): readonly CollectionDescription[] {
@@ -28,12 +28,12 @@ function describeCollections(collections: CollectionDefinitionMap<unknown>): rea
   }));
 }
 
-function describeVariable(name: string, spec: VariableDefinition<unknown>): VariableDescription {
+function describeVariable(name: string, definition: VariableDefinition<unknown>): VariableDescription {
   return {
     name,
-    label: spec.label,
-    type: spec.type,
-    optional: spec.optional ?? false,
-    ...(spec.deprecated !== undefined ? { deprecated: spec.deprecated } : {}),
+    label: definition.label,
+    type: definition.type,
+    optional: definition.optional ?? false,
+    ...(definition.deprecated !== undefined ? { deprecated: definition.deprecated } : {}),
   };
 }

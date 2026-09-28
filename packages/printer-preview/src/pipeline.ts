@@ -5,10 +5,10 @@ import {
   paperSizeToDots,
   previewFor,
   type AssetProvider,
-  type TemplateDataDefinition,
   type PrinterLanguage,
   type ResolvedPage,
   type ResolvedPrintDocument,
+  type TemplateDataDefinition,
   type TemplateDocument,
   type TypographyProfile,
 } from 'printer-core';

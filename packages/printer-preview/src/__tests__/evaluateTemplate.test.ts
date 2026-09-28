@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { evaluateTemplate } from '../evaluateTemplate';
 
 const TEMPLATE_DATA_CODE = `
-  import { defineTemplateData, defineCollection } from 'printer-core';
+  import { defineCollection, defineTemplateData } from 'printer-core';
 
   const items = defineCollection({
     label: 'Món',

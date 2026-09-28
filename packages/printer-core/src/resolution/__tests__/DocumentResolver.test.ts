@@ -1,6 +1,6 @@
 import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
-import { defineTemplateData, defineCollection } from '../../template/data';
 import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
+import { defineCollection, defineTemplateData } from '../../template/data';
 import {
   TEST_ORDER_DATA,
   TEST_ORDER_SAMPLE,

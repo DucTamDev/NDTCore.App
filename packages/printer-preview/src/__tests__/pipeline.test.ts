@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { column, defineTemplateData, defineCollection, labelTemplate, receiptTemplate, text } from 'printer-core';
+import { column, defineCollection, defineTemplateData, labelTemplate, receiptTemplate, text } from 'printer-core';
 import { defaultLanguageFor, renderPreviews } from '../pipeline';
 
 interface DemoData {

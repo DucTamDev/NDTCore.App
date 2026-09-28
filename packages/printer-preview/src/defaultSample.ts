@@ -1,7 +1,7 @@
 export const defaultCode = `import {
   column,
-  defineTemplateData,
   defineCollection,
+  defineTemplateData,
   eq,
   gt,
   insets,

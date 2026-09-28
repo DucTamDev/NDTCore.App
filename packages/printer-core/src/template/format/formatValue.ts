@@ -1,5 +1,5 @@
-import type { VariableType } from '../data';
 import type { ValueFormat } from '../content/ValueFormat';
+import type { VariableType } from '../data';
 import { formatCurrency } from './formatCurrency';
 import { formatDateTime } from './formatDateTime';
 import { formatNumber } from './formatNumber';

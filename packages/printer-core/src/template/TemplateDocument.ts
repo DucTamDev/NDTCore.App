@@ -29,7 +29,7 @@ export interface TemplateDocument {
   /** Tên hiển thị, VD 'Tem món mặc định'. */
   readonly name: string;
 
-  /** Mã dữ liệu template mà template dùng biến, VD 'product-label'. */
+  /** Mã `TemplateDataDefinition` cung cấp biến cho template, VD 'product-label'. */
   readonly dataId: string;
 
   /** Loại giấy. */

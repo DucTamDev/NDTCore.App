@@ -1,6 +1,6 @@
-import type { BuiltInVariableName } from '../data';
 import type { VariableSegment } from '../content/Segment';
 import type { ValueFormat } from '../content/ValueFormat';
+import type { BuiltInVariableName } from '../data';
 import type { TemplateNodeBuilder } from './NodeBuilder';
 import { RepeatBuilder, type RepeatOptions } from './RepeatBuilder';
 

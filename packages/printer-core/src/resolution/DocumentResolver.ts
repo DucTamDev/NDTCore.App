@@ -1,5 +1,5 @@
-import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { TemplateDocument, TemplateNode } from '../template';
+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { AssetProvider } from './AssetProvider';
 import { planPages } from './planPages';
 import { COUNTING_PAGE, createRootFrame, type PagePart, type ResolveContext } from './ResolveContext';
@@ -16,11 +16,14 @@ export interface ResolveOptions<TData> {
   readonly assets: AssetProvider;
 }
 
-/** Ghép template với data qua dữ liệu template: giá trị biến, format, ẩn/hiện, lặp/expand/phân trang, tra ảnh. */
+/**
+ * Ghép template với data của app theo định nghĩa dữ liệu template: giá trị biến, format, ẩn/hiện,
+ * lặp/expand/phân trang, tra ảnh.
+ */
 export class DocumentResolver {
   /**
    * Resolve thành các trang; lỗi data (thiếu biến bắt buộc, thiếu ảnh...) được cô lập theo trang.
-   * Throw nếu template không dùng dữ liệu template được truyền vào — đó là lỗi lập trình, không phải lỗi data.
+   * Throw nếu `template.dataId` khác `options.templateData.id` — đó là lỗi lập trình, không phải lỗi data.
    */
   resolve<TData>(
     template: TemplateDocument,

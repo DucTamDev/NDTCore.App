@@ -1,4 +1,4 @@
-import { defineTemplateData, defineCollection } from '..';
+import { defineCollection, defineTemplateData } from '..';
 import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../../testing';
 
 describe('defineTemplateData', () => {

@@ -3,7 +3,7 @@ import type { TemplateDataDescription } from './TemplateDataDescription';
 import type { TemplateDataReader } from './TemplateDataReader';
 import type { VariableDefinitionMap } from './VariableDefinition';
 
-/** TemplateDataDefinition đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
+/** Dữ liệu template đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
 export interface TemplateDataDefinition<
   TData,
   TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
@@ -36,7 +36,7 @@ export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
   /** Phiên bản dữ liệu template. */
   readonly version: number;
 
-  /** Data mẫu cho preview/designer; kiểu data của dữ liệu template suy ra từ field này. */
+  /** Data mẫu cho preview/designer; kiểu data suy ra từ field này. */
   readonly sample: TData;
 
   /** Biến gốc. */
