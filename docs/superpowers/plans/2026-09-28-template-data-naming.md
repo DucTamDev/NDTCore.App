@@ -6,7 +6,7 @@
 
 **Architecture:**
 - **Task 1:** thay `CatalogRegistry` bằng `TemplateDataReader` (+ `describeTemplateData`), còn trong thư mục `catalog/`.
-- **Task 2:** `git mv` thư mục/file và đổi mọi tên kiểu/hàm/hằng + đường import (không đụng `catalog` viết thường).
+- **Task 2:** `git mv` thư mục `catalog/` thành `template/data/` cùng các file và đổi mọi tên kiểu/hàm/hằng + đường import (không đụng `catalog` viết thường).
 - **Task 3:** field JSON `catalog` → `dataId`, biến/tham số/option `catalog` → `templateData`, câu lỗi, comment, README, quy ước code trong `printer-preview`.
 - Kết quả resolve/layout/compile/preview không đổi; test hiện có là bằng chứng.
 
@@ -126,7 +126,7 @@ Các trường hợp spec ngụ ý nhưng dễ bị bỏ sót, xếp theo khả 
 
 | # | Spec | Plan | Lý do |
 |---|---|---|---|
-| 1 | `TemplateDataReader`, `createTemplateDataReader` thay registry | Chỉ `type TemplateDataReader` export qua barrel; `createTemplateDataReader` và `describeTemplateData` dùng nội bộ thư mục `template-data/` | Registry/`describeCatalog` trước đây cũng không export; không có nơi nào ngoài thư mục cần gọi |
+| 1 | `TemplateDataReader`, `createTemplateDataReader` thay registry | Chỉ `type TemplateDataReader` export qua barrel; `createTemplateDataReader` và `describeTemplateData` dùng nội bộ thư mục `template/data/` | Registry/`describeCatalog` trước đây cũng không export; không có nơi nào ngoài thư mục cần gọi |
 | 2 | "Tổng số test không đổi" | +4 test (`TemplateDataReader.test.ts`): 315 → 319 | Reader là file mới có logic riêng (tra tên, báo trùng); test trực tiếp thay vì chỉ qua `defineTemplateData` |
 | 3 | Resolver dùng `TemplateDataDefinition` | Field `ResolveContext.templateData: TemplateDataDefinition<unknown>` (bỏ alias `CatalogReader`) | Đúng spec; ghi rõ vì `DocumentResolver` nhận `TemplateDataDefinition<TData>` và gán vào context kiểu `unknown` |
 | 4 | — | Câu lỗi resolver/validate: `Template dùng dữ liệu "x", không phải "y"`, `dữ liệu template không có biến/collection …` | Spec chỉ nêu câu lỗi của reader; các câu còn lại đổi theo cùng cách |
@@ -530,14 +530,14 @@ Expected: line-length không in gì; commit thành công đúng 2 dòng message;
 Chỉ đổi định danh viết hoa/hàm/hằng và đường import. Từ `catalog` viết thường (biến, tham số, field JSON, comment) để Task 3.
 
 **Files:**
-- Move: `catalog/` → `template-data/`; trong đó `Catalog.ts` → `TemplateDataDefinition.ts`, `CatalogCollection.ts` → `CollectionDefinition.ts`, `CatalogDescription.ts` → `TemplateDataDescription.ts`, `CatalogIndex.ts` → `TemplateDataIndex.ts`, `VariableSpec.ts` → `VariableDefinition.ts`, `defineCatalog.ts` → `defineTemplateData.ts`, `__tests__/CatalogIndex.test.ts` → `__tests__/TemplateDataIndex.test.ts`, `__tests__/defineCatalog.test.ts` → `__tests__/defineTemplateData.test.ts`; `template/parse/validateTemplateAgainstCatalog.ts` (+ test) → `validateTemplateAgainstData.ts`; `testing/OrderTestCatalog.ts` → `testing/OrderTestData.ts`
+- Move: `catalog/` → `template/data/`; trong đó `Catalog.ts` → `TemplateDataDefinition.ts`, `CatalogCollection.ts` → `CollectionDefinition.ts`, `CatalogDescription.ts` → `TemplateDataDescription.ts`, `CatalogIndex.ts` → `TemplateDataIndex.ts`, `VariableSpec.ts` → `VariableDefinition.ts`, `defineCatalog.ts` → `defineTemplateData.ts`, `__tests__/CatalogIndex.test.ts` → `__tests__/TemplateDataIndex.test.ts`, `__tests__/defineCatalog.test.ts` → `__tests__/defineTemplateData.test.ts`; `template/parse/validateTemplateAgainstCatalog.ts` (+ test) → `validateTemplateAgainstData.ts`; `testing/OrderTestCatalog.ts` → `testing/OrderTestData.ts`
 - Modify: mọi file import/dùng các tên cũ trong `packages/printer-core/src` và `packages/printer-preview/src` (danh sách đủ ở khối `git add` của Step 5)
 
 (Đường dẫn tính từ `packages/printer-core/src/` nếu không ghi khác.)
 
 **Interfaces:**
 - Consumes: `TemplateDataReader` (Task 1).
-- Produces (tên mới, barrel `template-data`, được `src/index.ts` export):
+- Produces (tên mới, barrel `template/data`, được `template/index.ts` export; `src/index.ts` bỏ `export * from './catalog'`):
   - `TemplateDataDefinition<TData, TVariables, TCollections>` (extends `TemplateDataReader`), `TemplateDataDefinitionInput`, `defineTemplateData()`.
   - `CollectionDefinition`, `CollectionDefinitionInput` (input của `defineCollection`), `CollectionDefinitionMap`, `EmptyCollectionMap`, `defineCollection()`.
   - `VariableDefinition`, `VariableDefinitionMap`, `TemplateDataDescription`, `TemplateDataIndex`, `createTemplateDataIndex`.
@@ -547,15 +547,15 @@ Chỉ đổi định danh viết hoa/hàm/hằng và đường import. Từ `cat
 - [ ] **Step 1: Chuyển file bằng git mv**
 
 ```bash
-git mv packages/printer-core/src/catalog packages/printer-core/src/template-data
-git mv packages/printer-core/src/template-data/Catalog.ts packages/printer-core/src/template-data/TemplateDataDefinition.ts
-git mv packages/printer-core/src/template-data/CatalogCollection.ts packages/printer-core/src/template-data/CollectionDefinition.ts
-git mv packages/printer-core/src/template-data/CatalogDescription.ts packages/printer-core/src/template-data/TemplateDataDescription.ts
-git mv packages/printer-core/src/template-data/CatalogIndex.ts packages/printer-core/src/template-data/TemplateDataIndex.ts
-git mv packages/printer-core/src/template-data/VariableSpec.ts packages/printer-core/src/template-data/VariableDefinition.ts
-git mv packages/printer-core/src/template-data/defineCatalog.ts packages/printer-core/src/template-data/defineTemplateData.ts
-git mv packages/printer-core/src/template-data/__tests__/CatalogIndex.test.ts packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts
-git mv packages/printer-core/src/template-data/__tests__/defineCatalog.test.ts packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts
+git mv packages/printer-core/src/catalog packages/printer-core/src/template/data
+git mv packages/printer-core/src/template/data/Catalog.ts packages/printer-core/src/template/data/TemplateDataDefinition.ts
+git mv packages/printer-core/src/template/data/CatalogCollection.ts packages/printer-core/src/template/data/CollectionDefinition.ts
+git mv packages/printer-core/src/template/data/CatalogDescription.ts packages/printer-core/src/template/data/TemplateDataDescription.ts
+git mv packages/printer-core/src/template/data/CatalogIndex.ts packages/printer-core/src/template/data/TemplateDataIndex.ts
+git mv packages/printer-core/src/template/data/VariableSpec.ts packages/printer-core/src/template/data/VariableDefinition.ts
+git mv packages/printer-core/src/template/data/defineCatalog.ts packages/printer-core/src/template/data/defineTemplateData.ts
+git mv packages/printer-core/src/template/data/__tests__/CatalogIndex.test.ts packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts
+git mv packages/printer-core/src/template/data/__tests__/defineCatalog.test.ts packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts
 git mv packages/printer-core/src/template/parse/validateTemplateAgainstCatalog.ts packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
 git mv packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstCatalog.test.ts packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstData.test.ts
 git mv packages/printer-core/src/testing/OrderTestCatalog.ts packages/printer-core/src/testing/OrderTestData.ts
@@ -574,7 +574,7 @@ Expected: nhiều lỗi `Cannot find module` (đường import cũ tới `catalo
 
 - [ ] **Step 3: Áp patch `t2`**
 
-Patch đổi toàn bộ định danh theo bảng của spec (đổi `CollectionDefinition` cũ thành `CollectionDefinitionInput` trước khi `CatalogCollection` nhận tên `CollectionDefinition`), đường import `…/catalog` → `…/template-data`, bỏ alias `CatalogReader`, và xuống dòng 2 chỗ vượt 120 ký tự vì tên dài hơn.
+Patch đổi toàn bộ định danh theo bảng của spec (đổi `CollectionDefinition` cũ thành `CollectionDefinitionInput` trước khi `CatalogCollection` nhận tên `CollectionDefinition`), đường import tới `catalog` → đường tương đối tới `template/data`, `template/index.ts` export `./data` và `src/index.ts` bỏ export `./catalog`, test trong `template/data/__tests__` đi tới `testing/` sâu thêm 1 cấp, bỏ alias `CatalogReader`, và xuống dòng 2 chỗ vượt 120 ký tự vì tên dài hơn.
 
 ```bash
 node -e "const s=require('fs').readFileSync('docs/superpowers/plans/2026-09-28-template-data-naming.md','utf8').replace(/\r\n/g,'\n');const k='<!-- patch:'+process.argv[1]+' -->\n~~~diff\n';const i=s.indexOf(k);if(i<0)throw new Error('không thấy patch '+process.argv[1]);const b=s.slice(i+k.length);process.stdout.write(b.slice(0,b.indexOf('\n~~~\n')+1))" t2 | git apply --ignore-whitespace -
@@ -636,25 +636,24 @@ index bc065c8..921c13f 100644
      });
  
 diff --git a/packages/printer-core/src/index.ts b/packages/printer-core/src/index.ts
-index add46fb..f704119 100644
+index add46fb..491b020 100644
 --- a/packages/printer-core/src/index.ts
 +++ b/packages/printer-core/src/index.ts
-@@ -10,7 +10,7 @@ export * from './preview';
+@@ -10,7 +10,6 @@ export * from './preview';
  export * from './validation';
  export * from './registry';
  export * from './convert';
 -export * from './catalog';
-+export * from './template-data';
  export * from './template';
  export * from './resolution';
  export * from './layout';
 diff --git a/packages/printer-core/src/resolution/DocumentResolver.ts b/packages/printer-core/src/resolution/DocumentResolver.ts
-index 32f6fd5..1d2a80c 100644
+index 32f6fd5..cd350f1 100644
 --- a/packages/printer-core/src/resolution/DocumentResolver.ts
 +++ b/packages/printer-core/src/resolution/DocumentResolver.ts
 @@ -1,4 +1,4 @@
 -import { createCatalogIndex, type Catalog } from '../catalog';
-+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template-data';
++import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
  import type { TemplateDocument, TemplateNode } from '../template';
  import type { AssetProvider } from './AssetProvider';
  import { planPages } from './planPages';
@@ -679,12 +678,12 @@ index 32f6fd5..1d2a80c 100644
        frames: [createRootFrame(data)],
        page: COUNTING_PAGE,
 diff --git a/packages/printer-core/src/resolution/ResolveContext.ts b/packages/printer-core/src/resolution/ResolveContext.ts
-index ac43f09..0876e3f 100644
+index ac43f09..5583307 100644
 --- a/packages/printer-core/src/resolution/ResolveContext.ts
 +++ b/packages/printer-core/src/resolution/ResolveContext.ts
 @@ -1,9 +1,6 @@
 -import type { Catalog, CatalogIndex } from '../catalog';
-+import type { TemplateDataDefinition, TemplateDataIndex } from '../template-data';
++import type { TemplateDataDefinition, TemplateDataIndex } from '../template/data';
  import type { AssetProvider } from './AssetProvider';
  
 -/** Phần catalog mà resolver cần — không phụ thuộc kiểu data. */
@@ -709,13 +708,13 @@ index ac43f09..0876e3f 100644
    /** Nguồn tra bitmap ảnh. */
    readonly assets: AssetProvider;
 diff --git a/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts b/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
-index d3ee5eb..bace53d 100644
+index d3ee5eb..ea60be8 100644
 --- a/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
 +++ b/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
 @@ -1,8 +1,8 @@
  import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
 -import { defineCatalog, defineCollection } from '../../catalog';
-+import { defineTemplateData, defineCollection } from '../../template-data';
++import { defineTemplateData, defineCollection } from '../../template/data';
  import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
  import {
 -  TEST_ORDER_CATALOG,
@@ -780,12 +779,12 @@ index 35c0449..550952b 100644
    });
  });
 diff --git a/packages/printer-core/src/resolution/collectAssetIds.ts b/packages/printer-core/src/resolution/collectAssetIds.ts
-index 093040f..c1a043f 100644
+index 093040f..3eb585c 100644
 --- a/packages/printer-core/src/resolution/collectAssetIds.ts
 +++ b/packages/printer-core/src/resolution/collectAssetIds.ts
 @@ -1,4 +1,4 @@
 -import { createCatalogIndex, type Catalog } from '../catalog';
-+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template-data';
++import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
  import type { ImageNode, RepeatNode, TemplateDocument, TemplateNode } from '../template';
  import type { AssetProvider } from './AssetProvider';
  import { readCollectionItems } from './readRepeatEntries';
@@ -834,7 +833,7 @@ index 924b349..1ca8a99 100644
      throw new ResolveError(node.id, `expand "${expand}" phải là số nguyên dương, nhận "${String(count)}"`);
    }
 diff --git a/packages/printer-core/src/resolution/readVariable.ts b/packages/printer-core/src/resolution/readVariable.ts
-index d119156..4d52564 100644
+index d119156..a9dd0c5 100644
 --- a/packages/printer-core/src/resolution/readVariable.ts
 +++ b/packages/printer-core/src/resolution/readVariable.ts
 @@ -3,7 +3,7 @@ import {
@@ -842,7 +841,7 @@ index d119156..4d52564 100644
    type BuiltInVariableName,
    type VariableType,
 -} from '../catalog';
-+} from '../template-data';
++} from '../template/data';
  import { findScopeFrame, innermostFrame, type ResolveContext } from './ResolveContext';
  import { errorMessage, ResolveError } from './ResolveError';
  
@@ -864,420 +863,14 @@ index d119156..4d52564 100644
    nodeId: string,
    name: string,
    read: () => unknown,
-diff --git a/packages/printer-core/src/template-data/CollectionDefinition.ts b/packages/printer-core/src/template-data/CollectionDefinition.ts
-index cd578f6..621243d 100644
---- a/packages/printer-core/src/template-data/CollectionDefinition.ts
-+++ b/packages/printer-core/src/template-data/CollectionDefinition.ts
-@@ -1,11 +1,11 @@
--import type { VariableSpecMap } from './VariableSpec';
-+import type { VariableDefinitionMap } from './VariableDefinition';
- 
- /** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
--export interface CatalogCollection<
-+export interface CollectionDefinition<
-   TSource,
-   TItem,
--  TVariables extends VariableSpecMap<TItem> = VariableSpecMap<TItem>,
--  TCollections extends CatalogCollectionMap<TItem> = CatalogCollectionMap<TItem>,
-+  TVariables extends VariableDefinitionMap<TItem> = VariableDefinitionMap<TItem>,
-+  TCollections extends CollectionDefinitionMap<TItem> = CollectionDefinitionMap<TItem>,
- > {
-   /** Tên hiển thị, VD 'Danh sách món'. */
-   readonly label: string;
-@@ -21,15 +21,15 @@ export interface CatalogCollection<
- }
- 
- /** Tập collection theo tên của 1 scope. */
--export interface CatalogCollectionMap<TSource> {
--  readonly [name: string]: CatalogCollection<TSource, unknown>;
-+export interface CollectionDefinitionMap<TSource> {
-+  readonly [name: string]: CollectionDefinition<TSource, unknown>;
- }
- 
- /** Tập collection rỗng — kiểu mặc định khi scope không có collection con. */
- export type EmptyCollectionMap = Readonly<Record<never, never>>;
- 
--/** Input của `defineCollection`: giống `CatalogCollection` nhưng được bỏ trống `collections`. */
--export interface CollectionDefinition<TSource, TItem, TVariables, TCollections> {
-+/** Input của `defineCollection`: giống `CollectionDefinition` nhưng được bỏ trống `collections`. */
-+export interface CollectionDefinitionInput<TSource, TItem, TVariables, TCollections> {
-   /** Tên hiển thị, VD 'Danh sách món'. */
-   readonly label: string;
- 
-@@ -50,12 +50,12 @@ export interface CollectionDefinition<TSource, TItem, TVariables, TCollections>
- export function defineCollection<
-   TSource,
-   TItem,
--  TVariables extends VariableSpecMap<TItem>,
--  TCollections extends CatalogCollectionMap<TItem> = EmptyCollectionMap,
-+  TVariables extends VariableDefinitionMap<TItem>,
-+  TCollections extends CollectionDefinitionMap<TItem> = EmptyCollectionMap,
- >(
--  definition: CollectionDefinition<TSource, TItem, TVariables, TCollections>,
--): NoInfer<CatalogCollection<TSource, TItem, TVariables, TCollections>> {
--  // NoInfer: khi khai báo lồng trong defineCatalog, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
-+  definition: CollectionDefinitionInput<TSource, TItem, TVariables, TCollections>,
-+): NoInfer<CollectionDefinition<TSource, TItem, TVariables, TCollections>> {
-+  // NoInfer: khi khai báo lồng trong defineTemplateData, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
-   // và sẽ lấn át kiểu suy từ `get` nếu không chặn.
-   return {
-     label: definition.label,
-diff --git a/packages/printer-core/src/template-data/TemplateDataDefinition.ts b/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-index 769a60d..bb5e99f 100644
---- a/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-@@ -1,13 +1,13 @@
--import type { CatalogCollectionMap } from './CatalogCollection';
--import type { CatalogDescription } from './CatalogDescription';
-+import type { CollectionDefinitionMap } from './CollectionDefinition';
-+import type { TemplateDataDescription } from './TemplateDataDescription';
- import type { TemplateDataReader } from './TemplateDataReader';
--import type { VariableSpecMap } from './VariableSpec';
-+import type { VariableDefinitionMap } from './VariableDefinition';
- 
--/** Catalog đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
--export interface Catalog<
-+/** TemplateDataDefinition đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
-+export interface TemplateDataDefinition<
-   TData,
--  TVariables extends VariableSpecMap<TData> = VariableSpecMap<TData>,
--  TCollections extends CatalogCollectionMap<TData> = CatalogCollectionMap<TData>,
-+  TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
-+  TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
- > extends TemplateDataReader {
-   /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
-   readonly id: string;
-@@ -25,11 +25,11 @@ export interface Catalog<
-   readonly collections: TCollections;
- 
-   /** Metadata JSON thuần (không có hàm) cho designer/BE và cho validate template. */
--  describe(): CatalogDescription;
-+  describe(): TemplateDataDescription;
- }
- 
--/** Input của `defineCatalog`. */
--export interface CatalogDefinition<TData, TVariables, TCollections> {
-+/** Input của `defineTemplateData`. */
-+export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
-   /** Mã catalog, VD 'product-label'. */
-   readonly id: string;
- 
-diff --git a/packages/printer-core/src/template-data/TemplateDataDescription.ts b/packages/printer-core/src/template-data/TemplateDataDescription.ts
-index 24339c4..17a6033 100644
---- a/packages/printer-core/src/template-data/TemplateDataDescription.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataDescription.ts
-@@ -34,7 +34,7 @@ export interface CollectionDescription {
- }
- 
- /** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
--export interface CatalogDescription {
-+export interface TemplateDataDescription {
-   /** Mã catalog, khớp với `TemplateDocument.catalog`. */
-   readonly id: string;
- 
-diff --git a/packages/printer-core/src/template-data/TemplateDataIndex.ts b/packages/printer-core/src/template-data/TemplateDataIndex.ts
-index ff1b336..8e8448d 100644
---- a/packages/printer-core/src/template-data/TemplateDataIndex.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataIndex.ts
-@@ -1,4 +1,4 @@
--import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
-+import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
- 
- /** 1 biến trong bảng tra, kèm collection sở hữu. */
- export interface IndexedVariable {
-@@ -19,7 +19,7 @@ export interface IndexedCollection {
- }
- 
- /** Bảng tra phẳng theo tên, dựng từ metadata — dùng chung cho resolver, validate và designer/BE. */
--export interface CatalogIndex {
-+export interface TemplateDataIndex {
-   /** Mọi biến ở mọi cấp, theo tên. */
-   readonly variables: ReadonlyMap<string, IndexedVariable>;
- 
-@@ -27,20 +27,20 @@ export interface CatalogIndex {
-   readonly collections: ReadonlyMap<string, IndexedCollection>;
- }
- 
--interface MutableCatalogIndex {
-+interface MutableTemplateDataIndex {
-   readonly variables: Map<string, IndexedVariable>;
-   readonly collections: Map<string, IndexedCollection>;
- }
- 
- /** Dựng bảng tra từ `catalog.describe()`. */
--export function createCatalogIndex(description: CatalogDescription): CatalogIndex {
--  const index: MutableCatalogIndex = { variables: new Map(), collections: new Map() };
-+export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
-+  const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
-   indexScope(index, description.variables, description.collections, null);
-   return index;
- }
- 
- function indexScope(
--  index: MutableCatalogIndex,
-+  index: MutableTemplateDataIndex,
-   variables: readonly VariableDescription[],
-   collections: readonly CollectionDescription[],
-   owner: string | null,
-diff --git a/packages/printer-core/src/template-data/TemplateDataReader.ts b/packages/printer-core/src/template-data/TemplateDataReader.ts
-index 3db8ac9..a2616d0 100644
---- a/packages/printer-core/src/template-data/TemplateDataReader.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataReader.ts
-@@ -1,6 +1,6 @@
- import { RESERVED_NAME_PREFIX } from './BuiltInVariable';
--import type { CatalogCollection, CatalogCollectionMap } from './CatalogCollection';
--import type { VariableSpec, VariableSpecMap } from './VariableSpec';
-+import type { CollectionDefinition, CollectionDefinitionMap } from './CollectionDefinition';
-+import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
- 
- /** Đọc giá trị biến/collection theo tên lúc chạy — resolver chỉ biết tên, không biết kiểu data. */
- export interface TemplateDataReader {
-@@ -13,14 +13,14 @@ export interface TemplateDataReader {
- 
- /** Bảng tra phẳng tên → khai báo ở mọi cấp. */
- interface NameLookup {
--  readonly variables: Map<string, VariableSpec<unknown>>;
--  readonly collections: Map<string, CatalogCollection<unknown, unknown>>;
-+  readonly variables: Map<string, VariableDefinition<unknown>>;
-+  readonly collections: Map<string, CollectionDefinition<unknown, unknown>>;
- }
- 
- /** Dựng reader từ biến/collection đã khai báo; throw nếu tên trùng ở bất kỳ cấp nào hoặc dùng tiền tố `$`. */
- export function createTemplateDataReader(
--  variables: VariableSpecMap<unknown>,
--  collections: CatalogCollectionMap<unknown>,
-+  variables: VariableDefinitionMap<unknown>,
-+  collections: CollectionDefinitionMap<unknown>,
- ): TemplateDataReader {
-   const lookup: NameLookup = { variables: new Map(), collections: new Map() };
-   registerScope(lookup, variables, collections);
-@@ -33,8 +33,8 @@ export function createTemplateDataReader(
- 
- function registerScope(
-   lookup: NameLookup,
--  variables: VariableSpecMap<unknown>,
--  collections: CatalogCollectionMap<unknown>,
-+  variables: VariableDefinitionMap<unknown>,
-+  collections: CollectionDefinitionMap<unknown>,
- ): void {
-   for (const [name, spec] of Object.entries(variables)) {
-     assertNameAvailable(lookup, name);
-diff --git a/packages/printer-core/src/template-data/VariableDefinition.ts b/packages/printer-core/src/template-data/VariableDefinition.ts
-index 15392be..8ed8213 100644
---- a/packages/printer-core/src/template-data/VariableDefinition.ts
-+++ b/packages/printer-core/src/template-data/VariableDefinition.ts
-@@ -1,7 +1,7 @@
- import type { VariableType } from './VariableType';
- 
- /** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
--export interface VariableSpec<TSource> {
-+export interface VariableDefinition<TSource> {
-   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
-   readonly label: string;
- 
-@@ -23,4 +23,4 @@ export interface VariableSpec<TSource> {
- }
- 
- /** Tập biến theo tên của 1 scope (data gốc hoặc phần tử của 1 collection). */
--export type VariableSpecMap<TSource> = Readonly<Record<string, VariableSpec<TSource>>>;
-+export type VariableDefinitionMap<TSource> = Readonly<Record<string, VariableDefinition<TSource>>>;
-diff --git a/packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts b/packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts
-index b586153..3fa19e3 100644
---- a/packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts
-+++ b/packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts
-@@ -1,8 +1,8 @@
--import { createCatalogIndex, isBuiltInVariableName } from '..';
--import { TEST_ORDER_CATALOG } from '../../testing';
-+import { createTemplateDataIndex, isBuiltInVariableName } from '..';
-+import { TEST_ORDER_DATA } from '../../testing';
- 
--describe('createCatalogIndex', () => {
--  const index = createCatalogIndex(TEST_ORDER_CATALOG.describe());
-+describe('createTemplateDataIndex', () => {
-+  const index = createTemplateDataIndex(TEST_ORDER_DATA.describe());
- 
-   it('ghi collection sở hữu của từng biến', () => {
-     expect(index.variables.get('orderCode')?.collection).toBeNull();
-diff --git a/packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts b/packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts
-index f5be1cf..9f342ca 100644
---- a/packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts
-+++ b/packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts
-@@ -1,24 +1,24 @@
--import { defineCatalog, defineCollection } from '..';
--import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE } from '../../testing';
-+import { defineTemplateData, defineCollection } from '..';
-+import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../testing';
- 
--describe('defineCatalog', () => {
-+describe('defineTemplateData', () => {
-   it('đọc giá trị biến gốc và biến tính toán của collection', () => {
-     const firstItem = TEST_ORDER_SAMPLE.items[0];
- 
--    expect(TEST_ORDER_CATALOG.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
--    expect(TEST_ORDER_CATALOG.readVariable('itemTotal', firstItem)).toBe(135000);
-+    expect(TEST_ORDER_DATA.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
-+    expect(TEST_ORDER_DATA.readVariable('itemTotal', firstItem)).toBe(135000);
-   });
- 
-   it('đọc mảng phần tử của collection cấp 1 và collection lồng', () => {
-     const firstItem = TEST_ORDER_SAMPLE.items[0];
- 
--    expect(TEST_ORDER_CATALOG.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
--    expect(TEST_ORDER_CATALOG.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
-+    expect(TEST_ORDER_DATA.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
-+    expect(TEST_ORDER_DATA.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
-   });
- 
-   it('throw khi đọc biến hoặc collection không tồn tại', () => {
--    expect(() => TEST_ORDER_CATALOG.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
--    expect(() => TEST_ORDER_CATALOG.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
-+    expect(() => TEST_ORDER_DATA.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
-+    expect(() => TEST_ORDER_DATA.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
-       'không có collection "missing"',
-     );
-   });
-@@ -31,7 +31,7 @@ describe('defineCatalog', () => {
-     });
- 
-     expect(() =>
--      defineCatalog({
-+      defineTemplateData({
-         id: 'duplicate',
-         version: 1,
-         sample: { name: 'A', items: [] as readonly string[] },
-@@ -49,7 +49,7 @@ describe('defineCatalog', () => {
-     });
- 
-     expect(() =>
--      defineCatalog({
-+      defineTemplateData({
-         id: 'duplicate',
-         version: 1,
-         sample: { items: [] as readonly string[] },
-@@ -61,7 +61,7 @@ describe('defineCatalog', () => {
- 
-   it('throw khi tên biến bắt đầu bằng "$"', () => {
-     expect(() =>
--      defineCatalog({
-+      defineTemplateData({
-         id: 'reserved',
-         version: 1,
-         sample: {},
-@@ -71,7 +71,7 @@ describe('defineCatalog', () => {
-   });
- 
-   it('describe() trả metadata JSON thuần, không lộ hàm get', () => {
--    const description = TEST_ORDER_CATALOG.describe();
-+    const description = TEST_ORDER_DATA.describe();
- 
-     expect(JSON.parse(JSON.stringify(description))).toEqual(description);
-     expect(description.variables.map((variable) => variable.name)).toEqual([
-diff --git a/packages/printer-core/src/template-data/defineTemplateData.ts b/packages/printer-core/src/template-data/defineTemplateData.ts
-index ed018d3..7856f73 100644
---- a/packages/printer-core/src/template-data/defineTemplateData.ts
-+++ b/packages/printer-core/src/template-data/defineTemplateData.ts
-@@ -1,18 +1,20 @@
--import type { Catalog, CatalogDefinition } from './Catalog';
--import type { CatalogCollectionMap, EmptyCollectionMap } from './CatalogCollection';
-+import type { TemplateDataDefinition, TemplateDataDefinitionInput } from './TemplateDataDefinition';
-+import type { CollectionDefinitionMap, EmptyCollectionMap } from './CollectionDefinition';
- import { describeTemplateData } from './describeTemplateData';
- import { createTemplateDataReader } from './TemplateDataReader';
--import type { VariableSpecMap } from './VariableSpec';
-+import type { VariableDefinitionMap } from './VariableDefinition';
- 
- /**
-  * Khai báo catalog cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
-  * Throw ngay nếu tên biến/collection trùng ở bất kỳ cấp nào hoặc bắt đầu bằng `$`.
-  */
--export function defineCatalog<
-+export function defineTemplateData<
-   TData,
--  TVariables extends VariableSpecMap<TData>,
--  TCollections extends CatalogCollectionMap<TData> = EmptyCollectionMap,
-->(definition: CatalogDefinition<TData, TVariables, TCollections>): Catalog<TData, TVariables, TCollections> {
-+  TVariables extends VariableDefinitionMap<TData>,
-+  TCollections extends CollectionDefinitionMap<TData> = EmptyCollectionMap,
-+>(
-+  definition: TemplateDataDefinitionInput<TData, TVariables, TCollections>,
-+): TemplateDataDefinition<TData, TVariables, TCollections> {
-   const collections = definition.collections ?? ({} as TCollections);
-   const reader = createTemplateDataReader(definition.variables, collections);
-   const description = describeTemplateData({
-diff --git a/packages/printer-core/src/template-data/describeTemplateData.ts b/packages/printer-core/src/template-data/describeTemplateData.ts
-index f68c393..92fc967 100644
---- a/packages/printer-core/src/template-data/describeTemplateData.ts
-+++ b/packages/printer-core/src/template-data/describeTemplateData.ts
-@@ -1,12 +1,12 @@
--import type { Catalog } from './Catalog';
--import type { CatalogCollectionMap } from './CatalogCollection';
--import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
--import type { VariableSpec, VariableSpecMap } from './VariableSpec';
-+import type { TemplateDataDefinition } from './TemplateDataDefinition';
-+import type { CollectionDefinitionMap } from './CollectionDefinition';
-+import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
-+import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
- 
- /** Metadata JSON thuần (bỏ mọi hàm `get`) của phần khai báo, cho designer/BE và cho validate template. */
- export function describeTemplateData(
--  definition: Pick<Catalog<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
--): CatalogDescription {
-+  definition: Pick<TemplateDataDefinition<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
-+): TemplateDataDescription {
-   return {
-     id: definition.id,
-     version: definition.version,
-@@ -15,11 +15,11 @@ export function describeTemplateData(
-   };
- }
- 
--function describeVariables(variables: VariableSpecMap<unknown>): readonly VariableDescription[] {
-+function describeVariables(variables: VariableDefinitionMap<unknown>): readonly VariableDescription[] {
-   return Object.entries(variables).map(([name, spec]) => describeVariable(name, spec));
- }
- 
--function describeCollections(collections: CatalogCollectionMap<unknown>): readonly CollectionDescription[] {
-+function describeCollections(collections: CollectionDefinitionMap<unknown>): readonly CollectionDescription[] {
-   return Object.entries(collections).map(([name, collection]) => ({
-     name,
-     label: collection.label,
-@@ -28,7 +28,7 @@ function describeCollections(collections: CatalogCollectionMap<unknown>): readon
-   }));
- }
- 
--function describeVariable(name: string, spec: VariableSpec<unknown>): VariableDescription {
-+function describeVariable(name: string, spec: VariableDefinition<unknown>): VariableDescription {
-   return {
-     name,
-     label: spec.label,
-diff --git a/packages/printer-core/src/template-data/index.ts b/packages/printer-core/src/template-data/index.ts
-index c97be1d..b33e12f 100644
---- a/packages/printer-core/src/template-data/index.ts
-+++ b/packages/printer-core/src/template-data/index.ts
-@@ -1,9 +1,9 @@
- export * from './VariableType';
--export * from './VariableSpec';
--export * from './CatalogCollection';
--export * from './CatalogDescription';
--export * from './Catalog';
-+export * from './VariableDefinition';
-+export * from './CollectionDefinition';
-+export * from './TemplateDataDescription';
-+export * from './TemplateDataDefinition';
- export * from './BuiltInVariable';
--export * from './CatalogIndex';
-+export * from './TemplateDataIndex';
- export type { TemplateDataReader } from './TemplateDataReader';
--export { defineCatalog } from './defineCatalog';
-+export { defineTemplateData } from './defineTemplateData';
 diff --git a/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts b/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
-index 1108ccd..3d02c13 100644
+index 1108ccd..ffc9430 100644
 --- a/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
 +++ b/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
 @@ -1,5 +1,5 @@
 -import type { CatalogDescription } from '../../catalog';
 -import { validateTemplateAgainstCatalog, validateTemplateStructure, type TemplateIssue } from '../parse';
-+import type { TemplateDataDescription } from '../../template-data';
++import type { TemplateDataDescription } from '../data';
 +import { validateTemplateAgainstData, validateTemplateStructure, type TemplateIssue } from '../parse';
  import {
    TEMPLATE_SCHEMA_VERSION,
@@ -1383,12 +976,12 @@ index 1108ccd..3d02c13 100644
    return new TemplateDocumentBuilder(catalog, 'receipt');
  }
 diff --git a/packages/printer-core/src/template/builder/TemplateScope.ts b/packages/printer-core/src/template/builder/TemplateScope.ts
-index 20705e1..7f95392 100644
+index 20705e1..deeb526 100644
 --- a/packages/printer-core/src/template/builder/TemplateScope.ts
 +++ b/packages/printer-core/src/template/builder/TemplateScope.ts
 @@ -1,4 +1,4 @@
 -import type { BuiltInVariableName } from '../../catalog';
-+import type { BuiltInVariableName } from '../../template-data';
++import type { BuiltInVariableName } from '../data';
  import type { VariableSegment } from '../content/Segment';
  import type { ValueFormat } from '../content/ValueFormat';
  import type { TemplateNodeBuilder } from './NodeBuilder';
@@ -1488,16 +1081,432 @@ index edb4ec9..54591bb 100644
    type RootScope,
    type PaperFor,
    type RootContent,
+diff --git a/packages/printer-core/src/template/data/CollectionDefinition.ts b/packages/printer-core/src/template/data/CollectionDefinition.ts
+index cd578f6..621243d 100644
+--- a/packages/printer-core/src/template/data/CollectionDefinition.ts
++++ b/packages/printer-core/src/template/data/CollectionDefinition.ts
+@@ -1,11 +1,11 @@
+-import type { VariableSpecMap } from './VariableSpec';
++import type { VariableDefinitionMap } from './VariableDefinition';
+ 
+ /** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
+-export interface CatalogCollection<
++export interface CollectionDefinition<
+   TSource,
+   TItem,
+-  TVariables extends VariableSpecMap<TItem> = VariableSpecMap<TItem>,
+-  TCollections extends CatalogCollectionMap<TItem> = CatalogCollectionMap<TItem>,
++  TVariables extends VariableDefinitionMap<TItem> = VariableDefinitionMap<TItem>,
++  TCollections extends CollectionDefinitionMap<TItem> = CollectionDefinitionMap<TItem>,
+ > {
+   /** Tên hiển thị, VD 'Danh sách món'. */
+   readonly label: string;
+@@ -21,15 +21,15 @@ export interface CatalogCollection<
+ }
+ 
+ /** Tập collection theo tên của 1 scope. */
+-export interface CatalogCollectionMap<TSource> {
+-  readonly [name: string]: CatalogCollection<TSource, unknown>;
++export interface CollectionDefinitionMap<TSource> {
++  readonly [name: string]: CollectionDefinition<TSource, unknown>;
+ }
+ 
+ /** Tập collection rỗng — kiểu mặc định khi scope không có collection con. */
+ export type EmptyCollectionMap = Readonly<Record<never, never>>;
+ 
+-/** Input của `defineCollection`: giống `CatalogCollection` nhưng được bỏ trống `collections`. */
+-export interface CollectionDefinition<TSource, TItem, TVariables, TCollections> {
++/** Input của `defineCollection`: giống `CollectionDefinition` nhưng được bỏ trống `collections`. */
++export interface CollectionDefinitionInput<TSource, TItem, TVariables, TCollections> {
+   /** Tên hiển thị, VD 'Danh sách món'. */
+   readonly label: string;
+ 
+@@ -50,12 +50,12 @@ export interface CollectionDefinition<TSource, TItem, TVariables, TCollections>
+ export function defineCollection<
+   TSource,
+   TItem,
+-  TVariables extends VariableSpecMap<TItem>,
+-  TCollections extends CatalogCollectionMap<TItem> = EmptyCollectionMap,
++  TVariables extends VariableDefinitionMap<TItem>,
++  TCollections extends CollectionDefinitionMap<TItem> = EmptyCollectionMap,
+ >(
+-  definition: CollectionDefinition<TSource, TItem, TVariables, TCollections>,
+-): NoInfer<CatalogCollection<TSource, TItem, TVariables, TCollections>> {
+-  // NoInfer: khi khai báo lồng trong defineCatalog, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
++  definition: CollectionDefinitionInput<TSource, TItem, TVariables, TCollections>,
++): NoInfer<CollectionDefinition<TSource, TItem, TVariables, TCollections>> {
++  // NoInfer: khi khai báo lồng trong defineTemplateData, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
+   // và sẽ lấn át kiểu suy từ `get` nếu không chặn.
+   return {
+     label: definition.label,
+diff --git a/packages/printer-core/src/template/data/TemplateDataDefinition.ts b/packages/printer-core/src/template/data/TemplateDataDefinition.ts
+index 769a60d..bb5e99f 100644
+--- a/packages/printer-core/src/template/data/TemplateDataDefinition.ts
++++ b/packages/printer-core/src/template/data/TemplateDataDefinition.ts
+@@ -1,13 +1,13 @@
+-import type { CatalogCollectionMap } from './CatalogCollection';
+-import type { CatalogDescription } from './CatalogDescription';
++import type { CollectionDefinitionMap } from './CollectionDefinition';
++import type { TemplateDataDescription } from './TemplateDataDescription';
+ import type { TemplateDataReader } from './TemplateDataReader';
+-import type { VariableSpecMap } from './VariableSpec';
++import type { VariableDefinitionMap } from './VariableDefinition';
+ 
+-/** Catalog đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
+-export interface Catalog<
++/** TemplateDataDefinition đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
++export interface TemplateDataDefinition<
+   TData,
+-  TVariables extends VariableSpecMap<TData> = VariableSpecMap<TData>,
+-  TCollections extends CatalogCollectionMap<TData> = CatalogCollectionMap<TData>,
++  TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
++  TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
+ > extends TemplateDataReader {
+   /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
+   readonly id: string;
+@@ -25,11 +25,11 @@ export interface Catalog<
+   readonly collections: TCollections;
+ 
+   /** Metadata JSON thuần (không có hàm) cho designer/BE và cho validate template. */
+-  describe(): CatalogDescription;
++  describe(): TemplateDataDescription;
+ }
+ 
+-/** Input của `defineCatalog`. */
+-export interface CatalogDefinition<TData, TVariables, TCollections> {
++/** Input của `defineTemplateData`. */
++export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
+   /** Mã catalog, VD 'product-label'. */
+   readonly id: string;
+ 
+diff --git a/packages/printer-core/src/template/data/TemplateDataDescription.ts b/packages/printer-core/src/template/data/TemplateDataDescription.ts
+index 24339c4..17a6033 100644
+--- a/packages/printer-core/src/template/data/TemplateDataDescription.ts
++++ b/packages/printer-core/src/template/data/TemplateDataDescription.ts
+@@ -34,7 +34,7 @@ export interface CollectionDescription {
+ }
+ 
+ /** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
+-export interface CatalogDescription {
++export interface TemplateDataDescription {
+   /** Mã catalog, khớp với `TemplateDocument.catalog`. */
+   readonly id: string;
+ 
+diff --git a/packages/printer-core/src/template/data/TemplateDataIndex.ts b/packages/printer-core/src/template/data/TemplateDataIndex.ts
+index ff1b336..8e8448d 100644
+--- a/packages/printer-core/src/template/data/TemplateDataIndex.ts
++++ b/packages/printer-core/src/template/data/TemplateDataIndex.ts
+@@ -1,4 +1,4 @@
+-import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
++import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
+ 
+ /** 1 biến trong bảng tra, kèm collection sở hữu. */
+ export interface IndexedVariable {
+@@ -19,7 +19,7 @@ export interface IndexedCollection {
+ }
+ 
+ /** Bảng tra phẳng theo tên, dựng từ metadata — dùng chung cho resolver, validate và designer/BE. */
+-export interface CatalogIndex {
++export interface TemplateDataIndex {
+   /** Mọi biến ở mọi cấp, theo tên. */
+   readonly variables: ReadonlyMap<string, IndexedVariable>;
+ 
+@@ -27,20 +27,20 @@ export interface CatalogIndex {
+   readonly collections: ReadonlyMap<string, IndexedCollection>;
+ }
+ 
+-interface MutableCatalogIndex {
++interface MutableTemplateDataIndex {
+   readonly variables: Map<string, IndexedVariable>;
+   readonly collections: Map<string, IndexedCollection>;
+ }
+ 
+ /** Dựng bảng tra từ `catalog.describe()`. */
+-export function createCatalogIndex(description: CatalogDescription): CatalogIndex {
+-  const index: MutableCatalogIndex = { variables: new Map(), collections: new Map() };
++export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
++  const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
+   indexScope(index, description.variables, description.collections, null);
+   return index;
+ }
+ 
+ function indexScope(
+-  index: MutableCatalogIndex,
++  index: MutableTemplateDataIndex,
+   variables: readonly VariableDescription[],
+   collections: readonly CollectionDescription[],
+   owner: string | null,
+diff --git a/packages/printer-core/src/template/data/TemplateDataReader.ts b/packages/printer-core/src/template/data/TemplateDataReader.ts
+index 3db8ac9..a2616d0 100644
+--- a/packages/printer-core/src/template/data/TemplateDataReader.ts
++++ b/packages/printer-core/src/template/data/TemplateDataReader.ts
+@@ -1,6 +1,6 @@
+ import { RESERVED_NAME_PREFIX } from './BuiltInVariable';
+-import type { CatalogCollection, CatalogCollectionMap } from './CatalogCollection';
+-import type { VariableSpec, VariableSpecMap } from './VariableSpec';
++import type { CollectionDefinition, CollectionDefinitionMap } from './CollectionDefinition';
++import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
+ 
+ /** Đọc giá trị biến/collection theo tên lúc chạy — resolver chỉ biết tên, không biết kiểu data. */
+ export interface TemplateDataReader {
+@@ -13,14 +13,14 @@ export interface TemplateDataReader {
+ 
+ /** Bảng tra phẳng tên → khai báo ở mọi cấp. */
+ interface NameLookup {
+-  readonly variables: Map<string, VariableSpec<unknown>>;
+-  readonly collections: Map<string, CatalogCollection<unknown, unknown>>;
++  readonly variables: Map<string, VariableDefinition<unknown>>;
++  readonly collections: Map<string, CollectionDefinition<unknown, unknown>>;
+ }
+ 
+ /** Dựng reader từ biến/collection đã khai báo; throw nếu tên trùng ở bất kỳ cấp nào hoặc dùng tiền tố `$`. */
+ export function createTemplateDataReader(
+-  variables: VariableSpecMap<unknown>,
+-  collections: CatalogCollectionMap<unknown>,
++  variables: VariableDefinitionMap<unknown>,
++  collections: CollectionDefinitionMap<unknown>,
+ ): TemplateDataReader {
+   const lookup: NameLookup = { variables: new Map(), collections: new Map() };
+   registerScope(lookup, variables, collections);
+@@ -33,8 +33,8 @@ export function createTemplateDataReader(
+ 
+ function registerScope(
+   lookup: NameLookup,
+-  variables: VariableSpecMap<unknown>,
+-  collections: CatalogCollectionMap<unknown>,
++  variables: VariableDefinitionMap<unknown>,
++  collections: CollectionDefinitionMap<unknown>,
+ ): void {
+   for (const [name, spec] of Object.entries(variables)) {
+     assertNameAvailable(lookup, name);
+diff --git a/packages/printer-core/src/template/data/VariableDefinition.ts b/packages/printer-core/src/template/data/VariableDefinition.ts
+index 15392be..8ed8213 100644
+--- a/packages/printer-core/src/template/data/VariableDefinition.ts
++++ b/packages/printer-core/src/template/data/VariableDefinition.ts
+@@ -1,7 +1,7 @@
+ import type { VariableType } from './VariableType';
+ 
+ /** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
+-export interface VariableSpec<TSource> {
++export interface VariableDefinition<TSource> {
+   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
+   readonly label: string;
+ 
+@@ -23,4 +23,4 @@ export interface VariableSpec<TSource> {
+ }
+ 
+ /** Tập biến theo tên của 1 scope (data gốc hoặc phần tử của 1 collection). */
+-export type VariableSpecMap<TSource> = Readonly<Record<string, VariableSpec<TSource>>>;
++export type VariableDefinitionMap<TSource> = Readonly<Record<string, VariableDefinition<TSource>>>;
+diff --git a/packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts b/packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts
+index b586153..6615dc9 100644
+--- a/packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts
++++ b/packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts
+@@ -1,8 +1,8 @@
+-import { createCatalogIndex, isBuiltInVariableName } from '..';
+-import { TEST_ORDER_CATALOG } from '../../testing';
++import { createTemplateDataIndex, isBuiltInVariableName } from '..';
++import { TEST_ORDER_DATA } from '../../../testing';
+ 
+-describe('createCatalogIndex', () => {
+-  const index = createCatalogIndex(TEST_ORDER_CATALOG.describe());
++describe('createTemplateDataIndex', () => {
++  const index = createTemplateDataIndex(TEST_ORDER_DATA.describe());
+ 
+   it('ghi collection sở hữu của từng biến', () => {
+     expect(index.variables.get('orderCode')?.collection).toBeNull();
+diff --git a/packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts b/packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts
+index f5be1cf..fbb03d8 100644
+--- a/packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts
++++ b/packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts
+@@ -1,24 +1,24 @@
+-import { defineCatalog, defineCollection } from '..';
+-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE } from '../../testing';
++import { defineTemplateData, defineCollection } from '..';
++import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../../testing';
+ 
+-describe('defineCatalog', () => {
++describe('defineTemplateData', () => {
+   it('đọc giá trị biến gốc và biến tính toán của collection', () => {
+     const firstItem = TEST_ORDER_SAMPLE.items[0];
+ 
+-    expect(TEST_ORDER_CATALOG.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
+-    expect(TEST_ORDER_CATALOG.readVariable('itemTotal', firstItem)).toBe(135000);
++    expect(TEST_ORDER_DATA.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
++    expect(TEST_ORDER_DATA.readVariable('itemTotal', firstItem)).toBe(135000);
+   });
+ 
+   it('đọc mảng phần tử của collection cấp 1 và collection lồng', () => {
+     const firstItem = TEST_ORDER_SAMPLE.items[0];
+ 
+-    expect(TEST_ORDER_CATALOG.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
+-    expect(TEST_ORDER_CATALOG.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
++    expect(TEST_ORDER_DATA.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
++    expect(TEST_ORDER_DATA.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
+   });
+ 
+   it('throw khi đọc biến hoặc collection không tồn tại', () => {
+-    expect(() => TEST_ORDER_CATALOG.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
+-    expect(() => TEST_ORDER_CATALOG.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
++    expect(() => TEST_ORDER_DATA.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
++    expect(() => TEST_ORDER_DATA.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
+       'không có collection "missing"',
+     );
+   });
+@@ -31,7 +31,7 @@ describe('defineCatalog', () => {
+     });
+ 
+     expect(() =>
+-      defineCatalog({
++      defineTemplateData({
+         id: 'duplicate',
+         version: 1,
+         sample: { name: 'A', items: [] as readonly string[] },
+@@ -49,7 +49,7 @@ describe('defineCatalog', () => {
+     });
+ 
+     expect(() =>
+-      defineCatalog({
++      defineTemplateData({
+         id: 'duplicate',
+         version: 1,
+         sample: { items: [] as readonly string[] },
+@@ -61,7 +61,7 @@ describe('defineCatalog', () => {
+ 
+   it('throw khi tên biến bắt đầu bằng "$"', () => {
+     expect(() =>
+-      defineCatalog({
++      defineTemplateData({
+         id: 'reserved',
+         version: 1,
+         sample: {},
+@@ -71,7 +71,7 @@ describe('defineCatalog', () => {
+   });
+ 
+   it('describe() trả metadata JSON thuần, không lộ hàm get', () => {
+-    const description = TEST_ORDER_CATALOG.describe();
++    const description = TEST_ORDER_DATA.describe();
+ 
+     expect(JSON.parse(JSON.stringify(description))).toEqual(description);
+     expect(description.variables.map((variable) => variable.name)).toEqual([
+diff --git a/packages/printer-core/src/template/data/defineTemplateData.ts b/packages/printer-core/src/template/data/defineTemplateData.ts
+index ed018d3..7856f73 100644
+--- a/packages/printer-core/src/template/data/defineTemplateData.ts
++++ b/packages/printer-core/src/template/data/defineTemplateData.ts
+@@ -1,18 +1,20 @@
+-import type { Catalog, CatalogDefinition } from './Catalog';
+-import type { CatalogCollectionMap, EmptyCollectionMap } from './CatalogCollection';
++import type { TemplateDataDefinition, TemplateDataDefinitionInput } from './TemplateDataDefinition';
++import type { CollectionDefinitionMap, EmptyCollectionMap } from './CollectionDefinition';
+ import { describeTemplateData } from './describeTemplateData';
+ import { createTemplateDataReader } from './TemplateDataReader';
+-import type { VariableSpecMap } from './VariableSpec';
++import type { VariableDefinitionMap } from './VariableDefinition';
+ 
+ /**
+  * Khai báo catalog cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
+  * Throw ngay nếu tên biến/collection trùng ở bất kỳ cấp nào hoặc bắt đầu bằng `$`.
+  */
+-export function defineCatalog<
++export function defineTemplateData<
+   TData,
+-  TVariables extends VariableSpecMap<TData>,
+-  TCollections extends CatalogCollectionMap<TData> = EmptyCollectionMap,
+->(definition: CatalogDefinition<TData, TVariables, TCollections>): Catalog<TData, TVariables, TCollections> {
++  TVariables extends VariableDefinitionMap<TData>,
++  TCollections extends CollectionDefinitionMap<TData> = EmptyCollectionMap,
++>(
++  definition: TemplateDataDefinitionInput<TData, TVariables, TCollections>,
++): TemplateDataDefinition<TData, TVariables, TCollections> {
+   const collections = definition.collections ?? ({} as TCollections);
+   const reader = createTemplateDataReader(definition.variables, collections);
+   const description = describeTemplateData({
+diff --git a/packages/printer-core/src/template/data/describeTemplateData.ts b/packages/printer-core/src/template/data/describeTemplateData.ts
+index f68c393..92fc967 100644
+--- a/packages/printer-core/src/template/data/describeTemplateData.ts
++++ b/packages/printer-core/src/template/data/describeTemplateData.ts
+@@ -1,12 +1,12 @@
+-import type { Catalog } from './Catalog';
+-import type { CatalogCollectionMap } from './CatalogCollection';
+-import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
+-import type { VariableSpec, VariableSpecMap } from './VariableSpec';
++import type { TemplateDataDefinition } from './TemplateDataDefinition';
++import type { CollectionDefinitionMap } from './CollectionDefinition';
++import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
++import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
+ 
+ /** Metadata JSON thuần (bỏ mọi hàm `get`) của phần khai báo, cho designer/BE và cho validate template. */
+ export function describeTemplateData(
+-  definition: Pick<Catalog<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
+-): CatalogDescription {
++  definition: Pick<TemplateDataDefinition<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
++): TemplateDataDescription {
+   return {
+     id: definition.id,
+     version: definition.version,
+@@ -15,11 +15,11 @@ export function describeTemplateData(
+   };
+ }
+ 
+-function describeVariables(variables: VariableSpecMap<unknown>): readonly VariableDescription[] {
++function describeVariables(variables: VariableDefinitionMap<unknown>): readonly VariableDescription[] {
+   return Object.entries(variables).map(([name, spec]) => describeVariable(name, spec));
+ }
+ 
+-function describeCollections(collections: CatalogCollectionMap<unknown>): readonly CollectionDescription[] {
++function describeCollections(collections: CollectionDefinitionMap<unknown>): readonly CollectionDescription[] {
+   return Object.entries(collections).map(([name, collection]) => ({
+     name,
+     label: collection.label,
+@@ -28,7 +28,7 @@ function describeCollections(collections: CatalogCollectionMap<unknown>): readon
+   }));
+ }
+ 
+-function describeVariable(name: string, spec: VariableSpec<unknown>): VariableDescription {
++function describeVariable(name: string, spec: VariableDefinition<unknown>): VariableDescription {
+   return {
+     name,
+     label: spec.label,
+diff --git a/packages/printer-core/src/template/data/index.ts b/packages/printer-core/src/template/data/index.ts
+index c97be1d..b33e12f 100644
+--- a/packages/printer-core/src/template/data/index.ts
++++ b/packages/printer-core/src/template/data/index.ts
+@@ -1,9 +1,9 @@
+ export * from './VariableType';
+-export * from './VariableSpec';
+-export * from './CatalogCollection';
+-export * from './CatalogDescription';
+-export * from './Catalog';
++export * from './VariableDefinition';
++export * from './CollectionDefinition';
++export * from './TemplateDataDescription';
++export * from './TemplateDataDefinition';
+ export * from './BuiltInVariable';
+-export * from './CatalogIndex';
++export * from './TemplateDataIndex';
+ export type { TemplateDataReader } from './TemplateDataReader';
+-export { defineCatalog } from './defineCatalog';
++export { defineTemplateData } from './defineTemplateData';
 diff --git a/packages/printer-core/src/template/format/formatValue.ts b/packages/printer-core/src/template/format/formatValue.ts
-index 5219462..76e1e65 100644
+index 5219462..962fba0 100644
 --- a/packages/printer-core/src/template/format/formatValue.ts
 +++ b/packages/printer-core/src/template/format/formatValue.ts
 @@ -1,4 +1,4 @@
 -import type { VariableType } from '../../catalog';
-+import type { VariableType } from '../../template-data';
++import type { VariableType } from '../data';
  import type { ValueFormat } from '../content/ValueFormat';
  import { formatCurrency } from './formatCurrency';
  import { formatDateTime } from './formatDateTime';
+diff --git a/packages/printer-core/src/template/index.ts b/packages/printer-core/src/template/index.ts
+index d689576..0b6504d 100644
+--- a/packages/printer-core/src/template/index.ts
++++ b/packages/printer-core/src/template/index.ts
+@@ -1,4 +1,5 @@
+ export * from './TemplateDocument';
++export * from './data';
+ export * from './style/Length';
+ export * from './style/Dimension';
+ export * from './style/Insets';
 diff --git a/packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstData.test.ts b/packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstData.test.ts
 index 8664bfe..5208248 100644
 --- a/packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstData.test.ts
@@ -1585,7 +1594,7 @@ index c5c2d31..24aa374 100644
  export function parseTemplate(json: unknown): ParseResult {
    const issues = validateTemplateStructure(json);
 diff --git a/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts b/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
-index 6b9ea4f..daef071 100644
+index 6b9ea4f..d2da0a3 100644
 --- a/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
 +++ b/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
 @@ -1,12 +1,12 @@
@@ -1601,7 +1610,7 @@ index 6b9ea4f..daef071 100644
 +  type TemplateDataIndex,
    type VariableType,
 -} from '../../catalog';
-+} from '../../template-data';
++} from '../data';
  import type { Condition } from '../content/Condition';
  import type { Segment } from '../content/Segment';
  import type { ValueFormat } from '../content/ValueFormat';
@@ -1741,12 +1750,12 @@ index 6b9ea4f..daef071 100644
    path: string,
    scope: ValidationScope,
 diff --git a/packages/printer-core/src/testing/OrderTestData.ts b/packages/printer-core/src/testing/OrderTestData.ts
-index e61fd77..fcb1948 100644
+index e61fd77..17ef6e8 100644
 --- a/packages/printer-core/src/testing/OrderTestData.ts
 +++ b/packages/printer-core/src/testing/OrderTestData.ts
 @@ -1,4 +1,4 @@
 -import { defineCatalog, defineCollection } from '../catalog';
-+import { defineTemplateData, defineCollection } from '../template-data';
++import { defineTemplateData, defineCollection } from '../template/data';
  
  /** Topping của 1 món trong data test. */
  export interface TestTopping {
@@ -1926,22 +1935,23 @@ git add \
   packages/printer-core/src/resolution/collectAssetIds.ts \
   packages/printer-core/src/resolution/readRepeatEntries.ts \
   packages/printer-core/src/resolution/readVariable.ts \
-  packages/printer-core/src/template-data/CollectionDefinition.ts \
-  packages/printer-core/src/template-data/TemplateDataDefinition.ts \
-  packages/printer-core/src/template-data/TemplateDataDescription.ts \
-  packages/printer-core/src/template-data/TemplateDataIndex.ts \
-  packages/printer-core/src/template-data/TemplateDataReader.ts \
-  packages/printer-core/src/template-data/VariableDefinition.ts \
-  packages/printer-core/src/template-data/__tests__/TemplateDataIndex.test.ts \
-  packages/printer-core/src/template-data/__tests__/defineTemplateData.test.ts \
-  packages/printer-core/src/template-data/defineTemplateData.ts \
-  packages/printer-core/src/template-data/describeTemplateData.ts \
-  packages/printer-core/src/template-data/index.ts \
   packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts \
   packages/printer-core/src/template/builder/TemplateScope.ts \
   packages/printer-core/src/template/builder/__tests__/TemplateDocumentBuilder.test.ts \
   packages/printer-core/src/template/builder/index.ts \
+  packages/printer-core/src/template/data/CollectionDefinition.ts \
+  packages/printer-core/src/template/data/TemplateDataDefinition.ts \
+  packages/printer-core/src/template/data/TemplateDataDescription.ts \
+  packages/printer-core/src/template/data/TemplateDataIndex.ts \
+  packages/printer-core/src/template/data/TemplateDataReader.ts \
+  packages/printer-core/src/template/data/VariableDefinition.ts \
+  packages/printer-core/src/template/data/__tests__/TemplateDataIndex.test.ts \
+  packages/printer-core/src/template/data/__tests__/defineTemplateData.test.ts \
+  packages/printer-core/src/template/data/defineTemplateData.ts \
+  packages/printer-core/src/template/data/describeTemplateData.ts \
+  packages/printer-core/src/template/data/index.ts \
   packages/printer-core/src/template/format/formatValue.ts \
+  packages/printer-core/src/template/index.ts \
   packages/printer-core/src/template/parse/__tests__/validateTemplateAgainstData.test.ts \
   packages/printer-core/src/template/parse/index.ts \
   packages/printer-core/src/template/parse/parseTemplate.ts \
@@ -1966,7 +1976,7 @@ Expected: line-length không in gì; commit thành công đúng 2 dòng message;
 ### Task 3: Field JSON `dataId`, biến `templateData`, câu chữ và README
 
 **Files:**
-- Modify: `template/TemplateDocument.ts` (field `dataId`), `template/parse/validateTemplateStructure.ts`, `template/parse/validateTemplateAgainstData.ts`, `template/builder/TemplateDocumentBuilder.ts`, `resolution/DocumentResolver.ts`, `resolution/ResolveContext.ts`, `resolution/collectAssetIds.ts`, `resolution/readVariable.ts`, `resolution/readRepeatEntries.ts`, các file chỉ đổi comment trong `template-data/`, `template/`, `testing/`, `packages/printer-preview/src/{App.tsx,defaultSample.ts,evaluateTemplate.ts,pipeline.ts}`, `packages/printer-core/README.md`
+- Modify: `template/TemplateDocument.ts` (field `dataId`), `template/parse/validateTemplateStructure.ts`, `template/parse/validateTemplateAgainstData.ts`, `template/builder/TemplateDocumentBuilder.ts`, `resolution/DocumentResolver.ts`, `resolution/ResolveContext.ts`, `resolution/collectAssetIds.ts`, `resolution/readVariable.ts`, `resolution/readRepeatEntries.ts`, các file chỉ đổi comment trong `template/data/`, `template/`, `testing/`, `packages/printer-preview/src/{App.tsx,defaultSample.ts,evaluateTemplate.ts,pipeline.ts}`, `packages/printer-core/README.md`
 - Test: fixture `catalog: '…'` → `dataId: '…'`, option `catalog` → `templateData`, câu lỗi và tên test theo chữ mới trong `resolution/__tests__/*`, `template/**/__tests__/*`, `__tests__/template-pipeline-integration.test.ts`, `packages/printer-preview/src/__tests__/*`
 
 (Đường dẫn tính từ `packages/printer-core/src/` nếu không ghi khác.)
@@ -2020,7 +2030,7 @@ index 921c13f..b34ab3c 100644
      });
  
 diff --git a/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts b/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
-index bace53d..ae3f51d 100644
+index ea60be8..245b57b 100644
 --- a/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
 +++ b/packages/printer-core/src/resolution/__tests__/DocumentResolver.test.ts
 @@ -21,7 +21,7 @@ function documentWith(root: TemplateNode, media: TemplateMedia = 'receipt'): Tem
@@ -2345,7 +2355,7 @@ node -e "const s=require('fs').readFileSync('docs/superpowers/plans/2026-09-28-t
 <!-- patch:t3impl -->
 ~~~diff
 diff --git a/packages/printer-core/README.md b/packages/printer-core/README.md
-index 2888b4f..5a669ed 100644
+index 2888b4f..b610387 100644
 --- a/packages/printer-core/README.md
 +++ b/packages/printer-core/README.md
 @@ -5,13 +5,13 @@ Core thuần TypeScript cho feature máy in của NDTCorePOS, không dependency,
@@ -2369,9 +2379,9 @@ index 2888b4f..5a669ed 100644
  ├── index.ts
  ├── types/          # Alignment, Bitmap, Direction, Point, Rect, Rotation, Size, Unit
 -├── catalog/        # biến có tên theo loại nội dung: defineCatalog, defineCollection, CatalogIndex, biến có sẵn
-+├── template-data/  # biến có tên theo loại nội dung: defineTemplateData, defineCollection, TemplateDataReader,
-+│                   # TemplateDataIndex, biến có sẵn
  ├── template/       # TemplateDocument JSON độc lập DPI
++│   ├── data/       # dữ liệu template: defineTemplateData, defineCollection, TemplateDataReader,
++│   │               # TemplateDataIndex, biến có sẵn
  │   ├── style/      # Length, Dimension, Insets, BoxStyle, LayoutStyle, TextStyle
  │   ├── content/    # Segment, ValueFormat, Condition
  │   ├── nodes/      # TemplateNode và các node container/text/image/barcode/qrcode/line/repeat
@@ -2395,7 +2405,7 @@ index 2888b4f..5a669ed 100644
  
  Test đặt trong `__tests__/` cạnh file nguồn; test tích hợp ở `src/__tests__/`.
 diff --git a/packages/printer-core/src/resolution/DocumentResolver.ts b/packages/printer-core/src/resolution/DocumentResolver.ts
-index 1d2a80c..3e35868 100644
+index cd350f1..43b618a 100644
 --- a/packages/printer-core/src/resolution/DocumentResolver.ts
 +++ b/packages/printer-core/src/resolution/DocumentResolver.ts
 @@ -9,31 +9,31 @@ import { resolveNode } from './resolveNode';
@@ -2439,7 +2449,7 @@ index 1d2a80c..3e35868 100644
        frames: [createRootFrame(data)],
        page: COUNTING_PAGE,
 diff --git a/packages/printer-core/src/resolution/ResolveContext.ts b/packages/printer-core/src/resolution/ResolveContext.ts
-index 0876e3f..84e1e3f 100644
+index 5583307..45bd8a7 100644
 --- a/packages/printer-core/src/resolution/ResolveContext.ts
 +++ b/packages/printer-core/src/resolution/ResolveContext.ts
 @@ -61,9 +61,9 @@ export const COUNTING_PAGE: PageInfo = { pageNumber: 1, pageCount: 1 };
@@ -2455,7 +2465,7 @@ index 0876e3f..84e1e3f 100644
  
    /** Nguồn tra bitmap ảnh. */
 diff --git a/packages/printer-core/src/resolution/collectAssetIds.ts b/packages/printer-core/src/resolution/collectAssetIds.ts
-index c1a043f..850ac87 100644
+index 3eb585c..4d13897 100644
 --- a/packages/printer-core/src/resolution/collectAssetIds.ts
 +++ b/packages/printer-core/src/resolution/collectAssetIds.ts
 @@ -15,12 +15,12 @@ const NO_ASSETS: AssetProvider = { get: () => undefined };
@@ -2506,7 +2516,7 @@ index 1ca8a99..ae10095 100644
      throw new ResolveError(node.id, `expand "${expand}" phải là số nguyên dương, nhận "${String(count)}"`);
    }
 diff --git a/packages/printer-core/src/resolution/readVariable.ts b/packages/printer-core/src/resolution/readVariable.ts
-index 4d52564..5b40efc 100644
+index a9dd0c5..940b94f 100644
 --- a/packages/printer-core/src/resolution/readVariable.ts
 +++ b/packages/printer-core/src/resolution/readVariable.ts
 @@ -35,12 +35,12 @@ export function readVariableValue(
@@ -2536,173 +2546,6 @@ index 4d52564..5b40efc 100644
  export function readFromTemplateData(
    nodeId: string,
    name: string,
-diff --git a/packages/printer-core/src/template-data/BuiltInVariable.ts b/packages/printer-core/src/template-data/BuiltInVariable.ts
-index dd376cc..a6ced6c 100644
---- a/packages/printer-core/src/template-data/BuiltInVariable.ts
-+++ b/packages/printer-core/src/template-data/BuiltInVariable.ts
-@@ -1,4 +1,4 @@
--/** Tên các biến có sẵn, không cần khai báo trong catalog. */
-+/** Tên các biến có sẵn, không cần khai báo trong dữ liệu template. */
- export type BuiltInVariableName =
-   | '$position'
-   | '$total'
-@@ -12,7 +12,7 @@ export type BuiltInVariableName =
- /** Nơi dùng được 1 biến có sẵn: mọi chỗ / trong `repeat` / trong `repeat` có `expand`. */
- export type BuiltInVariableScope = 'document' | 'repeat' | 'expand';
- 
--/** Tiền tố dành riêng cho biến có sẵn — catalog không được đặt tên biến bắt đầu bằng ký tự này. */
-+/** Tiền tố dành riêng cho biến có sẵn — dữ liệu template không được đặt tên biến bắt đầu bằng ký tự này. */
- export const RESERVED_NAME_PREFIX = '$';
- 
- /** Scope hợp lệ của từng biến có sẵn. Mọi biến có sẵn đều có kiểu `number`. */
-diff --git a/packages/printer-core/src/template-data/CollectionDefinition.ts b/packages/printer-core/src/template-data/CollectionDefinition.ts
-index 621243d..a612569 100644
---- a/packages/printer-core/src/template-data/CollectionDefinition.ts
-+++ b/packages/printer-core/src/template-data/CollectionDefinition.ts
-@@ -1,6 +1,6 @@
- import type { VariableDefinitionMap } from './VariableDefinition';
- 
--/** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
-+/** 1 danh sách lặp được trong dữ liệu template (VD danh sách món), kèm biến và collection con của từng phần tử. */
- export interface CollectionDefinition<
-   TSource,
-   TItem,
-diff --git a/packages/printer-core/src/template-data/TemplateDataDefinition.ts b/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-index bb5e99f..6073e22 100644
---- a/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataDefinition.ts
-@@ -9,10 +9,10 @@ export interface TemplateDataDefinition<
-   TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
-   TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
- > extends TemplateDataReader {
--  /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
-+  /** Mã dữ liệu template, VD 'product-label'; template tham chiếu qua `TemplateDocument.dataId`. */
-   readonly id: string;
- 
--  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
-+  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
-   readonly version: number;
- 
-   /** Data mẫu cho preview/designer. */
-@@ -30,13 +30,13 @@ export interface TemplateDataDefinition<
- 
- /** Input của `defineTemplateData`. */
- export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
--  /** Mã catalog, VD 'product-label'. */
-+  /** Mã dữ liệu template, VD 'product-label'. */
-   readonly id: string;
- 
--  /** Phiên bản catalog. */
-+  /** Phiên bản dữ liệu template. */
-   readonly version: number;
- 
--  /** Data mẫu cho preview/designer; kiểu data của catalog suy ra từ field này. */
-+  /** Data mẫu cho preview/designer; kiểu data của dữ liệu template suy ra từ field này. */
-   readonly sample: TData;
- 
-   /** Biến gốc. */
-diff --git a/packages/printer-core/src/template-data/TemplateDataDescription.ts b/packages/printer-core/src/template-data/TemplateDataDescription.ts
-index 17a6033..a2c60d3 100644
---- a/packages/printer-core/src/template-data/TemplateDataDescription.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataDescription.ts
-@@ -2,7 +2,7 @@ import type { VariableType } from './VariableType';
- 
- /** Metadata JSON của 1 biến — không chứa hàm `get`, dùng được ở designer/BE. */
- export interface VariableDescription {
--  /** Tên biến, duy nhất trong toàn catalog. */
-+  /** Tên biến, duy nhất trong toàn dữ liệu template. */
-   readonly name: string;
- 
-   /** Tên hiển thị cho người dùng. */
-@@ -20,7 +20,7 @@ export interface VariableDescription {
- 
- /** Metadata JSON của 1 collection và toàn bộ biến/collection con của nó. */
- export interface CollectionDescription {
--  /** Tên collection, duy nhất trong toàn catalog. */
-+  /** Tên collection, duy nhất trong toàn dữ liệu template. */
-   readonly name: string;
- 
-   /** Tên hiển thị cho người dùng. */
-@@ -33,12 +33,12 @@ export interface CollectionDescription {
-   readonly collections: readonly CollectionDescription[];
- }
- 
--/** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
-+/** Metadata JSON của cả dữ liệu template — kết quả của `templateData.describe()`. */
- export interface TemplateDataDescription {
--  /** Mã catalog, khớp với `TemplateDocument.catalog`. */
-+  /** Mã dữ liệu template, khớp với `TemplateDocument.dataId`. */
-   readonly id: string;
- 
--  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
-+  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
-   readonly version: number;
- 
-   /** Biến gốc, dùng được ở mọi chỗ trong template. */
-diff --git a/packages/printer-core/src/template-data/TemplateDataIndex.ts b/packages/printer-core/src/template-data/TemplateDataIndex.ts
-index 8e8448d..da27c27 100644
---- a/packages/printer-core/src/template-data/TemplateDataIndex.ts
-+++ b/packages/printer-core/src/template-data/TemplateDataIndex.ts
-@@ -2,7 +2,7 @@ import type { TemplateDataDescription, CollectionDescription, VariableDescriptio
- 
- /** 1 biến trong bảng tra, kèm collection sở hữu. */
- export interface IndexedVariable {
--  /** Metadata của biến lấy từ `catalog.describe()`. */
-+  /** Metadata của biến lấy từ `templateData.describe()`. */
-   readonly description: VariableDescription;
- 
-   /** Tên collection sở hữu biến; `null` là biến gốc. */
-@@ -11,7 +11,7 @@ export interface IndexedVariable {
- 
- /** 1 collection trong bảng tra, kèm collection cha. */
- export interface IndexedCollection {
--  /** Metadata của collection lấy từ `catalog.describe()`. */
-+  /** Metadata của collection lấy từ `templateData.describe()`. */
-   readonly description: CollectionDescription;
- 
-   /** Tên collection cha; `null` là collection cấp 1. */
-@@ -32,7 +32,7 @@ interface MutableTemplateDataIndex {
-   readonly collections: Map<string, IndexedCollection>;
- }
- 
--/** Dựng bảng tra từ `catalog.describe()`. */
-+/** Dựng bảng tra từ `templateData.describe()`. */
- export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
-   const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
-   indexScope(index, description.variables, description.collections, null);
-diff --git a/packages/printer-core/src/template-data/VariableDefinition.ts b/packages/printer-core/src/template-data/VariableDefinition.ts
-index 8ed8213..7472a8d 100644
---- a/packages/printer-core/src/template-data/VariableDefinition.ts
-+++ b/packages/printer-core/src/template-data/VariableDefinition.ts
-@@ -1,6 +1,6 @@
- import type { VariableType } from './VariableType';
- 
--/** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
-+/** Khai báo 1 biến trong dữ liệu template: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
- export interface VariableDefinition<TSource> {
-   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
-   readonly label: string;
-diff --git a/packages/printer-core/src/template-data/VariableType.ts b/packages/printer-core/src/template-data/VariableType.ts
-index 163301c..0c4090b 100644
---- a/packages/printer-core/src/template-data/VariableType.ts
-+++ b/packages/printer-core/src/template-data/VariableType.ts
-@@ -1,2 +1,2 @@
--/** Kiểu giá trị của 1 biến catalog — quyết định format mặc định và luật validate template. */
-+/** Kiểu giá trị của 1 biến dữ liệu template — quyết định format mặc định và luật validate template. */
- export type VariableType = 'string' | 'number' | 'money' | 'datetime' | 'boolean' | 'asset';
-diff --git a/packages/printer-core/src/template-data/defineTemplateData.ts b/packages/printer-core/src/template-data/defineTemplateData.ts
-index 7856f73..e25cbf5 100644
---- a/packages/printer-core/src/template-data/defineTemplateData.ts
-+++ b/packages/printer-core/src/template-data/defineTemplateData.ts
-@@ -5,7 +5,7 @@ import { createTemplateDataReader } from './TemplateDataReader';
- import type { VariableDefinitionMap } from './VariableDefinition';
- 
- /**
-- * Khai báo catalog cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
-+ * Khai báo dữ liệu template cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
-  * Throw ngay nếu tên biến/collection trùng ở bất kỳ cấp nào hoặc bắt đầu bằng `$`.
-  */
- export function defineTemplateData<
 diff --git a/packages/printer-core/src/template/TemplateDocument.ts b/packages/printer-core/src/template/TemplateDocument.ts
 index 00651f1..a6bd653 100644
 --- a/packages/printer-core/src/template/TemplateDocument.ts
@@ -2732,7 +2575,7 @@ index 0b950a3..9466f82 100644
  
    /** Tên biến kiểu `number` của collection để nhân mỗi phần tử thành bấy nhiêu bản sao. */
 diff --git a/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts b/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
-index 3d02c13..e76e256 100644
+index ffc9430..dd116bc 100644
 --- a/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
 +++ b/packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts
 @@ -10,7 +10,7 @@ import { TemplateNodeIdGenerator, type BuildContext } from './BuildContext';
@@ -2825,7 +2668,7 @@ index 3d02c13..e76e256 100644
 +  return new TemplateDocumentBuilder(templateData, 'receipt');
  }
 diff --git a/packages/printer-core/src/template/builder/TemplateScope.ts b/packages/printer-core/src/template/builder/TemplateScope.ts
-index 7f95392..8d2a1ce 100644
+index deeb526..7cc11f0 100644
 --- a/packages/printer-core/src/template/builder/TemplateScope.ts
 +++ b/packages/printer-core/src/template/builder/TemplateScope.ts
 @@ -19,7 +19,7 @@ export type RepeatScope<TNames extends string, TCollections, TName extends NameO
@@ -2850,6 +2693,173 @@ index 13b3356..5eb10ac 100644
  export interface VariableSegment {
    /** Tên biến. */
    readonly var: string;
+diff --git a/packages/printer-core/src/template/data/BuiltInVariable.ts b/packages/printer-core/src/template/data/BuiltInVariable.ts
+index dd376cc..a6ced6c 100644
+--- a/packages/printer-core/src/template/data/BuiltInVariable.ts
++++ b/packages/printer-core/src/template/data/BuiltInVariable.ts
+@@ -1,4 +1,4 @@
+-/** Tên các biến có sẵn, không cần khai báo trong catalog. */
++/** Tên các biến có sẵn, không cần khai báo trong dữ liệu template. */
+ export type BuiltInVariableName =
+   | '$position'
+   | '$total'
+@@ -12,7 +12,7 @@ export type BuiltInVariableName =
+ /** Nơi dùng được 1 biến có sẵn: mọi chỗ / trong `repeat` / trong `repeat` có `expand`. */
+ export type BuiltInVariableScope = 'document' | 'repeat' | 'expand';
+ 
+-/** Tiền tố dành riêng cho biến có sẵn — catalog không được đặt tên biến bắt đầu bằng ký tự này. */
++/** Tiền tố dành riêng cho biến có sẵn — dữ liệu template không được đặt tên biến bắt đầu bằng ký tự này. */
+ export const RESERVED_NAME_PREFIX = '$';
+ 
+ /** Scope hợp lệ của từng biến có sẵn. Mọi biến có sẵn đều có kiểu `number`. */
+diff --git a/packages/printer-core/src/template/data/CollectionDefinition.ts b/packages/printer-core/src/template/data/CollectionDefinition.ts
+index 621243d..a612569 100644
+--- a/packages/printer-core/src/template/data/CollectionDefinition.ts
++++ b/packages/printer-core/src/template/data/CollectionDefinition.ts
+@@ -1,6 +1,6 @@
+ import type { VariableDefinitionMap } from './VariableDefinition';
+ 
+-/** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
++/** 1 danh sách lặp được trong dữ liệu template (VD danh sách món), kèm biến và collection con của từng phần tử. */
+ export interface CollectionDefinition<
+   TSource,
+   TItem,
+diff --git a/packages/printer-core/src/template/data/TemplateDataDefinition.ts b/packages/printer-core/src/template/data/TemplateDataDefinition.ts
+index bb5e99f..6073e22 100644
+--- a/packages/printer-core/src/template/data/TemplateDataDefinition.ts
++++ b/packages/printer-core/src/template/data/TemplateDataDefinition.ts
+@@ -9,10 +9,10 @@ export interface TemplateDataDefinition<
+   TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
+   TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
+ > extends TemplateDataReader {
+-  /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
++  /** Mã dữ liệu template, VD 'product-label'; template tham chiếu qua `TemplateDocument.dataId`. */
+   readonly id: string;
+ 
+-  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
++  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
+   readonly version: number;
+ 
+   /** Data mẫu cho preview/designer. */
+@@ -30,13 +30,13 @@ export interface TemplateDataDefinition<
+ 
+ /** Input của `defineTemplateData`. */
+ export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
+-  /** Mã catalog, VD 'product-label'. */
++  /** Mã dữ liệu template, VD 'product-label'. */
+   readonly id: string;
+ 
+-  /** Phiên bản catalog. */
++  /** Phiên bản dữ liệu template. */
+   readonly version: number;
+ 
+-  /** Data mẫu cho preview/designer; kiểu data của catalog suy ra từ field này. */
++  /** Data mẫu cho preview/designer; kiểu data của dữ liệu template suy ra từ field này. */
+   readonly sample: TData;
+ 
+   /** Biến gốc. */
+diff --git a/packages/printer-core/src/template/data/TemplateDataDescription.ts b/packages/printer-core/src/template/data/TemplateDataDescription.ts
+index 17a6033..a2c60d3 100644
+--- a/packages/printer-core/src/template/data/TemplateDataDescription.ts
++++ b/packages/printer-core/src/template/data/TemplateDataDescription.ts
+@@ -2,7 +2,7 @@ import type { VariableType } from './VariableType';
+ 
+ /** Metadata JSON của 1 biến — không chứa hàm `get`, dùng được ở designer/BE. */
+ export interface VariableDescription {
+-  /** Tên biến, duy nhất trong toàn catalog. */
++  /** Tên biến, duy nhất trong toàn dữ liệu template. */
+   readonly name: string;
+ 
+   /** Tên hiển thị cho người dùng. */
+@@ -20,7 +20,7 @@ export interface VariableDescription {
+ 
+ /** Metadata JSON của 1 collection và toàn bộ biến/collection con của nó. */
+ export interface CollectionDescription {
+-  /** Tên collection, duy nhất trong toàn catalog. */
++  /** Tên collection, duy nhất trong toàn dữ liệu template. */
+   readonly name: string;
+ 
+   /** Tên hiển thị cho người dùng. */
+@@ -33,12 +33,12 @@ export interface CollectionDescription {
+   readonly collections: readonly CollectionDescription[];
+ }
+ 
+-/** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
++/** Metadata JSON của cả dữ liệu template — kết quả của `templateData.describe()`. */
+ export interface TemplateDataDescription {
+-  /** Mã catalog, khớp với `TemplateDocument.catalog`. */
++  /** Mã dữ liệu template, khớp với `TemplateDocument.dataId`. */
+   readonly id: string;
+ 
+-  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
++  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
+   readonly version: number;
+ 
+   /** Biến gốc, dùng được ở mọi chỗ trong template. */
+diff --git a/packages/printer-core/src/template/data/TemplateDataIndex.ts b/packages/printer-core/src/template/data/TemplateDataIndex.ts
+index 8e8448d..da27c27 100644
+--- a/packages/printer-core/src/template/data/TemplateDataIndex.ts
++++ b/packages/printer-core/src/template/data/TemplateDataIndex.ts
+@@ -2,7 +2,7 @@ import type { TemplateDataDescription, CollectionDescription, VariableDescriptio
+ 
+ /** 1 biến trong bảng tra, kèm collection sở hữu. */
+ export interface IndexedVariable {
+-  /** Metadata của biến lấy từ `catalog.describe()`. */
++  /** Metadata của biến lấy từ `templateData.describe()`. */
+   readonly description: VariableDescription;
+ 
+   /** Tên collection sở hữu biến; `null` là biến gốc. */
+@@ -11,7 +11,7 @@ export interface IndexedVariable {
+ 
+ /** 1 collection trong bảng tra, kèm collection cha. */
+ export interface IndexedCollection {
+-  /** Metadata của collection lấy từ `catalog.describe()`. */
++  /** Metadata của collection lấy từ `templateData.describe()`. */
+   readonly description: CollectionDescription;
+ 
+   /** Tên collection cha; `null` là collection cấp 1. */
+@@ -32,7 +32,7 @@ interface MutableTemplateDataIndex {
+   readonly collections: Map<string, IndexedCollection>;
+ }
+ 
+-/** Dựng bảng tra từ `catalog.describe()`. */
++/** Dựng bảng tra từ `templateData.describe()`. */
+ export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
+   const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
+   indexScope(index, description.variables, description.collections, null);
+diff --git a/packages/printer-core/src/template/data/VariableDefinition.ts b/packages/printer-core/src/template/data/VariableDefinition.ts
+index 8ed8213..7472a8d 100644
+--- a/packages/printer-core/src/template/data/VariableDefinition.ts
++++ b/packages/printer-core/src/template/data/VariableDefinition.ts
+@@ -1,6 +1,6 @@
+ import type { VariableType } from './VariableType';
+ 
+-/** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
++/** Khai báo 1 biến trong dữ liệu template: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
+ export interface VariableDefinition<TSource> {
+   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
+   readonly label: string;
+diff --git a/packages/printer-core/src/template/data/VariableType.ts b/packages/printer-core/src/template/data/VariableType.ts
+index 163301c..0c4090b 100644
+--- a/packages/printer-core/src/template/data/VariableType.ts
++++ b/packages/printer-core/src/template/data/VariableType.ts
+@@ -1,2 +1,2 @@
+-/** Kiểu giá trị của 1 biến catalog — quyết định format mặc định và luật validate template. */
++/** Kiểu giá trị của 1 biến dữ liệu template — quyết định format mặc định và luật validate template. */
+ export type VariableType = 'string' | 'number' | 'money' | 'datetime' | 'boolean' | 'asset';
+diff --git a/packages/printer-core/src/template/data/defineTemplateData.ts b/packages/printer-core/src/template/data/defineTemplateData.ts
+index 7856f73..e25cbf5 100644
+--- a/packages/printer-core/src/template/data/defineTemplateData.ts
++++ b/packages/printer-core/src/template/data/defineTemplateData.ts
+@@ -5,7 +5,7 @@ import { createTemplateDataReader } from './TemplateDataReader';
+ import type { VariableDefinitionMap } from './VariableDefinition';
+ 
+ /**
+- * Khai báo catalog cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
++ * Khai báo dữ liệu template cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
+  * Throw ngay nếu tên biến/collection trùng ở bất kỳ cấp nào hoặc bắt đầu bằng `$`.
+  */
+ export function defineTemplateData<
 diff --git a/packages/printer-core/src/template/nodes/ImageNode.ts b/packages/printer-core/src/template/nodes/ImageNode.ts
 index 871aff6..54be4bb 100644
 --- a/packages/printer-core/src/template/nodes/ImageNode.ts
@@ -2904,7 +2914,7 @@ index 24aa374..ac077d8 100644
  export function parseTemplate(json: unknown): ParseResult {
    const issues = validateTemplateStructure(json);
 diff --git a/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts b/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
-index daef071..99c8e40 100644
+index d2da0a3..06b6440 100644
 --- a/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
 +++ b/packages/printer-core/src/template/parse/validateTemplateAgainstData.ts
 @@ -16,7 +16,7 @@ import type { TemplateNode } from '../nodes/TemplateNode';
@@ -2977,7 +2987,7 @@ index d615ce3..03e6dde 100644
    validatePaper(cursor);
    validateNode(cursor.field('root'), new Set());
 diff --git a/packages/printer-core/src/testing/OrderTestData.ts b/packages/printer-core/src/testing/OrderTestData.ts
-index fcb1948..2383b11 100644
+index 17ef6e8..ac6b329 100644
 --- a/packages/printer-core/src/testing/OrderTestData.ts
 +++ b/packages/printer-core/src/testing/OrderTestData.ts
 @@ -27,7 +27,7 @@ export interface TestOrderItem {
@@ -3127,20 +3137,20 @@ git add \
   packages/printer-core/src/resolution/collectAssetIds.ts \
   packages/printer-core/src/resolution/readRepeatEntries.ts \
   packages/printer-core/src/resolution/readVariable.ts \
-  packages/printer-core/src/template-data/BuiltInVariable.ts \
-  packages/printer-core/src/template-data/CollectionDefinition.ts \
-  packages/printer-core/src/template-data/TemplateDataDefinition.ts \
-  packages/printer-core/src/template-data/TemplateDataDescription.ts \
-  packages/printer-core/src/template-data/TemplateDataIndex.ts \
-  packages/printer-core/src/template-data/VariableDefinition.ts \
-  packages/printer-core/src/template-data/VariableType.ts \
-  packages/printer-core/src/template-data/defineTemplateData.ts \
   packages/printer-core/src/template/TemplateDocument.ts \
   packages/printer-core/src/template/builder/RepeatBuilder.ts \
   packages/printer-core/src/template/builder/TemplateDocumentBuilder.ts \
   packages/printer-core/src/template/builder/TemplateScope.ts \
   packages/printer-core/src/template/builder/__tests__/TemplateDocumentBuilder.test.ts \
   packages/printer-core/src/template/content/Segment.ts \
+  packages/printer-core/src/template/data/BuiltInVariable.ts \
+  packages/printer-core/src/template/data/CollectionDefinition.ts \
+  packages/printer-core/src/template/data/TemplateDataDefinition.ts \
+  packages/printer-core/src/template/data/TemplateDataDescription.ts \
+  packages/printer-core/src/template/data/TemplateDataIndex.ts \
+  packages/printer-core/src/template/data/VariableDefinition.ts \
+  packages/printer-core/src/template/data/VariableType.ts \
+  packages/printer-core/src/template/data/defineTemplateData.ts \
   packages/printer-core/src/template/nodes/ImageNode.ts \
   packages/printer-core/src/template/nodes/RepeatNode.ts \
   packages/printer-core/src/template/parse/__tests__/parseTemplate.test.ts \
