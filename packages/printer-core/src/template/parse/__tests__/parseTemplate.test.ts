@@ -108,6 +108,16 @@ describe('parseTemplate', () => {
     expect(older).toEqual({ ok: false, issues: [{ path: 'schemaVersion', message: 'phải là 1' }] });
   });
 
+  it('từ chối template JSON còn field `catalog` thay cho `dataId`', () => {
+    const json: Record<string, unknown> = { ...validLabelJson(), catalog: 'test-order' };
+    delete json.dataId;
+
+    expect(parseTemplate(json)).toEqual({
+      ok: false,
+      issues: [{ path: 'dataId', message: 'phải là chuỗi khác rỗng' }],
+    });
+  });
+
   it('báo lỗi đơn vị độ dài sai kèm path chính xác', () => {
     const json = withRoot({
       type: 'container',
