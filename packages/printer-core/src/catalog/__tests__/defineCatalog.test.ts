@@ -38,7 +38,7 @@ describe('defineCatalog', () => {
         variables: { name: { label: 'Tên', type: 'string', get: (order) => order.name } },
         collections: { items },
       }),
-    ).toThrow('Tên "name" bị trùng trong catalog');
+    ).toThrow('Tên "name" bị trùng trong dữ liệu template');
   });
 
   it('throw khi tên collection trùng tên biến', () => {
@@ -56,7 +56,7 @@ describe('defineCatalog', () => {
         variables: { items: { label: 'Món', type: 'string', get: () => '' } },
         collections: { items },
       }),
-    ).toThrow('Tên "items" bị trùng trong catalog');
+    ).toThrow('Tên "items" bị trùng trong dữ liệu template');
   });
 
   it('throw khi tên biến bắt đầu bằng "$"', () => {

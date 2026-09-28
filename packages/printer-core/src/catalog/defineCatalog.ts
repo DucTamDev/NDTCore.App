@@ -1,8 +1,7 @@
 import type { Catalog, CatalogDefinition } from './Catalog';
 import type { CatalogCollectionMap, EmptyCollectionMap } from './CatalogCollection';
-import type { CatalogDescription } from './CatalogDescription';
-import { createCatalogRegistry, readRegisteredCollection, readRegisteredVariable } from './CatalogRegistry';
-import { describeCollections, describeVariables } from './describeCatalog';
+import { describeTemplateData } from './describeTemplateData';
+import { createTemplateDataReader } from './TemplateDataReader';
 import type { VariableSpecMap } from './VariableSpec';
 
 /**
@@ -15,13 +14,13 @@ export function defineCatalog<
   TCollections extends CatalogCollectionMap<TData> = EmptyCollectionMap,
 >(definition: CatalogDefinition<TData, TVariables, TCollections>): Catalog<TData, TVariables, TCollections> {
   const collections = definition.collections ?? ({} as TCollections);
-  const registry = createCatalogRegistry(definition.variables, collections);
-  const description: CatalogDescription = {
+  const reader = createTemplateDataReader(definition.variables, collections);
+  const description = describeTemplateData({
     id: definition.id,
     version: definition.version,
-    variables: describeVariables(definition.variables),
-    collections: describeCollections(collections),
-  };
+    variables: definition.variables,
+    collections,
+  });
 
   return Object.freeze({
     id: definition.id,
@@ -30,7 +29,7 @@ export function defineCatalog<
     variables: definition.variables,
     collections,
     describe: () => description,
-    readVariable: (name: string, source: unknown) => readRegisteredVariable(registry, name, source),
-    readCollection: (name: string, source: unknown) => readRegisteredCollection(registry, name, source),
+    readVariable: reader.readVariable,
+    readCollection: reader.readCollection,
   });
 }
