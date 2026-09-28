@@ -1,5 +1,6 @@
-import { ESC_POS } from '../../../language/escpos/EscPosCommand';
 import type { PrintValidation } from '../../../core';
+import { binaryStringToBytes } from '../../../encoding';
+import { ESC_POS } from '../../../language';
 import type { ValidationIssue } from '../../ValidationIssue';
 import type { ValidationResult } from '../../ValidationResult';
 
@@ -35,13 +36,6 @@ const GS_PARAM_LENGTH: Record<number, number> = {
 
 /** Mã symbology của "GS k" từ giá trị này trở lên là dạng B (có byte độ dài); thấp hơn là dạng A (kết thúc NUL). */
 const BARCODE_FORMAT_B_MIN_TYPE = 65;
-
-function bytesFromSource(source: string): Uint8Array {
-  const bytes = new Uint8Array(source.length);
-  // eslint-disable-next-line no-bitwise -- giữ đúng 1 byte cho mỗi ký tự
-  for (let i = 0; i < source.length; i++) bytes[i] = source.charCodeAt(i) & 0xff;
-  return bytes;
-}
 
 function isPrintableOrExtended(byte: number): boolean {
   return (byte >= 0x20 && byte <= 0x7e) || byte >= 0x80;
@@ -86,7 +80,7 @@ function skipRasterImage(bytes: Uint8Array, i: number): number {
  */
 export class EscPosValidator implements PrintValidation {
   validate(source: string): ValidationResult {
-    const bytes = bytesFromSource(source);
+    const bytes = binaryStringToBytes(source);
     const issues: ValidationIssue[] = [];
     let i = 0;
     let invalidRunStart = -1;
