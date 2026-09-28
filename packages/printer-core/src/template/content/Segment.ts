@@ -6,7 +6,7 @@ export interface TextSegment {
   readonly text: string;
 }
 
-/** Đoạn lấy giá trị từ 1 biến catalog hoặc biến có sẵn (`$page`, `$unit`...). */
+/** Đoạn lấy giá trị từ 1 biến dữ liệu template hoặc biến có sẵn (`$page`, `$unit`...). */
 export interface VariableSegment {
   /** Tên biến. */
   readonly var: string;

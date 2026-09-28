@@ -4,7 +4,7 @@ import { TemplateNodeBuilder } from './NodeBuilder';
 
 /** Tuỳ chọn của `repeat`. */
 export interface RepeatOptions<TCollection extends string = string, TExpand extends string = string> {
-  /** Tên collection trong catalog. */
+  /** Tên collection trong dữ liệu template. */
   readonly collection: TCollection;
 
   /** Tên biến kiểu `number` của collection để nhân mỗi phần tử thành bấy nhiêu bản sao. */

@@ -53,7 +53,7 @@ const products = defineCollection({
   collections: { toppings },
 });
 
-export const catalog = defineTemplateData({
+export const templateData = defineTemplateData({
   id: 'product-label',
   version: 1,
   sample,
@@ -63,7 +63,7 @@ export const catalog = defineTemplateData({
   collections: { products },
 });
 
-export default labelTemplate(catalog)
+export default labelTemplate(templateData)
   .id('product-label-default')
   .name('Tem món mặc định')
   .paper({ widthMm: 50, heightMm: 30 })

@@ -1,6 +1,6 @@
 import type { VariableType } from './VariableType';
 
-/** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
+/** Khai báo 1 biến trong dữ liệu template: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
 export interface VariableDefinition<TSource> {
   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
   readonly label: string;

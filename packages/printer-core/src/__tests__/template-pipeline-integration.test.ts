@@ -49,7 +49,7 @@ function buildReceipt() {
 }
 
 describe('pipeline template → resolve → layout → compile', () => {
-  it('DSL → JSON (round-trip) → resolve với catalog → layout 203 dpi → byte ESC/POS', () => {
+  it('DSL → JSON (round-trip) → resolve với dữ liệu template → layout 203 dpi → byte ESC/POS', () => {
     const parsed = parseTemplate(JSON.parse(JSON.stringify(buildReceipt())));
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
     const template = parsed.template;
@@ -57,7 +57,7 @@ describe('pipeline template → resolve → layout → compile', () => {
     expect(collectAssetIds(template, TEST_ORDER_DATA, TEST_ORDER_SAMPLE)).toEqual(['store-logo@v1']);
     const assets: AssetProvider = { get: (assetId) => (assetId === 'store-logo@v1' ? LOGO : undefined) };
 
-    const resolveOptions = { catalog: TEST_ORDER_DATA, assets };
+    const resolveOptions = { templateData: TEST_ORDER_DATA, assets };
     const pages = createDocumentResolver().resolve(template, TEST_ORDER_SAMPLE, resolveOptions);
     expect(pages).toHaveLength(1);
     if (pages[0].status !== 'ok') throw new Error(pages[0].message);
@@ -130,7 +130,7 @@ describe('pipeline template → resolve → layout → compile', () => {
       items: [{ name: 'Trà sữa', quantity: 1, price: 45000, toppings }],
     };
     const pages = createDocumentResolver().resolve(template, order, {
-      catalog: TEST_ORDER_DATA,
+      templateData: TEST_ORDER_DATA,
       assets: { get: () => undefined },
     });
 

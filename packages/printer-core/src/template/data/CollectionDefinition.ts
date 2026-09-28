@@ -1,6 +1,6 @@
 import type { VariableDefinitionMap } from './VariableDefinition';
 
-/** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
+/** 1 danh sách lặp được trong dữ liệu template (VD danh sách món), kèm biến và collection con của từng phần tử. */
 export interface CollectionDefinition<
   TSource,
   TItem,

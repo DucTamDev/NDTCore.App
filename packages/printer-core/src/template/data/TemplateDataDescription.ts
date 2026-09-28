@@ -2,7 +2,7 @@ import type { VariableType } from './VariableType';
 
 /** Metadata JSON của 1 biến — không chứa hàm `get`, dùng được ở designer/BE. */
 export interface VariableDescription {
-  /** Tên biến, duy nhất trong toàn catalog. */
+  /** Tên biến, duy nhất trong toàn dữ liệu template. */
   readonly name: string;
 
   /** Tên hiển thị cho người dùng. */
@@ -20,7 +20,7 @@ export interface VariableDescription {
 
 /** Metadata JSON của 1 collection và toàn bộ biến/collection con của nó. */
 export interface CollectionDescription {
-  /** Tên collection, duy nhất trong toàn catalog. */
+  /** Tên collection, duy nhất trong toàn dữ liệu template. */
   readonly name: string;
 
   /** Tên hiển thị cho người dùng. */
@@ -33,12 +33,12 @@ export interface CollectionDescription {
   readonly collections: readonly CollectionDescription[];
 }
 
-/** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
+/** Metadata JSON của cả dữ liệu template — kết quả của `templateData.describe()`. */
 export interface TemplateDataDescription {
-  /** Mã catalog, khớp với `TemplateDocument.catalog`. */
+  /** Mã dữ liệu template, khớp với `TemplateDocument.dataId`. */
   readonly id: string;
 
-  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
+  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
   readonly version: number;
 
   /** Biến gốc, dùng được ở mọi chỗ trong template. */

@@ -9,10 +9,10 @@ export interface TemplateDataDefinition<
   TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
   TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
 > extends TemplateDataReader {
-  /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
+  /** Mã dữ liệu template, VD 'product-label'; template tham chiếu qua `TemplateDocument.dataId`. */
   readonly id: string;
 
-  /** Phiên bản catalog do app tự tăng khi thêm/đổi biến. */
+  /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */
   readonly version: number;
 
   /** Data mẫu cho preview/designer. */
@@ -30,13 +30,13 @@ export interface TemplateDataDefinition<
 
 /** Input của `defineTemplateData`. */
 export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
-  /** Mã catalog, VD 'product-label'. */
+  /** Mã dữ liệu template, VD 'product-label'. */
   readonly id: string;
 
-  /** Phiên bản catalog. */
+  /** Phiên bản dữ liệu template. */
   readonly version: number;
 
-  /** Data mẫu cho preview/designer; kiểu data của catalog suy ra từ field này. */
+  /** Data mẫu cho preview/designer; kiểu data của dữ liệu template suy ra từ field này. */
   readonly sample: TData;
 
   /** Biến gốc. */

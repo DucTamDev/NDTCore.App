@@ -18,7 +18,7 @@ export function validateTemplateStructure(document: unknown): readonly TemplateI
   }
   cursor.field('id').expectNonEmptyString();
   cursor.field('name').expectNonEmptyString();
-  cursor.field('catalog').expectNonEmptyString();
+  cursor.field('dataId').expectNonEmptyString();
   cursor.field('locale').expectOneOf(LOCALES);
   validatePaper(cursor);
   validateNode(cursor.field('root'), new Set());

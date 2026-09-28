@@ -5,7 +5,7 @@ function validLabelJson(): Record<string, unknown> {
     schemaVersion: 1,
     id: 'product-label-default',
     name: 'Tem món mặc định',
-    catalog: 'test-order',
+    dataId: 'test-order',
     media: 'label',
     locale: 'vi-VN',
     paper: { widthMm: 50, heightMm: 30 },

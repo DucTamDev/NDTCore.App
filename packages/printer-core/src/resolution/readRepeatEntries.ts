@@ -44,7 +44,7 @@ export function entryFrame(
 /** Mảng phần tử raw của collection (chưa expand). */
 export function readCollectionItems(node: RepeatNode, context: ResolveContext): readonly unknown[] {
   const collection = context.index.collections.get(node.collection);
-  if (!collection) throw new ResolveError(node.id, `catalog không có collection "${node.collection}"`);
+  if (!collection) throw new ResolveError(node.id, `dữ liệu template không có collection "${node.collection}"`);
 
   const parentFrame = findScopeFrame(context, collection.parent);
   if (!parentFrame) {
@@ -53,7 +53,7 @@ export function readCollectionItems(node: RepeatNode, context: ResolveContext): 
   }
 
   const items = readFromTemplateData(node.id, node.collection, () =>
-    context.catalog.readCollection(node.collection, parentFrame.item),
+    context.templateData.readCollection(node.collection, parentFrame.item),
   );
   if (!Array.isArray(items)) throw new ResolveError(node.id, `collection "${node.collection}" không phải mảng`);
   return items;
@@ -82,7 +82,7 @@ function readExpandCount(
   item: unknown,
   context: ResolveContext,
 ): number {
-  const count = readFromTemplateData(node.id, expand, () => context.catalog.readVariable(expand, item));
+  const count = readFromTemplateData(node.id, expand, () => context.templateData.readVariable(expand, item));
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
     throw new ResolveError(node.id, `expand "${expand}" phải là số nguyên dương, nhận "${String(count)}"`);
   }

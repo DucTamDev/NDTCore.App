@@ -10,7 +10,7 @@ import { TemplateNodeIdGenerator, type BuildContext } from './BuildContext';
 import type { TemplateNodeBuilder } from './NodeBuilder';
 import { TemplateScope } from './TemplateScope';
 
-/** Phần catalog mà DSL cần: tên biến/collection để kiểm tra kiểu, `id` + `describe()` để validate. */
+/** Phần dữ liệu template mà DSL cần: tên biến/collection để kiểm tra kiểu, `id` + `describe()` để validate. */
 export interface TemplateDataShape {
   readonly id: string;
 
@@ -24,7 +24,7 @@ export interface TemplateDataShape {
   describe(): TemplateDataDescription;
 }
 
-/** Scope gốc của template: biến gốc + collection cấp 1 của catalog. */
+/** Scope gốc của template: biến gốc + collection cấp 1 của dữ liệu template. */
 export type RootScope<TTemplateData extends TemplateDataShape> = TemplateScope<
   Extract<keyof TTemplateData['variables'], string>,
   TTemplateData['collections']
@@ -49,7 +49,7 @@ export class TemplateBuildError extends Error {
   }
 }
 
-/** Builder của `TemplateDocument`; tạo qua `labelTemplate(catalog)` hoặc `receiptTemplate(catalog)`. */
+/** Builder của `TemplateDocument`; tạo qua `labelTemplate(templateData)` hoặc `receiptTemplate(templateData)`. */
 export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TMedia extends TemplateMedia> {
   private templateId?: string;
 
@@ -60,7 +60,7 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
   private rootContent?: RootContent<TTemplateData>;
 
   constructor(
-    private readonly catalog: TTemplateData,
+    private readonly templateData: TTemplateData,
     private readonly media: TMedia,
   ) {}
 
@@ -89,16 +89,16 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
   }
 
   /**
-   * Tạo `TemplateDocument` JSON thuần. Throw `TemplateBuildError` nếu cấu trúc sai hoặc biến không khớp catalog
-   * (sai scope, sai kiểu...); cảnh báo `deprecated` không chặn.
+   * Tạo `TemplateDocument` JSON thuần. Throw `TemplateBuildError` nếu cấu trúc sai hoặc biến không khớp dữ liệu
+   * template (sai scope, sai kiểu...); cảnh báo `deprecated` không chặn.
    */
   build(): TemplateDocument {
     const document = this.assemble();
     const structureIssues = validateTemplateStructure(document);
     if (structureIssues.length > 0) throw new TemplateBuildError(structureIssues);
 
-    const catalogResult = validateTemplateAgainstData(document, this.catalog.describe());
-    if (catalogResult.errors.length > 0) throw new TemplateBuildError(catalogResult.errors);
+    const templateDataResult = validateTemplateAgainstData(document, this.templateData.describe());
+    if (templateDataResult.errors.length > 0) throw new TemplateBuildError(templateDataResult.errors);
 
     return Object.freeze(document);
   }
@@ -117,7 +117,7 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
       schemaVersion: TEMPLATE_SCHEMA_VERSION,
       id: this.templateId,
       name: this.templateName,
-      catalog: this.catalog.id,
+      dataId: this.templateData.id,
       media: this.media,
       locale: 'vi-VN',
       paper: this.paperSize,
@@ -126,16 +126,16 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
   }
 }
 
-/** Template tem nhãn (chiều cao cố định, có phân trang) dùng biến của `catalog`. */
+/** Template tem nhãn (chiều cao cố định, có phân trang) dùng biến của `templateData`. */
 export function labelTemplate<TTemplateData extends TemplateDataShape>(
-  catalog: TTemplateData,
+  templateData: TTemplateData,
 ): TemplateDocumentBuilder<TTemplateData, 'label'> {
-  return new TemplateDocumentBuilder(catalog, 'label');
+  return new TemplateDocumentBuilder(templateData, 'label');
 }
 
-/** Template hoá đơn giấy cuộn dùng biến của `catalog`. */
+/** Template hoá đơn giấy cuộn dùng biến của `templateData`. */
 export function receiptTemplate<TTemplateData extends TemplateDataShape>(
-  catalog: TTemplateData,
+  templateData: TTemplateData,
 ): TemplateDocumentBuilder<TTemplateData, 'receipt'> {
-  return new TemplateDocumentBuilder(catalog, 'receipt');
+  return new TemplateDocumentBuilder(templateData, 'receipt');
 }

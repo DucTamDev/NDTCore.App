@@ -19,7 +19,7 @@ export type RepeatScope<TNames extends string, TCollections, TName extends NameO
 >;
 
 /**
- * Scope của DSL: chỉ để TypeScript kiểm tra tên biến/collection theo catalog ngay trong editor.
+ * Scope của DSL: chỉ để TypeScript kiểm tra tên biến/collection theo dữ liệu template ngay trong editor.
  * `TNames` là biến dùng được tại đây, `TCollections` là collection lặp được tại đây.
  */
 export class TemplateScope<TNames extends string, TCollections> {

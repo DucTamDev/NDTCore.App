@@ -27,7 +27,7 @@ export interface TestOrderItem {
   readonly toppings: readonly TestTopping[];
 }
 
-/** Đơn hàng dùng làm data test cho catalog/resolver/validate. */
+/** Đơn hàng dùng làm data test cho dữ liệu template/resolver/validate. */
 export interface TestOrder {
   /** Mã đơn, VD 'HD001'. */
   readonly code: string;
@@ -83,7 +83,7 @@ export const TEST_ORDER_SAMPLE: TestOrder = {
   ],
 };
 
-/** TemplateDataDefinition đơn hàng dùng chung cho test của catalog, template, resolution, layout. */
+/** TemplateDataDefinition đơn hàng dùng chung cho test của dữ liệu template, template, resolution, layout. */
 export const TEST_ORDER_DATA = defineTemplateData({
   id: 'test-order',
   version: 1,

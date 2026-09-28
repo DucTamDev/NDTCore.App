@@ -4,7 +4,7 @@ import { validateTemplateStructure } from './validateTemplateStructure';
 
 /**
  * Đọc template từ nguồn không có kiểu (BE, file import) và kiểm tra cấu trúc. Template khác schema hiện tại bị từ
- * chối, không migrate. Không kiểm tra biến có khớp catalog — việc đó là của `validateTemplateAgainstData`.
+ * chối, không migrate. Không kiểm tra biến có khớp dữ liệu template — việc đó là của `validateTemplateAgainstData`.
  */
 export function parseTemplate(json: unknown): ParseResult {
   const issues = validateTemplateStructure(json);

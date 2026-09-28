@@ -43,7 +43,7 @@ function renderOutcome(
 
   const languageToUse = languageTouched ? language : defaultLanguageFor(evaluated.template);
   try {
-    const previews = renderPreviews(evaluated.template, evaluated.catalog, parsed.data, languageToUse);
+    const previews = renderPreviews(evaluated.template, evaluated.templateData, parsed.data, languageToUse);
     return { error: null, previews, language: languageToUse };
   } catch (pipelineError) {
     const message = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);

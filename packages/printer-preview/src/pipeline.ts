@@ -74,11 +74,11 @@ function renderPage(
 
 export function renderPreviews(
   template: TemplateDocument,
-  catalog: TemplateDataDefinition<unknown>,
+  templateData: TemplateDataDefinition<unknown>,
   data: unknown,
   language: PrinterLanguage,
 ): readonly PagePreview[] {
-  const pages = resolver.resolve(template, data, { catalog, assets: NO_ASSETS });
+  const pages = resolver.resolve(template, data, { templateData, assets: NO_ASSETS });
   return pages.map((page) => renderPage(template, page, language));
 }
 

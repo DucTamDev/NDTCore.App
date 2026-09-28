@@ -16,7 +16,7 @@ import type { TemplateNode } from '../nodes/TemplateNode';
 import type { TemplateDocument } from '../TemplateDocument';
 import type { TemplateIssue } from './TemplateIssue';
 
-/** Kết quả kiểm tra template theo catalog. */
+/** Kết quả kiểm tra template theo dữ liệu template. */
 export interface TemplateDataValidationResult {
   /** Lỗi chặn — template không resolve đúng được. */
   readonly errors: readonly TemplateIssue[];
@@ -34,7 +34,7 @@ interface ValidationScope {
   readonly expanded: boolean;
 }
 
-/** Trạng thái 1 lần kiểm tra: bảng tra catalog + lỗi/cảnh báo gom được. */
+/** Trạng thái 1 lần kiểm tra: bảng tra dữ liệu template + lỗi/cảnh báo gom được. */
 interface TemplateDataCheck {
   readonly description: TemplateDataDescription;
 
@@ -59,7 +59,7 @@ const BUILT_IN_VARIABLE_TYPE: VariableType = 'number';
 const ROOT_SCOPE: ValidationScope = { collections: [], expanded: false };
 
 /**
- * Kiểm tra template khớp catalog: biến tồn tại và dùng đúng scope, collection/expand hợp lệ, ảnh dùng biến
+ * Kiểm tra template khớp dữ liệu template: biến tồn tại và dùng đúng scope, collection/expand hợp lệ, ảnh dùng biến
  * kiểu `asset`, format hợp kiểu biến. Nhận metadata (`describe()`) nên BE/designer dùng chung được.
  */
 export function validateTemplateAgainstData(
@@ -68,8 +68,8 @@ export function validateTemplateAgainstData(
 ): TemplateDataValidationResult {
   const index = createTemplateDataIndex(description);
   const check: TemplateDataCheck = { description, index, errors: [], warnings: [] };
-  if (template.catalog !== description.id) {
-    addError(check, 'catalog', `template dùng catalog "${template.catalog}", không phải "${description.id}"`);
+  if (template.dataId !== description.id) {
+    addError(check, 'dataId', `template dùng dữ liệu "${template.dataId}", không phải "${description.id}"`);
   }
   checkNode(check, template.root, 'root', ROOT_SCOPE);
   return { errors: check.errors, warnings: check.warnings };
@@ -163,7 +163,7 @@ function checkRepeat(
 ): void {
   const collection = check.index.collections.get(node.collection);
   if (!collection) {
-    addError(check, `${path}.collection`, `catalog không có collection "${node.collection}"`);
+    addError(check, `${path}.collection`, `dữ liệu template không có collection "${node.collection}"`);
     return;
   }
   if (collection.parent !== null && !scope.collections.includes(collection.parent)) {
@@ -230,7 +230,7 @@ function checkVariableUse(
 
   const variable = check.index.variables.get(name);
   if (!variable) {
-    addError(check, path, `catalog "${check.description.id}" không có biến "${name}"`);
+    addError(check, path, `dữ liệu template "${check.description.id}" không có biến "${name}"`);
     return undefined;
   }
   if (variable.collection !== null && !scope.collections.includes(variable.collection)) {

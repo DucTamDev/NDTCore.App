@@ -3,17 +3,22 @@ import * as PrinterCore from 'printer-core';
 import { parseTemplate, type TemplateDataDefinition, type TemplateDocument } from 'printer-core';
 
 export type EvaluateResult =
-  | { readonly status: 'ok'; readonly template: TemplateDocument; readonly catalog: TemplateDataDefinition<unknown> }
+  | {
+      readonly status: 'ok';
+      readonly template: TemplateDocument;
+      readonly templateData: TemplateDataDefinition<unknown>;
+    }
   | { readonly status: 'error'; readonly stage: 'transpile' | 'runtime'; readonly message: string };
 
-/** Module mà code người dùng xuất ra: `export const catalog` + `export default` template. */
+/** Module mà code người dùng xuất ra: `export const templateData` + `export default` template. */
 interface EvaluatedModule {
   default?: unknown;
-  catalog?: unknown;
+  templateData?: unknown;
 }
 
 const EXPORT_HINT =
-  'Code phải `export const catalog = defineTemplateData(...)` và `export default labelTemplate(catalog)...build()` ' +
+  'Code phải `export const templateData = defineTemplateData(...)` và ' +
+  '`export default labelTemplate(templateData)...build()` ' +
   '(hoặc receiptTemplate) — default export phải là 1 TemplateDocument.';
 
 function errorMessage(error: unknown): string {
@@ -54,14 +59,16 @@ function isTemplateDataDefinition(value: unknown): value is TemplateDataDefiniti
 }
 
 function toEvaluateResult(exported: EvaluatedModule): EvaluateResult {
-  if (!isTemplateDataDefinition(exported.catalog)) return { status: 'error', stage: 'runtime', message: EXPORT_HINT };
+  if (!isTemplateDataDefinition(exported.templateData)) {
+    return { status: 'error', stage: 'runtime', message: EXPORT_HINT };
+  }
 
   const parsed = parseTemplate(exported.default);
   if (!parsed.ok) {
     const issues = parsed.issues.map((issue) => `- ${issue.path}: ${issue.message}`).join('\n');
     return { status: 'error', stage: 'runtime', message: `${EXPORT_HINT}\n${issues}` };
   }
-  return { status: 'ok', template: parsed.template, catalog: exported.catalog };
+  return { status: 'ok', template: parsed.template, templateData: exported.templateData };
 }
 
 function executeAndValidate(js: string): EvaluateResult {

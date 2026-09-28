@@ -15,12 +15,12 @@ const NO_ASSETS: AssetProvider = { get: () => undefined };
  */
 export function collectAssetIds<TData>(
   template: TemplateDocument,
-  catalog: TemplateDataDefinition<TData>,
+  templateData: TemplateDataDefinition<TData>,
   data: TData,
 ): readonly string[] {
   const context: ResolveContext = {
-    catalog,
-    index: createTemplateDataIndex(catalog.describe()),
+    templateData,
+    index: createTemplateDataIndex(templateData.describe()),
     assets: NO_ASSETS,
     frames: [createRootFrame(data)],
     page: COUNTING_PAGE,

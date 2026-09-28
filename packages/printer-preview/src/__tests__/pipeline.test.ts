@@ -13,7 +13,7 @@ const items = defineCollection({
   variables: { itemName: { label: 'Tên món', type: 'string', get: (item) => item.name } },
 });
 
-const catalog = defineTemplateData({
+const templateData = defineTemplateData({
   id: 'demo',
   version: 1,
   sample: { title: 'Xin chào', items: [] } as DemoData,
@@ -22,7 +22,7 @@ const catalog = defineTemplateData({
 });
 
 function label() {
-  return labelTemplate(catalog).id('label').name('Tem').paper({ widthMm: 50, heightMm: 30 });
+  return labelTemplate(templateData).id('label').name('Tem').paper({ widthMm: 50, heightMm: 30 });
 }
 
 describe('renderPreviews', () => {
@@ -30,7 +30,7 @@ describe('renderPreviews', () => {
     const template = label()
       .root((scope) => column().children(text([scope.var('title')])))
       .build();
-    const previews = renderPreviews(template, catalog, { title: 'Hello', items: [] }, 'tspl');
+    const previews = renderPreviews(template, templateData, { title: 'Hello', items: [] }, 'tspl');
 
     expect(previews).toHaveLength(1);
     expect(previews[0].status).toBe('ok');
@@ -46,14 +46,14 @@ describe('renderPreviews', () => {
       )
       .build();
     const data: DemoData = { title: 'x', items: [{ name: 'A' }, {}, { name: 'C' }] };
-    const previews = renderPreviews(template, catalog, data, 'tspl');
+    const previews = renderPreviews(template, templateData, data, 'tspl');
 
     expect(previews.map((preview) => preview.status)).toEqual(['ok', 'error', 'ok']);
   });
 
   it('defaultLanguageFor: receipt → escpos, label → tspl', () => {
     const labelDocument = label().root(text('x')).build();
-    const receipt = receiptTemplate(catalog)
+    const receipt = receiptTemplate(templateData)
       .id('receipt')
       .name('Hoá đơn')
       .paper({ widthMm: 72 })

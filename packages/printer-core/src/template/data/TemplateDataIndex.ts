@@ -2,7 +2,7 @@ import type { TemplateDataDescription, CollectionDescription, VariableDescriptio
 
 /** 1 biến trong bảng tra, kèm collection sở hữu. */
 export interface IndexedVariable {
-  /** Metadata của biến lấy từ `catalog.describe()`. */
+  /** Metadata của biến lấy từ `templateData.describe()`. */
   readonly description: VariableDescription;
 
   /** Tên collection sở hữu biến; `null` là biến gốc. */
@@ -11,7 +11,7 @@ export interface IndexedVariable {
 
 /** 1 collection trong bảng tra, kèm collection cha. */
 export interface IndexedCollection {
-  /** Metadata của collection lấy từ `catalog.describe()`. */
+  /** Metadata của collection lấy từ `templateData.describe()`. */
   readonly description: CollectionDescription;
 
   /** Tên collection cha; `null` là collection cấp 1. */
@@ -32,7 +32,7 @@ interface MutableTemplateDataIndex {
   readonly collections: Map<string, IndexedCollection>;
 }
 
-/** Dựng bảng tra từ `catalog.describe()`. */
+/** Dựng bảng tra từ `templateData.describe()`. */
 export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
   const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
   indexScope(index, description.variables, description.collections, null);

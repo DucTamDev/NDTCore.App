@@ -21,7 +21,7 @@ function documentWith(root: TemplateNode, media: TemplateMedia = 'receipt'): Tem
     schemaVersion: 1,
     id: 'template',
     name: 'Template',
-    catalog: 'test-order',
+    dataId: 'test-order',
     media,
     locale: 'vi-VN',
     paper: media === 'label' ? { widthMm: 50, heightMm: 30 } : { widthMm: 72 },
@@ -34,7 +34,7 @@ function resolvePages(
   data: TestOrder = TEST_ORDER_SAMPLE,
   assets: AssetProvider = NO_ASSETS,
 ): readonly ResolvedPage[] {
-  return resolver.resolve(documentWith(root), data, { catalog: TEST_ORDER_DATA, assets });
+  return resolver.resolve(documentWith(root), data, { templateData: TEST_ORDER_DATA, assets });
 }
 
 /** Mọi chuỗi text trong cây, theo thứ tự duyệt. */
@@ -147,7 +147,7 @@ describe('DocumentResolver — scope tường minh', () => {
       get: (order: { readonly lines: readonly { readonly code: string }[] }) => order.lines,
       variables: { lineCode: { label: 'Mã dòng', type: 'string', get: (line) => line.code } },
     });
-    const catalog = defineTemplateData({
+    const templateData = defineTemplateData({
       id: 'shadow',
       version: 1,
       sample: { code: 'ORDER', lines: [{ code: 'LINE' }] },
@@ -161,10 +161,10 @@ describe('DocumentResolver — scope tường minh', () => {
         collection: 'lines',
         template: { type: 'text', id: 'text', content: [{ var: 'orderCode' }, { text: '/' }, { var: 'lineCode' }] },
       }),
-      catalog: 'shadow',
+      dataId: 'shadow',
     };
 
-    const [page] = resolver.resolve(template, catalog.sample, { catalog, assets: NO_ASSETS });
+    const [page] = resolver.resolve(template, templateData.sample, { templateData, assets: NO_ASSETS });
 
     expect(pageTexts(page)).toEqual(['ORDER/LINE']);
   });
@@ -679,14 +679,14 @@ describe('DocumentResolver — ảnh', () => {
   });
 });
 
-describe('DocumentResolver — catalog', () => {
-  it('throw khi template dùng catalog khác catalog truyền vào', () => {
-    const template = { ...documentWith({ type: 'text', id: 't', content: [] }), catalog: 'kitchen' };
+describe('DocumentResolver — dữ liệu template', () => {
+  it('throw khi template dùng dữ liệu khác dữ liệu truyền vào', () => {
+    const template = { ...documentWith({ type: 'text', id: 't', content: [] }), dataId: 'kitchen' };
 
-    const options = { catalog: TEST_ORDER_DATA, assets: NO_ASSETS };
+    const options = { templateData: TEST_ORDER_DATA, assets: NO_ASSETS };
 
     expect(() => resolver.resolve(template, TEST_ORDER_SAMPLE, options)).toThrow(
-      'Template dùng catalog "kitchen", không phải "test-order"',
+      'Template dùng dữ liệu "kitchen", không phải "test-order"',
     );
   });
 });

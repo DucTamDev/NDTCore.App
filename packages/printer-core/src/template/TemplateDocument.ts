@@ -29,8 +29,8 @@ export interface TemplateDocument {
   /** Tên hiển thị, VD 'Tem món mặc định'. */
   readonly name: string;
 
-  /** Mã catalog mà template dùng biến, VD 'product-label'. */
-  readonly catalog: string;
+  /** Mã dữ liệu template mà template dùng biến, VD 'product-label'. */
+  readonly dataId: string;
 
   /** Loại giấy. */
   readonly media: TemplateMedia;

@@ -5,13 +5,13 @@ Core thuần TypeScript cho feature máy in của NDTCorePOS, không dependency,
 Package hỗ trợ 2 ngôn ngữ máy in mà app dùng: **TSPL** (máy in tem) và **ESC/POS** (máy in hoá đơn). Luồng chính:
 
 ```text
-TemplateDocument (JSON, DSL) ──parseTemplate──▶ resolve (catalog + data) ──▶ layout (dots)
+TemplateDocument (JSON, DSL) ──parseTemplate──▶ resolve (template data + data) ──▶ layout (dots)
   ──▶ PrintElement[] ──compileTo──▶ lệnh TSPL / ESC/POS  { output, warnings }
                      └─previewFor─▶ SVG xem trước
 ```
 
 - **Template:** `TemplateDocument` là JSON thuần, độc lập DPI; DSL `labelTemplate`/`receiptTemplate` sinh ra nó.
-- **Dữ liệu:** biến đọc qua catalog (`defineCatalog`), không trỏ thẳng vào data.
+- **Dữ liệu:** biến đọc qua định nghĩa dữ liệu template (`defineTemplateData`), không trỏ thẳng vào data.
 - **Compile:** mỗi ngôn ngữ có compiler, parser (đọc ngược lệnh), validator, preview SVG. Năng lực máy in đích
   truyền vào qua `PrinterFeatures`.
 - **Chuyển đổi:** `convert()` chuyển lệnh giữa TSPL và ESC/POS.
@@ -42,15 +42,16 @@ CP1258 (tiếng Việt) có encoder nhưng chưa nằm trong danh sách code pag
 src/
 ├── index.ts
 ├── types/          # Alignment, Bitmap, Direction, Point, Rect, Rotation, Size, Unit
-├── catalog/        # biến có tên theo loại nội dung: defineCatalog, defineCollection, CatalogIndex, biến có sẵn
 ├── template/       # TemplateDocument JSON độc lập DPI
+│   ├── data/       # dữ liệu template: defineTemplateData, defineCollection, TemplateDataReader,
+│   │               # TemplateDataIndex, biến có sẵn
 │   ├── style/      # Length, Dimension, Insets, BoxStyle, LayoutStyle, TextStyle
 │   ├── content/    # Segment, ValueFormat, Condition
 │   ├── nodes/      # TemplateNode và các node container/text/image/barcode/qrcode/line/repeat
 │   ├── format/     # formatter vi-VN tự cài đặt (không dùng Intl)
-│   ├── parse/      # parseTemplate, validate cấu trúc/tách tem/theo catalog
-│   └── builder/    # DSL labelTemplate/receiptTemplate(catalog), scope.var/repeat
-├── resolution/     # ghép template + data qua catalog, kế hoạch trang (planPages), tách repeat lồng
+│   ├── parse/      # parseTemplate, validate cấu trúc/tách tem/theo dữ liệu template
+│   └── builder/    # DSL labelTemplate/receiptTemplate(templateData), scope.var/repeat
+├── resolution/     # ghép template + data qua dữ liệu template, kế hoạch trang (planPages), tách repeat lồng
 ├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[]
 ├── document/       # ResolvedPrintDocument + PrintElement (content/drawing/layout/control)
 ├── core/           # contract: PrinterLanguage, PrintCompiler/Parser/Preview/Validation, CompileResult,
@@ -68,7 +69,7 @@ src/
 │                   # binaryStringToBytes/bytesToBinaryString (chuỗi 1 ký tự = 1 byte)
 ├── image/          # crop/resize/threshold/dither ảnh thành bitmap đơn sắc + dithering/
 ├── symbology/      # barcode/ và qrcode/: cấu hình + validate
-└── testing/        # OrderTestCatalog — catalog đơn hàng + data mẫu dùng chung cho test (không export ra ngoài)
+└── testing/        # OrderTestData — dữ liệu template đơn hàng + data mẫu dùng chung cho test (không export ra ngoài)
 ```
 
 Test đặt trong `__tests__/` cạnh file nguồn; test tích hợp ở `src/__tests__/`.

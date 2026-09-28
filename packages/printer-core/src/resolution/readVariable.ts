@@ -35,12 +35,12 @@ export function readVariableValue(
   }
 
   const variable = context.index.variables.get(name);
-  if (!variable) throw new ResolveError(nodeId, `catalog không có biến "${name}"`);
+  if (!variable) throw new ResolveError(nodeId, `dữ liệu template không có biến "${name}"`);
 
   const frame = findScopeFrame(context, variable.collection);
   if (!frame) throw new ResolveError(nodeId, `biến "${name}" chỉ dùng được trong vòng lặp "${variable.collection}"`);
 
-  return readFromTemplateData(nodeId, name, () => context.catalog.readVariable(name, frame.item));
+  return readFromTemplateData(nodeId, name, () => context.templateData.readVariable(name, frame.item));
 }
 
 /** Chặn biến có sẵn dùng sai scope (VD `$position` ở ngoài repeat) — nếu không sẽ âm thầm in giá trị `0`. */
@@ -68,7 +68,10 @@ export function isOptionalVariable(context: ResolveContext, name: string): boole
   return context.index.variables.get(name)?.description.optional ?? false;
 }
 
-/** Gọi hàm `get` của catalog; lỗi trong `get` (data sai cấu trúc) thành lỗi trang thay vì làm hỏng cả lần in. */
+/**
+ * Gọi hàm `get` của dữ liệu template; lỗi trong `get` (data sai cấu trúc) thành lỗi trang thay vì làm hỏng cả
+ * lần in.
+ */
 export function readFromTemplateData(
   nodeId: string,
   name: string,

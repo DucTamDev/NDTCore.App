@@ -6,7 +6,7 @@ const TEMPLATE: TemplateDocument = {
   schemaVersion: 1,
   id: 'template',
   name: 'Template',
-  catalog: 'test-order',
+  dataId: 'test-order',
   media: 'receipt',
   locale: 'vi-VN',
   paper: { widthMm: 72 },

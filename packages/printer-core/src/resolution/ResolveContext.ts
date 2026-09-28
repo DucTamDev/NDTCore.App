@@ -61,9 +61,9 @@ export const COUNTING_PAGE: PageInfo = { pageNumber: 1, pageCount: 1 };
 /** Trạng thái khi resolve 1 node. */
 export interface ResolveContext {
   /** TemplateDataDefinition dùng để đọc biến/collection từ data. */
-  readonly catalog: TemplateDataDefinition<unknown>;
+  readonly templateData: TemplateDataDefinition<unknown>;
 
-  /** Bảng tra biến/collection dựng từ `catalog.describe()`. */
+  /** Bảng tra biến/collection dựng từ `templateData.describe()`. */
   readonly index: TemplateDataIndex;
 
   /** Nguồn tra bitmap ảnh. */

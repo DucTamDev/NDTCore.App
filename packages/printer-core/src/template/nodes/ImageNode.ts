@@ -7,7 +7,7 @@ export interface StaticImageSource {
   readonly asset: string;
 }
 
-/** Ảnh lấy từ 1 biến kiểu `asset` của catalog (VD logo cửa hàng). */
+/** Ảnh lấy từ 1 biến kiểu `asset` của dữ liệu template (VD logo cửa hàng). */
 export interface VariableImageSource {
   /** Tên biến kiểu `asset`. */
   readonly var: string;
@@ -20,7 +20,7 @@ export type ImageNodeSource = StaticImageSource | VariableImageSource;
 export interface ImageNode extends TemplateNodeBase {
   readonly type: 'image';
 
-  /** Nguồn ảnh: asset tĩnh hoặc biến catalog. */
+  /** Nguồn ảnh: asset tĩnh hoặc biến dữ liệu template. */
   readonly source: ImageNodeSource;
 
   /** Style hộp. */

@@ -5,7 +5,7 @@ import { createTemplateDataReader } from './TemplateDataReader';
 import type { VariableDefinitionMap } from './VariableDefinition';
 
 /**
- * Khai báo catalog cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
+ * Khai báo dữ liệu template cho 1 loại nội dung in. Kiểu data suy ra từ `sample`.
  * Throw ngay nếu tên biến/collection trùng ở bất kỳ cấp nào hoặc bắt đầu bằng `$`.
  */
 export function defineTemplateData<

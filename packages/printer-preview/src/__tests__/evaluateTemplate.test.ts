@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateTemplate } from '../evaluateTemplate';
 
-const CATALOG_CODE = `
+const TEMPLATE_DATA_CODE = `
   import { defineTemplateData, defineCollection } from 'printer-core';
 
   const items = defineCollection({
@@ -10,7 +10,7 @@ const CATALOG_CODE = `
     variables: { itemName: { label: 'Tên món', type: 'string', get: (item) => item.name } },
   });
 
-  export const catalog = defineTemplateData({
+  export const templateData = defineTemplateData({
     id: 'demo',
     version: 1,
     sample: { title: 'Xin chào', items: [{ name: 'A' }] },
@@ -20,10 +20,10 @@ const CATALOG_CODE = `
 `;
 
 describe('evaluateTemplate', () => {
-  it('trả template + catalog khi code export đúng', () => {
-    const code = `${CATALOG_CODE}
+  it('trả template + templateData khi code export đúng', () => {
+    const code = `${TEMPLATE_DATA_CODE}
       import { labelTemplate, text } from 'printer-core';
-      export default labelTemplate(catalog)
+      export default labelTemplate(templateData)
         .id('label')
         .name('Tem')
         .paper({ widthMm: 50, heightMm: 30 })
@@ -36,7 +36,7 @@ describe('evaluateTemplate', () => {
     if (result.status !== 'ok') return;
     expect(result.template.media).toBe('label');
     expect(result.template.paper).toEqual({ widthMm: 50, heightMm: 30 });
-    expect(result.catalog.id).toBe('demo');
+    expect(result.templateData.id).toBe('demo');
   });
 
   it('báo lỗi transpile khi cú pháp TypeScript sai', () => {
@@ -46,27 +46,27 @@ describe('evaluateTemplate', () => {
     if (result.status === 'error') expect(result.stage).toBe('transpile');
   });
 
-  it('báo lỗi runtime khi thiếu export catalog', () => {
+  it('báo lỗi runtime khi thiếu export templateData', () => {
     const result = evaluateTemplate('export default { notATemplate: true };');
 
     expect(result.status).toBe('error');
     if (result.status === 'error') {
       expect(result.stage).toBe('runtime');
-      expect(result.message).toContain('export const catalog');
+      expect(result.message).toContain('export const templateData');
     }
   });
 
   it('báo lỗi runtime kèm vị trí khi default export không phải TemplateDocument', () => {
-    const result = evaluateTemplate(`${CATALOG_CODE}\nexport default { notATemplate: true };`);
+    const result = evaluateTemplate(`${TEMPLATE_DATA_CODE}\nexport default { notATemplate: true };`);
 
     expect(result.status).toBe('error');
     if (result.status === 'error') expect(result.message).toContain('schemaVersion');
   });
 
   it('báo lỗi build khi template dùng biến sai scope', () => {
-    const code = `${CATALOG_CODE}
+    const code = `${TEMPLATE_DATA_CODE}
       import { labelTemplate, text } from 'printer-core';
-      export default labelTemplate(catalog)
+      export default labelTemplate(templateData)
         .id('label')
         .name('Tem')
         .paper({ widthMm: 50, heightMm: 30 })

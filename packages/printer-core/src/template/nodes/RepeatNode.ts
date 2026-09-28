@@ -1,11 +1,11 @@
 import type { TemplateNode } from './TemplateNode';
 import type { TemplateNodeBase } from './TemplateNodeBase';
 
-/** Lặp `template` cho từng phần tử của 1 collection trong catalog. */
+/** Lặp `template` cho từng phần tử của 1 collection trong dữ liệu template. */
 export interface RepeatNode extends TemplateNodeBase {
   readonly type: 'repeat';
 
-  /** Tên collection trong catalog, VD `items`. */
+  /** Tên collection trong dữ liệu template, VD `items`. */
   readonly collection: string;
 
   /** Tên biến kiểu `number` của collection: nhân mỗi phần tử thành đúng số bản sao đó (VD mỗi ly 1 tem). */

@@ -1,4 +1,4 @@
-/** Tên các biến có sẵn, không cần khai báo trong catalog. */
+/** Tên các biến có sẵn, không cần khai báo trong dữ liệu template. */
 export type BuiltInVariableName =
   | '$position'
   | '$total'
@@ -12,7 +12,7 @@ export type BuiltInVariableName =
 /** Nơi dùng được 1 biến có sẵn: mọi chỗ / trong `repeat` / trong `repeat` có `expand`. */
 export type BuiltInVariableScope = 'document' | 'repeat' | 'expand';
 
-/** Tiền tố dành riêng cho biến có sẵn — catalog không được đặt tên biến bắt đầu bằng ký tự này. */
+/** Tiền tố dành riêng cho biến có sẵn — dữ liệu template không được đặt tên biến bắt đầu bằng ký tự này. */
 export const RESERVED_NAME_PREFIX = '$';
 
 /** Scope hợp lệ của từng biến có sẵn. Mọi biến có sẵn đều có kiểu `number`. */

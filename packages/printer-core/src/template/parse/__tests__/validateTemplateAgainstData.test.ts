@@ -9,7 +9,7 @@ function documentWithRoot(root: TemplateNode): TemplateDocument {
     schemaVersion: 1,
     id: 'template',
     name: 'Template',
-    catalog: 'test-order',
+    dataId: 'test-order',
     media: 'receipt',
     locale: 'vi-VN',
     paper: { widthMm: 72 },
@@ -59,19 +59,19 @@ describe('validateTemplateAgainstData', () => {
     expect(result).toEqual({ errors: [], warnings: [] });
   });
 
-  it('báo lỗi khi template dùng catalog khác', () => {
+  it('báo lỗi khi template dùng dữ liệu khác', () => {
     const result = validateTemplateAgainstData(
-      { ...documentWithRoot(textOf('orderCode')), catalog: 'kitchen-ticket' },
+      { ...documentWithRoot(textOf('orderCode')), dataId: 'kitchen-ticket' },
       description,
     );
 
     expect(result.errors).toEqual([
-      { path: 'catalog', message: 'template dùng catalog "kitchen-ticket", không phải "test-order"' },
+      { path: 'dataId', message: 'template dùng dữ liệu "kitchen-ticket", không phải "test-order"' },
     ]);
   });
 
-  it('báo lỗi biến không có trong catalog', () => {
-    expect(errorsOf(textOf('missing'))).toEqual(['catalog "test-order" không có biến "missing"']);
+  it('báo lỗi biến không có trong dữ liệu template', () => {
+    expect(errorsOf(textOf('missing'))).toEqual(['dữ liệu template "test-order" không có biến "missing"']);
   });
 
   it('báo lỗi biến của collection dùng ngoài vòng lặp, kèm tên hiển thị của collection', () => {
@@ -96,7 +96,7 @@ describe('validateTemplateAgainstData', () => {
   it('báo lỗi collection không tồn tại', () => {
     const root: TemplateNode = { type: 'repeat', id: 'r', collection: 'payments', template: textOf('orderCode') };
 
-    expect(errorsOf(root)).toEqual(['catalog không có collection "payments"']);
+    expect(errorsOf(root)).toEqual(['dữ liệu template không có collection "payments"']);
   });
 
   it('báo lỗi expand không phải biến number của đúng collection', () => {
