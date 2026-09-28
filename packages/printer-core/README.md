@@ -48,7 +48,7 @@ src/
 │   ├── content/    # Segment, ValueFormat, Condition
 │   ├── nodes/      # TemplateNode và các node container/text/image/barcode/qrcode/line/repeat
 │   ├── format/     # formatter vi-VN tự cài đặt (không dùng Intl)
-│   ├── parse/      # parseTemplate, migrateTemplate, validate cấu trúc/tách tem/theo catalog
+│   ├── parse/      # parseTemplate, validate cấu trúc/tách tem/theo catalog
 │   └── builder/    # DSL labelTemplate/receiptTemplate(catalog), scope.var/repeat
 ├── resolution/     # ghép template + data qua catalog, kế hoạch trang (planPages), tách repeat lồng
 ├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[]

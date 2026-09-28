@@ -97,14 +97,15 @@ describe('parseTemplate', () => {
     const result = parseTemplate('not a template');
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.issues).toEqual([{ path: '', message: 'template phải là object JSON' }]);
+    if (!result.ok) expect(result.issues).toEqual([{ path: '', message: 'phải là object' }]);
   });
 
-  it('báo lỗi rõ ràng khi schemaVersion cao hơn app đang chạy', () => {
-    const result = parseTemplate({ ...validLabelJson(), schemaVersion: 2 });
+  it('từ chối template khác schema hiện tại, không migrate', () => {
+    const newer = parseTemplate({ ...validLabelJson(), schemaVersion: 2 });
+    const older = parseTemplate({ ...validLabelJson(), schemaVersion: 0 });
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.issues[0].message).toContain('phiên bản app mới hơn');
+    expect(newer).toEqual({ ok: false, issues: [{ path: 'schemaVersion', message: 'phải là 1' }] });
+    expect(older).toEqual({ ok: false, issues: [{ path: 'schemaVersion', message: 'phải là 1' }] });
   });
 
   it('báo lỗi đơn vị độ dài sai kèm path chính xác', () => {

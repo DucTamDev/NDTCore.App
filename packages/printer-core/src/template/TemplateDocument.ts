@@ -1,6 +1,6 @@
 import type { TemplateNode } from './nodes/TemplateNode';
 
-/** Phiên bản schema hiện tại của `TemplateDocument`; tăng khi đổi cấu trúc JSON (kèm 1 migration). */
+/** Phiên bản schema hiện tại của `TemplateDocument`; tăng khi đổi cấu trúc JSON, template bản cũ bị bỏ. */
 export const TEMPLATE_SCHEMA_VERSION = 1;
 
 /** Loại giấy: `label` có chiều cao cố định và phân trang, `receipt` là giấy cuộn. */
@@ -20,7 +20,7 @@ export interface PaperSize {
 
 /** Template in dạng JSON thuần: chỉ chứa cấu trúc + placeholder, không chứa data, ảnh hay hàm. */
 export interface TemplateDocument {
-  /** Phiên bản schema, dùng để migrate khi đọc template cũ. */
+  /** Phiên bản schema; phải đúng `TEMPLATE_SCHEMA_VERSION`, khác là `parseTemplate` từ chối (không migrate). */
   readonly schemaVersion: typeof TEMPLATE_SCHEMA_VERSION;
 
   /** Mã template do người tạo đặt hoặc BE cấp. */

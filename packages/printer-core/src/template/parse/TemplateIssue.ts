@@ -9,7 +9,7 @@ export interface TemplateIssue {
   readonly message: string;
 }
 
-/** Kết quả `parseTemplate`: template đã migrate + hợp lệ, hoặc danh sách lỗi. */
+/** Kết quả `parseTemplate`: template hợp lệ, hoặc danh sách lỗi. */
 export type ParseResult =
   | { readonly ok: true; readonly template: TemplateDocument }
   | { readonly ok: false; readonly issues: readonly TemplateIssue[] };
