@@ -1,7 +1,7 @@
 import { convert } from '../PrinterConverter';
 import { SUPPORTED_SOURCES, SUPPORTED_TARGETS } from '../ConversionPath';
 import { ConversionRegistry } from '../ConversionRegistry';
-import { UnsupportedLanguageError } from '../../core/PrinterCoreError';
+import { UnsupportedLanguageError } from '../../core/UnsupportedLanguageError';
 import type { PrinterLanguage } from '../../core/PrinterLanguage';
 
 function bytesToBinaryString(bytes: number[]): string {

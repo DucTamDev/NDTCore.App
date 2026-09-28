@@ -1,5 +1,5 @@
-import { compileTo, parseFrom, validateFor, previewFor } from '../LanguageDispatch';
-import { UnsupportedLanguageError } from '../PrinterCoreError';
+import { compileTo, LANGUAGE_REGISTRY, parseFrom, previewFor, SUPPORTED_LANGUAGES, validateFor } from '..';
+import { UnsupportedLanguageError } from '../../core';
 import type { ResolvedPrintDocument } from '../../document';
 import { bytesToBinaryString } from '../../encoding';
 
@@ -62,6 +62,11 @@ describe('LanguageDispatch', () => {
     expect(() => parseFrom(unknown, '')).toThrow(UnsupportedLanguageError);
     expect(() => validateFor(unknown, '')).toThrow(UnsupportedLanguageError);
     expect(() => previewFor(unknown, doc)).toThrow(UnsupportedLanguageError);
+  });
+
+  it('SUPPORTED_LANGUAGES lấy đúng các ngôn ngữ đã đăng ký trong LANGUAGE_REGISTRY', () => {
+    expect([...SUPPORTED_LANGUAGES].sort()).toEqual(Object.keys(LANGUAGE_REGISTRY).sort());
+    expect([...SUPPORTED_LANGUAGES].sort()).toEqual(['escpos', 'tspl']);
   });
 
   it('compileTo dùng chung compiler đã đăng ký nhưng cảnh báo không dồn sang lần compile sau', () => {

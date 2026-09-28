@@ -8,6 +8,7 @@ export * from './encoding';
 export * from './language';
 export * from './preview';
 export * from './validation';
+export * from './registry';
 export * from './convert';
 export * from './catalog';
 export * from './template';

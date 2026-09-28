@@ -3,7 +3,7 @@ import { TsplParser } from '../language/tspl/TsplParser';
 import { TsplValidator } from '../validation/languages/tspl/TsplValidator';
 import { EscPosCompiler } from '../language/escpos/EscPosCompiler';
 import { EscPosParser } from '../language/escpos/EscPosParser';
-import { compileTo, parseFrom, previewFor, validateFor } from '../core/LanguageDispatch';
+import { compileTo, parseFrom, previewFor, validateFor } from '../registry';
 import type { PrinterLanguage } from '../core/PrinterLanguage';
 import type { ResolvedPrintDocument } from '../document';
 

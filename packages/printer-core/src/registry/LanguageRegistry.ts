@@ -1,8 +1,7 @@
-import type { PrinterLanguage } from './PrinterLanguage';
-import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
+import type { PrinterLanguage, PrinterLanguageDefinition } from '../core';
 import { EscPosCompiler, EscPosParser, TsplCompiler, TsplParser } from '../language';
-import { EscPosValidator, TsplValidator } from '../validation';
 import { EscPosPreviewRenderer, TsplPreviewRenderer } from '../preview';
+import { EscPosValidator, TsplValidator } from '../validation';
 
 /** Buộc field `language` của mỗi mục trùng với key, để 2 chỗ viết tên ngôn ngữ không thể lệch nhau. */
 type LanguageRegistry = {
