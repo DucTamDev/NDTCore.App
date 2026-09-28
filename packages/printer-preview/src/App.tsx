@@ -1,6 +1,6 @@
 // packages/printer-preview/src/App.tsx
 import { useEffect, useState } from 'react';
-import type { PrinterLanguage } from 'printer-core';
+import { SUPPORTED_LANGUAGES, type PrinterLanguage } from 'printer-core';
 import { CodeEditor } from './components/CodeEditor';
 import { DataEditor } from './components/DataEditor';
 import { PreviewPanel } from './components/PreviewPanel';
@@ -9,7 +9,6 @@ import { evaluateTemplate } from './evaluateTemplate';
 import { renderPreviews, defaultLanguageFor, type PagePreview } from './pipeline';
 import { defaultCode, defaultData } from './defaultSample';
 
-const LANGUAGES: readonly PrinterLanguage[] = ['tspl', 'escpos'];
 const RENDER_DEBOUNCE_MS = 500;
 
 interface RenderOutcome {
@@ -85,7 +84,7 @@ export function App() {
       </div>
       <div style={{ overflow: 'auto', padding: 8 }}>
         <select value={language} onChange={(event) => handleLanguageChange(event.target.value as PrinterLanguage)}>
-          {LANGUAGES.map((lang) => (
+          {SUPPORTED_LANGUAGES.map((lang) => (
             <option key={lang} value={lang}>
               {lang}
             </option>

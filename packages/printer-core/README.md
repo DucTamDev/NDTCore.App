@@ -53,17 +53,19 @@ src/
 ├── resolution/     # ghép template + data qua catalog, kế hoạch trang (planPages), tách repeat lồng
 ├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[]
 ├── document/       # ResolvedPrintDocument + PrintElement (content/drawing/layout/control)
-├── core/           # contract: PrinterLanguage, PrintCompiler/Parser/Preview/Validation, PrinterFeatures,
-│                   # registry + dispatch compileTo/parseFrom/validateFor/previewFor
+├── core/           # contract: PrinterLanguage, PrintCompiler/Parser/Preview/Validation, CompileResult,
+│                   # PrintParseResult, PrinterFeatures, UnsupportedLanguageError
 ├── language/       # BitmapFont (TSPL), MagnifiedFont (ESC/POS), CompileWarnings
 │   ├── tspl/       # TsplCommand, TsplCompiler, TsplEncoder, TsplFontMetrics, TsplParser
 │   └── escpos/     # EscPosCommand, EscPosCompiler, EscPosCodePage, EscPos{Barcode,Image,QrCode}Encoder,
 │                   # EscPosFontMetrics, EscPosParser
 ├── preview/languages/{tspl,escpos}/      # preview SVG theo từng ngôn ngữ
 ├── validation/     # ValidationIssue, ValidationResult + languages/{tspl,escpos}/ validator
-├── convert/        # convert() giữa các ngôn ngữ, ConversionRegistry, SUPPORTED_SOURCES/TARGETS
+├── registry/       # LANGUAGE_REGISTRY, SUPPORTED_LANGUAGES, compileTo/parseFrom/validateFor/previewFor
+├── convert/        # convert() giữa TSPL và ESC/POS qua parseFrom + compileTo
 ├── formatting/     # TableColumn, formatTable/formatRow, validateTableColumns (bảng trong element table)
-├── encoding/       # CodePage, encodeTextForPrinter + encoders/ (CP437/857/858/866, Windows-1252/1258, UTF-8)
+├── encoding/       # CodePage, encodeTextForPrinter + encoders/ (CP437/857/858/866, Windows-1252/1258, UTF-8),
+│                   # binaryStringToBytes/bytesToBinaryString (chuỗi 1 ký tự = 1 byte)
 ├── image/          # crop/resize/threshold/dither ảnh thành bitmap đơn sắc + dithering/
 ├── symbology/      # barcode/ và qrcode/: cấu hình + validate
 └── testing/        # OrderTestCatalog — catalog đơn hàng + data mẫu dùng chung cho test (không export ra ngoài)

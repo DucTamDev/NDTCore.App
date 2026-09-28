@@ -4,7 +4,7 @@ import type { PrintElement } from '../document';
 export interface ConversionResult {
   /**
    * Lệnh ở ngôn ngữ đích. TSPL trả nguyên chuỗi lệnh; ESC/POS (ra byte) trả chuỗi 1 ký tự = 1 byte (0-255), lấy
-   * lại byte bằng `Uint8Array.from(output, (c) => c.charCodeAt(0))`.
+   * lại byte bằng `binaryStringToBytes(output)`.
    */
   output: string;
 

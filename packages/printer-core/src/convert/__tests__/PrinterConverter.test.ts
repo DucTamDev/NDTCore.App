@@ -1,6 +1,4 @@
 import { convert } from '../PrinterConverter';
-import { SUPPORTED_SOURCES, SUPPORTED_TARGETS } from '../ConversionPath';
-import { ConversionRegistry } from '../ConversionRegistry';
 import { UnsupportedLanguageError } from '../../core/UnsupportedLanguageError';
 import type { PrinterLanguage } from '../../core/PrinterLanguage';
 
@@ -47,13 +45,6 @@ describe('convert', () => {
 
   it('throws a clear error for an unregistered target language', () => {
     expect(() => convert('SIZE 50 mm,30 mm\r\nCLS\r\nPRINT 1\r\n', 'tspl', 'made-up' as PrinterLanguage)).toThrow(UnsupportedLanguageError);
-  });
-
-  it('derives SUPPORTED_SOURCES/SUPPORTED_TARGETS from ConversionRegistry, covering tspl and escpos', () => {
-    const registryKeys = Object.keys(ConversionRegistry).sort();
-    expect(registryKeys).toEqual(['escpos', 'tspl']);
-    expect([...SUPPORTED_SOURCES].sort()).toEqual(registryKeys);
-    expect([...SUPPORTED_TARGETS].sort()).toEqual(registryKeys);
   });
 });
 
