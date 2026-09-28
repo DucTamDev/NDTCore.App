@@ -1,8 +1,8 @@
-import { createCatalogIndex, isBuiltInVariableName } from '..';
-import { TEST_ORDER_CATALOG } from '../../testing';
+import { createTemplateDataIndex, isBuiltInVariableName } from '..';
+import { TEST_ORDER_DATA } from '../../../testing';
 
-describe('createCatalogIndex', () => {
-  const index = createCatalogIndex(TEST_ORDER_CATALOG.describe());
+describe('createTemplateDataIndex', () => {
+  const index = createTemplateDataIndex(TEST_ORDER_DATA.describe());
 
   it('ghi collection sở hữu của từng biến', () => {
     expect(index.variables.get('orderCode')?.collection).toBeNull();

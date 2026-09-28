@@ -1,4 +1,4 @@
-import type { VariableType } from '../../catalog';
+import type { VariableType } from '../data';
 import type { ValueFormat } from '../content/ValueFormat';
 import { formatCurrency } from './formatCurrency';
 import { formatDateTime } from './formatDateTime';

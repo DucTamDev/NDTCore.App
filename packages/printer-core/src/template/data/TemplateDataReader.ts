@@ -1,6 +1,6 @@
 import { RESERVED_NAME_PREFIX } from './BuiltInVariable';
-import type { CatalogCollection, CatalogCollectionMap } from './CatalogCollection';
-import type { VariableSpec, VariableSpecMap } from './VariableSpec';
+import type { CollectionDefinition, CollectionDefinitionMap } from './CollectionDefinition';
+import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
 
 /** Đọc giá trị biến/collection theo tên lúc chạy — resolver chỉ biết tên, không biết kiểu data. */
 export interface TemplateDataReader {
@@ -13,14 +13,14 @@ export interface TemplateDataReader {
 
 /** Bảng tra phẳng tên → khai báo ở mọi cấp. */
 interface NameLookup {
-  readonly variables: Map<string, VariableSpec<unknown>>;
-  readonly collections: Map<string, CatalogCollection<unknown, unknown>>;
+  readonly variables: Map<string, VariableDefinition<unknown>>;
+  readonly collections: Map<string, CollectionDefinition<unknown, unknown>>;
 }
 
 /** Dựng reader từ biến/collection đã khai báo; throw nếu tên trùng ở bất kỳ cấp nào hoặc dùng tiền tố `$`. */
 export function createTemplateDataReader(
-  variables: VariableSpecMap<unknown>,
-  collections: CatalogCollectionMap<unknown>,
+  variables: VariableDefinitionMap<unknown>,
+  collections: CollectionDefinitionMap<unknown>,
 ): TemplateDataReader {
   const lookup: NameLookup = { variables: new Map(), collections: new Map() };
   registerScope(lookup, variables, collections);
@@ -33,8 +33,8 @@ export function createTemplateDataReader(
 
 function registerScope(
   lookup: NameLookup,
-  variables: VariableSpecMap<unknown>,
-  collections: CatalogCollectionMap<unknown>,
+  variables: VariableDefinitionMap<unknown>,
+  collections: CollectionDefinitionMap<unknown>,
 ): void {
   for (const [name, spec] of Object.entries(variables)) {
     assertNameAvailable(lookup, name);

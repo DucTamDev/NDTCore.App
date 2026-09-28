@@ -1,6 +1,6 @@
 export const defaultCode = `import {
   column,
-  defineCatalog,
+  defineTemplateData,
   defineCollection,
   eq,
   gt,
@@ -53,7 +53,7 @@ const products = defineCollection({
   collections: { toppings },
 });
 
-export const catalog = defineCatalog({
+export const catalog = defineTemplateData({
   id: 'product-label',
   version: 1,
   sample,

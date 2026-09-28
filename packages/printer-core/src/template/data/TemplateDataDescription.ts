@@ -34,7 +34,7 @@ export interface CollectionDescription {
 }
 
 /** Metadata JSON của cả catalog — kết quả của `catalog.describe()`. */
-export interface CatalogDescription {
+export interface TemplateDataDescription {
   /** Mã catalog, khớp với `TemplateDocument.catalog`. */
   readonly id: string;
 

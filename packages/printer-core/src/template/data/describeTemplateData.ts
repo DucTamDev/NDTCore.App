@@ -1,12 +1,12 @@
-import type { Catalog } from './Catalog';
-import type { CatalogCollectionMap } from './CatalogCollection';
-import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
-import type { VariableSpec, VariableSpecMap } from './VariableSpec';
+import type { TemplateDataDefinition } from './TemplateDataDefinition';
+import type { CollectionDefinitionMap } from './CollectionDefinition';
+import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
+import type { VariableDefinition, VariableDefinitionMap } from './VariableDefinition';
 
 /** Metadata JSON thuần (bỏ mọi hàm `get`) của phần khai báo, cho designer/BE và cho validate template. */
 export function describeTemplateData(
-  definition: Pick<Catalog<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
-): CatalogDescription {
+  definition: Pick<TemplateDataDefinition<unknown>, 'id' | 'version' | 'variables' | 'collections'>,
+): TemplateDataDescription {
   return {
     id: definition.id,
     version: definition.version,
@@ -15,11 +15,11 @@ export function describeTemplateData(
   };
 }
 
-function describeVariables(variables: VariableSpecMap<unknown>): readonly VariableDescription[] {
+function describeVariables(variables: VariableDefinitionMap<unknown>): readonly VariableDescription[] {
   return Object.entries(variables).map(([name, spec]) => describeVariable(name, spec));
 }
 
-function describeCollections(collections: CatalogCollectionMap<unknown>): readonly CollectionDescription[] {
+function describeCollections(collections: CollectionDefinitionMap<unknown>): readonly CollectionDescription[] {
   return Object.entries(collections).map(([name, collection]) => ({
     name,
     label: collection.label,
@@ -28,7 +28,7 @@ function describeCollections(collections: CatalogCollectionMap<unknown>): readon
   }));
 }
 
-function describeVariable(name: string, spec: VariableSpec<unknown>): VariableDescription {
+function describeVariable(name: string, spec: VariableDefinition<unknown>): VariableDescription {
   return {
     name,
     label: spec.label,

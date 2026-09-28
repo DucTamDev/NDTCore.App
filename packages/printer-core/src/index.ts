@@ -10,7 +10,6 @@ export * from './preview';
 export * from './validation';
 export * from './registry';
 export * from './convert';
-export * from './catalog';
 export * from './template';
 export * from './resolution';
 export * from './layout';

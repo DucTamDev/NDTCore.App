@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { evaluateTemplate } from '../evaluateTemplate';
 
 const CATALOG_CODE = `
-  import { defineCatalog, defineCollection } from 'printer-core';
+  import { defineTemplateData, defineCollection } from 'printer-core';
 
   const items = defineCollection({
     label: 'Món',
@@ -10,7 +10,7 @@ const CATALOG_CODE = `
     variables: { itemName: { label: 'Tên món', type: 'string', get: (item) => item.name } },
   });
 
-  export const catalog = defineCatalog({
+  export const catalog = defineTemplateData({
     id: 'demo',
     version: 1,
     sample: { title: 'Xin chào', items: [{ name: 'A' }] },

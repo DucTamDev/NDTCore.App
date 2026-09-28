@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { column, defineCatalog, defineCollection, labelTemplate, receiptTemplate, text } from 'printer-core';
+import { column, defineTemplateData, defineCollection, labelTemplate, receiptTemplate, text } from 'printer-core';
 import { defaultLanguageFor, renderPreviews } from '../pipeline';
 
 interface DemoData {
@@ -13,7 +13,7 @@ const items = defineCollection({
   variables: { itemName: { label: 'Tên món', type: 'string', get: (item) => item.name } },
 });
 
-const catalog = defineCatalog({
+const catalog = defineTemplateData({
   id: 'demo',
   version: 1,
   sample: { title: 'Xin chào', items: [] } as DemoData,

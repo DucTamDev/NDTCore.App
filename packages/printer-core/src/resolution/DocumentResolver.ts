@@ -1,4 +1,4 @@
-import { createCatalogIndex, type Catalog } from '../catalog';
+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { TemplateDocument, TemplateNode } from '../template';
 import type { AssetProvider } from './AssetProvider';
 import { planPages } from './planPages';
@@ -9,8 +9,8 @@ import { resolveNode } from './resolveNode';
 
 /** Nguồn phụ trợ cho 1 lần resolve. */
 export interface ResolveOptions<TData> {
-  /** Catalog mà template dùng; `id` phải khớp `template.catalog`. */
-  readonly catalog: Catalog<TData>;
+  /** TemplateDataDefinition mà template dùng; `id` phải khớp `template.catalog`. */
+  readonly catalog: TemplateDataDefinition<TData>;
 
   /** Ảnh đã tải + decode sẵn. */
   readonly assets: AssetProvider;
@@ -33,7 +33,7 @@ export class DocumentResolver {
 
     const baseContext: ResolveContext = {
       catalog: options.catalog,
-      index: createCatalogIndex(options.catalog.describe()),
+      index: createTemplateDataIndex(options.catalog.describe()),
       assets: options.assets,
       frames: [createRootFrame(data)],
       page: COUNTING_PAGE,

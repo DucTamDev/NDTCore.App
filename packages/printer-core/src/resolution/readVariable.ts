@@ -3,7 +3,7 @@ import {
   isBuiltInVariableName,
   type BuiltInVariableName,
   type VariableType,
-} from '../catalog';
+} from '../template/data';
 import { findScopeFrame, innermostFrame, type ResolveContext } from './ResolveContext';
 import { errorMessage, ResolveError } from './ResolveError';
 
@@ -40,7 +40,7 @@ export function readVariableValue(
   const frame = findScopeFrame(context, variable.collection);
   if (!frame) throw new ResolveError(nodeId, `biến "${name}" chỉ dùng được trong vòng lặp "${variable.collection}"`);
 
-  return readFromCatalog(nodeId, name, () => context.catalog.readVariable(name, frame.item));
+  return readFromTemplateData(nodeId, name, () => context.catalog.readVariable(name, frame.item));
 }
 
 /** Chặn biến có sẵn dùng sai scope (VD `$position` ở ngoài repeat) — nếu không sẽ âm thầm in giá trị `0`. */
@@ -69,7 +69,7 @@ export function isOptionalVariable(context: ResolveContext, name: string): boole
 }
 
 /** Gọi hàm `get` của catalog; lỗi trong `get` (data sai cấu trúc) thành lỗi trang thay vì làm hỏng cả lần in. */
-export function readFromCatalog(
+export function readFromTemplateData(
   nodeId: string,
   name: string,
   read: () => unknown,

@@ -5,7 +5,7 @@ import {
   paperSizeToDots,
   previewFor,
   type AssetProvider,
-  type Catalog,
+  type TemplateDataDefinition,
   type PrinterLanguage,
   type ResolvedPage,
   type ResolvedPrintDocument,
@@ -74,7 +74,7 @@ function renderPage(
 
 export function renderPreviews(
   template: TemplateDocument,
-  catalog: Catalog<unknown>,
+  catalog: TemplateDataDefinition<unknown>,
   data: unknown,
   language: PrinterLanguage,
 ): readonly PagePreview[] {

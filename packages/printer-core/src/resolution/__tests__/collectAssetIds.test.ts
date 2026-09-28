@@ -1,6 +1,6 @@
 import { collectAssetIds } from '..';
 import type { TemplateDocument } from '../../template';
-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE } from '../../testing';
+import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../testing';
 
 const TEMPLATE: TemplateDocument = {
   schemaVersion: 1,
@@ -34,7 +34,7 @@ const TEMPLATE: TemplateDocument = {
 
 describe('collectAssetIds', () => {
   it('thu asset tĩnh + giá trị biến asset, bỏ qua điều kiện ẩn/hiện, không trùng lặp', () => {
-    expect(collectAssetIds(TEMPLATE, TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE)).toEqual([
+    expect(collectAssetIds(TEMPLATE, TEST_ORDER_DATA, TEST_ORDER_SAMPLE)).toEqual([
       'store-logo@v1',
       'icon@v1',
       'cup@v2',
@@ -44,6 +44,6 @@ describe('collectAssetIds', () => {
   it('bỏ qua biến asset rỗng', () => {
     const noLogo = { ...TEST_ORDER_SAMPLE, storeLogo: undefined };
 
-    expect(collectAssetIds(TEMPLATE, TEST_ORDER_CATALOG, noLogo)).toEqual(['icon@v1', 'cup@v2']);
+    expect(collectAssetIds(TEMPLATE, TEST_ORDER_DATA, noLogo)).toEqual(['icon@v1', 'cup@v2']);
   });
 });

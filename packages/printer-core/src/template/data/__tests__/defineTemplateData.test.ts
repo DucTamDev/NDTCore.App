@@ -1,24 +1,24 @@
-import { defineCatalog, defineCollection } from '..';
-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE } from '../../testing';
+import { defineTemplateData, defineCollection } from '..';
+import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../../testing';
 
-describe('defineCatalog', () => {
+describe('defineTemplateData', () => {
   it('đọc giá trị biến gốc và biến tính toán của collection', () => {
     const firstItem = TEST_ORDER_SAMPLE.items[0];
 
-    expect(TEST_ORDER_CATALOG.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
-    expect(TEST_ORDER_CATALOG.readVariable('itemTotal', firstItem)).toBe(135000);
+    expect(TEST_ORDER_DATA.readVariable('orderCode', TEST_ORDER_SAMPLE)).toBe('HD001');
+    expect(TEST_ORDER_DATA.readVariable('itemTotal', firstItem)).toBe(135000);
   });
 
   it('đọc mảng phần tử của collection cấp 1 và collection lồng', () => {
     const firstItem = TEST_ORDER_SAMPLE.items[0];
 
-    expect(TEST_ORDER_CATALOG.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
-    expect(TEST_ORDER_CATALOG.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
+    expect(TEST_ORDER_DATA.readCollection('items', TEST_ORDER_SAMPLE)).toHaveLength(2);
+    expect(TEST_ORDER_DATA.readCollection('toppings', firstItem)).toEqual([{ name: 'Trân châu', price: 5000 }]);
   });
 
   it('throw khi đọc biến hoặc collection không tồn tại', () => {
-    expect(() => TEST_ORDER_CATALOG.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
-    expect(() => TEST_ORDER_CATALOG.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
+    expect(() => TEST_ORDER_DATA.readVariable('missing', TEST_ORDER_SAMPLE)).toThrow('không có biến "missing"');
+    expect(() => TEST_ORDER_DATA.readCollection('missing', TEST_ORDER_SAMPLE)).toThrow(
       'không có collection "missing"',
     );
   });
@@ -31,7 +31,7 @@ describe('defineCatalog', () => {
     });
 
     expect(() =>
-      defineCatalog({
+      defineTemplateData({
         id: 'duplicate',
         version: 1,
         sample: { name: 'A', items: [] as readonly string[] },
@@ -49,7 +49,7 @@ describe('defineCatalog', () => {
     });
 
     expect(() =>
-      defineCatalog({
+      defineTemplateData({
         id: 'duplicate',
         version: 1,
         sample: { items: [] as readonly string[] },
@@ -61,7 +61,7 @@ describe('defineCatalog', () => {
 
   it('throw khi tên biến bắt đầu bằng "$"', () => {
     expect(() =>
-      defineCatalog({
+      defineTemplateData({
         id: 'reserved',
         version: 1,
         sample: {},
@@ -71,7 +71,7 @@ describe('defineCatalog', () => {
   });
 
   it('describe() trả metadata JSON thuần, không lộ hàm get', () => {
-    const description = TEST_ORDER_CATALOG.describe();
+    const description = TEST_ORDER_DATA.describe();
 
     expect(JSON.parse(JSON.stringify(description))).toEqual(description);
     expect(description.variables.map((variable) => variable.name)).toEqual([

@@ -1,1 +1,1 @@
-export * from './OrderTestCatalog';
+export * from './OrderTestData';

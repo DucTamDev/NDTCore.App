@@ -1,5 +1,5 @@
 import type { RepeatNode } from '../template';
-import { readFromCatalog } from './readVariable';
+import { readFromTemplateData } from './readVariable';
 import { findScopeFrame, type ResolveContext, type ScopeFrame } from './ResolveContext';
 import { ResolveError } from './ResolveError';
 
@@ -52,7 +52,7 @@ export function readCollectionItems(node: RepeatNode, context: ResolveContext): 
     throw new ResolveError(node.id, message);
   }
 
-  const items = readFromCatalog(node.id, node.collection, () =>
+  const items = readFromTemplateData(node.id, node.collection, () =>
     context.catalog.readCollection(node.collection, parentFrame.item),
   );
   if (!Array.isArray(items)) throw new ResolveError(node.id, `collection "${node.collection}" không phải mảng`);
@@ -82,7 +82,7 @@ function readExpandCount(
   item: unknown,
   context: ResolveContext,
 ): number {
-  const count = readFromCatalog(node.id, expand, () => context.catalog.readVariable(expand, item));
+  const count = readFromTemplateData(node.id, expand, () => context.catalog.readVariable(expand, item));
   if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
     throw new ResolveError(node.id, `expand "${expand}" phải là số nguyên dương, nhận "${String(count)}"`);
   }

@@ -1,7 +1,7 @@
 import type { VariableType } from './VariableType';
 
 /** Khai báo 1 biến trong catalog: tên hiển thị, kiểu, và cách lấy giá trị từ data nguồn. */
-export interface VariableSpec<TSource> {
+export interface VariableDefinition<TSource> {
   /** Tên hiển thị cho người dùng, VD 'Tên bàn'. */
   readonly label: string;
 
@@ -23,4 +23,4 @@ export interface VariableSpec<TSource> {
 }
 
 /** Tập biến theo tên của 1 scope (data gốc hoặc phần tử của 1 collection). */
-export type VariableSpecMap<TSource> = Readonly<Record<string, VariableSpec<TSource>>>;
+export type VariableDefinitionMap<TSource> = Readonly<Record<string, VariableDefinition<TSource>>>;

@@ -1,11 +1,11 @@
-import type { VariableSpecMap } from './VariableSpec';
+import type { VariableDefinitionMap } from './VariableDefinition';
 
 /** 1 danh sách lặp được trong catalog (VD danh sách món), kèm biến và collection con của từng phần tử. */
-export interface CatalogCollection<
+export interface CollectionDefinition<
   TSource,
   TItem,
-  TVariables extends VariableSpecMap<TItem> = VariableSpecMap<TItem>,
-  TCollections extends CatalogCollectionMap<TItem> = CatalogCollectionMap<TItem>,
+  TVariables extends VariableDefinitionMap<TItem> = VariableDefinitionMap<TItem>,
+  TCollections extends CollectionDefinitionMap<TItem> = CollectionDefinitionMap<TItem>,
 > {
   /** Tên hiển thị, VD 'Danh sách món'. */
   readonly label: string;
@@ -21,15 +21,15 @@ export interface CatalogCollection<
 }
 
 /** Tập collection theo tên của 1 scope. */
-export interface CatalogCollectionMap<TSource> {
-  readonly [name: string]: CatalogCollection<TSource, unknown>;
+export interface CollectionDefinitionMap<TSource> {
+  readonly [name: string]: CollectionDefinition<TSource, unknown>;
 }
 
 /** Tập collection rỗng — kiểu mặc định khi scope không có collection con. */
 export type EmptyCollectionMap = Readonly<Record<never, never>>;
 
-/** Input của `defineCollection`: giống `CatalogCollection` nhưng được bỏ trống `collections`. */
-export interface CollectionDefinition<TSource, TItem, TVariables, TCollections> {
+/** Input của `defineCollection`: giống `CollectionDefinition` nhưng được bỏ trống `collections`. */
+export interface CollectionDefinitionInput<TSource, TItem, TVariables, TCollections> {
   /** Tên hiển thị, VD 'Danh sách món'. */
   readonly label: string;
 
@@ -50,12 +50,12 @@ export interface CollectionDefinition<TSource, TItem, TVariables, TCollections> 
 export function defineCollection<
   TSource,
   TItem,
-  TVariables extends VariableSpecMap<TItem>,
-  TCollections extends CatalogCollectionMap<TItem> = EmptyCollectionMap,
+  TVariables extends VariableDefinitionMap<TItem>,
+  TCollections extends CollectionDefinitionMap<TItem> = EmptyCollectionMap,
 >(
-  definition: CollectionDefinition<TSource, TItem, TVariables, TCollections>,
-): NoInfer<CatalogCollection<TSource, TItem, TVariables, TCollections>> {
-  // NoInfer: khi khai báo lồng trong defineCatalog, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
+  definition: CollectionDefinitionInput<TSource, TItem, TVariables, TCollections>,
+): NoInfer<CollectionDefinition<TSource, TItem, TVariables, TCollections>> {
+  // NoInfer: khi khai báo lồng trong defineTemplateData, kiểu mong đợi ở chỗ gọi có phần tử `unknown`
   // và sẽ lấn át kiểu suy từ `get` nếu không chặn.
   return {
     label: definition.label,

@@ -1,13 +1,13 @@
-import type { CatalogCollectionMap } from './CatalogCollection';
-import type { CatalogDescription } from './CatalogDescription';
+import type { CollectionDefinitionMap } from './CollectionDefinition';
+import type { TemplateDataDescription } from './TemplateDataDescription';
 import type { TemplateDataReader } from './TemplateDataReader';
-import type { VariableSpecMap } from './VariableSpec';
+import type { VariableDefinitionMap } from './VariableDefinition';
 
-/** Catalog đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
-export interface Catalog<
+/** TemplateDataDefinition đã khai báo — cầu nối duy nhất giữa template và data nội bộ của app. */
+export interface TemplateDataDefinition<
   TData,
-  TVariables extends VariableSpecMap<TData> = VariableSpecMap<TData>,
-  TCollections extends CatalogCollectionMap<TData> = CatalogCollectionMap<TData>,
+  TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
+  TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
 > extends TemplateDataReader {
   /** Mã catalog, VD 'product-label'; template tham chiếu qua `TemplateDocument.catalog`. */
   readonly id: string;
@@ -25,11 +25,11 @@ export interface Catalog<
   readonly collections: TCollections;
 
   /** Metadata JSON thuần (không có hàm) cho designer/BE và cho validate template. */
-  describe(): CatalogDescription;
+  describe(): TemplateDataDescription;
 }
 
-/** Input của `defineCatalog`. */
-export interface CatalogDefinition<TData, TVariables, TCollections> {
+/** Input của `defineTemplateData`. */
+export interface TemplateDataDefinitionInput<TData, TVariables, TCollections> {
   /** Mã catalog, VD 'product-label'. */
   readonly id: string;
 

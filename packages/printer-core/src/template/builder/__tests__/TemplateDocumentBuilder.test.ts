@@ -11,10 +11,10 @@ import {
   text,
   TemplateBuildError,
 } from '../..';
-import { TEST_ORDER_CATALOG } from '../../../testing';
+import { TEST_ORDER_DATA } from '../../../testing';
 
 function buildProductLabel() {
-  return labelTemplate(TEST_ORDER_CATALOG)
+  return labelTemplate(TEST_ORDER_DATA)
     .id('product-label-default')
     .name('Tem món mặc định')
     .paper({ widthMm: 50, heightMm: 30 })
@@ -89,7 +89,7 @@ describe('labelTemplate / receiptTemplate', () => {
   });
 
   it('receipt không có chiều cao giấy', () => {
-    const template = receiptTemplate(TEST_ORDER_CATALOG)
+    const template = receiptTemplate(TEST_ORDER_DATA)
       .id('receipt')
       .name('Hoá đơn')
       .paper({ widthMm: 72 })
@@ -101,7 +101,7 @@ describe('labelTemplate / receiptTemplate', () => {
   });
 
   it('throw TemplateBuildError khi segment viết tay dùng biến sai scope', () => {
-    const builder = receiptTemplate(TEST_ORDER_CATALOG)
+    const builder = receiptTemplate(TEST_ORDER_DATA)
       .id('receipt')
       .name('Hoá đơn')
       .paper({ widthMm: 72 })
@@ -113,7 +113,7 @@ describe('labelTemplate / receiptTemplate', () => {
 
   it('không throw khi chỉ có cảnh báo deprecated', () => {
     const build = () =>
-      receiptTemplate(TEST_ORDER_CATALOG)
+      receiptTemplate(TEST_ORDER_DATA)
         .id('receipt')
         .name('Hoá đơn')
         .paper({ widthMm: 72 })
@@ -124,10 +124,10 @@ describe('labelTemplate / receiptTemplate', () => {
   });
 
   it('throw khi thiếu id, name, paper hoặc root', () => {
-    expect(() => receiptTemplate(TEST_ORDER_CATALOG).build()).toThrow('Template cần .id(...)');
-    expect(() => receiptTemplate(TEST_ORDER_CATALOG).id('x').build()).toThrow('Template cần .name(...)');
-    expect(() => receiptTemplate(TEST_ORDER_CATALOG).id('x').name('x').build()).toThrow('Template cần .paper(...)');
-    expect(() => receiptTemplate(TEST_ORDER_CATALOG).id('x').name('x').paper({ widthMm: 72 }).build()).toThrow(
+    expect(() => receiptTemplate(TEST_ORDER_DATA).build()).toThrow('Template cần .id(...)');
+    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').build()).toThrow('Template cần .name(...)');
+    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').name('x').build()).toThrow('Template cần .paper(...)');
+    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').name('x').paper({ widthMm: 72 }).build()).toThrow(
       'Template cần .root(...)',
     );
   });
@@ -135,11 +135,11 @@ describe('labelTemplate / receiptTemplate', () => {
   it('TypeScript chặn tên biến sai, biến sai scope và khổ giấy sai loại', () => {
     const checkTypesOnly = () => {
       // @ts-expect-error label bắt buộc heightMm
-      labelTemplate(TEST_ORDER_CATALOG).paper({ widthMm: 50 });
+      labelTemplate(TEST_ORDER_DATA).paper({ widthMm: 50 });
       // @ts-expect-error receipt không có heightMm
-      receiptTemplate(TEST_ORDER_CATALOG).paper({ widthMm: 72, heightMm: 30 });
+      receiptTemplate(TEST_ORDER_DATA).paper({ widthMm: 72, heightMm: 30 });
 
-      receiptTemplate(TEST_ORDER_CATALOG).root((scope) => {
+      receiptTemplate(TEST_ORDER_DATA).root((scope) => {
         // @ts-expect-error tên biến sai
         scope.var('orderCod');
         // @ts-expect-error biến của collection không dùng được ở gốc
@@ -159,7 +159,7 @@ describe('labelTemplate / receiptTemplate', () => {
   });
 
   it('maxItemsPerPage trên repeat lồng và biến $part/$partCount ra đúng JSON, qua được parseTemplate', () => {
-    const template = labelTemplate(TEST_ORDER_CATALOG)
+    const template = labelTemplate(TEST_ORDER_DATA)
       .id('split-label')
       .name('Tem tách topping')
       .paper({ widthMm: 50, heightMm: 30 })

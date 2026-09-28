@@ -1,4 +1,4 @@
-import type { BuiltInVariableName } from '../../catalog';
+import type { BuiltInVariableName } from '../data';
 import type { VariableSegment } from '../content/Segment';
 import type { ValueFormat } from '../content/ValueFormat';
 import type { TemplateNodeBuilder } from './NodeBuilder';

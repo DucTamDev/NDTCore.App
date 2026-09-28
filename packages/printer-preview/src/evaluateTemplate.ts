@@ -1,9 +1,9 @@
 import * as ts from 'typescript';
 import * as PrinterCore from 'printer-core';
-import { parseTemplate, type Catalog, type TemplateDocument } from 'printer-core';
+import { parseTemplate, type TemplateDataDefinition, type TemplateDocument } from 'printer-core';
 
 export type EvaluateResult =
-  | { readonly status: 'ok'; readonly template: TemplateDocument; readonly catalog: Catalog<unknown> }
+  | { readonly status: 'ok'; readonly template: TemplateDocument; readonly catalog: TemplateDataDefinition<unknown> }
   | { readonly status: 'error'; readonly stage: 'transpile' | 'runtime'; readonly message: string };
 
 /** Module mà code người dùng xuất ra: `export const catalog` + `export default` template. */
@@ -13,7 +13,7 @@ interface EvaluatedModule {
 }
 
 const EXPORT_HINT =
-  'Code phải `export const catalog = defineCatalog(...)` và `export default labelTemplate(catalog)...build()` ' +
+  'Code phải `export const catalog = defineTemplateData(...)` và `export default labelTemplate(catalog)...build()` ' +
   '(hoặc receiptTemplate) — default export phải là 1 TemplateDocument.';
 
 function errorMessage(error: unknown): string {
@@ -41,10 +41,10 @@ function requireShim(name: string): unknown {
   throw new Error(`Cannot require "${name}" — only "printer-core" is available here.`);
 }
 
-function isCatalog(value: unknown): value is Catalog<unknown> {
+function isTemplateDataDefinition(value: unknown): value is TemplateDataDefinition<unknown> {
   if (typeof value !== 'object' || value === null) return false;
 
-  const candidate = value as Partial<Record<keyof Catalog<unknown>, unknown>>;
+  const candidate = value as Partial<Record<keyof TemplateDataDefinition<unknown>, unknown>>;
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.describe === 'function' &&
@@ -54,7 +54,7 @@ function isCatalog(value: unknown): value is Catalog<unknown> {
 }
 
 function toEvaluateResult(exported: EvaluatedModule): EvaluateResult {
-  if (!isCatalog(exported.catalog)) return { status: 'error', stage: 'runtime', message: EXPORT_HINT };
+  if (!isTemplateDataDefinition(exported.catalog)) return { status: 'error', stage: 'runtime', message: EXPORT_HINT };
 
   const parsed = parseTemplate(exported.default);
   if (!parsed.ok) {

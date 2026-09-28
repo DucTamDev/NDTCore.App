@@ -1,8 +1,8 @@
 import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
-import { defineCatalog, defineCollection } from '../../catalog';
+import { defineTemplateData, defineCollection } from '../../template/data';
 import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
 import {
-  TEST_ORDER_CATALOG,
+  TEST_ORDER_DATA,
   TEST_ORDER_SAMPLE,
   type TestOrder,
   type TestOrderItem,
@@ -34,7 +34,7 @@ function resolvePages(
   data: TestOrder = TEST_ORDER_SAMPLE,
   assets: AssetProvider = NO_ASSETS,
 ): readonly ResolvedPage[] {
-  return resolver.resolve(documentWith(root), data, { catalog: TEST_ORDER_CATALOG, assets });
+  return resolver.resolve(documentWith(root), data, { catalog: TEST_ORDER_DATA, assets });
 }
 
 /** Mọi chuỗi text trong cây, theo thứ tự duyệt. */
@@ -147,7 +147,7 @@ describe('DocumentResolver — scope tường minh', () => {
       get: (order: { readonly lines: readonly { readonly code: string }[] }) => order.lines,
       variables: { lineCode: { label: 'Mã dòng', type: 'string', get: (line) => line.code } },
     });
-    const catalog = defineCatalog({
+    const catalog = defineTemplateData({
       id: 'shadow',
       version: 1,
       sample: { code: 'ORDER', lines: [{ code: 'LINE' }] },
@@ -683,7 +683,7 @@ describe('DocumentResolver — catalog', () => {
   it('throw khi template dùng catalog khác catalog truyền vào', () => {
     const template = { ...documentWith({ type: 'text', id: 't', content: [] }), catalog: 'kitchen' };
 
-    const options = { catalog: TEST_ORDER_CATALOG, assets: NO_ASSETS };
+    const options = { catalog: TEST_ORDER_DATA, assets: NO_ASSETS };
 
     expect(() => resolver.resolve(template, TEST_ORDER_SAMPLE, options)).toThrow(
       'Template dùng catalog "kitchen", không phải "test-order"',

@@ -1,4 +1,4 @@
-import { defineCatalog, defineCollection } from '../catalog';
+import { defineTemplateData, defineCollection } from '../template/data';
 
 /** Topping của 1 món trong data test. */
 export interface TestTopping {
@@ -83,8 +83,8 @@ export const TEST_ORDER_SAMPLE: TestOrder = {
   ],
 };
 
-/** Catalog đơn hàng dùng chung cho test của catalog, template, resolution, layout. */
-export const TEST_ORDER_CATALOG = defineCatalog({
+/** TemplateDataDefinition đơn hàng dùng chung cho test của catalog, template, resolution, layout. */
+export const TEST_ORDER_DATA = defineTemplateData({
   id: 'test-order',
   version: 1,
   sample: TEST_ORDER_SAMPLE,

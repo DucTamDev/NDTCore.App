@@ -16,7 +16,7 @@ import {
   row,
   text,
 } from '../template';
-import { TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE, type TestOrder } from '../testing';
+import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE, type TestOrder } from '../testing';
 import type { Bitmap } from '../types';
 
 // Không có @types/node trong package RN; require() chỉ dùng để khẳng định module cũ đã bị xoá.
@@ -27,7 +27,7 @@ const TYPOGRAPHY: TypographyProfile = { fontScaleLevels: [{ id: 'default', fontS
 const PRINTER_DPI = 203;
 
 function buildReceipt() {
-  return receiptTemplate(TEST_ORDER_CATALOG)
+  return receiptTemplate(TEST_ORDER_DATA)
     .id('receipt-default')
     .name('Hoá đơn mặc định')
     .paper({ widthMm: 72 })
@@ -54,10 +54,10 @@ describe('pipeline template → resolve → layout → compile', () => {
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
     const template = parsed.template;
 
-    expect(collectAssetIds(template, TEST_ORDER_CATALOG, TEST_ORDER_SAMPLE)).toEqual(['store-logo@v1']);
+    expect(collectAssetIds(template, TEST_ORDER_DATA, TEST_ORDER_SAMPLE)).toEqual(['store-logo@v1']);
     const assets: AssetProvider = { get: (assetId) => (assetId === 'store-logo@v1' ? LOGO : undefined) };
 
-    const resolveOptions = { catalog: TEST_ORDER_CATALOG, assets };
+    const resolveOptions = { catalog: TEST_ORDER_DATA, assets };
     const pages = createDocumentResolver().resolve(template, TEST_ORDER_SAMPLE, resolveOptions);
     expect(pages).toHaveLength(1);
     if (pages[0].status !== 'ok') throw new Error(pages[0].message);
@@ -97,7 +97,7 @@ describe('pipeline template → resolve → layout → compile', () => {
   });
 
   it('tem món nhiều topping tách sang tem tiếp: JSON round-trip → resolve → layout từng tem', () => {
-    const built = labelTemplate(TEST_ORDER_CATALOG)
+    const built = labelTemplate(TEST_ORDER_DATA)
       .id('split-label')
       .name('Tem tách topping')
       .paper({ widthMm: 50, heightMm: 30 })
@@ -130,7 +130,7 @@ describe('pipeline template → resolve → layout → compile', () => {
       items: [{ name: 'Trà sữa', quantity: 1, price: 45000, toppings }],
     };
     const pages = createDocumentResolver().resolve(template, order, {
-      catalog: TEST_ORDER_CATALOG,
+      catalog: TEST_ORDER_DATA,
       assets: { get: () => undefined },
     });
 

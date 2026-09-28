@@ -1,4 +1,4 @@
-import type { CatalogDescription, CollectionDescription, VariableDescription } from './CatalogDescription';
+import type { TemplateDataDescription, CollectionDescription, VariableDescription } from './TemplateDataDescription';
 
 /** 1 biến trong bảng tra, kèm collection sở hữu. */
 export interface IndexedVariable {
@@ -19,7 +19,7 @@ export interface IndexedCollection {
 }
 
 /** Bảng tra phẳng theo tên, dựng từ metadata — dùng chung cho resolver, validate và designer/BE. */
-export interface CatalogIndex {
+export interface TemplateDataIndex {
   /** Mọi biến ở mọi cấp, theo tên. */
   readonly variables: ReadonlyMap<string, IndexedVariable>;
 
@@ -27,20 +27,20 @@ export interface CatalogIndex {
   readonly collections: ReadonlyMap<string, IndexedCollection>;
 }
 
-interface MutableCatalogIndex {
+interface MutableTemplateDataIndex {
   readonly variables: Map<string, IndexedVariable>;
   readonly collections: Map<string, IndexedCollection>;
 }
 
 /** Dựng bảng tra từ `catalog.describe()`. */
-export function createCatalogIndex(description: CatalogDescription): CatalogIndex {
-  const index: MutableCatalogIndex = { variables: new Map(), collections: new Map() };
+export function createTemplateDataIndex(description: TemplateDataDescription): TemplateDataIndex {
+  const index: MutableTemplateDataIndex = { variables: new Map(), collections: new Map() };
   indexScope(index, description.variables, description.collections, null);
   return index;
 }
 
 function indexScope(
-  index: MutableCatalogIndex,
+  index: MutableTemplateDataIndex,
   variables: readonly VariableDescription[],
   collections: readonly CollectionDescription[],
   owner: string | null,

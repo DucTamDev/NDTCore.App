@@ -1,4 +1,5 @@
 export * from './TemplateDocument';
+export * from './data';
 export * from './style/Length';
 export * from './style/Dimension';
 export * from './style/Insets';

@@ -1,4 +1,4 @@
-import { createCatalogIndex, type Catalog } from '../catalog';
+import { createTemplateDataIndex, type TemplateDataDefinition } from '../template/data';
 import type { ImageNode, RepeatNode, TemplateDocument, TemplateNode } from '../template';
 import type { AssetProvider } from './AssetProvider';
 import { readCollectionItems } from './readRepeatEntries';
@@ -15,12 +15,12 @@ const NO_ASSETS: AssetProvider = { get: () => undefined };
  */
 export function collectAssetIds<TData>(
   template: TemplateDocument,
-  catalog: Catalog<TData>,
+  catalog: TemplateDataDefinition<TData>,
   data: TData,
 ): readonly string[] {
   const context: ResolveContext = {
     catalog,
-    index: createCatalogIndex(catalog.describe()),
+    index: createTemplateDataIndex(catalog.describe()),
     assets: NO_ASSETS,
     frames: [createRootFrame(data)],
     page: COUNTING_PAGE,

@@ -1,8 +1,8 @@
-import { validateTemplateAgainstCatalog } from '..';
-import { TEST_ORDER_CATALOG } from '../../../testing';
+import { validateTemplateAgainstData } from '..';
+import { TEST_ORDER_DATA } from '../../../testing';
 import type { TemplateDocument, TemplateNode } from '../..';
 
-const description = TEST_ORDER_CATALOG.describe();
+const description = TEST_ORDER_DATA.describe();
 
 function documentWithRoot(root: TemplateNode): TemplateDocument {
   return {
@@ -26,10 +26,10 @@ function repeatItems(template: TemplateNode, expand?: string): TemplateNode {
 }
 
 function errorsOf(root: TemplateNode): readonly string[] {
-  return validateTemplateAgainstCatalog(documentWithRoot(root), description).errors.map((issue) => issue.message);
+  return validateTemplateAgainstData(documentWithRoot(root), description).errors.map((issue) => issue.message);
 }
 
-describe('validateTemplateAgainstCatalog', () => {
+describe('validateTemplateAgainstData', () => {
   it('không có lỗi với template dùng đúng biến và scope', () => {
     const root: TemplateNode = {
       type: 'container',
@@ -54,13 +54,13 @@ describe('validateTemplateAgainstCatalog', () => {
       ],
     };
 
-    const result = validateTemplateAgainstCatalog(documentWithRoot(root), description);
+    const result = validateTemplateAgainstData(documentWithRoot(root), description);
 
     expect(result).toEqual({ errors: [], warnings: [] });
   });
 
   it('báo lỗi khi template dùng catalog khác', () => {
-    const result = validateTemplateAgainstCatalog(
+    const result = validateTemplateAgainstData(
       { ...documentWithRoot(textOf('orderCode')), catalog: 'kitchen-ticket' },
       description,
     );
@@ -75,7 +75,7 @@ describe('validateTemplateAgainstCatalog', () => {
   });
 
   it('báo lỗi biến của collection dùng ngoài vòng lặp, kèm tên hiển thị của collection', () => {
-    const result = validateTemplateAgainstCatalog(documentWithRoot(textOf('itemName')), description);
+    const result = validateTemplateAgainstData(documentWithRoot(textOf('itemName')), description);
 
     expect(result.errors).toEqual([
       { path: 'root.content[0]', message: 'biến "itemName" chỉ dùng được trong vòng lặp "Danh sách món"' },
@@ -137,7 +137,7 @@ describe('validateTemplateAgainstCatalog', () => {
   });
 
   it('biến deprecated chỉ cảnh báo, không phải lỗi', () => {
-    const result = validateTemplateAgainstCatalog(
+    const result = validateTemplateAgainstData(
       documentWithRoot(repeatItems(textOf('legacyItemName'))),
       description,
     );

@@ -1,8 +1,5 @@
-import type { Catalog, CatalogIndex } from '../catalog';
+import type { TemplateDataDefinition, TemplateDataIndex } from '../template/data';
 import type { AssetProvider } from './AssetProvider';
-
-/** Phần catalog mà resolver cần — không phụ thuộc kiểu data. */
-export type CatalogReader = Pick<Catalog<unknown>, 'id' | 'describe' | 'readVariable' | 'readCollection'>;
 
 /** 1 tầng scope: data gốc, hoặc 1 phần tử đang lặp. */
 export interface ScopeFrame {
@@ -63,11 +60,11 @@ export const COUNTING_PAGE: PageInfo = { pageNumber: 1, pageCount: 1 };
 
 /** Trạng thái khi resolve 1 node. */
 export interface ResolveContext {
-  /** Catalog dùng để đọc biến/collection từ data. */
-  readonly catalog: CatalogReader;
+  /** TemplateDataDefinition dùng để đọc biến/collection từ data. */
+  readonly catalog: TemplateDataDefinition<unknown>;
 
   /** Bảng tra biến/collection dựng từ `catalog.describe()`. */
-  readonly index: CatalogIndex;
+  readonly index: TemplateDataIndex;
 
   /** Nguồn tra bitmap ảnh. */
   readonly assets: AssetProvider;

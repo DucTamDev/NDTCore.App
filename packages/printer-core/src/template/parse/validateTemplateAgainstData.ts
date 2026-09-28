@@ -1,12 +1,12 @@
 import {
   BUILT_IN_VARIABLE_SCOPES,
-  createCatalogIndex,
+  createTemplateDataIndex,
   isBuiltInVariableName,
   type BuiltInVariableName,
-  type CatalogDescription,
-  type CatalogIndex,
+  type TemplateDataDescription,
+  type TemplateDataIndex,
   type VariableType,
-} from '../../catalog';
+} from '../data';
 import type { Condition } from '../content/Condition';
 import type { Segment } from '../content/Segment';
 import type { ValueFormat } from '../content/ValueFormat';
@@ -17,7 +17,7 @@ import type { TemplateDocument } from '../TemplateDocument';
 import type { TemplateIssue } from './TemplateIssue';
 
 /** Kết quả kiểm tra template theo catalog. */
-export interface CatalogValidationResult {
+export interface TemplateDataValidationResult {
   /** Lỗi chặn — template không resolve đúng được. */
   readonly errors: readonly TemplateIssue[];
 
@@ -35,10 +35,10 @@ interface ValidationScope {
 }
 
 /** Trạng thái 1 lần kiểm tra: bảng tra catalog + lỗi/cảnh báo gom được. */
-interface CatalogCheck {
-  readonly description: CatalogDescription;
+interface TemplateDataCheck {
+  readonly description: TemplateDataDescription;
 
-  readonly index: CatalogIndex;
+  readonly index: TemplateDataIndex;
 
   readonly errors: TemplateIssue[];
 
@@ -62,11 +62,12 @@ const ROOT_SCOPE: ValidationScope = { collections: [], expanded: false };
  * Kiểm tra template khớp catalog: biến tồn tại và dùng đúng scope, collection/expand hợp lệ, ảnh dùng biến
  * kiểu `asset`, format hợp kiểu biến. Nhận metadata (`describe()`) nên BE/designer dùng chung được.
  */
-export function validateTemplateAgainstCatalog(
+export function validateTemplateAgainstData(
   template: TemplateDocument,
-  description: CatalogDescription,
-): CatalogValidationResult {
-  const check: CatalogCheck = { description, index: createCatalogIndex(description), errors: [], warnings: [] };
+  description: TemplateDataDescription,
+): TemplateDataValidationResult {
+  const index = createTemplateDataIndex(description);
+  const check: TemplateDataCheck = { description, index, errors: [], warnings: [] };
   if (template.catalog !== description.id) {
     addError(check, 'catalog', `template dùng catalog "${template.catalog}", không phải "${description.id}"`);
   }
@@ -75,19 +76,19 @@ export function validateTemplateAgainstCatalog(
 }
 
 function addError(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   path: string,
   message: string,
 ): void {
   check.errors.push({ path, message });
 }
 
-function collectionLabel(check: CatalogCheck, collection: string): string {
+function collectionLabel(check: TemplateDataCheck, collection: string): string {
   return check.index.collections.get(collection)?.description.label ?? collection;
 }
 
 function checkNode(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   node: TemplateNode,
   path: string,
   scope: ValidationScope,
@@ -115,7 +116,7 @@ function checkNode(
 }
 
 function checkSegments(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   segments: readonly Segment[],
   path: string,
   scope: ValidationScope,
@@ -130,7 +131,7 @@ function checkSegments(
 }
 
 function checkFormat(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   format: ValueFormat,
   type: VariableType,
   path: string,
@@ -140,7 +141,7 @@ function checkFormat(
 }
 
 function checkImage(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   node: ImageNode,
   path: string,
   scope: ValidationScope,
@@ -155,7 +156,7 @@ function checkImage(
 }
 
 function checkRepeat(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   node: RepeatNode,
   path: string,
   scope: ValidationScope,
@@ -180,7 +181,7 @@ function checkRepeat(
 }
 
 function checkExpand(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   node: RepeatNode,
   path: string,
 ): void {
@@ -195,7 +196,7 @@ function checkExpand(
 }
 
 function checkCondition(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   condition: Condition,
   path: string,
   scope: ValidationScope,
@@ -217,7 +218,7 @@ function checkCondition(
 
 /** Kiểm tra 1 lần dùng biến; trả kiểu biến nếu biến tồn tại. */
 function checkVariableUse(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   name: string,
   path: string,
   scope: ValidationScope,
@@ -243,7 +244,7 @@ function checkVariableUse(
 }
 
 function checkBuiltInVariableScope(
-  check: CatalogCheck,
+  check: TemplateDataCheck,
   name: BuiltInVariableName,
   path: string,
   scope: ValidationScope,

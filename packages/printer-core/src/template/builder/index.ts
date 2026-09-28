@@ -16,7 +16,7 @@ export {
   receiptTemplate,
   TemplateDocumentBuilder,
   TemplateBuildError,
-  type CatalogShape,
+  type TemplateDataShape,
   type RootScope,
   type PaperFor,
   type RootContent,
