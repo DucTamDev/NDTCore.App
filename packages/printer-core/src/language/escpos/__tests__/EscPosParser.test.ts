@@ -32,13 +32,14 @@ describe('EscPosParser', () => {
   });
 
   it('đọc chuỗi 1 ký tự = 1 byte giống hệt dạng byte, kể cả byte >= 0x80', () => {
-    const bytes = new Uint8Array([0x1b, 0x40, 0x48, 0x69, 0x80, 0x0a]);
+    const bytes = new Uint8Array([0x1b, 0x40, 0x1b, 0x21, 0x88, 0x48, 0x69, 0x0a]);
     const fromBytes = new EscPosParser().parse(bytes);
 
     const fromString = new EscPosParser().parse(String.fromCharCode(...bytes));
 
     expect(fromString.commands.length).toBeGreaterThan(0);
     expect(fromString).toEqual(fromBytes);
+    expect(fromString.commands).toContainEqual(expect.objectContaining({ name: 'ESC !', params: { mode: 0x88 } }));
   });
 
   it('dựng fontSize từ hệ số phóng đại GS ! theo font A 24 dots', () => {
