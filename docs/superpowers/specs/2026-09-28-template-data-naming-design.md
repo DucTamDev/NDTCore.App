@@ -21,8 +21,9 @@ và câu chữ thông báo lỗi.
 
 ### 1. Thư mục
 
-`packages/printer-core/src/catalog/` → `packages/printer-core/src/template-data/`. `src/index.ts` export
-`./template-data` thay `./catalog`. Mọi import `'../catalog'` / `'../../catalog'` đổi theo.
+`packages/printer-core/src/catalog/` → `packages/printer-core/src/template/data/` (dữ liệu template là 1 phần của
+template, đặt cạnh `parse/`, `builder/`…). `template/index.ts` export `./data`; `src/index.ts` bỏ export `./catalog`.
+Mọi import tới `catalog` đổi thành đường tương đối tới `template/data`.
 
 ### 2. Bảng đổi tên
 
@@ -95,7 +96,7 @@ JSON. `defineTemplateData()` gọi nó 1 lần. `describeVariables`/`describeCol
 ### 7. Comment, README
 
 - Comment/JSDoc tiếng Việt: "catalog" → "dữ liệu template" (hoặc tên kiểu mới khi nói về kiểu).
-- README: cây thư mục `template-data/`, các mục nhắc catalog.
+- README: cây thư mục `template/data/`, các mục nhắc catalog.
 
 ## Test
 
