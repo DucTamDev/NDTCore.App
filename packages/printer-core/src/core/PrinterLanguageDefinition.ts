@@ -1,5 +1,5 @@
 import type { PrintCompiler } from './PrintCompiler';
-import type { ParsedCommands, PrintParser } from './PrintParser';
+import type { PrintParser } from './PrintParser';
 import type { PrintValidation } from './PrintValidation';
 import type { PrintPreview } from './PrintPreview';
 import type { PrinterLanguage } from './PrinterLanguage';
@@ -12,8 +12,8 @@ export interface PrinterLanguageDefinition {
   /** Biên dịch document thành lệnh máy in. */
   readonly compiler: PrintCompiler<string | Uint8Array>;
 
-  /** Đọc ngược lệnh máy in thành danh sách lệnh + cảnh báo. */
-  readonly parser: PrintParser<ParsedCommands>;
+  /** Đọc ngược lệnh máy in thành lệnh, element và cảnh báo. */
+  readonly parser: PrintParser;
 
   /** Kiểm tra cú pháp chuỗi lệnh. */
   readonly validator: PrintValidation;

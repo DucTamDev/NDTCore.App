@@ -2,7 +2,7 @@ import type { ResolvedPrintDocument } from '../document';
 import type { ValidationResult } from '../validation';
 import type { CompileResult } from './PrintCompiler';
 import type { PrinterFeatures } from './PrinterFeatures';
-import type { ParsedCommands } from './PrintParser';
+import type { PrintParseResult } from './PrintParseResult';
 import type { PrinterLanguage } from './PrinterLanguage';
 import type { PrinterLanguageDefinition } from './PrinterLanguageDefinition';
 import { LANGUAGE_REGISTRY } from './LanguageRegistry';
@@ -27,8 +27,8 @@ export function compileTo(
   return lookup(language, 'compiler').compiler.compile(document, features);
 }
 
-/** `source` phải đúng dạng compiler của ngôn ngữ đó sinh ra: byte cho ESC/POS, chuỗi cho TSPL. */
-export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): ParsedCommands {
+/** ESC/POS nhận byte hoặc chuỗi 1 ký tự = 1 byte; TSPL nhận chuỗi hoặc byte UTF-8. */
+export function parseFrom(language: PrinterLanguage, source: string | Uint8Array): PrintParseResult {
   return lookup(language, 'parser').parser.parse(source);
 }
 

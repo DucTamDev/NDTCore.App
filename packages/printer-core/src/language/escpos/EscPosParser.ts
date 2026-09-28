@@ -1,18 +1,19 @@
-import type { PrintParser } from '../../core';
+import type { PrintParseResult, PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
+import { binaryStringToBytes } from '../../encoding';
 import { ESC_POS } from './EscPosCommand';
 import { EscPosFontMetrics } from './EscPosFontMetrics';
 
+/** 1 lệnh ESC/POS đọc được. */
 export interface EscPosParsedCommand {
+  /** Tên lệnh, VD `LF`. */
   name: string;
-  bytes: number[];
-  params: Record<string, unknown>;
-}
 
-export interface EscPosParseResult {
-  commands: EscPosParsedCommand[];
-  elements: PrintElement[];
-  warnings: string[];
+  /** Byte gốc của lệnh. */
+  bytes: number[];
+
+  /** Tham số đã giải mã; field riêng theo từng lệnh. */
+  params: Record<string, unknown>;
 }
 
 // Không có trong ESC_POS dùng chung vì đó chỉ chứa byte mà compiler cần phát ra.
@@ -483,11 +484,7 @@ function parseTextRun(
   return cursor;
 }
 
-/**
- * Export riêng khỏi `EscPosParser` (vốn chỉ trả `commands`/`warnings` theo kiểu `PrintParser`)
- * vì một số nơi gọi — ví dụ dùng ESC/POS làm nguồn cross-compile — cần trực tiếp các `PrintElement` đã phục hồi.
- */
-export function decodeEscPos(data: Uint8Array): EscPosParseResult {
+function decodeEscPos(data: Uint8Array): PrintParseResult<EscPosParsedCommand> {
   const commands: EscPosParsedCommand[] = [];
   const elements: PrintElement[] = [];
   const warnings: string[] = [];
@@ -534,8 +531,10 @@ export function decodeEscPos(data: Uint8Array): EscPosParseResult {
   return { commands, elements, warnings };
 }
 
-export class EscPosParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
-  parse(bytes: Uint8Array): { commands: unknown[]; warnings: string[] } {
+/** Đọc lệnh ESC/POS; chuỗi được hiểu theo quy ước 1 ký tự = 1 byte, giống output chuỗi của `convert()`. */
+export class EscPosParser implements PrintParser<EscPosParsedCommand> {
+  parse(source: string | Uint8Array): PrintParseResult<EscPosParsedCommand> {
+    const bytes = typeof source === 'string' ? binaryStringToBytes(source) : source;
     return decodeEscPos(bytes);
   }
 }

@@ -1,6 +1,7 @@
 import { compileTo, parseFrom, validateFor, previewFor } from '../LanguageDispatch';
 import { UnsupportedLanguageError } from '../PrinterCoreError';
 import type { ResolvedPrintDocument } from '../../document';
+import { bytesToBinaryString } from '../../encoding';
 
 const doc: ResolvedPrintDocument = {
   widthDots: 320,
@@ -35,6 +36,24 @@ describe('LanguageDispatch', () => {
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(parseFrom('escpos', bytes as Uint8Array).commands.length).toBeGreaterThan(0);
     expect(previewFor('escpos', doc)).toContain('<svg');
+  });
+
+  it('parseFrom đọc ESC/POS dạng chuỗi 1 ký tự = 1 byte giống hệt dạng byte', () => {
+    const bytes = compileTo('escpos', doc).output as Uint8Array;
+    const fromBytes = parseFrom('escpos', bytes);
+
+    const fromString = parseFrom('escpos', bytesToBinaryString(bytes));
+
+    expect(fromString.commands.length).toBeGreaterThan(0);
+    expect(fromString).toEqual(fromBytes);
+  });
+
+  it('parseFrom trả element và khổ tem dựng lại từ lệnh TSPL', () => {
+    const result = parseFrom('tspl', compileTo('tspl', doc).output as string);
+
+    expect(result.widthDots).toBe(320);
+    expect(result.heightDots).toBe(240);
+    expect(result.elements).toContainEqual(expect.objectContaining({ type: 'text', content: 'Hi' }));
   });
 
   it('throws a clear UnsupportedLanguageError for an unknown language', () => {

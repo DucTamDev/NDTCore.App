@@ -1,5 +1,5 @@
-import { parseTSPL } from '../../../language/tspl/TsplParser';
 import type { PrintValidation } from '../../../core';
+import { TsplParser } from '../../../language';
 import type { ValidationIssue } from '../../ValidationIssue';
 import type { ValidationResult } from '../../ValidationResult';
 
@@ -32,7 +32,7 @@ const LABEL_ELEMENT_COMMANDS = new Set([
 
 /**
  * Kiểm tra lệnh TSPL/TSPL2: thứ tự lệnh (`SIZE` đầu tiên, `CLS` trước mọi element, có `PRINT`), khoảng giá trị
- * `DENSITY`/`SPEED` và lệnh không nhận ra. Parse lại bằng `parseTSPL()` để kiểm tra trên cùng cấu trúc lệnh với parser.
+ * `DENSITY`/`SPEED` và lệnh không nhận ra. Parse lại bằng `TsplParser` để kiểm tra trên cùng cấu trúc lệnh với parser.
  */
 export class TsplValidator implements PrintValidation {
   validate(source: string): ValidationResult {
@@ -41,7 +41,7 @@ export class TsplValidator implements PrintValidation {
     }
 
     const issues: ValidationIssue[] = [];
-    const { commands } = parseTSPL(source);
+    const { commands } = new TsplParser().parse(source);
 
     const firstCmd = commands.find((c) => c.cmd !== 'UNKNOWN' && c.cmd !== 'REM');
     if (firstCmd && firstCmd.cmd !== 'SIZE') {

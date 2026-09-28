@@ -1,6 +1,7 @@
 export * from './PrinterLanguage';
 export * from './PrintCompiler';
 export * from './PrinterFeatures';
+export * from './PrintParseResult';
 export * from './PrintParser';
 export * from './PrintPreview';
 export * from './PrintValidation';

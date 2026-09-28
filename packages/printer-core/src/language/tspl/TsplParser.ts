@@ -1,4 +1,4 @@
-import type { PrintParser } from '../../core';
+import type { PrintParseResult, PrintParser } from '../../core';
 import type { PrintElement } from '../../document/elements';
 import type { Rotation } from '../../types';
 import { TsplFontMetrics } from './TsplFontMetrics';
@@ -215,14 +215,16 @@ export type TSPLCommand =
   | { cmd: 'GETSETTING'; params: string }
   | { cmd: 'UNKNOWN'; raw: string };
 
-/** Toàn bộ kết quả parse một chuỗi nguồn TSPL/TSPL2. */
-export interface TSPLParseResult {
-  commands: TSPLCommand[];
+/** Kết quả parse TSPL: luôn có khổ tem (mặc định khi thiếu lệnh `SIZE`) và DPI dùng khi quy đổi. */
+export interface TSPLParseResult extends PrintParseResult<TSPLCommand> {
+  /** Khổ ngang (dots) từ lệnh `SIZE`; 320 khi không có. */
   widthDots: number;
+
+  /** Chiều dài tem (dots) từ lệnh `SIZE`; 240 khi không có. */
   heightDots: number;
+
+  /** DPI dùng để đổi mm/inch sang dots; parser cố định 203. */
   dpi: number;
-  elements: PrintElement[];
-  warnings: string[];
 }
 
 const FIXED_PARSE_DPI = 203;
@@ -979,7 +981,7 @@ function parseAssignmentCommand(line: string): Extract<TSPLCommand, { cmd: 'ASSI
  * `GAPDETECT` của chính nó, `SET ` chạy trước `SET GPO`/`SET GPI`, `DOWNLOAD` chạy trước `DO` —
  * đổi thứ tự sẽ âm thầm làm một dòng rơi vào nhánh khác.
  */
-export function parseTSPL(code: string): TSPLParseResult {
+function parseTSPL(code: string): TSPLParseResult {
   const commands: TSPLCommand[] = [];
   const warnings: string[] = [];
   const elements: PrintElement[] = [];
@@ -1527,8 +1529,8 @@ export function parseTSPL(code: string): TSPLParseResult {
  * Giải mã một chuỗi lệnh TSPL/TSPL2 thành các lệnh có cấu trúc (theo dòng,
  * theo ngữ pháp từng lệnh).
  */
-export class TsplParser implements PrintParser<{ commands: unknown[]; warnings: string[] }> {
-  parse(source: string | Uint8Array): { commands: unknown[]; warnings: string[] } {
+export class TsplParser implements PrintParser<TSPLCommand> {
+  parse(source: string | Uint8Array): TSPLParseResult {
     const code = typeof source === 'string' ? source : new TextDecoder().decode(source);
     return parseTSPL(code);
   }
