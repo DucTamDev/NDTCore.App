@@ -21,10 +21,9 @@ function dotsPerChar(fontSize: number): number {
 }
 
 /**
- * Ước lượng kích thước/wrap text mà không cần load font thật — dùng cho auto-layout
- * (wrap theo maxWidth). `fontSize`/`lineHeight`
- * đều tính bằng dots: `fontSize` là chiều cao glyph danh nghĩa, `lineHeight` là chiều
- * cao cả dòng (glyph + khoảng cách dòng) — cùng quy ước fontSize/line-height của CSS.
+ * Ước lượng kích thước/wrap text mà không cần load font thật — dùng cho auto-layout (wrap theo maxWidth).
+ * `fontSize`/`lineHeight` đều tính bằng dots: `fontSize` là chiều cao glyph danh nghĩa, `lineHeight` là
+ * chiều cao cả dòng (glyph + khoảng cách dòng) — cùng quy ước fontSize/line-height của CSS.
  */
 export class ApproximateFontMetrics implements FontMetrics {
   measure(text: string, style: LayoutTextStyle): TextMeasurement {

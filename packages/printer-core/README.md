@@ -104,10 +104,12 @@ DSL: `.metadata({...})`, `.settings({...})` (gọi trước `.content`, `default
 `scope.style(...)`, `scope.option(...)`, `scope.optionIs(...)` — gõ sai tên hoặc sai loại option là lỗi TypeScript.
 `validateTemplateAgainstData` báo lỗi tham chiếu sai và cảnh báo setting khai báo mà không dùng.
 
-## Cỡ chữ và cảnh báo compile
+## Tràn khổ giấy
 
-- **In đúng cỡ:** layout không tự thu nhỏ chữ. Nội dung rộng hơn giấy, hoặc cao hơn tem, vẫn được xếp nguyên và
-  `LayoutEngine.resolve()` trả kèm cảnh báo trong `warnings`; chia nội dung dài sang nhiều tem bằng `maxItemsPerPage`.
+Layout không tự thu nhỏ chữ. Nội dung rộng hơn giấy, hoặc cao hơn tem, vẫn được xếp nguyên và
+`LayoutEngine.resolve()` trả kèm cảnh báo trong `warnings`; chia nội dung dài sang nhiều tem bằng `maxItemsPerPage`.
+
+## Cỡ chữ và cảnh báo compile
 
 - **Cỡ chữ:** `TextOptions.fontSize` (dots) là field cỡ chữ duy nhất của `PrintElement` text.
   - Mỗi ngôn ngữ quy đổi sang lệnh native qua `language/{lang}/{Lang}FontMetrics.ts`.

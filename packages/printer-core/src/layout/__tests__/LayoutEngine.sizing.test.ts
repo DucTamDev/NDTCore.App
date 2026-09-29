@@ -37,6 +37,19 @@ function tallColumn(lineCount: number, fontSizePixels: number): ResolvedNode {
   };
 }
 
+// Cỡ chữ đủ lớn để 1 ký tự đã rộng hơn khổ giấy — chữ không tách được (1 từ liền) vẫn phải báo tràn.
+function spaceBetweenRowWithWideRightWord(): ResolvedNode {
+  return {
+    type: 'container',
+    id: 'row',
+    style: { direction: 'row', justifyContent: 'space-between' },
+    children: [
+      { type: 'text', id: 'left', value: 'A' },
+      { type: 'text', id: 'right', value: 'ABCDEFGHIJ', style: { fontSize: px(100) } },
+    ],
+  };
+}
+
 // Barcode được ước lượng rộng 200 dots, nên 3 mã xếp hàng ngang rộng 600 dots.
 function wideBarcodeRow(): ResolvedNode {
   return {
@@ -76,5 +89,11 @@ describe('LayoutEngine — in đúng cỡ, cảnh báo khi tràn khổ giấy', 
 
   it('giấy cuộn dài không có cảnh báo chiều cao', () => {
     expect(engine.resolve(tallColumn(100, 40), receiptConfig(576), fontMetrics).warnings).toEqual([]);
+  });
+
+  it('hàng space-between có cột phải không tách được, rộng hơn giấy: vẫn báo tràn chiều rộng', () => {
+    const result = engine.resolve(spaceBetweenRowWithWideRightWord(), receiptConfig(50), fontMetrics);
+
+    expect(result.warnings).toEqual(['Nội dung rộng 60 dots, vượt chiều rộng giấy 50 dots']);
   });
 });

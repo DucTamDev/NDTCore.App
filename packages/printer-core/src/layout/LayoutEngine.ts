@@ -156,8 +156,12 @@ function measureSpaceBetweenRow(
 ): Size {
   const [left, right] = node.children;
   const leftHeight = measure(left, fontMetrics, contentWidthDots).heightDots;
-  const rightHeight = measure(right, fontMetrics, contentWidthDots).heightDots;
-  return { widthDots: contentWidthDots, heightDots: Math.max(leftHeight, rightHeight) };
+  // Đo right giống hệt arrangeSpaceBetweenRow: cột phải không tách được vẫn phải lộ ra để báo tràn.
+  const rightSize = measure(right, fontMetrics, contentWidthDots);
+  return {
+    widthDots: Math.max(contentWidthDots, rightSize.widthDots),
+    heightDots: Math.max(leftHeight, rightSize.heightDots),
+  };
 }
 
 function measureStack(
