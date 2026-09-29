@@ -91,7 +91,7 @@ type OptionSetting = BooleanOptionSetting | TextOptionSetting | ChoiceOptionSett
 
 ```ts
 receiptTemplate(templateData)
-  .id('bill-default').name('Hoá đơn').paper({ widthMm: 80 })
+  .metadata({ id: 'bill-default', name: 'Hoá đơn', paper: { widthMm: 80 } })
   .settings({
     styles: { itemName: { label: 'Tên món', value: { fontSize: px(16), fontWeight: 'bold' } } },
     options: {
@@ -106,6 +106,10 @@ receiptTemplate(templateData)
   .build();
 ```
 
+- `.metadata({ id, name, paper, locale? })` thay cho `.id()/.name()/.paper()`: gom thông tin chung vào 1 object, TypeScript
+  báo thiếu `id`/`name`/`paper` ngay khi gõ (`paper` đúng loại theo `kind`: label bắt buộc `heightMm`). `kind` do
+  `labelTemplate`/`receiptTemplate` quyết định, `dataId` lấy từ `templateData.id`, `locale` mặc định `'vi-VN'`.
+  Thiếu `.metadata(...)` thì `.build()` throw như hiện nay.
 - `.settings(...)` là tuỳ chọn (bỏ trống = `{ styles: {}, options: {} }`) và phải gọi trước `.content(...)` để scope
   biết tên style/option (kiểu TypeScript).
 - `default` bỏ trống trong DSL thì lấy bằng `value`.
