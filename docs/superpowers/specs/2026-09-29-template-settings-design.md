@@ -149,10 +149,28 @@ receiptTemplate(templateData)
 - `default` không được đọc ở bất kỳ đâu trong resolve/layout/compile.
 - Tham chiếu không tồn tại lúc resolve (template chưa qua validate) → `ResolveError` như biến không tồn tại.
 
-### 6. `printer-preview`
+### 6. Layout: bỏ tự thu nhỏ chữ (chỉnh sao in vậy)
+
+- Bỏ `TypographyProfile`, `FontScaleLevel` và phần chọn mức co chữ cho tem (`scaleTree`, `chooseLabelScaleLevel`).
+  Cỡ chữ in đúng như template/`settings` đặt.
+- `LayoutEngine.resolve(root, config, fontMetrics): LayoutResult` — không còn tham số typography.
+- `LayoutConfig` chỉ còn `{ paper, dpi }`.
+- `LayoutResult`:
+  ```ts
+  interface LayoutResult {
+    readonly elements: PrintElement[];     // như trước
+    readonly warnings: readonly string[];  // hiện chỉ có cảnh báo tràn chiều cao tem
+  }
+  ```
+- Tem (`paper.heightMm` có giá trị) mà tổng chiều cao nội dung vượt chiều cao tem: vẫn xếp nguyên cỡ, không cắt bớt
+  element, thêm cảnh báo `Nội dung cao {n} dots, vượt chiều cao tem {m} dots`. Giấy cuộn không có cảnh báo này.
+- Nội dung dài chia sang nhiều tem bằng `maxItemsPerPage` (đã có), không dựa vào co chữ.
+
+### 7. `printer-preview`
 
 Mẫu mặc định (`defaultSample.ts`) và code đọc template (`pipeline.ts`, `evaluateTemplate.ts`) theo cấu trúc mới; mẫu có
-ví dụ dùng `settings` (1 style có tên + 1 option boolean). Không thêm form chỉnh settings.
+ví dụ dùng `settings` (1 style có tên + 1 option boolean). Bỏ `DEFAULT_TYPOGRAPHY`; hiển thị cảnh báo tràn tem của layout
+(kèm số trang) trong panel lỗi/cảnh báo hiện có. Không thêm form chỉnh settings.
 
 ## Test
 
@@ -165,6 +183,8 @@ ví dụ dùng `settings` (1 style có tên + 1 option boolean). Không thêm fo
     `value` (boolean, choice + `equals`, lồng trong `and`/`not`); `OptionSegment` in đúng `value`;
   - DSL: `.settings` + `scope.style/option/optionIs` sinh đúng JSON, `default` mặc định bằng `value`; `@ts-expect-error`
     cho tên sai và sai loại option.
+- Layout: xoá test chọn mức co chữ; test mới: tem tràn chiều cao có cảnh báo và cỡ chữ giữ nguyên; tem vừa và giấy cuộn
+  không có cảnh báo.
 - Test gắn với `dataId` bị bỏ: so mã ở `DocumentResolver.test` và `validateTemplateAgainstData.test`, và test
   `parseTemplate` "từ chối template JSON còn field `catalog` thay cho `dataId`".
 - Kết quả in của template không dùng settings không đổi (test pipeline hiện có).
@@ -172,4 +192,5 @@ ví dụ dùng `settings` (1 style có tên + 1 option boolean). Không thêm fo
 ## Tiêu chí hoàn thành
 
 - tsc 0 lỗi, jest xanh, eslint 0 lỗi, `printer-preview` type-check + Vitest xanh, dòng ≤ 120 ký tự.
-- Không còn `template.root`, `media`/`TemplateMedia`, `dataId` trong `printer-core` và `printer-preview`.
+- Không còn `template.root`, `media`/`TemplateMedia`, `dataId`, `TypographyProfile` trong `printer-core` và
+  `printer-preview`.
