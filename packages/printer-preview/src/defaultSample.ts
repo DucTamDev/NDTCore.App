@@ -67,7 +67,10 @@ export const templateData = defineTemplateData({
 export default labelTemplate(templateData)
   .metadata({ id: 'product-label-default', name: 'Tem món mặc định', paper: { widthMm: 50, heightMm: 30 } })
   .settings({
-    styles: { productName: { label: 'Tên món', value: { fontSize: px(16), fontWeight: 'bold' } } },
+    styles: {
+      productName: { label: 'Tên món', value: { fontSize: px(16), fontWeight: 'bold' } },
+      toppingName: { label: 'Topping', value: { fontSize: px(12) } },
+    },
     options: { showPrice: { label: 'In giá món', type: 'boolean', value: true } },
   })
   .content((scope) =>
@@ -80,7 +83,9 @@ export default labelTemplate(templateData)
             text([product.var('productName')]).style(product.style('productName')),
             text([product.var('productPrice')]).visibleWhen(and(product.optionIs('showPrice'), eq('$part', 1))),
             product
-              .repeat({ collection: 'toppings' }, (topping) => text([{ text: '+ ' }, topping.var('toppingName')]))
+              .repeat({ collection: 'toppings' }, (topping) =>
+                text([{ text: '+ ' }, topping.var('toppingName')]).style(topping.style('toppingName')),
+              )
               .maxItemsPerPage(4),
             text([
               product.var('orderCode'),

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { px } from 'printer-core';
 import { defaultCode, defaultData } from '../defaultSample';
 import { evaluateTemplate } from '../evaluateTemplate';
 import { renderPreviews, type PagePreview } from '../pipeline';
@@ -8,6 +9,13 @@ function overflowsLabelHeight(previews: readonly PagePreview[]): readonly boolea
   return previews.map(
     (preview) => preview.status === 'ok' && preview.warnings.some((warning) => warning.includes('vượt chiều cao tem')),
   );
+}
+
+/** Cỡ chữ SVG của thẻ `<text>` chứa đúng nội dung này; không có thì 0. */
+function fontSizeOf(svg: string, content: string): number {
+  const escapedContent = content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`font-size="(\\d+(?:\\.\\d+)?)"[^>]*>${escapedContent}</text>`).exec(svg);
+  return match === null ? 0 : Number(match[1]);
 }
 
 describe('defaultSample', () => {
@@ -27,7 +35,7 @@ describe('defaultSample', () => {
     if (evaluated.status !== 'ok') throw new Error(evaluated.message);
 
     const { settings } = evaluated.template;
-    expect(Object.keys(settings.styles)).toEqual(['productName']);
+    expect(Object.keys(settings.styles)).toEqual(['productName', 'toppingName']);
     const showPrice = settings.options.showPrice;
     if (showPrice?.type !== 'boolean') throw new Error('mẫu cần option boolean showPrice');
 
@@ -39,6 +47,28 @@ describe('defaultSample', () => {
     if (firstLabel.status !== 'ok') throw new Error(firstLabel.message);
 
     expect(firstLabel.svg).not.toContain('45.000đ');
+  });
+
+  it('cỡ chữ topping lấy từ style toppingName trong settings', () => {
+    const evaluated = evaluateTemplate(defaultCode);
+    if (evaluated.status !== 'ok') throw new Error(evaluated.message);
+
+    const { settings } = evaluated.template;
+    const toppingStyle = settings.styles.toppingName;
+    if (toppingStyle === undefined) throw new Error('mẫu cần style toppingName');
+
+    const largerTopping = {
+      ...evaluated.template,
+      settings: {
+        ...settings,
+        styles: { ...settings.styles, toppingName: { ...toppingStyle, value: { fontSize: px(24) } } },
+      },
+    };
+    const [defaultLabel] = renderPreviews(evaluated.template, evaluated.templateData, JSON.parse(defaultData), 'tspl');
+    const [largerLabel] = renderPreviews(largerTopping, evaluated.templateData, JSON.parse(defaultData), 'tspl');
+    if (defaultLabel.status !== 'ok' || largerLabel.status !== 'ok') throw new Error('preview mẫu phải chạy được');
+
+    expect(fontSizeOf(largerLabel.svg, '+ Trân châu')).toBeGreaterThan(fontSizeOf(defaultLabel.svg, '+ Trân châu'));
   });
 
   // Config mẫu giữ 4 topping/tem dù tem 4 topping không đủ chỗ: không tự giảm số topping hay co chữ, chỉ cảnh báo.
