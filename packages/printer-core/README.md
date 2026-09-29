@@ -10,7 +10,8 @@ TemplateDocument (JSON, DSL) ──parseTemplate──▶ resolve (template data
                      └─previewFor─▶ SVG xem trước
 ```
 
-- **Template:** `TemplateDocument` là JSON thuần, độc lập DPI; DSL `labelTemplate`/`receiptTemplate` sinh ra nó.
+- **Template:** `TemplateDocument` là JSON thuần, độc lập DPI, gồm `metadata`, `settings` và `content`; DSL
+  `labelTemplate`/`receiptTemplate` sinh ra nó.
 - **Dữ liệu:** biến đọc qua định nghĩa dữ liệu template (`defineTemplateData`), không trỏ thẳng vào data.
 - **Compile:** mỗi ngôn ngữ có compiler, parser (đọc ngược lệnh), validator, preview SVG. Năng lực máy in đích
   truyền vào qua `PrinterFeatures`.
@@ -45,14 +46,16 @@ src/
 ├── template/       # TemplateDocument JSON độc lập DPI
 │   ├── data/       # dữ liệu template: defineTemplateData, defineCollection, TemplateDataReader,
 │   │               # TemplateDataIndex, biến có sẵn
+│   ├── settings/   # TemplateSettings: StyleSetting, OptionSetting (boolean/text/choice)
 │   ├── style/      # Length, Dimension, Insets, BoxStyle, LayoutStyle, TextStyle
 │   ├── content/    # Segment, ValueFormat, Condition
 │   ├── nodes/      # TemplateNode và các node container/text/image/barcode/qrcode/line/repeat
 │   ├── format/     # formatter vi-VN tự cài đặt (không dùng Intl)
 │   ├── parse/      # parseTemplate, validate cấu trúc/tách tem/theo dữ liệu template
-│   └── builder/    # DSL labelTemplate/receiptTemplate(templateData), scope.var/repeat
+│   └── builder/    # DSL labelTemplate/receiptTemplate(templateData), .metadata/.settings/.content,
+│                   # scope.var/repeat/style/option/optionIs
 ├── resolution/     # ghép template + data qua dữ liệu template, kế hoạch trang (planPages), tách repeat lồng
-├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[]
+├── layout/         # đổi Length → dots theo DPI rồi xếp vị trí, sinh PrintElement[] + cảnh báo tràn khổ giấy
 ├── document/       # ResolvedPrintDocument + PrintElement (content/drawing/layout/control)
 ├── core/           # contract: PrinterLanguage, PrintCompiler/Parser/Preview/Validation, CompileResult,
 │                   # PrintParseResult, PrinterFeatures, UnsupportedLanguageError
@@ -84,7 +87,27 @@ Test đặt trong `__tests__/` cạnh file nguồn; test tích hợp ở `src/__
 - Biến có sẵn `$part`/`$partCount` (dùng ở mọi chỗ) cho biết tem thứ mấy trong phần tử; là 1/1 khi không tách tem.
   VD chỉ in giá ở tem đầu: `visibleWhen(eq('$part', 1))`.
 
+## Settings của template
+
+`TemplateDocument` gồm:
+
+- `metadata`: `id`, `name`, `kind` (công dụng: `receipt` là hoá đơn, `label` là tem — app chọn dữ liệu template theo
+  field này), `locale`, `paper` (có `heightMm` là tem, không có là giấy cuộn).
+- `settings`: những gì người dùng được chỉnh.
+  - `styles`: style chữ có tên (cỡ, đậm, căn lề, giãn dòng); text node tham chiếu qua `styleName` và khi đó không đặt
+    thuộc tính chữ viết thẳng.
+  - `options`: `boolean`, `text`, `choice`; node dùng qua điều kiện `{ op: 'option' }` và segment `{ option }`.
+  - Mỗi mục có `value` (dùng khi in) và `default` (chỉ để UI hiển thị/khôi phục, **không bao giờ đọc khi in**).
+- `content`: cây node.
+
+DSL: `.metadata({...})`, `.settings({...})` (gọi trước `.content`, `default` bỏ trống lấy bằng `value`), rồi
+`scope.style(...)`, `scope.option(...)`, `scope.optionIs(...)` — gõ sai tên hoặc sai loại option là lỗi TypeScript.
+`validateTemplateAgainstData` báo lỗi tham chiếu sai và cảnh báo setting khai báo mà không dùng.
+
 ## Cỡ chữ và cảnh báo compile
+
+- **In đúng cỡ:** layout không tự thu nhỏ chữ. Nội dung rộng hơn giấy, hoặc cao hơn tem, vẫn được xếp nguyên và
+  `LayoutEngine.resolve()` trả kèm cảnh báo trong `warnings`; chia nội dung dài sang nhiều tem bằng `maxItemsPerPage`.
 
 - **Cỡ chữ:** `TextOptions.fontSize` (dots) là field cỡ chữ duy nhất của `PrintElement` text.
   - Mỗi ngôn ngữ quy đổi sang lệnh native qua `language/{lang}/{Lang}FontMetrics.ts`.

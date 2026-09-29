@@ -1,4 +1,5 @@
 export const defaultCode = `import {
+  and,
   column,
   defineCollection,
   defineTemplateData,
@@ -65,6 +66,10 @@ export const templateData = defineTemplateData({
 
 export default labelTemplate(templateData)
   .metadata({ id: 'product-label-default', name: 'Tem món mặc định', paper: { widthMm: 50, heightMm: 30 } })
+  .settings({
+    styles: { productName: { label: 'Tên món', value: { fontSize: px(16), fontWeight: 'bold' } } },
+    options: { showPrice: { label: 'In giá món', type: 'boolean', value: true } },
+  })
   .content((scope) =>
     scope
       .repeat({ collection: 'products', expand: 'quantity' }, (product) =>
@@ -72,8 +77,8 @@ export default labelTemplate(templateData)
           .padding(insets(mm(2)))
           .gap(mm(1))
           .children(
-            text([product.var('productName')]).fontSize(px(16)).bold(),
-            text([product.var('productPrice')]).visibleWhen(eq('$part', 1)),
+            text([product.var('productName')]).style(product.style('productName')),
+            text([product.var('productPrice')]).visibleWhen(and(product.optionIs('showPrice'), eq('$part', 1))),
             product
               .repeat({ collection: 'toppings' }, (topping) => text([{ text: '+ ' }, topping.var('toppingName')]))
               .maxItemsPerPage(4),

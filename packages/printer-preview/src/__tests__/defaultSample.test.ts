@@ -14,6 +14,25 @@ describe('defaultSample', () => {
     expect(previews.map((preview) => preview.status)).toEqual(['ok', 'ok']);
   });
 
+  it('mẫu khai báo settings: style tên món và option in giá; tắt option thì tem không in giá', () => {
+    const evaluated = evaluateTemplate(defaultCode);
+    if (evaluated.status !== 'ok') throw new Error(evaluated.message);
+
+    const { settings } = evaluated.template;
+    expect(Object.keys(settings.styles)).toEqual(['productName']);
+    const showPrice = settings.options.showPrice;
+    if (showPrice?.type !== 'boolean') throw new Error('mẫu cần option boolean showPrice');
+
+    const withoutPrice = {
+      ...evaluated.template,
+      settings: { ...settings, options: { ...settings.options, showPrice: { ...showPrice, value: false } } },
+    };
+    const [firstLabel] = renderPreviews(withoutPrice, evaluated.templateData, JSON.parse(defaultData), 'tspl');
+    if (firstLabel.status !== 'ok') throw new Error(firstLabel.message);
+
+    expect(firstLabel.svg).not.toContain('45.000đ');
+  });
+
   it('món 9 topping tách thành 3 tem mỗi ly (4 + 4 + 1)', () => {
     const evaluated = evaluateTemplate(defaultCode);
     if (evaluated.status !== 'ok') throw new Error(evaluated.message);
