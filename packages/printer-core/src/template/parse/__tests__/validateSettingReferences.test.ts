@@ -100,6 +100,22 @@ describe('validateTemplateAgainstData — tham chiếu settings', () => {
     ]);
   });
 
+  it('báo lỗi tham chiếu tên trùng thuộc tính prototype (toString, constructor), không trúng prototype', () => {
+    const result = validateTemplateAgainstData(
+      documentWith([
+        ...USES_ALL,
+        textWith('bad-option-name', { content: [{ option: 'toString' }] }),
+        textWith('bad-style-name', { styleName: 'constructor' }),
+      ]),
+      description,
+    );
+
+    expect(result.errors).toEqual([
+      { path: 'content.children[4].content[0]', message: 'settings không có option "toString"' },
+      { path: 'content.children[5].styleName', message: 'settings không có style "constructor"' },
+    ]);
+  });
+
   it('kiểm tra cả tham chiếu trong điều kiện lồng và trong repeat', () => {
     const result = validateTemplateAgainstData(
       documentWith([

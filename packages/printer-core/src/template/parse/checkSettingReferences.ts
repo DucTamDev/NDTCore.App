@@ -1,7 +1,7 @@
 import type { Condition, OptionCondition } from '../content/Condition';
 import type { Segment } from '../content/Segment';
 import type { TemplateNode } from '../nodes/TemplateNode';
-import type { OptionSetting } from '../settings';
+import { optionConditionError, type OptionSetting } from '../settings';
 import type { TemplateDocument } from '../TemplateDocument';
 import type { TemplateIssue } from './TemplateIssue';
 
@@ -127,21 +127,6 @@ function checkOptionCondition(
 
   const message = optionConditionError(option, condition);
   if (message !== undefined) check.errors.push({ path, message });
-}
-
-// Trả câu lỗi khi điều kiện dùng sai loại option; `undefined` là hợp lệ.
-function optionConditionError(option: OptionSetting, condition: OptionCondition): string | undefined {
-  const name = condition.option;
-  if (option.type === 'text') return `option "${name}" kiểu text không dùng được trong điều kiện`;
-  if (option.type === 'boolean') {
-    if (condition.equals === undefined || typeof condition.equals === 'boolean') return undefined;
-    return `equals của option "${name}" phải là true hoặc false`;
-  }
-  if (condition.equals === undefined) return `option "${name}" kiểu choice cần equals`;
-
-  const values = option.choices.map((choice) => choice.value);
-  if (typeof condition.equals === 'string' && values.includes(condition.equals)) return undefined;
-  return `equals của option "${name}" phải là 1 trong: ${values.map((value) => `"${value}"`).join(', ')}`;
 }
 
 function findOption(

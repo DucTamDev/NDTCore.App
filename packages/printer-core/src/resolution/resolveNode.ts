@@ -74,9 +74,12 @@ function resolveText(node: TextNode, context: ResolveContext): ResolvedText {
 }
 
 // Style có tên chỉ quản lý thuộc tính chữ; thuộc tính hộp (padding, width...) vẫn lấy từ node.
+// Chỉ ghép đúng 4 field chữ: setting bỏ qua validate vẫn không được tiêm thuộc tính hộp vào text.
 function resolveTextStyle(node: TextNode, context: ResolveContext): ResolvedText['style'] {
   if (node.styleName === undefined) return node.style;
-  return { ...node.style, ...readStyleSetting(context, node.styleName, node.id) };
+
+  const { fontSize, fontWeight, lineHeight, textAlign } = readStyleSetting(context, node.styleName, node.id);
+  return { ...node.style, fontSize, fontWeight, lineHeight, textAlign };
 }
 
 function resolveLine(node: LineNode): ResolvedLine {

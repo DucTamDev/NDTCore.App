@@ -2,7 +2,13 @@ import type { BarcodeSymbology, QrErrorCorrectionLevel } from '../../symbology';
 import type { TemplateNodeType } from '../nodes/TemplateNode';
 import type { JsonCursor } from './JsonCursor';
 import { validateCondition, validateSegments } from './validateContent';
-import { validateBoxStyle, validateLayoutStyle, validateOptionalLength, validateTextStyle } from './validateStyle';
+import {
+  TEXT_STYLE_FIELDS,
+  validateBoxStyle,
+  validateLayoutStyle,
+  validateOptionalLength,
+  validateTextStyle,
+} from './validateStyle';
 
 /** Số phần tử tối đa mỗi trang — chỉ để chặn giá trị vô lý. */
 const MAX_ITEMS_PER_PAGE = 1000;
@@ -28,9 +34,6 @@ const QR_ERROR_CORRECTION_LEVELS: Readonly<Record<QrErrorCorrectionLevel, true>>
 };
 
 const LINE_PATTERNS: readonly string[] = ['solid', 'dashed'];
-
-/** Thuộc tính chữ mà style có tên trong `settings` quản lý. */
-const TEXT_STYLE_FIELDS: readonly string[] = ['fontSize', 'fontWeight', 'lineHeight', 'textAlign'];
 
 type NodeValidator = (cursor: JsonCursor, seenIds: Set<string>) => void;
 

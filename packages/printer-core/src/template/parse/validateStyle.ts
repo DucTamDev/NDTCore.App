@@ -9,6 +9,9 @@ const ALIGN_ITEMS_VALUES: readonly string[] = ['start', 'center', 'end'];
 const FONT_WEIGHTS: readonly string[] = ['normal', 'bold'];
 const TEXT_ALIGNS: readonly string[] = ['left', 'center', 'right'];
 
+/** Thuộc tính chữ mà style có tên trong `settings` quản lý; dùng chung cho cả 2 chỗ validate liên quan. */
+export const TEXT_STYLE_FIELDS: readonly string[] = ['fontSize', 'fontWeight', 'lineHeight', 'textAlign'];
+
 /** Kiểm tra `Length`: `value` là số hữu hạn không âm, `unit` là mm/pt/px. */
 export function validateLength(cursor: JsonCursor): void {
   if (!cursor.expectObject()) return;
@@ -52,8 +55,13 @@ export function validateTextStyle(cursor: JsonCursor): void {
 
 /** Kiểm tra `TextStyle` bắt buộc của 1 style có tên trong `settings` (chỉ thuộc tính chữ). */
 export function validateTextStyleSetting(cursor: JsonCursor): void {
-  if (!cursor.expectObject()) return;
+  const object = cursor.expectObject();
+  if (!object) return;
+
   validateTextFields(cursor);
+  for (const key of Object.keys(object)) {
+    if (!TEXT_STYLE_FIELDS.includes(key)) cursor.field(key).report('không phải thuộc tính chữ');
+  }
 }
 
 function validateTextFields(cursor: JsonCursor): void {

@@ -67,6 +67,31 @@ describe('DocumentResolver — settings', () => {
     });
   });
 
+  it('style có tên mà value có padding (bỏ qua validate) không đè padding viết thẳng của node', () => {
+    const side = { value: 1, unit: 'mm' as const };
+    const nodePadding = { top: side, right: side, bottom: side, left: side };
+    const smuggledPadding = { top: { value: 9, unit: 'mm' as const }, right: side, bottom: side, left: side };
+    const settingsWithExtra: TemplateSettings = {
+      ...SETTINGS,
+      styles: {
+        itemName: {
+          label: 'Tên món',
+          value: { fontSize: { value: 20, unit: 'px' }, fontWeight: 'bold', padding: smuggledPadding } as never,
+          default: { fontSize: { value: 12, unit: 'px' } },
+        },
+      },
+    };
+    const page = resolveChildren(
+      [textWith('name', { styleName: 'itemName', style: { padding: nodePadding } })],
+      settingsWithExtra,
+    );
+
+    expect(resolvedChildren(page)[0]).toMatchObject({
+      type: 'text',
+      style: { padding: nodePadding, fontSize: { value: 20, unit: 'px' }, fontWeight: 'bold' },
+    });
+  });
+
   it('điều kiện option boolean đánh giá theo value', () => {
     const page = resolveChildren([
       textWith('shown-when-on', { visibleWhen: { op: 'option', option: 'showPrice' } }),
@@ -103,9 +128,54 @@ describe('DocumentResolver — settings', () => {
     expect(node).toMatchObject({ type: 'text', value: '— Wifi: abc' });
   });
 
+  it('option text value rỗng vẫn in ra rỗng, không rơi về default', () => {
+    const settingsWithEmptyFooter: TemplateSettings = {
+      ...SETTINGS,
+      options: {
+        ...SETTINGS.options,
+        footerText: { label: 'Dòng cuối', type: 'text', value: '', default: 'Cảm ơn' },
+      },
+    };
+    const [node] = resolvedChildren(
+      resolveChildren([textWith('footer', { content: [{ option: 'footerText' }] })], settingsWithEmptyFooter),
+    );
+
+    expect(node).toMatchObject({ type: 'text', value: '' });
+  });
+
   it('tham chiếu setting không tồn tại lúc resolve thành lỗi trang', () => {
     const page = resolveChildren([textWith('footer', { content: [{ option: 'header' }] })]);
 
     expect(page).toMatchObject({ status: 'error', nodeId: 'footer', message: 'settings không có option "header"' });
+  });
+
+  it('tham chiếu tên option trùng thuộc tính prototype (toString) thành lỗi trang, không trúng prototype', () => {
+    const page = resolveChildren([textWith('footer', { content: [{ option: 'toString' }] })]);
+
+    expect(page).toMatchObject({ status: 'error', nodeId: 'footer', message: 'settings không có option "toString"' });
+  });
+
+  it('equals của option boolean sai kiểu thành lỗi trang', () => {
+    const page = resolveChildren([
+      textWith('bad-equals', { visibleWhen: { op: 'option', option: 'showPrice', equals: 'yes' } }),
+    ]);
+
+    expect(page).toMatchObject({
+      status: 'error',
+      nodeId: 'bad-equals',
+      message: 'equals của option "showPrice" phải là true hoặc false',
+    });
+  });
+
+  it('equals của option choice ngoài danh sách thành lỗi trang', () => {
+    const page = resolveChildren([
+      textWith('bad-choice', { visibleWhen: { op: 'option', option: 'priceStyle', equals: 'medium' } }),
+    ]);
+
+    expect(page).toMatchObject({
+      status: 'error',
+      nodeId: 'bad-choice',
+      message: 'equals của option "priceStyle" phải là 1 trong: "short", "full"',
+    });
   });
 });

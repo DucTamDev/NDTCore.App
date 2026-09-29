@@ -410,6 +410,23 @@ describe('parseTemplate — settings', () => {
     ]);
   });
 
+  it('báo lỗi style có value chứa thuộc tính không phải chữ (VD padding)', () => {
+    const json = withSettings({
+      styles: {
+        itemName: {
+          label: 'Tên món',
+          value: { fontSize: FONT_SIZE, padding: uniformInsets(1) },
+          default: { fontSize: FONT_SIZE },
+        },
+      },
+      options: {},
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'settings.styles.itemName.value.padding', message: 'không phải thuộc tính chữ' },
+    ]);
+  });
+
   it('báo lỗi option sai kiểu giá trị theo loại, và loại option lạ', () => {
     const json = withSettings({
       styles: {},

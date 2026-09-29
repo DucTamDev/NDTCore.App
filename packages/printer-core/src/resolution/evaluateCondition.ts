@@ -1,4 +1,10 @@
-import type { ComparisonCondition, Condition, OptionCondition, TemplateNode } from '../template';
+import {
+  optionConditionError,
+  type ComparisonCondition,
+  type Condition,
+  type OptionCondition,
+  type TemplateNode,
+} from '../template';
 import { readVariableValue } from './readVariable';
 import type { ResolveContext } from './ResolveContext';
 import { ResolveError } from './ResolveError';
@@ -42,19 +48,19 @@ export function evaluateCondition(
   }
 }
 
-// Không có `equals` nghĩa là "option boolean đang bật"; option text không mang nghĩa đúng/sai nên không dùng được.
+// Không có `equals` nghĩa là "option boolean đang bật"; equals sai loại/ngoài danh sách phải báo lỗi rõ,
+// không được âm thầm coi là không khớp (validate tĩnh có thể đã bỏ qua template này).
 function evaluateOptionCondition(
   condition: OptionCondition,
   context: ResolveContext,
   nodeId: string,
 ): boolean {
   const option = readOptionSetting(context, condition.option, nodeId);
-  if (option.type === 'text') {
-    throw new ResolveError(nodeId, `option "${condition.option}" kiểu text không dùng được trong điều kiện`);
-  }
+  const message = optionConditionError(option, condition);
+  if (message !== undefined) throw new ResolveError(nodeId, message);
+
   if (condition.equals !== undefined) return option.value === condition.equals;
-  if (option.type === 'boolean') return option.value;
-  throw new ResolveError(nodeId, `option "${condition.option}" kiểu choice cần equals`);
+  return option.type === 'boolean' && option.value;
 }
 
 function hasValue(value: unknown): boolean {
