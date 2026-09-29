@@ -159,11 +159,15 @@ receiptTemplate(templateData)
   ```ts
   interface LayoutResult {
     readonly elements: PrintElement[];     // như trước
-    readonly warnings: readonly string[];  // hiện chỉ có cảnh báo tràn chiều cao tem
+    readonly warnings: readonly string[];  // cảnh báo nội dung tràn khổ giấy
   }
   ```
-- Tem (`paper.heightMm` có giá trị) mà tổng chiều cao nội dung vượt chiều cao tem: vẫn xếp nguyên cỡ, không cắt bớt
-  element, thêm cảnh báo `Nội dung cao {n} dots, vượt chiều cao tem {m} dots`. Giấy cuộn không có cảnh báo này.
+- Nội dung tràn khổ giấy: vẫn xếp nguyên cỡ, không cắt bớt element, thêm cảnh báo (mỗi loại tối đa 1 lần/trang):
+  - **Tràn chiều rộng** (mọi loại giấy): cạnh phải xa nhất của các element vượt chiều rộng giấy →
+    `Nội dung rộng {n} dots, vượt chiều rộng giấy {m} dots`. Chữ đã tự xuống dòng nên thường chỉ gặp với node có
+    chiều rộng cố định, ảnh, barcode, QR.
+  - **Tràn chiều cao** (chỉ tem — `paper.heightMm` có giá trị): cạnh dưới xa nhất vượt chiều cao tem →
+    `Nội dung cao {n} dots, vượt chiều cao tem {m} dots`. Giấy cuộn không giới hạn chiều cao nên không có cảnh báo này.
 - Nội dung dài chia sang nhiều tem bằng `maxItemsPerPage` (đã có), không dựa vào co chữ.
 
 ### 7. `printer-preview`
@@ -183,8 +187,9 @@ ví dụ dùng `settings` (1 style có tên + 1 option boolean). Bỏ `DEFAULT_T
     `value` (boolean, choice + `equals`, lồng trong `and`/`not`); `OptionSegment` in đúng `value`;
   - DSL: `.settings` + `scope.style/option/optionIs` sinh đúng JSON, `default` mặc định bằng `value`; `@ts-expect-error`
     cho tên sai và sai loại option.
-- Layout: xoá test chọn mức co chữ; test mới: tem tràn chiều cao có cảnh báo và cỡ chữ giữ nguyên; tem vừa và giấy cuộn
-  không có cảnh báo.
+- Layout: xoá test chọn mức co chữ; test mới: tem tràn chiều cao có cảnh báo và cỡ chữ giữ nguyên; node rộng cố định
+  vượt khổ có cảnh báo tràn chiều rộng (tem và giấy cuộn); nội dung vừa khổ không có cảnh báo; giấy cuộn dài không có
+  cảnh báo chiều cao.
 - Test gắn với `dataId` bị bỏ: so mã ở `DocumentResolver.test` và `validateTemplateAgainstData.test`, và test
   `parseTemplate` "từ chối template JSON còn field `catalog` thay cho `dataId`".
 - Kết quả in của template không dùng settings không đổi (test pipeline hiện có).
