@@ -74,14 +74,14 @@ export default labelTemplate(templateData)
     scope
       .repeat({ collection: 'products', expand: 'quantity' }, (product) =>
         column()
-          .padding(insets(mm(2)))
-          .gap(mm(1))
+          .padding(insets(mm(1.5)))
+          .gap(mm(0.5))
           .children(
             text([product.var('productName')]).style(product.style('productName')),
             text([product.var('productPrice')]).visibleWhen(and(product.optionIs('showPrice'), eq('$part', 1))),
             product
               .repeat({ collection: 'toppings' }, (topping) => text([{ text: '+ ' }, topping.var('toppingName')]))
-              .maxItemsPerPage(4),
+              .maxItemsPerPage(2),
             text([
               product.var('orderCode'),
               { text: ' · ' },
