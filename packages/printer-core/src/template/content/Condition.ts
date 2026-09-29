@@ -36,5 +36,19 @@ export interface NotCondition {
   readonly condition: Condition;
 }
 
+/**
+ * Theo `value` của 1 option trong `settings`: không có `equals` thì đúng khi option boolean đang bật; có `equals` thì
+ * đúng khi `value` bằng nó (boolean hoặc `value` của 1 lựa chọn `choice`).
+ */
+export interface OptionCondition {
+  readonly op: 'option';
+
+  /** Tên option kiểu `boolean` hoặc `choice`. */
+  readonly option: string;
+
+  /** Giá trị cần bằng; bỏ trống chỉ dùng với option boolean (nghĩa là đang bật). */
+  readonly equals?: string | boolean;
+}
+
 /** Điều kiện ẩn/hiện node — data thuần, không phải biểu thức chuỗi, nên không cần parser/eval. */
-export type Condition = PresenceCondition | ComparisonCondition | GroupCondition | NotCondition;
+export type Condition = PresenceCondition | ComparisonCondition | GroupCondition | NotCondition | OptionCondition;

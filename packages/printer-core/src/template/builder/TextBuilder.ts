@@ -5,12 +5,15 @@ import type { TextStyle } from '../style/TextStyle';
 import type { BuildContext } from './BuildContext';
 import { NodeBuilder } from './NodeBuilder';
 import { toSegments, type SegmentInput } from './segments';
+import type { StyleReference } from './StyleReference';
 
 /** Builder của đoạn chữ. */
 export class TextBuilder extends NodeBuilder<TextNode> {
   private readonly content: readonly Segment[];
 
   private textStyle: TextStyle = {};
+
+  private styleName?: string;
 
   constructor(content: SegmentInput) {
     super();
@@ -32,6 +35,12 @@ export class TextBuilder extends NodeBuilder<TextNode> {
     return this;
   }
 
+  /** Dùng style có tên trong settings (tạo qua `scope.style(...)`) thay cho cỡ chữ/đậm/căn lề viết thẳng. */
+  style(reference: StyleReference): this {
+    this.styleName = reference.styleName;
+    return this;
+  }
+
   /** Hệ số chiều cao dòng so với cỡ chữ, VD 1.2. */
   lineHeight(ratio: number): this {
     this.textStyle = { ...this.textStyle, lineHeight: ratio };
@@ -44,6 +53,7 @@ export class TextBuilder extends NodeBuilder<TextNode> {
       id: this.resolveId(context, 'text'),
       ...this.visibilityField(),
       content: this.content,
+      ...(this.styleName === undefined ? {} : { styleName: this.styleName }),
       ...this.styleField({ ...this.boxStyle, ...this.textStyle }),
     };
   }

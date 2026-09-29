@@ -12,6 +12,7 @@ import { isNodeVisible } from './evaluateCondition';
 import { entryFrame, readRepeatEntries } from './readRepeatEntries';
 import { isOptionalVariable, readVariableValue } from './readVariable';
 import { resolveContent } from './resolveContent';
+import { readStyleSetting } from './readSetting';
 import { pushFrame, type PageInfo, type PagePart, type ResolveContext } from './ResolveContext';
 import type {
   ResolvedBarcode,
@@ -64,7 +65,18 @@ function resolveContainer(node: ContainerNode, context: ResolveContext): Resolve
 }
 
 function resolveText(node: TextNode, context: ResolveContext): ResolvedText {
-  return { type: 'text', id: node.id, value: resolveContent(node.content, context, node.id), style: node.style };
+  return {
+    type: 'text',
+    id: node.id,
+    value: resolveContent(node.content, context, node.id),
+    style: resolveTextStyle(node, context),
+  };
+}
+
+// Style có tên chỉ quản lý thuộc tính chữ; thuộc tính hộp (padding, width...) vẫn lấy từ node.
+function resolveTextStyle(node: TextNode, context: ResolveContext): ResolvedText['style'] {
+  if (node.styleName === undefined) return node.style;
+  return { ...node.style, ...readStyleSetting(context, node.styleName, node.id) };
 }
 
 function resolveLine(node: LineNode): ResolvedLine {

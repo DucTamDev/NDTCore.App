@@ -15,5 +15,11 @@ export interface VariableSegment {
   readonly format?: ValueFormat;
 }
 
+/** Đoạn in chữ của 1 option kiểu `text` trong `settings` (VD dòng cuối hoá đơn). */
+export interface OptionSegment {
+  /** Tên option kiểu `text`. */
+  readonly option: string;
+}
+
 /** 1 đoạn nội dung động của text/barcode/QR — nội dung là mảng segment ghép liền nhau. */
-export type Segment = TextSegment | VariableSegment;
+export type Segment = TextSegment | VariableSegment | OptionSegment;

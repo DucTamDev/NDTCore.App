@@ -24,6 +24,7 @@ export function collectAssetIds<TData>(
     assets: NO_ASSETS,
     frames: [createRootFrame(data)],
     page: COUNTING_PAGE,
+    settings: template.settings,
   };
   const assetIds = new Set<string>();
   collectFromNode(template.content, context, assetIds);

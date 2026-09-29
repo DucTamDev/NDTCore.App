@@ -299,6 +299,71 @@ describe('parseTemplate', () => {
   });
 });
 
+describe('parseTemplate — tham chiếu settings trong node', () => {
+  it('chấp nhận styleName, segment option và điều kiện option đúng dạng', () => {
+    const json = withContent({
+      type: 'container',
+      id: 'root',
+      children: [
+        {
+          type: 'text',
+          id: 'name',
+          content: [{ text: 'x' }],
+          styleName: 'itemName',
+          style: { padding: uniformInsets(1) },
+        },
+        { type: 'text', id: 'footer', content: [{ option: 'footerText' }] },
+        { type: 'text', id: 'price', content: [{ text: 'y' }], visibleWhen: { op: 'option', option: 'showPrice' } },
+        {
+          type: 'text',
+          id: 'full-price',
+          content: [{ text: 'z' }],
+          visibleWhen: { op: 'not', condition: { op: 'option', option: 'priceStyle', equals: 'short' } },
+        },
+      ],
+    });
+
+    expect(issuesOf(json)).toEqual([]);
+  });
+
+  it('báo lỗi segment có nhiều hơn 1 trong text, var, option', () => {
+    const json = withContent({ type: 'text', id: 'text', content: [{ text: 'x', option: 'footerText' }] });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'content.content[0]', message: 'segment chỉ được có 1 trong các field "text", "var", "option"' },
+    ]);
+  });
+
+  it('báo lỗi điều kiện option thiếu tên hoặc equals sai kiểu', () => {
+    const json = withContent({
+      type: 'text',
+      id: 'text',
+      content: [],
+      visibleWhen: { op: 'or', conditions: [{ op: 'option' }, { op: 'option', option: 'priceStyle', equals: 1 }] },
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'content.visibleWhen.conditions[0].option', message: 'phải là chuỗi khác rỗng' },
+      { path: 'content.visibleWhen.conditions[1].equals', message: 'phải là chuỗi hoặc boolean' },
+    ]);
+  });
+
+  it('báo lỗi text vừa có styleName vừa đặt thuộc tính chữ viết thẳng', () => {
+    const json = withContent({
+      type: 'text',
+      id: 'text',
+      content: [],
+      styleName: 'itemName',
+      style: { fontSize: FONT_SIZE, textAlign: 'center', padding: uniformInsets(1) },
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'content.style.fontSize', message: 'không dùng cùng styleName (style chữ lấy từ settings)' },
+      { path: 'content.style.textAlign', message: 'không dùng cùng styleName (style chữ lấy từ settings)' },
+    ]);
+  });
+});
+
 describe('parseTemplate — settings', () => {
   it('chấp nhận style có tên và đủ 3 loại option hợp lệ', () => {
     const json = withSettings({

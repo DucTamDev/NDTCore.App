@@ -33,6 +33,7 @@ export class DocumentResolver {
       assets: options.assets,
       frames: [createRootFrame(data)],
       page: COUNTING_PAGE,
+      settings: template.settings,
     };
     const parts = planPages(template.content, baseContext);
 

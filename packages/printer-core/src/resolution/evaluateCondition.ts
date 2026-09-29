@@ -1,6 +1,8 @@
-import type { ComparisonCondition, Condition, TemplateNode } from '../template';
+import type { ComparisonCondition, Condition, OptionCondition, TemplateNode } from '../template';
 import { readVariableValue } from './readVariable';
 import type { ResolveContext } from './ResolveContext';
+import { ResolveError } from './ResolveError';
+import { readOptionSetting } from './readSetting';
 
 type NumericOperator = 'gt' | 'gte' | 'lt' | 'lte';
 
@@ -33,9 +35,26 @@ export function evaluateCondition(
       return hasValue(readVariableValue(context, condition.var, nodeId));
     case 'notEmpty':
       return isNotEmpty(readVariableValue(context, condition.var, nodeId));
+    case 'option':
+      return evaluateOptionCondition(condition, context, nodeId);
     default:
       return compare(condition, readVariableValue(context, condition.var, nodeId));
   }
+}
+
+// Không có `equals` nghĩa là "option boolean đang bật"; option text không mang nghĩa đúng/sai nên không dùng được.
+function evaluateOptionCondition(
+  condition: OptionCondition,
+  context: ResolveContext,
+  nodeId: string,
+): boolean {
+  const option = readOptionSetting(context, condition.option, nodeId);
+  if (option.type === 'text') {
+    throw new ResolveError(nodeId, `option "${condition.option}" kiểu text không dùng được trong điều kiện`);
+  }
+  if (condition.equals !== undefined) return option.value === condition.equals;
+  if (option.type === 'boolean') return option.value;
+  throw new ResolveError(nodeId, `option "${condition.option}" kiểu choice cần equals`);
 }
 
 function hasValue(value: unknown): boolean {

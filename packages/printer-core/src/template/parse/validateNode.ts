@@ -29,6 +29,9 @@ const QR_ERROR_CORRECTION_LEVELS: Readonly<Record<QrErrorCorrectionLevel, true>>
 
 const LINE_PATTERNS: readonly string[] = ['solid', 'dashed'];
 
+/** Thuộc tính chữ mà style có tên trong `settings` quản lý. */
+const TEXT_STYLE_FIELDS: readonly string[] = ['fontSize', 'fontWeight', 'lineHeight', 'textAlign'];
+
 type NodeValidator = (cursor: JsonCursor, seenIds: Set<string>) => void;
 
 const NODE_VALIDATORS: Readonly<Record<TemplateNodeType, NodeValidator>> = {
@@ -79,6 +82,17 @@ function validateContainer(cursor: JsonCursor, seenIds: Set<string>): void {
 function validateText(cursor: JsonCursor): void {
   validateSegments(cursor.field('content'));
   validateTextStyle(cursor.field('style'));
+  if (cursor.has('styleName')) validateStyleName(cursor);
+}
+
+// Nếu cho trộn, người dùng chỉnh cỡ chữ trong settings mà bản in không đổi vì bị style viết thẳng đè.
+function validateStyleName(cursor: JsonCursor): void {
+  cursor.field('styleName').expectNonEmptyString();
+
+  const style = cursor.field('style');
+  for (const field of TEXT_STYLE_FIELDS) {
+    if (style.has(field)) style.field(field).report('không dùng cùng styleName (style chữ lấy từ settings)');
+  }
 }
 
 function validateLine(cursor: JsonCursor): void {

@@ -1,3 +1,4 @@
+import type { TemplateSettings } from '../template';
 import type { TemplateDataDefinition, TemplateDataIndex } from '../template/data';
 import type { AssetProvider } from './AssetProvider';
 
@@ -74,6 +75,9 @@ export interface ResolveContext {
 
   /** Thông tin trang đang resolve. */
   readonly page: PageInfo;
+
+  /** Settings của template; chỉ đọc `value`. */
+  readonly settings: TemplateSettings;
 }
 
 /** Tầng scope gốc chứa data của cả document. */

@@ -18,11 +18,18 @@ export function validateSegments(cursor: JsonCursor): void {
   for (const segment of cursor.expectItems()) validateSegment(segment);
 }
 
+/** Field phân biệt loại segment; mỗi segment có đúng 1 field. */
+const SEGMENT_KINDS: readonly string[] = ['text', 'var', 'option'];
+
 /** Kiểm tra `Condition` (đệ quy qua `and`/`or`/`not`). */
 export function validateCondition(cursor: JsonCursor): void {
   if (!cursor.expectObject()) return;
 
   const operator = cursor.field('op').value;
+  if (operator === 'option') {
+    validateOptionCondition(cursor);
+    return;
+  }
   if (typeof operator === 'string' && PRESENCE_OPERATORS.includes(operator)) {
     cursor.field('var').expectNonEmptyString();
     return;
@@ -45,22 +52,34 @@ export function validateCondition(cursor: JsonCursor): void {
 function validateSegment(cursor: JsonCursor): void {
   if (!cursor.expectObject()) return;
 
-  const hasText = cursor.has('text');
-  const hasVar = cursor.has('var');
-  if (hasText && hasVar) {
-    cursor.report('segment chỉ được có 1 trong 2 field "text" hoặc "var"');
+  const kinds = SEGMENT_KINDS.filter((kind) => cursor.has(kind));
+  if (kinds.length > 1) {
+    cursor.report('segment chỉ được có 1 trong các field "text", "var", "option"');
     return;
   }
-  if (hasText) {
+  if (kinds.length === 0) {
+    cursor.report('segment phải có "text", "var" hoặc "option"');
+    return;
+  }
+  if (kinds[0] === 'text') {
     if (typeof cursor.field('text').value !== 'string') cursor.field('text').report('phải là chuỗi');
     return;
   }
-  if (!hasVar) {
-    cursor.report('segment phải có "text" hoặc "var"');
+  if (kinds[0] === 'option') {
+    cursor.field('option').expectNonEmptyString();
     return;
   }
   cursor.field('var').expectNonEmptyString();
   if (cursor.has('format')) validateValueFormat(cursor.field('format'));
+}
+
+function validateOptionCondition(cursor: JsonCursor): void {
+  cursor.field('option').expectNonEmptyString();
+
+  const equalsType = typeof cursor.field('equals').value;
+  if (cursor.has('equals') && equalsType !== 'string' && equalsType !== 'boolean') {
+    cursor.field('equals').report('phải là chuỗi hoặc boolean');
+  }
 }
 
 function validateValueFormat(cursor: JsonCursor): void {

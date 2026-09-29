@@ -14,6 +14,7 @@ import type { ImageNode } from '../nodes/ImageNode';
 import type { RepeatNode } from '../nodes/RepeatNode';
 import type { TemplateNode } from '../nodes/TemplateNode';
 import type { TemplateDocument } from '../TemplateDocument';
+import { checkSettingReferences } from './checkSettingReferences';
 import type { TemplateIssue } from './TemplateIssue';
 
 /** Kết quả kiểm tra template theo dữ liệu template. */
@@ -60,7 +61,8 @@ const ROOT_SCOPE: ValidationScope = { collections: [], expanded: false };
 
 /**
  * Kiểm tra template khớp dữ liệu template: biến tồn tại và dùng đúng scope, collection/expand hợp lệ, ảnh dùng biến
- * kiểu `asset`, format hợp kiểu biến. Nhận metadata (`describe()`) nên BE/designer dùng chung được.
+ * kiểu `asset`, format hợp kiểu biến; kèm tham chiếu style/option trỏ đúng `settings`. Nhận metadata (`describe()`)
+ * nên BE/designer dùng chung được.
  */
 export function validateTemplateAgainstData(
   template: TemplateDocument,
@@ -69,7 +71,12 @@ export function validateTemplateAgainstData(
   const index = createTemplateDataIndex(description);
   const check: TemplateDataCheck = { description, index, errors: [], warnings: [] };
   checkNode(check, template.content, 'content', ROOT_SCOPE);
-  return { errors: check.errors, warnings: check.warnings };
+
+  const settingReferences = checkSettingReferences(template);
+  return {
+    errors: [...check.errors, ...settingReferences.errors],
+    warnings: [...check.warnings, ...settingReferences.warnings],
+  };
 }
 
 function addError(
@@ -119,6 +126,7 @@ function checkSegments(
   scope: ValidationScope,
 ): void {
   segments.forEach((segment, index) => {
+    // Segment option do checkSettingReferences kiểm.
     if (!('var' in segment)) return;
 
     const segmentPath = `${path}[${index}]`;
@@ -207,6 +215,9 @@ function checkCondition(
       return;
     case 'not':
       checkCondition(check, condition.condition, `${path}.condition`, scope);
+      return;
+    case 'option':
+      // Điều kiện option không đọc biến; checkSettingReferences kiểm.
       return;
     default:
       checkVariableUse(check, condition.var, path, scope);

@@ -10,6 +10,9 @@ export interface TextNode extends TemplateNodeBase {
   /** Nội dung: các segment ghép liền nhau thành 1 chuỗi. */
   readonly content: readonly Segment[];
 
+  /** Tên style trong `settings.styles`; có thì style chữ lấy từ settings, `style` chỉ còn thuộc tính hộp. */
+  readonly styleName?: string;
+
   /** Style hộp và style chữ. */
   readonly style?: BoxStyle & TextStyle;
 }

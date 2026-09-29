@@ -5,6 +5,7 @@ import type { TemplateKind, TemplateLocale } from '../TemplateMetadata';
 import { TemplateNodeIdGenerator, type BuildContext } from './BuildContext';
 import type { TemplateNodeBuilder } from './NodeBuilder';
 import type { TemplateMetadataInput } from './TemplateMetadataInput';
+import type { NoSettings } from './SettingNames';
 import { TemplateScope } from './TemplateScope';
 import type { TemplateSettingsInput } from './TemplateSettingsInput';
 import { toTemplateSettings } from './toTemplateSettings';
@@ -23,16 +24,17 @@ export interface TemplateDataShape {
   describe(): TemplateDataDescription;
 }
 
-/** Scope gốc của template: biến gốc + collection cấp 1 của dữ liệu template. */
-export type RootScope<TTemplateData extends TemplateDataShape> = TemplateScope<
+/** Scope gốc của template: biến gốc + collection cấp 1 của dữ liệu template + settings đã khai báo. */
+export type RootScope<TTemplateData extends TemplateDataShape, TSettings = NoSettings> = TemplateScope<
   Extract<keyof TTemplateData['variables'], string>,
-  TTemplateData['collections']
+  TTemplateData['collections'],
+  TSettings
 >;
 
-/** Nội dung gốc: 1 builder, hoặc callback nhận scope gốc để dùng `scope.var`/`scope.repeat`. */
-export type RootContent<TTemplateData extends TemplateDataShape> =
+/** Nội dung gốc: 1 builder, hoặc callback nhận scope gốc để dùng `scope.var`/`scope.repeat`/settings. */
+export type RootContent<TTemplateData extends TemplateDataShape, TSettings = NoSettings> =
   | TemplateNodeBuilder
-  | ((scope: RootScope<TTemplateData>) => TemplateNodeBuilder);
+  | ((scope: RootScope<TTemplateData, TSettings>) => TemplateNodeBuilder);
 
 /** Lỗi khi `build()` gặp template không hợp lệ; `issues` chứa từng lỗi kèm vị trí. */
 export class TemplateBuildError extends Error {
@@ -44,12 +46,16 @@ export class TemplateBuildError extends Error {
 }
 
 /** Builder của `TemplateDocument`; tạo qua `labelTemplate(templateData)` hoặc `receiptTemplate(templateData)`. */
-export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TKind extends TemplateKind> {
+export class TemplateDocumentBuilder<
+  TTemplateData extends TemplateDataShape,
+  TKind extends TemplateKind,
+  TSettings extends TemplateSettingsInput = NoSettings,
+> {
   private metadataInput?: TemplateMetadataInput<TKind>;
 
   private settingsInput?: TemplateSettingsInput;
 
-  private rootContent?: RootContent<TTemplateData>;
+  private rootContent?: RootContent<TTemplateData, TSettings>;
 
   constructor(
     private readonly templateData: TTemplateData,
@@ -62,14 +68,20 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TK
     return this;
   }
 
-  /** Style có tên và option người dùng được chỉnh; bỏ qua là template không có setting nào. */
-  settings(value: TemplateSettingsInput): this {
+  /**
+   * Style có tên và option người dùng được chỉnh; bỏ qua là template không có setting nào. Gọi trước `.content(...)`
+   * để scope biết tên style/option.
+   */
+  settings<TNewSettings extends TemplateSettingsInput>(
+    value: TNewSettings,
+  ): TemplateDocumentBuilder<TTemplateData, TKind, TNewSettings> {
     this.settingsInput = value;
-    return this;
+    // Cùng 1 builder, chỉ đổi kiểu để scope của `.content(...)` biết settings vừa khai báo.
+    return this as unknown as TemplateDocumentBuilder<TTemplateData, TKind, TNewSettings>;
   }
 
   /** Cây node nội dung (bắt buộc). */
-  content(content: RootContent<TTemplateData>): this {
+  content(content: RootContent<TTemplateData, TSettings>): this {
     this.rootContent = content;
     return this;
   }

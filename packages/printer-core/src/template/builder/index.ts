@@ -10,6 +10,14 @@ export { image, ImageBuilder } from './ImageBuilder';
 export { line, LineBuilder } from './LineBuilder';
 export { RepeatBuilder, type RepeatOptions } from './RepeatBuilder';
 export { TemplateScope, type RepeatScope } from './TemplateScope';
+export type { StyleReference } from './StyleReference';
+export type {
+  NoSettings,
+  StyleNames,
+  TextOptionNames,
+  ConditionOptionNames,
+  OptionEqualsArguments,
+} from './SettingNames';
 export type { SegmentInput } from './segments';
 export {
   labelTemplate,
