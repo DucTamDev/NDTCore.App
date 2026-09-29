@@ -6,7 +6,8 @@ Tách **cấu trúc** của template (in gì, ở đâu) khỏi **phần ngườ
 nội dung; bật/tắt mục; chữ tuỳ chỉnh). Template tự khai báo bộ `settings` của mình; UI sau này đọc `settings` để dựng
 form, BE lưu template (theo cửa hàng) với giá trị đã chỉnh. `printer-core` in bằng giá trị có sẵn trong template.
 
-Đồng thời gom thông tin chung của template vào `metadata` và đổi `root` → `content`, `media` → `kind`.
+Đồng thời gom thông tin chung của template vào `metadata`, đổi `root` → `content`, `media` → `kind` (công dụng của
+template), và bỏ `dataId`.
 
 ## Nguyên tắc đã chốt
 
@@ -15,6 +16,10 @@ form, BE lưu template (theo cửa hàng) với giá trị đã chỉnh. `printe
   phục; **không bao giờ đọc khi in**).
 - **Không có bản ghi giá trị riêng** trong đợt này: khi cửa hàng tuỳ chỉnh, BE lưu template với `value` mới và trả
   template theo cửa hàng; `printer-core` không gộp/ghi đè từng giá trị.
+- **`kind` là công dụng của template**, dùng đúng giá trị `PrintType` của app (`'receipt'` = hoá đơn, `'label'` = tem;
+  sau này thêm `'kitchen'`...). Mỗi `kind` ứng với 1 bộ dữ liệu; app tự chọn `templateData` theo `kind` và truyền vào
+  lúc in, nên template **không mang `dataId`**.
+- **Loại giấy suy ra từ `paper`**: có `heightMm` là tem (chiều cao cố định, phân trang), không có là giấy cuộn.
 - `schemaVersion` giữ 1 (chưa có template nào lưu ở BE).
 
 ## Ngoài phạm vi
@@ -40,8 +45,7 @@ interface TemplateDocument {
 interface TemplateMetadata {
   readonly id: string;
   readonly name: string;
-  readonly dataId: string;
-  readonly kind: TemplateKind;              // đổi tên từ `media`; 'label' | 'receipt'
+  readonly kind: TemplateKind;              // công dụng, đổi tên từ `media`; 'receipt' | 'label'
   readonly locale: TemplateLocale;
   readonly paper: PaperSize;
 }
@@ -63,8 +67,13 @@ type OptionSetting = BooleanOptionSetting | TextOptionSetting | ChoiceOptionSett
 // choice:  { label, type: 'choice',  choices: readonly { value: string; label: string }[], value: string, default: string }
 ```
 
-- `TemplateMedia` → `TemplateKind`; `LayoutConfig.media` → `LayoutConfig.kind`.
-- Mọi chỗ đọc `template.id/name/dataId/media/locale/paper/root` đổi sang `template.metadata.*` / `template.content`.
+- `TemplateMedia` → `TemplateKind`.
+- Bỏ `TemplateDocument.dataId` và bước so mã dữ liệu ở `DocumentResolver` (`Template dùng dữ liệu "x", không phải "y"`)
+  và ở `validateTemplateAgainstData`. Tương thích template ↔ dữ liệu chỉ còn dựa trên biến có tồn tại/đúng scope.
+  `TemplateDataDefinition.id` giữ nguyên (nằm trong `describe()` cho BE/UI).
+- `LayoutConfig` bỏ `media`: layout coi là tem khi `paper.heightMm` có giá trị.
+- Ràng buộc `paper` theo `kind` giữ như hiện nay: `label` bắt buộc `heightMm`, `receipt` không có `heightMm`.
+- Mọi chỗ đọc `template.id/name/media/locale/paper/root` đổi sang `template.metadata.*` / `template.content`.
 - `settings.styles` và `settings.options` bắt buộc có (có thể rỗng `{}`).
 
 ### 2. Tham chiếu từ node
@@ -108,7 +117,7 @@ receiptTemplate(templateData)
 
 - `.metadata({ id, name, paper, locale? })` thay cho `.id()/.name()/.paper()`: gom thông tin chung vào 1 object, TypeScript
   báo thiếu `id`/`name`/`paper` ngay khi gõ (`paper` đúng loại theo `kind`: label bắt buộc `heightMm`). `kind` do
-  `labelTemplate`/`receiptTemplate` quyết định, `dataId` lấy từ `templateData.id`, `locale` mặc định `'vi-VN'`.
+  `labelTemplate`/`receiptTemplate` quyết định, `locale` mặc định `'vi-VN'`.
   Thiếu `.metadata(...)` thì `.build()` throw như hiện nay.
 - `.settings(...)` là tuỳ chọn (bỏ trống = `{ styles: {}, options: {} }`) và phải gọi trước `.content(...)` để scope
   biết tên style/option (kiểu TypeScript).
@@ -121,7 +130,7 @@ receiptTemplate(templateData)
 ### 4. Parse và validate
 
 - `validateTemplateStructure`:
-  - kiểm `metadata` (các field như trước, `kind` thay `media`), `settings` (label không rỗng, `value`/`default` đúng
+  - kiểm `metadata` (các field như trước, `kind` thay `media`, không còn `dataId`), `settings` (label không rỗng, `value`/`default` đúng
     kiểu; `choice` có ít nhất 1 lựa chọn, `value`/`default` thuộc `choices`; style `value`/`default` hợp lệ như style chữ
     viết thẳng), `content` là node hợp lệ;
   - node: `styleName` là chuỗi không rỗng; không đi kèm thuộc tính chữ viết thẳng; segment/condition option đúng dạng.
@@ -156,9 +165,11 @@ ví dụ dùng `settings` (1 style có tên + 1 option boolean). Không thêm fo
     `value` (boolean, choice + `equals`, lồng trong `and`/`not`); `OptionSegment` in đúng `value`;
   - DSL: `.settings` + `scope.style/option/optionIs` sinh đúng JSON, `default` mặc định bằng `value`; `@ts-expect-error`
     cho tên sai và sai loại option.
+- Test gắn với `dataId` bị bỏ: so mã ở `DocumentResolver.test` và `validateTemplateAgainstData.test`, và test
+  `parseTemplate` "từ chối template JSON còn field `catalog` thay cho `dataId`".
 - Kết quả in của template không dùng settings không đổi (test pipeline hiện có).
 
 ## Tiêu chí hoàn thành
 
 - tsc 0 lỗi, jest xanh, eslint 0 lỗi, `printer-preview` type-check + Vitest xanh, dòng ≤ 120 ký tự.
-- Không còn `template.root`, `media`/`TemplateMedia` trong `printer-core` và `printer-preview`.
+- Không còn `template.root`, `media`/`TemplateMedia`, `dataId` trong `printer-core` và `printer-preview`.
