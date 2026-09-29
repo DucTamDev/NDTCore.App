@@ -10,16 +10,7 @@ import {
   type ResolvedPrintDocument,
   type TemplateDataDefinition,
   type TemplateDocument,
-  type TypographyProfile,
 } from 'printer-core';
-
-const DEFAULT_TYPOGRAPHY: TypographyProfile = {
-  fontScaleLevels: [
-    { id: 'large', fontScale: 1, lineHeightScale: 1 },
-    { id: 'medium', fontScale: 0.75, lineHeightScale: 0.85 },
-    { id: 'small', fontScale: 0.5, lineHeightScale: 0.7 },
-  ],
-};
 
 /** DPI giả lập máy in cho preview — phổ biến nhất ở máy in nhiệt/tem. */
 const PREVIEW_DPI = 203;
@@ -32,17 +23,28 @@ const resolver = createDocumentResolver();
 const layoutEngine = createLayoutEngine();
 
 export type PagePreview =
-  | { readonly status: 'ok'; readonly pageIndex: number; readonly svg: string }
+  | {
+      readonly status: 'ok';
+      readonly pageIndex: number;
+      readonly svg: string;
+      readonly warnings: readonly string[];
+    }
   | { readonly status: 'error'; readonly pageIndex: number; readonly message: string };
 
-function buildResolvedDocument(
+/** Document đã layout của 1 trang, kèm cảnh báo tràn khổ giấy của layout. */
+interface LaidOutPage {
+  readonly document: ResolvedPrintDocument;
+  readonly warnings: readonly string[];
+}
+
+function layoutPage(
   template: TemplateDocument,
   page: Extract<ResolvedPage, { status: 'ok' }>,
-): ResolvedPrintDocument {
-  const layoutConfig = { paper: template.paper, media: template.media, dpi: PREVIEW_DPI };
-  const elements = layoutEngine.resolve(page.node, layoutConfig, DEFAULT_TYPOGRAPHY, fontMetrics);
+): LaidOutPage {
+  const layoutConfig = { paper: template.paper, dpi: PREVIEW_DPI };
+  const { elements, warnings } = layoutEngine.resolve(page.node, layoutConfig, fontMetrics);
   const paper = paperSizeToDots(template.paper, PREVIEW_DPI);
-  return {
+  const document: ResolvedPrintDocument = {
     widthDots: paper.widthDots,
     heightDots: paper.heightDots ?? 0,
     dpi: PREVIEW_DPI,
@@ -53,6 +55,7 @@ function buildResolvedDocument(
     copies: 1,
     elements,
   };
+  return { document, warnings };
 }
 
 function renderPage(
@@ -64,8 +67,8 @@ function renderPage(
     return { status: 'error', pageIndex: page.pageIndex, message: `${page.nodeId}: ${page.message}` };
   }
   try {
-    const document = buildResolvedDocument(template, page);
-    return { status: 'ok', pageIndex: page.pageIndex, svg: previewFor(language, document) };
+    const { document, warnings } = layoutPage(template, page);
+    return { status: 'ok', pageIndex: page.pageIndex, svg: previewFor(language, document), warnings };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { status: 'error', pageIndex: page.pageIndex, message };

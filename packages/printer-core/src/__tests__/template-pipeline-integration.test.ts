@@ -1,5 +1,5 @@
 import { EscPosCompiler } from '../language';
-import { ApproximateFontMetrics, createLayoutEngine, paperSizeToDots, type TypographyProfile } from '../layout';
+import { ApproximateFontMetrics, createLayoutEngine, paperSizeToDots } from '../layout';
 import { collectAssetIds, createDocumentResolver, type AssetProvider } from '../resolution';
 import {
   barcode,
@@ -23,7 +23,6 @@ import type { Bitmap } from '../types';
 declare function require(id: string): unknown;
 
 const LOGO: Bitmap = { data: new Uint8Array(8), width: 8, height: 8, bytesPerRow: 1 };
-const TYPOGRAPHY: TypographyProfile = { fontScaleLevels: [{ id: 'default', fontScale: 1, lineHeightScale: 1 }] };
 const PRINTER_DPI = 203;
 
 function buildReceipt() {
@@ -62,8 +61,8 @@ describe('pipeline template → resolve → layout → compile', () => {
     expect(pages).toHaveLength(1);
     if (pages[0].status !== 'ok') throw new Error(pages[0].message);
 
-    const config = { paper: template.paper, media: template.media, dpi: PRINTER_DPI };
-    const elements = createLayoutEngine().resolve(pages[0].node, config, TYPOGRAPHY, new ApproximateFontMetrics());
+    const config = { paper: template.paper, dpi: PRINTER_DPI };
+    const { elements } = createLayoutEngine().resolve(pages[0].node, config, new ApproximateFontMetrics());
 
     expect(elements.some((element) => element.type === 'text' && element.content === 'Bàn Bàn 5')).toBe(true);
     expect(elements.some((element) => element.type === 'text' && element.content === 'Giảm giá 5.000đ')).toBe(true);
@@ -134,10 +133,10 @@ describe('pipeline template → resolve → layout → compile', () => {
       assets: { get: () => undefined },
     });
 
-    const config = { paper: template.paper, media: template.media, dpi: PRINTER_DPI };
+    const config = { paper: template.paper, dpi: PRINTER_DPI };
     const texts = pages.map((page) => {
       if (page.status !== 'ok') throw new Error(page.message);
-      const elements = createLayoutEngine().resolve(page.node, config, TYPOGRAPHY, new ApproximateFontMetrics());
+      const { elements } = createLayoutEngine().resolve(page.node, config, new ApproximateFontMetrics());
       return elements.flatMap((element) => (element.type === 'text' ? [element.content] : []));
     });
     expect(texts).toEqual([

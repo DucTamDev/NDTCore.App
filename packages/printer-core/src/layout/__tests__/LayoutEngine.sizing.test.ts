@@ -1,4 +1,4 @@
-import { ApproximateFontMetrics, createLayoutEngine, type LayoutConfig, type TypographyProfile } from '..';
+import { ApproximateFontMetrics, createLayoutEngine, type LayoutConfig } from '..';
 import type { ResolvedNode } from '../../resolution';
 import { px } from '../../template';
 
@@ -15,9 +15,12 @@ function millimetersForDots(dots: number): number {
 function labelConfig(widthDots: number, heightDots: number): LayoutConfig {
   return {
     paper: { widthMm: millimetersForDots(widthDots), heightMm: millimetersForDots(heightDots) },
-    media: 'label',
     dpi: DOTS_EQUAL_PIXELS_DPI,
   };
+}
+
+function receiptConfig(widthDots: number): LayoutConfig {
+  return { paper: { widthMm: millimetersForDots(widthDots) }, dpi: DOTS_EQUAL_PIXELS_DPI };
 }
 
 function tallColumn(lineCount: number, fontSizePixels: number): ResolvedNode {
@@ -34,83 +37,44 @@ function tallColumn(lineCount: number, fontSizePixels: number): ResolvedNode {
   };
 }
 
-function firstTextSize(
-  root: ResolvedNode,
-  config: LayoutConfig,
-  typography: TypographyProfile,
-): number | undefined {
-  const [first] = engine.resolve(root, config, typography, fontMetrics);
-  if (first.type !== 'text') throw new Error('expected text element');
-  return first.options?.fontSize;
+// Barcode được ước lượng rộng 200 dots, nên 3 mã xếp hàng ngang rộng 600 dots.
+function wideBarcodeRow(): ResolvedNode {
+  return {
+    type: 'container',
+    id: 'row',
+    style: { direction: 'row' },
+    children: ['A', 'B', 'C'].map((value) => ({
+      type: 'barcode' as const,
+      id: value,
+      value,
+      symbology: 'code128' as const,
+    })),
+  };
 }
 
-describe('LayoutEngine — tự thu nhỏ chữ', () => {
-  it('receipt luôn dùng mức đầu tiên, không thu nhỏ', () => {
-    const receipt: LayoutConfig = {
-      paper: { widthMm: millimetersForDots(576) },
-      media: 'receipt',
-      dpi: DOTS_EQUAL_PIXELS_DPI,
-    };
-    const typography: TypographyProfile = {
-      fontScaleLevels: [
-        { id: 'large', fontScale: 1, lineHeightScale: 1 },
-        { id: 'small', fontScale: 0.5, lineHeightScale: 0.5 },
-      ],
-    };
+describe('LayoutEngine — in đúng cỡ, cảnh báo khi tràn khổ giấy', () => {
+  it('tem tràn chiều cao: giữ nguyên cỡ chữ và cảnh báo', () => {
+    const result = engine.resolve(tallColumn(10, 20), labelConfig(400, 100), fontMetrics);
+    const [first] = result.elements;
+    if (first.type !== 'text') throw new Error('expected text element');
 
-    expect(firstTextSize(tallColumn(50, 40), receipt, typography)).toBe(40);
+    expect(first.options?.fontSize).toBe(20);
+    expect(result.warnings).toEqual(['Nội dung cao 240 dots, vượt chiều cao tem 100 dots']);
   });
 
-  it('label chọn mức lớn nhất còn vừa chiều cao tem', () => {
-    const typography: TypographyProfile = {
-      fontScaleLevels: [
-        { id: 'large', fontScale: 1, lineHeightScale: 1 },
-        { id: 'medium', fontScale: 0.5, lineHeightScale: 0.5 },
-        { id: 'small', fontScale: 0.25, lineHeightScale: 0.25 },
-      ],
-    };
+  it('nội dung rộng hơn giấy: cảnh báo tràn chiều rộng ở cả tem lẫn giấy cuộn', () => {
+    const label = engine.resolve(wideBarcodeRow(), labelConfig(400, 300), fontMetrics);
+    const receipt = engine.resolve(wideBarcodeRow(), receiptConfig(400), fontMetrics);
 
-    // 10 dòng cỡ 20 tràn 100 dots; chỉ mức 0.25 vừa → 5 dots.
-    expect(firstTextSize(tallColumn(10, 20), labelConfig(400, 100), typography)).toBe(5);
+    expect(label.warnings).toEqual(['Nội dung rộng 600 dots, vượt chiều rộng giấy 400 dots']);
+    expect(receipt.warnings).toEqual(['Nội dung rộng 600 dots, vượt chiều rộng giấy 400 dots']);
   });
 
-  it('label không vừa ở mức nào thì dùng mức nhỏ nhất, không throw', () => {
-    const typography: TypographyProfile = {
-      fontScaleLevels: [
-        { id: 'large', fontScale: 1, lineHeightScale: 1 },
-        { id: 'small', fontScale: 0.1, lineHeightScale: 0.1 },
-      ],
-    };
-
-    expect(firstTextSize(tallColumn(100, 40), labelConfig(400, 10), typography)).toBe(4);
+  it('nội dung vừa khổ tem không có cảnh báo', () => {
+    expect(engine.resolve(tallColumn(2, 20), labelConfig(400, 100), fontMetrics).warnings).toEqual([]);
   });
 
-  it('thu nhỏ đồng đều cả cây, không chỉ phần bị tràn', () => {
-    const typography: TypographyProfile = {
-      fontScaleLevels: [
-        { id: 'large', fontScale: 1, lineHeightScale: 1 },
-        { id: 'small', fontScale: 0.5, lineHeightScale: 0.5 },
-      ],
-    };
-    const root: ResolvedNode = {
-      type: 'container',
-      id: 'root',
-      style: { direction: 'column' },
-      children: [
-        { type: 'text', id: 'header', value: 'HEADER', style: { fontSize: px(20) } },
-        ...Array.from({ length: 10 }, (_, index) => ({
-          type: 'text' as const,
-          id: `item${index}`,
-          value: `Item ${index}`,
-          style: { fontSize: px(20) },
-        })),
-      ],
-    };
-    const [header, item] = engine.resolve(root, labelConfig(400, 50), typography, fontMetrics);
-    if (header.type !== 'text' || item.type !== 'text') throw new Error('expected text elements');
-
-    expect(header.options?.fontSize).toBe(item.options?.fontSize);
-    // 20 × 0.5 = 10 dots.
-    expect(header.options?.fontSize).toBe(10);
+  it('giấy cuộn dài không có cảnh báo chiều cao', () => {
+    expect(engine.resolve(tallColumn(100, 40), receiptConfig(576), fontMetrics).warnings).toEqual([]);
   });
 });

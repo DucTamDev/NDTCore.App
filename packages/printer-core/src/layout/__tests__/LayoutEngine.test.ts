@@ -1,4 +1,4 @@
-import { ApproximateFontMetrics, createLayoutEngine, type LayoutConfig, type TypographyProfile } from '..';
+import { ApproximateFontMetrics, createLayoutEngine, type LayoutConfig } from '..';
 import type { ResolvedNode } from '../../resolution';
 import { mm, pt, px } from '../../template';
 
@@ -7,7 +7,6 @@ const DOTS_EQUAL_PIXELS_DPI = 96;
 
 const engine = createLayoutEngine();
 const fontMetrics = new ApproximateFontMetrics();
-const typography: TypographyProfile = { fontScaleLevels: [{ id: 'default', fontScale: 1, lineHeightScale: 1 }] };
 
 /** Khổ giấy tính bằng mm tương ứng số dots ở 96 dpi. */
 function millimetersForDots(dots: number): number {
@@ -16,7 +15,6 @@ function millimetersForDots(dots: number): number {
 
 const receiptConfig: LayoutConfig = {
   paper: { widthMm: millimetersForDots(576) },
-  media: 'receipt',
   dpi: DOTS_EQUAL_PIXELS_DPI,
 };
 
@@ -30,7 +28,7 @@ function textNode(
 
 describe('LayoutEngine', () => {
   it('text đơn thành 1 TextElement tại x=0, y=0', () => {
-    const elements = engine.resolve(textNode('t1', 'Hello', 20), receiptConfig, typography, fontMetrics);
+    const elements = engine.resolve(textNode('t1', 'Hello', 20), receiptConfig, fontMetrics).elements;
 
     expect(elements).toHaveLength(1);
     expect(elements[0]).toMatchObject({ type: 'text', content: 'Hello', options: { x: 0, y: 0, fontSize: 20 } });
@@ -43,7 +41,7 @@ describe('LayoutEngine', () => {
       style: { direction: 'column', gap: px(10) },
       children: [textNode('t1', 'A'), textNode('t2', 'B')],
     };
-    const [first, second] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const [first, second] = engine.resolve(root, receiptConfig, fontMetrics).elements;
     if (first.type !== 'text' || second.type !== 'text') throw new Error('expected text elements');
 
     expect(first.options?.y).toBe(0);
@@ -57,7 +55,7 @@ describe('LayoutEngine', () => {
       style: { direction: 'row', gap: px(20) },
       children: [textNode('t1', 'A'), textNode('t2', 'B')],
     };
-    const [first, second] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const [first, second] = engine.resolve(root, receiptConfig, fontMetrics).elements;
     if (first.type !== 'text' || second.type !== 'text') throw new Error('expected text elements');
 
     expect(first.options?.x).toBe(0);
@@ -71,7 +69,7 @@ describe('LayoutEngine', () => {
       style: { padding: { top: px(8), right: px(8), bottom: px(8), left: px(8) } },
       children: [textNode('t1', 'A')],
     };
-    const [element] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const [element] = engine.resolve(root, receiptConfig, fontMetrics).elements;
 
     expect(element).toMatchObject({ type: 'text', options: { x: 8, y: 8 } });
   });
@@ -91,7 +89,7 @@ describe('LayoutEngine', () => {
         textNode('t2', 'B'),
       ],
     };
-    const [, sibling] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const [, sibling] = engine.resolve(root, receiptConfig, fontMetrics).elements;
     if (sibling.type !== 'text') throw new Error('expected text element');
 
     expect(sibling.options?.y).toBe(fontMetrics.measure('A', { fontSize: 10 }).heightDots + 8 + 8);
@@ -109,7 +107,7 @@ describe('LayoutEngine', () => {
         { type: 'line', id: 'l1', thickness: px(2), pattern: 'solid' },
       ],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const elements = engine.resolve(root, receiptConfig, fontMetrics).elements;
 
     expect(elements.map((element) => element.type)).toEqual(['barcode', 'qrcode', 'image', 'line']);
   });
@@ -117,13 +115,13 @@ describe('LayoutEngine', () => {
   it('container rỗng không sinh element', () => {
     const root: ResolvedNode = { type: 'container', id: 'root', children: [] };
 
-    expect(engine.resolve(root, receiptConfig, typography, fontMetrics)).toEqual([]);
+    expect(engine.resolve(root, receiptConfig, fontMetrics).elements).toEqual([]);
   });
 
   it('text dài hơn chiều rộng được ngắt thành nhiều dòng, y tăng dần', () => {
     const longText = 'This is a very long line of receipt text that should not fit on a single narrow line';
     const narrowConfig: LayoutConfig = { ...receiptConfig, paper: { widthMm: millimetersForDots(100) } };
-    const elements = engine.resolve(textNode('t1', longText), narrowConfig, typography, fontMetrics);
+    const elements = engine.resolve(textNode('t1', longText), narrowConfig, fontMetrics).elements;
 
     expect(elements.length).toBeGreaterThan(1);
     const ys = elements.map((element) => (element.type === 'text' ? (element.options?.y ?? 0) : -1));
@@ -143,7 +141,7 @@ describe('LayoutEngine', () => {
         textNode('t1', 'Hello'),
       ],
     };
-    const elements = engine.resolve(root, receiptConfig, typography, fontMetrics);
+    const elements = engine.resolve(root, receiptConfig, fontMetrics).elements;
     const ys = elements.map((element) => {
       if (element.type === 'line') return element.options.y1;
       if (element.type === 'barcode' || element.type === 'qrcode') return element.options.y ?? 0;
@@ -159,14 +157,14 @@ describe('LayoutEngine', () => {
       const withDefault: ResolvedNode = { type: 'text', id: 't1', value: 'Hi', style: { fontSize: px(12) } };
       const config: LayoutConfig = { ...receiptConfig, dpi: 203 };
 
-      expect(engine.resolve(withoutSize, config, typography, fontMetrics)).toEqual(
-        engine.resolve(withDefault, config, typography, fontMetrics),
+      expect(engine.resolve(withoutSize, config, fontMetrics).elements).toEqual(
+        engine.resolve(withDefault, config, fontMetrics).elements,
       );
     });
 
     it('không kẹp cỡ rất nhỏ hay rất lớn — quy đổi là việc của compiler', () => {
-      const [small] = engine.resolve(textNode('t1', 'Hi', 1), receiptConfig, typography, fontMetrics);
-      const [large] = engine.resolve(textNode('t1', 'Hi', 200), receiptConfig, typography, fontMetrics);
+      const [small] = engine.resolve(textNode('t1', 'Hi', 1), receiptConfig, fontMetrics).elements;
+      const [large] = engine.resolve(textNode('t1', 'Hi', 200), receiptConfig, fontMetrics).elements;
 
       expect(small).toMatchObject({ options: { fontSize: 1 } });
       expect(large).toMatchObject({ options: { fontSize: 200 } });
@@ -181,7 +179,7 @@ describe('LayoutEngine', () => {
     }
 
     function typesOf(root: ResolvedNode): readonly string[] {
-      return engine.resolve(root, receiptConfig, typography, fontMetrics).map((element) => element.type);
+      return engine.resolve(root, receiptConfig, fontMetrics).elements.map((element) => element.type);
     }
 
     it('đúng 2 text với space-between thành 1 TableElement 2 cột', () => {
@@ -189,7 +187,7 @@ describe('LayoutEngine', () => {
         { type: 'text', id: 'name', value: 'Milk Tea' },
         { type: 'text', id: 'price', value: '45,000' },
       ]);
-      const [element] = engine.resolve(root, receiptConfig, typography, fontMetrics);
+      const [element] = engine.resolve(root, receiptConfig, fontMetrics).elements;
       if (element.type !== 'table') throw new Error('expected table element');
 
       const rightWidthDots = fontMetrics.measure('45,000', { fontSize: 12 }).widthDots;
@@ -223,8 +221,8 @@ describe('LayoutEngine', () => {
       [203, 16],
       [300, 24],
     ])('%i dpi: padding 2mm = %i dots, kích thước vật lý giữ nguyên', (dpi, expectedDots) => {
-      const config: LayoutConfig = { paper: { widthMm: 50, heightMm: 30 }, media: 'label', dpi };
-      const [element] = engine.resolve(paddedText, config, typography, fontMetrics);
+      const config: LayoutConfig = { paper: { widthMm: 50, heightMm: 30 }, dpi };
+      const [element] = engine.resolve(paddedText, config, fontMetrics).elements;
       if (element.type !== 'text') throw new Error('expected text element');
 
       expect(element.options?.x).toBe(expectedDots);
@@ -233,7 +231,7 @@ describe('LayoutEngine', () => {
 
     it('độ dày nét nhỏ hơn 1 dot vẫn giữ tối thiểu 1 dot', () => {
       const root: ResolvedNode = { type: 'line', id: 'l1', thickness: pt(0.1), pattern: 'solid' };
-      const [element] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+      const [element] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, fontMetrics).elements;
 
       expect(element).toMatchObject({ type: 'line', options: { thickness: 1 } });
     });
@@ -247,7 +245,7 @@ describe('LayoutEngine', () => {
           { type: 'qrcode', id: 'q1', value: 'XYZ', moduleSize: mm(0.5) },
         ],
       };
-      const [barcode, qrcode] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+      const [barcode, qrcode] = engine.resolve(root, { ...receiptConfig, dpi: 203 }, fontMetrics).elements;
 
       expect(barcode).toMatchObject({ type: 'barcode', options: { height: 80 } });
       expect(qrcode).toMatchObject({ type: 'qrcode', options: { cellWidth: 4, y: 80 } });
@@ -262,7 +260,7 @@ describe('LayoutEngine', () => {
         pattern: 'dashed',
         style: { width: { type: 'fixed', value: mm(10) } },
       };
-      const elements = engine.resolve(root, { ...receiptConfig, dpi: 203 }, typography, fontMetrics);
+      const elements = engine.resolve(root, { ...receiptConfig, dpi: 203 }, fontMetrics).elements;
       const segments = elements.map((element) =>
         element.type === 'line' ? [element.options.x1, element.options.x2] : [],
       );
@@ -280,7 +278,7 @@ describe('LayoutEngine', () => {
     it('nét liền vẫn là 1 LineElement', () => {
       const root: ResolvedNode = { type: 'line', id: 'l1', pattern: 'solid' };
 
-      expect(engine.resolve(root, receiptConfig, typography, fontMetrics)).toEqual([
+      expect(engine.resolve(root, receiptConfig, fontMetrics).elements).toEqual([
         { type: 'line', options: { x1: 0, y1: 0, x2: 576, y2: 0, thickness: undefined } },
       ]);
     });

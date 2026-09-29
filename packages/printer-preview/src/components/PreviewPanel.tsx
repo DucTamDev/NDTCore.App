@@ -10,8 +10,15 @@ export function PreviewPanel({ previews }: PreviewPanelProps) {
     <div>
       {previews.map((preview) =>
         preview.status === 'ok' ? (
-          // previewFor() trả về chuỗi SVG do printer-core sinh ra, không phải markup từ người dùng.
-          <div key={preview.pageIndex} dangerouslySetInnerHTML={{ __html: preview.svg }} />
+          <div key={preview.pageIndex}>
+            {/* previewFor() trả về chuỗi SVG do printer-core sinh ra, không phải markup từ người dùng. */}
+            <div dangerouslySetInnerHTML={{ __html: preview.svg }} />
+            {preview.warnings.map((warning) => (
+              <div key={warning} style={{ color: 'darkorange' }}>
+                Trang {preview.pageIndex + 1}: {warning}
+              </div>
+            ))}
+          </div>
         ) : (
           <div key={preview.pageIndex} style={{ color: 'red' }}>
             Trang {preview.pageIndex + 1}: {preview.message}

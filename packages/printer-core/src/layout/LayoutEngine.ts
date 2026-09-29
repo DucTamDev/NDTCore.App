@@ -12,9 +12,9 @@ import type {
   LayoutQrCode,
   LayoutText,
 } from './LayoutNode';
-import { paperSizeToDots } from './lengthToDots';
+import type { LayoutResult } from './LayoutResult';
+import { paperSizeToDots, type PaperDots } from './lengthToDots';
 import { toLayoutNode } from './toLayoutNode';
-import type { FontScaleLevel, TypographyProfile } from './TypographyProfile';
 
 /** Toạ độ, dots. */
 interface Position {
@@ -55,25 +55,23 @@ const DEFAULT_LINE_THICKNESS_DOTS = 1;
 
 /** Xếp vị trí các node đã resolve thành `PrintElement[]` (dots) theo khổ giấy + DPI của máy in đích. */
 export class LayoutEngine {
-  /** Label tự chọn mức thu nhỏ chữ lớn nhất còn vừa chiều cao tem; receipt luôn dùng mức đầu tiên. */
+  /**
+   * In đúng cỡ template đặt, không tự thu nhỏ chữ: nội dung tràn khổ giấy vẫn được xếp nguyên và chỉ kèm cảnh báo,
+   * để người chỉnh template tự quyết (bớt nội dung hoặc chia tem bằng `maxItemsPerPage`).
+   */
   resolve(
     root: ResolvedNode,
     config: LayoutConfig,
-    typography: TypographyProfile,
     fontMetrics: FontMetrics,
-  ): PrintElement[] {
+  ): LayoutResult {
     const layoutRoot = toLayoutNode(root, config.dpi);
     const paper = paperSizeToDots(config.paper, config.dpi);
-    const levels = typography.fontScaleLevels;
-
-    const labelSize = config.media === 'label' && paper.heightDots !== undefined
-      ? { widthDots: paper.widthDots, heightDots: paper.heightDots }
-      : undefined;
-    const level = labelSize ? chooseLabelScaleLevel(layoutRoot, labelSize, levels, fontMetrics) : levels[0];
 
     const target: ArrangeTarget = { fontMetrics, elements: [] };
-    arrange(scaleTree(layoutRoot, level), ORIGIN, paper.widthDots, target);
-    return target.elements;
+    arrange(layoutRoot, ORIGIN, paper.widthDots, target);
+
+    const contentSize = measure(layoutRoot, fontMetrics, paper.widthDots);
+    return { elements: target.elements, warnings: overflowWarnings(contentSize, paper) };
   }
 }
 
@@ -82,32 +80,19 @@ export function createLayoutEngine(): LayoutEngine {
   return new LayoutEngine();
 }
 
-// Không vừa ở mức nào thì dùng mức nhỏ nhất (best-effort), không throw.
-function chooseLabelScaleLevel(
-  root: LayoutNode,
-  paper: Size,
-  levels: readonly FontScaleLevel[],
-  fontMetrics: FontMetrics,
-): FontScaleLevel {
-  const fitting = levels.find(
-    (level) => measure(scaleTree(root, level), fontMetrics, paper.widthDots).heightDots <= paper.heightDots,
-  );
-  return fitting ?? levels[levels.length - 1];
-}
+// Giấy cuộn không có chiều cao cố định nên chỉ tem mới có cảnh báo tràn chiều cao.
+function overflowWarnings(content: Size, paper: PaperDots): string[] {
+  const warnings: string[] = [];
+  const contentWidthDots = Math.ceil(content.widthDots);
+  const contentHeightDots = Math.ceil(content.heightDots);
 
-function scaleTree(node: LayoutNode, level: FontScaleLevel): LayoutNode {
-  if (node.type === 'container') return { ...node, children: node.children.map((child) => scaleTree(child, level)) };
-  if (node.type !== 'text') return node;
-
-  const { fontSize, lineHeight } = node.style;
-  return {
-    ...node,
-    style: {
-      ...node.style,
-      fontSize: fontSize === undefined ? undefined : fontSize * level.fontScale,
-      lineHeight: lineHeight === undefined ? undefined : lineHeight * level.lineHeightScale,
-    },
-  };
+  if (contentWidthDots > paper.widthDots) {
+    warnings.push(`Nội dung rộng ${contentWidthDots} dots, vượt chiều rộng giấy ${paper.widthDots} dots`);
+  }
+  if (paper.heightDots !== undefined && contentHeightDots > paper.heightDots) {
+    warnings.push(`Nội dung cao ${contentHeightDots} dots, vượt chiều cao tem ${paper.heightDots} dots`);
+  }
+  return warnings;
 }
 
 function measure(

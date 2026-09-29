@@ -37,6 +37,17 @@ describe('renderPreviews', () => {
     if (previews[0].status === 'ok') expect(previews[0].svg).toContain('<svg');
   });
 
+  it('trang tràn chiều cao tem vẫn render và kèm cảnh báo', () => {
+    const lines = Array.from({ length: 20 }, (_, index) => text(`Dòng ${index}`));
+    const template = label()
+      .root(column().children(...lines))
+      .build();
+    const [page] = renderPreviews(template, templateData, { title: 'x', items: [] }, 'tspl');
+
+    expect(page.status).toBe('ok');
+    if (page.status === 'ok') expect(page.warnings).toEqual([expect.stringContaining('vượt chiều cao tem')]);
+  });
+
   it('lỗi 1 trang không ảnh hưởng trang khác', () => {
     const template = label()
       .root((scope) =>
