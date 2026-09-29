@@ -69,7 +69,10 @@ export default labelTemplate(templateData)
   .settings({
     styles: {
       productName: { label: 'Tên món', value: { fontSize: px(16), fontWeight: 'bold' } },
+      productPrice: { label: 'Giá món', value: { fontSize: px(12) } },
       toppingName: { label: 'Topping', value: { fontSize: px(12) } },
+      orderInfo: { label: 'Mã đơn và số ly', value: { fontSize: px(12) } },
+      partInfo: { label: 'Số tem tiếp theo', value: { fontSize: px(12) } },
     },
     options: { showPrice: { label: 'In giá món', type: 'boolean', value: true } },
   })
@@ -81,7 +84,9 @@ export default labelTemplate(templateData)
           .gap(mm(1))
           .children(
             text([product.var('productName')]).style(product.style('productName')),
-            text([product.var('productPrice')]).visibleWhen(and(product.optionIs('showPrice'), eq('$part', 1))),
+            text([product.var('productPrice')])
+              .style(product.style('productPrice'))
+              .visibleWhen(and(product.optionIs('showPrice'), eq('$part', 1))),
             product
               .repeat({ collection: 'toppings' }, (topping) =>
                 text([{ text: '+ ' }, topping.var('toppingName')]).style(topping.style('toppingName')),
@@ -93,8 +98,9 @@ export default labelTemplate(templateData)
               product.var('$unit'),
               { text: '/' },
               product.var('$unitCount'),
-            ]),
+            ]).style(product.style('orderInfo')),
             text([{ text: '(tiếp ' }, product.var('$part'), { text: '/' }, product.var('$partCount'), { text: ')' }])
+              .style(product.style('partInfo'))
               .visibleWhen(gt('$partCount', 1)),
           ),
       )

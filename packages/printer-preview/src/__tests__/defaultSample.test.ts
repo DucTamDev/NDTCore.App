@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { px } from 'printer-core';
+import { px, type TemplateNode, type TextNode } from 'printer-core';
 import { defaultCode, defaultData } from '../defaultSample';
 import { evaluateTemplate } from '../evaluateTemplate';
 import { renderPreviews, type PagePreview } from '../pipeline';
@@ -18,6 +18,14 @@ function fontSizeOf(svg: string, content: string): number {
   return match === null ? 0 : Number(match[1]);
 }
 
+/** Mọi node chữ trong cây template, kể cả trong container và repeat lồng nhau. */
+function collectTextNodes(node: TemplateNode): readonly TextNode[] {
+  if (node.type === 'text') return [node];
+  if (node.type === 'container') return node.children.flatMap(collectTextNodes);
+  if (node.type === 'repeat') return collectTextNodes(node.template);
+  return [];
+}
+
 describe('defaultSample', () => {
   it('code mẫu chạy được, data mẫu khớp templateData.sample và in ra mỗi ly 1 tem', () => {
     const evaluated = evaluateTemplate(defaultCode);
@@ -30,12 +38,18 @@ describe('defaultSample', () => {
     expect(overflowsLabelHeight(previews)).toEqual([false, false]);
   });
 
-  it('mẫu khai báo settings: style tên món và option in giá; tắt option thì tem không in giá', () => {
+  it('mẫu khai báo settings: style từng dòng và option in giá; tắt option thì tem không in giá', () => {
     const evaluated = evaluateTemplate(defaultCode);
     if (evaluated.status !== 'ok') throw new Error(evaluated.message);
 
     const { settings } = evaluated.template;
-    expect(Object.keys(settings.styles)).toEqual(['productName', 'toppingName']);
+    expect(Object.keys(settings.styles)).toEqual([
+      'productName',
+      'productPrice',
+      'toppingName',
+      'orderInfo',
+      'partInfo',
+    ]);
     const showPrice = settings.options.showPrice;
     if (showPrice?.type !== 'boolean') throw new Error('mẫu cần option boolean showPrice');
 
@@ -47,6 +61,17 @@ describe('defaultSample', () => {
     if (firstLabel.status !== 'ok') throw new Error(firstLabel.message);
 
     expect(firstLabel.svg).not.toContain('45.000đ');
+  });
+
+  it('mọi dòng chữ của mẫu đều lấy cỡ chữ từ 1 style trong settings', () => {
+    const evaluated = evaluateTemplate(defaultCode);
+    if (evaluated.status !== 'ok') throw new Error(evaluated.message);
+
+    const { content, settings } = evaluated.template;
+    const styleNames = collectTextNodes(content).map((node) => node.styleName);
+
+    expect(styleNames).toEqual(['productName', 'productPrice', 'toppingName', 'orderInfo', 'partInfo']);
+    expect(styleNames.every((name) => name !== undefined && name in settings.styles)).toBe(true);
   });
 
   it('cỡ chữ topping lấy từ style toppingName trong settings', () => {
