@@ -18,6 +18,7 @@ export {
   TemplateBuildError,
   type TemplateDataShape,
   type RootScope,
-  type PaperFor,
   type RootContent,
 } from './TemplateDocumentBuilder';
+export type { PaperFor, TemplateMetadataInput } from './TemplateMetadataInput';
+export type { StyleSettingInput, OptionSettingInput, TemplateSettingsInput } from './TemplateSettingsInput';

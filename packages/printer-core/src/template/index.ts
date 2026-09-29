@@ -1,4 +1,7 @@
 export * from './TemplateDocument';
+export * from './TemplateMetadata';
+export * from './PaperSize';
+export * from './settings';
 export * from './data';
 export * from './style/Length';
 export * from './style/Dimension';

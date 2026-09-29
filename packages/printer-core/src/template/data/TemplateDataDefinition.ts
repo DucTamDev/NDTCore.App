@@ -9,7 +9,7 @@ export interface TemplateDataDefinition<
   TVariables extends VariableDefinitionMap<TData> = VariableDefinitionMap<TData>,
   TCollections extends CollectionDefinitionMap<TData> = CollectionDefinitionMap<TData>,
 > extends TemplateDataReader {
-  /** Mã dữ liệu template, VD 'product-label'; template tham chiếu qua `TemplateDocument.dataId`. */
+  /** Mã dữ liệu template, VD 'product-label'. */
   readonly id: string;
 
   /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */

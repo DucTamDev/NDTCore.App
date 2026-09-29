@@ -9,7 +9,7 @@ import { resolveNode } from './resolveNode';
 
 /** Nguồn phụ trợ cho 1 lần resolve. */
 export interface ResolveOptions<TData> {
-  /** TemplateDataDefinition mà template dùng; `id` phải khớp `template.dataId`. */
+  /** Định nghĩa dữ liệu template dùng để đọc biến; app chọn theo `metadata.kind` của template. */
   readonly templateData: TemplateDataDefinition<TData>;
 
   /** Ảnh đã tải + decode sẵn. */
@@ -21,19 +21,12 @@ export interface ResolveOptions<TData> {
  * lặp/expand/phân trang, tra ảnh.
  */
 export class DocumentResolver {
-  /**
-   * Resolve thành các trang; lỗi data (thiếu biến bắt buộc, thiếu ảnh...) được cô lập theo trang.
-   * Throw nếu `template.dataId` khác `options.templateData.id` — đó là lỗi lập trình, không phải lỗi data.
-   */
+  /** Resolve thành các trang; lỗi data (thiếu biến bắt buộc, thiếu ảnh...) được cô lập theo trang. */
   resolve<TData>(
     template: TemplateDocument,
     data: TData,
     options: ResolveOptions<TData>,
   ): readonly ResolvedPage[] {
-    if (template.dataId !== options.templateData.id) {
-      throw new Error(`Template dùng dữ liệu "${template.dataId}", không phải "${options.templateData.id}"`);
-    }
-
     const baseContext: ResolveContext = {
       templateData: options.templateData,
       index: createTemplateDataIndex(options.templateData.describe()),
@@ -41,10 +34,10 @@ export class DocumentResolver {
       frames: [createRootFrame(data)],
       page: COUNTING_PAGE,
     };
-    const parts = planPages(template.root, baseContext);
+    const parts = planPages(template.content, baseContext);
 
     return parts.map((part, pageIndex) =>
-      resolvePage(template.root, { ...baseContext, page: pageInfo(pageIndex, parts.length, part) }),
+      resolvePage(template.content, { ...baseContext, page: pageInfo(pageIndex, parts.length, part) }),
     );
   }
 }

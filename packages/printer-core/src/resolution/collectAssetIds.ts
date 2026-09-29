@@ -26,7 +26,7 @@ export function collectAssetIds<TData>(
     page: COUNTING_PAGE,
   };
   const assetIds = new Set<string>();
-  collectFromNode(template.root, context, assetIds);
+  collectFromNode(template.content, context, assetIds);
   return [...assetIds];
 }
 

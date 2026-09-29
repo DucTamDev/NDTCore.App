@@ -15,10 +15,8 @@ import { TEST_ORDER_DATA } from '../../../testing';
 
 function buildProductLabel() {
   return labelTemplate(TEST_ORDER_DATA)
-    .id('product-label-default')
-    .name('Tem món mặc định')
-    .paper({ widthMm: 50, heightMm: 30 })
-    .root((scope) =>
+    .metadata({ id: 'product-label-default', name: 'Tem món mặc định', paper: { widthMm: 50, heightMm: 30 } })
+    .content((scope) =>
       scope
         .repeat({ collection: 'items', expand: 'quantity' }, (item) =>
           column()
@@ -41,13 +39,15 @@ describe('labelTemplate / receiptTemplate', () => {
 
     expect(template).toEqual({
       schemaVersion: 1,
-      id: 'product-label-default',
-      name: 'Tem món mặc định',
-      dataId: 'test-order',
-      media: 'label',
-      locale: 'vi-VN',
-      paper: { widthMm: 50, heightMm: 30 },
-      root: {
+      metadata: {
+        id: 'product-label-default',
+        name: 'Tem món mặc định',
+        kind: 'label',
+        locale: 'vi-VN',
+        paper: { widthMm: 50, heightMm: 30 },
+      },
+      settings: { styles: {}, options: {} },
+      content: {
         type: 'repeat',
         id: 'repeat-1',
         collection: 'items',
@@ -90,22 +90,18 @@ describe('labelTemplate / receiptTemplate', () => {
 
   it('receipt không có chiều cao giấy', () => {
     const template = receiptTemplate(TEST_ORDER_DATA)
-      .id('receipt')
-      .name('Hoá đơn')
-      .paper({ widthMm: 72 })
-      .root((scope) => text([{ text: 'Mã đơn: ' }, scope.var('orderCode')]))
+      .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+      .content((scope) => text([{ text: 'Mã đơn: ' }, scope.var('orderCode')]))
       .build();
 
-    expect(template.media).toBe('receipt');
-    expect(template.paper).toEqual({ widthMm: 72 });
+    expect(template.metadata.kind).toBe('receipt');
+    expect(template.metadata.paper).toEqual({ widthMm: 72 });
   });
 
   it('throw TemplateBuildError khi segment viết tay dùng biến sai scope', () => {
     const builder = receiptTemplate(TEST_ORDER_DATA)
-      .id('receipt')
-      .name('Hoá đơn')
-      .paper({ widthMm: 72 })
-      .root(text([{ var: 'itemName' }]));
+      .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+      .content(text([{ var: 'itemName' }]));
 
     expect(() => builder.build()).toThrow(TemplateBuildError);
     expect(() => builder.build()).toThrow('biến "itemName" chỉ dùng được trong vòng lặp "Danh sách món"');
@@ -114,32 +110,66 @@ describe('labelTemplate / receiptTemplate', () => {
   it('không throw khi chỉ có cảnh báo deprecated', () => {
     const build = () =>
       receiptTemplate(TEST_ORDER_DATA)
-        .id('receipt')
-        .name('Hoá đơn')
-        .paper({ widthMm: 72 })
-        .root((scope) => scope.repeat({ collection: 'items' }, (item) => text([item.var('legacyItemName')])))
+        .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+        .content((scope) => scope.repeat({ collection: 'items' }, (item) => text([item.var('legacyItemName')])))
         .build();
 
     expect(build).not.toThrow();
   });
 
-  it('throw khi thiếu id, name, paper hoặc root', () => {
-    expect(() => receiptTemplate(TEST_ORDER_DATA).build()).toThrow('Template cần .id(...)');
-    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').build()).toThrow('Template cần .name(...)');
-    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').name('x').build()).toThrow('Template cần .paper(...)');
-    expect(() => receiptTemplate(TEST_ORDER_DATA).id('x').name('x').paper({ widthMm: 72 }).build()).toThrow(
-      'Template cần .root(...)',
-    );
+  it('throw khi thiếu metadata hoặc content', () => {
+    const metadata = { id: 'x', name: 'x', paper: { widthMm: 72 } };
+
+    expect(() => receiptTemplate(TEST_ORDER_DATA).content(text('x')).build()).toThrow('Template cần .metadata(...)');
+    expect(() => receiptTemplate(TEST_ORDER_DATA).metadata(metadata).build()).toThrow('Template cần .content(...)');
+  });
+
+  it('settings: default bỏ trống lấy bằng value, default khai báo thì giữ nguyên', () => {
+    const template = receiptTemplate(TEST_ORDER_DATA)
+      .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+      .settings({
+        styles: { itemName: { label: 'Tên món', value: { fontSize: px(16) } } },
+        options: {
+          showPrice: { label: 'In giá món', type: 'boolean', value: false, default: true },
+          footerText: { label: 'Dòng cuối', type: 'text', value: 'Cảm ơn quý khách' },
+        },
+      })
+      .content(text('x'))
+      .build();
+
+    expect(template.settings).toEqual({
+      styles: { itemName: { label: 'Tên món', value: { fontSize: px(16) }, default: { fontSize: px(16) } } },
+      options: {
+        showPrice: { label: 'In giá món', type: 'boolean', value: false, default: true },
+        footerText: { label: 'Dòng cuối', type: 'text', value: 'Cảm ơn quý khách', default: 'Cảm ơn quý khách' },
+      },
+    });
+    expect(parseTemplate(JSON.parse(JSON.stringify(template)))).toEqual({ ok: true, template });
+  });
+
+  it('throw TemplateBuildError khi settings không hợp lệ', () => {
+    const builder = receiptTemplate(TEST_ORDER_DATA)
+      .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+      .settings({
+        options: {
+          priceStyle: { label: 'Kiểu giá', type: 'choice', choices: [{ value: 'short', label: '45k' }], value: 'full' },
+        },
+      })
+      .content(text('x'));
+
+    expect(() => builder.build()).toThrow('settings.options.priceStyle.value');
   });
 
   it('TypeScript chặn tên biến sai, biến sai scope và khổ giấy sai loại', () => {
     const checkTypesOnly = () => {
       // @ts-expect-error label bắt buộc heightMm
-      labelTemplate(TEST_ORDER_DATA).paper({ widthMm: 50 });
+      labelTemplate(TEST_ORDER_DATA).metadata({ id: 'x', name: 'x', paper: { widthMm: 50 } });
       // @ts-expect-error receipt không có heightMm
-      receiptTemplate(TEST_ORDER_DATA).paper({ widthMm: 72, heightMm: 30 });
+      receiptTemplate(TEST_ORDER_DATA).metadata({ id: 'x', name: 'x', paper: { widthMm: 72, heightMm: 30 } });
+      // @ts-expect-error thiếu name
+      receiptTemplate(TEST_ORDER_DATA).metadata({ id: 'x', paper: { widthMm: 72 } });
 
-      receiptTemplate(TEST_ORDER_DATA).root((scope) => {
+      receiptTemplate(TEST_ORDER_DATA).content((scope) => {
         // @ts-expect-error tên biến sai
         scope.var('orderCod');
         // @ts-expect-error biến của collection không dùng được ở gốc
@@ -160,10 +190,8 @@ describe('labelTemplate / receiptTemplate', () => {
 
   it('maxItemsPerPage trên repeat lồng và biến $part/$partCount ra đúng JSON, qua được parseTemplate', () => {
     const template = labelTemplate(TEST_ORDER_DATA)
-      .id('split-label')
-      .name('Tem tách topping')
-      .paper({ widthMm: 50, heightMm: 30 })
-      .root((scope) =>
+      .metadata({ id: 'split-label', name: 'Tem tách topping', paper: { widthMm: 50, heightMm: 30 } })
+      .content((scope) =>
         scope
           .repeat({ collection: 'items', expand: 'quantity' }, (item) =>
             column().children(
@@ -179,7 +207,7 @@ describe('labelTemplate / receiptTemplate', () => {
       )
       .build();
 
-    const outer = template.root;
+    const outer = template.content;
     if (outer.type !== 'repeat' || outer.template.type !== 'container') throw new Error('cấu trúc sai');
     expect(outer.template.children[1]).toMatchObject({ type: 'repeat', collection: 'toppings', maxItemsPerPage: 4 });
     expect(outer.template.children[2]).toMatchObject({ visibleWhen: { op: 'gt', var: '$partCount', value: 1 } });

@@ -1,19 +1,18 @@
 import type { TemplateDataDescription } from '../data';
 import { validateTemplateAgainstData, validateTemplateStructure, type TemplateIssue } from '../parse';
-import {
-  TEMPLATE_SCHEMA_VERSION,
-  type PaperSize,
-  type TemplateDocument,
-  type TemplateMedia,
-} from '../TemplateDocument';
+import { TEMPLATE_SCHEMA_VERSION, type TemplateDocument } from '../TemplateDocument';
+import type { TemplateKind, TemplateLocale } from '../TemplateMetadata';
 import { TemplateNodeIdGenerator, type BuildContext } from './BuildContext';
 import type { TemplateNodeBuilder } from './NodeBuilder';
+import type { TemplateMetadataInput } from './TemplateMetadataInput';
 import { TemplateScope } from './TemplateScope';
+import type { TemplateSettingsInput } from './TemplateSettingsInput';
+import { toTemplateSettings } from './toTemplateSettings';
 
-/** Phần dữ liệu template mà DSL cần: tên biến/collection để kiểm tra kiểu, `id` + `describe()` để validate. */
+const DEFAULT_LOCALE: TemplateLocale = 'vi-VN';
+
+/** Phần dữ liệu template mà DSL cần: tên biến/collection để kiểm tra kiểu, `describe()` để validate. */
 export interface TemplateDataShape {
-  readonly id: string;
-
   /** Biến gốc — chỉ dùng phần kiểu (tên biến) để TypeScript kiểm tra DSL, không đọc giá trị. */
   readonly variables: object;
 
@@ -30,11 +29,6 @@ export type RootScope<TTemplateData extends TemplateDataShape> = TemplateScope<
   TTemplateData['collections']
 >;
 
-/** Khổ giấy theo loại: label bắt buộc có chiều cao, receipt không có. */
-export type PaperFor<TMedia extends TemplateMedia> = TMedia extends 'label'
-  ? Required<PaperSize>
-  : Omit<PaperSize, 'heightMm'>;
-
 /** Nội dung gốc: 1 builder, hoặc callback nhận scope gốc để dùng `scope.var`/`scope.repeat`. */
 export type RootContent<TTemplateData extends TemplateDataShape> =
   | TemplateNodeBuilder
@@ -50,40 +44,32 @@ export class TemplateBuildError extends Error {
 }
 
 /** Builder của `TemplateDocument`; tạo qua `labelTemplate(templateData)` hoặc `receiptTemplate(templateData)`. */
-export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TMedia extends TemplateMedia> {
-  private templateId?: string;
+export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TKind extends TemplateKind> {
+  private metadataInput?: TemplateMetadataInput<TKind>;
 
-  private templateName?: string;
-
-  private paperSize?: PaperFor<TMedia>;
+  private settingsInput?: TemplateSettingsInput;
 
   private rootContent?: RootContent<TTemplateData>;
 
   constructor(
     private readonly templateData: TTemplateData,
-    private readonly media: TMedia,
+    private readonly kind: TKind,
   ) {}
 
-  /** Mã template (bắt buộc). */
-  id(value: string): this {
-    this.templateId = value;
+  /** Thông tin chung: mã, tên, khổ giấy (bắt buộc). */
+  metadata(value: TemplateMetadataInput<TKind>): this {
+    this.metadataInput = value;
     return this;
   }
 
-  /** Tên hiển thị (bắt buộc). */
-  name(value: string): this {
-    this.templateName = value;
+  /** Style có tên và option người dùng được chỉnh; bỏ qua là template không có setting nào. */
+  settings(value: TemplateSettingsInput): this {
+    this.settingsInput = value;
     return this;
   }
 
-  /** Khổ giấy tính bằng mm (bắt buộc). */
-  paper(value: PaperFor<TMedia>): this {
-    this.paperSize = value;
-    return this;
-  }
-
-  /** Node gốc (bắt buộc). */
-  root(content: RootContent<TTemplateData>): this {
+  /** Cây node nội dung (bắt buộc). */
+  content(content: RootContent<TTemplateData>): this {
     this.rootContent = content;
     return this;
   }
@@ -104,10 +90,8 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
   }
 
   private assemble(): TemplateDocument {
-    if (this.templateId === undefined) throw new Error('Template cần .id(...)');
-    if (this.templateName === undefined) throw new Error('Template cần .name(...)');
-    if (this.paperSize === undefined) throw new Error('Template cần .paper(...)');
-    if (this.rootContent === undefined) throw new Error('Template cần .root(...)');
+    if (this.metadataInput === undefined) throw new Error('Template cần .metadata(...)');
+    if (this.rootContent === undefined) throw new Error('Template cần .content(...)');
 
     const context: BuildContext = { idGenerator: new TemplateNodeIdGenerator() };
     const rootBuilder =
@@ -115,13 +99,15 @@ export class TemplateDocumentBuilder<TTemplateData extends TemplateDataShape, TM
 
     return {
       schemaVersion: TEMPLATE_SCHEMA_VERSION,
-      id: this.templateId,
-      name: this.templateName,
-      dataId: this.templateData.id,
-      media: this.media,
-      locale: 'vi-VN',
-      paper: this.paperSize,
-      root: rootBuilder.build(context),
+      metadata: {
+        id: this.metadataInput.id,
+        name: this.metadataInput.name,
+        kind: this.kind,
+        locale: this.metadataInput.locale ?? DEFAULT_LOCALE,
+        paper: this.metadataInput.paper,
+      },
+      settings: toTemplateSettings(this.settingsInput),
+      content: rootBuilder.build(context),
     };
   }
 }

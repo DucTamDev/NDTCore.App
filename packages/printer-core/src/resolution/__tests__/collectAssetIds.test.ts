@@ -4,13 +4,15 @@ import { TEST_ORDER_DATA, TEST_ORDER_SAMPLE } from '../../testing';
 
 const TEMPLATE: TemplateDocument = {
   schemaVersion: 1,
-  id: 'template',
-  name: 'Template',
-  dataId: 'test-order',
-  media: 'receipt',
-  locale: 'vi-VN',
-  paper: { widthMm: 72 },
-  root: {
+  metadata: {
+    id: 'template',
+    name: 'Template',
+    kind: 'receipt',
+    locale: 'vi-VN',
+    paper: { widthMm: 72 },
+  },
+  settings: { styles: {}, options: {} },
+  content: {
     type: 'container',
     id: 'root',
     children: [

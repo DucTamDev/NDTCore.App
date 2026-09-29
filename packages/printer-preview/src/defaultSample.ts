@@ -64,10 +64,8 @@ export const templateData = defineTemplateData({
 });
 
 export default labelTemplate(templateData)
-  .id('product-label-default')
-  .name('Tem món mặc định')
-  .paper({ widthMm: 50, heightMm: 30 })
-  .root((scope) =>
+  .metadata({ id: 'product-label-default', name: 'Tem món mặc định', paper: { widthMm: 50, heightMm: 30 } })
+  .content((scope) =>
     scope
       .repeat({ collection: 'products', expand: 'quantity' }, (product) =>
         column()

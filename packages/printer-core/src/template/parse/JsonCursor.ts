@@ -57,6 +57,13 @@ export class JsonCursor {
     return this.value.map((item, index) => new JsonCursor(item, `${this.path}[${index}]`, this.issues));
   }
 
+  /** Trả con trỏ của từng giá trị nếu là object (theo thứ tự key), ngược lại ghi lỗi và trả mảng rỗng. */
+  expectEntries(): readonly JsonCursor[] {
+    const object = this.expectObject();
+    if (!object) return [];
+    return Object.keys(object).map((key) => this.field(key));
+  }
+
   /** Ghi lỗi nếu không phải chuỗi khác rỗng. */
   expectNonEmptyString(): void {
     if (typeof this.value !== 'string' || this.value === '') this.report('phải là chuỗi khác rỗng');

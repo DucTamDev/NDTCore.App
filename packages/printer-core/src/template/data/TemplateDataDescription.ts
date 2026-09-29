@@ -35,7 +35,7 @@ export interface CollectionDescription {
 
 /** Metadata JSON của cả dữ liệu template — kết quả của `templateData.describe()`. */
 export interface TemplateDataDescription {
-  /** Mã dữ liệu template, khớp với `TemplateDocument.dataId`. */
+  /** Mã dữ liệu template, VD 'product-label'. */
   readonly id: string;
 
   /** Phiên bản dữ liệu template do app tự tăng khi thêm/đổi biến. */

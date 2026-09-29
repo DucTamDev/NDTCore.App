@@ -7,13 +7,15 @@ const description = TEST_ORDER_DATA.describe();
 function documentWithRoot(root: TemplateNode): TemplateDocument {
   return {
     schemaVersion: 1,
-    id: 'template',
-    name: 'Template',
-    dataId: 'test-order',
-    media: 'receipt',
-    locale: 'vi-VN',
-    paper: { widthMm: 72 },
-    root,
+    metadata: {
+      id: 'template',
+      name: 'Template',
+      kind: 'receipt',
+      locale: 'vi-VN',
+      paper: { widthMm: 72 },
+    },
+    settings: { styles: {}, options: {} },
+    content: root,
   };
 }
 
@@ -59,17 +61,6 @@ describe('validateTemplateAgainstData', () => {
     expect(result).toEqual({ errors: [], warnings: [] });
   });
 
-  it('báo lỗi khi template dùng dữ liệu khác', () => {
-    const result = validateTemplateAgainstData(
-      { ...documentWithRoot(textOf('orderCode')), dataId: 'kitchen-ticket' },
-      description,
-    );
-
-    expect(result.errors).toEqual([
-      { path: 'dataId', message: 'template dùng dữ liệu "kitchen-ticket", không phải "test-order"' },
-    ]);
-  });
-
   it('báo lỗi biến không có trong dữ liệu template', () => {
     expect(errorsOf(textOf('missing'))).toEqual(['dữ liệu template "test-order" không có biến "missing"']);
   });
@@ -78,7 +69,7 @@ describe('validateTemplateAgainstData', () => {
     const result = validateTemplateAgainstData(documentWithRoot(textOf('itemName')), description);
 
     expect(result.errors).toEqual([
-      { path: 'root.content[0]', message: 'biến "itemName" chỉ dùng được trong vòng lặp "Danh sách món"' },
+      { path: 'content.content[0]', message: 'biến "itemName" chỉ dùng được trong vòng lặp "Danh sách món"' },
     ]);
   });
 
@@ -144,7 +135,7 @@ describe('validateTemplateAgainstData', () => {
 
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([
-      { path: 'root.template.content[0]', message: 'biến "legacyItemName" đã ngừng dùng: Dùng itemName' },
+      { path: 'content.template.content[0]', message: 'biến "legacyItemName" đã ngừng dùng: Dùng itemName' },
     ]);
   });
 });

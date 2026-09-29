@@ -22,13 +22,13 @@ const templateData = defineTemplateData({
 });
 
 function label() {
-  return labelTemplate(templateData).id('label').name('Tem').paper({ widthMm: 50, heightMm: 30 });
+  return labelTemplate(templateData).metadata({ id: 'label', name: 'Tem', paper: { widthMm: 50, heightMm: 30 } });
 }
 
 describe('renderPreviews', () => {
   it('render 1 trang SVG cho label đơn giản', () => {
     const template = label()
-      .root((scope) => column().children(text([scope.var('title')])))
+      .content((scope) => column().children(text([scope.var('title')])))
       .build();
     const previews = renderPreviews(template, templateData, { title: 'Hello', items: [] }, 'tspl');
 
@@ -40,7 +40,7 @@ describe('renderPreviews', () => {
   it('trang tràn chiều cao tem vẫn render và kèm cảnh báo', () => {
     const lines = Array.from({ length: 20 }, (_, index) => text(`Dòng ${index}`));
     const template = label()
-      .root(column().children(...lines))
+      .content(column().children(...lines))
       .build();
     const [page] = renderPreviews(template, templateData, { title: 'x', items: [] }, 'tspl');
 
@@ -50,7 +50,7 @@ describe('renderPreviews', () => {
 
   it('lỗi 1 trang không ảnh hưởng trang khác', () => {
     const template = label()
-      .root((scope) =>
+      .content((scope) =>
         scope
           .repeat({ collection: 'items' }, (item) => column().children(text([item.var('itemName')])))
           .maxItemsPerPage(1),
@@ -63,12 +63,10 @@ describe('renderPreviews', () => {
   });
 
   it('defaultLanguageFor: receipt → escpos, label → tspl', () => {
-    const labelDocument = label().root(text('x')).build();
+    const labelDocument = label().content(text('x')).build();
     const receipt = receiptTemplate(templateData)
-      .id('receipt')
-      .name('Hoá đơn')
-      .paper({ widthMm: 72 })
-      .root(text('x'))
+      .metadata({ id: 'receipt', name: 'Hoá đơn', paper: { widthMm: 72 } })
+      .content(text('x'))
       .build();
 
     expect(defaultLanguageFor(labelDocument)).toBe('tspl');

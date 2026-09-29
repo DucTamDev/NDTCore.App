@@ -3,13 +3,15 @@ import { parseTemplate } from '..';
 function validLabelJson(): Record<string, unknown> {
   return {
     schemaVersion: 1,
-    id: 'product-label-default',
-    name: 'Tem món mặc định',
-    dataId: 'test-order',
-    media: 'label',
-    locale: 'vi-VN',
-    paper: { widthMm: 50, heightMm: 30 },
-    root: {
+    metadata: {
+      id: 'product-label-default',
+      name: 'Tem món mặc định',
+      kind: 'label',
+      locale: 'vi-VN',
+      paper: { widthMm: 50, heightMm: 30 },
+    },
+    settings: { styles: {}, options: {} },
+    content: {
       type: 'container',
       id: 'root',
       style: { direction: 'column', gap: { value: 1, unit: 'mm' }, padding: uniformInsets(2) },
@@ -42,9 +44,20 @@ function uniformInsets(valueMm: number): Record<string, unknown> {
   return { top: side, right: side, bottom: side, left: side };
 }
 
-function withRoot(root: unknown): Record<string, unknown> {
-  return { ...validLabelJson(), root };
+function withContent(content: unknown): Record<string, unknown> {
+  return { ...validLabelJson(), content };
 }
+
+function withMetadata(overrides: Record<string, unknown>): Record<string, unknown> {
+  const json = validLabelJson();
+  return { ...json, metadata: { ...(json.metadata as Record<string, unknown>), ...overrides } };
+}
+
+function withSettings(settings: unknown): Record<string, unknown> {
+  return { ...validLabelJson(), settings };
+}
+
+const FONT_SIZE = { value: 16, unit: 'px' };
 
 function issuePaths(json: unknown): readonly string[] {
   const result = parseTemplate(json);
@@ -108,41 +121,31 @@ describe('parseTemplate', () => {
     expect(older).toEqual({ ok: false, issues: [{ path: 'schemaVersion', message: 'phải là 1' }] });
   });
 
-  it('từ chối template JSON còn field `catalog` thay cho `dataId`', () => {
-    const json: Record<string, unknown> = { ...validLabelJson(), catalog: 'test-order' };
-    delete json.dataId;
-
-    expect(parseTemplate(json)).toEqual({
-      ok: false,
-      issues: [{ path: 'dataId', message: 'phải là chuỗi khác rỗng' }],
-    });
-  });
-
   it('báo lỗi đơn vị độ dài sai kèm path chính xác', () => {
-    const json = withRoot({
+    const json = withContent({
       type: 'container',
       id: 'root',
       style: { padding: { ...uniformInsets(2), top: { value: 2, unit: 'cm' } } },
       children: [],
     });
 
-    expect(issuePaths(json)).toEqual(['root.style.padding.top.unit']);
+    expect(issuePaths(json)).toEqual(['content.style.padding.top.unit']);
   });
 
   it('báo lỗi độ dài âm', () => {
-    const json = withRoot({ type: 'line', id: 'line', thickness: { value: -1, unit: 'mm' } });
+    const json = withContent({ type: 'line', id: 'line', thickness: { value: -1, unit: 'mm' } });
 
-    expect(issuePaths(json)).toEqual(['root.thickness.value']);
+    expect(issuePaths(json)).toEqual(['content.thickness.value']);
   });
 
   it('báo lỗi loại node lạ thay vì bỏ qua', () => {
-    const json = withRoot({ type: 'container', id: 'root', children: [{ type: 'table', id: 't' }] });
+    const json = withContent({ type: 'container', id: 'root', children: [{ type: 'table', id: 't' }] });
 
-    expect(issuePaths(json)).toEqual(['root.children[0].type']);
+    expect(issuePaths(json)).toEqual(['content.children[0].type']);
   });
 
   it('báo lỗi id node trùng', () => {
-    const json = withRoot({
+    const json = withContent({
       type: 'container',
       id: 'root',
       children: [
@@ -151,32 +154,47 @@ describe('parseTemplate', () => {
       ],
     });
 
-    expect(issuePaths(json)).toEqual(['root.children[1].id']);
+    expect(issuePaths(json)).toEqual(['content.children[1].id']);
+  });
+
+  it('bắt buộc metadata và content', () => {
+    const json = validLabelJson();
+    delete json.metadata;
+    delete json.content;
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'metadata', message: 'phải là object' },
+      { path: 'content', message: 'phải là object' },
+    ]);
+  });
+
+  it('báo lỗi kind lạ', () => {
+    expect(issuePaths(withMetadata({ kind: 'kitchen' }))).toEqual(['metadata.kind']);
   });
 
   it('bắt buộc chiều cao với label và cấm chiều cao với receipt', () => {
-    expect(issuePaths({ ...validLabelJson(), paper: { widthMm: 50 } })).toEqual(['paper.heightMm']);
-    expect(issuePaths({ ...validLabelJson(), media: 'receipt' })).toEqual(['paper.heightMm']);
+    expect(issuePaths(withMetadata({ paper: { widthMm: 50 } }))).toEqual(['metadata.paper.heightMm']);
+    expect(issuePaths(withMetadata({ kind: 'receipt' }))).toEqual(['metadata.paper.heightMm']);
   });
 
   it('báo lỗi segment không có text lẫn var, và format sai loại', () => {
-    const json = withRoot({
+    const json = withContent({
       type: 'text',
       id: 'text',
       content: [{}, { var: 'orderCode', format: { type: 'percent' } }],
     });
 
-    expect(issuePaths(json)).toEqual(['root.content[0]', 'root.content[1].format.type']);
+    expect(issuePaths(json)).toEqual(['content.content[0]', 'content.content[1].format.type']);
   });
 
   it('báo lỗi segment có cả text lẫn var', () => {
-    const json = withRoot({ type: 'text', id: 'text', content: [{ text: 'x', var: 'orderCode' }] });
+    const json = withContent({ type: 'text', id: 'text', content: [{ text: 'x', var: 'orderCode' }] });
 
-    expect(issuePaths(json)).toEqual(['root.content[0]']);
+    expect(issuePaths(json)).toEqual(['content.content[0]']);
   });
 
   it('báo lỗi điều kiện sai dạng, kể cả điều kiện lồng', () => {
-    const json = withRoot({
+    const json = withContent({
       type: 'text',
       id: 'text',
       content: [],
@@ -184,51 +202,51 @@ describe('parseTemplate', () => {
     });
 
     expect(issuePaths(json)).toEqual([
-      'root.visibleWhen.conditions[0].value',
-      'root.visibleWhen.conditions[1].op',
+      'content.visibleWhen.conditions[0].value',
+      'content.visibleWhen.conditions[1].op',
     ]);
   });
 
   it('báo lỗi ảnh khai báo cả asset lẫn var', () => {
-    const json = withRoot({ type: 'image', id: 'logo', source: { asset: 'logo@v1', var: 'storeLogo' } });
+    const json = withContent({ type: 'image', id: 'logo', source: { asset: 'logo@v1', var: 'storeLogo' } });
 
-    expect(issuePaths(json)).toEqual(['root.source']);
+    expect(issuePaths(json)).toEqual(['content.source']);
   });
 
   it('báo lỗi repeat thiếu collection và maxItemsPerPage không phải số nguyên dương', () => {
-    const json = withRoot({
+    const json = withContent({
       type: 'repeat',
       id: 'items',
       maxItemsPerPage: 0,
       template: { type: 'text', id: 'name', content: [] },
     });
 
-    expect(issuePaths(json)).toEqual(['root.collection', 'root.maxItemsPerPage']);
+    expect(issuePaths(json)).toEqual(['content.collection', 'content.maxItemsPerPage']);
   });
 
   it('chấp nhận repeat lồng tách tem khi repeat ngoài cùng có maxItemsPerPage là 1', () => {
-    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 1));
+    const json = withContent(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 1));
 
     expect(issuesOf(json)).toEqual([]);
   });
 
   it('báo lỗi repeat lồng tách tem khi repeat ngoài cùng có maxItemsPerPage khác 1', () => {
-    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 2));
+    const json = withContent(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4), 2));
 
     expect(issuesOf(json)).toEqual([
       {
-        path: 'root.template.maxItemsPerPage',
+        path: 'content.template.maxItemsPerPage',
         message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage là 1',
       },
     ]);
   });
 
   it('báo lỗi repeat lồng tách tem khi repeat ngoài cùng không phân trang', () => {
-    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4)));
+    const json = withContent(itemRepeatJson('items', toppingRepeatJson(toppingNameJson(), 4)));
 
     expect(issuesOf(json)).toEqual([
       {
-        path: 'root.template.maxItemsPerPage',
+        path: 'content.template.maxItemsPerPage',
         message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage',
       },
     ]);
@@ -236,17 +254,17 @@ describe('parseTemplate', () => {
 
   it('báo lỗi maxItemsPerPage ở repeat lồng từ tầng 2 trở xuống', () => {
     const deeper = { ...toppingRepeatJson(toppingNameJson(), 2), id: 'deeper' };
-    const json = withRoot(itemRepeatJson('items', toppingRepeatJson(deeper), 1));
+    const json = withContent(itemRepeatJson('items', toppingRepeatJson(deeper), 1));
 
     expect(issuesOf(json)).toEqual([
-      { path: 'root.template.template.maxItemsPerPage', message: 'chỉ tách tem được repeat lồng 1 tầng' },
+      { path: 'content.template.template.maxItemsPerPage', message: 'chỉ tách tem được repeat lồng 1 tầng' },
     ]);
   });
 
   it('báo lỗi khi hơn 1 repeat ngoài cùng chứa repeat lồng tách tem', () => {
     const secondName = { ...toppingNameJson(), id: 'second-topping-name' };
     const secondToppings = { ...toppingRepeatJson(secondName, 4), id: 'second-toppings' };
-    const json = withRoot({
+    const json = withContent({
       type: 'container',
       id: 'root',
       children: [
@@ -256,14 +274,14 @@ describe('parseTemplate', () => {
     });
 
     expect(issuesOf(json)).toEqual([
-      { path: 'root.children[1]', message: 'chỉ 1 repeat ngoài cùng được chứa repeat lồng có maxItemsPerPage' },
+      { path: 'content.children[1]', message: 'chỉ 1 repeat ngoài cùng được chứa repeat lồng có maxItemsPerPage' },
     ]);
   });
 
   it('không báo trùng lỗi MULTIPLE_CARRIERS khi repeat ngoài cùng thứ 2 chưa phân trang', () => {
     const unpagedName = { ...toppingNameJson(), id: 'unpaged-topping-name' };
     const unpagedToppings = { ...toppingRepeatJson(unpagedName, 4), id: 'unpaged-toppings' };
-    const json = withRoot({
+    const json = withContent({
       type: 'container',
       id: 'root',
       children: [
@@ -274,9 +292,98 @@ describe('parseTemplate', () => {
 
     expect(issuesOf(json)).toEqual([
       {
-        path: 'root.children[1].template.maxItemsPerPage',
+        path: 'content.children[1].template.maxItemsPerPage',
         message: 'repeat lồng chỉ tách tem được khi repeat ngoài cùng có maxItemsPerPage',
       },
+    ]);
+  });
+});
+
+describe('parseTemplate — settings', () => {
+  it('chấp nhận style có tên và đủ 3 loại option hợp lệ', () => {
+    const json = withSettings({
+      styles: {
+        itemName: {
+          label: 'Tên món',
+          value: { fontSize: FONT_SIZE, fontWeight: 'bold' },
+          default: { fontSize: FONT_SIZE },
+        },
+      },
+      options: {
+        showPrice: { label: 'In giá món', type: 'boolean', value: false, default: true },
+        footerText: { label: 'Dòng cuối', type: 'text', value: 'Wifi: abc', default: 'Cảm ơn quý khách' },
+        priceStyle: {
+          label: 'Kiểu giá',
+          type: 'choice',
+          choices: [
+            { value: 'short', label: '45k' },
+            { value: 'full', label: '45.000đ' },
+          ],
+          value: 'short',
+          default: 'full',
+        },
+      },
+    });
+
+    expect(issuesOf(json)).toEqual([]);
+  });
+
+  it('bắt buộc có settings', () => {
+    const json = validLabelJson();
+    delete json.settings;
+
+    expect(issuesOf(json)).toEqual([{ path: 'settings', message: 'phải là object' }]);
+  });
+
+  it('báo lỗi style thiếu nhãn hoặc value, và thuộc tính chữ sai', () => {
+    const json = withSettings({ styles: { itemName: { label: '', default: { fontWeight: 'heavy' } } }, options: {} });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'settings.styles.itemName.label', message: 'phải là chuỗi khác rỗng' },
+      { path: 'settings.styles.itemName.value', message: 'phải là object' },
+      { path: 'settings.styles.itemName.default.fontWeight', message: 'phải là 1 trong: "normal", "bold"' },
+    ]);
+  });
+
+  it('báo lỗi option sai kiểu giá trị theo loại, và loại option lạ', () => {
+    const json = withSettings({
+      styles: {},
+      options: {
+        showPrice: { label: 'In giá', type: 'boolean', value: 'yes', default: true },
+        footerText: { label: 'Dòng cuối', type: 'text', value: 'x', default: 1 },
+        mode: { label: 'Chế độ', type: 'slider', value: 1, default: 1 },
+      },
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'settings.options.showPrice.value', message: 'phải là true hoặc false' },
+      { path: 'settings.options.footerText.default', message: 'phải là chuỗi' },
+      { path: 'settings.options.mode.type', message: 'phải là 1 trong: "boolean", "text", "choice"' },
+    ]);
+  });
+
+  it('báo lỗi option choice rỗng, lựa chọn trùng, và giá trị ngoài danh sách', () => {
+    const json = withSettings({
+      styles: {},
+      options: {
+        empty: { label: 'Rỗng', type: 'choice', choices: [], value: 'a', default: 'a' },
+        priceStyle: {
+          label: 'Kiểu giá',
+          type: 'choice',
+          choices: [
+            { value: 'short', label: '45k' },
+            { value: 'short', label: 'Ngắn' },
+          ],
+          value: 'full',
+          default: 'short',
+        },
+      },
+    });
+
+    expect(issuesOf(json)).toEqual([
+      { path: 'settings.options.empty.choices', message: 'phải có ít nhất 1 lựa chọn' },
+      { path: 'settings.options.priceStyle.choices[1].value', message: 'giá trị "short" bị trùng' },
+      { path: 'settings.options.priceStyle.value', message: 'phải là 1 trong: "short"' },
     ]);
   });
 });

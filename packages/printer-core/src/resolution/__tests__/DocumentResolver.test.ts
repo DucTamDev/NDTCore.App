@@ -1,5 +1,5 @@
 import { createDocumentResolver, type AssetProvider, type ResolvedNode, type ResolvedPage } from '..';
-import type { TemplateDocument, TemplateMedia, TemplateNode, TextNode } from '../../template';
+import type { TemplateDocument, TemplateKind, TemplateNode, TextNode } from '../../template';
 import { defineCollection, defineTemplateData } from '../../template/data';
 import {
   TEST_ORDER_DATA,
@@ -16,16 +16,18 @@ const LOGO_ASSETS: AssetProvider = { get: (assetId) => (assetId === 'store-logo@
 
 const resolver = createDocumentResolver();
 
-function documentWith(root: TemplateNode, media: TemplateMedia = 'receipt'): TemplateDocument {
+function documentWith(content: TemplateNode, kind: TemplateKind = 'receipt'): TemplateDocument {
   return {
     schemaVersion: 1,
-    id: 'template',
-    name: 'Template',
-    dataId: 'test-order',
-    media,
-    locale: 'vi-VN',
-    paper: media === 'label' ? { widthMm: 50, heightMm: 30 } : { widthMm: 72 },
-    root,
+    metadata: {
+      id: 'template',
+      name: 'Template',
+      kind,
+      locale: 'vi-VN',
+      paper: kind === 'label' ? { widthMm: 50, heightMm: 30 } : { widthMm: 72 },
+    },
+    settings: { styles: {}, options: {} },
+    content,
   };
 }
 
@@ -154,15 +156,12 @@ describe('DocumentResolver — scope tường minh', () => {
       variables: { orderCode: { label: 'Mã đơn', type: 'string', get: (order) => order.code } },
       collections: { lines },
     });
-    const template: TemplateDocument = {
-      ...documentWith({
-        type: 'repeat',
-        id: 'lines',
-        collection: 'lines',
-        template: { type: 'text', id: 'text', content: [{ var: 'orderCode' }, { text: '/' }, { var: 'lineCode' }] },
-      }),
-      dataId: 'shadow',
-    };
+    const template = documentWith({
+      type: 'repeat',
+      id: 'lines',
+      collection: 'lines',
+      template: { type: 'text', id: 'text', content: [{ var: 'orderCode' }, { text: '/' }, { var: 'lineCode' }] },
+    });
 
     const [page] = resolver.resolve(template, templateData.sample, { templateData, assets: NO_ASSETS });
 
@@ -676,17 +675,5 @@ describe('DocumentResolver — ảnh', () => {
     const statuses = resolvePages(root).map((page) => page.status);
 
     expect(statuses).toEqual(['ok', 'ok', 'ok', 'error', 'error']);
-  });
-});
-
-describe('DocumentResolver — dữ liệu template', () => {
-  it('throw khi template dùng dữ liệu khác dữ liệu truyền vào', () => {
-    const template = { ...documentWith({ type: 'text', id: 't', content: [] }), dataId: 'kitchen' };
-
-    const options = { templateData: TEST_ORDER_DATA, assets: NO_ASSETS };
-
-    expect(() => resolver.resolve(template, TEST_ORDER_SAMPLE, options)).toThrow(
-      'Template dùng dữ liệu "kitchen", không phải "test-order"',
-    );
   });
 });

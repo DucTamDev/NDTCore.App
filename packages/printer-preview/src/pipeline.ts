@@ -41,9 +41,9 @@ function layoutPage(
   template: TemplateDocument,
   page: Extract<ResolvedPage, { status: 'ok' }>,
 ): LaidOutPage {
-  const layoutConfig = { paper: template.paper, dpi: PREVIEW_DPI };
+  const layoutConfig = { paper: template.metadata.paper, dpi: PREVIEW_DPI };
   const { elements, warnings } = layoutEngine.resolve(page.node, layoutConfig, fontMetrics);
-  const paper = paperSizeToDots(template.paper, PREVIEW_DPI);
+  const paper = paperSizeToDots(template.metadata.paper, PREVIEW_DPI);
   const document: ResolvedPrintDocument = {
     widthDots: paper.widthDots,
     heightDots: paper.heightDots ?? 0,
@@ -86,5 +86,5 @@ export function renderPreviews(
 }
 
 export function defaultLanguageFor(template: TemplateDocument): PrinterLanguage {
-  return template.media === 'receipt' ? 'escpos' : 'tspl';
+  return template.metadata.kind === 'receipt' ? 'escpos' : 'tspl';
 }

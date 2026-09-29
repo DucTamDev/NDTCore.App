@@ -47,6 +47,16 @@ export function validateTextStyle(cursor: JsonCursor): void {
   if (cursor.value === undefined || !cursor.expectObject()) return;
 
   validateBoxFields(cursor);
+  validateTextFields(cursor);
+}
+
+/** Kiểm tra `TextStyle` bắt buộc của 1 style có tên trong `settings` (chỉ thuộc tính chữ). */
+export function validateTextStyleSetting(cursor: JsonCursor): void {
+  if (!cursor.expectObject()) return;
+  validateTextFields(cursor);
+}
+
+function validateTextFields(cursor: JsonCursor): void {
   validateOptionalLength(cursor.field('fontSize'));
   cursor.field('fontWeight').expectOptionalOneOf(FONT_WEIGHTS);
   cursor.field('textAlign').expectOptionalOneOf(TEXT_ALIGNS);

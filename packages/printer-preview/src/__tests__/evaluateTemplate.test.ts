@@ -24,18 +24,16 @@ describe('evaluateTemplate', () => {
     const code = `${TEMPLATE_DATA_CODE}
       import { labelTemplate, text } from 'printer-core';
       export default labelTemplate(templateData)
-        .id('label')
-        .name('Tem')
-        .paper({ widthMm: 50, heightMm: 30 })
-        .root((scope) => text([scope.var('title')]))
+        .metadata({ id: 'label', name: 'Tem', paper: { widthMm: 50, heightMm: 30 } })
+        .content((scope) => text([scope.var('title')]))
         .build();
     `;
     const result = evaluateTemplate(code);
 
     expect(result.status).toBe('ok');
     if (result.status !== 'ok') return;
-    expect(result.template.media).toBe('label');
-    expect(result.template.paper).toEqual({ widthMm: 50, heightMm: 30 });
+    expect(result.template.metadata.kind).toBe('label');
+    expect(result.template.metadata.paper).toEqual({ widthMm: 50, heightMm: 30 });
     expect(result.templateData.id).toBe('demo');
   });
 
@@ -67,10 +65,8 @@ describe('evaluateTemplate', () => {
     const code = `${TEMPLATE_DATA_CODE}
       import { labelTemplate, text } from 'printer-core';
       export default labelTemplate(templateData)
-        .id('label')
-        .name('Tem')
-        .paper({ widthMm: 50, heightMm: 30 })
-        .root(text([{ var: 'itemName' }]))
+        .metadata({ id: 'label', name: 'Tem', paper: { widthMm: 50, heightMm: 30 } })
+        .content(text([{ var: 'itemName' }]))
         .build();
     `;
     const result = evaluateTemplate(code);

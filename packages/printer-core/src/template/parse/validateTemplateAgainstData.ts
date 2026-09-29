@@ -68,10 +68,7 @@ export function validateTemplateAgainstData(
 ): TemplateDataValidationResult {
   const index = createTemplateDataIndex(description);
   const check: TemplateDataCheck = { description, index, errors: [], warnings: [] };
-  if (template.dataId !== description.id) {
-    addError(check, 'dataId', `template dùng dữ liệu "${template.dataId}", không phải "${description.id}"`);
-  }
-  checkNode(check, template.root, 'root', ROOT_SCOPE);
+  checkNode(check, template.content, 'content', ROOT_SCOPE);
   return { errors: check.errors, warnings: check.warnings };
 }
 

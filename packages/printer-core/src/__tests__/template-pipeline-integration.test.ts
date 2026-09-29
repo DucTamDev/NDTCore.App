@@ -27,10 +27,8 @@ const PRINTER_DPI = 203;
 
 function buildReceipt() {
   return receiptTemplate(TEST_ORDER_DATA)
-    .id('receipt-default')
-    .name('Hoá đơn mặc định')
-    .paper({ widthMm: 72 })
-    .root((scope) =>
+    .metadata({ id: 'receipt-default', name: 'Hoá đơn mặc định', paper: { widthMm: 72 } })
+    .content((scope) =>
       column()
         .gap(mm(1))
         .children(
@@ -61,7 +59,7 @@ describe('pipeline template → resolve → layout → compile', () => {
     expect(pages).toHaveLength(1);
     if (pages[0].status !== 'ok') throw new Error(pages[0].message);
 
-    const config = { paper: template.paper, dpi: PRINTER_DPI };
+    const config = { paper: template.metadata.paper, dpi: PRINTER_DPI };
     const { elements } = createLayoutEngine().resolve(pages[0].node, config, new ApproximateFontMetrics());
 
     expect(elements.some((element) => element.type === 'text' && element.content === 'Bàn Bàn 5')).toBe(true);
@@ -74,7 +72,7 @@ describe('pipeline template → resolve → layout → compile', () => {
       expect.objectContaining({ type: 'barcode', options: expect.objectContaining({ height: 64 }) }),
     );
 
-    const paper = paperSizeToDots(template.paper, PRINTER_DPI);
+    const paper = paperSizeToDots(template.metadata.paper, PRINTER_DPI);
     const bytes = new EscPosCompiler().compile({
       widthDots: paper.widthDots,
       heightDots: paper.heightDots ?? 0,
@@ -97,10 +95,8 @@ describe('pipeline template → resolve → layout → compile', () => {
 
   it('tem món nhiều topping tách sang tem tiếp: JSON round-trip → resolve → layout từng tem', () => {
     const built = labelTemplate(TEST_ORDER_DATA)
-      .id('split-label')
-      .name('Tem tách topping')
-      .paper({ widthMm: 50, heightMm: 30 })
-      .root((scope) =>
+      .metadata({ id: 'split-label', name: 'Tem tách topping', paper: { widthMm: 50, heightMm: 30 } })
+      .content((scope) =>
         scope
           .repeat({ collection: 'items', expand: 'quantity' }, (item) =>
             column().children(
@@ -133,7 +129,7 @@ describe('pipeline template → resolve → layout → compile', () => {
       assets: { get: () => undefined },
     });
 
-    const config = { paper: template.paper, dpi: PRINTER_DPI };
+    const config = { paper: template.metadata.paper, dpi: PRINTER_DPI };
     const texts = pages.map((page) => {
       if (page.status !== 'ok') throw new Error(page.message);
       const { elements } = createLayoutEngine().resolve(page.node, config, new ApproximateFontMetrics());
