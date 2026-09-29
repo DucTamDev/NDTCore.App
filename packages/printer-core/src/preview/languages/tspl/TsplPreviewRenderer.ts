@@ -324,9 +324,10 @@ export class TsplPreviewRenderer implements PrintPreview {
         `fill="${PAPER_COLOR}" stroke="${CANVAS_BORDER}" ` +
         `stroke-width="1" rx="2"/>`,
 
-      `<g transform="translate(${CANVAS_PADDING},${CANVAS_PADDING})">`,
+      // svg lồng cắt phần vượt khổ tem như khi in thật; không dùng clipPath để tránh trùng id khi nhiều tem cùng trang.
+      `<svg x="${CANVAS_PADDING}" y="${CANVAS_PADDING}" width="${width}" height="${height}" overflow="hidden">`,
       elements,
-      '</g>',
+      '</svg>',
 
       `<text x="${svgWidth / 2}" y="${svgHeight - 1}" ` +
         `text-anchor="middle" fill="${CAPTION_COLOR}" ` +

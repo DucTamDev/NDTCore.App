@@ -93,7 +93,9 @@ export class EscPosPreviewRenderer implements PrintPreview {
       `<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="${CANVAS_BACKGROUND}" rx="2"/>` +
       `<rect x="${CANVAS_PADDING}" y="${CANVAS_PADDING}" width="${receiptWidth}" height="${contentHeight}" ` +
       `fill="${PAPER_COLOR}" stroke="${CANVAS_BORDER}" stroke-width="1"/>` +
-      `<g transform="translate(${CANVAS_PADDING},${CANVAS_PADDING})">${body}</g>` +
+      // Giấy cuộn dài theo nội dung nên chỉ cắt chiều ngang; svg lồng tránh trùng id clipPath khi nhiều bill 1 trang.
+      `<svg x="${CANVAS_PADDING}" y="${CANVAS_PADDING}" width="${receiptWidth}" height="${contentHeight}" ` +
+      `overflow="hidden">${body}</svg>` +
       `<text x="${svgWidth / 2}" y="${svgHeight - 1}" text-anchor="middle" fill="${CAPTION_COLOR}" font-size="8" ` +
       `font-family="${FONT_FAMILY}">${caption}</text></svg>`
     );

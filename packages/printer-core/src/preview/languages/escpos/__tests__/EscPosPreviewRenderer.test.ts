@@ -1,6 +1,15 @@
 import { EscPosPreviewRenderer } from '../EscPosPreviewRenderer';
 
 describe('EscPosPreviewRenderer', () => {
+  it('cắt nội dung vượt chiều rộng giấy; chiều cao giấy cuộn vẫn dài theo nội dung', () => {
+    const svg = new EscPosPreviewRenderer().preview({
+      widthDots: 384, heightDots: 0, dpi: 203, gapDots: 0, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'W'.repeat(200) }],
+    });
+
+    expect(svg).toMatch(/<svg x="5" y="5" width="384" height="\d+" overflow="hidden">/);
+  });
+
   it('previews a text element with no options field without throwing', () => {
     expect(() =>
       new EscPosPreviewRenderer().preview({

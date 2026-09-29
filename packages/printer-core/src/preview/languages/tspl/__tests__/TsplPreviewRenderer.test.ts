@@ -2,6 +2,16 @@ import { TsplPreviewRenderer } from '../TsplPreviewRenderer';
 import type { PrintElement } from '../../../../document/elements/PrintElement';
 
 describe('TsplPreviewRenderer', () => {
+  it('cắt nội dung đúng khổ tem: phần vượt khổ không hiện, khung không nới theo nội dung', () => {
+    const svg = new TsplPreviewRenderer().preview({
+      widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
+      elements: [{ type: 'text', content: 'tràn', options: { x: 0, y: 350 } }],
+    });
+
+    expect(svg).toMatch(/^<svg [^>]*width="420" height="320">/);
+    expect(svg).toContain('<svg x="10" y="10" width="400" height="300" overflow="hidden">');
+  });
+
   it('renders a <line> element for a diagonal, not a <rect>', () => {
     const svg = new TsplPreviewRenderer().preview({
       widthDots: 400, heightDots: 300, dpi: 203, gapDots: 24, speed: 4, density: 8, direction: 'forward', copies: 1,
