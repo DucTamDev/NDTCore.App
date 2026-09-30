@@ -1,7 +1,8 @@
 import { createPrinterRepository } from '../PrinterRepository';
 import { PrinterStorage } from '../PrinterStorage';
 import { type Printer } from '../../models/printer/Printer';
-import { basePrinter } from '../../testing/printerServiceTestKit';
+import { PrintType } from '../../models/printing/PrintType';
+import { basePrinter, tsplDriverEntry } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -16,12 +17,21 @@ describe('PrinterRepository', () => {
     expect(repository.getPrinters()).toEqual([basePrinter]);
   });
 
-  it('addPrinter() throws when identityKey collides with a different existing printer', () => {
+  it('addPrinter() throws when (identityKey, type) collides with a different existing printer', () => {
     const repository = createPrinterRepository();
     repository.addPrinter(basePrinter);
     const duplicate: Printer = { ...basePrinter, id: 'p2', name: 'Máy in khác' };
     expect(() => repository.addPrinter(duplicate)).toThrow();
     expect(repository.getPrinters()).toHaveLength(1);
+  });
+
+  it('addPrinter() allows the same identityKey when type differs (dual-protocol device on one connection)', () => {
+    const repository = createPrinterRepository();
+    repository.addPrinter(basePrinter);
+    // Tem đòi driver hỗ trợ PrintType.Label (EscPos chỉ phục vụ Receipt) — dùng Tspl để record thứ 2 hợp lệ.
+    const labelPrinter: Printer = { ...basePrinter, id: 'p2', name: 'Máy in tem', type: PrintType.Label, driver: tsplDriverEntry };
+    expect(() => repository.addPrinter(labelPrinter)).not.toThrow();
+    expect(repository.getPrinters()).toHaveLength(2);
   });
 
   it('updatePrinter() does not throw against its own identityKey', () => {
@@ -48,7 +58,7 @@ describe('PrinterRepository', () => {
 
   it('setEnabled() updates enabled for that printer only', () => {
     const repository = createPrinterRepository();
-    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { ...basePrinter.connection, lan: { ip: '1.1.1.2', port: 9100 } } };
+    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { type: 'Lan', host: '1.1.1.2', port: 9100 } };
     repository.addPrinter(basePrinter);
     repository.addPrinter(second);
     repository.setEnabled('p1', false);

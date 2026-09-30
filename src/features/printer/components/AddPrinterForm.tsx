@@ -6,6 +6,7 @@ import { useAddPrinterFlow } from '../hooks/useAddPrinterFlow';
 import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
+import type { PrintType } from '../models/printing/PrintType';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -18,15 +19,26 @@ export interface AddPrinterFormProps {
   initialValues?: Printer;
   onSaved: () => void;
   onBack: () => void;
+  /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng. Mặc định hiện — bắt buộc với `AddPrinterModal`. */
+  showBackButton?: boolean;
+  /** Loại nội dung CỐ ĐỊNH của printer này — tab đang mở lúc Thêm mới, hoặc `initialValues.type` lúc Sửa. */
+  printType: PrintType;
 }
 
-export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({ visible, initialValues, onSaved, onBack }) => {
-  const flow = useAddPrinterFlow({ visible, initialValues, onSaved });
+export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
+  visible,
+  initialValues,
+  onSaved,
+  onBack,
+  showBackButton = true,
+  printType,
+}) => {
+  const flow = useAddPrinterFlow({ visible, initialValues, onSaved, printType });
 
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <AppButton mode="text" label="‹ Quay lại" onPress={onBack} />
+        {showBackButton ? <AppButton mode="text" label="‹ Quay lại" onPress={onBack} /> : null}
         <Text variant="titleMedium">{flow.title}</Text>
       </View>
 
@@ -36,15 +48,9 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({ visible, initial
 
         <StatusPanel {...flow.statusPanel} />
 
-        {flow.showAddDriverHint ? (
-          <Text variant="bodySmall" style={styles.addDriverHint}>
-            Máy in này còn hỗ trợ thêm driver khác — bấm "Kết nối" để dò tiếp.
-          </Text>
-        ) : null}
-
-        {flow.hasEmptyContentTypeDriver ? (
+        {flow.hasDieCutMediaError ? (
           <Text variant="bodySmall" style={styles.identityError}>
-            Mỗi driver phải nhận in ít nhất 1 loại nội dung (Hoá đơn/Tem) — chọn ở phần bên dưới trước khi lưu.
+            Cấu hình die-cut chưa hợp lệ (khổ giấy/số cột/khoảng cách) — mở "Cài đặt nâng cao" để sửa trước khi lưu.
           </Text>
         ) : null}
 

@@ -63,7 +63,9 @@ const styles = StyleSheet.create({
   // luôn chụp ra đúng pixel trắng thật, không phụ thuộc việc 1 số thiết bị
   // có xử lý đúng alpha=0 hay không.
   container: { padding: 16, backgroundColor: '#ffffff' },
-  text: { fontFamily: 'monospace', fontSize: 16, color: '#000000' },
+  // fontSize ở đây ánh xạ ~1:1 sang dot in thật (xem comment ở useBillImageCapture.tsx) —
+  // 8 dot/mm nên 24 ≈ 3mm chiều cao chữ, mức dễ đọc chuẩn hoá đơn nhiệt.
+  text: { fontFamily: 'monospace', fontSize: 24, color: '#000000' },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   divider: { borderTopWidth: 1, borderTopColor: '#000000', marginVertical: 8 },
 });

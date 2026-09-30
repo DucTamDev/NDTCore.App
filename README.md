@@ -223,7 +223,7 @@ POS
 ├── Bán hàng
 ├── Lịch sử đơn hàng
 └── Cài đặt
-      └── Quản lý máy in
+      └── Thiết lập máy in
 ```
 
 Sau khi đăng nhập thành công, người dùng được chuyển trực tiếp đến **màn hình Bán hàng (POS)**.

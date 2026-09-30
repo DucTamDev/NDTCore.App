@@ -1,7 +1,7 @@
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { PrinterStorage } from './PrinterStorage';
-import { resolveIdentityKey } from '../services/discovery/PrinterResolver';
+import { resolveIdentityKey } from '../discovery/PrinterResolver';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
 import type { PrinterWriteInput } from './PrinterWriteInput';
 
@@ -18,30 +18,36 @@ export const createPrinterRepository = () => {
 
   const findOrThrow = (printerId: string): Printer => {
     const found = getPrinters().find((p) => p.id === printerId);
-    if (!found) throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+
+    if (!found) {
+      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+    }
+
     return found;
   };
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
-    const collision = getPrinters().find((p) => p.id !== printer.id && p.identityKey === printer.identityKey);
+    const collision = getPrinters().find(
+      (p) => p.id !== printer.id && p.identityKey === printer.identityKey && p.type === printer.type,
+    );
+
     if (collision) {
       throw new PrinterErrorException({
         code: PrinterErrorCode.PRINTER_ALREADY_EXISTS,
-        message: `Máy in này đã được thêm với tên "${collision.name}" — dùng "+ Thêm driver" trên máy in đó thay vì thêm mới.`,
+        message: `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".`,
       });
     }
   };
 
   /**
-   * Tính lại `identityKey` từ chính `connection.type`/`connection.device`/
-   * `connection.lan` của printer — KHÔNG tin thẳng giá trị caller truyền vào
-   * (defense-in-depth, cùng triết lý với `printerSchema.parse()` bên dưới: UI
-   * đã tự tính đúng, đây là lưới an toàn ở service layer, không phải nguồn sự
-   * thật duy nhất).
+   * Tính lại `identityKey` từ chính `printer.connection` — KHÔNG tin thẳng
+   * giá trị caller truyền vào (defense-in-depth, cùng triết lý với
+   * `printerSchema.parse()` bên dưới: UI đã tự tính đúng, đây là lưới an toàn
+   * ở service layer, không phải nguồn sự thật duy nhất).
    */
   const withRecomputedIdentity = (printer: PrinterWriteInput): Printer => ({
     ...printer,
-    identityKey: resolveIdentityKey({ connectionType: printer.connection.type, device: printer.connection.device, lan: printer.connection.lan }),
+    identityKey: resolveIdentityKey(printer.connection),
   });
 
   const addPrinter = (printer: PrinterWriteInput): void => {

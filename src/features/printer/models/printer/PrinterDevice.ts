@@ -1,56 +1,38 @@
 import type { PrinterError } from '../../errors/PrinterError';
 
-export const ConnectionType = {
-  usb: 'usb',
-  bluetooth: 'bluetooth',
-  lan: 'lan',
-} as const;
+/** 2 giai đoạn của 1 máy in: scan (`PrinterDevice`) → identify sau khi connect (`PrinterDeviceInfo`). Kết nối đã lưu xem `PrinterConnection.ts`. */
 
-export type ConnectionType = (typeof ConnectionType)[keyof typeof ConnectionType];
-
+/** 1 kết quả scan — thiết bị user có thể chọn, chưa connect, chưa lưu. */
 export interface PrinterDevice {
+  /** usb: `"<vendorId>:<productId>"`; bluetooth: MAC address. */
   deviceId: string;
   displayName: string;
+  /** Payload gốc từ native — cast sang `UsbRawDevice` khi biết chắc là usb. */
   rawDevice: Record<string, unknown>;
 }
 
 /**
- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === 'usb'` — 1 phần tử
- * `IUSBPrinter` từ `USBPrinter.getDeviceList()`. `vendor_id`/`product_id` luôn
- * có; các field enrichment optional (`serialNumber` cần quyền USB Android 10+).
+ * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === PrinterConnectionType.Usb` — khớp
+ * `PrinterInfoDto` từ native (`vendorId`/`productId` luôn có; `serialNumber`
+ * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
  */
 export interface UsbRawDevice {
-  vendor_id: number | string;
-  product_id: number | string;
+  vendorId: number;
+  productId: number;
   manufacturerName?: string | null;
   productName?: string | null;
   serialNumber?: string | null;
-  version?: string | null;
-  interfaces?: unknown[];
-  hasBulkInEndpoint?: boolean;
-  hasBulkOutEndpoint?: boolean;
 }
 
-export interface PrinterLanConfig {
-  ip: string;
-  port: number;
-}
-
+/** Kết quả `IPrinterDriver.identify()` sau khi connect — chỉ để hiển thị xác nhận, không dùng để lưu. */
 export interface PrinterDeviceInfo {
   deviceName?: string;
   vendor?: string;
   model?: string;
 }
 
-export const DeviceScanEventType = {
-  loading: 'loading',
-  found: 'found',
-  empty: 'empty',
-  error: 'error',
-} as const;
-
+export const DeviceScanEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
 export type DeviceScanEventType = (typeof DeviceScanEventType)[keyof typeof DeviceScanEventType];
-
 export interface DeviceScanEvent {
   type: DeviceScanEventType;
   devices?: PrinterDevice[];

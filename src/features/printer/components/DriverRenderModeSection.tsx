@@ -1,82 +1,63 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { AppInput } from '../../../components/AppInput';
 import { AppSelect } from '../../../components/AppSelect';
-import { PrinterDriverType, TsplCodepage, TsplRenderMode } from '../models/printer/PrinterDriver';
-import { DEFAULT_TSPL_INTERNAL_FONT, tsplRenderModeOf } from '../drivers/driverConfig';
-import type { PrinterDriver, TsplInternalFontConfig } from '../models/printer/PrinterDriver';
+import { RenderMode, BitmapSource, PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { PrinterDriver } from '../models/printer/PrinterDriver';
 
-const tsplRenderModeLabel: Record<TsplRenderMode, string> = {
-  bitmap: 'Bitmap — render nội dung thành ảnh (khuyến nghị)',
-  truetype: 'Font TrueType — tải font .ttf lên máy in (thử nghiệm)',
-  internalfont: 'Font máy in — dùng font & codepage sẵn có của máy in (thử nghiệm)',
+const escPosRenderModeLabel: Record<RenderMode, string> = {
+  Encoder: 'Văn bản (nhanh, cần đúng codepage)',
+  Bitmap: 'Bitmap (chậm hơn, đúng mọi máy)',
 };
 
-const tsplRenderModeOptions = [TsplRenderMode.bitmap, TsplRenderMode.truetype, TsplRenderMode.internalfont].map((mode) => ({
-  label: tsplRenderModeLabel[mode],
-  value: mode,
-}));
+const tsplRenderModeLabel: Record<RenderMode, string> = {
+  Encoder: 'Text (font mặc định máy in — có thể không hiện dấu tiếng Việt trên một số máy)',
+  Bitmap: 'Bitmap (chậm hơn, đúng mọi máy kể cả tiếng Việt)',
+};
 
-const tsplCodepageOptions = [
-  { label: 'UTF-8', value: TsplCodepage.utf8 },
-  { label: 'Windows-1258 (tiếng Việt)', value: TsplCodepage.cp1258 },
-  { label: 'Windows-1252 (Tây Âu)', value: TsplCodepage.cp1252 },
-];
+const renderModeLabelFor = (driverType: PrinterDriverType): Record<RenderMode, string> =>
+  driverType === PrinterDriverType.EscPos ? escPosRenderModeLabel : tsplRenderModeLabel;
+
+const renderModeOptionsFor = (driverType: PrinterDriverType) => {
+  const labels = renderModeLabelFor(driverType);
+  return [RenderMode.Encoder, RenderMode.Bitmap].map((mode) => ({ label: labels[mode], value: mode }));
+};
+
+const bitmapSourceLabel: Record<BitmapSource, string> = {
+  Image: 'Chụp giao diện',
+  Ast: 'Vẽ trực tiếp',
+};
+
+const bitmapSourceOptions = [BitmapSource.Image, BitmapSource.Ast].map((source) => ({ label: bitmapSourceLabel[source], value: source }));
 
 interface DriverRenderModeSectionProps {
   driver: PrinterDriver;
   disabled: boolean;
-  tsplFontPending: boolean;
-  onSelectTsplRenderMode: (mode: TsplRenderMode) => void;
-  onChangeTsplInternalFont: (patch: Partial<TsplInternalFontConfig>) => void;
+  onSelectRenderMode: (mode: RenderMode) => void;
+  onSelectBitmapSource: (source: BitmapSource) => void;
 }
 
-export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = ({
-  driver,
-  disabled,
-  tsplFontPending,
-  onSelectTsplRenderMode,
-  onChangeTsplInternalFont,
-}) => {
-  if (driver.type !== PrinterDriverType.tspl) {
-    return null;
-  }
-  return (
-    <View style={styles.tsplModeBlock}>
+/** Cả ESC/POS và TSPL đều chọn được renderMode. Selector "Nguồn ảnh bitmap" chỉ hiện khi renderMode === Bitmap. */
+export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = ({ driver, disabled, onSelectRenderMode, onSelectBitmapSource }) => (
+  <View style={styles.renderModeBlock}>
+    <AppSelect
+      label="Chế độ in"
+      value={driver.config.renderMode}
+      onSelect={(value) => onSelectRenderMode(value as RenderMode)}
+      options={renderModeOptionsFor(driver.type)}
+      disabled={disabled}
+    />
+    {driver.config.renderMode === RenderMode.Bitmap ? (
       <AppSelect
-        label="Chế độ in TSPL"
-        value={tsplRenderModeOf(driver) ?? TsplRenderMode.bitmap}
-        onSelect={(value) => onSelectTsplRenderMode(value as TsplRenderMode)}
-        options={tsplRenderModeOptions}
-        disabled={disabled || tsplFontPending}
+        label="Nguồn ảnh bitmap"
+        value={driver.config.bitmapSource ?? BitmapSource.Image}
+        onSelect={(value) => onSelectBitmapSource(value as BitmapSource)}
+        options={bitmapSourceOptions}
+        disabled={disabled}
       />
-      {tsplRenderModeOf(driver) === TsplRenderMode.internalfont ? (
-        <>
-          <AppSelect
-            label="Bảng mã (Codepage)"
-            value={
-              (driver.config.type === PrinterDriverType.tspl && driver.config.internalFont?.codepage) ||
-              DEFAULT_TSPL_INTERNAL_FONT.codepage
-            }
-            onSelect={(value) => onChangeTsplInternalFont({ codepage: value as TsplCodepage })}
-            options={tsplCodepageOptions}
-            disabled={disabled}
-          />
-          <AppInput
-            label="Tên font máy in"
-            value={
-              (driver.config.type === PrinterDriverType.tspl && driver.config.internalFont?.fontName) ||
-              DEFAULT_TSPL_INTERNAL_FONT.fontName
-            }
-            onChangeText={(text) => onChangeTsplInternalFont({ fontName: text })}
-            disabled={disabled}
-          />
-        </>
-      ) : null}
-    </View>
-  );
-};
+    ) : null}
+  </View>
+);
 
 const styles = StyleSheet.create({
-  tsplModeBlock: { gap: 8 },
+  renderModeBlock: { gap: 8 },
 });

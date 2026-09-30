@@ -30,7 +30,10 @@ export const rgbaToMonochromeBitmap = (
       const b = rgba[pixelOffset + 2];
       const a = rgba[pixelOffset + 3];
       const luminance = a === 0 ? 255 : (r * 299 + g * 587 + b * 114) / 1000;
-      if (luminance >= threshold) continue;
+
+      if (luminance >= threshold) {
+        continue;
+      }
 
       // eslint-disable-next-line no-bitwise -- intentional bit packing, MSB-first per pixel row (TSPL BITMAP format)
       const byteIndex = y * widthBytes + (x >> 3);

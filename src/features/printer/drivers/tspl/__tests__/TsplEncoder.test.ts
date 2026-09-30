@@ -1,12 +1,12 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintType } from '../../../models/printing/PrintType';
-import { PrintMediaType, CutterMode } from '../../../models/media/PrintMedia';
-import type { PrintMedia } from '../../../models/media/PrintMedia';
+import { PrintPaperType, CutterMode } from '../../../models/paper/PrintPaperConfig';
+import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
-const CONT = (paperSize: PrintMedia['paperSize'] = 58): PrintMedia => ({ type: PrintMediaType.continuous, paperSize });
-const DIE = (): PrintMedia => ({
-  type: PrintMediaType.dieCut,
+const CONT = (paperSize: PrintPaperConfig['paperSize'] = 58): PrintPaperConfig => ({ type: PrintPaperType.Continuous, paperSize });
+const DIE = (): PrintPaperConfig => ({
+  type: PrintPaperType.DieCut,
   paperSize: 100,
   itemWidthMm: 30,
   itemHeightMm: 20,
@@ -93,19 +93,19 @@ describe('TsplEncoder', () => {
   });
 
   it('cut(3, per_job) → SET CUTTER 3 then PRINT 3,1', () => {
-    const output = decode(new TsplEncoder().cut(3, CutterMode.perJob).encode());
+    const output = decode(new TsplEncoder().cut(3, CutterMode.PerJob).encode());
     expect(output).toContain('SET CUTTER 3');
     expect(output.trim().endsWith('PRINT 3,1')).toBe(true);
   });
 
   it('cut(2, per_row) → SET CUTTER 1 then PRINT 2,1', () => {
-    const output = decode(new TsplEncoder().cut(2, CutterMode.perRow).encode());
+    const output = decode(new TsplEncoder().cut(2, CutterMode.PerRow).encode());
     expect(output).toContain('SET CUTTER 1');
     expect(output).toContain('PRINT 2,1');
   });
 
   it('cut(1, none) → SET CUTTER OFF then PRINT 1,1 last (persistent setting must be turned off, not just left unset)', () => {
-    const output = decode(new TsplEncoder().cut(1, CutterMode.none).encode());
+    const output = decode(new TsplEncoder().cut(1, CutterMode.None).encode());
     expect(output).toContain('SET CUTTER OFF');
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
@@ -173,7 +173,7 @@ describe('TsplEncoder', () => {
 
   it('cut() emits PRINT rows,1 and chains fluently with the other builders', () => {
     const output = decode(
-      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.perJob).encode(),
+      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.PerJob).encode(),
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
@@ -194,33 +194,12 @@ describe('TsplEncoder', () => {
     expect(ascii).toContain('"3"');
   });
 
-  describe('codepage', () => {
-    it('initialize() emits CODEPAGE UTF-8 by default', () => {
-      expect(decode(new TsplEncoder().initialize(CONT(58)).encode())).toContain('CODEPAGE UTF-8');
-    });
+  it('initialize() emits CODEPAGE UTF-8 always (no other codepage supported)', () => {
+    expect(decode(new TsplEncoder().initialize(CONT(58)).encode())).toContain('CODEPAGE UTF-8');
+  });
 
-    it('initialize(..., "1258") emits CODEPAGE 1258', () => {
-      const ascii = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1258').encode())
-        .map((b) => String.fromCharCode(b)).join('');
-      expect(ascii).toContain('CODEPAGE 1258');
-    });
-
-    it('text() encodes content as CP1258 bytes (base + combining tone) under codepage 1258', () => {
-      const bytes = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1258').text(0, 0, 'Trà sữa').encode());
-      // command prefix is ASCII, content "Trà sữa" -> T r à(0xE0) ' ' s ữ(0xFD 0xDE) a
-      expect(bytes.join(',')).toContain([0x54, 0x72, 0xe0, 0x20, 0x73, 0xfd, 0xde, 0x61].join(','));
-    });
-
-    it('text() under codepage 1252 truncates to the low byte (no multi-byte UTF-8 for accented chars)', () => {
-      const bytes = Array.from(new TsplEncoder().initialize(CONT(58), PrintType.Receipt, '1252').text(0, 0, 'é').encode());
-      // 'é' = U+00E9 -> single byte 0xE9, never [0xC3, 0xA9] (UTF-8)
-      expect(bytes).toContain(0xe9);
-      expect(bytes.join(',')).not.toContain('195,169');
-    });
-
-    it('text() keeps UTF-8 multi-byte encoding when codepage is UTF-8 (unchanged behavior)', () => {
-      const output = decode(new TsplEncoder().initialize(CONT(58)).text(0, 0, 'é').encode());
-      expect(output).toContain('"é"');
-    });
+  it('text() keeps UTF-8 multi-byte encoding for accented characters', () => {
+    const output = decode(new TsplEncoder().initialize(CONT(58)).text(0, 0, 'é').encode());
+    expect(output).toContain('"é"');
   });
 });

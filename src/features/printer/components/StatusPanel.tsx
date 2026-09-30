@@ -4,7 +4,9 @@ import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { PrintType } from '../models/printing/PrintType';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';
@@ -15,16 +17,17 @@ export interface StatusPanelProps {
   protocol?: PrinterDriverType;
   deviceInfo?: PrinterDeviceInfo;
   errorMessage?: string;
-  excludedDrivers: PrinterDriverType[];
+  /** Lọc danh sách protocol cho phép chọn tay — ESC/POS không hỗ trợ Label. */
+  printType: PrintType;
   onChooseProtocol: (protocol: PrinterDriverType) => void;
 }
 
 const protocolLabel: Record<PrinterDriverType, string> = {
-  escpos: 'ESC/POS',
-  tspl: 'TSPL',
+  EscPos: 'ESC/POS',
+  Tspl: 'TSPL',
 };
 
-const ALL_PROTOCOLS: PrinterDriverType[] = [PrinterDriverType.escpos, PrinterDriverType.tspl];
+const ALL_PROTOCOLS: PrinterDriverType[] = [PrinterDriverType.EscPos, PrinterDriverType.Tspl];
 
 export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,
@@ -32,18 +35,14 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   protocol,
   deviceInfo,
   errorMessage,
-  excludedDrivers,
+  printType,
   onChooseProtocol,
 }) => {
   if (protocolState === 'unknown') {
-    const choices = ALL_PROTOCOLS.filter((type) => !excludedDrivers.includes(type));
+    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(printType));
     return (
       <View style={styles.container}>
-        <Text variant="bodyMedium">
-          {excludedDrivers.length > 0
-            ? 'Chọn giao thức cho driver tiếp theo:'
-            : 'Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:'}
-        </Text>
+        <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
         <View style={styles.choiceRow}>
           {choices.map((type) => (
             <AppButton key={type} label={protocolLabel[type]} mode="contained" onPress={() => onChooseProtocol(type)} />

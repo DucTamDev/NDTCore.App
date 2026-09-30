@@ -5,9 +5,9 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterList, type UsePrinterList } from '../usePrinterList';
 import printerReducer from '../../store/printerSlice';
 import { PrinterRepository } from '../../storage/PrinterRepository';
-import { PrinterConnectionService } from '../../services/PrinterConnectionService';
+import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
 import type { Printer } from '../../models/printer/Printer';
-import { ConnectionType } from '../../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
 import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
@@ -20,7 +20,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
   },
 }));
 
-jest.mock('../../services/PrinterConnectionService', () => ({
+jest.mock('../../connection/PrinterConnectionService', () => ({
   PrinterConnectionService: {
     connect: jest.fn(() => Promise.resolve()),
     disconnect: jest.fn(() => Promise.resolve()),
@@ -31,8 +31,7 @@ jest.mock('../../services/PrinterConnectionService', () => ({
 const printer = (over: Partial<Printer> = {}): Printer =>
   makePrinter({
     name: 'M1',
-    drivers: [],
-    connection: { type: ConnectionType.lan, lan: { ip: '1.2.3.4', port: 9100 } },
+    connection: { type: PrinterConnectionType.Lan, host: '1.2.3.4', port: 9100 },
     identityKey: 'lan:1.2.3.4:9100',
     createdAt: '',
     updatedAt: '',

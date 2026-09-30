@@ -1,4 +1,4 @@
-import { PrintService, type PrintDocuments } from '../../printer/services/printing/PrintService';
+import { PrintService, type PrintDocuments } from '../../printer/printing/PrintService';
 import { PrintResultStatus } from '../../printer/models/printing/PrintJob';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
@@ -8,7 +8,9 @@ import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '..
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintType } from '../../printer/models/printing/PrintType';
-import type { PrintMedia } from '../../printer/models/media/PrintMedia';
+import type { PrintPaperConfig } from '../../printer/models/paper/PrintPaperConfig';
+import { renderDocumentToBitmap } from '../../printer/rendering/renderDocumentToBitmap';
+import { BitmapSource } from '../../printer/models/printer/PrinterDriver';
 
 interface BillItem {
   name: string;
@@ -159,26 +161,34 @@ export const buildReprintDocument = (order: OrderDetail, store: StoreViewModel |
 export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
 /** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG theo `media` cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
-export type CaptureBillImage = (document: PrintDocument, media: PrintMedia) => Promise<string | null>;
+export type CaptureBillImage = (document: PrintDocument, media: PrintPaperConfig) => Promise<string | null>;
 
 /**
- * Chỉ render + chụp ảnh khi thật sự có máy in TSPL bitmap-mode được gán cho
- * `printType` (`PrintService.imageDocumentMedia`) — capture tốn chi phí
- * (layout + screenshot native), không làm nếu không có máy nào cần tới.
- * Capture thất bại (trả `null`) → gửi `text`-only cho MỌI target; target nào
- * thật sự cần ảnh (TSPL bitmap) sẽ tự thất bại rõ ràng ở
- * `TsplBitmapStrategy.validate()` (`TSPL_IMAGE_REQUIRED`) thay vì âm thầm in
- * sai dấu — các target khác (ESC/POS, TSPL truetype) không cần ảnh nên vẫn in
- * bình thường.
+ * Chỉ render + tạo ảnh khi thật sự có máy in bitmap-mode được gán cho
+ * `printType` (`PrintService.imageDocumentTarget`) — tạo ảnh tốn chi phí,
+ * không làm nếu không có máy nào cần tới. Chọn đúng hàm sinh ảnh theo
+ * `bitmapSource` của target đã resolve — `Ast` dùng `renderDocumentToBitmap`
+ * (hàm thuần, không cần React tree), `Image` dùng `captureBillImage` (hook,
+ * cần `captureNode` đã mount). Cả 2 gán vào CÙNG field `documents.image` —
+ * driver không biết/không cần biết nguồn nào tạo ra ảnh.
+ *
+ * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
+ * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở
+ * `TsplBitmapStrategy.validate()`/`EscPosDriver.sendBitmap()` (`IMAGE_REQUIRED`)
+ * thay vì âm thầm in sai — các target khác (Encoder mode) không cần ảnh nên
+ * vẫn in bình thường.
  */
 const buildPrintDocumentVariants = async (
   printType: PrintType,
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
 ): Promise<PrintDocuments> => {
-  const media = PrintService.imageDocumentMedia(printType);
-  if (!media) return { text: textDocument };
-  const base64 = await captureBillImage(textDocument, media);
+  const target = PrintService.imageDocumentTarget(printType);
+  if (!target) return { text: textDocument };
+  const base64 =
+    target.bitmapSource === BitmapSource.Ast
+      ? await renderDocumentToBitmap(textDocument, target.paper)
+      : await captureBillImage(textDocument, target.paper);
   if (!base64) return { text: textDocument };
   return { text: textDocument, image: base64 };
 };
@@ -199,8 +209,8 @@ export const printReceipt = async (
   try {
     const documents = await buildPrintDocumentVariants(PrintType.Receipt, textDocument, captureBillImage);
     const result = await PrintService.print(PrintType.Receipt, documents);
-    if (result.status === PrintResultStatus.noAvailablePrinter) return 'no-printer';
-    if (result.status === PrintResultStatus.failed || result.status === PrintResultStatus.partialFailure) {
+    if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
+    if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);
       return 'failed';
     }

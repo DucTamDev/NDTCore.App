@@ -21,6 +21,7 @@ const downscaleRgba = (
   const scale = srcWidth / targetWidth;
   const targetHeight = Math.max(1, Math.round(srcHeight / scale));
   const data = new Uint8Array(targetWidth * targetHeight * 4);
+
   for (let y = 0; y < targetHeight; y += 1) {
     const srcY = Math.min(srcHeight - 1, Math.floor(y * scale));
     for (let x = 0; x < targetWidth; x += 1) {
@@ -56,9 +57,11 @@ export const decodePngBase64ToMonochrome = (
   const decoded = UPNG.decode(pngBytes);
   const [rgbaBuffer] = UPNG.toRGBA8(decoded);
   const rgba = new Uint8Array(rgbaBuffer);
+
   if (targetWidthPx && decoded.width !== targetWidthPx) {
     const resized = downscaleRgba(rgba, decoded.width, decoded.height, targetWidthPx);
     return rgbaToMonochromeBitmap(resized.data, resized.width, resized.height, threshold);
   }
+
   return rgbaToMonochromeBitmap(rgba, decoded.width, decoded.height, threshold);
 };

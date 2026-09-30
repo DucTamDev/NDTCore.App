@@ -1,11 +1,11 @@
 export const PrinterStatus = {
-  idle: 'idle',
-  connecting: 'connecting',
-  connected: 'connected',
-  disconnecting: 'disconnecting',
-  disconnected: 'disconnected',
-  reconnecting: 'reconnecting',
-  error: 'error',
+  Idle: 'Idle',
+  Connecting: 'Connecting',
+  Connected: 'Connected',
+  Disconnecting: 'Disconnecting',
+  Disconnected: 'Disconnected',
+  Reconnecting: 'Reconnecting',
+  Error: 'Error',
 } as const;
 
 export type PrinterStatus = (typeof PrinterStatus)[keyof typeof PrinterStatus];

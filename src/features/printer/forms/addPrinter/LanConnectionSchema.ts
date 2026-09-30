@@ -3,7 +3,10 @@ import { z } from 'zod';
 const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 
 const isValidIpv4 = (value: string): boolean => {
-  if (!ipv4Regex.test(value)) return false;
+  if (!ipv4Regex.test(value)) {
+    return false;
+  }
+
   return value.split('.').every((segment) => Number(segment) >= 0 && Number(segment) <= 255);
 };
 

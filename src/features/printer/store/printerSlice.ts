@@ -21,8 +21,12 @@ const printerSlice = createSlice({
     },
     printerUpserted(state, action: PayloadAction<Printer>) {
       const index = state.printers.findIndex((p) => p.id === action.payload.id);
-      if (index === -1) state.printers.push(action.payload);
-      else state.printers[index] = action.payload;
+
+      if (index === -1) {
+        state.printers.push(action.payload);
+      } else {
+        state.printers[index] = action.payload;
+      }
     },
     printerRemoved(state, action: PayloadAction<string>) {
       state.printers = state.printers.filter((p) => p.id !== action.payload);
@@ -32,7 +36,10 @@ const printerSlice = createSlice({
     },
     printerEnabledChanged(state, action: PayloadAction<{ printerId: string; enabled: boolean }>) {
       const printer = state.printers.find((p) => p.id === action.payload.printerId);
-      if (printer) printer.enabled = action.payload.enabled;
+
+      if (printer) {
+        printer.enabled = action.payload.enabled;
+      }
     },
   },
 });
@@ -51,6 +58,6 @@ interface StateWithPrinter {
 
 export const selectPrinters = (state: StateWithPrinter): Printer[] => state.printer.printers;
 export const selectPrinterStatus = (state: StateWithPrinter, printerId: string): PrinterStatus =>
-  state.printer.statusById[printerId] ?? PrinterStatus.idle;
+  state.printer.statusById[printerId] ?? PrinterStatus.Idle;
 
 export default printerSlice.reducer;

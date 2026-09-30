@@ -37,9 +37,9 @@ describe('printerSlice', () => {
   });
 
   it('printerStatusChanged updates statusById for that printer only', () => {
-    const state = printerReducer(undefined, printerStatusChanged({ printerId: 'p1', status: PrinterStatus.connected }));
-    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe(PrinterStatus.connected);
-    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe(PrinterStatus.idle);
+    const state = printerReducer(undefined, printerStatusChanged({ printerId: 'p1', status: PrinterStatus.Connected }));
+    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe(PrinterStatus.Connected);
+    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe(PrinterStatus.Idle);
   });
 
   it('printerEnabledChanged updates enabled for that printer only', () => {

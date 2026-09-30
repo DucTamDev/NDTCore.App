@@ -1,13 +1,14 @@
-import type { ConnectionType, PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
+import { PrinterConnectionType } from '../models/printer/PrinterConnection';
+import type { PrinterDevice } from '../models/printer/PrinterDevice';
 import type { Printer } from '../models/printer/Printer';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 /**
  * Mục tiêu kết nối 1 máy in — phẳng theo `connectionType`, driver dựng từ
  * `Printer` (xem `toConnectTarget`). Adapter chỉ đọc field khớp `connectionType`.
  */
 export interface PrinterConnectTarget {
-  connectionType: ConnectionType;
+  printerId: string;
+  connectionType: PrinterConnectionType;
   lan?: { ip: string; port: number };
   bluetooth?: { deviceId: string };
   usb?: { vendorId: number; productId: number };
@@ -15,7 +16,6 @@ export interface PrinterConnectTarget {
 
 /** Tuỳ chọn khi để adapter tự encode ESC/POS (`printText`). */
 export interface PrinterPrintTextOptions {
-  keepConnection: boolean;
   cut: boolean;
   tailingLine: boolean;
   encoding: 'UTF8';
@@ -24,7 +24,7 @@ export interface PrinterPrintTextOptions {
 /**
  * Contract chung cho MỌI cách feature máy in giao tiếp ra ngoài, phân theo
  * nguồn cơ chế:
- * - `native`  — native module tự viết (`PrinterNativeModule` → `RN*Printer`)
+ * - `native`  — native module tự viết (`PrinterNativeModule` → `ThermalPrinterModule`)
  * - `library` — thư viện npm (`react-native-tcp-socket` / `-bluetooth-classic`)
  * - `vendor`  — SDK do hãng máy in cung cấp
  *
@@ -42,7 +42,7 @@ export interface IPrinterAdapter {
   readonly canRead: boolean;
 
   /** Liệt kê thiết bị cho 1 connectionType — `[]` nếu adapter không quét loại đó. */
-  listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]>;
+  listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]>;
 
   /** Mở kết nối. Idempotent phần init tầng dưới. */
   connect(target: PrinterConnectTarget): Promise<void>;
@@ -61,19 +61,20 @@ export interface IPrinterAdapter {
 }
 
 /**
- * Dựng `PrinterConnectTarget` từ `Printer` — ném `VALIDATION_ERROR` nếu thiếu
- * cấu hình cho `connectionType` tương ứng.
+ * Dựng `PrinterConnectTarget` từ `Printer` — `printer.connection` là
+ * discriminated union nên không còn trạng thái thiếu cấu hình để validate ở
+ * đây (khác bản cũ dùng field optional dùng chung).
  */
 export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
-  if (printer.connection.type === 'lan') {
-    if (!printer.connection.lan) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu cấu hình IP/Port' });
-    return { connectionType: printer.connection.type, lan: { ip: printer.connection.lan.ip, port: printer.connection.lan.port } };
+  const { connection } = printer;
+
+  if (connection.type === PrinterConnectionType.Lan) {
+    return { printerId: printer.id, connectionType: connection.type, lan: { ip: connection.host, port: connection.port } };
   }
-  if (printer.connection.type === 'bluetooth') {
-    if (!printer.connection.device) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Chưa chọn thiết bị Bluetooth' });
-    return { connectionType: printer.connection.type, bluetooth: { deviceId: printer.connection.device.deviceId } };
+
+  if (connection.type === PrinterConnectionType.Bluetooth) {
+    return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
   }
-  const raw = printer.connection.device?.rawDevice as unknown as UsbRawDevice | undefined;
-  if (!raw) throw new PrinterErrorException({ code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thiếu thông tin thiết bị USB' });
-  return { connectionType: printer.connection.type, usb: { vendorId: Number(raw.vendor_id), productId: Number(raw.product_id) } };
+
+  return { printerId: printer.id, connectionType: connection.type, usb: { vendorId: connection.vendorId, productId: connection.productId } };
 };

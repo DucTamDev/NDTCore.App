@@ -42,5 +42,5 @@ export default class BufferHelper {
    * Nối rồi encode ra chuỗi. / Concatenate then encode to string.
    * @param encoding Kiểu encode (vd `'base64'`). / Encoding (e.g. `'base64'`).
    */
-  toString = (encoding?: string): string => this.toBuffer().toString(encoding);
+  toString = (encoding?: BufferEncoding): string => this.toBuffer().toString(encoding);
 }

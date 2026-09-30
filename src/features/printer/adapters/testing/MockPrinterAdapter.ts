@@ -3,17 +3,12 @@
  * test tự viết lại `jest.fn()` boilerplate cho từng adapter. KHÔNG dùng cho
  * production code (chỉ import được từ file test, phụ thuộc global `jest`).
  */
-export const createMockUsbPrinterNativeBridge = () => ({
-  ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
-  printRawDataUsb: jest.fn().mockResolvedValue(undefined),
+export const createMockThermalPrinterModule = () => ({
+  discoverPrinters: jest.fn().mockResolvedValue([]),
+  connect: jest.fn().mockResolvedValue('mock-identity'),
+  disconnect: jest.fn().mockResolvedValue(undefined),
+  writeByBase64: jest.fn().mockResolvedValue('ok'),
 });
 
-export const createMockThermalPrinterAdapter = () => ({
-  namespaceFor: jest.fn().mockReturnValue({
-    init: jest.fn().mockResolvedValue(undefined),
-    getDeviceList: jest.fn().mockResolvedValue([]),
-    connectPrinter: jest.fn().mockResolvedValue({ device_name: 'Mock' }),
-    closeConn: jest.fn().mockResolvedValue(undefined),
-  }),
-  printTextAsync: jest.fn().mockResolvedValue(undefined),
-});
+/** Mock của subscribeConnectionLost — trả về unsubscribe rỗng, không tự bắn event nào. */
+export const createMockSubscribeConnectionLost = () => jest.fn().mockReturnValue(() => undefined);

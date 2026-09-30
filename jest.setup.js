@@ -72,48 +72,85 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
 
-// Lớp JS của native module RN*Printer (adapters/native/PrinterNativeModule)
-// gọi thẳng NativeModules.RN*Printer ở tầng namespace, nên bất kỳ test nào
-// transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
-// đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
-// UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
-jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => {
-  const namespace = () => ({
-    init: jest.fn().mockResolvedValue(undefined),
-    getDeviceList: jest.fn().mockResolvedValue([]),
-    connectPrinter: jest.fn().mockResolvedValue(undefined),
-    closeConn: jest.fn().mockResolvedValue(undefined),
-    printText: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
-    printBill: jest.fn().mockImplementation((_text, _opts, cbSuccess) => cbSuccess?.('ok')),
-    printImageBase64: jest.fn().mockImplementation((_data, _opts, cbSuccess) => cbSuccess?.('ok')),
-  });
-  const USBPrinter = namespace();
-  const BLEPrinter = namespace();
-  const NetPrinter = namespace();
-  const namespaces = { usb: USBPrinter, bluetooth: BLEPrinter, lan: NetPrinter };
+// @shopify/react-native-skia touches native bindings at import time.
+// renderDocumentToBitmap.ts (and anything importing it, e.g. OrderPrintTrigger.ts)
+// needs this mocked globally, same reasoning as react-native-view-shot above.
+// The mock canvas RECORDS every draw call (`ops` array) instead of trying to
+// render real pixels — dedicated tests assert against `ops`, matching this
+// project's existing convention of testing "did we call the native API
+// correctly" rather than "is the native output visually correct" (see
+// renderDocumentToBitmap.test.ts for the fine-grained per-test override of
+// this same mock).
+jest.mock('@shopify/react-native-skia', () => {
+  const makeRecordingCanvas = () => {
+    const ops = [];
+    return {
+      ops,
+      clear: (...args) => ops.push({ op: 'clear', args }),
+      drawText: (...args) => ops.push({ op: 'drawText', args }),
+      drawLine: (...args) => ops.push({ op: 'drawLine', args }),
+      drawRect: (...args) => ops.push({ op: 'drawRect', args }),
+      drawImage: (...args) => ops.push({ op: 'drawImage', args }),
+    };
+  };
+
   return {
-    USBPrinter,
-    BLEPrinter,
-    NetPrinter,
-    ThermalPrinterAdapter: {
-      namespaceFor: (connectionType) => namespaces[connectionType],
-      printTextAsync: jest.fn().mockResolvedValue(undefined),
+    __esModule: true,
+    Skia: {
+      Surface: {
+        MakeOffscreen: jest.fn((width, height) => {
+          const canvas = makeRecordingCanvas();
+          return {
+            width: () => width,
+            height: () => height,
+            getCanvas: () => canvas,
+            makeImageSnapshot: () => ({
+              encodeToBytes: jest.fn(() => new Uint8Array([1, 2, 3])),
+            }),
+          };
+        }),
+      },
+      Color: jest.fn((value) => value),
+      Paint: jest.fn(() => ({ setColor: jest.fn(), setStrokeWidth: jest.fn() })),
+      FontMgr: { System: jest.fn(() => ({ matchFamilyStyle: jest.fn(() => null) })) },
+      // Ghi lại `size` truyền vào thay vì hardcode — renderDocumentToBitmap.test.ts
+      // cần assert đúng cỡ chữ (24 = LINE_HEIGHT_DOTS) được truyền cho Skia.Font.
+      Font: jest.fn((_typeface, size) => ({ measureText: jest.fn(() => ({ width: 0 })), getSize: jest.fn(() => size ?? 24) })),
     },
-    ensureUsbInitialized: jest.fn().mockResolvedValue(undefined),
-    ensureNativeInitialized: jest.fn().mockResolvedValue(undefined),
-    printRawDataUsb: jest.fn().mockResolvedValue(undefined),
-    printRawDataBluetooth: jest.fn().mockResolvedValue(undefined),
-    printRawDataLan: jest.fn().mockResolvedValue(undefined),
+    ImageFormat: { PNG: 'png' },
   };
 });
 
-// PrinterNativeModule.test.ts dùng requireActual để test bản THẬT (ensureUsbInitialized,
-// namespace) — cần NativeModules.RNUSBPrinter tồn tại vì RN jest preset không có.
+// qrcode does synchronous QR-matrix math with no native dependency — mocked
+// here only for deterministic, fast tests (drawQrCode.test.ts overrides
+// locally with a tiny real matrix when it needs to assert actual pixel
+// placement; other tests just need `create()` to not throw).
+jest.mock('qrcode', () => ({
+  create: jest.fn(() => ({ modules: { size: 1, data: new Uint8Array([1]) } })),
+}));
+
+// Lớp JS của native module RN*Printer (adapters/native/PrinterNativeModule)
+// gọi thẳng NativeModules.ThermalPrinterModule, nên bất kỳ test nào
+// transitively import EscPosDriver.ts / UsbTransport.ts — kể cả không chạy —
+// đều fail nếu không mock ở đây. Test cần kiểm soát chi tiết (EscPosDriver.test.ts,
+// UsbTransport.test.ts...) override bằng jest.mock() cục bộ, ưu tiên hơn.
+jest.mock('./src/features/printer/adapters/native/PrinterNativeModule', () => ({
+  ThermalPrinterModule: {
+    discoverPrinters: jest.fn().mockResolvedValue([]),
+    connect: jest.fn().mockResolvedValue('mock-identity'),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    writeByBase64: jest.fn().mockResolvedValue('Print SuccessFully'),
+  },
+  subscribeConnectionLost: jest.fn().mockReturnValue(() => undefined),
+}));
+
+// PrinterNativeModule.test.ts dùng requireActual để test bản THẬT — cần
+// NativeModules.ThermalPrinterModule tồn tại vì RN jest preset không có.
 {
   const { NativeModules } = require('react-native');
-  NativeModules.RNUSBPrinter = {
-    ...NativeModules.RNUSBPrinter,
-    init: jest.fn((cbSuccess) => cbSuccess?.()),
-    printRawData: jest.fn((_d, _k, cbSuccess) => cbSuccess?.('ok')),
+  NativeModules.ThermalPrinterModule = {
+    ...NativeModules.ThermalPrinterModule,
+    connect: jest.fn().mockResolvedValue('mock-identity'),
+    writeByBase64: jest.fn().mockResolvedValue('ok'),
   };
 }

@@ -5,7 +5,7 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../../store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { usePrinterList } from '../../printer/hooks/usePrinterList';
-import { PrinterConnectionService } from '../../printer/services/PrinterConnectionService';
+import { PrinterConnectionService } from '../../printer/connection/PrinterConnectionService';
 import { PrinterStatus } from '../../printer/models/printer/PrinterStatus';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';
@@ -27,7 +27,7 @@ export const ApplicationSidebar: React.FC<ApplicationSidebarProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { printers } = usePrinterList();
-  const hasConnectedPrinter = printers.some((p) => PrinterConnectionService.getStatus(p.id) === PrinterStatus.connected);
+  const hasConnectedPrinter = printers.some((p) => PrinterConnectionService.getStatus(p.id) === PrinterStatus.Connected);
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
   const [confirmChangeStoreVisible, setConfirmChangeStoreVisible] = useState(false);

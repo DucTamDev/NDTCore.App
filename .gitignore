@@ -82,3 +82,5 @@ packages/*/dist
 !.yarn/versions
 
 .superpowers/
+.worktrees/
+.claude/worktrees/

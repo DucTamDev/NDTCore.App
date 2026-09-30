@@ -1,10 +1,8 @@
-import type { PrintMedia } from '../../models/media/PrintMedia';
-import { CutterMode, PrintMediaType } from '../../models/media/PrintMedia';
-import { TsplCodepage } from '../../models/printer/PrinterDriver';
+import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
+import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
 import { PrintType } from '../../models/printing/PrintType';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
-import { encodeCp1258 } from '../../utils/cp1258';
-import { DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../media/paperSpec';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của
@@ -43,21 +41,6 @@ const encodeUtf8 = (text: string): number[] => {
 };
 
 /**
- * Cắt byte thấp của mỗi code unit — dùng cho codepage 1 byte/ký tự (vd
- * `1252` Latin-1 Tây Âu). Ký tự tiếng Việt có dấu nằm ngoài U+00FF sẽ ra byte
- * sai; đó là giới hạn CỦA codepage 1252, không phải bug — người dùng chọn
- * `1258` nếu cần tiếng Việt.
- */
-const encodeSingleByte = (text: string): number[] => {
-  const bytes: number[] = [];
-  for (let i = 0; i < text.length; i += 1) {
-    // eslint-disable-next-line no-bitwise -- intentional low-byte masking for a single-byte codepage
-    bytes.push(text.charCodeAt(i) & 0xff);
-  }
-  return bytes;
-};
-
-/**
  * Chiều cao khổ giấy mặc định khai báo trong `SIZE`/`GAP` khi in Tem
  * (`PrintType.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
  * (máy in đã lưu từ trước khi field này tồn tại). Với giấy tem rời có khe,
@@ -69,16 +52,7 @@ const encodeSingleByte = (text: string): number[] => {
  */
 export const DEFAULT_LABEL_HEIGHT_MM = 30;
 
-/**
- * Chiều cao "khai báo" cho `SIZE` khi in Hoá đơn (`PrintType.Receipt`) — giấy
- * cuộn liên tục không có khe vật lý thật nên không có khái niệm "khổ giấy"
- * cần khớp cảm biến như Tem; con số này chỉ là ngưỡng an toàn rộng rãi
- * (không phải giới hạn phần cứng thật) để tránh 1 document lỗi/vô hạn vòng
- * lặp tạo ra bitmap khổng lồ, KHÔNG nhằm giới hạn 1 hoá đơn bình thường.
- */
-export const CONTINUOUS_HEIGHT_MM = 200;
-
-export { DOTS_PER_MM };
+export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
 
 /**
  * Chiều cao khai báo cho `SIZE`:
@@ -89,9 +63,15 @@ export { DOTS_PER_MM };
  * Declared height for `SIZE`: die_cut → item height; continuous Label →
  * item height or the default; continuous Receipt → the wide safety ceiling.
  */
-export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): number => {
-  if (media.type === PrintMediaType.dieCut) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
-  if (printType === PrintType.Label) return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+export const resolveSizeHeightMm = (media: PrintPaperConfig, printType: PrintType): number => {
+  if (media.type === PrintPaperType.DieCut) {
+    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  }
+
+  if (printType === PrintType.Label) {
+    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+  }
+
   return CONTINUOUS_HEIGHT_MM;
 };
 
@@ -101,7 +81,7 @@ export const resolveSizeHeightMm = (media: PrintMedia, printType: PrintType): nu
  *
  * Centre-to-centre pitch between two die-cut columns, in dots.
  */
-export const columnPitchDots = (media: PrintMedia): number =>
+export const columnPitchDots = (media: PrintPaperConfig): number =>
   ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
 
 /**
@@ -110,8 +90,11 @@ export const columnPitchDots = (media: PrintMedia): number =>
  *
  * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
  */
-export const columnOffsets = (media: PrintMedia): number[] => {
-  if (media.type !== PrintMediaType.dieCut) return [0];
+export const columnOffsets = (media: PrintPaperConfig): number[] => {
+  if (media.type !== PrintPaperType.DieCut) {
+    return [0];
+  }
+
   const pitch = columnPitchDots(media);
   return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
 };
@@ -121,9 +104,9 @@ export const columnOffsets = (media: PrintMedia): number[] => {
  * die_cut ước lượng theo tỉ lệ `itemWidthMm` trên bề rộng in được; continuous
  * dùng cả khổ giấy.
  */
-export const contentWidthChars = (media: PrintMedia): number => {
+export const contentWidthChars = (media: PrintPaperConfig): number => {
   const spec = PAPER_SIZE_SPECS[media.paperSize];
-  if (media.type !== PrintMediaType.dieCut) {
+  if (media.type !== PrintPaperType.DieCut) {
     return spec.charsPerLine;
   }
 
@@ -142,13 +125,6 @@ export class TsplEncoder {
    */
   private bytes: number[] = [];
 
-  /**
-   * Codepage đang khai báo — set 1 lần ở `initialize()`, quyết định cách
-   * `text()` encode nội dung trong dấu `""`. Mặc định UTF-8 để giữ nguyên hành
-   * vi cũ (bitmap/truetype strategy không truyền tham số này).
-   */
-  private codepage: TsplCodepage = TsplCodepage.utf8;
-
   private pushLine(line: string): void {
     this.bytes.push(...encodeUtf8(`${line}\r\n`));
   }
@@ -165,10 +141,10 @@ export class TsplEncoder {
    * `SIZE`/`GAP` follow `media.type`: die_cut declares the full row width and
    * senses the vertical gap; continuous always emits `GAP 0,0`.
    */
-  initialize(media: PrintMedia, printType: PrintType = PrintType.Receipt, codepage: TsplCodepage = TsplCodepage.utf8): this {
-    this.codepage = codepage;
+  initialize(media: PrintPaperConfig, printType: PrintType = PrintType.Receipt): this {
     const heightMm = resolveSizeHeightMm(media, printType);
-    if (media.type === PrintMediaType.dieCut) {
+
+    if (media.type === PrintPaperType.DieCut) {
       const columns = media.columns ?? 1;
       const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
@@ -177,7 +153,8 @@ export class TsplEncoder {
       this.pushLine(`SIZE ${PAPER_SIZE_SPECS[media.paperSize].printableWidthMm} mm, ${heightMm} mm`);
       this.pushLine('GAP 0 mm, 0 mm');
     }
-    this.pushLine(`CODEPAGE ${codepage}`);
+
+    this.pushLine('CODEPAGE UTF-8');
     this.pushLine('CLS');
     return this;
   }
@@ -192,22 +169,15 @@ export class TsplEncoder {
    * khi nội dung cần hiển thị chính xác bất kể font máy in có gì.
    *
    * Tham số `fontName` cho phép ghi đè font mặc định — hữu ích khi cần font
-   * custom (vd font TrueType đã tải qua `DOWNLOAD`, hoặc font resident cho
-   * `renderMode: 'internalfont'`). Mặc định `'3'` để giữ lại hành vi hiện tại.
+   * custom (vd font resident khác trên máy in). Mặc định `'3'` để giữ lại
+   * hành vi hiện tại.
    *
-   * Nội dung trong dấu `""` được encode theo `this.codepage` (set ở
-   * `initialize()`): UTF-8 (mặc định) → `encodeUtf8`; `1258` → `encodeCp1258`
-   * (byte nền + byte thanh tổ hợp); còn lại → byte thấp 1 byte/ký tự. Phần
-   * cố định của lệnh luôn là ASCII.
+   * Nội dung trong dấu `""` luôn encode UTF-8 (`encodeUtf8`, đi cùng lệnh
+   * `CODEPAGE UTF-8` ở `initialize()`). Phần cố định của lệnh luôn là ASCII.
    */
   text(x: number, y: number, content: string, fontName: string = '3'): this {
     const escaped = content.replace(/"/g, '\\"');
-    if (this.codepage === TsplCodepage.utf8) {
-      this.pushLine(`TEXT ${x},${y},"${fontName}",0,1,1,"${escaped}"`);
-      return this;
-    }
-    const contentBytes = this.codepage === TsplCodepage.cp1258 ? encodeCp1258(escaped) : encodeSingleByte(escaped);
-    this.bytes.push(...encodeSingleByte(`TEXT ${x},${y},"${fontName}",0,1,1,"`), ...contentBytes, ...encodeSingleByte('"\r\n'));
+    this.pushLine(`TEXT ${x},${y},"${fontName}",0,1,1,"${escaped}"`);
     return this;
   }
 
@@ -244,8 +214,11 @@ export class TsplEncoder {
     // byte, spread từng đó phần tử làm argument cho `push()` vừa chậm vừa có
     // thể vượt giới hạn số argument của JS engine (Hermes). Vòng lặp thường
     // luôn an toàn và tuyến tính bất kể kích thước mảng.
-    // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
-    for (let i = 0; i < bitmap.bits.length; i += 1) this.bytes.push(bitmap.bits[i] ^ 0xff);
+    for (let i = 0; i < bitmap.bits.length; i += 1) {
+      // eslint-disable-next-line no-bitwise -- intentional bit inversion, see doc comment above
+      this.bytes.push(bitmap.bits[i] ^ 0xff);
+    }
+
     this.bytes.push(...encodeUtf8('\r\n'));
     return this;
   }
@@ -264,9 +237,17 @@ export class TsplEncoder {
    * `SET CUTTER` (or `SET CUTTER OFF` for `none`) then `PRINT rows,1`.
    */
   cut(rows: number, mode: CutterMode): this {
-    if (mode === CutterMode.none) this.pushLine('SET CUTTER OFF');
-    else if (mode === CutterMode.perRow) this.pushLine('SET CUTTER 1');
-    else this.pushLine(`SET CUTTER ${rows}`);
+    switch (mode) {
+      case CutterMode.None:
+        this.pushLine('SET CUTTER OFF');
+        break;
+      case CutterMode.PerRow:
+        this.pushLine('SET CUTTER 1');
+        break;
+      default:
+        this.pushLine(`SET CUTTER ${rows}`);
+    }
+
     this.pushLine(`PRINT ${rows},1`);
     return this;
   }

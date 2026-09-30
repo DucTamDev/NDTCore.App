@@ -3,11 +3,11 @@ import type { PrintDocuments } from '../../drivers/IPrinterDriver';
 import type { PrintType } from './PrintType';
 
 export const PrintJobStatus = {
-  pending: 'pending',
-  printing: 'printing',
-  success: 'success',
-  failed: 'failed',
-  cancelled: 'cancelled',
+  Pending: 'Pending',
+  Printing: 'Printing',
+  Success: 'Success',
+  Failed: 'Failed',
+  Cancelled: 'Cancelled',
 } as const;
 
 export type PrintJobStatus = (typeof PrintJobStatus)[keyof typeof PrintJobStatus];
@@ -29,10 +29,10 @@ export interface PrintJob {
 }
 
 export const PrintResultStatus = {
-  success: 'success',
-  partialFailure: 'partial-failure',
-  failed: 'failed',
-  noAvailablePrinter: 'no-available-printer',
+  Success: 'Success',
+  PartialFailure: 'PartialFailure',
+  Failed: 'Failed',
+  NoAvailablePrinter: 'NoAvailablePrinter',
 } as const;
 
 export type PrintResultStatus = (typeof PrintResultStatus)[keyof typeof PrintResultStatus];
