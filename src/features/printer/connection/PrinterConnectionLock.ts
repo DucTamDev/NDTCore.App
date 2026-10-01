@@ -12,19 +12,12 @@ export interface ConnectionResourceKeyInput {
 }
 
 /**
- * Resource key phải phản ánh đúng RANH GIỚI CONCURRENCY THẬT của lớp bên
- * dưới, không phải định danh vật lý của printer (spec §9, invariant #14):
+ * Khoá lệnh in: mỗi key chỉ chạy một lệnh in tại một thời điểm, vì một lệnh in gồm nhiều lần gọi native mà native
+ * chỉ giữ đúng thứ tự từng lần gọi, không giữ trọn vẹn cả lệnh in.
  *
- * - USB: `ThermalPrinterModule` là native module singleton dùng chung giữa CẢ 2
- *   driver — 1 key toàn cục `"usb"` bất kể protocol.
- * - ESC/POS qua Bluetooth/LAN: native module `ThermalPrinterModule` (qua
- *   `adapters/native/PrinterNativeModule`) giữ đúng 1 kết nối / namespace,
- *   singleton TOÀN CỤC theo connectionType — KHÔNG theo
- *   device. Thu hẹp xuống per-device sẽ tái tạo lại bug multi-printer đã
- *   fix trước đây (2 job tưởng độc lập nhưng cướp kết nối lẫn nhau).
- * - TSPL qua Bluetooth/LAN: `TsplDriver` tự quản lý transport riêng theo
- *   printerId (không qua thư viện singleton) — an toàn để thu hẹp xuống
- *   per-connection, cho phép 2 máy TSPL khác nhau in song song thật.
+ * Key hiện thô hơn mức cần: USB dùng chung `"usb"`, ESC/POS Bluetooth/LAN dùng chung theo loại kết nối, nên hai máy
+ * khác nhau cùng loại in lần lượt thay vì song song — vẫn an toàn. TSPL Bluetooth/LAN đi qua transport thư viện riêng
+ * từng máy nên đã khoá theo từng kết nối.
  */
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
   const { connection, driverType } = input;

@@ -12,7 +12,7 @@ import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
-import { subscribeConnectionLost } from '../../adapters/native/PrinterNativeModule';
+import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
 import type { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionService';
@@ -42,12 +42,12 @@ export class TsplDriver implements IPrinterDriver {
   private contexts = new Map<string, Printer>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
-  private identities = new Map<string, string>();
+  private connectionIds = new Map<string, string>();
 
   constructor() {
-    subscribeConnectionLost((identity) => {
-      for (const [printerId, knownIdentity] of this.identities) {
-        if (knownIdentity === identity) {
+    subscribeDeviceDisconnected((event) => {
+      for (const [printerId, connectionId] of this.connectionIds) {
+        if (connectionId === event.connectionId) {
           this.setStatus(printerId, PrinterStatus.Disconnected);
         }
       }
@@ -121,6 +121,20 @@ export class TsplDriver implements IPrinterDriver {
     };
   }
 
+  /** Trả kết nối của adapter cũ cùng máy in; lỗi khi đóng không được làm hỏng lần kết nối mới nên chỉ ghi log. */
+  private async releaseReplacedAdapter(printerId: string, adapter: IPrinterAdapter | undefined): Promise<void> {
+    // Adapter thư viện (BLE/LAN) dùng chung socket theo địa chỉ nên ngắt adapter cũ sẽ ngắt cả kết nối mới.
+    if (adapter?.source !== 'native') {
+      return;
+    }
+
+    try {
+      await adapter.disconnect();
+    } catch (error) {
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error) });
+    }
+  }
+
   async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
@@ -137,16 +151,19 @@ export class TsplDriver implements IPrinterDriver {
       const adapter = resolvePrinterAdapter(PrinterDriverType.Tspl, printer.connection.type);
       await adapter.connect(toConnectTarget(printer));
 
+      const replacedAdapter = this.connections.get(printer.id);
       this.connections.set(printer.id, adapter);
       this.contexts.set(printer.id, printer);
 
       if (adapter.source === 'native') {
-        const identity = (adapter as NativeAdapter).getConnectionIdentity();
+        const connectionId = (adapter as NativeAdapter).getConnectionId();
 
-        if (identity) {
-          this.identities.set(printer.id, identity);
+        if (connectionId) {
+          this.connectionIds.set(printer.id, connectionId);
         }
       }
+
+      await this.releaseReplacedAdapter(printer.id, replacedAdapter);
 
       this.setStatus(printer.id, PrinterStatus.Connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
@@ -169,7 +186,7 @@ export class TsplDriver implements IPrinterDriver {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
-      this.identities.delete(printerId);
+      this.connectionIds.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);

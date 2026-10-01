@@ -12,8 +12,8 @@ export interface PrinterDevice {
 }
 
 /**
- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === PrinterConnectionType.Usb` — khớp
- * `PrinterInfoDto` từ native (`vendorId`/`productId` luôn có; `serialNumber`
+ * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === PrinterConnectionType.Usb` — dựng từ
+ * `NativeUsbDeviceInfo` (`vendorId`/`productId` luôn có; `serialNumber`
  * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
  */
 export interface UsbRawDevice {
@@ -22,6 +22,8 @@ export interface UsbRawDevice {
   manufacturerName?: string | null;
   productName?: string | null;
   serialNumber?: string | null;
+  /** Đường dẫn thiết bị trong lần cắm hiện tại (vd `/dev/bus/usb/001/004`); không lưu. */
+  devicePath?: string | null;
 }
 
 /** Kết quả `IPrinterDriver.identify()` sau khi connect — chỉ để hiển thị xác nhận, không dùng để lưu. */

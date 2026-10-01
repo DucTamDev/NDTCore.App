@@ -1,11 +1,20 @@
-import { createMockThermalPrinterModule } from '../MockPrinterAdapter';
+import { createMockDeviceModule, createMockSubscribeDeviceDisconnected } from '../MockPrinterAdapter';
 
 describe('MockPrinterAdapter', () => {
-  it('createMockThermalPrinterModule trả stub cho toàn bộ method của ThermalPrinterModule', async () => {
-    const mock = createMockThermalPrinterModule();
-    await expect(mock.discoverPrinters('usb' as never)).resolves.toEqual([]);
-    await expect(mock.connect({} as never)).resolves.toBe('mock-identity');
-    await expect(mock.disconnect('p1')).resolves.toBeUndefined();
-    await expect(mock.writeByBase64('p1', 'QUI=')).resolves.toBe('ok');
+  it('createMockDeviceModule trả stub cho toàn bộ hàm của DeviceModule', async () => {
+    const mock = createMockDeviceModule();
+    await expect(mock.discover('usb')).resolves.toEqual([]);
+    await expect(mock.connect({ type: 'lan', host: '10.0.0.1', port: 9100 })).resolves.toEqual({
+      connectionId: 'mock-connection',
+      serialNumber: null,
+    });
+    await expect(mock.write('mock-connection', 'QUI=', 1000)).resolves.toBeUndefined();
+    await expect(mock.read('mock-connection', 16, 1000)).resolves.toBeNull();
+    await expect(mock.disconnect('mock-connection')).resolves.toBeUndefined();
+  });
+
+  it('createMockSubscribeDeviceDisconnected trả hàm huỷ đăng ký', () => {
+    const subscribe = createMockSubscribeDeviceDisconnected();
+    expect(typeof subscribe(jest.fn())).toBe('function');
   });
 });

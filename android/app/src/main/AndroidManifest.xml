@@ -7,8 +7,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Máy in nhiệt qua USB (com.ndtcorepos.thermalprinter) — trước do
-         AndroidManifest của @poriyaalar merge vào lúc autolink. -->
+    <!-- Kết nối thiết bị qua USB (com.ndtcorepos.device); không bắt buộc để app vẫn cài được trên máy không có USB host. -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <application

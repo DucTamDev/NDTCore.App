@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../discovery/NetworkInfoService';
 import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection, resolveIdentityKey } from '../../discovery/PrinterResolver';
-import { ThermalPrinterModule } from '../../adapters/native/PrinterNativeModule';
+import { DeviceModule } from '../../adapters/native/DeviceModule';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
@@ -100,9 +100,9 @@ export const useConnectionSetup = ({
   }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
 
   /**
-   * `UsbDevice.serialNumber` chỉ đọc được sau khi user cấp quyền USB (bấm "Kết
-   * nối") — lúc scan trả `null`. Gọi lại enumerate sau khi connect thành công
-   * để identityKey pin thêm serial (`usb:<vid>:<pid>:<serial>`) thay vì chỉ `vid:pid`.
+   * Serial USB chỉ đọc được sau khi người dùng cấp quyền (bấm "Kết nối") — lúc quét trả `null`. Quét lại sau khi
+   * kết nối thành công và khớp đúng máy theo đường dẫn thiết bị để identityKey có serial
+   * (`usb:<vid>:<pid>:<serial>`); khớp theo vendorId/productId sẽ lấy nhầm khi có 2 máy cùng model.
    */
   const refreshUsbSerial = async (): Promise<void> => {
     if (connectionType !== PrinterConnectionType.Usb || !selectedDevice) {
@@ -111,18 +111,19 @@ export const useConnectionSetup = ({
 
     const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
 
-    if (raw.serialNumber) {
+    if (raw.serialNumber || !raw.devicePath) {
       return;
     }
 
-    const devices = await ThermalPrinterModule.discoverPrinters(PrinterConnectionType.Usb).catch(() => []);
-    const rich = devices.find((d) => d.vendorId === Number(raw.vendorId) && d.productId === Number(raw.productId));
+    const devices = await DeviceModule.discover('usb').catch(() => []);
+    const match = devices.find((device) => device.type === 'usb' && device.address.devicePath === raw.devicePath);
+    const serialNumber = match?.type === 'usb' ? match.address.serialNumber : null;
 
-    if (!rich?.serialNumber) {
+    if (!serialNumber) {
       return;
     }
 
-    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber: rich.serialNumber } } : prev));
+    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber } } : prev));
   };
 
   const resetIfDirty = (): void => {

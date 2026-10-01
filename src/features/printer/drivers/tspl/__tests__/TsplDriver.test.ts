@@ -50,13 +50,6 @@ jest.mock('../../../transports/BluetoothTransport', () => ({
     close: jest.fn().mockResolvedValue(undefined),
   })),
 }));
-jest.mock('../../../transports/UsbTransport', () => ({
-  UsbTransport: jest.fn().mockImplementation(() => ({
-    connect: jest.fn().mockResolvedValue('mock-identity'),
-    write: jest.fn().mockResolvedValue(undefined),
-    close: jest.fn().mockResolvedValue(undefined),
-  })),
-}));
 jest.mock('../../../permissions/PrinterPermissionService', () => ({
   ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
 }));
@@ -167,14 +160,10 @@ describe('TsplDriver', () => {
     ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED });
   });
 
-  it('connect() over USB rejects and sets status error when UsbTransport.connect() fails', async () => {
+  it('connect() over USB rejects and sets status error when native connect fails', async () => {
     const driver = new TsplDriver();
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    UsbTransport.mockImplementationOnce(() => ({
-      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
-      write: jest.fn().mockResolvedValue(undefined),
-      close: jest.fn().mockResolvedValue(undefined),
-    }));
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock } };
+    DeviceModule.connect.mockRejectedValueOnce(new Error('usb connect failed'));
     await expect(driver.connect(usbLabelPrinter)).rejects.toThrow();
     expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Error);
   });
@@ -182,9 +171,8 @@ describe('TsplDriver', () => {
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbLabelPrinter);
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { connect: jest.Mock };
-    expect(instance.connect).toHaveBeenCalledWith(usbLabelPrinter.id, 1155, 22222);
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock } };
+    expect(DeviceModule.connect).toHaveBeenCalledWith({ type: 'usb', vendorId: 1155, productId: 22222, serialNumber: null, devicePath: null });
   });
 
   it('connect() over USB reads vendorId/productId from the scanned rawDevice as numbers and transitions to connected', async () => {
@@ -193,13 +181,43 @@ describe('TsplDriver', () => {
     expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
-  it('testPrint() over USB writes through UsbTransport', async () => {
+  it('connect() lại cùng máy in USB trả kết nối của lần connect trước đúng một lần', async () => {
+    const driver = new TsplDriver();
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock; disconnect: jest.Mock } };
+    DeviceModule.disconnect.mockClear();
+    DeviceModule.connect
+      .mockResolvedValueOnce({ connectionId: 'usb-first', serialNumber: null })
+      .mockResolvedValueOnce({ connectionId: 'usb-second', serialNumber: null });
+
+    await driver.connect(usbLabelPrinter);
+    await driver.connect(usbLabelPrinter);
+
+    expect(DeviceModule.disconnect).toHaveBeenCalledTimes(1);
+    expect(DeviceModule.disconnect).toHaveBeenCalledWith('usb-first');
+  });
+
+  it('connect() lại: lỗi khi trả kết nối cũ chỉ ghi log, không làm hỏng lần connect mới', async () => {
+    const driver = new TsplDriver();
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock; disconnect: jest.Mock } };
+    DeviceModule.connect
+      .mockResolvedValueOnce({ connectionId: 'usb-first', serialNumber: null })
+      .mockResolvedValueOnce({ connectionId: 'usb-second', serialNumber: null });
+    DeviceModule.disconnect.mockRejectedValueOnce({ code: 'IO_ERROR', message: 'release failed' });
+
+    await driver.connect(usbLabelPrinter);
+    await expect(driver.connect(usbLabelPrinter)).resolves.toBeUndefined();
+
+    expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Connected);
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as { PrinterLogger: { disconnectFailed: jest.Mock } };
+    expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: usbLabelPrinter.id }));
+  });
+
+  it('testPrint() over USB writes through DeviceModule', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbReceiptPrinter);
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { write: jest.Mock };
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
     await driver.testPrint(usbReceiptPrinter, sampleDocuments);
-    expect(instance.write).toHaveBeenCalled();
+    expect(DeviceModule.write).toHaveBeenCalled();
   });
 
   it('testPrint() with options.rows emits PRINT rows,1 and SET CUTTER rows (continuous default per_job)', async () => {
@@ -249,13 +267,12 @@ describe('TsplDriver', () => {
     expect(ascii).toContain('TEXT 0,0,"3",0,1,1,"hi"');
   });
 
-  it('print() over USB writes through UsbTransport', async () => {
+  it('print() over USB writes through DeviceModule', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbReceiptPrinter);
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    const instance = UsbTransport.mock.results[UsbTransport.mock.results.length - 1].value as { write: jest.Mock };
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
     await driver.print(usbReceiptPrinter.id, sampleDocuments);
-    expect(instance.write).toHaveBeenCalled();
+    expect(DeviceModule.write).toHaveBeenCalled();
   });
 
   it('identify() over USB returns null (no readOnce capability)', async () => {
@@ -413,12 +430,8 @@ describe('TsplDriver', () => {
 
   it('connect() logs connectFailed on failure', async () => {
     const driver = new TsplDriver();
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    UsbTransport.mockImplementationOnce(() => ({
-      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
-      write: jest.fn().mockResolvedValue(undefined),
-      close: jest.fn().mockResolvedValue(undefined),
-    }));
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock } };
+    DeviceModule.connect.mockRejectedValueOnce(new Error('usb connect failed'));
     await expect(driver.connect(usbLabelPrinter)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { connectFailed: jest.Mock };
@@ -452,12 +465,8 @@ describe('TsplDriver', () => {
 
   it('testPrint() logs testPrintFailed (not just a bare connect failure) when the implicit reconnect fails', async () => {
     const driver = new TsplDriver();
-    const { UsbTransport } = jest.requireMock('../../../transports/UsbTransport') as { UsbTransport: jest.Mock };
-    UsbTransport.mockImplementationOnce(() => ({
-      connect: jest.fn().mockRejectedValue(new Error('usb connect failed')),
-      write: jest.fn().mockResolvedValue(undefined),
-      close: jest.fn().mockResolvedValue(undefined),
-    }));
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock } };
+    DeviceModule.connect.mockRejectedValueOnce(new Error('usb connect failed'));
     await expect(driver.testPrint(usbLabelPrinter, sampleDocuments)).rejects.toThrow();
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { testPrintFailed: jest.Mock };
@@ -507,8 +516,8 @@ describe('TsplDriver', () => {
 
 describe('TsplDriver — connection lost event', () => {
   it('USB (NativeAdapter): cập nhật status Disconnected khi identity khớp', async () => {
-    const { subscribeConnectionLost } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
-      subscribeConnectionLost: jest.Mock;
+    const { subscribeDeviceDisconnected } = jest.requireMock('../../../adapters/native/DeviceModule') as {
+      subscribeDeviceDisconnected: jest.Mock;
     };
 
     const driver = new TsplDriver();
@@ -517,15 +526,15 @@ describe('TsplDriver — connection lost event', () => {
     const statuses: PrinterStatus[] = [];
     driver.onStatusChange(usbLabelPrinter.id, (status) => statuses.push(status));
 
-    const onConnectionLost = subscribeConnectionLost.mock.calls[subscribeConnectionLost.mock.calls.length - 1][0] as (identity: string) => void;
-    onConnectionLost('mock-identity');
+    const onConnectionLost = subscribeDeviceDisconnected.mock.calls[subscribeDeviceDisconnected.mock.calls.length - 1][0] as (event: { connectionId: string; reason: string }) => void;
+    onConnectionLost({ connectionId: 'mock-connection', reason: 'usb_detached' });
 
     expect(statuses).toEqual([PrinterStatus.Disconnected]);
   });
 
-  it('Bluetooth (LibraryAdapter): không có identity nên subscribeConnectionLost không ảnh hưởng', async () => {
-    const { subscribeConnectionLost } = jest.requireMock('../../../adapters/native/PrinterNativeModule') as {
-      subscribeConnectionLost: jest.Mock;
+  it('Bluetooth (LibraryAdapter): không có identity nên subscribeDeviceDisconnected không ảnh hưởng', async () => {
+    const { subscribeDeviceDisconnected } = jest.requireMock('../../../adapters/native/DeviceModule') as {
+      subscribeDeviceDisconnected: jest.Mock;
     };
 
     const driver = new TsplDriver();
@@ -534,8 +543,8 @@ describe('TsplDriver — connection lost event', () => {
     const statuses: PrinterStatus[] = [];
     driver.onStatusChange(bluetoothLabelPrinter.id, (status) => statuses.push(status));
 
-    const onConnectionLost = subscribeConnectionLost.mock.calls[subscribeConnectionLost.mock.calls.length - 1][0] as (identity: string) => void;
-    onConnectionLost('mock-identity'); // arbitrary — LibraryAdapter connections never populate `identities`, so this must always be a no-op
+    const onConnectionLost = subscribeDeviceDisconnected.mock.calls[subscribeDeviceDisconnected.mock.calls.length - 1][0] as (event: { connectionId: string; reason: string }) => void;
+    onConnectionLost({ connectionId: 'mock-connection', reason: 'usb_detached' }); // arbitrary — LibraryAdapter connections never populate `identities`, so this must always be a no-op
 
     expect(statuses).toEqual([]);
   });

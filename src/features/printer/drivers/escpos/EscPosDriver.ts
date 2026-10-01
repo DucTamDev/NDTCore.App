@@ -12,7 +12,7 @@ import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionSe
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
-import { subscribeConnectionLost } from '../../adapters/native/PrinterNativeModule';
+import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
@@ -23,10 +23,8 @@ import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../paper
 const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 
 /**
- * ESC/POS đi qua `NativeAdapter` (`IPrinterAdapter`) — native module RN*Printer
- * gộp connect+encode+write theo namespace/connectionType (spec §2.3, ngoại lệ
- * pragmatic: KHÔNG dùng `read`, `printText` encode ở JS `EPToolkit`). Native là
- * singleton per connectionType → `activeByType` giữ đúng 1 owner/loại.
+ * ESC/POS đi qua `NativeAdapter`; text được encode ở JS (`EPToolkit`) rồi ghi byte thô.
+ * Mỗi loại kết nối chỉ giữ một máy in ESC/POS đang kết nối (`activeByType`); máy mất quyền thì trả kết nối ngay.
  */
 export class EscPosDriver implements IPrinterDriver {
   private adapters = new Map<string, NativeAdapter>();
@@ -35,12 +33,12 @@ export class EscPosDriver implements IPrinterDriver {
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private contexts = new Map<string, Printer>();
   private activeByType = new Map<PrinterConnectionType, string>();
-  private identities = new Map<string, string>();
+  private connectionIds = new Map<string, string>();
 
   constructor() {
-    subscribeConnectionLost((identity) => {
-      for (const [printerId, knownIdentity] of this.identities) {
-        if (knownIdentity === identity) {
+    subscribeDeviceDisconnected((event) => {
+      for (const [printerId, connectionId] of this.connectionIds) {
+        if (connectionId === event.connectionId) {
           this.setStatus(printerId, PrinterStatus.Disconnected);
         }
       }
@@ -115,6 +113,15 @@ export class EscPosDriver implements IPrinterDriver {
     };
   }
 
+  /** Trả kết nối của một adapter cũ; lỗi khi đóng không được làm hỏng lần kết nối mới nên chỉ ghi log. */
+  private async releaseAdapter(printerId: string, adapter: NativeAdapter | undefined): Promise<void> {
+    try {
+      await adapter?.disconnect();
+    } catch (error) {
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
+    }
+  }
+
   async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
@@ -131,21 +138,25 @@ export class EscPosDriver implements IPrinterDriver {
       const adapter = new NativeAdapter();
       await adapter.connect(toConnectTarget(printer));
 
+      const replacedAdapter = this.adapters.get(printer.id);
       this.adapters.set(printer.id, adapter);
       this.connectedTypes.set(printer.id, printer.connection.type);
       this.contexts.set(printer.id, printer);
 
-      const identity = adapter.getConnectionIdentity();
+      const connectionId = adapter.getConnectionId();
 
-      if (identity) {
-        this.identities.set(printer.id, identity);
+      if (connectionId) {
+        this.connectionIds.set(printer.id, connectionId);
       }
 
       const previousOwner = this.activeByType.get(printer.connection.type);
 
       if (previousOwner && previousOwner !== printer.id) {
+        await this.releaseAdapter(previousOwner, this.adapters.get(previousOwner));
         this.setStatus(previousOwner, PrinterStatus.Disconnected);
       }
+
+      await this.releaseAdapter(printer.id, replacedAdapter);
 
       this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.Connected);
@@ -163,9 +174,7 @@ export class EscPosDriver implements IPrinterDriver {
     const isActiveOwner = Boolean(connectionType) && this.activeByType.get(connectionType!) === printerId;
 
     try {
-      if (isActiveOwner) {
-        await this.adapters.get(printerId)?.disconnect();
-      }
+      await this.adapters.get(printerId)?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
@@ -178,7 +187,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.adapters.delete(printerId);
       this.connectedTypes.delete(printerId);
       this.contexts.delete(printerId);
-      this.identities.delete(printerId);
+      this.connectionIds.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
@@ -222,8 +231,7 @@ export class EscPosDriver implements IPrinterDriver {
     }
 
     const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
-    // KHÔNG dùng adapter.printText() — cần chunk qua UsbTransport như TSPL bitmap
-    // (printText() trên USB gọi thẳng writeByBase64 không chunk, bill dài dễ vượt 1 lần transfer).
+    // Ghi byte bitmap đã encode; printText() chỉ dành cho text có tag định dạng.
     await adapter.write(bytes);
   }
 
@@ -287,9 +295,8 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   /**
-   * ESC/POS không có discriminator thật (native không `read`). Trả `{}` khi đã
-   * kết nối (BLE/LAN — "weak confirm" cho auto-detect, xem `PrinterDiscoveryService`),
-   * `null` cho USB (không bao giờ tự xác nhận protocol qua USB — xem CLAUDE.md).
+   * ESC/POS không có phản hồi định danh đáng tin cậy. Trả `{}` khi đã kết nối (BLE/LAN — "weak confirm" cho
+   * auto-detect, xem `PrinterDiscoveryService`), `null` cho USB (không bao giờ tự xác nhận protocol qua USB).
    */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
