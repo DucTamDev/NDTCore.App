@@ -65,17 +65,18 @@ thức, khổ giấy hay loại bản in.
 | **transport** | Đọc/ghi byte thô trên một loại đường truyền (USB, Bluetooth, LAN) | "writer", "connection" |
 | **discovered device** | Một thiết bị `listDevices` tìm thấy, chưa kết nối | "printer", "descriptor" |
 
-"Printer" chỉ xuất hiện trong tên package/module/sự kiện để nói đây là kết nối tới máy in; các class bên trong không
-mang chữ "Printer" vì native không biết gì về máy in ngoài đường truyền.
+Tầng native và kiểu ở cầu nối chỉ dùng hai danh từ **Device** và **Connection**, không dùng "Printer": native chỉ
+thấy thiết bị USB/Bluetooth/LAN và không biết thiết bị đó có phải máy in (danh sách Bluetooth trả cả tai nghe). Chữ
+"Printer" chỉ bắt đầu từ tầng nghiệp vụ TS (`PrinterService`, driver, model `Printer`).
 
 #### 0.2 Đổi tên phía native (Java)
 
 | Hiện tại | Mới | Lý do |
 |---|---|---|
-| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.printerconnection` | Tầng này chỉ lo kết nối; "thermal" không nói trách nhiệm |
-| module RN `ThermalPrinterModule` | `PrinterConnectionModule` | Như trên |
-| `ThermalPrinterPackage` | `PrinterConnectionPackage` | Như trên |
-| sự kiện `ThermalPrinterConnectionLost` | `PrinterConnectionLost` | Như trên |
+| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.deviceconnection` | Tầng này chỉ lo kết nối tới thiết bị; "thermal printer" không đúng trách nhiệm |
+| module RN `ThermalPrinterModule` | `DeviceConnectionModule` | Như trên |
+| `ThermalPrinterPackage` | `DeviceConnectionPackage` | Như trên |
+| sự kiện `ThermalPrinterConnectionLost` | `DeviceConnectionLost` | Như trên |
 | `PrinterDeviceManager` + `PrinterDeviceRegistry` + `PrinterQueueManager` | `ConnectionManager` | Một nơi mở/dùng lại/đóng/xử lý mất kết nối |
 | `IPrinterDevice` + `*PrinterDevice` + `PrinterQueue` | `ActiveConnection` | Một kết nối đang mở + hàng đợi của nó |
 | `IPrinterConnection` + `IPrinterWriter` + `*Connection` + `*Writer` | `ITransport` + `UsbTransport`/`BluetoothTransport`/`LanTransport` | Mở/ghi/đọc/đóng là một khối, không tách đôi |
@@ -95,7 +96,7 @@ Interface đặt tiền tố `I` theo `docs/CODING_STANDARDS.md` Rule 8.3.
 
 | Hiện tại | Mới |
 |---|---|
-| `adapters/native/PrinterNativeModule.ts`, export `ThermalPrinterModule` | `adapters/native/PrinterConnectionModule.ts`, export `PrinterConnectionModule` |
+| `adapters/native/PrinterNativeModule.ts`, export `ThermalPrinterModule` | `adapters/native/DeviceConnectionModule.ts`, export `DeviceConnectionModule` |
 | `PrinterInfoDto` | `NativeDiscoveredDevice` |
 | `ConnectRequest` / `UsbConnectRequest` / `BluetoothConnectRequest` / `LanConnectRequest` | `NativeConnectionTarget` / `NativeUsbTarget` / `NativeBluetoothTarget` / `NativeLanTarget` |
 | `subscribeConnectionLost(cb: (identity) => …)` | `subscribeConnectionLost(cb: (event: ConnectionLostEvent) => …)` |
@@ -104,11 +105,12 @@ Interface đặt tiền tố `I` theo `docs/CODING_STANDARDS.md` Rule 8.3.
 | `transports/UsbTransport.ts` | xoá |
 
 Kiểu ở cầu nối mang tiền tố `Native` để phân biệt với kiểu nghiệp vụ cùng nghĩa bên TS (`PrinterConnection`,
-`PrinterConnectTarget`, `PrinterDevice`).
+`PrinterConnectTarget`). Model TS `PrinterDevice` (thiết bị tìm thấy khi thêm máy in) cũng ghép "Printer + Device";
+đổi tên nó thuộc spec tầng TS, ghi lại ở đó.
 
 ### 1. Hợp đồng JS ↔ native
 
-Kiểu phía TS (trong `adapters/native/PrinterConnectionModule.ts`):
+Kiểu phía TS (trong `adapters/native/DeviceConnectionModule.ts`):
 
 ```ts
 interface NativeUsbTarget {
@@ -164,7 +166,7 @@ interface ConnectionLostEvent {
 | `write(connectionId, base64Data, timeoutMs)` | | `void` | Ghi đủ toàn bộ byte trong `timeoutMs`, nếu không thì reject |
 | `read(connectionId, maxBytes, timeoutMs)` | | base64 \| `null` | `null` khi hết `timeoutMs` mà không có byte nào |
 | `disconnect(connectionId)` | | `void` | Gọi khi chưa kết nối vẫn resolve |
-| Sự kiện `PrinterConnectionLost` | | `ConnectionLostEvent` | Phát khi mất kết nối ngoài ý muốn |
+| Sự kiện `DeviceConnectionLost` | | `ConnectionLostEvent` | Phát khi mất kết nối ngoài ý muốn |
 
 `write`, `read`, `disconnect` của cùng `connectionId` chạy **đúng thứ tự gọi** (cùng hàng đợi của `ActiveConnection`),
 nên "ghi lệnh dò rồi đọc phản hồi" không bị lệnh khác chen vào. `disconnect` chờ các thao tác đã xếp trước nó chạy xong.
@@ -258,10 +260,10 @@ gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc khôn
     đồng thời dùng chung một lần mở (không mở 2 lần).
   - Kết nối có trong bảng nhưng transport đã chết → đóng và mở lại.
   - `handleConnectionLost(connectionId, reason)` (từ `UsbDetachReceiver`, `BluetoothDisconnectReceiver` hoặc lỗi I/O):
-    bỏ khỏi bảng, phát `PrinterConnectionLost`, đóng transport trên luồng nền (đóng Bluetooth có thể chờ vài giây;
+    bỏ khỏi bảng, phát `DeviceConnectionLost`, đóng transport trên luồng nền (đóng Bluetooth có thể chờ vài giây;
     broadcast chạy trên luồng UI).
   - Một kết nối mất chỉ được báo **một lần**, dù cùng lúc có cả broadcast lẫn lỗi I/O.
-- **`invalidate()`** của `PrinterConnectionModule` (React Native gọi khi reload): huỷ đăng ký receiver, đóng mọi kết
+- **`invalidate()`** của `DeviceConnectionModule` (React Native gọi khi reload): huỷ đăng ký receiver, đóng mọi kết
   nối, tắt mọi executor.
 
 ### 5. Mã lỗi (`ConnectionErrorCode`)
@@ -288,9 +290,9 @@ TS ánh xạ các mã này sang `PrinterErrorCode` trong `NativeAdapter`.
 ### 6. Cấu trúc file Java
 
 ```
-android/app/src/main/java/com/ndtcorepos/printerconnection/
-├── PrinterConnectionPackage.java
-├── PrinterConnectionModule.java    # chỉ cầu nối: đọc tham số → ConnectionManager → Promise/DTO, phát sự kiện
+android/app/src/main/java/com/ndtcorepos/deviceconnection/
+├── DeviceConnectionPackage.java
+├── DeviceConnectionModule.java    # chỉ cầu nối: đọc tham số → ConnectionManager → Promise/DTO, phát sự kiện
 ├── ConnectionManager.java          # connectionId → ActiveConnection; gộp connect trùng; xử lý mất kết nối
 ├── ActiveConnection.java           # 1 transport + 1 hàng đợi tuần tự
 ├── ConnectionTarget.java           # 3 dạng usb/bluetooth/lan, kiểm tra tham số, connectionId() (§2)
@@ -314,16 +316,16 @@ android/app/src/main/java/com/ndtcorepos/printerconnection/
 
 Xoá toàn bộ thư mục `com/ndtcorepos/thermalprinter/`. Cập nhật:
 
-- `MainApplication.kt`: import và `add(PrinterConnectionPackage())`.
+- `MainApplication.kt`: import và `add(DeviceConnectionPackage())`.
 - `AndroidManifest.xml`: comment đang nhắc `com.ndtcorepos.thermalprinter`.
 - `CLAUDE.md`, `docs/CODING_STANDARDS.md` (ví dụ tên interface ở Rule 8.3): đường dẫn và tên class cũ.
-- `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` → `PrinterConnectionModule`.
+- `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` → `DeviceConnectionModule`.
 
 Code theo `docs/CODING_STANDARDS.md` (guard clause, tối đa 2 cấp lồng, `LOG_SOURCE`, comment WHY).
 
 ### 7. Thay đổi phía TS (tối thiểu để app chạy với API mới)
 
-- `adapters/native/PrinterConnectionModule.ts` (đổi tên từ `PrinterNativeModule.ts`): kiểu và hàm theo §1;
+- `adapters/native/DeviceConnectionModule.ts` (đổi tên từ `PrinterNativeModule.ts`): kiểu và hàm theo §1;
   `subscribeConnectionLost` nhận `ConnectionLostEvent`.
 - `adapters/native/NativeConnectionPool.ts` (mới): đếm số người dùng theo `connectionId` — `acquire(target)` gọi native
   `connect` khi là người đầu tiên, `release(connectionId)` gọi native `disconnect` khi là người cuối.
