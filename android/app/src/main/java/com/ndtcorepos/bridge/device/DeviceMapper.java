@@ -197,7 +197,8 @@ final class DeviceMapper {
             double value,
             double max,
             String fieldName) throws DeviceException {
-        if (value < 1 || value > max) {
+        // Viết dạng phủ định để NaN (mọi phép so sánh đều false) cũng bị từ chối.
+        if (!(value >= 1 && value <= max)) {
             throw invalid(fieldName + " phải từ 1 tới " + (long) max);
         }
 

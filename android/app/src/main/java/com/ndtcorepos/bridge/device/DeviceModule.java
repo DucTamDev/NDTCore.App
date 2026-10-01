@@ -51,7 +51,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
     public void discover(String type, Promise promise) {
         try {
             settle(deviceService.discover(DeviceMapper.toDeviceType(type)), promise, DeviceMapper::toWritableArray);
-        } catch (DeviceException exception) {
+        } catch (DeviceException | RuntimeException exception) {
             reject(promise, exception);
         }
     }
@@ -60,7 +60,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
     public void connect(ReadableMap address, Promise promise) {
         try {
             settle(deviceService.connect(DeviceMapper.toAddress(address)), promise, DeviceMapper::toWritableMap);
-        } catch (DeviceException exception) {
+        } catch (DeviceException | RuntimeException exception) {
             reject(promise, exception);
         }
     }
@@ -75,7 +75,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             byte[] data = DeviceMapper.toBytes(base64Data);
             long timeoutMillis = DeviceMapper.toTimeoutMillis(timeoutMs);
             settle(deviceService.write(connectionId, data, timeoutMillis), promise, ignored -> null);
-        } catch (DeviceException exception) {
+        } catch (DeviceException | RuntimeException exception) {
             reject(promise, exception);
         }
     }
@@ -91,14 +91,18 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             long timeoutMillis = DeviceMapper.toTimeoutMillis(timeoutMs);
             CompletableFuture<byte[]> response = deviceService.read(connectionId, maxByteCount, timeoutMillis);
             settle(response, promise, DeviceMapper::toBase64OrNull);
-        } catch (DeviceException exception) {
+        } catch (DeviceException | RuntimeException exception) {
             reject(promise, exception);
         }
     }
 
     @ReactMethod
     public void disconnect(String connectionId, Promise promise) {
-        settle(deviceService.disconnect(connectionId), promise, ignored -> null);
+        try {
+            settle(deviceService.disconnect(connectionId), promise, ignored -> null);
+        } catch (RuntimeException exception) {
+            reject(promise, exception);
+        }
     }
 
     /** React Native gọi khi reload hoặc huỷ module: đóng mọi kết nối, receiver và luồng. */
@@ -108,7 +112,10 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
         super.invalidate();
     }
 
-    /** Phát sự kiện lên JS; bỏ qua khi React không còn chạy (đang reload). */
+    /**
+     * Phát sự kiện lên JS; bỏ qua khi React không còn chạy. React có thể dừng ngay sau lần kiểm tra, nên lỗi khi
+     * phát chỉ ghi log để không lan về luồng kết nối.
+     */
     @Override
     public void onDisconnected(String connectionId, DisconnectReason reason) {
         ReactApplicationContext context = getReactApplicationContext();
@@ -117,8 +124,12 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             return;
         }
 
-        context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit(DISCONNECTED_EVENT, DeviceMapper.toDisconnectedEvent(connectionId, reason));
+        try {
+            context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                    .emit(DISCONNECTED_EVENT, DeviceMapper.toDisconnectedEvent(connectionId, reason));
+        } catch (RuntimeException exception) {
+            Log.w(LOG_SOURCE, "Không phát được sự kiện mất kết nối", exception);
+        }
     }
 
     /** Không bao giờ chờ kết quả: callback chạy trên luồng hoàn tất future, React Native tự chuyển về JS. */
@@ -134,12 +145,16 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             T value,
             Throwable error,
             Function<T, Object> toJs) {
-        if (error == null) {
-            promise.resolve(toJs.apply(value));
+        if (error != null) {
+            reject(promise, unwrap(error));
             return;
         }
 
-        reject(promise, unwrap(error));
+        try {
+            promise.resolve(toJs.apply(value));
+        } catch (RuntimeException exception) {
+            reject(promise, exception);
+        }
     }
 
     private static void reject(Promise promise, Throwable error) {
