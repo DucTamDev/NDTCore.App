@@ -768,4 +768,65 @@ describe('EscPosDriver — connection lost event', () => {
     expect(statusesB).toEqual([PrinterStatus.Disconnected]);
     expect(statusesA).toEqual([]);
   });
+
+  describe('trả kết nối khi đổi máy hoặc kết nối lại', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    const lanPrinterB: Printer = {
+      ...lanPrinter,
+      id: 'receipt-lan-b',
+      connection: { type: PrinterConnectionType.Lan, host: '192.168.1.51', port: 9100 },
+    };
+
+    const mockDeviceModule = () =>
+      (jest.requireMock('../../../adapters/native/DeviceModule') as {
+        DeviceModule: { connect: jest.Mock; disconnect: jest.Mock };
+      }).DeviceModule;
+
+    const connectedAs = (connectionId: string) => ({ connectionId, serialNumber: null });
+
+    const disconnectedIds = (): string[] => mockDeviceModule().disconnect.mock.calls.map(([id]) => id as string);
+
+    it('connect máy LAN khác thì trả kết nối của máy trước', async () => {
+      mockDeviceModule()
+        .connect.mockResolvedValueOnce(connectedAs('conn-a'))
+        .mockResolvedValueOnce(connectedAs('conn-b'));
+      const driver = new EscPosDriver();
+
+      await driver.connect(lanPrinter);
+      await driver.connect(lanPrinterB);
+
+      expect(disconnectedIds()).toEqual(['conn-a']);
+      expect(driver.getStatus(lanPrinter.id)).toBe(PrinterStatus.Disconnected);
+    });
+
+    it('connect lại cùng máy thì trả kết nối cũ đúng một lần', async () => {
+      mockDeviceModule()
+        .connect.mockResolvedValueOnce(connectedAs('conn-a1'))
+        .mockResolvedValueOnce(connectedAs('conn-a2'));
+      const driver = new EscPosDriver();
+
+      await driver.connect(lanPrinter);
+      await driver.connect(lanPrinter);
+
+      expect(disconnectedIds()).toEqual(['conn-a1']);
+    });
+
+    it('máy mất quyền rồi in thử kết nối lại, disconnect thì mọi kết nối đều được trả đúng một lần', async () => {
+      mockDeviceModule()
+        .connect.mockResolvedValueOnce(connectedAs('conn-a'))
+        .mockResolvedValueOnce(connectedAs('conn-b'))
+        .mockResolvedValueOnce(connectedAs('conn-a2'));
+      const driver = new EscPosDriver();
+
+      await driver.connect(lanPrinter);
+      await driver.connect(lanPrinterB);
+      await driver.testPrint(lanPrinter, sampleDocuments);
+      await driver.disconnect(lanPrinter.id);
+
+      const ids = disconnectedIds();
+      expect(ids.filter((id) => id === 'conn-a')).toHaveLength(1);
+      expect(ids.filter((id) => id === 'conn-a2')).toHaveLength(1);
+    });
+  });
 });

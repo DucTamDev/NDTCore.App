@@ -26,7 +26,7 @@ const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding
  * ESC/POS đi qua `NativeAdapter` (`IPrinterAdapter`) — native module RN*Printer
  * gộp connect+encode+write theo namespace/connectionType (spec §2.3, ngoại lệ
  * pragmatic: KHÔNG dùng `read`, `printText` encode ở JS `EPToolkit`). Native là
- * singleton per connectionType → `activeByType` giữ đúng 1 owner/loại.
+ * Giữ đúng 1 máy in ESC/POS kết nối mỗi loại (`activeByType`); máy mất quyền thì trả kết nối ngay để native đóng.
  */
 export class EscPosDriver implements IPrinterDriver {
   private adapters = new Map<string, NativeAdapter>();
@@ -115,6 +115,15 @@ export class EscPosDriver implements IPrinterDriver {
     };
   }
 
+  /** Trả kết nối của một adapter cũ; lỗi khi đóng không được làm hỏng lần kết nối mới nên chỉ ghi log. */
+  private async releaseAdapter(printerId: string, adapter: NativeAdapter | undefined): Promise<void> {
+    try {
+      await adapter?.disconnect();
+    } catch (error) {
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
+    }
+  }
+
   async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
@@ -131,6 +140,7 @@ export class EscPosDriver implements IPrinterDriver {
       const adapter = new NativeAdapter();
       await adapter.connect(toConnectTarget(printer));
 
+      const replacedAdapter = this.adapters.get(printer.id);
       this.adapters.set(printer.id, adapter);
       this.connectedTypes.set(printer.id, printer.connection.type);
       this.contexts.set(printer.id, printer);
@@ -144,8 +154,11 @@ export class EscPosDriver implements IPrinterDriver {
       const previousOwner = this.activeByType.get(printer.connection.type);
 
       if (previousOwner && previousOwner !== printer.id) {
+        await this.releaseAdapter(previousOwner, this.adapters.get(previousOwner));
         this.setStatus(previousOwner, PrinterStatus.Disconnected);
       }
+
+      await this.releaseAdapter(printer.id, replacedAdapter);
 
       this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.Connected);
@@ -163,9 +176,7 @@ export class EscPosDriver implements IPrinterDriver {
     const isActiveOwner = Boolean(connectionType) && this.activeByType.get(connectionType!) === printerId;
 
     try {
-      if (isActiveOwner) {
-        await this.adapters.get(printerId)?.disconnect();
-      }
+      await this.adapters.get(printerId)?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
       PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
