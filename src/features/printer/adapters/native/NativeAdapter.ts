@@ -119,8 +119,15 @@ export class NativeAdapter implements IPrinterAdapter {
 
   async connect(target: PrinterConnectTarget): Promise<void> {
     const address = toNativeAddress(target);
+    const lease = await callNative(() => nativeConnectionPool.acquire(address));
+    const previousLease = this.lease;
+
     this.connectionType = target.connectionType;
-    this.lease = await callNative(() => nativeConnectionPool.acquire(address));
+    this.lease = lease;
+
+    if (previousLease) {
+      await callNative(() => previousLease.release());
+    }
   }
 
   /** Mã kết nối native trả về lúc `connect`, để driver đối chiếu sự kiện mất kết nối; `null` khi chưa kết nối. */

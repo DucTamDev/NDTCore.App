@@ -141,6 +141,34 @@ describe('NativeAdapter', () => {
     await expect(adapter.read(1000)).resolves.toBeNull();
   });
 
+  it('connect lần hai trả lease của lần đầu đúng một lần', async () => {
+    const adapter = new NativeAdapter();
+    deviceModule().connect
+      .mockResolvedValueOnce({ connectionId: 'first', serialNumber: null })
+      .mockResolvedValueOnce({ connectionId: 'second', serialNumber: null });
+
+    await adapter.connect(lanTarget);
+    await adapter.connect(lanTarget);
+
+    expect(adapter.getConnectionId()).toBe('second');
+    expect(deviceModule().disconnect).toHaveBeenCalledTimes(1);
+    expect(deviceModule().disconnect).toHaveBeenCalledWith('first');
+  });
+
+  it('connect lần hai thất bại giữ nguyên lease và loại kết nối của lần đầu', async () => {
+    const adapter = new NativeAdapter();
+    deviceModule().connect.mockResolvedValueOnce({ connectionId: 'first', serialNumber: null });
+    await adapter.connect(lanTarget);
+
+    deviceModule().connect.mockRejectedValueOnce({ code: 'CONNECTION_FAILED', message: 'fail' });
+    await expect(adapter.connect(bluetoothTarget)).rejects.toBeDefined();
+
+    expect(adapter.getConnectionId()).toBe('first');
+    expect(deviceModule().disconnect).not.toHaveBeenCalled();
+    await adapter.write(new Uint8Array([1]));
+    expect(deviceModule().write).toHaveBeenCalledWith('first', expect.any(String), expect.any(Number));
+  });
+
   it('write trước connect -> PRINTER_NOT_CONNECTED', async () => {
     await expect(new NativeAdapter().write(new Uint8Array([1]))).rejects.toMatchObject({
       code: PrinterErrorCode.PRINTER_NOT_CONNECTED,

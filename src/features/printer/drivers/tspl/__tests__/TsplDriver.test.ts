@@ -181,6 +181,37 @@ describe('TsplDriver', () => {
     expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Connected);
   });
 
+  it('connect() lại cùng máy in USB trả kết nối của lần connect trước đúng một lần', async () => {
+    const driver = new TsplDriver();
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock; disconnect: jest.Mock } };
+    DeviceModule.disconnect.mockClear();
+    DeviceModule.connect
+      .mockResolvedValueOnce({ connectionId: 'usb-first', serialNumber: null })
+      .mockResolvedValueOnce({ connectionId: 'usb-second', serialNumber: null });
+
+    await driver.connect(usbLabelPrinter);
+    await driver.connect(usbLabelPrinter);
+
+    expect(DeviceModule.disconnect).toHaveBeenCalledTimes(1);
+    expect(DeviceModule.disconnect).toHaveBeenCalledWith('usb-first');
+  });
+
+  it('connect() lại: lỗi khi trả kết nối cũ chỉ ghi log, không làm hỏng lần connect mới', async () => {
+    const driver = new TsplDriver();
+    const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { connect: jest.Mock; disconnect: jest.Mock } };
+    DeviceModule.connect
+      .mockResolvedValueOnce({ connectionId: 'usb-first', serialNumber: null })
+      .mockResolvedValueOnce({ connectionId: 'usb-second', serialNumber: null });
+    DeviceModule.disconnect.mockRejectedValueOnce({ code: 'IO_ERROR', message: 'release failed' });
+
+    await driver.connect(usbLabelPrinter);
+    await expect(driver.connect(usbLabelPrinter)).resolves.toBeUndefined();
+
+    expect(driver.getStatus(usbLabelPrinter.id)).toBe(PrinterStatus.Connected);
+    const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as { PrinterLogger: { disconnectFailed: jest.Mock } };
+    expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: usbLabelPrinter.id }));
+  });
+
   it('testPrint() over USB writes through DeviceModule', async () => {
     const driver = new TsplDriver();
     await driver.connect(usbReceiptPrinter);

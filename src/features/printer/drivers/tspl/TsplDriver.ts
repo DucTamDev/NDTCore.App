@@ -121,6 +121,20 @@ export class TsplDriver implements IPrinterDriver {
     };
   }
 
+  /** Trả kết nối của adapter cũ cùng máy in; lỗi khi đóng không được làm hỏng lần kết nối mới nên chỉ ghi log. */
+  private async releaseReplacedAdapter(printerId: string, adapter: IPrinterAdapter | undefined): Promise<void> {
+    // Adapter thư viện (BLE/LAN) dùng chung socket theo địa chỉ nên ngắt adapter cũ sẽ ngắt cả kết nối mới.
+    if (adapter?.source !== 'native') {
+      return;
+    }
+
+    try {
+      await adapter.disconnect();
+    } catch (error) {
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error) });
+    }
+  }
+
   async connect(printer: Printer): Promise<void> {
     this.setStatus(printer.id, PrinterStatus.Connecting);
     const startedAt = Date.now();
@@ -137,6 +151,7 @@ export class TsplDriver implements IPrinterDriver {
       const adapter = resolvePrinterAdapter(PrinterDriverType.Tspl, printer.connection.type);
       await adapter.connect(toConnectTarget(printer));
 
+      const replacedAdapter = this.connections.get(printer.id);
       this.connections.set(printer.id, adapter);
       this.contexts.set(printer.id, printer);
 
@@ -147,6 +162,8 @@ export class TsplDriver implements IPrinterDriver {
           this.connectionIds.set(printer.id, connectionId);
         }
       }
+
+      await this.releaseReplacedAdapter(printer.id, replacedAdapter);
 
       this.setStatus(printer.id, PrinterStatus.Connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
