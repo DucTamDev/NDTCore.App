@@ -79,6 +79,7 @@ public final class UsbTransport implements ITransport {
                 connection.bulkTransfer(endpoint, buffer, offset, length, timeoutMillis));
     }
 
+    /** `bulkTransfer` coi timeout 0 là chờ vô hạn, nên hết hạn thì trả mảng rỗng mà không gọi xuống. */
     @Override
     public byte[] read(int maxBytes, long deadlineNanos) throws DeviceException {
         UsbDeviceConnection connection = requireConnection();
@@ -88,8 +89,14 @@ public final class UsbTransport implements ITransport {
             throw new DeviceException(DeviceErrorCode.READ_NOT_SUPPORTED, "Máy in USB không có endpoint đọc");
         }
 
+        int timeoutMillis = remainingMillis(deadlineNanos);
+
+        if (timeoutMillis <= 0) {
+            return new byte[0];
+        }
+
         byte[] buffer = new byte[maxBytes];
-        int received = connection.bulkTransfer(endpoint, buffer, maxBytes, remainingMillis(deadlineNanos));
+        int received = connection.bulkTransfer(endpoint, buffer, maxBytes, timeoutMillis);
 
         if (received >= 0) {
             return Arrays.copyOf(buffer, received);
