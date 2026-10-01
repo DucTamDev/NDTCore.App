@@ -63,7 +63,7 @@ export const resolveIdentityKey = (connection: PrinterConnection): string => {
   }
 
   if (connection.type === PrinterConnectionType.Bluetooth) {
-    return `bluetooth:mac:${connection.deviceId}`;
+    return `bluetooth:mac:${connection.deviceId.toUpperCase()}`;
   }
 
   return connection.serialNumber

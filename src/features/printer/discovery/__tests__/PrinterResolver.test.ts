@@ -14,6 +14,11 @@ describe('resolveIdentityKey', () => {
     expect(resolveIdentityKey(buildBluetoothConnection(btDevice))).toBe('bluetooth:mac:00:11:22:33:44:55');
   });
 
+  it('viết hoa MAC trong key Bluetooth để cùng thiết bị luôn ra cùng key', () => {
+    const lowercaseDevice: PrinterDevice = { deviceId: 'aa:bb:cc:dd:ee:ff', displayName: 'Máy in BT', rawDevice: {} };
+    expect(resolveIdentityKey(buildBluetoothConnection(lowercaseDevice))).toBe('bluetooth:mac:AA:BB:CC:DD:EE:FF');
+  });
+
   it('builds a usb:<vendorId>:<productId> key for USB when no serial is available', () => {
     expect(resolveIdentityKey(buildUsbConnection(usbDevice))).toBe('usb:1155:22222');
   });

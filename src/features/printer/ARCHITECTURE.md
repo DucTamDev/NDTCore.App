@@ -133,7 +133,9 @@ src/features/printer/
 │   ├── library/
 │   ├── native/
 │   │   ├── NativeAdapter.ts
-│   │   ├── PrinterNativeModule.ts
+│   │   ├── DeviceModule.ts
+│   │   ├── NativeConnectionPool.ts
+│   │   ├── toPrinterError.ts
 │   │   ├── utils/
 │   │   │   └── buffer-helper.ts
 │   │   └── EPToolkit.ts
