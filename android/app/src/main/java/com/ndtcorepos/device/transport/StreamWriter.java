@@ -60,7 +60,10 @@ public final class StreamWriter {
         try {
             writeChunks(stream, data, progress);
         } catch (IOException exception) {
-            throw failure(progress, exception);
+            throw failure(
+                    progress,
+                    connection,
+                    exception);
         } finally {
             alarm.cancel(false);
         }
@@ -94,13 +97,27 @@ public final class StreamWriter {
         }
     }
 
-    private static DeviceException failure(WriteProgress progress, IOException cause) {
+    private static DeviceException failure(
+            WriteProgress progress,
+            Closeable connection,
+            IOException cause) {
         if (!progress.markFinished()) {
             return timeout(progress);
         }
 
+        // Stream đã lỗi giữa chừng thì không dùng lại được; đóng để phía gọi thấy kết nối đã mất.
+        closeQuietly(connection);
+
         return new DeviceException(DeviceErrorCode.WRITE_FAILED, "Ghi thất bại", cause)
                 .withBytesWritten(progress.bytesWritten);
+    }
+
+    private static void closeQuietly(Closeable connection) {
+        try {
+            connection.close();
+        } catch (IOException ignored) {
+            // Đã lỗi sẵn; đóng không được thì kết nối vẫn bị bỏ.
+        }
     }
 
     private static DeviceException timeout(WriteProgress progress) {

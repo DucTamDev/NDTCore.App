@@ -61,6 +61,7 @@ public final class BluetoothTransport implements ITransport {
             StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineNanos, timer);
             lastWriteSizeBytes = data.length;
         } catch (IOException exception) {
+            abort();
             throw new DeviceException(DeviceErrorCode.WRITE_FAILED, "Không ghi được Bluetooth", exception);
         }
     }
@@ -79,8 +80,9 @@ public final class BluetoothTransport implements ITransport {
 
             byte[] buffer = new byte[Math.min(maxBytes, input.available())];
             int received = input.read(buffer);
-            return received < 0 ? new byte[0] : Arrays.copyOf(buffer, received);
+            return received < 0 ? closedByPeer() : Arrays.copyOf(buffer, received);
         } catch (IOException exception) {
+            abort();
             throw new DeviceException(DeviceErrorCode.READ_FAILED, "Không đọc được Bluetooth", exception);
         }
     }
@@ -143,6 +145,12 @@ public final class BluetoothTransport implements ITransport {
             closeQuietly(candidate);
             throw exception;
         }
+    }
+
+    /** Máy in đóng kết nối phía nó: đóng phía app để `isOpen()` phản ánh đúng rồi báo lỗi. */
+    private byte[] closedByPeer() throws DeviceException {
+        abort();
+        throw new DeviceException(DeviceErrorCode.READ_FAILED, "Máy in đã đóng kết nối");
     }
 
     private BluetoothSocket requireSocket() throws DeviceException {

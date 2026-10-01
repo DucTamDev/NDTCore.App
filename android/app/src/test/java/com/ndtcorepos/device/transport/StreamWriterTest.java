@@ -123,6 +123,7 @@ public class StreamWriterTest {
 
         assertEquals(DeviceErrorCode.WRITE_FAILED, failure.errorCode());
         assertEquals(8_192, failure.bytesWritten());
+        assertTrue(stream.closed);
     }
 
     @Test

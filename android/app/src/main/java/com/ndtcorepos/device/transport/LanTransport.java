@@ -57,6 +57,7 @@ public final class LanTransport implements ITransport {
         try {
             StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineNanos, timer);
         } catch (IOException exception) {
+            abort();
             throw new DeviceException(DeviceErrorCode.WRITE_FAILED, "Không ghi được qua mạng", exception);
         }
     }
@@ -79,6 +80,7 @@ public final class LanTransport implements ITransport {
         } catch (SocketTimeoutException exception) {
             return new byte[0];
         } catch (IOException exception) {
+            abort();
             throw new DeviceException(DeviceErrorCode.READ_FAILED, "Không đọc được qua mạng", exception);
         }
     }
