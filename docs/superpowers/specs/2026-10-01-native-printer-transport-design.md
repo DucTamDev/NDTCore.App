@@ -14,7 +14,9 @@ lưu, giao thức (ESC/POS, TSPL), khổ giấy hay loại bản in — những 
    - `deviceId`: định danh một thiết bị trong kết quả quét, chỉ ổn định trong lần cắm hiện tại; dùng làm key danh sách
      trên UI.
    - `connectionId`: định danh một kết nối **đã mở**, native xác định từ thiết bị vật lý thật sau khi tìm ra nó. Là mã
-     mờ: TS chỉ dùng cho `write`/`read`/`disconnect` và sự kiện, **không phân tích, không lưu**.
+     mờ **theo hợp đồng**: TS chỉ dùng cho `write`/`read`/`disconnect` và sự kiện, **không phân tích, không lưu**.
+     Định dạng ở §9.1 là chi tiết bên trong native (để đọc log), có thể đổi mà TS không phải sửa; native không chặn
+     được việc TS phân tích nên quy tắc này giữ bằng review.
    - Danh tính máy in đã lưu (`identityKey`) là việc của TS; native cung cấp serial (đọc được sau khi có quyền) trong
      kết quả `connect` để TS lưu danh tính đầy đủ.
 2. **Một thiết bị vật lý = một `Connection`.** Hai lời gọi `connect` với địa chỉ khác nhau (có/không serial) nhưng cùng
@@ -197,7 +199,9 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
     `code()` + message (kèm `userInfo.bytesWritten` khi có); exception khác → reject `INTERNAL_ERROR` và log.
   - Callback tới sau `invalidate()` vẫn resolve/reject bình thường (React Native bỏ qua Promise của instance đã huỷ);
     không bao giờ để Promise treo.
-  - Số từ JS là `double` → đổi sang `long`/`int`; ≤ 0 → `INVALID_ARGUMENT`.
+  - Số từ JS là `double` → đổi sang `long`/`int` qua `DeviceMapper`; ngoài khoảng cho phép → `INVALID_ARGUMENT`.
+  - `INTERNAL_ERROR` là mã **chỉ có ở bridge** (hằng trong `DeviceModule`, không thuộc `DeviceErrorCode`): báo lỗi lập
+    trình, TS coi như lỗi không xác định.
 - **Không làm:** quyết định kết nối, xếp hàng, đọc/ghi thiết bị.
 
 #### `device/DeviceMapper`
@@ -211,6 +215,10 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
   - `WritableMap toWritableMap(ConnectedDevice connectedDevice)`.
   - `byte[] toBytes(String base64Data)` — base64 sai → `INVALID_ARGUMENT`.
   - `String toBase64OrNull(byte[] data)` — mảng rỗng → `null`.
+  - `long toTimeoutMillis(double timeoutMs)` — phải trong 1..`MAX_OPERATION_TIMEOUT_MS` = 600 000 (10 phút; chặn
+    trên để phép cộng hạn không tràn số).
+  - `int toMaxBytes(double maxBytes)` — phải trong 1..`MAX_READ_BYTES` = 65 536 (không cấp phát mảng khổng lồ theo
+    tham số từ JS).
   - `WritableMap toDisconnectedEvent(String connectionId, DisconnectReason reason)`.
 - **Không làm:** gọi `DeviceService`.
 
@@ -231,7 +239,8 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
   1. Lấy `UsbManager`, tạo `UsbPermission`, `UsbDiscovery`, `BluetoothDiscovery`.
   2. Tạo `TransportFactory(usbManager, usbDiscovery, bluetoothDiscovery, timerExecutor)`.
   3. Tạo executor: luồng quét (1), luồng mở kết nối (nhiều), luồng đóng khẩn (1), luồng hẹn giờ ghi (1, scheduled),
-     và cách tạo luồng riêng cho mỗi `Connection`.
+     và cách tạo luồng riêng cho mỗi `Connection`. Executor nào giao cho class nào thì class đó tắt (bảng "Luồng
+     chạy" ở §10); `DeviceFactory` không giữ lại tham chiếu.
   4. Tạo `ConnectionPool(…)`, `UsbDetachMonitor`, `BluetoothDisconnectMonitor`.
   5. Tạo `DeviceService(…)`, gọi `start()`, trả về service đã sẵn sàng.
 - **Không làm:** logic nghiệp vụ; tạo đối tượng thuộc quyền sở hữu của class khác (transport, `Connection`).
@@ -240,7 +249,8 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 
 - **Nhiệm vụ:** cửa vào duy nhất của device cho `bridge/`; điều phối discovery và `ConnectionPool`; quản lý vòng đời.
 - **Constructor** (mỗi tham số 1 dòng): `Map<DeviceType, IDeviceDiscovery> discoveries`,
-  `ConnectionPool connectionPool`, `List<IDisconnectMonitor> monitors`, `ExecutorService discoveryExecutor`.
+  `ConnectionPool connectionPool`, `List<IDisconnectMonitor> monitors`, `ExecutorService discoveryExecutor`,
+  `ScheduledExecutorService timerExecutor`.
 - **Hàm:**
 
   | Hàm | Làm gì |
@@ -251,7 +261,7 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
   | `CompletableFuture<Void> write(String connectionId, byte[] data, long timeoutMillis)` | `connectionPool.write(…)` |
   | `CompletableFuture<byte[]> read(String connectionId, int maxBytes, long timeoutMillis)` | `connectionPool.read(…)` |
   | `CompletableFuture<Void> disconnect(String connectionId)` | `connectionPool.disconnect(connectionId)` |
-  | `close()` | Gọi nhiều lần không sao: tắt monitor, `connectionPool.closeAll()`, tắt luồng quét (lần quét đang chạy được chạy xong) |
+  | `close()` | Gọi nhiều lần không sao: tắt luồng quét (lần quét đang chạy được chạy xong), tắt monitor, `connectionPool.closeAll()`, tắt luồng hẹn giờ ghi |
 
 - Sau `close()`: mọi lời gọi → `SERVICE_CLOSED`.
 - **Không làm:** gọi Android API; tự tạo dependency.
@@ -359,6 +369,8 @@ Tất cả bất biến (field `final`, không setter), không gọi Android.
     đó (so đường dẫn thiết bị); `PendingIntent` gắn package của app; xong thì huỷ receiver.
   - Chờ tối đa `PERMISSION_TIMEOUT_MS` = 30 000; từ chối / hết giờ / rút dây khi hộp thoại đang mở →
     `PERMISSION_DENIED`.
+  - Luồng chờ bị ngắt (`closeAll` khi reload JS) → dừng chờ ngay, giữ cờ interrupt, huỷ receiver trong `finally`. Hộp
+    thoại hệ thống vẫn có thể còn trên màn hình (Android không có API đóng nó); câu trả lời tới sau bị bỏ qua.
 - **Không làm:** quyền Bluetooth/Location (TS xin qua `PrinterPermissionService`).
 
 ### 7.9 `device/connection/`
@@ -378,44 +390,62 @@ Không dùng API Android.
 - **Constructor** (mỗi tham số 1 dòng): `ITransportFactory transportFactory`, `IDisconnectListener listener`,
   `ExecutorService connectExecutor`, `ExecutorService abortExecutor`,
   `Supplier<ExecutorService> operationExecutorFactory`.
-- **Trạng thái** (mọi thay đổi trong một khoá chung của pool):
-  - `openConnections`: `connectionId → Connection` đang mở.
-  - `pendingByLookupKey`: `lookupKey → future` các `connect` đang chạy (gộp cùng địa chỉ).
-  - `openingByConnectionId`: `connectionId → future` thiết bị đang được mở (gộp địa chỉ khác nhau cùng thiết bị).
-  - `closingByConnectionId`: `connectionId → future` đang đóng do `disconnect`.
+- **Trạng thái** (mọi đọc/ghi trong một khoá chung `lock` của pool):
+  - `entries`: `connectionId → Entry` — mỗi thiết bị đang mở dở, đang mở hoặc đang đóng có **đúng một** `Entry`
+    (class lồng, riêng tư):
+    - `state`: `OPENING` (đã giữ chỗ, transport đang mở) → `OPEN` → `CLOSING` (đang `disconnect`). Không có trạng thái
+      "đã đóng": đóng xong hoặc mất kết nối thì bỏ `Entry` khỏi map.
+    - `connection`: `null` khi `OPENING`.
+    - `transition`: future hoàn tất khi lần mở (`OPENING`) hoặc lần đóng (`CLOSING`) đang diễn ra xong; bên muốn dùng
+      thiết bị chờ nó rồi giữ chỗ lại từ đầu.
+  - `pendingByLookupKey`: `lookupKey → future` các `connect` đang chạy (gộp cùng địa chỉ, **trước khi** biết là thiết
+    bị nào nên phải tách khỏi `entries`).
   - `closed`: đã `closeAll()`.
+- **Bất biến:**
+  1. **Giữ chỗ trước khi mở.** `transportFactory.create` trả transport **chưa mở**. Trong khoá, `reserve` chỉ trả về
+     một trong ba: dùng lại `Entry` `OPEN` còn sống; chờ `transition` của `Entry` đang `OPENING`/`CLOSING`; hoặc tạo
+     `Entry` `OPENING` mới và được quyền mở. Vì vậy một thiết bị không bao giờ có 2 transport cùng mở; bên không được
+     mở gọi `abort()` transport thừa của mình.
+  2. **Đổi trạng thái trong khoá rồi mới hoàn tất `transition`** (callback của bên chờ chạy ngay lúc hoàn tất, có thể
+     gọi lại vào pool).
+  3. **`OPEN → CLOSING` là một bước trong khoá.** `write`/`read` lấy kết nối trong cùng khoá: lấy trước bước đó thì
+     thao tác được xếp vào `Connection` trước lệnh `close` (hoặc nhận `NOT_CONNECTED` nếu `Connection` đã nhận
+     `close`); lấy sau thì nhận `NOT_CONNECTED`. Không thao tác nào chạy sau khi transport đóng.
+  4. Sau `closed = true` không thêm `Entry` `OPEN` nào: bước đưa kết nối vào pool kiểm tra `closed` trong khoá, đã
+     đóng thì `abort()` và báo `SERVICE_CLOSED`.
 - **Hàm:**
 
   | Hàm | Làm gì |
   |---|---|
-  | `CompletableFuture<ConnectedDevice> connect(DeviceAddress address)` | Theo §9.3; trên luồng mở kết nối: `transportFactory.create(address)` → `connectionId` = `address.type().wireValue() + ":" + transport.hardwareAddress()` → dùng lại / chờ / mở → `ConnectedDevice(connectionId, transport.serialNumber())` |
-  | `CompletableFuture<Void> write(String connectionId, byte[] data, long timeoutMillis)` | Không có kết nối đang mở → `NOT_CONNECTED`; có → `connection.write` |
+  | `CompletableFuture<ConnectedDevice> connect(DeviceAddress address)` | Theo §9.3; trên luồng mở kết nối: `transportFactory.create(address)` → `connectionId` = `address.type().wireValue() + ":" + transport.hardwareAddress()` → giữ chỗ (dùng lại / chờ / mở) → `ConnectedDevice(connectionId, connection.serialNumber())`. Lỗi khi pool đã đóng → `SERVICE_CLOSED` thay cho lỗi gốc |
+  | `CompletableFuture<Void> write(String connectionId, byte[] data, long timeoutMillis)` | Không có `Entry` `OPEN` → `NOT_CONNECTED`; có → `connection.write` |
   | `CompletableFuture<byte[]> read(String connectionId, int maxBytes, long timeoutMillis)` | Như `write` |
-  | `CompletableFuture<Void> disconnect(String connectionId)` | Theo §9.3 |
-  | `void onHardwareLost(String hardwareAddress, DisconnectReason reason)` | Monitor gọi; tìm kết nối đang mở có `hardwareAddress` trùng (MAC so không phân biệt hoa/thường) → `loseConnection` |
-  | `void closeAll()` | Theo §9.3 |
+  | `CompletableFuture<Void> disconnect(String connectionId)` | Không có `Entry` → resolve; `OPENING` → chờ `transition` (thành công hay lỗi) rồi gọi lại `disconnect`; `CLOSING` → trả `transition` đang có; `OPEN` → `CLOSING`, `transition` = `connection.close()`, xong thì bỏ `Entry` |
+  | `void onHardwareLost(String hardwareAddress, DisconnectReason reason)` | Monitor gọi; tìm `Entry` `OPEN` có `hardwareAddress` trùng (so không phân biệt hoa/thường) → `loseConnection` |
+  | `void closeAll()` | Trong khoá: `closed = true`, gom `Connection` của mọi `Entry`, xoá `entries`, `connectExecutor.shutdownNow()` (ngắt luồng đang chờ quyền USB / mở socket), `abortExecutor.shutdown()`; ngoài khoá: `abort()` từng kết nối. Không phát sự kiện |
 
-- **Hàm riêng:** `loseConnection(connectionId, reason)` — dùng chung cho monitor và lỗi I/O; là nơi **duy nhất**
-  chuyển một kết nối sang "mất": bỏ khỏi `openConnections` trong khoá (không có → bỏ qua, nên mỗi kết nối báo đúng một
-  lần), báo `listener`, rồi `connection.abort()` trên luồng đóng khẩn.
+- **Hàm riêng:** `loseConnection(connection, reason)` — dùng chung cho monitor và lỗi I/O; là nơi **duy nhất**
+  chuyển một kết nối sang "mất": trong khoá, chỉ khi `Entry` còn `OPEN` và đúng `connection` này thì bỏ `Entry` và
+  giao `connection.abort()` cho luồng đóng khẩn (không thì bỏ qua, nên mỗi kết nối báo đúng một lần); ngoài khoá báo
+  `listener`.
 - **Không làm:** biết USB/Bluetooth/LAN cụ thể.
 
 #### `Connection`
 
 - **Nhiệm vụ:** một kết nối đang mở; hàng đợi I/O duy nhất của kết nối đó; quyết định mã lỗi khi bị cắt ngang.
 - **Constructor** (mỗi tham số 1 dòng): `String connectionId`, `ITransport transport`,
-  `ExecutorService operationExecutor`, `Runnable transportLostHandler`.
+  `ExecutorService operationExecutor`, `Consumer<Connection> transportLostHandler`.
 - **Trạng thái** (chuyển trạng thái đồng bộ): `OPEN` → `CLOSING` (đã xếp `close`) → `CLOSED`; hoặc `OPEN`/`CLOSING`
   → `ABORTED`. Không có `OPENING`: `Connection` chỉ được tạo sau khi transport mở thành công.
 - **Hàm:**
 
   | Hàm | Làm gì |
   |---|---|
-  | `CompletableFuture<Void> write(byte[] data, long timeoutMillis)` | Xếp hàng; tới lượt: hạn = bây giờ + timeout → `transport.write(data, deadline)` |
+  | `CompletableFuture<Void> write(byte[] data, long timeoutMillis)` | Xếp hàng; tới lượt: `deadlineNanos` = `System.nanoTime()` + timeout → `transport.write(data, deadlineNanos)` |
   | `CompletableFuture<byte[]> read(int maxBytes, long timeoutMillis)` | Như `write` với `transport.read` |
-  | `CompletableFuture<Void> close()` | Xếp sau các thao tác trước; tới lượt: `transport.close()`, tắt luồng |
-  | `void abort()` | Không chờ: `ABORTED`, `transport.close()` ngay (giải phóng luồng đang kẹt), hoàn tất mọi thao tác chưa xong với `CONNECTION_LOST`, tắt luồng |
-  | `String hardwareAddress()` | `transport.hardwareAddress()` |
+  | `CompletableFuture<Void> close()` | Xếp sau các thao tác trước; tới lượt: `transport.close()` (đóng bình thường), tắt luồng |
+  | `void abort()` | Không chờ: `ABORTED`, `transport.abort()` ngay (giải phóng luồng đang kẹt), hoàn tất các thao tác đang chờ với `CONNECTION_LOST`, tắt luồng; thao tác đang chạy tự kết thúc khi transport đóng |
+  | `String hardwareAddress()`, `String serialNumber()` | Lấy từ transport |
   | `boolean isAlive()` | `OPEN` và `transport.isOpen()` |
 
 - **Quy tắc lỗi:**
@@ -424,7 +454,8 @@ Không dùng API Android.
   - `close()` và `abort()` gặp nhau → `abort()` thắng; future của `close()` vẫn hoàn tất thành công (kết nối đằng nào
     cũng đã đóng).
   - Thao tác lỗi (kể cả hết hạn) mà sau đó `transport.isOpen() == false` → gọi `transportLostHandler`
-    (`ConnectionPool` xử lý như mất kết nối `IO_ERROR`); thao tác đó vẫn trả mã lỗi gốc.
+    (`ConnectionPool` xử lý như mất kết nối `IO_ERROR`) **trước** khi trả lỗi, để nơi gọi thử lại ngay không rơi vào
+    kết nối đã chết; thao tác đó vẫn trả mã lỗi gốc.
   - Hết hạn mà transport vẫn mở (USB) → giữ kết nối, chỉ trả `WRITE_TIMEOUT`.
   - Thao tác mới sau `close()`/`abort()` → `NOT_CONNECTED`.
 - **Không làm:** biết pool, sự kiện JS.
@@ -439,14 +470,18 @@ Không dùng API Android.
   | Hàm | Hợp đồng |
   |---|---|
   | `void open() throws DeviceException` | Lỗi → `CONNECTION_FAILED` (hoặc mã cụ thể hơn) |
-  | `void write(byte[] data, long deadlineMillis) throws DeviceException` | Ghi đủ toàn bộ hoặc ném `WRITE_TIMEOUT`/`WRITE_FAILED` kèm số byte **chắc chắn đã gửi** |
-  | `byte[] read(int maxBytes, long deadlineMillis) throws DeviceException` | §9.4: trả ngay khi có ≥ 1 byte (tối đa `maxBytes`); hết hạn không có byte → mảng rỗng; lỗi → `READ_FAILED` |
-  | `void close()` | Không ném lỗi; gọi nhiều lần không sao; gọi được từ luồng khác trong lúc đang ghi/đọc (dùng để cắt ngang) |
+  | `void write(byte[] data, long deadlineNanos) throws DeviceException` | Ghi đủ toàn bộ hoặc ném `WRITE_TIMEOUT`/`WRITE_FAILED` kèm **số byte của các khúc đã ghi xong** (có thể đếm thiếu, không bao giờ đếm thừa) |
+  | `byte[] read(int maxBytes, long deadlineNanos) throws DeviceException` | §9.4: trả ngay khi có ≥ 1 byte (tối đa `maxBytes`); hết hạn không có byte → mảng rỗng; lỗi → `READ_FAILED` |
+  | `void close()` | **Đóng bình thường**: chỉ gọi khi không còn thao tác nào đang chạy (`Connection.close` tới lượt); được phép chờ dữ liệu cuối gửi xong; không ném lỗi |
+  | `void abort()` | **Cắt ngay**, không chờ; gọi được từ luồng khác trong lúc đang ghi/đọc để giải phóng luồng đang kẹt; gọi nhiều lần không sao; không ném lỗi. Cũng dùng để huỷ transport chưa mở |
   | `boolean isOpen()` | Phản ánh đúng việc còn dùng được không, kể cả sau lỗi |
   | `String hardwareAddress()` | Địa chỉ phần cứng: tạo `connectionId` và để monitor khớp |
   | `String serialNumber()` | Serial đọc từ thiết bị (USB); `null` nếu không có |
 
-- `deadlineMillis` là mốc thời gian tuyệt đối để một lần ghi nhiều khúc không cộng dồn timeout.
+- `deadlineNanos` là mốc tuyệt đối theo `System.nanoTime()`: không lệch khi đồng hồ hệ thống đổi (đồng bộ NTP), và
+  một lần ghi nhiều khúc không cộng dồn timeout.
+- Tách `close` và `abort` để transport không phải tự đoán ý định (đóng bình thường hay cắt ngang). Transport không có
+  gì cần chờ thì `close()` gọi thẳng `abort()`.
 
 #### `ITransportFactory`
 
@@ -468,10 +503,11 @@ Không dùng API Android.
 
 - **Nhiệm vụ:** ghi vào một `OutputStream` theo khúc, đúng hạn, đếm được số byte đã gửi — dùng chung cho Bluetooth và
   LAN (hai loại stream không có timeout ghi). Java thuần, test JUnit với stream giả.
-- **Hàm:** `static void writeAll(OutputStream stream, Closeable connection, byte[] data, long deadlineMillis,
+- **Hàm:** `static void writeAll(OutputStream stream, Closeable connection, byte[] data, long deadlineNanos,
   ScheduledExecutorService timer) throws DeviceException`.
 - **Quy tắc:**
-  - Ghi từng khúc `STREAM_CHUNK_SIZE_BYTES` = 4 096 rồi `flush`; đếm byte sau mỗi khúc ghi xong.
+  - Ghi từng khúc `STREAM_CHUNK_SIZE_BYTES` = 4 096 rồi `flush`; cộng số byte sau mỗi khúc `flush` xong. Số này là
+    "đã giao cho hệ điều hành", không phải "máy in đã nhận" — vì vậy có thể thiếu so với thực tế, không bao giờ thừa.
   - Hẹn giờ tại hạn: nếu lúc đó vẫn đang ghi thì đóng `connection` để cắt lần ghi đang kẹt.
   - Dùng một cờ atomic giữa "ghi xong" và "hẹn giờ nổ": ghi xong trước → huỷ hẹn, không bao giờ báo hết hạn giả;
     hẹn giờ nổ trước → `WRITE_TIMEOUT` kèm số byte của các khúc đã ghi xong.
@@ -488,7 +524,8 @@ Không dùng API Android.
 - **`read`:** không có bulk IN → `READ_NOT_SUPPORTED`; có → `bulkTransfer` IN với thời gian còn lại, trả số byte nhận
   được.
 - **`isOpen`:** đã claim và thiết bị còn trong `usbManager.getDeviceList()`.
-- **`close`:** `releaseInterface` + `close`.
+- **`abort`:** `releaseInterface` + `close` (đồng bộ hoá để gọi được từ luồng khác lúc đang `bulkTransfer`).
+- **`close`:** gọi `abort()` — `bulkTransfer` trả về khi dữ liệu đã giao xong nên không có gì cần chờ.
 - **`hardwareAddress`:** `UsbDevice.getDeviceName()` (vd `/dev/bus/usb/001/004`; khác nhau giữa 2 máy cùng model).
 
 #### `BluetoothTransport`
@@ -498,8 +535,11 @@ Không dùng API Android.
 - **`write`:** `StreamWriter.writeAll(outputStream, socket, …)`.
 - **`read`:** `BluetoothSocket` không có timeout đọc → hỏi `available()` theo chu kỳ `READ_POLL_INTERVAL_MS` tới hạn;
   có byte → đọc tối đa `maxBytes` và trả ngay.
-- **`close`:** đóng bình thường thì chờ dữ liệu cuối kịp gửi (`flush` không bảo đảm máy in đã nhận) theo số byte lần
-  ghi gần nhất; đóng để cắt ngang (đang ghi/đọc) thì đóng ngay.
+- **`close`:** chờ dữ liệu cuối kịp gửi rồi `abort()`. `flush` không bảo đảm máy in đã nhận; một số máy in Bluetooth
+  rẻ mất phần cuối nếu socket đóng ngay. Thời gian chờ ước theo số byte lần ghi gần nhất (`DRAIN_MIN_WAIT_MS` = 100
+  cho lần ghi ≤ `DRAIN_SMALL_PAYLOAD_BYTES` = 2 000, không thì số byte / `DRAIN_BYTES_PER_MS` = 5). Kiểm tra trên
+  máy thật xem việc chờ còn cần không (§14, mục 12); không cần thì bỏ.
+- **`abort`:** đóng socket ngay.
 - **`hardwareAddress`:** MAC viết hoa.
 
 #### `LanTransport`
@@ -508,8 +548,12 @@ Không dùng API Android.
 - **`open`:** `Socket.connect` timeout `LAN_CONNECT_TIMEOUT_MS` = 5 000; lỗi → `CONNECTION_FAILED`.
 - **`write`:** `StreamWriter.writeAll(outputStream, socket, …)` (rút dây mạng thường không làm socket báo lỗi ngay).
 - **`read`:** `setSoTimeout(thời gian còn lại)`; đọc một lần tối đa `maxBytes`; `SocketTimeoutException` khi chưa có
-  byte → mảng rỗng.
+  byte → mảng rỗng. Peer đóng (`read` trả -1) → `abort()` rồi `READ_FAILED`.
+- **`close`:** gọi `abort()` (đóng socket).
 - **`hardwareAddress`:** `host:port`.
+- **Giới hạn:** TCP không tự biết máy in đã tắt/rút dây khi kết nối đang rảnh. Native chỉ phát hiện khi một lần
+  ghi/đọc lỗi hoặc hết hạn (hoặc hệ điều hành báo socket hỏng); không có heartbeat. Nhờ vậy `isAlive()` có thể còn
+  `true` với kết nối LAN đã chết; lần `write` sau sẽ lỗi và báo mất kết nối.
 
 ### 7.11 `device/monitor/`
 
@@ -628,22 +672,27 @@ kết nối; máy in đã lưu nhận diện bằng `identityKey` của TS.
 4. Còn lại: đúng 1 ứng viên → dùng; nhiều hơn → `AMBIGUOUS_DEVICE`. **Không bao giờ âm thầm chọn máy đầu tiên.**
 5. Thiết bị được chọn chưa có quyền → `UsbPermission.request`.
 
+**Giới hạn đã chấp nhận:** Android chỉ cho đọc serial sau khi có quyền. Địa chỉ có serial mà có nhiều máy cùng model
+chưa được cấp quyền → người dùng có thể thấy lần lượt nhiều hộp thoại quyền (mỗi hộp thoại chờ tối đa 30s); từ chối
+một hộp thoại → `PERMISSION_DENIED` cho cả lần `connect`. Trường hợp này hiếm (chỉ khi cắm lại nhiều máy cùng model)
+và mỗi máy chỉ hỏi một lần, vì Android nhớ quyền tới khi rút dây.
+
 ### 9.3 Xếp hàng, mất kết nối và chen ngang
 
 | # | Tình huống | Hành vi | Nơi xử lý |
 |---|---|---|---|
 | 1 | Nhiều `write`/`read` liên tiếp trên một kết nối | Chạy đúng thứ tự gọi; hạn của mỗi thao tác tính lúc nó bắt đầu chạy | `Connection` |
 | 2 | Hai `connect` đồng thời cùng địa chỉ | Gộp theo `lookupKey`: tìm/mở một lần, cả hai nhận cùng kết quả | `ConnectionPool` |
-| 3 | Hai `connect` đồng thời, địa chỉ khác nhau nhưng cùng thiết bị | Gộp theo `connectionId` sau khi tìm ra thiết bị: chỉ mở một transport, transport thừa bị đóng (chưa mở) | `ConnectionPool` |
+| 3 | Hai `connect` đồng thời, địa chỉ khác nhau nhưng cùng thiết bị | Gộp theo `connectionId` sau khi tìm ra thiết bị: giữ chỗ trong khoá, chỉ một bên mở transport; bên kia chờ rồi dùng lại, `abort()` transport chưa mở của mình | `ConnectionPool` |
 | 4 | `connect` khi thiết bị đang mở và còn sống | Trả ngay kết nối đó | `ConnectionPool` |
 | 5 | `connect` khi thiết bị đang mở nhưng đã chết | Bỏ kết nối cũ (abort, không phát sự kiện), mở mới | `ConnectionPool` |
 | 6 | `connect` khi thiết bị đang đóng (`disconnect` chưa xong) | Chờ đóng xong rồi mới mở — không bao giờ mở 2 transport cùng thiết bị | `ConnectionPool` |
-| 7 | `disconnect` khi đang ghi | Bỏ khỏi `openConnections` ngay (thao tác gọi sau → `NOT_CONNECTED`); thao tác đã xếp trước chạy xong (tối đa tới hạn) rồi mới đóng | `ConnectionPool` + `Connection.close` |
+| 7 | `disconnect` khi đang ghi, hoặc `write` gọi sát `disconnect` trên luồng khác | `Entry` chuyển `CLOSING` ngay trong khoá (thao tác gọi sau → `NOT_CONNECTED`); thao tác đã xếp trước chạy xong (tối đa tới hạn) rồi mới đóng. Mỗi `write` hoặc chạy trước lệnh đóng, hoặc nhận `NOT_CONNECTED` — không bao giờ chạy sau khi transport đóng | `ConnectionPool` + `Connection.close` |
 | 8 | `disconnect` khi `connect` đang mở dở cùng thiết bị | Chờ mở xong rồi đóng; `connect` vẫn resolve | `ConnectionPool` |
 | 9 | `disconnect` với `connectionId` chưa mở | Resolve ngay | `ConnectionPool` |
 | 10 | Rút USB / mất Bluetooth khi đang ghi | `loseConnection`: bỏ khỏi pool, phát `DeviceDisconnected` 1 lần, `abort()`; thao tác đang chạy và đang chờ → `CONNECTION_LOST` (kèm `bytesWritten`) | Monitor → `ConnectionPool` → `Connection` |
-| 11 | Lỗi ghi tới trước broadcast rút USB | Thao tác đó trả mã gốc (`WRITE_FAILED`); `transport.isOpen()` false → mất kết nối `IO_ERROR`; broadcast tới sau bị bỏ qua — sự kiện phát đúng 1 lần, lý do của tín hiệu tới trước | `Connection` + `ConnectionPool` |
-| 12 | Mất mạng LAN / ra khỏi tầm Bluetooth khi đang ghi, socket không báo lỗi | Hẹn giờ đóng socket tại hạn → `WRITE_TIMEOUT` kèm byte đã gửi; transport đã đóng → mất kết nối `IO_ERROR`, phát sự kiện | `StreamWriter` + `Connection` + `ConnectionPool` |
+| 11 | Lỗi ghi tới trước broadcast rút USB | `transport.isOpen()` false → mất kết nối `IO_ERROR` (bỏ khỏi pool trước), rồi thao tác đó trả mã gốc (`WRITE_FAILED`); broadcast tới sau bị bỏ qua — sự kiện phát đúng 1 lần, lý do của tín hiệu tới trước | `Connection` + `ConnectionPool` |
+| 12 | Mất mạng LAN / ra khỏi tầm Bluetooth khi đang ghi | Socket không báo lỗi → hẹn giờ đóng socket tại hạn → `WRITE_TIMEOUT`; hệ điều hành báo lỗi trước hạn → `WRITE_FAILED`. Cả hai kèm byte đã gửi; transport đã đóng → mất kết nối `IO_ERROR`, phát sự kiện **đúng một lần** | `StreamWriter` + `Connection` + `ConnectionPool` |
 | 13 | Ghi xong đúng lúc hẹn giờ nổ | Cờ atomic: bên nào đặt trước thắng; ghi xong trước → thành công, không đóng socket | `StreamWriter` |
 | 14 | Hẹn giờ nổ cùng lúc `abort()` | `abort()` thắng; thao tác → `CONNECTION_LOST` | `Connection` |
 | 15 | USB hết hạn khi ghi, thiết bị vẫn cắm | `WRITE_TIMEOUT` kèm byte đã ghi; giữ kết nối | `UsbTransport` + `Connection` |
@@ -652,7 +701,7 @@ kết nối; máy in đã lưu nhận diện bằng `identityKey` của TS.
 | 18 | Rút dây khi hộp thoại quyền USB đang mở | `PERMISSION_DENIED` | `UsbPermission` |
 | 19 | Rút dây khi đang `open` | `CONNECTION_FAILED` | Transport |
 | 20 | `closeAll()` khi có kết nối đang mở / đang đóng | Abort tất cả (không chờ), thao tác chưa xong → `CONNECTION_LOST`, không phát sự kiện | `ConnectionPool` |
-| 21 | `closeAll()` khi `connect` đang chờ quyền USB hoặc transport đã mở nhưng chưa vào pool | Trước khi đưa vào pool luôn kiểm tra `closed` trong khoá: đã đóng → đóng transport, reject `SERVICE_CLOSED`; không bao giờ thêm kết nối sau khi pool đóng | `ConnectionPool` |
+| 21 | `closeAll()` khi `connect` đang chờ quyền USB hoặc transport đã mở nhưng chưa vào pool | `shutdownNow()` ngắt luồng mở kết nối: lần chờ quyền dừng ngay, huỷ receiver. Trước khi đưa vào pool luôn kiểm tra `closed` trong khoá: đã đóng → `abort()` transport. Mọi `connect` dở reject `SERVICE_CLOSED`; không bao giờ thêm kết nối sau khi pool đóng | `ConnectionPool` + `UsbPermission` |
 | 22 | `closeAll()` khi `discover` đang chạy | Lần quét chạy xong và resolve; lời gọi sau → `SERVICE_CLOSED` | `DeviceService` |
 | 23 | Mọi lời gọi sau `close()` | `SERVICE_CLOSED`; không Future/Promise nào treo | `DeviceService` + `ConnectionPool` |
 
@@ -670,7 +719,7 @@ Reject bằng `promise.reject(code, message)`; `WRITE_*` và `CONNECTION_LOST` k
 
 | Mã | Khi nào |
 |---|---|
-| `INVALID_ARGUMENT` | Địa chỉ/base64 sai; `timeoutMs`/`maxBytes` ≤ 0; `discover('lan')` |
+| `INVALID_ARGUMENT` | Địa chỉ/base64 sai; `timeoutMs` ngoài 1..600 000; `maxBytes` ngoài 1..65 536; `discover('lan')` |
 | `DEVICE_NOT_FOUND` | Không thấy thiết bị khớp địa chỉ |
 | `AMBIGUOUS_DEVICE` | Nhiều USB cùng vendorId/productId mà địa chỉ không có serial và `devicePath` không khớp |
 | `PERMISSION_DENIED` | Từ chối/hết giờ hộp thoại quyền USB; thiếu quyền Bluetooth |
@@ -682,22 +731,23 @@ Reject bằng `promise.reject(code, message)`; `WRITE_*` và `CONNECTION_LOST` k
 | `WRITE_TIMEOUT` | Hết hạn khi chưa ghi đủ |
 | `READ_NOT_SUPPORTED` | USB không có endpoint bulk IN |
 | `READ_FAILED` | Lỗi I/O khi đọc |
-| `SERVICE_CLOSED` | Lời gọi sau khi `DeviceService` đã đóng (JS reload) |
+| `SERVICE_CLOSED` | Lời gọi sau khi `DeviceService` đã đóng (JS reload); `connect` đang dở lúc đóng |
 
-Exception không phải `CodedException` (lỗi lập trình) → `DeviceModule` reject `INTERNAL_ERROR` và log.
+Ngoài 13 mã trên, bridge có thêm `INTERNAL_ERROR` (không thuộc `DeviceErrorCode`): exception không phải
+`CodedException` (lỗi lập trình) → `DeviceModule` reject `INTERNAL_ERROR` và log.
 TS ánh xạ mã sang `PrinterErrorCode` trong `NativeAdapter`.
 
 ### Luồng chạy
 
-| Luồng | Tạo ở | Chạy gì |
-|---|---|---|
-| Luồng của native module | React Native | `DeviceModule` nhận lời gọi, gắn callback, trả về ngay |
-| Luồng quét (1) | `DeviceFactory` → `DeviceService` | `discover` |
-| Luồng mở kết nối (nhiều) | `DeviceFactory` → `ConnectionPool` | `TransportFactory.create` + `open` (chờ quyền USB tới 30s, socket tới 5s) |
-| Luồng riêng của mỗi `Connection` | `ConnectionPool` (qua `operationExecutorFactory`) | `write`, `read`, `close` theo đúng thứ tự gọi |
-| Luồng đóng khẩn (1) | `DeviceFactory` → `ConnectionPool` | `abort()` kết nối bị mất (đóng Bluetooth có thể chờ vài giây) |
-| Luồng hẹn giờ ghi (1, scheduled) | `DeviceFactory` → `TransportFactory` → Bluetooth/LAN transport | Đóng socket khi lần ghi quá hạn |
-| Luồng UI | Android | Broadcast của monitor, chỉ gọi `onHardwareLost` |
+| Luồng | Tạo ở | Chạy gì | Ai tắt |
+|---|---|---|---|
+| Luồng của native module | React Native | `DeviceModule` nhận lời gọi, gắn callback, trả về ngay | React Native |
+| Luồng quét (1) | `DeviceFactory` → `DeviceService` | `discover` | `DeviceService.close` (`shutdown`) |
+| Luồng mở kết nối (nhiều) | `DeviceFactory` → `ConnectionPool` | `TransportFactory.create` + `open` (chờ quyền USB tới 30s, socket tới 5s) | `ConnectionPool.closeAll` (`shutdownNow`) |
+| Luồng riêng của mỗi `Connection` | `ConnectionPool` (qua `operationExecutorFactory`) | `write`, `read`, `close` theo đúng thứ tự gọi | `Connection.close`/`abort` |
+| Luồng đóng khẩn (1) | `DeviceFactory` → `ConnectionPool` | `abort()` kết nối bị mất / đã chết | `ConnectionPool.closeAll` (`shutdown`) |
+| Luồng hẹn giờ ghi (1, scheduled) | `DeviceFactory` → `TransportFactory` → Bluetooth/LAN transport | Đóng socket khi lần ghi quá hạn | `DeviceService.close`, sau `closeAll` |
+| Luồng UI | Android | Broadcast của monitor, chỉ gọi `onHardwareLost` | Android |
 
 Executor truyền qua constructor để test chạy đồng bộ.
 
@@ -737,10 +787,14 @@ Cắm lại, lần sau in: TS connect({ type: 'usb', vendorId: 8137, productId: 
   - `acquire(address): Promise<NativeConnectionLease>`; lease có `connectionId`, `serialNumber` và `release()` chỉ có
     tác dụng ở lần gọi đầu.
   - Đếm theo `connectionId` native trả về (hai địa chỉ khác nhau cùng thiết bị dùng chung bộ đếm).
-  - Mọi `acquire`/`release` chạy **tuần tự qua một hàng đợi** của pool: không có trường hợp `release` đưa bộ đếm về 0
-    trong lúc một `acquire` khác đang chờ `connect` trả về chính kết nối đó. Cái giá: `acquire` của máy khác phải chờ
-    nếu một `acquire` đang chờ hộp thoại quyền USB (tối đa 30s).
-  - Bộ đếm về 0 → native `disconnect`. `acquire` thất bại → không tăng bộ đếm.
+  - Các `acquire` chạy **song song**: máy này đang chờ hộp thoại quyền USB không chặn `acquire` máy khác. Mọi thay
+    đổi bộ đếm là đồng bộ (không có `await` ở giữa); chỉ lệnh native được chờ.
+  - Bộ đếm về 0 → xoá bộ đếm, ghi `closingByConnectionId[connectionId]` = promise của native `disconnect`, chờ xong
+    thì xoá. `acquire` thất bại → không tăng bộ đếm.
+  - `acquire` nhận về `connectionId` đang có trong `closingByConnectionId` (native trả kết nối sắp bị đóng cho một
+    `connect` gửi đi trước lệnh `disconnect`) → chờ đóng xong rồi `connect` lại; chỉ tăng bộ đếm khi id nhận được
+    không đang đóng. Kiểm tra "đang đóng" và tăng bộ đếm nằm trong cùng một bước đồng bộ, nên không bao giờ trao cho
+    nơi gọi một kết nối đang bị đóng.
   - Nhận `DeviceDisconnected` → xoá bộ đếm của `connectionId` đó (các lease cũ `release()` thành không làm gì).
 - `adapters/native/NativeAdapter.ts`: dùng `NativeConnectionPool`; lưu lease; `canRead = true`; `read()` gọi native và
   gom theo nhu cầu của driver; `getConnectionIdentity()` → `getConnectionId()`; ánh xạ mã lỗi §10; `listDevices` dùng
@@ -808,13 +862,13 @@ final class Connection {
     private final ExecutorService operationExecutor;
 
     /** Báo pool khi transport không còn dùng được sau một lỗi. */
-    private final Runnable transportLostHandler;
+    private final Consumer<Connection> transportLostHandler;
 
     Connection(
             String connectionId,
             ITransport transport,
             ExecutorService operationExecutor,
-            Runnable transportLostHandler) {
+            Consumer<Connection> transportLostHandler) {
         this.connectionId = connectionId;
         this.transport = transport;
         this.operationExecutor = operationExecutor;
@@ -861,7 +915,8 @@ test/java/com/ndtcorepos/
     │                                    # một ứng viên; nhiều ứng viên → AMBIGUOUS_DEVICE
     ├── connection/
     │   ├── FakeTransport.java           # ITransport giả: điều khiển được ghi chậm, lỗi, hết hạn, isOpen
-    │   ├── FakeTransportFactory.java
+    │   ├── FakeTransportFactory.java    # factory giả: chặn được lúc tạo (giả lập chờ quyền USB)
+    │   ├── Futures.java                 # chờ future/latch có giới hạn thời gian trong test
     │   ├── ConnectionTest.java
     │   └── ConnectionPoolTest.java
     └── transport/
@@ -871,15 +926,24 @@ test/java/com/ndtcorepos/
 ```
 
 `ConnectionTest`, `ConnectionPoolTest`, `StreamWriterTest`, `DeviceServiceTest` phủ đủ 23 tình huống ở §9.3 (trừ #18,
-#19 cần thiết bị thật), mỗi tình huống ít nhất một test.
+#19 cần thiết bị thật), mỗi tình huống ít nhất một test. Bắt buộc có thêm:
+
+- `ConnectionTest`: `close()` gọi `transport.close()` (không `abort`); `abort()` gọi `transport.abort()` (không
+  `close`); hạn truyền xuống là `System.nanoTime()` lúc thao tác bắt đầu + timeout.
+- `ConnectionPoolTest`:
+  - `closeAll` trong lúc `connect` đang chờ quyền (factory giả chặn tới khi bị ngắt) → `connect` reject
+    `SERVICE_CLOSED` trong vòng 2 giây, không transport nào được tạo.
+  - `write` và `disconnect` chen nhau thật trên nhiều luồng (100 vòng × 20 lần ghi): mỗi lần ghi hoặc thành công,
+    hoặc `NOT_CONNECTED`; không lần ghi nào tới transport sau khi transport đã đóng.
+  - Hai địa chỉ khác nhau cùng thiết bị: transport thừa bị `abort()`, không bao giờ `open()`.
 
 `bridge/` không có unit test (chỉ đổi kiểu và gọi xuống); kiểm qua Jest phía TS và máy thật.
 
 **Jest** (TS):
 
 - `NativeConnectionPool`: hai `acquire` cùng thiết bị dùng chung kết nối; `release` lặp lại chỉ trừ 1 lần; về 0 thì
-  `disconnect`; `release` trong lúc `acquire` khác đang chờ không đóng nhầm; `acquire` lỗi không tăng bộ đếm;
-  `DeviceDisconnected` xoá bộ đếm.
+  `disconnect`; `acquire` nhận đúng kết nối đang bị `release` đóng thì chờ đóng xong rồi kết nối lại; một máy đang
+  chờ `connect` không chặn `acquire` máy khác; `acquire` lỗi không tăng bộ đếm; `DeviceDisconnected` xoá bộ đếm.
 - `NativeAdapter`: ánh xạ mã lỗi, `read`, truyền serial/`devicePath`.
 - Luồng thêm máy in: serial trả về từ `connect` được lưu vào bản nháp.
 
@@ -891,12 +955,18 @@ test/java/com/ndtcorepos/
 4. USB: rút dây lúc rảnh và lúc đang in → app nhận mất kết nối đúng một lần; cắm lại kết nối được.
 5. USB: 2 máy cùng model (nếu có) → in đúng máy; rút một máy không ảnh hưởng máy kia.
 6. TSPL qua USB: `read` nhận phản hồi lệnh dò (nếu máy có endpoint IN).
-7. Bluetooth: kết nối, in, ra khỏi tầm sóng → mất kết nối; tắt Bluetooth → `BLUETOOTH_DISABLED`.
-8. LAN: kết nối, in; IP sai → `CONNECTION_FAILED` sau khoảng 5s; rút dây mạng khi đang in → `WRITE_TIMEOUT` rồi
-   `DeviceDisconnected`; app không treo.
+7. Bluetooth: kết nối, in; tắt máy in hoặc ra khỏi tầm sóng (lúc rảnh và lúc đang in) → app nhận
+   `DeviceDisconnected` đúng một lần (lý do `bluetooth_disconnected` hoặc `io_error`, tuỳ tín hiệu nào tới trước);
+   lệnh in đang chạy reject `CONNECTION_LOST`, `WRITE_TIMEOUT` hoặc `WRITE_FAILED`; tắt Bluetooth của điện thoại →
+   `BLUETOOTH_DISABLED`.
+8. LAN: kết nối, in; IP sai → `CONNECTION_FAILED` sau khoảng 5s; rút dây mạng khi đang in → `WRITE_TIMEOUT` hoặc
+   `WRITE_FAILED`, rồi `DeviceDisconnected` đúng một lần; app không treo.
 9. Đang in một máy thì kết nối/in máy khác → không phải chờ.
 10. Bấm ngắt kết nối khi đang in → lệnh in đang chạy hoàn tất (hoặc hết hạn) rồi mới đóng; không có sự kiện mất kết nối.
 11. Reload JS nhiều lần, kể cả khi đang in hoặc đang mở hộp thoại quyền USB → không rò kết nối (kết nối lại được ngay).
+12. Bluetooth, chờ trước khi đóng: in bill ngắn rồi ngắt kết nối ngay, lặp 10 lần trên từng máy in Bluetooth đang có;
+    sau đó tạm đặt thời gian chờ về 0 và lặp lại. Bản in đủ cả khi không chờ → bỏ phần chờ trong
+    `BluetoothTransport.close()` (khi đó `close()` gọi thẳng `abort()`); mất phần cuối → giữ.
 
 ## 15. Thứ tự triển khai
 
