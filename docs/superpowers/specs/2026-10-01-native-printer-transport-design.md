@@ -352,8 +352,9 @@ Giống quy ước đã dùng cho printer-core, cộng `docs/CODING_STANDARDS.md
 3. **Cách dòng:** 1 dòng trống giữa các field (kèm summary của nó) và giữa các method; dòng trống giữa các khối logic
    trong hàm; không dòng trống thừa (code cũ có chỗ 2 dòng trống liền).
 4. **Comment trong code:** tiếng Việt, 1–3 dòng, chỉ giải thích WHY (giới hạn phần cứng, hành vi Android không hiển
-   nhiên). Không mô tả lại code, không kể lịch sử ("Task 4", "see the design spec", "port từ…"). Comment cho Android
-   API đặt ở đầu hàm, không rải từng dòng (Rule 14.3).
+   nhiên). Không mô tả lại code, không kể lịch sử ("Task 4", "port từ…"), **không tham chiếu tài liệu** (số mục spec
+   như "§2.1", "see the design spec", tên plan/task): comment phải tự đủ nghĩa khi đọc riêng. Comment cho Android API
+   đặt ở đầu hàm, không rải từng dòng (Rule 14.3).
 5. **Độ dài dòng ≤ 120 ký tự**, đo bằng Node `line.length`.
 6. **Nesting:** Java ≤ 2 cấp (Rule 3.3), TS ≤ 3 cấp; dùng guard clause/early return, không `else` sau `return`.
 7. **1 hàm 1 trách nhiệm**, không hàm lồng trong hàm (TS); `switch`/`if` theo loại kết nối chỉ điều phối, mỗi nhánh
@@ -373,7 +374,7 @@ final class ActiveConnection {
 
     private static final String LOG_SOURCE = "ActiveConnection";
 
-    /** Mã kết nối suy ra từ target (§2). */
+    /** Mã kết nối, suy ra từ target nên cùng target luôn ra cùng mã. */
     private final String connectionId;
 
     private final ITransport transport;
@@ -403,7 +404,7 @@ Mẫu TS:
 export interface NativeUsbDevice {
   readonly type: 'usb';
 
-  /** Mã kết nối native sẽ trả khi `connect` thiết bị này (§2.1). */
+  /** Mã kết nối native sẽ trả khi `connect` thiết bị này. */
   readonly connectionId: string;
 
   /** `null` khi chưa có quyền USB (Android 10+ cần quyền mới đọc được serial). */
