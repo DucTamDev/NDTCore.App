@@ -9,8 +9,14 @@ import { nativeConnectionPool, type NativeConnectionLease } from './NativeConnec
 import { toPrinterError } from './toPrinterError';
 import * as EPToolkit from './utils/EPToolkit';
 
-/** Hạn cho một lần ghi; ảnh tem/bill lớn qua Bluetooth (~10 KB/s) cần vài chục giây. */
-const WRITE_TIMEOUT_MS = 30_000;
+/** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
+const WRITE_BASE_TIMEOUT_MS = 30_000;
+
+/** Tốc độ ghi chậm nhất chấp nhận được (~2 KB/s, Bluetooth SPP kém); payload lớn được cộng thêm hạn theo tốc độ này. */
+const WRITE_MIN_BYTES_PER_MS = 2;
+
+/** Hạn tối đa native chấp nhận cho một lần ghi. */
+const WRITE_MAX_TIMEOUT_MS = 600_000;
 
 /** Phản hồi lệnh dò của máy in (vd TSPL `~!T`) chỉ vài chục byte. */
 const READ_MAX_BYTES = 1_024;
@@ -27,6 +33,12 @@ const textPreprocessingIOS = (text: string): { text: string; opts: { beep: boole
     .replace(/<\/?M>/g, ''),
   opts: { beep: true, cut: true },
 });
+
+/** Hạn ghi tăng theo cỡ payload để ảnh bill lớn qua Bluetooth chậm không bị cắt giữa chừng. */
+const writeTimeoutMs = (base64: string): number => {
+  const payloadBytes = Buffer.from(base64, 'base64').length;
+  return Math.min(WRITE_MAX_TIMEOUT_MS, WRITE_BASE_TIMEOUT_MS + Math.ceil(payloadBytes / WRITE_MIN_BYTES_PER_MS));
+};
 
 const textTo64Base64 = (text: string, opts: PrinterPrintTextOptions): string =>
   EPToolkit.exchange_text(text, opts).toString('base64').replace('G0AcJhxD/xsy', '');
@@ -138,7 +150,7 @@ export class NativeAdapter implements IPrinterAdapter {
   async write(bytes: Uint8Array): Promise<void> {
     const connectionId = this.requireConnectionId();
     const base64 = Buffer.from(bytes).toString('base64');
-    await callNative(() => DeviceModule.write(connectionId, base64, WRITE_TIMEOUT_MS));
+    await callNative(() => DeviceModule.write(connectionId, base64, writeTimeoutMs(base64)));
   }
 
   async printText(text: string, options: PrinterPrintTextOptions): Promise<void> {
@@ -151,7 +163,8 @@ export class NativeAdapter implements IPrinterAdapter {
     }
 
     const connectionId = this.requireConnectionId();
-    await callNative(() => DeviceModule.write(connectionId, textTo64Base64(text, options), WRITE_TIMEOUT_MS));
+    const base64 = textTo64Base64(text, options);
+    await callNative(() => DeviceModule.write(connectionId, base64, writeTimeoutMs(base64)));
   }
 
   /** Trả byte nhận được ngay khi có, hoặc `null` khi hết `timeoutMs` mà máy in chưa trả lời. */

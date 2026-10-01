@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { NativeAdapter } from '../NativeAdapter';
 import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
@@ -167,6 +168,28 @@ describe('NativeAdapter', () => {
     expect(deviceModule().disconnect).not.toHaveBeenCalled();
     await adapter.write(new Uint8Array([1]));
     expect(deviceModule().write).toHaveBeenCalledWith('first', expect.any(String), expect.any(Number));
+  });
+
+  it('timeout ghi = 30 000 ms + ceil(byte / 2) cho payload nhỏ', async () => {
+    const adapter = new NativeAdapter();
+    await adapter.connect(lanTarget);
+    await adapter.write(new Uint8Array(1_001));
+    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', expect.any(String), 30_000 + 501);
+  });
+
+  it('timeout ghi chặn trên ở 600 000 ms cho payload rất lớn', async () => {
+    const adapter = new NativeAdapter();
+    await adapter.connect(lanTarget);
+    await adapter.write(new Uint8Array(2_000_000));
+    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', expect.any(String), 600_000);
+  });
+
+  it('printText cũng dùng timeout theo cỡ payload', async () => {
+    const adapter = new NativeAdapter();
+    await adapter.connect(lanTarget);
+    await adapter.printText('hi', { cut: true, tailingLine: true, encoding: 'UTF8' });
+    const [, base64, timeoutMs] = deviceModule().write.mock.calls[0] as [string, string, number];
+    expect(timeoutMs).toBe(30_000 + Math.ceil(Buffer.from(base64, 'base64').length / 2));
   });
 
   it('write trước connect -> PRINTER_NOT_CONNECTED', async () => {
