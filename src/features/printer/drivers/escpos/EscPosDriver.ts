@@ -12,7 +12,7 @@ import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionSe
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
-import { subscribeConnectionLost } from '../../adapters/native/PrinterNativeModule';
+import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { buildEscPosText } from './EscPosTextBuilder';
 import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
@@ -35,12 +35,12 @@ export class EscPosDriver implements IPrinterDriver {
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private contexts = new Map<string, Printer>();
   private activeByType = new Map<PrinterConnectionType, string>();
-  private identities = new Map<string, string>();
+  private connectionIds = new Map<string, string>();
 
   constructor() {
-    subscribeConnectionLost((identity) => {
-      for (const [printerId, knownIdentity] of this.identities) {
-        if (knownIdentity === identity) {
+    subscribeDeviceDisconnected((event) => {
+      for (const [printerId, connectionId] of this.connectionIds) {
+        if (connectionId === event.connectionId) {
           this.setStatus(printerId, PrinterStatus.Disconnected);
         }
       }
@@ -135,10 +135,10 @@ export class EscPosDriver implements IPrinterDriver {
       this.connectedTypes.set(printer.id, printer.connection.type);
       this.contexts.set(printer.id, printer);
 
-      const identity = adapter.getConnectionIdentity();
+      const connectionId = adapter.getConnectionId();
 
-      if (identity) {
-        this.identities.set(printer.id, identity);
+      if (connectionId) {
+        this.connectionIds.set(printer.id, connectionId);
       }
 
       const previousOwner = this.activeByType.get(printer.connection.type);
@@ -178,7 +178,7 @@ export class EscPosDriver implements IPrinterDriver {
       this.adapters.delete(printerId);
       this.connectedTypes.delete(printerId);
       this.contexts.delete(printerId);
-      this.identities.delete(printerId);
+      this.connectionIds.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
@@ -222,8 +222,7 @@ export class EscPosDriver implements IPrinterDriver {
     }
 
     const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
-    // KHÔNG dùng adapter.printText() — cần chunk qua UsbTransport như TSPL bitmap
-    // (printText() trên USB gọi thẳng writeByBase64 không chunk, bill dài dễ vượt 1 lần transfer).
+    // Ghi byte bitmap đã encode; printText() chỉ dành cho text có tag định dạng.
     await adapter.write(bytes);
   }
 

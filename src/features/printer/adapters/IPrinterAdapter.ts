@@ -11,7 +11,7 @@ export interface PrinterConnectTarget {
   connectionType: PrinterConnectionType;
   lan?: { ip: string; port: number };
   bluetooth?: { deviceId: string };
-  usb?: { vendorId: number; productId: number };
+  usb?: { vendorId: number; productId: number; serialNumber?: string };
 }
 
 /** Tuỳ chọn khi để adapter tự encode ESC/POS (`printText`). */
@@ -24,7 +24,7 @@ export interface PrinterPrintTextOptions {
 /**
  * Contract chung cho MỌI cách feature máy in giao tiếp ra ngoài, phân theo
  * nguồn cơ chế:
- * - `native`  — native module tự viết (`PrinterNativeModule` → `ThermalPrinterModule`)
+ * - `native`  — native module tự viết (`DeviceModule`)
  * - `library` — thư viện npm (`react-native-tcp-socket` / `-bluetooth-classic`)
  * - `vendor`  — SDK do hãng máy in cung cấp
  *
@@ -35,9 +35,8 @@ export interface IPrinterAdapter {
   readonly source: 'native' | 'library' | 'vendor';
 
   /**
-   * `true` nếu `read()` thực sự đọc được phản hồi từ máy in. `false` (native —
-   * chỉ bulk-OUT) thì caller KHÔNG được ghi lệnh dò (`~!T`…) rồi chờ đọc —
-   * `TsplDriver.identify()` phải trả `null` ngay, không ghi.
+   * `true` nếu `read()` đọc được phản hồi từ máy in. `false` thì caller KHÔNG được ghi lệnh dò (`~!T`…) rồi chờ
+   * đọc — `TsplDriver.identify()` phải trả `null` ngay, không ghi.
    */
   readonly canRead: boolean;
 
@@ -76,5 +75,6 @@ export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
     return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
   }
 
-  return { printerId: printer.id, connectionType: connection.type, usb: { vendorId: connection.vendorId, productId: connection.productId } };
+  const { vendorId, productId, serialNumber } = connection;
+  return { printerId: printer.id, connectionType: connection.type, usb: { vendorId, productId, serialNumber } };
 };

@@ -12,7 +12,7 @@ import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
-import { subscribeConnectionLost } from '../../adapters/native/PrinterNativeModule';
+import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
 import type { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { PrinterErrorException, PrinterErrorCode, errorCodeOf } from '../../errors/PrinterError';
 import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionService';
@@ -42,12 +42,12 @@ export class TsplDriver implements IPrinterDriver {
   private contexts = new Map<string, Printer>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
-  private identities = new Map<string, string>();
+  private connectionIds = new Map<string, string>();
 
   constructor() {
-    subscribeConnectionLost((identity) => {
-      for (const [printerId, knownIdentity] of this.identities) {
-        if (knownIdentity === identity) {
+    subscribeDeviceDisconnected((event) => {
+      for (const [printerId, connectionId] of this.connectionIds) {
+        if (connectionId === event.connectionId) {
           this.setStatus(printerId, PrinterStatus.Disconnected);
         }
       }
@@ -141,10 +141,10 @@ export class TsplDriver implements IPrinterDriver {
       this.contexts.set(printer.id, printer);
 
       if (adapter.source === 'native') {
-        const identity = (adapter as NativeAdapter).getConnectionIdentity();
+        const connectionId = (adapter as NativeAdapter).getConnectionId();
 
-        if (identity) {
-          this.identities.set(printer.id, identity);
+        if (connectionId) {
+          this.connectionIds.set(printer.id, connectionId);
         }
       }
 
@@ -169,7 +169,7 @@ export class TsplDriver implements IPrinterDriver {
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
-      this.identities.delete(printerId);
+      this.connectionIds.delete(printerId);
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
