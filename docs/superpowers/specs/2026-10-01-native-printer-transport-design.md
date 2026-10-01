@@ -9,7 +9,8 @@ thức, khổ giấy hay loại bản in.
 Đồng thời:
 
 - gom 37 file hiện tại (chia theo vai trò `connection/`, `writer/`, `device/`, `discovery/`, `identity/`,
-  `permission/`, `queue/`) thành 29 file chia theo loại kết nối, mỗi file 1 khái niệm (§6);
+  `permission/`, `queue/`) thành 33 file, mỗi file 1 khái niệm, trong cấu trúc `com.ndtcorepos` mới chia tầng
+  `bridge/` – `device/` – `common/` (§6);
 - đặt lại tên package, module, class, sự kiện cho đúng trách nhiệm (§0);
 - sửa các lỗi thật tìm thấy khi review.
 
@@ -73,9 +74,9 @@ thấy thiết bị USB/Bluetooth/LAN và không biết thiết bị đó có ph
 
 | Hiện tại | Mới | Lý do |
 |---|---|---|
-| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.deviceconnection` | Tầng này chỉ lo kết nối tới thiết bị; "thermal printer" không đúng trách nhiệm |
+| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.device.connection` (logic) + `com.ndtcorepos.bridge.deviceconnection` (module RN) | Tách tầng React Native khỏi logic; "thermal printer" không đúng trách nhiệm |
 | module RN `ThermalPrinterModule` | `DeviceConnectionModule` | Như trên |
-| `ThermalPrinterPackage` | `DeviceConnectionPackage` | Như trên |
+| `ThermalPrinterPackage` | `NdtCorePosPackage` (`bridge/`) | Một package đăng ký mọi module native của app |
 | sự kiện `ThermalPrinterConnectionLost` | `DeviceConnectionLost` | Như trên |
 | `PrinterDeviceManager` + `PrinterDeviceRegistry` + `PrinterQueueManager` | `ConnectionManager` | Một nơi mở/dùng lại/đóng/xử lý mất kết nối |
 | `IPrinterDevice` + `*PrinterDevice` + `PrinterQueue` | `ActiveConnection` | Một kết nối đang mở + hàng đợi của nó |
@@ -290,50 +291,97 @@ TS ánh xạ các mã này sang `PrinterErrorCode` trong `NativeAdapter`.
 
 ### 6. Cấu trúc tầng native
 
-#### 6.1 Cây file
+#### 6.1 Cấu trúc `com.ndtcorepos`
+
+Native của app không chỉ có kết nối thiết bị (sau này còn màn hình phụ cho khách, SDK máy thanh toán, cập nhật app…),
+nên chia 3 tầng theo hướng phụ thuộc, và trong tầng tính năng thì chia theo lĩnh vực → tính năng:
 
 ```
-android/app/src/main/java/com/ndtcorepos/deviceconnection/
-├── DeviceConnectionPackage.java         # đăng ký module với React Native
-├── DeviceConnectionModule.java          # cầu nối JS: đọc tham số, gọi ConnectionManager, trả Promise, phát sự kiện
+com.ndtcorepos/
+├── MainActivity.kt                         # khung React Native, giữ nguyên
+├── MainApplication.kt                      # add(NdtCorePosPackage())
 │
-├── ConnectionManager.java               # connectionId → ActiveConnection: mở, dùng lại, đóng, xử lý mất kết nối
-├── ActiveConnection.java                # 1 kết nối đang mở: transport + hàng đợi tuần tự
-├── IConnectionTarget.java               # thông tin để kết nối, tự suy ra connectionId
-├── ITransport.java                      # mở/ghi/đọc/đóng byte trên 1 đường truyền
-├── ITransportFactory.java               # tạo transport cho 1 target
-├── TransportFactory.java                # chọn transport theo loại target
-├── IConnectionLostListener.java         # nhận báo một kết nối đã mất
-├── ConnectionLostReason.java
-├── ConnectionException.java             # lỗi có mã + số byte đã ghi
-├── ConnectionErrorCode.java
-├── Deadline.java                        # tính thời gian còn lại tới mốc hết hạn
+├── bridge/                                 # TẦNG REACT NATIVE — nơi duy nhất import com.facebook.react
+│   ├── NdtCorePosPackage.java              # đăng ký mọi native module của app
+│   ├── PromiseBridge.java                  # CompletableFuture → resolve/reject; CodedException → mã lỗi JS
+│   ├── JsEventEmitter.java                 # phát sự kiện lên JS, bỏ qua khi React chưa/không còn chạy
+│   └── deviceconnection/
+│       ├── DeviceConnectionModule.java     # @ReactMethod listDevices/connect/write/read/disconnect
+│       └── DeviceConnectionMapper.java     # ReadableMap → target; thiết bị tìm thấy → WritableMap
 │
-├── usb/
-│   ├── UsbTarget.java                   # vendorId + productId + serial
-│   ├── UsbDiscoveredDevice.java
-│   ├── UsbDeviceLookup.java             # liệt kê USB in được; tìm UsbDevice khớp target
-│   ├── UsbDeviceMatcher.java            # luật chọn 1 thiết bị trong các ứng viên (Java thuần)
-│   ├── UsbEndpoints.java                # chọn interface và endpoint bulk OUT / bulk IN
-│   ├── UsbPermissionRequester.java      # xin quyền USB và chờ kết quả
-│   ├── UsbChunkedWriter.java            # chia khúc, ghi đủ trước hạn (Java thuần)
-│   ├── UsbTransport.java
-│   └── UsbDetachReceiver.java           # broadcast rút USB → báo mất kết nối
-├── bluetooth/
-│   ├── BluetoothTarget.java
-│   ├── BluetoothDiscoveredDevice.java
-│   ├── BluetoothDeviceLookup.java       # thiết bị đã ghép đôi; tìm theo địa chỉ
-│   ├── BluetoothTransport.java
-│   └── BluetoothDisconnectReceiver.java # broadcast mất kết nối Bluetooth → báo mất kết nối
-└── lan/
-    ├── LanTarget.java
-    └── LanTransport.java
+├── device/                                 # TẦNG TÍNH NĂNG: phần cứng ngoại vi (dùng Android SDK, không React)
+│   └── connection/
+│       ├── ConnectionManager.java          # connectionId → ActiveConnection: mở, dùng lại, đóng, xử lý mất kết nối
+│       ├── ActiveConnection.java           # 1 kết nối đang mở: transport + hàng đợi tuần tự
+│       ├── IConnectionTarget.java          # thông tin để kết nối, tự suy ra connectionId
+│       ├── ITransport.java                 # mở/ghi/đọc/đóng byte trên 1 đường truyền
+│       ├── ITransportFactory.java          # tạo transport cho 1 target
+│       ├── TransportFactory.java           # chọn transport theo loại target
+│       ├── IConnectionLostListener.java    # nhận báo một kết nối đã mất
+│       ├── ConnectionLostReason.java
+│       ├── ConnectionException.java        # CodedException + số byte đã ghi
+│       ├── ConnectionErrorCode.java
+│       ├── Deadline.java                   # thời gian còn lại tới mốc hết hạn
+│       ├── usb/
+│       │   ├── UsbTarget.java              # vendorId + productId + serial
+│       │   ├── UsbDiscoveredDevice.java
+│       │   ├── UsbDeviceLookup.java        # liệt kê USB in được; tìm UsbDevice khớp target
+│       │   ├── UsbDeviceMatcher.java       # luật chọn 1 thiết bị trong các ứng viên (Java thuần)
+│       │   ├── UsbEndpoints.java           # chọn interface và endpoint bulk OUT / bulk IN
+│       │   ├── UsbPermissionRequester.java # xin quyền USB và chờ kết quả
+│       │   ├── UsbChunkedWriter.java       # chia khúc, ghi đủ trước hạn (Java thuần)
+│       │   ├── UsbTransport.java
+│       │   └── UsbDetachReceiver.java      # broadcast rút USB → báo mất kết nối
+│       ├── bluetooth/
+│       │   ├── BluetoothTarget.java
+│       │   ├── BluetoothDiscoveredDevice.java
+│       │   ├── BluetoothDeviceLookup.java  # thiết bị đã ghép đôi; tìm theo địa chỉ
+│       │   ├── BluetoothTransport.java
+│       │   └── BluetoothDisconnectReceiver.java
+│       └── lan/
+│           ├── LanTarget.java
+│           └── LanTransport.java
+│
+└── common/                                 # TẦNG DÙNG CHUNG: Java thuần, không Android, không React
+    └── CodedException.java                 # exception có mã lỗi dạng chuỗi; bridge đọc mã này để reject
 ```
 
-29 file, mỗi file đúng 1 khái niệm. Hiện tại có 37 file nhưng một khái niệm bị chia ra 3–4 file (connection + writer +
+33 file, mỗi file đúng 1 khái niệm. Hiện tại có 37 file nhưng một khái niệm bị chia ra 3–4 file (connection + writer +
 device + queue), còn `ThermalPrinterModule` ôm phần lớn logic.
 
-#### 6.2 Hướng phụ thuộc
+Chỗ cho tính năng sau này (chưa tạo, chỉ để thấy cấu trúc dùng thế nào):
+
+```
+├── bridge/customerdisplay/CustomerDisplayModule.java   ┐ màn hình phụ cho khách (Android Presentation API)
+├── device/customerdisplay/…                            ┘
+├── bridge/payment/PaymentTerminalModule.java           ┐ SDK máy thanh toán của hãng
+├── payment/terminal/…                                  ┘
+└── bridge/system/AppUpdateModule.java + system/update/…   cập nhật app, chế độ kiosk…
+```
+
+Ngăn kéo tiền mở bằng lệnh ESC/POS qua máy in, máy quét mã vạch dạng bàn phím (HID) gõ thẳng vào ô nhập: cả hai không
+cần native riêng.
+
+#### 6.2 Quy tắc phụ thuộc
+
+```
+bridge ──► device, (sau này payment, system…) ──► common
+bridge ──────────────────────────────────────────► common
+```
+
+- **Chỉ `bridge/` import `com.facebook.react.*`.** Tầng tính năng không biết React Native nên test được bằng JUnit và
+  dùng lại được nếu đổi cách gọi từ JS.
+- **`common/` không import Android SDK lẫn React**; chỉ thêm vào khi có ≥ 2 nơi cần (hiện `CodedException` dùng bởi
+  `bridge/PromiseBridge` và `device/connection`). `Deadline` còn ở `device/connection` vì chưa có nơi thứ hai dùng.
+- **Tính năng không import lẫn nhau** (`device/connection` không biết `device/customerdisplay`). Cần phối hợp thì TS
+  gọi từng module.
+- **Mỗi tính năng có 1 module JS riêng** trong `bridge/<tinhnang>/`, cùng đăng ký qua `NdtCorePosPackage`.
+  `MainApplication` chỉ thêm đúng 1 package.
+- **Trong `device/connection`**: gói gốc không import `usb/`, `bluetooth/`, `lan/`, trừ nơi lắp ráp `TransportFactory`.
+  `ConnectionManager`, `ActiveConnection`, `*Target`, `UsbDeviceMatcher`, `UsbChunkedWriter`, `Deadline`,
+  `ConnectionException` không dùng API Android nên test được bằng JUnit thuần.
+
+Luồng gọi trong `device/connection`:
 
 ```
 DeviceConnectionModule ──► ConnectionManager ──► ActiveConnection ──► ITransport ◄── Usb/Bluetooth/LanTransport
@@ -342,18 +390,12 @@ DeviceConnectionModule ──► ConnectionManager ──► ActiveConnection �
    ├──► UsbDeviceLookup, BluetoothDeviceLookup                       (listDevices)
    └──► UsbDetachReceiver, BluetoothDisconnectReceiver ──► ConnectionManager.handleDeviceLost
 
-ConnectionManager ──► IConnectionLostListener (DeviceConnectionModule cài đặt, phát sự kiện lên JS)
+ConnectionManager ──► IConnectionLostListener (DeviceConnectionModule cài đặt, phát sự kiện qua JsEventEmitter)
 ```
-
-- Chỉ `DeviceConnectionModule` dùng kiểu React Native (`ReadableMap`, `WritableMap`, `Promise`).
-- `ConnectionManager`, `ActiveConnection`, `*Target`, `UsbDeviceMatcher`, `UsbChunkedWriter`, `Deadline`,
-  `ConnectionException` không dùng API Android nên test được bằng JUnit thuần.
-- Gói gốc không import `usb/`, `bluetooth/`, `lan/`, trừ hai nơi lắp ráp: `DeviceConnectionModule` và
-  `TransportFactory`.
 
 #### 6.3 Từng class
 
-**`DeviceConnectionModule`** — chỉ dịch giữa JS và Java, không có logic kết nối.
+**`bridge/deviceconnection/DeviceConnectionModule`** — chỉ dịch giữa JS và Java, không có logic kết nối.
 
 ```java
 @ReactMethod void listDevices(String type, Promise promise)
@@ -365,9 +407,11 @@ ConnectionManager ──► IConnectionLostListener (DeviceConnectionModule cài
 ```
 
 - Số từ JS đến dạng `double` → đổi sang `long`/`int`; ≤ 0 thì reject `INVALID_ARGUMENT`.
-- `readTarget(ReadableMap)` → `UsbTarget` / `BluetoothTarget` / `LanTarget`.
-- Gắn callback vào `CompletableFuture` của `ConnectionManager` để resolve/reject; không bao giờ `get()` chờ.
-- Cài `IConnectionLostListener`: phát `DeviceConnectionLost` `{ connectionId, reason }`.
+- `DeviceConnectionMapper.toTarget(ReadableMap)` → `UsbTarget` / `BluetoothTarget` / `LanTarget`;
+  `DeviceConnectionMapper.toWritableMap(…)` cho từng loại thiết bị tìm thấy.
+- `PromiseBridge` gắn callback vào `CompletableFuture` của `ConnectionManager` để resolve/reject (mã lỗi lấy từ
+  `CodedException.code()`, `WRITE_*` thêm `bytesWritten`); không bao giờ `get()` chờ.
+- Cài `IConnectionLostListener`: phát `DeviceConnectionLost` `{ connectionId, reason }` qua `JsEventEmitter`.
 - `invalidate()`: huỷ đăng ký 2 receiver, `connectionManager.closeAll()`.
 
 **`ConnectionManager`** — giữ các kết nối đang mở theo `connectionId`.
@@ -449,9 +493,11 @@ BluetoothDeviceLookup)` chọn theo loại target, mỗi loại 1 hàm riêng:
 **`ConnectionException`** / **`ConnectionErrorCode`** / **`ConnectionLostReason`** / **`IConnectionLostListener`**
 
 ```java
-ConnectionException(ConnectionErrorCode code, String message)
+abstract class CodedException extends Exception { abstract String code(); }          // common/
+
+ConnectionException(ConnectionErrorCode code, String message)                         // extends CodedException
 ConnectionException withBytesWritten(int bytesWritten)
-ConnectionErrorCode code()
+ConnectionErrorCode errorCode()
 int bytesWritten()
 
 enum ConnectionLostReason { USB_DETACHED, BLUETOOTH_DISCONNECTED, IO_ERROR }   // wireValue(): "usb_detached"…
@@ -511,7 +557,7 @@ static boolean isExpired(long deadlineMillis)
 
 ```
 JS connect(target)
- → DeviceConnectionModule.readTarget → UsbTarget.of(…)       sai tham số → reject INVALID_ARGUMENT ngay
+ → DeviceConnectionMapper.toTarget → UsbTarget.of(…)       sai tham số → reject INVALID_ARGUMENT ngay
  → ConnectionManager.connect(target)
      đang mở và còn sống        → resolve connectionId
      đang có lần mở cùng id     → dùng chung future
@@ -547,37 +593,32 @@ Lỗi I/O khi ghi/đọc Bluetooth/LAN → ActiveConnection → handleDeviceLost
 android/app/src/
 ├── main/
 │   ├── AndroidManifest.xml                 # quyền Bluetooth, uses-feature usb.host
-│   ├── assets/fonts/                       # font app (không thuộc tầng kết nối)
+│   ├── assets/fonts/                       # font app
 │   ├── res/
-│   └── java/com/ndtcorepos/
-│       ├── MainActivity.kt                 # khung React Native, giữ nguyên
-│       ├── MainApplication.kt              # đăng ký DeviceConnectionPackage
-│       └── deviceconnection/               # toàn bộ tầng kết nối thiết bị (§6.1)
-│           ├── usb/
-│           ├── bluetooth/
-│           └── lan/
-└── test/java/com/ndtcorepos/deviceconnection/   # JUnit, cùng cấu trúc package với main
-    ├── ConnectionManagerTest.java
-    ├── ActiveConnectionTest.java
-    ├── DeadlineTest.java
-    ├── FakeTransport.java                  # ITransport giả cho 2 test trên
-    ├── usb/
-    │   ├── UsbTargetTest.java
-    │   ├── UsbDeviceMatcherTest.java
-    │   └── UsbChunkedWriterTest.java
-    ├── bluetooth/
-    │   └── BluetoothTargetTest.java
-    └── lan/
-        └── LanTargetTest.java
+│   └── java/com/ndtcorepos/                # bridge/, device/, common/ như §6.1
+└── test/java/com/ndtcorepos/               # JUnit, cùng cấu trúc package với main
+    ├── common/
+    │   └── CodedExceptionTest.java
+    └── device/connection/
+        ├── ConnectionManagerTest.java
+        ├── ActiveConnectionTest.java
+        ├── DeadlineTest.java
+        ├── FakeTransport.java              # ITransport giả cho 2 test trên
+        ├── usb/
+        │   ├── UsbTargetTest.java
+        │   ├── UsbDeviceMatcherTest.java
+        │   └── UsbChunkedWriterTest.java
+        ├── bluetooth/
+        │   └── BluetoothTargetTest.java
+        └── lan/
+            └── LanTargetTest.java
 ```
 
-Quy tắc cho native module sau này: mỗi tính năng native là 1 package con ngay dưới `com.ndtcorepos`
-(`com.ndtcorepos.<tinhnang>`), tự có `<TinhNang>Package` + `<TinhNang>Module`, và chỉ đăng ký trong `MainApplication`.
-Gốc `com.ndtcorepos` chỉ giữ `MainActivity` và `MainApplication`.
+`bridge/` không có unit test: chỉ dịch kiểu và gọi xuống, được kiểm qua Jest phía TS và kiểm tra trên máy thật.
 
 Xoá toàn bộ thư mục `com/ndtcorepos/thermalprinter/`. Cập nhật:
 
-- `MainApplication.kt`: import và `add(DeviceConnectionPackage())`.
+- `MainApplication.kt`: import và `add(NdtCorePosPackage())`.
 - `AndroidManifest.xml`: comment đang nhắc `com.ndtcorepos.thermalprinter`.
 - `CLAUDE.md`, `docs/CODING_STANDARDS.md` (ví dụ tên interface ở Rule 8.3): đường dẫn và tên class cũ.
 - `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` → `DeviceConnectionModule`.
