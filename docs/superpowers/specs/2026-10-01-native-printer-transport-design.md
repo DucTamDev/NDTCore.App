@@ -1,692 +1,486 @@
-# Tầng native máy in: chỉ nhận kết nối, gọn theo transport — Design Spec
+# Tầng native thiết bị (`com.ndtcorepos`) — Design Spec
 
 ## Mục tiêu
 
-Tầng native (Java, Android) chỉ làm "đường ống": liệt kê thiết bị, mở kết nối, ghi byte, đọc byte, đóng kết nối, báo
-mất kết nối. Native **chỉ nhận thông tin kết nối** và trả về `connectionId`; không biết `printerId`, máy in đã lưu, giao
-thức, khổ giấy hay loại bản in.
+Thiết kế mới tầng native Android (Java) của app, thay toàn bộ `com.ndtcorepos.thermalprinter`.
 
-Đồng thời:
-
-- gom 37 file hiện tại (chia theo vai trò `connection/`, `writer/`, `device/`, `discovery/`, `identity/`,
-  `permission/`, `queue/`) thành 33 file, mỗi file 1 khái niệm, trong cấu trúc `com.ndtcorepos` mới chia tầng
-  `bridge/` – `device/` – `common/` (§6);
-- đặt lại tên package, module, class, sự kiện cho đúng trách nhiệm (§0);
-- sửa các lỗi thật tìm thấy khi review.
+Tầng native chỉ làm "đường ống" tới thiết bị ngoại vi: tìm thiết bị, xin quyền, kết nối, ghi/đọc byte, báo mất kết
+nối. Native **chỉ nhận địa chỉ thiết bị** và trả về `connectionId`; không biết `printerId`, máy in đã lưu, giao thức
+(ESC/POS, TSPL), khổ giấy hay loại bản in — những thứ đó thuộc tầng TS.
 
 ## Nguyên tắc đã chốt
 
-- **Native chỉ nhận connection.** Không có `printerId` ở native. `connectionId` suy ra từ thông tin kết nối mà TS
-  truyền vào, nên cùng thông tin luôn ra cùng `connectionId`.
-- **Một kết nối vật lý = một `ActiveConnection`.** Native không biết hai kết nối (USB và LAN) có phải cùng một máy hay
-  không. "Một máy in nhiều đường kết nối" là quyết định nghiệp vụ của TS.
-- **Dùng chung kết nối do TS quản lý.** Hai máy in đã lưu trỏ cùng một kết nối thì TS đếm số người dùng và chỉ gọi
-  `disconnect` khi không còn ai. Native: `connect` lại cùng thông tin trả về kết nối đang mở; `disconnect` đóng ngay.
-- **Native không hiển thị UI.** Bỏ các `Toast` tiếng Anh hiện có; mọi thông báo cho người dùng do TS hiển thị.
-- **Không chặn luồng bridge.** Mọi thao tác chậm (xin quyền USB, mở socket, ghi, đọc, đóng) chạy trên luồng riêng;
+- **Native chỉ nhận địa chỉ.** `connectionId` suy ra từ địa chỉ TS truyền vào, nên cùng địa chỉ luôn ra cùng
+  `connectionId`.
+- **Một kết nối vật lý = một `Connection`.** Native không biết hai địa chỉ (USB và LAN) có phải cùng một máy hay không;
+  "một máy in nhiều đường kết nối" là quyết định nghiệp vụ của TS.
+- **Dùng chung kết nối do TS quản lý.** Hai máy in đã lưu cùng một địa chỉ thì TS đếm số người dùng và chỉ gọi
+  `disconnect` khi không còn ai. Native: `connect` lại cùng địa chỉ trả về kết nối đang mở; `disconnect` đóng ngay.
+- **Native không hiển thị UI** (không `Toast`); mọi thông báo cho người dùng do TS hiển thị bằng tiếng Việt.
+- **Không chặn luồng của native module.** Việc chậm (xin quyền USB, mở socket, ghi, đọc, đóng) chạy trên luồng riêng;
   Promise được resolve/reject từ luồng đó.
 
 ## Ngoài phạm vi
 
-- Gộp `adapters/` + `transports/` bên TS, bỏ `LibraryAdapter`, chuyển TSPL Bluetooth/LAN sang native (làm ở spec tái
-  cấu trúc tầng TS máy in, sau khi native có `read`).
-- Thu hẹp `connectionResourceKey` của `PrintScheduler` (hiện USB dùng chung khoá `'usb'`, ESC/POS theo loại kết nối).
-  Native mới cho phép song song theo `connectionId`, nhưng đổi lịch in thuộc spec TS.
-- Đổi tên phần TS ngoài các file liệt kê ở §7 (`IPrinterAdapter`, `PrinterConnectTarget`, model `PrinterConnection`…).
-- Quét máy in LAN; lọc thiết bị Bluetooth theo loại (hiện trả mọi thiết bị đã ghép đôi, giữ nguyên).
-- iOS (`printTextLegacyIOS` giữ nguyên).
-- Model "một máy in nhiều đường kết nối" bên TS.
+- Tái cấu trúc tầng TS máy in (gộp `adapters/` + `transports/`, bỏ `LibraryAdapter`, chuyển TSPL Bluetooth/LAN sang
+  native, đổi tên `PrinterDevice`…). Đợt này TS chỉ sửa đủ để chạy với API native mới (§8).
+- Thu hẹp `connectionResourceKey` của `PrintScheduler` (native mới cho phép song song theo `connectionId`, nhưng đổi
+  lịch in thuộc tầng TS).
+- Quét máy in LAN; lọc thiết bị Bluetooth theo loại (trả mọi thiết bị đã ghép đôi).
+- iOS.
+- Tính năng native khác (màn hình phụ, máy thanh toán…): cấu trúc §1 đã chừa chỗ, chưa làm.
 
-## Lỗi hiện tại được sửa
+## Hành vi phải đúng (lỗi đang có ở code hiện tại)
 
-| # | Lỗi | Sửa |
+| # | Hiện tại | Phải đúng |
 |---|---|---|
-| 1 | `connect` USB chỉ tìm theo vendorId/productId, bỏ qua serial → 2 máy cùng model luôn lấy máy đầu | Khớp serial (§2.3) |
-| 2 | Sự kiện rút USB khớp theo `vid:pid` → rút 1 máy, máy cùng model cũng bị coi là mất | Khớp theo `UsbDevice.getDeviceName()` |
-| 3 | Rút USB xử lý 2 lần: `UsbConnection` tự đóng và `UsbConnectionWatcher` dọn dẹp, không phối hợp | Một đường qua `ConnectionManager` |
-| 4 | `writeByBase64` chặn bridge tới 15s; `connect` chặn tới 30s khi chờ hộp thoại quyền USB | Chạy trên luồng riêng (§4) |
-| 5 | USB ghi cả payload bằng 1 lần `bulkTransfer`; ghi thiếu byte vẫn báo thành công | Chia khúc, ghi đủ mới thành công (§3.1) |
-| 6 | `timeout` của writer Bluetooth/LAN bị bỏ qua; 2 mức timeout chồng nhau (5s, 15s) | Một deadline cho cả lần ghi do TS truyền |
-| 7 | Native không đọc được (`read` luôn `null`) → TSPL phải đi `LibraryAdapter` | Thêm `read` (§1) |
-| 8 | Receiver đăng ký `RECEIVER_EXPORTED` cho cả action quyền USB nội bộ | `RECEIVER_NOT_EXPORTED` |
-| 9 | `Toast` tiếng Anh hiển thị từ native | Bỏ |
-| 10 | `PrinterWriteResult` dùng cho cả `open`/`close` | Lỗi ném `ConnectionException`, thành công không trả gì |
+| 1 | Kết nối USB chỉ tìm theo vendorId/productId → 2 máy cùng model luôn lấy máy đầu | Khớp serial (§4.3) |
+| 2 | Rút 1 máy USB, máy cùng model cũng bị coi là mất | Khớp theo đường dẫn thiết bị (`hardwareAddress`) |
+| 3 | Rút USB được xử lý ở 2 nơi không phối hợp | Một đường duy nhất: monitor → `ConnectionPool` |
+| 4 | Ghi chặn luồng native module tới 15s; kết nối chặn tới 30s khi chờ hộp thoại quyền USB | Chạy trên luồng riêng |
+| 5 | USB ghi cả payload 1 lần; ghi thiếu byte vẫn báo thành công | Chia khúc, ghi đủ mới thành công |
+| 6 | Timeout ghi Bluetooth/LAN bị bỏ qua; 2 mức timeout chồng nhau | Một hạn do TS truyền |
+| 7 | Native không đọc được phản hồi | Có `read` |
+| 8 | Receiver nhận cả broadcast từ app khác | Receiver chỉ nhận trong app |
+| 9 | `Toast` tiếng Anh từ native | Bỏ |
+| 10 | Kết quả "ghi" dùng cho cả mở/đóng kết nối | Lỗi là `DeviceException`, thành công không trả gì |
 
 ## Thiết kế
 
-### 0. Từ vựng và tên
+### 1. Cấu trúc
 
-#### 0.1 Từ vựng
+```
+android/app/src/main/java/com/ndtcorepos/
+├── MainActivity.kt                         # khung React Native, giữ nguyên
+├── MainApplication.kt                      # add(NdtCorePosPackage())
+│
+├── bridge/                                 # nói chuyện với JS — nơi duy nhất import React Native
+│   ├── NdtCorePosPackage.java              # đăng ký các module
+│   └── device/
+│       ├── DeviceModule.java               # các hàm JS gọi + phát sự kiện
+│       └── DeviceMapper.java               # đổi dữ liệu JS ↔ Java
+│
+├── common/                                 # Java thuần dùng chung mọi tính năng
+│   └── CodedException.java                 # lỗi có mã, JS nhận được mã này
+│
+└── device/
+    ├── DeviceFactory.java                  # tạo và nối mọi phần của device
+    ├── DeviceService.java                  # cửa vào duy nhất của device; bridge chỉ gọi class này
+    │
+    ├── model/                              # dữ liệu
+    │   ├── DeviceType.java
+    │   ├── DeviceAddress.java
+    │   ├── DeviceInfo.java
+    │   └── DisconnectReason.java
+    │
+    ├── error/                              # lỗi
+    │   ├── DeviceException.java
+    │   └── DeviceErrorCode.java
+    │
+    ├── discovery/                          # tìm thiết bị
+    │   ├── IDeviceDiscovery.java
+    │   ├── UsbDiscovery.java
+    │   └── BluetoothDiscovery.java
+    │
+    ├── permission/                         # xin quyền
+    │   └── UsbPermission.java
+    │
+    ├── connection/                         # kết nối đang mở
+    │   ├── IDisconnectListener.java
+    │   ├── ConnectionPool.java
+    │   └── Connection.java
+    │
+    ├── transport/                          # truyền byte
+    │   ├── ITransport.java
+    │   ├── ITransportFactory.java
+    │   ├── TransportFactory.java
+    │   ├── UsbTransport.java
+    │   ├── BluetoothTransport.java
+    │   └── LanTransport.java
+    │
+    └── monitor/                            # theo dõi rút / mất kết nối
+        ├── IDisconnectMonitor.java
+        ├── UsbDetachMonitor.java
+        └── BluetoothDisconnectMonitor.java
+```
 
-| Từ | Nghĩa | Không dùng |
+26 file Java. Xoá toàn bộ `com/ndtcorepos/thermalprinter/`.
+
+**Hướng gọi** (một chiều, không vòng):
+
+```
+JS ─► DeviceModule ─► DeviceFactory.create ─► DeviceService ─┬─► discovery/
+                                                             └─► ConnectionPool ─► Connection ─► ITransport
+                                                                      ▲                              ▲
+                                                                  monitor/          TransportFactory ┘
+                                                                                          │
+                                                                              discovery/, permission/
+ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự kiện JS
+```
+
+**Quy tắc:**
+
+1. Chỉ `bridge/` import `com.facebook.react.*`.
+2. `bridge/` chỉ dùng `DeviceFactory`, `DeviceService`, `model/`, `error/`, `connection/IDisconnectListener`.
+3. Các folder trong `device/` gọi theo đúng hướng trên, không gọi ngược.
+4. `model/`, `error/`, `connection/`, `DeviceService`, `common/` không dùng API Android → test bằng JUnit thuần.
+5. `DeviceFactory` là nơi duy nhất `new` các phần của device; class khác nhận dependency qua constructor.
+6. Interface đặt tiền tố `I` (`docs/CODING_STANDARDS.md` Rule 8.3); class cài đặt không có tiền tố. Chỉ tách
+   interface khi có ≥ 2 cài đặt hoặc cần bản giả để test.
+
+**Tính năng native sau này** đi theo cùng khuôn: `bridge/<tinhnang>/<TinhNang>Module` + `<tinhnang>/` (có
+`<TinhNang>Factory`, `<TinhNang>Service`, các folder theo việc), cùng đăng ký trong `NdtCorePosPackage`. Ngăn kéo tiền
+(lệnh ESC/POS qua máy in) và máy quét mã vạch dạng bàn phím không cần native riêng.
+
+### 2. Từng phần
+
+#### `bridge/`
+
+| File | Làm gì | Hàm chính |
 |---|---|---|
-| **target** | Thông tin để kết nối: USB vid/pid/serial, địa chỉ Bluetooth, host/port LAN. Đầu vào từ TS | "device", "request" |
-| **connectionId** | Chuỗi định danh một kết nối, suy ra từ target (§2) | "identity", "identityKey" (ở native) |
-| **active connection** | Một kết nối đang mở: transport + hàng đợi thao tác tuần tự | "session", "device", "runtime" |
-| **transport** | Đọc/ghi byte thô trên một loại đường truyền (USB, Bluetooth, LAN) | "writer", "connection" |
-| **discovered device** | Một thiết bị `listDevices` tìm thấy, chưa kết nối | "printer", "descriptor" |
+| `NdtCorePosPackage` | Đăng ký module với React Native | `createNativeModules()` → `[new DeviceModule(reactContext)]` |
+| `device/DeviceModule` | Hàm JS gọi: nhận tham số, gọi `DeviceService`, trả Promise. Cài `IDisconnectListener` để phát `DeviceDisconnected` | `discover`, `connect`, `write`, `read`, `disconnect`, `invalidate()` |
+| `device/DeviceMapper` | Đổi dữ liệu JS ↔ Java; tham số sai → `INVALID_ARGUMENT` | `toDeviceType(String)`, `toAddress(ReadableMap)`, `toWritableArray(List<DeviceInfo>)` |
 
-Tầng native và kiểu ở cầu nối chỉ dùng hai danh từ **Device** và **Connection**, không dùng "Printer": native chỉ
-thấy thiết bị USB/Bluetooth/LAN và không biết thiết bị đó có phải máy in (danh sách Bluetooth trả cả tai nghe). Chữ
-"Printer" chỉ bắt đầu từ tầng nghiệp vụ TS (`PrinterService`, driver, model `Printer`).
+- Constructor `DeviceModule`: `deviceService = DeviceFactory.create(reactContext, this)`.
+- Không bao giờ đứng chờ: gắn callback vào `CompletableFuture`; lỗi reject bằng `CodedException.code()`, lỗi ghi thêm
+  `userInfo.bytesWritten`.
+- Số từ JS đến dạng `double` → đổi sang `long`/`int`; ≤ 0 → `INVALID_ARGUMENT`.
+- `invalidate()` (React Native gọi khi reload) → `deviceService.close()`.
 
-#### 0.2 Đổi tên phía native (Java)
+#### `common/`
 
-| Hiện tại | Mới | Lý do |
-|---|---|---|
-| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.device.connection` (logic) + `com.ndtcorepos.bridge.deviceconnection` (module RN) | Tách tầng React Native khỏi logic; "thermal printer" không đúng trách nhiệm |
-| module RN `ThermalPrinterModule` | `DeviceConnectionModule` | Như trên |
-| `ThermalPrinterPackage` | `NdtCorePosPackage` (`bridge/`) | Một package đăng ký mọi module native của app |
-| sự kiện `ThermalPrinterConnectionLost` | `DeviceConnectionLost` | Như trên |
-| `PrinterDeviceManager` + `PrinterDeviceRegistry` + `PrinterQueueManager` | `ConnectionManager` | Một nơi mở/dùng lại/đóng/xử lý mất kết nối |
-| `IPrinterDevice` + `*PrinterDevice` + `PrinterQueue` | `ActiveConnection` | Một kết nối đang mở + hàng đợi của nó |
-| `IPrinterConnection` + `IPrinterWriter` + `*Connection` + `*Writer` | `ITransport` + `UsbTransport`/`BluetoothTransport`/`LanTransport` | Mở/ghi/đọc/đóng là một khối, không tách đôi |
-| `ConnectionIdentity` + `IConnectionIdentityResolver` + `UsbConnectionIdentityResolver` | `IConnectionTarget` + `UsbTarget`/`BluetoothTarget`/`LanTarget`, mỗi target tự có `connectionId()` | Id suy ra từ target |
-| `PrinterDescriptor` | `UsbDiscoveredDevice` / `BluetoothDiscoveredDevice` | Kết quả `listDevices`, không phải "máy in"; mỗi loại 1 dạng |
-| `PrinterWriteResult` + `PrinterErrorCode` | `ConnectionException` + `ConnectionErrorCode` | Lỗi là exception, mã lỗi thuộc kết nối |
-| `IPrinterDiscovery` + `UsbPrinterDiscovery` / `BluetoothPrinterDiscovery` | `UsbDeviceLookup` / `BluetoothDeviceLookup` | Vừa liệt kê vừa tìm thiết bị khớp target |
-| `UsbPermission` (quyền + phát sự kiện rút USB) | `UsbPermissionRequester` + `UsbDetachReceiver` | Tách 2 trách nhiệm |
-| `UsbConnectionWatcher` / `BluetoothConnectionWatcher` | `UsbDetachReceiver` / `BluetoothDisconnectReceiver` | Tên theo broadcast nhận được |
-| `UsbEndpointResolver` | `UsbEndpoints` | Chọn cả interface, bulk OUT và bulk IN |
-| `PrinterQueueTask`, `ConnectionState`, `IdentityStability`, `ConnectionType` | bỏ; `ConnectionType` thay bằng 3 loại target | Không còn chỗ dùng |
-| — | `ConnectionLostReason` | Lý do mất kết nối gửi kèm sự kiện |
-
-Interface đặt tiền tố `I` theo `docs/CODING_STANDARDS.md` Rule 8.3.
-
-#### 0.3 Đổi tên phía TS (chỉ các file chạm tới cầu nối)
-
-| Hiện tại | Mới |
+| File | Làm gì |
 |---|---|
-| `adapters/native/PrinterNativeModule.ts`, export `ThermalPrinterModule` | `adapters/native/DeviceConnectionModule.ts`, export `DeviceConnectionModule` |
-| `PrinterInfoDto` | `NativeDiscoveredDevice` |
-| `ConnectRequest` / `UsbConnectRequest` / `BluetoothConnectRequest` / `LanConnectRequest` | `NativeConnectionTarget` / `NativeUsbTarget` / `NativeBluetoothTarget` / `NativeLanTarget` |
-| `subscribeConnectionLost(cb: (identity) => …)` | `subscribeConnectionLost(cb: (event: ConnectionLostEvent) => …)` |
-| `NativeAdapter.getConnectionIdentity()`, field `connectionIdentity` | `getConnectionId()`, field `connectionId` |
-| — | `adapters/native/NativeConnectionPool.ts` (`acquire` / `release`) |
-| `transports/UsbTransport.ts` | xoá |
+| `CodedException` | Lớp cha trừu tượng của mọi lỗi có mã (`code()`); `bridge/` reject bằng mã này mà không cần biết tính năng |
 
-Kiểu ở cầu nối mang tiền tố `Native` để phân biệt với kiểu nghiệp vụ cùng nghĩa bên TS (`PrinterConnection`,
-`PrinterConnectTarget`). Model TS `PrinterDevice` (thiết bị tìm thấy khi thêm máy in) cũng ghép "Printer + Device";
-đổi tên nó thuộc spec tầng TS, ghi lại ở đó.
+Chỉ Java thuần; chỉ thêm file khi có ≥ 2 tính năng cần.
 
-### 1. Hợp đồng JS ↔ native
+#### `device/DeviceFactory`
 
-Kiểu phía TS (trong `adapters/native/DeviceConnectionModule.ts`):
+| Hàm | Làm gì |
+|---|---|
+| `static DeviceService create(Context context, IDisconnectListener listener)` | Tạo `UsbPermission`, `UsbDiscovery`, `BluetoothDiscovery`, `TransportFactory`, `ConnectionPool(transportFactory, listener)`, `UsbDetachMonitor`, `BluetoothDisconnectMonitor` và các executor; tạo `DeviceService` rồi gọi `start()` |
+
+#### `device/DeviceService`
+
+| Hàm | Làm gì |
+|---|---|
+| `DeviceService(Map<DeviceType, IDeviceDiscovery> discoveries, ConnectionPool connectionPool, List<IDisconnectMonitor> monitors, ExecutorService discoveryExecutor)` | Nhận dependency |
+| `start()` | Bật các monitor |
+| `CompletableFuture<List<DeviceInfo>> discover(DeviceType type)` | Chọn discovery theo loại, quét trên luồng quét; LAN → `INVALID_ARGUMENT` |
+| `CompletableFuture<String> connect(DeviceAddress address)` | → `ConnectionPool.connect` |
+| `write`, `read`, `disconnect` | → `ConnectionPool` |
+| `close()` | Tắt monitor, `connectionPool.closeAll()`, tắt luồng quét |
+
+#### `device/model/` (bất biến, không logic)
+
+| File | Nội dung |
+|---|---|
+| `DeviceType` | `USB`, `BLUETOOTH`, `LAN`; `wireValue()` = `"usb"`, `"bluetooth"`, `"lan"` |
+| `DeviceAddress` | Cách tới một thiết bị. Tạo bằng `usb(vendorId, productId, serialNumber)`, `bluetooth(mac)`, `lan(host, port)`, kiểm tra tham số ngay (§4.1); `connectionId()` |
+| `DeviceInfo` | Một thiết bị tìm thấy: `type`, `connectionId`, `name`; USB thêm `vendorId`, `productId`, `serialNumber`, `manufacturerName`, `productName`, `hasPermission`; Bluetooth thêm `mac` |
+| `DisconnectReason` | `USB_DETACHED`, `BLUETOOTH_DISCONNECTED`, `IO_ERROR`; `wireValue()` = `"usb_detached"`… |
+
+#### `device/error/`
+
+| File | Nội dung |
+|---|---|
+| `DeviceErrorCode` | 12 mã (§5) |
+| `DeviceException` | Kế thừa `CodedException`: mã, thông báo, `bytesWritten` (lỗi ghi) |
+
+#### `device/discovery/`
+
+| File | Làm gì | Hàm chính |
+|---|---|---|
+| `IDeviceDiscovery` | Việc chung của mọi cách quét | `List<DeviceInfo> discover() throws DeviceException` |
+| `UsbDiscovery` | Liệt kê USB đang cắm có endpoint bulk OUT; đọc serial nếu đã có quyền; tìm đúng máy cho một địa chỉ (§4.3) | `discover()`, `UsbDevice find(DeviceAddress address)` |
+| `BluetoothDiscovery` | Liệt kê thiết bị đã ghép đôi; tìm theo MAC | `discover()`, `BluetoothDevice findBonded(String mac)` |
+
+- Luật chọn USB viết thành hàm static trên dữ liệu đơn giản (danh sách serial) để test JUnit.
+- Bluetooth tắt → `BLUETOOTH_DISABLED`; thiếu quyền → `PERMISSION_DENIED`; không có MAC → `DEVICE_NOT_FOUND`.
+
+#### `device/permission/`
+
+| File | Làm gì | Hàm chính |
+|---|---|---|
+| `UsbPermission` | Hỏi người dùng cho phép dùng một thiết bị USB và chờ kết quả | `hasPermission(UsbDevice)`, `request(UsbDevice)` |
+
+- `request` chờ tối đa 30s; từ chối / hết giờ / rút dây khi hộp thoại đang mở → `PERMISSION_DENIED`.
+- Mỗi lần xin đăng ký receiver tạm (`RECEIVER_NOT_EXPORTED`) cho kết quả quyền và việc rút đúng thiết bị đó, xong thì
+  huỷ.
+- Quyền Bluetooth là quyền runtime, do TS xin (`PrinterPermissionService`).
+
+#### `device/connection/` (không dùng API Android)
+
+| File | Làm gì | Hàm chính |
+|---|---|---|
+| `ConnectionPool` | Giữ kết nối đang mở theo `connectionId`: mở, dùng lại, đóng, xử lý khi mất | `connect(address)`, `write(connectionId, data, timeoutMillis)`, `read(connectionId, maxBytes, timeoutMillis)`, `disconnect(connectionId)`, `onHardwareLost(hardwareAddress, reason)`, `closeAll()` |
+| `Connection` | Một kết nối đang mở; mọi thao tác chạy lần lượt trên một luồng riêng | `write`, `read`, `close()`, `abort()`, `hardwareAddress()` |
+| `IDisconnectListener` | `ConnectionPool` báo ra ngoài khi một kết nối mất | `onDisconnected(connectionId, reason)` |
+
+`ConnectionPool`:
+
+- `connect` cùng địa chỉ khi đang mở và còn sống → trả ngay; hai lời gọi `connect` đồng thời cùng địa chỉ → mở một
+  lần, dùng chung kết quả; đang có nhưng transport đã chết → bỏ và mở lại; chưa có → luồng mở kết nối chạy
+  `transportFactory.create(address)` + `open()`.
+- `write`/`read` với `connectionId` chưa mở → `NOT_CONNECTED`.
+- `disconnect` → bỏ khỏi pool, `connection.close()`; chưa mở vẫn xong.
+- `onHardwareLost` → tìm kết nối có `hardwareAddress` trùng (không có thì bỏ qua), bỏ khỏi pool (chỉ lần bỏ đầu tiên
+  thành công → báo đúng một lần), báo `IDisconnectListener`, rồi `connection.abort()` trên luồng nền.
+
+`Connection`:
+
+- Hạn của mỗi thao tác tính **lúc nó bắt đầu chạy**, không tính thời gian xếp hàng.
+- `WRITE_FAILED`/`READ_FAILED` (không phải hết hạn) → báo `ConnectionPool.onHardwareLost(hardwareAddress, IO_ERROR)`.
+- `close()` chờ các thao tác xếp trước chạy xong rồi đóng transport.
+- `abort()` đóng transport ngay để giải phóng luồng đang kẹt; thao tác đang chạy và đang chờ kết thúc với
+  `CONNECTION_LOST`.
+
+#### `device/transport/`
+
+| File | Làm gì |
+|---|---|
+| `ITransport` | `open()`, `write(byte[] data, long deadlineMillis)`, `read(int maxBytes, long deadlineMillis)` (mảng rỗng khi hết hạn), `close()` (không ném lỗi, gọi nhiều lần không sao), `isOpen()`, `hardwareAddress()` |
+| `ITransportFactory` | `ITransport create(DeviceAddress address) throws DeviceException`; được phép chờ (xin quyền USB) |
+| `TransportFactory` | Chọn theo `DeviceType`, mỗi loại 1 hàm: USB → `usbDiscovery.find` → `UsbTransport`; Bluetooth → `bluetoothDiscovery.findBonded` → `BluetoothTransport`; LAN → `LanTransport` |
+| `UsbTransport` | Chiếm interface có bulk OUT; ghi chia khúc 16 KB tới khi đủ (hàm static test được); đọc qua bulk IN, không có → `READ_NOT_SUPPORTED`; `hardwareAddress` = `UsbDevice.getDeviceName()` (vd `/dev/bus/usb/001/004`) |
+| `BluetoothTransport` | RFCOMM SPP, thử lại 1 lần; ghi có hẹn giờ đóng socket tại hạn; đọc bằng `available()` theo chu kỳ; trước khi đóng chờ dữ liệu cuối kịp gửi (`flush` không bảo đảm máy in đã nhận); `hardwareAddress` = MAC |
+| `LanTransport` | TCP, kết nối timeout 5s; đọc dùng `setSoTimeout`; ghi có hẹn giờ đóng socket tại hạn; `hardwareAddress` = `host:port` |
+
+Hạn là mốc thời gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc không cộng dồn timeout. Hết hạn khi chưa
+ghi đủ → `WRITE_TIMEOUT` kèm số byte đã ghi.
+
+#### `device/monitor/`
+
+| File | Làm gì |
+|---|---|
+| `IDisconnectMonitor` | `start()`, `stop()` |
+| `UsbDetachMonitor` | Broadcast rút USB → `connectionPool.onHardwareLost(deviceName, USB_DETACHED)` |
+| `BluetoothDisconnectMonitor` | Broadcast mất kết nối Bluetooth → `connectionPool.onHardwareLost(mac, BLUETOOTH_DISCONNECTED)` |
+
+Receiver đăng ký `RECEIVER_NOT_EXPORTED`. LAN không có broadcast; mất kết nối LAN phát hiện qua lỗi ghi/đọc
+(`IO_ERROR`).
+
+### 3. Hợp đồng JS ↔ native
+
+Module JS: `DeviceModule`. Kiểu phía TS (`adapters/native/DeviceModule.ts`):
 
 ```ts
-interface NativeUsbTarget {
+interface NativeUsbAddress {
   readonly type: 'usb';
   readonly vendorId: number;
   readonly productId: number;
   readonly serialNumber: string | null;
 }
 
-interface NativeBluetoothTarget {
+interface NativeBluetoothAddress {
   readonly type: 'bluetooth';
-  readonly address: string;
+  readonly mac: string;
 }
 
-interface NativeLanTarget {
+interface NativeLanAddress {
   readonly type: 'lan';
   readonly host: string;
   readonly port: number;
 }
 
-type NativeConnectionTarget = NativeUsbTarget | NativeBluetoothTarget | NativeLanTarget;
+type NativeDeviceAddress = NativeUsbAddress | NativeBluetoothAddress | NativeLanAddress;
 
-type NativeDiscoveredDevice =
-  | {
-      readonly type: 'usb';
-      readonly connectionId: string;
-      readonly vendorId: number;
-      readonly productId: number;
-      readonly serialNumber: string | null;
-      readonly manufacturerName: string | null;
-      readonly productName: string | null;
-      readonly hasPermission: boolean;
-    }
-  | {
-      readonly type: 'bluetooth';
-      readonly connectionId: string;
-      readonly address: string;
-      readonly name: string | null;
-    };
-
-type ConnectionLostReason = 'usb_detached' | 'bluetooth_disconnected' | 'io_error';
-
-interface ConnectionLostEvent {
+interface NativeUsbDeviceInfo {
+  readonly type: 'usb';
   readonly connectionId: string;
-  readonly reason: ConnectionLostReason;
+  readonly name: string | null;
+  readonly vendorId: number;
+  readonly productId: number;
+  readonly serialNumber: string | null;
+  readonly manufacturerName: string | null;
+  readonly productName: string | null;
+  readonly hasPermission: boolean;
+}
+
+interface NativeBluetoothDeviceInfo {
+  readonly type: 'bluetooth';
+  readonly connectionId: string;
+  readonly name: string | null;
+  readonly mac: string;
+}
+
+type NativeDeviceInfo = NativeUsbDeviceInfo | NativeBluetoothDeviceInfo;
+
+type DisconnectReason = 'usb_detached' | 'bluetooth_disconnected' | 'io_error';
+
+interface DeviceDisconnectedEvent {
+  readonly connectionId: string;
+  readonly reason: DisconnectReason;
 }
 ```
 
-| Hàm native | Tham số | Kết quả | Ghi chú |
+| Hàm | Tham số | Kết quả | Ghi chú |
 |---|---|---|---|
-| `listDevices(type)` | `'usb'` \| `'bluetooth'` | `NativeDiscoveredDevice[]` | Không mở hộp thoại quyền. USB: chỉ thiết bị có bulk OUT. Bluetooth tắt/thiếu quyền → reject |
-| `connect(target)` | `NativeConnectionTarget` | `connectionId` | Kết nối đang mở → trả `connectionId` đó, không mở thêm |
-| `write(connectionId, base64Data, timeoutMs)` | | `void` | Ghi đủ toàn bộ byte trong `timeoutMs`, nếu không thì reject |
-| `read(connectionId, maxBytes, timeoutMs)` | | base64 \| `null` | `null` khi hết `timeoutMs` mà không có byte nào |
-| `disconnect(connectionId)` | | `void` | Gọi khi chưa kết nối vẫn resolve |
-| Sự kiện `DeviceConnectionLost` | | `ConnectionLostEvent` | Phát khi mất kết nối ngoài ý muốn |
+| `discover(type)` | `'usb'` \| `'bluetooth'` | `NativeDeviceInfo[]` | Không mở hộp thoại quyền |
+| `connect(address)` | `NativeDeviceAddress` | `connectionId` | Đang mở → trả `connectionId` đó |
+| `write(connectionId, base64Data, timeoutMs)` | | `void` | Ghi đủ trong `timeoutMs`, không thì reject |
+| `read(connectionId, maxBytes, timeoutMs)` | | base64 \| `null` | `null` khi hết `timeoutMs` mà không có byte |
+| `disconnect(connectionId)` | | `void` | Chưa kết nối vẫn resolve |
+| Sự kiện `DeviceDisconnected` | | `DeviceDisconnectedEvent` | Mất kết nối ngoài ý muốn |
 
-`write`, `read`, `disconnect` của cùng `connectionId` chạy **đúng thứ tự gọi** (cùng hàng đợi của `ActiveConnection`),
-nên "ghi lệnh dò rồi đọc phản hồi" không bị lệnh khác chen vào. `disconnect` chờ các thao tác đã xếp trước nó chạy xong.
+`write`, `read`, `disconnect` của cùng `connectionId` chạy đúng thứ tự gọi, nên "ghi lệnh dò rồi đọc phản hồi" không bị
+lệnh khác chen vào; `disconnect` chờ thao tác xếp trước nó chạy xong.
 
-Đổi so với hiện tại: `discoverPrinters` → `listDevices`, `writeByBase64(printerId, …)` → `write(connectionId, …)`,
-`disconnect(printerId)` → `disconnect(connectionId)`; payload sự kiện `identity` → `connectionId` + `reason`.
+Kiểu ở cầu nối mang tiền tố `Native` để phân biệt với kiểu nghiệp vụ cùng nghĩa bên TS (`PrinterConnection`,
+`PrinterConnectTarget`).
 
-### 2. `connectionId`
+### 4. `connectionId`
 
-#### 2.1 Định dạng
+#### 4.1 Định dạng và kiểm tra địa chỉ
 
-Trùng định dạng `identityKey` hiện có bên TS (`resolveIdentityKey`), để một máy in đã lưu luôn có
-`connectionId === identityKey` mà không phải đổi dữ liệu đã lưu:
+Trùng `identityKey` hiện có bên TS (`resolveIdentityKey`), để máy in đã lưu luôn có `connectionId === identityKey` mà
+không phải đổi dữ liệu đã lưu:
 
-| Loại | Định dạng | Ví dụ |
-|---|---|---|
-| USB có serial | `usb:<vendorId>:<productId>:<serialNumber>` | `usb:8137:8214:SN123` |
-| USB không serial | `usb:<vendorId>:<productId>` | `usb:8137:8214` |
-| Bluetooth | `bluetooth:mac:<address>` | `bluetooth:mac:66:22:A1:B2:C3:D4` |
-| LAN | `lan:<host>:<port>` | `lan:192.168.1.50:9100` |
+| Loại | Định dạng | Ví dụ | Kiểm tra |
+|---|---|---|---|
+| USB có serial | `usb:<vendorId>:<productId>:<serialNumber>` | `usb:8137:8214:SN123` | vendorId/productId 0–65535 |
+| USB không serial | `usb:<vendorId>:<productId>` | `usb:8137:8214` | serial rỗng coi là `null` |
+| Bluetooth | `bluetooth:mac:<mac>` | `bluetooth:mac:66:22:A1:B2:C3:D4` | mac không rỗng |
+| LAN | `lan:<host>:<port>` | `lan:192.168.1.50:9100` | host không rỗng, port 1–65535 |
 
-vendorId/productId viết hệ thập phân. `address` giữ nguyên như TS truyền vào (lấy từ `listDevices`, Android trả viết
-hoa). Hiện native dùng `USB:`/`BLUETOOTH:`/`LAN:` viết hoa và Bluetooth thiếu `mac:`; đổi theo bảng trên.
+vendorId/productId viết hệ thập phân; `mac` giữ nguyên như TS truyền (lấy từ `discover`, Android trả viết hoa).
 
-#### 2.2 Suy ra từ target, không từ thiết bị
+#### 4.2 Suy ra từ địa chỉ, không từ thiết bị
 
-`connectionId` tính từ target TS truyền vào, không từ thông tin native đọc được sau khi mở. Lý do: từ Android 10,
-`UsbDevice.getSerialNumber()` cần quyền USB, nên lúc quét chưa có quyền thì serial là `null`; nếu sau khi cấp quyền
-native lại tự thêm serial vào id thì id sẽ lệch với `identityKey` đã lưu.
+Từ Android 10, `UsbDevice.getSerialNumber()` cần quyền USB, nên lúc quét chưa có quyền thì serial là `null`. Nếu sau khi
+cấp quyền native tự thêm serial vào id thì id sẽ lệch với `identityKey` đã lưu — vì vậy id luôn tính từ địa chỉ TS
+truyền vào.
 
-#### 2.3 Khớp thiết bị USB khi `connect`
+#### 4.3 Chọn thiết bị USB khi kết nối
 
-1. Lấy các thiết bị đang cắm có cùng `vendorId` + `productId` và có endpoint bulk OUT.
-2. Không có → `DEVICE_NOT_FOUND`.
-3. `target.serialNumber === null`:
-   - đúng 1 thiết bị → dùng thiết bị đó;
-   - nhiều hơn 1 → `AMBIGUOUS_DEVICE` (không đoán).
-4. `target.serialNumber !== null`: duyệt các ứng viên, ưu tiên thiết bị đã có quyền; thiết bị chưa có quyền thì xin
-   quyền rồi mới đọc serial. Serial khớp → dùng; không ứng viên nào khớp → `DEVICE_NOT_FOUND`.
-5. Xin quyền USB (hộp thoại hệ thống) khi thiết bị được chọn chưa có quyền; chờ tối đa 30s; từ chối/hết giờ/rút ra
-   giữa chừng → `PERMISSION_DENIED`.
+1. Lấy các thiết bị đang cắm cùng vendorId + productId và có endpoint bulk OUT. Không có → `DEVICE_NOT_FOUND`.
+2. Địa chỉ không có serial: đúng 1 thiết bị → dùng; nhiều hơn → `AMBIGUOUS_DEVICE`.
+3. Địa chỉ có serial: duyệt ứng viên, thiết bị đã có quyền trước; thiết bị chưa có quyền thì xin quyền rồi đọc serial.
+   Khớp → dùng; không ứng viên nào khớp → `DEVICE_NOT_FOUND`.
+4. Thiết bị được chọn chưa có quyền → xin quyền (`UsbPermission`).
 
-### 3. Transport
-
-```java
-public interface ITransport {
-    void open() throws ConnectionException;
-    void write(byte[] data, long deadlineMillis) throws ConnectionException;
-    byte[] read(int maxBytes, long deadlineMillis) throws ConnectionException;
-    void close();
-    boolean isOpen();
-    String hardwareAddress();
-}
-```
-
-`read` trả mảng rỗng khi hết hạn mà không có byte. `close` không ném lỗi và gọi nhiều lần không sao. Hạn dùng mốc thời
-gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc không cộng dồn timeout.
-
-#### 3.1 `UsbTransport`
-
-- `open`: `openDevice` + `claimInterface(force=true)` trên interface có endpoint bulk OUT; lưu endpoint bulk IN nếu có.
-- `write`: chia khúc tối đa 16 KB (giới hạn an toàn của `bulkTransfer` trên Android cũ), lặp tới khi ghi đủ; mỗi khúc
-  dùng timeout = thời gian còn lại tới deadline. `bulkTransfer` trả < 0 → `WRITE_FAILED`, hoặc `WRITE_TIMEOUT` nếu đã
-  hết hạn; kèm số byte đã ghi.
-- `read`: không có endpoint bulk IN → `READ_NOT_SUPPORTED`; có → `bulkTransfer` IN với timeout còn lại.
-- Giữ `UsbDevice` để `UsbDetachReceiver` khớp sự kiện rút ra theo `getDeviceName()`.
-
-#### 3.2 `BluetoothTransport`
-
-- `open`: tìm trong thiết bị đã ghép đôi theo địa chỉ (không có → `DEVICE_NOT_FOUND`), RFCOMM theo SPP UUID, thử
-  lại 1 lần như hiện tại. Bluetooth tắt → `BLUETOOTH_DISABLED`; `SecurityException` (thiếu `BLUETOOTH_CONNECT`) →
-  `PERMISSION_DENIED`.
-- `write`: ghi + `flush`. `BluetoothSocket` không có timeout ghi; nếu ghi vượt deadline thì đóng socket để giải phóng
-  luồng và báo `WRITE_TIMEOUT`.
-- `read`: `BluetoothSocket` không có timeout đọc → hỏi `available()` theo chu kỳ ngắn tới deadline rồi mới `read`.
-- `close`: giữ cách chờ dữ liệu cuối kịp gửi trước khi đóng (`flush` không bảo đảm máy in đã nhận) theo số byte của
-  lần ghi gần nhất — giới hạn đã biết, ghi rõ trong comment.
-
-#### 3.3 `LanTransport`
-
-- `open`: `Socket.connect` timeout 5s. Lỗi → `CONNECTION_FAILED`.
-- `write`: ghi + `flush`; vượt deadline → đóng socket, `WRITE_TIMEOUT`.
-- `read`: `setSoTimeout(thời gian còn lại)`; `SocketTimeoutException` khi chưa có byte → mảng rỗng.
-
-### 4. Kết nối đang mở và luồng
-
-- **`ActiveConnection`**: `connectionId` + một `ITransport` + một executor một luồng. `write`, `read`, `close` đều xếp
-  vào executor này. Lỗi I/O trên Bluetooth/LAN (không phải hết hạn) → đóng và báo mất kết nối `io_error`. Khi đóng vì
-  mất kết nối, mọi thao tác đang chờ bị reject `CONNECTION_LOST`.
-- **`ConnectionManager`**: bảng `connectionId → ActiveConnection`.
-  - `connect(target)` chạy trên executor dùng chung cho việc mở kết nối. Hai lời gọi `connect` cùng `connectionId`
-    đồng thời dùng chung một lần mở (không mở 2 lần).
-  - Kết nối có trong bảng nhưng transport đã chết → đóng và mở lại.
-  - `handleDeviceLost(hardwareAddress, reason)` (từ `UsbDetachReceiver`, `BluetoothDisconnectReceiver` hoặc lỗi I/O):
-    bỏ khỏi bảng, phát `DeviceConnectionLost`, đóng transport trên luồng nền (đóng Bluetooth có thể chờ vài giây;
-    broadcast chạy trên luồng UI).
-  - Một kết nối mất chỉ được báo **một lần**, dù cùng lúc có cả broadcast lẫn lỗi I/O.
-- **`invalidate()`** của `DeviceConnectionModule` (React Native gọi khi reload): huỷ đăng ký receiver, đóng mọi kết
-  nối, tắt mọi executor.
-
-### 5. Mã lỗi (`ConnectionErrorCode`)
+### 5. Mã lỗi (`DeviceErrorCode`)
 
 Reject bằng `promise.reject(code, message)`; `WRITE_*` thêm `userInfo.bytesWritten`.
 
 | Mã | Khi nào |
 |---|---|
-| `INVALID_ARGUMENT` | Target sai kiểu/thiếu trường, `timeoutMs` ≤ 0, `maxBytes` ≤ 0 |
-| `DEVICE_NOT_FOUND` | Không thấy thiết bị khớp target |
-| `AMBIGUOUS_DEVICE` | Nhiều USB cùng vid/pid mà target không có serial |
+| `INVALID_ARGUMENT` | Địa chỉ sai kiểu/thiếu trường; `timeoutMs`/`maxBytes` ≤ 0; `discover('lan')` |
+| `DEVICE_NOT_FOUND` | Không thấy thiết bị khớp địa chỉ |
+| `AMBIGUOUS_DEVICE` | Nhiều USB cùng vendorId/productId mà địa chỉ không có serial |
 | `PERMISSION_DENIED` | Từ chối/hết giờ hộp thoại quyền USB; thiếu quyền Bluetooth |
-| `BLUETOOTH_DISABLED` | Bluetooth đang tắt hoặc máy không có Bluetooth |
+| `BLUETOOTH_DISABLED` | Bluetooth tắt hoặc máy không có Bluetooth |
 | `CONNECTION_FAILED` | Mở kết nối thất bại |
-| `NOT_CONNECTED` | `write`/`read` với `connectionId` không có kết nối đang mở |
-| `CONNECTION_LOST` | Kết nối bị mất trong lúc thao tác đang chờ |
+| `NOT_CONNECTED` | `write`/`read` với `connectionId` chưa mở |
+| `CONNECTION_LOST` | Kết nối mất khi thao tác đang chờ |
 | `WRITE_FAILED` | Lỗi I/O khi ghi |
-| `WRITE_TIMEOUT` | Ghi chưa đủ byte khi tới hạn |
+| `WRITE_TIMEOUT` | Hết hạn khi chưa ghi đủ |
 | `READ_NOT_SUPPORTED` | USB không có endpoint bulk IN |
 | `READ_FAILED` | Lỗi I/O khi đọc |
 
-TS ánh xạ các mã này sang `PrinterErrorCode` trong `NativeAdapter`.
+TS ánh xạ sang `PrinterErrorCode` trong `NativeAdapter`.
 
-### 6. Cấu trúc tầng native
-
-#### 6.1 Cấu trúc `com.ndtcorepos`
-
-Native của app không chỉ có kết nối thiết bị (sau này còn màn hình phụ cho khách, SDK máy thanh toán, cập nhật app…),
-nên chia 3 tầng theo hướng phụ thuộc, và trong tầng tính năng thì chia theo lĩnh vực → tính năng:
-
-```
-com.ndtcorepos/
-├── MainActivity.kt                         # khung React Native, giữ nguyên
-├── MainApplication.kt                      # add(NdtCorePosPackage())
-│
-├── bridge/                                 # TẦNG REACT NATIVE — nơi duy nhất import com.facebook.react
-│   ├── NdtCorePosPackage.java              # đăng ký mọi native module của app
-│   ├── PromiseBridge.java                  # CompletableFuture → resolve/reject; CodedException → mã lỗi JS
-│   ├── JsEventEmitter.java                 # phát sự kiện lên JS, bỏ qua khi React chưa/không còn chạy
-│   └── deviceconnection/
-│       ├── DeviceConnectionModule.java     # @ReactMethod listDevices/connect/write/read/disconnect
-│       └── DeviceConnectionMapper.java     # ReadableMap → target; thiết bị tìm thấy → WritableMap
-│
-├── device/                                 # TẦNG TÍNH NĂNG: phần cứng ngoại vi (dùng Android SDK, không React)
-│   └── connection/
-│       ├── ConnectionManager.java          # connectionId → ActiveConnection: mở, dùng lại, đóng, xử lý mất kết nối
-│       ├── ActiveConnection.java           # 1 kết nối đang mở: transport + hàng đợi tuần tự
-│       ├── IConnectionTarget.java          # thông tin để kết nối, tự suy ra connectionId
-│       ├── ITransport.java                 # mở/ghi/đọc/đóng byte trên 1 đường truyền
-│       ├── ITransportFactory.java          # tạo transport cho 1 target
-│       ├── TransportFactory.java           # chọn transport theo loại target
-│       ├── IConnectionLostListener.java    # nhận báo một kết nối đã mất
-│       ├── ConnectionLostReason.java
-│       ├── ConnectionException.java        # CodedException + số byte đã ghi
-│       ├── ConnectionErrorCode.java
-│       ├── Deadline.java                   # thời gian còn lại tới mốc hết hạn
-│       ├── usb/
-│       │   ├── UsbTarget.java              # vendorId + productId + serial
-│       │   ├── UsbDiscoveredDevice.java
-│       │   ├── UsbDeviceLookup.java        # liệt kê USB in được; tìm UsbDevice khớp target
-│       │   ├── UsbDeviceMatcher.java       # luật chọn 1 thiết bị trong các ứng viên (Java thuần)
-│       │   ├── UsbEndpoints.java           # chọn interface và endpoint bulk OUT / bulk IN
-│       │   ├── UsbPermissionRequester.java # xin quyền USB và chờ kết quả
-│       │   ├── UsbChunkedWriter.java       # chia khúc, ghi đủ trước hạn (Java thuần)
-│       │   ├── UsbTransport.java
-│       │   └── UsbDetachReceiver.java      # broadcast rút USB → báo mất kết nối
-│       ├── bluetooth/
-│       │   ├── BluetoothTarget.java
-│       │   ├── BluetoothDiscoveredDevice.java
-│       │   ├── BluetoothDeviceLookup.java  # thiết bị đã ghép đôi; tìm theo địa chỉ
-│       │   ├── BluetoothTransport.java
-│       │   └── BluetoothDisconnectReceiver.java
-│       └── lan/
-│           ├── LanTarget.java
-│           └── LanTransport.java
-│
-└── common/                                 # TẦNG DÙNG CHUNG: Java thuần, không Android, không React
-    └── CodedException.java                 # exception có mã lỗi dạng chuỗi; bridge đọc mã này để reject
-```
-
-33 file, mỗi file đúng 1 khái niệm. Hiện tại có 37 file nhưng một khái niệm bị chia ra 3–4 file (connection + writer +
-device + queue), còn `ThermalPrinterModule` ôm phần lớn logic.
-
-Chỗ cho tính năng sau này (chưa tạo, chỉ để thấy cấu trúc dùng thế nào):
-
-```
-├── bridge/customerdisplay/CustomerDisplayModule.java   ┐ màn hình phụ cho khách (Android Presentation API)
-├── device/customerdisplay/…                            ┘
-├── bridge/payment/PaymentTerminalModule.java           ┐ SDK máy thanh toán của hãng
-├── payment/terminal/…                                  ┘
-└── bridge/system/AppUpdateModule.java + system/update/…   cập nhật app, chế độ kiosk…
-```
-
-Ngăn kéo tiền mở bằng lệnh ESC/POS qua máy in, máy quét mã vạch dạng bàn phím (HID) gõ thẳng vào ô nhập: cả hai không
-cần native riêng.
-
-#### 6.2 Quy tắc phụ thuộc
-
-```
-bridge ──► device, (sau này payment, system…) ──► common
-bridge ──────────────────────────────────────────► common
-```
-
-- **Chỉ `bridge/` import `com.facebook.react.*`.** Tầng tính năng không biết React Native nên test được bằng JUnit và
-  dùng lại được nếu đổi cách gọi từ JS.
-- **`common/` không import Android SDK lẫn React**; chỉ thêm vào khi có ≥ 2 nơi cần (hiện `CodedException` dùng bởi
-  `bridge/PromiseBridge` và `device/connection`). `Deadline` còn ở `device/connection` vì chưa có nơi thứ hai dùng.
-- **Tính năng không import lẫn nhau** (`device/connection` không biết `device/customerdisplay`). Cần phối hợp thì TS
-  gọi từng module.
-- **Mỗi tính năng có 1 module JS riêng** trong `bridge/<tinhnang>/`, cùng đăng ký qua `NdtCorePosPackage`.
-  `MainApplication` chỉ thêm đúng 1 package.
-- **Trong `device/connection`**: gói gốc không import `usb/`, `bluetooth/`, `lan/`, trừ nơi lắp ráp `TransportFactory`.
-  `ConnectionManager`, `ActiveConnection`, `*Target`, `UsbDeviceMatcher`, `UsbChunkedWriter`, `Deadline`,
-  `ConnectionException` không dùng API Android nên test được bằng JUnit thuần.
-
-Luồng gọi trong `device/connection`:
-
-```
-DeviceConnectionModule ──► ConnectionManager ──► ActiveConnection ──► ITransport ◄── Usb/Bluetooth/LanTransport
-   │                           │
-   │                           └──► ITransportFactory ◄── TransportFactory ──► usb/, bluetooth/, lan/
-   ├──► UsbDeviceLookup, BluetoothDeviceLookup                       (listDevices)
-   └──► UsbDetachReceiver, BluetoothDisconnectReceiver ──► ConnectionManager.handleDeviceLost
-
-ConnectionManager ──► IConnectionLostListener (DeviceConnectionModule cài đặt, phát sự kiện qua JsEventEmitter)
-```
-
-#### 6.3 Từng class
-
-**`bridge/deviceconnection/DeviceConnectionModule`** — chỉ dịch giữa JS và Java, không có logic kết nối.
-
-```java
-@ReactMethod void listDevices(String type, Promise promise)
-@ReactMethod void connect(ReadableMap target, Promise promise)
-@ReactMethod void write(String connectionId, String base64Data, double timeoutMs, Promise promise)
-@ReactMethod void read(String connectionId, double maxBytes, double timeoutMs, Promise promise)
-@ReactMethod void disconnect(String connectionId, Promise promise)
-@Override void invalidate()
-```
-
-- Số từ JS đến dạng `double` → đổi sang `long`/`int`; ≤ 0 thì reject `INVALID_ARGUMENT`.
-- `DeviceConnectionMapper.toTarget(ReadableMap)` → `UsbTarget` / `BluetoothTarget` / `LanTarget`;
-  `DeviceConnectionMapper.toWritableMap(…)` cho từng loại thiết bị tìm thấy.
-- `PromiseBridge` gắn callback vào `CompletableFuture` của `ConnectionManager` để resolve/reject (mã lỗi lấy từ
-  `CodedException.code()`, `WRITE_*` thêm `bytesWritten`); không bao giờ `get()` chờ.
-- Cài `IConnectionLostListener`: phát `DeviceConnectionLost` `{ connectionId, reason }` qua `JsEventEmitter`.
-- `invalidate()`: huỷ đăng ký 2 receiver, `connectionManager.closeAll()`.
-
-**`ConnectionManager`** — giữ các kết nối đang mở theo `connectionId`.
-
-```java
-ConnectionManager(ITransportFactory transportFactory, IConnectionLostListener connectionLostListener)
-CompletableFuture<String> connect(IConnectionTarget target)
-CompletableFuture<Void> write(String connectionId, byte[] data, long timeoutMillis)
-CompletableFuture<byte[]> read(String connectionId, int maxBytes, long timeoutMillis)
-CompletableFuture<Void> disconnect(String connectionId)
-void handleDeviceLost(String hardwareAddress, ConnectionLostReason reason)
-void closeAll()
-```
-
-- Field: `activeConnections` (`connectionId → ActiveConnection`), `pendingConnects` (`connectionId → future` đang
-  mở), `connectExecutor` (nhiều luồng), `abortExecutor` (1 luồng).
-- `connect`: đã mở và còn sống → trả ngay; đang mở dở cùng `connectionId` → trả chung future; đã mở nhưng transport
-  chết → bỏ và mở lại; chưa có → `connectExecutor` chạy `transportFactory.create(target)` + `transport.open()`.
-- `write`/`read`: không có kết nối → `NOT_CONNECTED`; có → giao cho `ActiveConnection`.
-- `disconnect`: bỏ khỏi bảng, `activeConnection.close()` (chờ thao tác đã xếp trước); không có kết nối vẫn xong.
-- `handleDeviceLost`: tìm kết nối có `hardwareAddress` trùng; không có → bỏ qua. Bỏ khỏi bảng (chỉ lần bỏ đầu tiên
-  thành công nên chỉ báo 1 lần), gọi `connectionLostListener`, rồi `abortExecutor` chạy `activeConnection.abort()`.
-- Lỗi I/O do `ActiveConnection` báo về đi cùng đường `handleDeviceLost` với lý do `IO_ERROR`.
-
-**`ActiveConnection`** — một kết nối đang mở.
-
-```java
-ActiveConnection(String connectionId, ITransport transport, Consumer<ActiveConnection> ioFailureHandler)
-String connectionId()
-String hardwareAddress()
-boolean isOpen()
-CompletableFuture<Void> write(byte[] data, long timeoutMillis)
-CompletableFuture<byte[]> read(int maxBytes, long timeoutMillis)
-CompletableFuture<Void> close()
-void abort()
-```
-
-- Mọi thao tác xếp vào 1 executor một luồng → chạy đúng thứ tự gọi.
-- Hạn của một thao tác tính **lúc nó bắt đầu chạy** (`Deadline.after(timeoutMillis)`), không tính thời gian chờ thao
-  tác trước.
-- `WRITE_FAILED`/`READ_FAILED` (không phải hết hạn) → gọi `ioFailureHandler`.
-- `close()`: xếp sau các thao tác trước, đóng transport, tắt executor.
-- `abort()`: không chờ — đóng transport ngay để giải phóng luồng đang kẹt trong ghi/đọc; thao tác đang chạy và đang
-  chờ kết thúc với `CONNECTION_LOST`.
-
-**`IConnectionTarget`** + `UsbTarget` / `BluetoothTarget` / `LanTarget`
-
-```java
-public interface IConnectionTarget {
-    String connectionId();
-}
-
-static UsbTarget UsbTarget.of(int vendorId, int productId, String serialNumber) throws ConnectionException
-static BluetoothTarget BluetoothTarget.of(String address) throws ConnectionException
-static LanTarget LanTarget.of(String host, int port) throws ConnectionException
-```
-
-- Kiểm tra tham số ngay khi tạo: vendorId/productId 0–65535, serial rỗng coi là `null`, address/host không rỗng,
-  port 1–65535; sai → `INVALID_ARGUMENT`.
-- `connectionId()` theo bảng §2.1.
-
-**`ITransport`** — như §3, có thêm `hardwareAddress()`: địa chỉ phần cứng để khớp broadcast với kết nối. USB là
-`UsbDevice.getDeviceName()` (vd `/dev/bus/usb/001/004`, khác nhau giữa 2 máy cùng model), Bluetooth là địa chỉ MAC,
-LAN là `host:port`.
-
-**`ITransportFactory`** / **`TransportFactory`**
-
-```java
-ITransport create(IConnectionTarget target) throws ConnectionException
-```
-
-Chạy trên luồng mở kết nối, được phép chờ (xin quyền USB). `TransportFactory(UsbManager, UsbDeviceLookup,
-BluetoothDeviceLookup)` chọn theo loại target, mỗi loại 1 hàm riêng:
-
-- USB → `usbDeviceLookup.find(target)` rồi `new UsbTransport(usbManager, device)`;
-- Bluetooth → `bluetoothDeviceLookup.findBonded(address)` rồi `new BluetoothTransport(device)`;
-- LAN → `new LanTransport(host, port)`.
-
-**`ConnectionException`** / **`ConnectionErrorCode`** / **`ConnectionLostReason`** / **`IConnectionLostListener`**
-
-```java
-abstract class CodedException extends Exception { abstract String code(); }          // common/
-
-ConnectionException(ConnectionErrorCode code, String message)                         // extends CodedException
-ConnectionException withBytesWritten(int bytesWritten)
-ConnectionErrorCode errorCode()
-int bytesWritten()
-
-enum ConnectionLostReason { USB_DETACHED, BLUETOOTH_DISCONNECTED, IO_ERROR }   // wireValue(): "usb_detached"…
-
-void onConnectionLost(String connectionId, ConnectionLostReason reason)
-```
-
-**`Deadline`**
-
-```java
-static long after(long timeoutMillis)
-static long remainingMillis(long deadlineMillis)
-static boolean isExpired(long deadlineMillis)
-```
-
-**`usb/`**
-
-| Class | Thành phần chính | Ghi chú |
-|---|---|---|
-| `UsbDiscoveredDevice` | `connectionId`, `vendorId`, `productId`, `serialNumber`, `manufacturerName`, `productName`, `hasPermission` | Bất biến |
-| `UsbDeviceLookup(UsbManager, UsbPermissionRequester)` | `listDevices()`, `UsbDevice find(UsbTarget)` | `find` lọc vid/pid + có bulk OUT, xếp thiết bị đã có quyền lên trước, giao `UsbDeviceMatcher` chọn |
-| `UsbDeviceMatcher` | `static <T> T choose(List<T> candidates, UsbTarget target, ISerialReader<T> serialReader)` | Luật §2.3. `ISerialReader` đọc serial, xin quyền nếu cần. Generic để test không cần `UsbDevice` |
-| `UsbEndpoints` | `findPrinterInterface(UsbDevice)`, `findBulkOut(UsbInterface)`, `findBulkIn(UsbInterface)` | Hàm static, dùng chung cho lookup và transport |
-| `UsbPermissionRequester(Context, UsbManager)` | `hasPermission(UsbDevice)`, `ensurePermission(UsbDevice)` | Chờ tối đa 30s. Mỗi lần xin đăng ký receiver tạm (`RECEIVER_NOT_EXPORTED`) cho kết quả quyền và việc rút đúng thiết bị đó, xong thì huỷ |
-| `UsbChunkedWriter` | `static void writeAll(byte[] data, long deadlineMillis, IChunkWriter chunkWriter)` | Khúc tối đa 16 KB; ghi tới đủ; hết hạn → `WRITE_TIMEOUT` kèm số byte đã ghi |
-| `UsbTransport(UsbManager, UsbDevice)` | `ITransport` | `open` claim interface; `write` qua `UsbChunkedWriter` với `bulkTransfer(endpoint, buffer, offset, length, timeout)`; `read` bulk IN |
-| `UsbDetachReceiver(Context, ConnectionManager)` | `register()`, `unregister()` | `ACTION_USB_DEVICE_DETACHED` → `handleDeviceLost(deviceName, USB_DETACHED)` |
-
-**`bluetooth/`**
-
-| Class | Thành phần chính | Ghi chú |
-|---|---|---|
-| `BluetoothDiscoveredDevice` | `connectionId`, `address`, `name` | Bất biến |
-| `BluetoothDeviceLookup(Context)` | `listDevices()`, `BluetoothDevice findBonded(String address)` | Bluetooth tắt → `BLUETOOTH_DISABLED`; thiếu quyền → `PERMISSION_DENIED`; không có địa chỉ → `DEVICE_NOT_FOUND` |
-| `BluetoothTransport(BluetoothDevice)` | `ITransport` | RFCOMM SPP, thử lại 1 lần; hẹn giờ đóng socket tại deadline khi ghi, huỷ hẹn khi ghi xong; đọc bằng `available()` theo chu kỳ |
-| `BluetoothDisconnectReceiver(Context, ConnectionManager)` | `register()`, `unregister()` | `ACTION_ACL_DISCONNECTED` → `handleDeviceLost(address, BLUETOOTH_DISCONNECTED)` |
-
-**`lan/`**
-
-| Class | Thành phần chính | Ghi chú |
-|---|---|---|
-| `LanTransport(String host, int port)` | `ITransport` | Kết nối timeout 5s; `setSoTimeout` khi đọc; hẹn giờ đóng socket tại deadline khi ghi |
-
-#### 6.4 Luồng chạy
+### 6. Luồng chạy
 
 | Luồng | Chạy gì |
 |---|---|
-| Luồng native module của RN | Đọc tham số, gọi `ConnectionManager`, gắn callback — không chờ gì |
-| `connectExecutor` (nhiều luồng) | `TransportFactory.create` + `open` (chờ hộp thoại quyền USB tới 30s, socket tới 5s) |
-| Luồng riêng của mỗi `ActiveConnection` | `write`, `read`, `close` theo đúng thứ tự gọi |
-| `abortExecutor` (1 luồng) | Đóng transport của kết nối bị mất (đóng Bluetooth có thể chờ vài giây) |
-| Luồng UI | Broadcast rút USB / mất Bluetooth → chỉ gọi `handleDeviceLost` |
+| Luồng của native module | `DeviceModule` nhận lời gọi, gắn callback, trả về ngay |
+| Luồng quét (1 luồng, trong `DeviceService`) | `discover` |
+| Luồng mở kết nối (nhiều luồng, trong `ConnectionPool`) | `TransportFactory.create` + `open` (chờ quyền USB tới 30s, socket tới 5s) |
+| Luồng riêng của mỗi `Connection` | `write`, `read`, `close` theo đúng thứ tự gọi |
+| Luồng đóng khẩn (1 luồng, trong `ConnectionPool`) | `abort()` kết nối bị mất (đóng Bluetooth có thể chờ vài giây) |
+| Luồng UI | Broadcast của monitor, chỉ gọi `onHardwareLost` |
 
-#### 6.5 Các luồng chính
+Executor được tạo trong `DeviceFactory` và truyền qua constructor để test chạy đồng bộ.
 
-**connect**
-
-```
-JS connect(target)
- → DeviceConnectionMapper.toTarget → UsbTarget.of(…)       sai tham số → reject INVALID_ARGUMENT ngay
- → ConnectionManager.connect(target)
-     đang mở và còn sống        → resolve connectionId
-     đang có lần mở cùng id     → dùng chung future
-     chưa có                    → connectExecutor: TransportFactory.create → transport.open
-                                  → new ActiveConnection → activeConnections
- → resolve(connectionId)
-```
-
-**write**
+### 7. Ví dụ: in 1 bill qua USB
 
 ```
-JS write(connectionId, base64Data, timeoutMs)
- → DeviceConnectionModule giải base64
- → ConnectionManager.write → ActiveConnection.write → xếp vào luồng của kết nối
- → tới lượt: deadline = now + timeoutMs → transport.write(data, deadline)
- → resolve, hoặc reject WRITE_TIMEOUT / WRITE_FAILED kèm bytesWritten
+JS connect({ type: 'usb', vendorId, productId, serialNumber })
+  DeviceModule → DeviceMapper.toAddress → DeviceService.connect → ConnectionPool.connect
+  → luồng mở kết nối: TransportFactory.create → UsbDiscovery.find (xin quyền nếu cần) → new UsbTransport → open
+  → new Connection → resolve "usb:8137:8214:SN123"
+
+JS write("usb:8137:8214:SN123", base64Bill, 10000)
+  → ConnectionPool.write → Connection.write (xếp hàng) → tới lượt: hạn = bây giờ + 10s
+  → UsbTransport.write (chia khúc 16 KB) → resolve
+
+Rút dây USB
+  → UsbDetachMonitor → ConnectionPool.onHardwareLost("/dev/bus/usb/001/004", USB_DETACHED)
+  → IDisconnectListener → DeviceModule phát DeviceDisconnected { connectionId, reason: "usb_detached" }
+  → Connection.abort() → thao tác đang chờ reject CONNECTION_LOST
 ```
 
-**mất kết nối**
+### 8. Thay đổi phía TS (tối thiểu để app chạy với API mới)
 
-```
-Rút USB (luồng UI) → UsbDetachReceiver → handleDeviceLost("/dev/bus/usb/001/004", USB_DETACHED)
-Lỗi I/O khi ghi/đọc Bluetooth/LAN → ActiveConnection → handleDeviceLost(hardwareAddress, IO_ERROR)
- → tìm kết nối có hardwareAddress trùng; không có → bỏ qua
- → bỏ khỏi activeConnections (chỉ lần đầu thành công → báo đúng 1 lần)
- → DeviceConnectionModule phát DeviceConnectionLost { connectionId, reason }
- → abortExecutor: activeConnection.abort() → thao tác đang chờ reject CONNECTION_LOST
-```
-
-#### 6.6 Vị trí trong `android/app/src`
-
-```
-android/app/src/
-├── main/
-│   ├── AndroidManifest.xml                 # quyền Bluetooth, uses-feature usb.host
-│   ├── assets/fonts/                       # font app
-│   ├── res/
-│   └── java/com/ndtcorepos/                # bridge/, device/, common/ như §6.1
-└── test/java/com/ndtcorepos/               # JUnit, cùng cấu trúc package với main
-    ├── common/
-    │   └── CodedExceptionTest.java
-    └── device/connection/
-        ├── ConnectionManagerTest.java
-        ├── ActiveConnectionTest.java
-        ├── DeadlineTest.java
-        ├── FakeTransport.java              # ITransport giả cho 2 test trên
-        ├── usb/
-        │   ├── UsbTargetTest.java
-        │   ├── UsbDeviceMatcherTest.java
-        │   └── UsbChunkedWriterTest.java
-        ├── bluetooth/
-        │   └── BluetoothTargetTest.java
-        └── lan/
-            └── LanTargetTest.java
-```
-
-`bridge/` không có unit test: chỉ dịch kiểu và gọi xuống, được kiểm qua Jest phía TS và kiểm tra trên máy thật.
-
-Xoá toàn bộ thư mục `com/ndtcorepos/thermalprinter/`. Cập nhật:
-
-- `MainApplication.kt`: import và `add(NdtCorePosPackage())`.
-- `AndroidManifest.xml`: comment đang nhắc `com.ndtcorepos.thermalprinter`.
-- `CLAUDE.md`, `docs/CODING_STANDARDS.md` (ví dụ tên interface ở Rule 8.3): đường dẫn và tên class cũ.
-- `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` → `DeviceConnectionModule`.
-
-Code theo `docs/CODING_STANDARDS.md` (guard clause, tối đa 2 cấp lồng, `LOG_SOURCE`, comment WHY).
-
-### 7. Thay đổi phía TS (tối thiểu để app chạy với API mới)
-
-- `adapters/native/DeviceConnectionModule.ts` (đổi tên từ `PrinterNativeModule.ts`): kiểu và hàm theo §1;
-  `subscribeConnectionLost` nhận `ConnectionLostEvent`.
-- `adapters/native/NativeConnectionPool.ts` (mới): đếm số người dùng theo `connectionId` — `acquire(target)` gọi native
+- `adapters/native/PrinterNativeModule.ts` → `adapters/native/DeviceModule.ts`: kiểu và hàm theo §3;
+  `subscribeDeviceDisconnected(callback: (event: DeviceDisconnectedEvent) => void)`.
+- `adapters/native/NativeConnectionPool.ts` (mới): đếm số người dùng theo `connectionId` — `acquire(address)` gọi native
   `connect` khi là người đầu tiên, `release(connectionId)` gọi native `disconnect` khi là người cuối.
 - `adapters/native/NativeAdapter.ts`: dùng `NativeConnectionPool`; lưu `connectionId`; `canRead = true`; `read()` gọi
-  native; `getConnectionId()`; ánh xạ mã lỗi §5.
+  native; `getConnectionIdentity()` → `getConnectionId()`; ánh xạ mã lỗi §5; `listDevices` USB dùng `connectionId`
+  làm `deviceId`.
 - `adapters/IPrinterAdapter.ts`: `PrinterConnectTarget.usb` thêm `serialNumber`; `toConnectTarget` truyền serial.
-- `NativeAdapter.listDevices`: USB `deviceId` dùng `connectionId` (có serial) thay cho `` `${vendorId}:${productId}` ``.
 - Xoá `transports/UsbTransport.ts` và test của nó (native đã chia khúc).
 - Đổi theo tên mới: `EscPosDriver`, `TsplDriver`, `adapters/resolvePrinterAdapter.ts`,
-  `connection/PrinterConnectionLock.ts` (comment), `hooks/addPrinter/useConnectionSetup.ts`,
-  `adapters/testing/MockPrinterAdapter.ts`, cùng các test `NativeAdapter`, `PrinterNativeModule` (đổi tên theo file),
-  `EscPosDriver`, `MockPrinterAdapter`.
+  `connection/PrinterConnectionLock.ts`, `hooks/addPrinter/useConnectionSetup.ts`,
+  `adapters/testing/MockPrinterAdapter.ts` và các test liên quan; `jest.setup.js` mock `NativeModules.DeviceModule`.
 
-## Quy ước code (bắt buộc, áp cho mọi file Java và TS mới/sửa trong đợt này)
+### 9. File khác cần cập nhật
 
-Giống quy ước đã dùng cho printer-core, cộng `docs/CODING_STANDARDS.md` (Java) và `docs/CODING_STANDARDS_TS.md` (TS).
+- `MainApplication.kt`: import + `add(NdtCorePosPackage())`.
+- `AndroidManifest.xml`: comment đang nhắc `com.ndtcorepos.thermalprinter`.
+- `android/app/build.gradle`: `testImplementation 'junit:junit:4.13.2'` và
+  `testOptions.unitTests.returnDefaultValues = true` (lời gọi `android.util.Log` trong JUnit không làm test lỗi).
+- `CLAUDE.md`, `docs/CODING_STANDARDS.md` (ví dụ tên interface ở Rule 8.3), `src/features/printer/ARCHITECTURE.md`
+  (nếu nhắc native): đường dẫn và tên class mới.
 
-1. **Summary ngắn, tiếng Việt.** Mỗi class/interface/type export có 1 dòng summary nói trách nhiệm. Mỗi field có 1 dòng
-   nói ý nghĩa + đơn vị (ms, byte…) + ràng buộc nếu có; bỏ qua field mà tên đã hiển nhiên tuyệt đối. Method public chỉ
-   có summary khi tên + tham số chưa đủ rõ.
-2. **Không Javadoc rập khuôn.** Không `@param`/`@return` lặp lại tên và kiểu (kiểu `@param data raw printer bytes`,
-   `@return operation result` đang có ở code cũ). Chỉ ghi `@throws`/tham số khi có điều không hiển nhiên (đơn vị, mốc
-   thời gian tuyệt đối…).
-3. **Cách dòng:** 1 dòng trống giữa các field (kèm summary của nó) và giữa các method; dòng trống giữa các khối logic
-   trong hàm; không dòng trống thừa (code cũ có chỗ 2 dòng trống liền).
+## Quy ước code (bắt buộc cho mọi file Java và TS mới/sửa)
+
+Giống quy ước printer-core, cộng `docs/CODING_STANDARDS.md` (Java) và `docs/CODING_STANDARDS_TS.md` (TS).
+
+1. **Summary ngắn, tiếng Việt.** Mỗi class/interface/type có 1 dòng summary nói trách nhiệm. Mỗi field có 1 dòng nói ý
+   nghĩa + đơn vị (ms, byte…) + ràng buộc nếu có; bỏ qua field mà tên đã hiển nhiên tuyệt đối. Method chỉ có summary
+   khi tên + tham số chưa đủ rõ.
+2. **Không Javadoc rập khuôn.** Không `@param`/`@return` lặp lại tên và kiểu. Chỉ ghi khi có điều không hiển nhiên
+   (đơn vị, mốc thời gian tuyệt đối…).
+3. **Cách dòng:** 1 dòng trống giữa các field (kèm summary) và giữa các method; dòng trống giữa các khối logic trong
+   hàm; không dòng trống thừa.
 4. **Comment trong code:** tiếng Việt, 1–3 dòng, chỉ giải thích WHY (giới hạn phần cứng, hành vi Android không hiển
-   nhiên). Không mô tả lại code, không kể lịch sử ("Task 4", "port từ…"), **không tham chiếu tài liệu** (số mục spec
-   như "§2.1", "see the design spec", tên plan/task): comment phải tự đủ nghĩa khi đọc riêng. Comment cho Android API
-   đặt ở đầu hàm, không rải từng dòng (Rule 14.3).
+   nhiên). Không mô tả lại code, không kể lịch sử, **không tham chiếu tài liệu** (số mục spec, tên plan/task):
+   comment phải tự đủ nghĩa khi đọc riêng. Comment cho Android API đặt ở đầu hàm (Rule 14.3).
 5. **Độ dài dòng ≤ 120 ký tự**, đo bằng Node `line.length`.
-6. **Nesting:** Java ≤ 2 cấp (Rule 3.3), TS ≤ 3 cấp; dùng guard clause/early return, không `else` sau `return`.
-7. **1 hàm 1 trách nhiệm**, không hàm lồng trong hàm (TS); `switch`/`if` theo loại kết nối chỉ điều phối, mỗi nhánh
-   gọi 1 hàm riêng.
-8. **Không magic number:** hằng số `UPPER_SNAKE_CASE`, tên có đơn vị (`PERMISSION_TIMEOUT_MS`, `USB_CHUNK_SIZE_BYTES`).
-9. **Tên đầy đủ, theo từ vựng §0.1**, không viết tắt (`connection` không `conn`, `exception` không `e`).
-10. **Tham số:** ≥ 3 tham số thì mỗi tham số 1 dòng; ít hơn thì viết trên 1 dòng (code cũ xuống dòng cả hàm 1 tham số).
-11. **TS import module khác qua barrel `index.ts`** nếu module đó có barrel.
-12. **Verify trước mỗi commit:** `./gradlew :app:compileDebugJavaWithJavac` + `:app:testDebugUnitTest` (khi đụng Java),
-    `npm run verify`, line-length.
+6. **Nesting:** Java ≤ 2 cấp (Rule 3.3), TS ≤ 3 cấp; guard clause, không `else` sau `return`.
+7. **1 hàm 1 trách nhiệm**; nhánh theo `DeviceType` chỉ điều phối, mỗi loại gọi 1 hàm riêng.
+8. **Không magic number:** hằng `UPPER_SNAKE_CASE` có đơn vị (`PERMISSION_TIMEOUT_MS`, `USB_CHUNK_SIZE_BYTES`).
+9. **Tên đầy đủ**, không viết tắt (`connection` không `conn`, `exception` không `e`); interface tiền tố `I`.
+10. **Tham số:** ≥ 3 tham số thì mỗi tham số 1 dòng; ít hơn thì 1 dòng.
+11. **TS import module khác qua barrel `index.ts`** nếu có.
+12. **Verify trước mỗi commit:** `./gradlew :app:compileDebugJavaWithJavac` + `:app:testDebugUnitTest` (khi đụng
+    Java), `npm run verify`, line-length.
 
 Mẫu Java:
 
 ```java
-/** Một kết nối đang mở: transport + hàng đợi để mọi thao tác chạy đúng thứ tự gọi. */
-final class ActiveConnection {
+/** Một kết nối đang mở; mọi thao tác chạy lần lượt trên một luồng riêng. */
+final class Connection {
 
-    private static final String LOG_SOURCE = "ActiveConnection";
+    private static final String LOG_SOURCE = "Connection";
 
-    /** Mã kết nối, suy ra từ target nên cùng target luôn ra cùng mã. */
+    /** Mã kết nối, suy ra từ địa chỉ nên cùng địa chỉ luôn ra cùng mã. */
     private final String connectionId;
 
     private final ITransport transport;
 
     /** Một luồng duy nhất: ghi/đọc/đóng của cùng kết nối không bao giờ chạy song song. */
-    private final ExecutorService operationExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService operationExecutor;
 
-    ActiveConnection(String connectionId, ITransport transport) {
+    Connection(String connectionId, ITransport transport, ExecutorService operationExecutor) {
         this.connectionId = connectionId;
         this.transport = transport;
+        this.operationExecutor = operationExecutor;
     }
 
     /** Hạn ghi tính từ lúc tới lượt chạy, không tính thời gian chờ thao tác trước. */
@@ -699,8 +493,8 @@ final class ActiveConnection {
 Mẫu TS:
 
 ```ts
-/** Thiết bị USB `listDevices` tìm thấy, chưa kết nối. */
-export interface NativeUsbDevice {
+/** Thiết bị USB `discover` tìm thấy, chưa kết nối. */
+export interface NativeUsbDeviceInfo {
   readonly type: 'usb';
 
   /** Mã kết nối native sẽ trả khi `connect` thiết bị này. */
@@ -716,39 +510,47 @@ export interface NativeUsbDevice {
 
 ## Test
 
-**JVM unit test** (JUnit, thêm `testImplementation` vào `android/app/build.gradle`) cho phần không phụ thuộc
-Android:
+**JUnit** (`android/app/src/test/java/com/ndtcorepos/`, cùng cấu trúc package):
 
-- `UsbTarget`/`BluetoothTarget`/`LanTarget`: tham số hợp lệ/không hợp lệ; `connectionId()` đúng định dạng §2.1
-  (USB có/không serial, Bluetooth, LAN) và trùng `resolveIdentityKey` bên TS với cùng dữ liệu.
-- `UsbDeviceMatcher` (luật §2.3): không có ứng viên, một, nhiều mà không serial, serial khớp/không khớp, đọc serial
-  bị từ chối quyền.
-- `ActiveConnection` với transport giả: thao tác chạy đúng thứ tự gọi; `close` chờ thao tác trước; mất kết nối reject
-  thao tác đang chờ `CONNECTION_LOST`.
-- `ConnectionManager` với transport giả: `connect` trùng chỉ mở 1 lần; báo mất kết nối đúng một lần.
-- `UsbChunkedWriter`: payload 40 KB → 3 khúc 16/16/8 KB; hết hạn khi chưa ghi đủ → `WRITE_TIMEOUT` kèm số byte đã ghi.
-- `ConnectionManager.handleDeviceLost`: khớp đúng kết nối theo `hardwareAddress`, không đụng kết nối khác.
+```
+test/java/com/ndtcorepos/
+├── common/CodedExceptionTest.java
+└── device/
+    ├── DeviceServiceTest.java              # chọn discovery theo loại, LAN → INVALID_ARGUMENT, close tắt monitor
+    ├── model/DeviceAddressTest.java        # kiểm tra tham số; connectionId đúng §4.1, trùng resolveIdentityKey bên TS
+    ├── discovery/UsbDiscoveryTest.java     # luật chọn §4.3: không có, một, nhiều không serial, serial khớp/không
+    ├── connection/
+    │   ├── FakeTransport.java              # ITransport giả
+    │   ├── FakeTransportFactory.java
+    │   ├── ConnectionTest.java             # đúng thứ tự gọi, hạn tính lúc bắt đầu, close chờ, abort → CONNECTION_LOST
+    │   └── ConnectionPoolTest.java         # dùng lại, connect đồng thời mở 1 lần, NOT_CONNECTED, onHardwareLost
+    │                                       # đúng kết nối và báo đúng 1 lần, IO_ERROR
+    └── transport/UsbTransportTest.java     # chia khúc 40 KB → 16/16/8; hết hạn → WRITE_TIMEOUT kèm byte đã ghi
+```
 
-**Jest** cho TS: `NativeConnectionPool` (đếm người dùng, connect/disconnect đúng lúc), `NativeAdapter` (ánh xạ mã lỗi,
-read, truyền serial) với `NativeModules` giả.
+`bridge/` không có unit test (chỉ đổi kiểu và gọi xuống); kiểm qua Jest phía TS và máy thật.
 
-**Kiểm tra trên máy thật** (bắt buộc, test tự động không chạy tới broadcast/USB/Bluetooth thật):
+**Jest** (TS): `NativeConnectionPool` (đếm người dùng, connect/disconnect đúng lúc), `NativeAdapter` (ánh xạ mã lỗi,
+`read`, truyền serial) với `NativeModules` giả.
+
+**Kiểm tra trên máy thật** (bắt buộc):
 
 1. USB: hộp thoại quyền — đồng ý, từ chối, rút dây khi hộp thoại đang mở.
 2. USB: in bill ESC/POS và tem TSPL có ảnh lớn hơn 16 KB.
-3. USB: rút dây lúc rảnh và lúc đang in → app nhận mất kết nối đúng một lần, cắm lại kết nối được.
+3. USB: rút dây lúc rảnh và lúc đang in → app nhận mất kết nối đúng một lần; cắm lại kết nối được.
 4. USB: 2 máy cùng model (nếu có) → in đúng máy; rút một máy không ảnh hưởng máy kia.
 5. TSPL qua USB: `read` nhận phản hồi lệnh dò (nếu máy có endpoint IN).
 6. Bluetooth: kết nối, in, ra khỏi tầm sóng → mất kết nối; tắt Bluetooth → `BLUETOOTH_DISABLED`.
-7. LAN: kết nối, in; IP sai → `CONNECTION_FAILED` sau khoảng 5s, app không bị treo trong lúc chờ.
-8. Đang in một máy thì kết nối/in máy khác → không phải chờ (bridge không bị chặn).
+7. LAN: kết nối, in; IP sai → `CONNECTION_FAILED` sau khoảng 5s, app không treo.
+8. Đang in một máy thì kết nối/in máy khác → không phải chờ.
 9. Reload JS nhiều lần → không rò kết nối (kết nối lại được ngay).
 
 ## Tiêu chí hoàn thành
 
-- API native đúng §1; native không còn `printerId`.
-- Tên đúng §0; cấu trúc file đúng §6; thư mục `thermalprinter/` đã xoá; không còn tên cũ trong code và tài liệu đang
-  dùng (`grep` `thermalprinter`, `ThermalPrinterModule`, `getConnectionIdentity` ra rỗng, trừ spec/plan cũ).
-- 10 lỗi trong bảng "Lỗi hiện tại được sửa" đều có test tự động hoặc mục kiểm tra trên máy thật tương ứng.
+- Cấu trúc và tên đúng §1–§2; `com/ndtcorepos/thermalprinter/` đã xoá.
+- API JS đúng §3; native không còn `printerId`.
+- `grep` `thermalprinter`, `ThermalPrinterModule`, `getConnectionIdentity` trong code và tài liệu đang dùng ra rỗng
+  (trừ spec/plan cũ).
+- 10 hành vi trong bảng "Hành vi phải đúng" đều có test tự động hoặc mục kiểm tra trên máy thật.
 - `./gradlew :app:testDebugUnitTest` xanh; `npm run verify` xanh.
-- Danh sách kiểm tra trên máy thật đã chạy, kết quả ghi lại trong PR.
+- Danh sách kiểm tra trên máy thật đã chạy, kết quả ghi trong PR.
