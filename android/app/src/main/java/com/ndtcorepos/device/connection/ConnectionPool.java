@@ -1,10 +1,10 @@
 package com.ndtcorepos.device.connection;
 
+import com.ndtcorepos.device.enums.DisconnectReason;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.ConnectedDevice;
 import com.ndtcorepos.device.model.DeviceAddress;
-import com.ndtcorepos.device.model.DisconnectReason;
 import com.ndtcorepos.device.transport.ITransport;
 import com.ndtcorepos.device.transport.ITransportFactory;
 

@@ -9,11 +9,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import com.ndtcorepos.device.enums.DisconnectReason;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.ConnectedDevice;
 import com.ndtcorepos.device.model.DeviceAddress;
-import com.ndtcorepos.device.model.DisconnectReason;
 
 import org.junit.Before;
 import org.junit.Test;

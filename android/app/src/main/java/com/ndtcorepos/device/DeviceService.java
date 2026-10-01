@@ -2,12 +2,12 @@ package com.ndtcorepos.device;
 
 import com.ndtcorepos.device.connection.ConnectionPool;
 import com.ndtcorepos.device.discovery.IDeviceDiscovery;
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.ConnectedDevice;
 import com.ndtcorepos.device.model.DeviceAddress;
 import com.ndtcorepos.device.model.DeviceInfo;
-import com.ndtcorepos.device.model.DeviceType;
 import com.ndtcorepos.device.monitor.IDisconnectMonitor;
 
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 /** Cửa vào duy nhất của tầng thiết bị cho bridge: quét, kết nối, ghi/đọc, ngắt và vòng đời. */
 public final class DeviceService {
 
-    private final Map<DeviceType, IDeviceDiscovery> discoveries;
+    private final Map<TransportType, IDeviceDiscovery> discoveries;
 
     private final ConnectionPool connectionPool;
 
@@ -34,7 +34,7 @@ public final class DeviceService {
     private boolean closed;
 
     public DeviceService(
-            Map<DeviceType, IDeviceDiscovery> discoveries,
+            Map<TransportType, IDeviceDiscovery> discoveries,
             ConnectionPool connectionPool,
             List<IDisconnectMonitor> monitors,
             ExecutorService discoveryExecutor,
@@ -53,7 +53,7 @@ public final class DeviceService {
         }
     }
 
-    public CompletableFuture<List<DeviceInfo>> discover(DeviceType type) {
+    public CompletableFuture<List<DeviceInfo>> discover(TransportType type) {
         IDeviceDiscovery discovery = discoveries.get(type);
 
         if (discovery == null) {

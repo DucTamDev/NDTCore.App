@@ -1,6 +1,6 @@
 package com.ndtcorepos.device.connection;
 
-import com.ndtcorepos.device.model.DisconnectReason;
+import com.ndtcorepos.device.enums.DisconnectReason;
 
 /** Nhận báo một kết nối đã mất ngoài ý muốn (không gọi khi JS chủ động ngắt). */
 public interface IDisconnectListener {

@@ -1,5 +1,7 @@
 package com.ndtcorepos.device.permission;
 
+import static com.ndtcorepos.device.constants.PermissionConstants.PERMISSION_TIMEOUT_MS;
+
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -24,8 +26,6 @@ import java.util.concurrent.TimeoutException;
 public final class UsbPermission {
 
     private static final String ACTION_USB_PERMISSION = "com.ndtcorepos.device.USB_PERMISSION";
-
-    private static final long PERMISSION_TIMEOUT_MS = 30_000;
 
     private static final int PERMISSION_REQUEST_CODE = 0;
 

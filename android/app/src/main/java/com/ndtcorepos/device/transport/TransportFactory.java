@@ -4,9 +4,9 @@ import android.hardware.usb.UsbManager;
 
 import com.ndtcorepos.device.discovery.BluetoothDiscovery;
 import com.ndtcorepos.device.discovery.UsbDiscovery;
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.DeviceAddress;
-import com.ndtcorepos.device.model.DeviceType;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -35,11 +35,11 @@ public final class TransportFactory implements ITransportFactory {
 
     @Override
     public ITransport create(DeviceAddress address) throws DeviceException {
-        if (address.type() == DeviceType.USB) {
+        if (address.type() == TransportType.USB) {
             return createUsb(address);
         }
 
-        if (address.type() == DeviceType.BLUETOOTH) {
+        if (address.type() == TransportType.BLUETOOTH) {
             return createBluetooth(address);
         }
 

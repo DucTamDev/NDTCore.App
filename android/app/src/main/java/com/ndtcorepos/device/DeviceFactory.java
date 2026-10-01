@@ -8,7 +8,7 @@ import com.ndtcorepos.device.connection.IDisconnectListener;
 import com.ndtcorepos.device.discovery.BluetoothDiscovery;
 import com.ndtcorepos.device.discovery.IDeviceDiscovery;
 import com.ndtcorepos.device.discovery.UsbDiscovery;
-import com.ndtcorepos.device.model.DeviceType;
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.monitor.BluetoothDisconnectMonitor;
 import com.ndtcorepos.device.monitor.IDisconnectMonitor;
 import com.ndtcorepos.device.monitor.UsbDetachMonitor;
@@ -47,9 +47,9 @@ public final class DeviceFactory {
                 Executors.newSingleThreadExecutor(),
                 Executors::newSingleThreadExecutor);
 
-        Map<DeviceType, IDeviceDiscovery> discoveries = new EnumMap<>(DeviceType.class);
-        discoveries.put(DeviceType.USB, usbDiscovery);
-        discoveries.put(DeviceType.BLUETOOTH, bluetoothDiscovery);
+        Map<TransportType, IDeviceDiscovery> discoveries = new EnumMap<>(TransportType.class);
+        discoveries.put(TransportType.USB, usbDiscovery);
+        discoveries.put(TransportType.BLUETOOTH, bluetoothDiscovery);
 
         List<IDisconnectMonitor> monitors = Arrays.asList(
                 new UsbDetachMonitor(context, connectionPool),
