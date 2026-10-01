@@ -2,32 +2,36 @@
 
 ## Mục tiêu
 
-Tầng native (`com.ndtcorepos.thermalprinter`, Java, Android) chỉ làm "đường ống": liệt kê thiết bị, mở kết nối, ghi
-byte, đọc byte, đóng kết nối, báo mất kết nối. Native **chỉ nhận thông tin kết nối** và trả về `connectionId`; không
-biết `printerId`, máy in đã lưu, giao thức, khổ giấy hay loại bản in.
+Tầng native (Java, Android) chỉ làm "đường ống": liệt kê thiết bị, mở kết nối, ghi byte, đọc byte, đóng kết nối, báo
+mất kết nối. Native **chỉ nhận thông tin kết nối** và trả về `connectionId`; không biết `printerId`, máy in đã lưu, giao
+thức, khổ giấy hay loại bản in.
 
-Đồng thời gom 37 file hiện tại (chia theo vai trò `connection/`, `writer/`, `device/`, `discovery/`, `identity/`,
-`permission/`, `queue/`) thành khoảng 17 file chia theo loại kết nối, và sửa các lỗi thật tìm thấy khi review.
+Đồng thời:
+
+- gom 37 file hiện tại (chia theo vai trò `connection/`, `writer/`, `device/`, `discovery/`, `identity/`,
+  `permission/`, `queue/`) thành khoảng 18 file chia theo loại kết nối;
+- đặt lại tên package, module, class, sự kiện cho đúng trách nhiệm (§0);
+- sửa các lỗi thật tìm thấy khi review.
 
 ## Nguyên tắc đã chốt
 
-- **Native chỉ nhận connection.** Không có `printerId` ở native. Mã kết nối (`connectionId`) suy ra từ thông tin kết nối
-  mà TS truyền vào, nên cùng thông tin luôn ra cùng `connectionId`.
-- **Một kết nối vật lý = một phiên (session).** Native không biết hai kết nối (USB và LAN) có phải cùng một máy
-  hay không. "Một máy in nhiều đường kết nối" là quyết định nghiệp vụ của TS.
+- **Native chỉ nhận connection.** Không có `printerId` ở native. `connectionId` suy ra từ thông tin kết nối mà TS
+  truyền vào, nên cùng thông tin luôn ra cùng `connectionId`.
+- **Một kết nối vật lý = một `ActiveConnection`.** Native không biết hai kết nối (USB và LAN) có phải cùng một máy hay
+  không. "Một máy in nhiều đường kết nối" là quyết định nghiệp vụ của TS.
 - **Dùng chung kết nối do TS quản lý.** Hai máy in đã lưu trỏ cùng một kết nối thì TS đếm số người dùng và chỉ gọi
-  `disconnect` khi không còn ai. Native: `connect` lại cùng thông tin trả về phiên đang mở; `disconnect` đóng ngay.
+  `disconnect` khi không còn ai. Native: `connect` lại cùng thông tin trả về kết nối đang mở; `disconnect` đóng ngay.
 - **Native không hiển thị UI.** Bỏ các `Toast` tiếng Anh hiện có; mọi thông báo cho người dùng do TS hiển thị.
 - **Không chặn luồng bridge.** Mọi thao tác chậm (xin quyền USB, mở socket, ghi, đọc, đóng) chạy trên luồng riêng;
   Promise được resolve/reject từ luồng đó.
-- **Giữ tên module** `ThermalPrinterModule` và package `com.ndtcorepos.thermalprinter`.
 
 ## Ngoài phạm vi
 
-- Gộp `adapters/` + `transports/` bên TS, bỏ `LibraryAdapter`, chuyển TSPL Bluetooth/LAN sang native (làm ở spec tái cấu
-  trúc tầng TS máy in, sau khi native có `read`).
+- Gộp `adapters/` + `transports/` bên TS, bỏ `LibraryAdapter`, chuyển TSPL Bluetooth/LAN sang native (làm ở spec tái
+  cấu trúc tầng TS máy in, sau khi native có `read`).
 - Thu hẹp `connectionResourceKey` của `PrintScheduler` (hiện USB dùng chung khoá `'usb'`, ESC/POS theo loại kết nối).
   Native mới cho phép song song theo `connectionId`, nhưng đổi lịch in thuộc spec TS.
+- Đổi tên phần TS ngoài các file liệt kê ở §7 (`IPrinterAdapter`, `PrinterConnectTarget`, model `PrinterConnection`…).
 - Quét máy in LAN; lọc thiết bị Bluetooth theo loại (hiện trả mọi thiết bị đã ghép đôi, giữ nguyên).
 - iOS (`printTextLegacyIOS` giữ nguyên).
 - Model "một máy in nhiều đường kết nối" bên TS.
@@ -37,32 +41,95 @@ biết `printerId`, máy in đã lưu, giao thức, khổ giấy hay loại bả
 | # | Lỗi | Sửa |
 |---|---|---|
 | 1 | `connect` USB chỉ tìm theo vendorId/productId, bỏ qua serial → 2 máy cùng model luôn lấy máy đầu | Khớp serial (§2.3) |
-| 2 | Sự kiện rút USB khớp theo `vid:pid` → rút 1 máy, máy cùng model cũng bị coi là mất | Khớp theo `UsbDevice.getDeviceName()` của phiên |
-| 3 | Rút USB được xử lý 2 lần: `UsbConnection` tự đóng và `UsbConnectionWatcher` dọn dẹp, không phối hợp | Một đường duy nhất qua `PrinterSessions` |
-| 4 | `writeByBase64` chặn luồng bridge tới 15s; `connect` chặn tới 30s khi chờ hộp thoại quyền USB | Chạy trên luồng riêng (§4) |
+| 2 | Sự kiện rút USB khớp theo `vid:pid` → rút 1 máy, máy cùng model cũng bị coi là mất | Khớp theo `UsbDevice.getDeviceName()` |
+| 3 | Rút USB xử lý 2 lần: `UsbConnection` tự đóng và `UsbConnectionWatcher` dọn dẹp, không phối hợp | Một đường qua `ConnectionManager` |
+| 4 | `writeByBase64` chặn bridge tới 15s; `connect` chặn tới 30s khi chờ hộp thoại quyền USB | Chạy trên luồng riêng (§4) |
 | 5 | USB ghi cả payload bằng 1 lần `bulkTransfer`; ghi thiếu byte vẫn báo thành công | Chia khúc, ghi đủ mới thành công (§3.1) |
-| 6 | Tham số `timeout` của writer Bluetooth/LAN bị bỏ qua; 2 mức timeout chồng nhau (5s, 15s) | Một deadline cho cả lần ghi do TS truyền |
+| 6 | `timeout` của writer Bluetooth/LAN bị bỏ qua; 2 mức timeout chồng nhau (5s, 15s) | Một deadline cho cả lần ghi do TS truyền |
 | 7 | Native không đọc được (`read` luôn `null`) → TSPL phải đi `LibraryAdapter` | Thêm `read` (§1) |
 | 8 | Receiver đăng ký `RECEIVER_EXPORTED` cho cả action quyền USB nội bộ | `RECEIVER_NOT_EXPORTED` |
 | 9 | `Toast` tiếng Anh hiển thị từ native | Bỏ |
-| 10 | `PrinterWriteResult` dùng cho cả `open`/`close` | Lỗi ném `PrinterException`, thao tác thành công không trả gì |
+| 10 | `PrinterWriteResult` dùng cho cả `open`/`close` | Lỗi ném `ConnectionException`, thành công không trả gì |
 
 ## Thiết kế
 
+### 0. Từ vựng và tên
+
+#### 0.1 Từ vựng
+
+| Từ | Nghĩa | Không dùng |
+|---|---|---|
+| **target** | Thông tin để kết nối: USB vid/pid/serial, địa chỉ Bluetooth, host/port LAN. Đầu vào từ TS | "device", "request" |
+| **connectionId** | Chuỗi định danh một kết nối, suy ra từ target (§2) | "identity", "identityKey" (ở native) |
+| **active connection** | Một kết nối đang mở: transport + hàng đợi thao tác tuần tự | "session", "device", "runtime" |
+| **transport** | Đọc/ghi byte thô trên một loại đường truyền (USB, Bluetooth, LAN) | "writer", "connection" |
+| **discovered device** | Một thiết bị `listDevices` tìm thấy, chưa kết nối | "printer", "descriptor" |
+
+"Printer" chỉ xuất hiện trong tên package/module/sự kiện để nói đây là kết nối tới máy in; các class bên trong không
+mang chữ "Printer" vì native không biết gì về máy in ngoài đường truyền.
+
+#### 0.2 Đổi tên phía native (Java)
+
+| Hiện tại | Mới | Lý do |
+|---|---|---|
+| package `com.ndtcorepos.thermalprinter` | `com.ndtcorepos.printerconnection` | Tầng này chỉ lo kết nối; "thermal" không nói trách nhiệm |
+| module RN `ThermalPrinterModule` | `PrinterConnectionModule` | Như trên |
+| `ThermalPrinterPackage` | `PrinterConnectionPackage` | Như trên |
+| sự kiện `ThermalPrinterConnectionLost` | `PrinterConnectionLost` | Như trên |
+| `PrinterDeviceManager` + `PrinterDeviceRegistry` + `PrinterQueueManager` | `ConnectionManager` | Một nơi mở/dùng lại/đóng/xử lý mất kết nối |
+| `IPrinterDevice` + `*PrinterDevice` + `PrinterQueue` | `ActiveConnection` | Một kết nối đang mở + hàng đợi của nó |
+| `IPrinterConnection` + `IPrinterWriter` + `*Connection` + `*Writer` | `ITransport` + `UsbTransport`/`BluetoothTransport`/`LanTransport` | Mở/ghi/đọc/đóng là một khối, không tách đôi |
+| `ConnectionIdentity` + `IConnectionIdentityResolver` + `UsbConnectionIdentityResolver` | `ConnectionTarget.connectionId()` | Id suy ra từ target, một chỗ cho cả 3 loại |
+| `PrinterDescriptor` | `DiscoveredDevice` | Kết quả `listDevices`, không phải "máy in" |
+| `PrinterWriteResult` + `PrinterErrorCode` | `ConnectionException` + `ConnectionErrorCode` | Lỗi là exception, mã lỗi thuộc kết nối |
+| `IPrinterDiscovery` + `UsbPrinterDiscovery` / `BluetoothPrinterDiscovery` | `UsbDeviceLookup` / `BluetoothDeviceLookup` | Vừa liệt kê vừa tìm thiết bị khớp target |
+| `UsbPermission` (quyền + phát sự kiện rút USB) | `UsbPermissionRequester` + `UsbDetachReceiver` | Tách 2 trách nhiệm |
+| `UsbConnectionWatcher` / `BluetoothConnectionWatcher` | `UsbDetachReceiver` / `BluetoothDisconnectReceiver` | Tên theo broadcast nhận được |
+| `UsbEndpointResolver` | gộp vào `UsbDeviceLookup` | Chỉ dùng khi chọn interface |
+| `PrinterQueueTask`, `ConnectionState`, `IdentityStability`, `ConnectionType` | bỏ; `ConnectionType` thay bằng 3 dạng của `ConnectionTarget` | Không còn chỗ dùng |
+| — | `ConnectionLostReason` | Lý do mất kết nối gửi kèm sự kiện |
+
+Interface đặt tiền tố `I` theo `docs/CODING_STANDARDS.md` Rule 8.3.
+
+#### 0.3 Đổi tên phía TS (chỉ các file chạm tới cầu nối)
+
+| Hiện tại | Mới |
+|---|---|
+| `adapters/native/PrinterNativeModule.ts`, export `ThermalPrinterModule` | `adapters/native/PrinterConnectionModule.ts`, export `PrinterConnectionModule` |
+| `PrinterInfoDto` | `NativeDiscoveredDevice` |
+| `ConnectRequest` / `UsbConnectRequest` / `BluetoothConnectRequest` / `LanConnectRequest` | `NativeConnectionTarget` / `NativeUsbTarget` / `NativeBluetoothTarget` / `NativeLanTarget` |
+| `subscribeConnectionLost(cb: (identity) => …)` | `subscribeConnectionLost(cb: (event: ConnectionLostEvent) => …)` |
+| `NativeAdapter.getConnectionIdentity()`, field `connectionIdentity` | `getConnectionId()`, field `connectionId` |
+| — | `adapters/native/NativeConnectionPool.ts` (`acquire` / `release`) |
+| `transports/UsbTransport.ts` | xoá |
+
+Kiểu ở cầu nối mang tiền tố `Native` để phân biệt với kiểu nghiệp vụ cùng nghĩa bên TS (`PrinterConnection`,
+`PrinterConnectTarget`, `PrinterDevice`).
+
 ### 1. Hợp đồng JS ↔ native
 
-Kiểu phía TS (trong `adapters/native/PrinterNativeModule.ts`):
+Kiểu phía TS (trong `adapters/native/PrinterConnectionModule.ts`):
 
 ```ts
-type NativeConnectionTarget =
-  | {
-      readonly type: 'usb';
-      readonly vendorId: number;
-      readonly productId: number;
-      readonly serialNumber: string | null;
-    }
-  | { readonly type: 'bluetooth'; readonly address: string }
-  | { readonly type: 'lan'; readonly host: string; readonly port: number };
+interface NativeUsbTarget {
+  readonly type: 'usb';
+  readonly vendorId: number;
+  readonly productId: number;
+  readonly serialNumber: string | null;
+}
+
+interface NativeBluetoothTarget {
+  readonly type: 'bluetooth';
+  readonly address: string;
+}
+
+interface NativeLanTarget {
+  readonly type: 'lan';
+  readonly host: string;
+  readonly port: number;
+}
+
+type NativeConnectionTarget = NativeUsbTarget | NativeBluetoothTarget | NativeLanTarget;
 
 type NativeDiscoveredDevice =
   | {
@@ -83,21 +150,26 @@ type NativeDiscoveredDevice =
     };
 
 type ConnectionLostReason = 'usb_detached' | 'bluetooth_disconnected' | 'io_error';
+
+interface ConnectionLostEvent {
+  readonly connectionId: string;
+  readonly reason: ConnectionLostReason;
+}
 ```
 
 | Hàm native | Tham số | Kết quả | Ghi chú |
 |---|---|---|---|
 | `listDevices(type)` | `'usb'` \| `'bluetooth'` | `NativeDiscoveredDevice[]` | Không mở hộp thoại quyền. USB: chỉ thiết bị có endpoint bulk OUT |
-| `connect(target)` | `NativeConnectionTarget` | `connectionId` | Gọi lại khi phiên đang mở → trả `connectionId` đó, không mở thêm |
-| `write(connectionId, base64, timeoutMs)` | | `void` | Ghi đủ toàn bộ byte trong `timeoutMs`, nếu không thì reject |
+| `connect(target)` | `NativeConnectionTarget` | `connectionId` | Kết nối đang mở → trả `connectionId` đó, không mở thêm |
+| `write(connectionId, base64Data, timeoutMs)` | | `void` | Ghi đủ toàn bộ byte trong `timeoutMs`, nếu không thì reject |
 | `read(connectionId, maxBytes, timeoutMs)` | | base64 \| `null` | `null` khi hết `timeoutMs` mà không có byte nào |
 | `disconnect(connectionId)` | | `void` | Gọi khi chưa kết nối vẫn resolve |
-| Sự kiện `ThermalPrinterConnectionLost` | | `{ connectionId, reason }` | Phát khi mất kết nối ngoài ý muốn |
+| Sự kiện `PrinterConnectionLost` | | `ConnectionLostEvent` | Phát khi mất kết nối ngoài ý muốn |
 
-`write`, `read`, `disconnect` của cùng `connectionId` chạy **đúng thứ tự gọi** (cùng một hàng đợi của phiên), nên
-"ghi lệnh dò rồi đọc phản hồi" không bị lệnh khác chen vào. `disconnect` chờ các thao tác đã xếp trước nó chạy xong.
+`write`, `read`, `disconnect` của cùng `connectionId` chạy **đúng thứ tự gọi** (cùng hàng đợi của `ActiveConnection`),
+nên "ghi lệnh dò rồi đọc phản hồi" không bị lệnh khác chen vào. `disconnect` chờ các thao tác đã xếp trước nó chạy xong.
 
-Đổi tên so với hiện tại: `discoverPrinters` → `listDevices`, `writeByBase64(printerId, …)` → `write(connectionId, …)`,
+Đổi so với hiện tại: `discoverPrinters` → `listDevices`, `writeByBase64(printerId, …)` → `write(connectionId, …)`,
 `disconnect(printerId)` → `disconnect(connectionId)`; payload sự kiện `identity` → `connectionId` + `reason`.
 
 ### 2. `connectionId`
@@ -119,9 +191,9 @@ hoa). Hiện native dùng `USB:`/`BLUETOOTH:`/`LAN:` viết hoa và Bluetooth th
 
 #### 2.2 Suy ra từ target, không từ thiết bị
 
-`connectionId` tính từ `NativeConnectionTarget` TS truyền vào, không từ thông tin native đọc được sau khi mở. Lý do:
-từ Android 10, `UsbDevice.getSerialNumber()` cần quyền USB, nên lúc quét chưa có quyền thì serial là `null`; nếu sau khi
-cấp quyền native lại tự thêm serial vào id thì id sẽ lệch với `identityKey` đã lưu.
+`connectionId` tính từ target TS truyền vào, không từ thông tin native đọc được sau khi mở. Lý do: từ Android 10,
+`UsbDevice.getSerialNumber()` cần quyền USB, nên lúc quét chưa có quyền thì serial là `null`; nếu sau khi cấp quyền
+native lại tự thêm serial vào id thì id sẽ lệch với `identityKey` đã lưu.
 
 #### 2.3 Khớp thiết bị USB khi `connect`
 
@@ -132,16 +204,16 @@ cấp quyền native lại tự thêm serial vào id thì id sẽ lệch với `
    - nhiều hơn 1 → `AMBIGUOUS_DEVICE` (không đoán).
 4. `target.serialNumber !== null`: duyệt các ứng viên, ưu tiên thiết bị đã có quyền; thiết bị chưa có quyền thì xin
    quyền rồi mới đọc serial. Serial khớp → dùng; không ứng viên nào khớp → `DEVICE_NOT_FOUND`.
-5. Xin quyền USB (hộp thoại hệ thống) khi thiết bị được chọn chưa có quyền; chờ tối đa 30s; từ chối/hết giờ/rút ra giữa
-   chừng → `PERMISSION_DENIED`.
+5. Xin quyền USB (hộp thoại hệ thống) khi thiết bị được chọn chưa có quyền; chờ tối đa 30s; từ chối/hết giờ/rút ra
+   giữa chừng → `PERMISSION_DENIED`.
 
 ### 3. Transport
 
 ```java
-interface PrinterTransport {
-    void open() throws PrinterException;
-    void write(byte[] data, long deadlineMillis) throws PrinterException;
-    byte[] read(int maxBytes, long deadlineMillis) throws PrinterException;
+public interface ITransport {
+    void open() throws ConnectionException;
+    void write(byte[] data, long deadlineMillis) throws ConnectionException;
+    byte[] read(int maxBytes, long deadlineMillis) throws ConnectionException;
     void close();
     boolean isOpen();
 }
@@ -154,10 +226,10 @@ gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc khôn
 
 - `open`: `openDevice` + `claimInterface(force=true)` trên interface có endpoint bulk OUT; lưu endpoint bulk IN nếu có.
 - `write`: chia khúc tối đa 16 KB (giới hạn an toàn của `bulkTransfer` trên Android cũ), lặp tới khi ghi đủ; mỗi khúc
-  dùng timeout = thời gian còn lại tới deadline. `bulkTransfer` trả < 0 → `WRITE_FAILED` hoặc `WRITE_TIMEOUT` (hết hạn),
-  kèm số byte đã ghi.
+  dùng timeout = thời gian còn lại tới deadline. `bulkTransfer` trả < 0 → `WRITE_FAILED`, hoặc `WRITE_TIMEOUT` nếu đã
+  hết hạn; kèm số byte đã ghi.
 - `read`: không có endpoint bulk IN → `READ_NOT_SUPPORTED`; có → `bulkTransfer` IN với timeout còn lại.
-- Giữ `UsbDevice` để khớp sự kiện rút ra theo `getDeviceName()`.
+- Giữ `UsbDevice` để `UsbDetachReceiver` khớp sự kiện rút ra theo `getDeviceName()`.
 
 #### 3.2 `BluetoothTransport`
 
@@ -167,8 +239,8 @@ gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc khôn
 - `write`: ghi + `flush`. `BluetoothSocket` không có timeout ghi; nếu ghi vượt deadline thì đóng socket để giải phóng
   luồng và báo `WRITE_TIMEOUT`.
 - `read`: `BluetoothSocket` không có timeout đọc → hỏi `available()` theo chu kỳ ngắn tới deadline rồi mới `read`.
-- `close`: giữ cách chờ dữ liệu cuối kịp gửi trước khi đóng (`flush` không bảo đảm máy in đã nhận) theo số byte của lần
-  ghi gần nhất — đây là giới hạn đã biết, ghi rõ trong comment.
+- `close`: giữ cách chờ dữ liệu cuối kịp gửi trước khi đóng (`flush` không bảo đảm máy in đã nhận) theo số byte của
+  lần ghi gần nhất — giới hạn đã biết, ghi rõ trong comment.
 
 #### 3.3 `LanTransport`
 
@@ -176,21 +248,23 @@ gian tuyệt đối (`deadlineMillis`) để một lần ghi nhiều khúc khôn
 - `write`: ghi + `flush`; vượt deadline → đóng socket, `WRITE_TIMEOUT`.
 - `read`: `setSoTimeout(thời gian còn lại)`; `SocketTimeoutException` khi chưa có byte → mảng rỗng.
 
-### 4. Phiên và luồng
+### 4. Kết nối đang mở và luồng
 
-- **`PrinterSession`**: một `PrinterTransport` + một executor một luồng. `write`, `read`, `close` đều xếp vào executor
-  này. Trạng thái `OPEN` → `CLOSED`. Lỗi I/O trên Bluetooth/LAN (không phải hết hạn) → đóng phiên và báo mất kết nối
-  `io_error`. Khi phiên đóng vì mất kết nối, mọi thao tác đang chờ bị reject `CONNECTION_LOST`.
-- **`PrinterSessions`**: bảng `connectionId → PrinterSession`.
-  - `connect` chạy trên executor dùng chung cho việc mở kết nối. Hai lời gọi `connect` cùng `connectionId` đồng thời
-    dùng chung một lần mở (không mở 2 lần).
-  - Phiên có trong bảng nhưng transport đã chết → đóng và mở lại.
-  - Nhận báo rút USB / mất Bluetooth / lỗi I/O → bỏ phiên khỏi bảng, phát `ThermalPrinterConnectionLost`, đóng transport
-    trên luồng nền (đóng Bluetooth có thể chờ vài giây; broadcast chạy trên luồng UI).
-  - Một phiên mất kết nối chỉ được báo **một lần**, dù cùng lúc có cả broadcast lẫn lỗi I/O.
-- **`invalidate()`** (React Native gọi khi reload): huỷ đăng ký receiver, đóng mọi phiên, tắt mọi executor.
+- **`ActiveConnection`**: `connectionId` + một `ITransport` + một executor một luồng. `write`, `read`, `close` đều xếp
+  vào executor này. Lỗi I/O trên Bluetooth/LAN (không phải hết hạn) → đóng và báo mất kết nối `io_error`. Khi đóng vì
+  mất kết nối, mọi thao tác đang chờ bị reject `CONNECTION_LOST`.
+- **`ConnectionManager`**: bảng `connectionId → ActiveConnection`.
+  - `connect(target)` chạy trên executor dùng chung cho việc mở kết nối. Hai lời gọi `connect` cùng `connectionId`
+    đồng thời dùng chung một lần mở (không mở 2 lần).
+  - Kết nối có trong bảng nhưng transport đã chết → đóng và mở lại.
+  - `handleConnectionLost(connectionId, reason)` (từ `UsbDetachReceiver`, `BluetoothDisconnectReceiver` hoặc lỗi I/O):
+    bỏ khỏi bảng, phát `PrinterConnectionLost`, đóng transport trên luồng nền (đóng Bluetooth có thể chờ vài giây;
+    broadcast chạy trên luồng UI).
+  - Một kết nối mất chỉ được báo **một lần**, dù cùng lúc có cả broadcast lẫn lỗi I/O.
+- **`invalidate()`** của `PrinterConnectionModule` (React Native gọi khi reload): huỷ đăng ký receiver, đóng mọi kết
+  nối, tắt mọi executor.
 
-### 5. Mã lỗi
+### 5. Mã lỗi (`ConnectionErrorCode`)
 
 Reject bằng `promise.reject(code, message)`; `WRITE_*` thêm `userInfo.bytesWritten`.
 
@@ -202,8 +276,8 @@ Reject bằng `promise.reject(code, message)`; `WRITE_*` thêm `userInfo.bytesWr
 | `PERMISSION_DENIED` | Từ chối/hết giờ hộp thoại quyền USB; thiếu quyền Bluetooth |
 | `BLUETOOTH_DISABLED` | Bluetooth đang tắt hoặc máy không có Bluetooth |
 | `CONNECTION_FAILED` | Mở kết nối thất bại |
-| `NOT_CONNECTED` | `write`/`read` với `connectionId` không có phiên mở |
-| `CONNECTION_LOST` | Phiên bị mất kết nối trong lúc thao tác đang chờ |
+| `NOT_CONNECTED` | `write`/`read` với `connectionId` không có kết nối đang mở |
+| `CONNECTION_LOST` | Kết nối bị mất trong lúc thao tác đang chờ |
 | `WRITE_FAILED` | Lỗi I/O khi ghi |
 | `WRITE_TIMEOUT` | Ghi chưa đủ byte khi tới hạn |
 | `READ_NOT_SUPPORTED` | USB không có endpoint bulk IN |
@@ -214,45 +288,54 @@ TS ánh xạ các mã này sang `PrinterErrorCode` trong `NativeAdapter`.
 ### 6. Cấu trúc file Java
 
 ```
-thermalprinter/
-├── ThermalPrinterPackage.java
-├── ThermalPrinterModule.java     # chỉ cầu nối: đọc tham số → PrinterSessions → Promise/DTO, phát sự kiện
-├── PrinterSessions.java          # connectionId → phiên; gộp connect trùng; xử lý mất kết nối
-├── PrinterSession.java           # 1 transport + 1 hàng đợi tuần tự
-├── PrinterTransport.java
-├── ConnectionTarget.java         # target đã kiểm tra + connectionId() (§2)
-├── PrinterException.java         # mã lỗi + bytesWritten
-├── PrinterErrorCode.java
+android/app/src/main/java/com/ndtcorepos/printerconnection/
+├── PrinterConnectionPackage.java
+├── PrinterConnectionModule.java    # chỉ cầu nối: đọc tham số → ConnectionManager → Promise/DTO, phát sự kiện
+├── ConnectionManager.java          # connectionId → ActiveConnection; gộp connect trùng; xử lý mất kết nối
+├── ActiveConnection.java           # 1 transport + 1 hàng đợi tuần tự
+├── ConnectionTarget.java           # 3 dạng usb/bluetooth/lan, kiểm tra tham số, connectionId() (§2)
+├── DiscoveredDevice.java
+├── ITransport.java
+├── ConnectionException.java        # mã lỗi + bytesWritten
+├── ConnectionErrorCode.java
+├── ConnectionLostReason.java
 ├── usb/
 │   ├── UsbTransport.java
-│   ├── UsbDevices.java           # liệt kê, khớp target (§2.3), chọn interface/endpoint
+│   ├── UsbDeviceLookup.java        # liệt kê, khớp target (§2.3), chọn interface/endpoint
 │   ├── UsbPermissionRequester.java
 │   └── UsbDetachReceiver.java
 ├── bluetooth/
 │   ├── BluetoothTransport.java
-│   ├── BluetoothDevices.java     # thiết bị đã ghép đôi
+│   ├── BluetoothDeviceLookup.java  # thiết bị đã ghép đôi
 │   └── BluetoothDisconnectReceiver.java
 └── lan/
     └── LanTransport.java
 ```
 
-Xoá: `connection/`, `writer/`, `device/`, `discovery/`, `identity/`, `permission/`, `queue/`, `model/`, `enums/`,
-`module/` (2 file trong `module/` chuyển lên gốc). `MainApplication.kt` cập nhật import `ThermalPrinterPackage`.
+Xoá toàn bộ thư mục `com/ndtcorepos/thermalprinter/`. Cập nhật:
+
+- `MainApplication.kt`: import và `add(PrinterConnectionPackage())`.
+- `AndroidManifest.xml`: comment đang nhắc `com.ndtcorepos.thermalprinter`.
+- `CLAUDE.md`, `docs/CODING_STANDARDS.md` (ví dụ tên interface ở Rule 8.3): đường dẫn và tên class cũ.
+- `jest.setup.js`: mock `NativeModules.ThermalPrinterModule` → `PrinterConnectionModule`.
 
 Code theo `docs/CODING_STANDARDS.md` (guard clause, tối đa 2 cấp lồng, `LOG_SOURCE`, comment WHY).
 
 ### 7. Thay đổi phía TS (tối thiểu để app chạy với API mới)
 
-- `adapters/native/PrinterNativeModule.ts`: kiểu và hàm theo §1; `subscribeConnectionLost` trả
-  `{ connectionId, reason }`.
-- `adapters/native/NativeConnections.ts` (mới): đếm số người dùng theo `connectionId` — `acquire(target)` gọi native
+- `adapters/native/PrinterConnectionModule.ts` (đổi tên từ `PrinterNativeModule.ts`): kiểu và hàm theo §1;
+  `subscribeConnectionLost` nhận `ConnectionLostEvent`.
+- `adapters/native/NativeConnectionPool.ts` (mới): đếm số người dùng theo `connectionId` — `acquire(target)` gọi native
   `connect` khi là người đầu tiên, `release(connectionId)` gọi native `disconnect` khi là người cuối.
-- `adapters/native/NativeAdapter.ts`: dùng `NativeConnections`; lưu `connectionId`; `canRead = true`; `read()` gọi
-  native; `getConnectionIdentity()` đổi tên `getConnectionId()`; ánh xạ mã lỗi §5.
+- `adapters/native/NativeAdapter.ts`: dùng `NativeConnectionPool`; lưu `connectionId`; `canRead = true`; `read()` gọi
+  native; `getConnectionId()`; ánh xạ mã lỗi §5.
 - `adapters/IPrinterAdapter.ts`: `PrinterConnectTarget.usb` thêm `serialNumber`; `toConnectTarget` truyền serial.
 - `NativeAdapter.listDevices`: USB `deviceId` dùng `connectionId` (có serial) thay cho `` `${vendorId}:${productId}` ``.
-- Xoá `transports/UsbTransport.ts` (native đã chia khúc); `EscPosDriver`/`TsplDriver` đổi theo tên mới.
-- `hooks/addPrinter/useConnectionSetup.ts`: gọi `listDevices` thay `discoverPrinters`.
+- Xoá `transports/UsbTransport.ts` và test của nó (native đã chia khúc).
+- Đổi theo tên mới: `EscPosDriver`, `TsplDriver`, `adapters/resolvePrinterAdapter.ts`,
+  `connection/PrinterConnectionLock.ts` (comment), `hooks/addPrinter/useConnectionSetup.ts`,
+  `adapters/testing/MockPrinterAdapter.ts`, cùng các test `NativeAdapter`, `PrinterNativeModule` (đổi tên theo file),
+  `EscPosDriver`, `MockPrinterAdapter`.
 
 ## Test
 
@@ -263,11 +346,12 @@ Android:
   Bluetooth, LAN) và trùng `resolveIdentityKey` bên TS với cùng dữ liệu.
 - Khớp USB (§2.3) tách thành hàm thuần trên danh sách ứng viên: không có, một, nhiều không serial, serial
   khớp/không khớp.
-- `PrinterSession` với transport giả: thao tác chạy đúng thứ tự gọi; `disconnect` chờ thao tác trước; mất kết nối reject
-  thao tác đang chờ `CONNECTION_LOST`; báo mất kết nối đúng một lần.
+- `ActiveConnection` với transport giả: thao tác chạy đúng thứ tự gọi; `close` chờ thao tác trước; mất kết nối reject
+  thao tác đang chờ `CONNECTION_LOST`.
+- `ConnectionManager` với transport giả: `connect` trùng chỉ mở 1 lần; báo mất kết nối đúng một lần.
 - Chia khúc ghi USB: payload 40 KB → 3 khúc 16/16/8 KB; ghi thiếu → `WRITE_TIMEOUT` kèm số byte đã ghi.
 
-**Jest** cho TS: `NativeConnections` (đếm người dùng, connect/disconnect đúng lúc), `NativeAdapter` (ánh xạ mã lỗi,
+**Jest** cho TS: `NativeConnectionPool` (đếm người dùng, connect/disconnect đúng lúc), `NativeAdapter` (ánh xạ mã lỗi,
 read, truyền serial) với `NativeModules` giả.
 
 **Kiểm tra trên máy thật** (bắt buộc, test tự động không chạy tới broadcast/USB/Bluetooth thật):
@@ -285,7 +369,8 @@ read, truyền serial) với `NativeModules` giả.
 ## Tiêu chí hoàn thành
 
 - API native đúng §1; native không còn `printerId`.
-- Cấu trúc file đúng §6; các thư mục cũ đã xoá.
+- Tên đúng §0; cấu trúc file đúng §6; thư mục `thermalprinter/` đã xoá; không còn tên cũ trong code và tài liệu đang
+  dùng (`grep` `thermalprinter`, `ThermalPrinterModule`, `getConnectionIdentity` ra rỗng, trừ spec/plan cũ).
 - 10 lỗi trong bảng "Lỗi hiện tại được sửa" đều có test tự động hoặc mục kiểm tra trên máy thật tương ứng.
 - `./gradlew :app:testDebugUnitTest` xanh; `npm run verify` xanh.
 - Danh sách kiểm tra trên máy thật đã chạy, kết quả ghi lại trong PR.
