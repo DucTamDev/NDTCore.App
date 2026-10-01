@@ -339,6 +339,81 @@ Code theo `docs/CODING_STANDARDS.md` (guard clause, tối đa 2 cấp lồng, `L
   `adapters/testing/MockPrinterAdapter.ts`, cùng các test `NativeAdapter`, `PrinterNativeModule` (đổi tên theo file),
   `EscPosDriver`, `MockPrinterAdapter`.
 
+## Quy ước code (bắt buộc, áp cho mọi file Java và TS mới/sửa trong đợt này)
+
+Giống quy ước đã dùng cho printer-core, cộng `docs/CODING_STANDARDS.md` (Java) và `docs/CODING_STANDARDS_TS.md` (TS).
+
+1. **Summary ngắn, tiếng Việt.** Mỗi class/interface/type export có 1 dòng summary nói trách nhiệm. Mỗi field có 1 dòng
+   nói ý nghĩa + đơn vị (ms, byte…) + ràng buộc nếu có; bỏ qua field mà tên đã hiển nhiên tuyệt đối. Method public chỉ
+   có summary khi tên + tham số chưa đủ rõ.
+2. **Không Javadoc rập khuôn.** Không `@param`/`@return` lặp lại tên và kiểu (kiểu `@param data raw printer bytes`,
+   `@return operation result` đang có ở code cũ). Chỉ ghi `@throws`/tham số khi có điều không hiển nhiên (đơn vị, mốc
+   thời gian tuyệt đối…).
+3. **Cách dòng:** 1 dòng trống giữa các field (kèm summary của nó) và giữa các method; dòng trống giữa các khối logic
+   trong hàm; không dòng trống thừa (code cũ có chỗ 2 dòng trống liền).
+4. **Comment trong code:** tiếng Việt, 1–3 dòng, chỉ giải thích WHY (giới hạn phần cứng, hành vi Android không hiển
+   nhiên). Không mô tả lại code, không kể lịch sử ("Task 4", "see the design spec", "port từ…"). Comment cho Android
+   API đặt ở đầu hàm, không rải từng dòng (Rule 14.3).
+5. **Độ dài dòng ≤ 120 ký tự**, đo bằng Node `line.length`.
+6. **Nesting:** Java ≤ 2 cấp (Rule 3.3), TS ≤ 3 cấp; dùng guard clause/early return, không `else` sau `return`.
+7. **1 hàm 1 trách nhiệm**, không hàm lồng trong hàm (TS); `switch`/`if` theo loại kết nối chỉ điều phối, mỗi nhánh
+   gọi 1 hàm riêng.
+8. **Không magic number:** hằng số `UPPER_SNAKE_CASE`, tên có đơn vị (`PERMISSION_TIMEOUT_MS`, `USB_CHUNK_SIZE_BYTES`).
+9. **Tên đầy đủ, theo từ vựng §0.1**, không viết tắt (`connection` không `conn`, `exception` không `e`).
+10. **Tham số:** ≥ 3 tham số thì mỗi tham số 1 dòng; ít hơn thì viết trên 1 dòng (code cũ xuống dòng cả hàm 1 tham số).
+11. **TS import module khác qua barrel `index.ts`** nếu module đó có barrel.
+12. **Verify trước mỗi commit:** `./gradlew :app:compileDebugJavaWithJavac` + `:app:testDebugUnitTest` (khi đụng Java),
+    `npm run verify`, line-length.
+
+Mẫu Java:
+
+```java
+/** Một kết nối đang mở: transport + hàng đợi để mọi thao tác chạy đúng thứ tự gọi. */
+final class ActiveConnection {
+
+    private static final String LOG_SOURCE = "ActiveConnection";
+
+    /** Mã kết nối suy ra từ target (§2). */
+    private final String connectionId;
+
+    private final ITransport transport;
+
+    /** Một luồng duy nhất: ghi/đọc/đóng của cùng kết nối không bao giờ chạy song song. */
+    private final ExecutorService operationExecutor = Executors.newSingleThreadExecutor();
+
+    ActiveConnection(String connectionId, ITransport transport) {
+        this.connectionId = connectionId;
+        this.transport = transport;
+    }
+
+    /** Ghi đủ `data` trước `deadlineMillis` (mốc thời gian tuyệt đối), nếu không thì ném lỗi. */
+    Future<Void> write(byte[] data, long deadlineMillis) {
+        return operationExecutor.submit(() -> {
+            transport.write(data, deadlineMillis);
+            return null;
+        });
+    }
+}
+```
+
+Mẫu TS:
+
+```ts
+/** Thiết bị USB `listDevices` tìm thấy, chưa kết nối. */
+export interface NativeUsbDevice {
+  readonly type: 'usb';
+
+  /** Mã kết nối native sẽ trả khi `connect` thiết bị này (§2.1). */
+  readonly connectionId: string;
+
+  /** `null` khi chưa có quyền USB (Android 10+ cần quyền mới đọc được serial). */
+  readonly serialNumber: string | null;
+
+  /** App đã được cấp quyền USB cho thiết bị này chưa; quét không mở hộp thoại xin quyền. */
+  readonly hasPermission: boolean;
+}
+```
+
 ## Test
 
 **JVM unit test** (JUnit, thêm `testImplementation` vào `android/app/build.gradle`) cho phần không phụ thuộc
