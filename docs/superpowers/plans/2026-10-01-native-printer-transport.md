@@ -91,20 +91,18 @@ for (const file of process.argv.slice(2).flatMap((target) => collect(target, [])
 
 - Rút dây USB giữa một lệnh in dài: app nhận `DeviceDisconnected` đúng một lần, lệnh đang chờ nhận `CONNECTION_LOST` (không treo), cắm lại kết nối được — test ở Task 2 (`ConnectionPoolTest`), kiểm trên máy ở Task 9.
 - Hai máy USB cùng model không có serial: báo lỗi rõ (`AMBIGUOUS_DEVICE` → "Có nhiều máy in USB cùng loại…"), không in nhầm máy — `UsbDiscoveryTest` (Task 3) + `toPrinterError.test` (Task 7).
-- Reload JS khi hộp thoại quyền USB đang mở: `connect` đang chờ kết thúc bằng `SERVICE_CLOSED`, receiver tạm được huỷ, không thêm kết nối sau khi pool đóng — `ConnectionPoolTest.closeAllWhileFindingDeviceRejectsWithServiceClosed` (Task 2), kiểm trên máy ở Task 9.
-- Mất mạng LAN / ra khỏi tầm Bluetooth mà socket không báo lỗi: ghi kết thúc đúng hạn bằng `WRITE_TIMEOUT` kèm số byte đã gửi, rồi phát mất kết nối — `StreamWriterTest` (Task 4) + `ConnectionTest.failureThatLeavesTransportClosedReportsTransportLost` (Task 2).
+- Reload JS khi hộp thoại quyền USB đang mở: `connect` đang chờ kết thúc bằng `SERVICE_CLOSED`, receiver tạm được huỷ, không thêm kết nối sau khi pool đóng — `ConnectionPoolTest.closeAllInterruptsWaitForPermissionAndRejectsWithServiceClosed` (Task 2), kiểm trên máy ở Task 9.
+- Mất mạng LAN / ra khỏi tầm Bluetooth mà socket không báo lỗi: ghi kết thúc chậm nhất tại hạn bằng `WRITE_TIMEOUT` (hoặc `WRITE_FAILED` nếu hệ điều hành báo lỗi trước) kèm số byte đã gửi, rồi phát mất kết nối đúng một lần — `StreamWriterTest` (Task 4) + `ConnectionTest.failureThatLeavesTransportClosedReportsTransportLost` (Task 2).
 - Máy in USB không có endpoint đọc: lệnh dò TSPL không làm treo luồng thêm máy in, `identify` trả `null` — `NativeAdapter.read` đổi lỗi native qua `toPrinterError` (Task 7), `TsplDriver.identify` đã bắt lỗi.
 
 ## Quyết định khi viết plan (lệch nhẹ so với spec, có lý do)
 
-- `Connection` nhận `Consumer<Connection> transportLostHandler` (spec ghi `Runnable`): pool cần biết đúng đối tượng để không xoá nhầm kết nối mới cùng `connectionId`.
-- `Connection` có thêm `serialNumber()`; `DeviceService` nhận thêm `ScheduledExecutorService timerExecutor` (luồng hẹn giờ của transport) để tắt nó khi đóng.
 - TS chưa truyền `devicePath` khi kết nối máy đã lưu (không lưu đường dẫn vì đổi khi cắm lại): hai máy USB giống hệt nhau không serial sẽ nhận `AMBIGUOUS_DEVICE` — an toàn, ghi lại cho spec tầng TS.
 - Serial sau khi cấp quyền được lấy bằng `refreshUsbSerial` hiện có (quét lại, khớp theo `devicePath` thay vì vendorId/productId) thay vì đưa kết quả `connect` qua driver lên hook — cùng kết quả, ít thay đổi.
 - `PrinterDevice.deviceId` của USB giữ dạng `vendorId:productId` như dữ liệu đã lưu và luồng sửa máy in.
 - Hai file test driver (`EscPosDriver.test.ts`, `TsplDriver.test.ts`) đổi bằng script cơ học, giữ định dạng dòng có sẵn (đã có nhiều dòng > 120 từ trước); file TS mới/viết lại thì theo đúng quy ước.
 - `jest.setup.js` mock `NativeConnectionPool` bằng bản "đi thẳng" (singleton thật làm bộ đếm lọt giữa các test); `NativeConnectionPool.test.ts` dùng bản thật.
-- Thêm helper test `Futures.java`; Java dùng `ContextCompat.registerReceiver` / `IntentCompat.getParcelableExtra` (androidx.core) thay vì tự rẽ nhánh theo SDK.
+- Java dùng `ContextCompat.registerReceiver` / `IntentCompat.getParcelableExtra` (androidx.core) thay vì tự rẽ nhánh theo SDK.
 
 ---
 
@@ -775,7 +773,7 @@ git commit -m "feat: add device model, errors and JUnit setup for native layer" 
 
 **Interfaces:**
 - Consumes (Task 1): `DeviceException`, `DeviceErrorCode`, `DeviceAddress.lookupKey()/type()`, `DeviceType.wireValue()`, `ConnectedDevice`, `DisconnectReason`.
-- Produces: `ITransport` (`open`, `write(data, deadlineMillis)`, `read(maxBytes, deadlineMillis)`, `close`, `isOpen`, `hardwareAddress`, `serialNumber`); `ITransportFactory.create(DeviceAddress)`; `IDisconnectListener.onDisconnected(connectionId, reason)`; `ConnectionPool(transportFactory, listener, connectExecutor, abortExecutor, operationExecutorFactory)` với `connect(DeviceAddress) → CompletableFuture<ConnectedDevice>`, `write(connectionId, data, timeoutMillis)`, `read(connectionId, maxBytes, timeoutMillis)`, `disconnect(connectionId)`, `onHardwareLost(hardwareAddress, reason)`, `closeAll()`; `connectionId` = `type.wireValue() + ":" + transport.hardwareAddress()`.
+- Produces: `ITransport` (`open`, `write(data, deadlineNanos)`, `read(maxBytes, deadlineNanos)`, `close` (đóng bình thường), `abort` (cắt ngay), `isOpen`, `hardwareAddress`, `serialNumber`); `ITransportFactory.create(DeviceAddress)`; `IDisconnectListener.onDisconnected(connectionId, reason)`; `ConnectionPool(transportFactory, listener, connectExecutor, abortExecutor, operationExecutorFactory)` với `connect(DeviceAddress) → CompletableFuture<ConnectedDevice>`, `write(connectionId, data, timeoutMillis)`, `read(connectionId, maxBytes, timeoutMillis)`, `disconnect(connectionId)`, `onHardwareLost(hardwareAddress, reason)`, `closeAll()`; `connectionId` = `type.wireValue() + ":" + transport.hardwareAddress()`.
 
 - [ ] **Step 1: Viết bản giả và test**
 
@@ -812,8 +810,11 @@ final class FakeTransport implements ITransport {
 
     final AtomicInteger closeCount = new AtomicInteger();
 
+    final AtomicInteger abortCount = new AtomicInteger();
+
     final List<byte[]> writes = new CopyOnWriteArrayList<>();
 
+    /** Hạn (nano giây, theo `System.nanoTime()`) của từng lần ghi. */
     final List<Long> writeDeadlines = new CopyOnWriteArrayList<>();
 
     final Queue<byte[]> readResponses = new ConcurrentLinkedQueue<>();
@@ -823,12 +824,12 @@ final class FakeTransport implements ITransport {
 
     final CountDownLatch openEntered = new CountDownLatch(1);
 
-    /** Khác `null` thì `write` chờ latch này mở, hoặc tới khi transport bị đóng. */
+    /** Khác `null` thì `write` chờ latch này mở, hoặc tới khi transport bị đóng/abort. */
     volatile CountDownLatch writeGate;
 
     final CountDownLatch writeEntered = new CountDownLatch(1);
 
-    /** Số byte báo đã gửi khi lần ghi đang chờ bị cắt ngang do đóng transport. */
+    /** Số byte báo đã gửi khi lần ghi đang chờ bị cắt ngang do transport bị đóng. */
     volatile int bytesSentBeforeClose;
 
     volatile DeviceException nextWriteFailure;
@@ -837,6 +838,9 @@ final class FakeTransport implements ITransport {
     volatile boolean closeOnWriteFailure;
 
     volatile boolean open;
+
+    /** Đã đóng hoặc abort: lần chờ đang dở thôi chờ, giống socket bị cắt ngang. */
+    private volatile boolean stopped;
 
     FakeTransport(
             String hardwareAddress,
@@ -857,8 +861,8 @@ final class FakeTransport implements ITransport {
     }
 
     @Override
-    public void write(byte[] data, long deadlineMillis) throws DeviceException {
-        writeDeadlines.add(deadlineMillis);
+    public void write(byte[] data, long deadlineNanos) throws DeviceException {
+        writeDeadlines.add(deadlineNanos);
         writeEntered.countDown();
         awaitGate(writeGate);
 
@@ -878,7 +882,7 @@ final class FakeTransport implements ITransport {
     }
 
     @Override
-    public byte[] read(int maxBytes, long deadlineMillis) {
+    public byte[] read(int maxBytes, long deadlineNanos) {
         byte[] response = readResponses.poll();
         return response == null ? new byte[0] : response;
     }
@@ -886,12 +890,13 @@ final class FakeTransport implements ITransport {
     @Override
     public void close() {
         closeCount.incrementAndGet();
+        stop("close:");
+    }
 
-        if (open) {
-            events.add("close:" + hardwareAddress);
-        }
-
-        open = false;
+    @Override
+    public void abort() {
+        abortCount.incrementAndGet();
+        stop("abort:");
     }
 
     @Override
@@ -909,14 +914,22 @@ final class FakeTransport implements ITransport {
         return serialNumber;
     }
 
-    /** Chờ latch mở; transport bị đóng trong lúc chờ thì thôi chờ (giống socket bị cắt ngang). */
+    private void stop(String eventPrefix) {
+        if (open) {
+            events.add(eventPrefix + hardwareAddress);
+        }
+
+        open = false;
+        stopped = true;
+    }
+
     private void awaitGate(CountDownLatch gate) {
         if (gate == null) {
             return;
         }
 
         try {
-            while (!gate.await(GATE_POLL_INTERVAL_MS, TimeUnit.MILLISECONDS) && closeCount.get() == 0) {
+            while (!gate.await(GATE_POLL_INTERVAL_MS, TimeUnit.MILLISECONDS) && !stopped) {
                 Thread.yield();
             }
         } catch (InterruptedException exception) {
@@ -931,6 +944,8 @@ final class FakeTransport implements ITransport {
 ```java
 package com.ndtcorepos.device.connection;
 
+import com.ndtcorepos.device.error.DeviceErrorCode;
+import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.DeviceAddress;
 import com.ndtcorepos.device.transport.ITransport;
 import com.ndtcorepos.device.transport.ITransportFactory;
@@ -959,7 +974,7 @@ final class FakeTransportFactory implements ITransportFactory {
 
     final CountDownLatch createEntered = new CountDownLatch(1);
 
-    /** Khác `null` thì `create` chờ latch này (giả lập chờ hộp thoại quyền USB). */
+    /** Khác `null` thì `create` chờ latch này (giả lập chờ hộp thoại quyền USB; bị ngắt thì báo từ chối quyền). */
     volatile CountDownLatch createGate;
 
     /** Gắn vào mọi transport tạo ra: `open` chờ latch này. */
@@ -968,7 +983,7 @@ final class FakeTransportFactory implements ITransportFactory {
     volatile String serialNumber;
 
     @Override
-    public ITransport create(DeviceAddress address) {
+    public ITransport create(DeviceAddress address) throws DeviceException {
         createEntered.countDown();
         awaitGate(createGate);
         String lookupKey = address.lookupKey();
@@ -984,7 +999,7 @@ final class FakeTransportFactory implements ITransportFactory {
         return created.get(index);
     }
 
-    private static void awaitGate(CountDownLatch gate) {
+    private static void awaitGate(CountDownLatch gate) throws DeviceException {
         if (gate == null) {
             return;
         }
@@ -993,6 +1008,7 @@ final class FakeTransportFactory implements ITransportFactory {
             gate.await(GATE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            throw new DeviceException(DeviceErrorCode.PERMISSION_DENIED, "bị ngắt khi chờ quyền");
         }
     }
 }
@@ -1043,10 +1059,10 @@ final class Futures {
     }
 
     static void awaitCondition(BooleanSupplier condition) throws InterruptedException {
-        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS);
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
 
         while (!condition.getAsBoolean()) {
-            if (System.currentTimeMillis() > deadline) {
+            if (System.nanoTime() > deadlineNanos) {
                 throw new AssertionError("Chờ điều kiện quá lâu");
             }
 
@@ -1081,6 +1097,7 @@ import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionTest {
@@ -1128,14 +1145,14 @@ public class ConnectionTest {
         CompletableFuture<Void> first = connection.write(new byte[] {1}, LONG_TIMEOUT_MS);
         awaitLatch(transport.writeEntered);
 
-        long queuedAt = System.currentTimeMillis();
+        long queuedAt = System.nanoTime();
         CompletableFuture<Void> second = connection.write(new byte[] {2}, SHORT_TIMEOUT_MS);
         Thread.sleep(QUEUE_DELAY_MS);
         gate.countDown();
         await(CompletableFuture.allOf(first, second));
 
         long secondDeadline = transport.writeDeadlines.get(1);
-        assertTrue(secondDeadline >= queuedAt + QUEUE_DELAY_MS + SHORT_TIMEOUT_MS);
+        assertTrue(secondDeadline >= queuedAt + TimeUnit.MILLISECONDS.toNanos(QUEUE_DELAY_MS + SHORT_TIMEOUT_MS));
     }
 
     @Test
@@ -1154,6 +1171,8 @@ public class ConnectionTest {
         await(close);
         await(write);
         assertFalse(transport.isOpen());
+        assertEquals(1, transport.closeCount.get());
+        assertEquals(0, transport.abortCount.get());
     }
 
     @Test
@@ -1180,6 +1199,8 @@ public class ConnectionTest {
         assertEquals(7, runningFailure.bytesWritten());
         assertEquals(DeviceErrorCode.CONNECTION_LOST, failureOf(waiting).errorCode());
         assertEquals(0, transportLostCount.get());
+        assertEquals(1, transport.abortCount.get());
+        assertEquals(0, transport.closeCount.get());
     }
 
     @Test
@@ -1217,6 +1238,7 @@ public class ConnectionTest {
 
         assertNull(await(close));
         assertFalse(transport.isOpen());
+        assertEquals(0, transport.closeCount.get());
     }
 
     @Test
@@ -1256,8 +1278,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class ConnectionPoolTest {
 
@@ -1266,6 +1291,13 @@ public class ConnectionPoolTest {
     private static final long SETTLE_MS = 100;
 
     private static final String USB_PATH = "/dev/bus/usb/001/004";
+
+    private static final int RACE_ROUNDS = 100;
+
+    private static final int WRITES_PER_ROUND = 20;
+
+    /** `closeAll` phải ngắt việc chờ quyền ngay, không đợi hết thời gian chờ của bản giả. */
+    private static final long INTERRUPT_DEADLINE_SECONDS = 2;
 
     private final FakeTransportFactory factory = new FakeTransportFactory();
 
@@ -1328,7 +1360,7 @@ public class ConnectionPoolTest {
         assertEquals(firstId, secondId);
         assertEquals(1, factory.transport(0).openCount.get());
         assertEquals(0, factory.transport(1).openCount.get());
-        assertEquals(1, factory.transport(1).closeCount.get());
+        assertEquals(1, factory.transport(1).abortCount.get());
     }
 
     @Test
@@ -1494,17 +1526,60 @@ public class ConnectionPoolTest {
     }
 
     @Test
-    public void closeAllWhileFindingDeviceRejectsWithServiceClosed() throws Exception {
-        CountDownLatch createGate = new CountDownLatch(1);
-        factory.createGate = createGate;
+    public void closeAllInterruptsWaitForPermissionAndRejectsWithServiceClosed() throws Exception {
+        factory.createGate = new CountDownLatch(1);
         CompletableFuture<ConnectedDevice> connect = pool.connect(printerA);
         awaitLatch(factory.createEntered);
 
         pool.closeAll();
-        createGate.countDown();
 
-        assertEquals(DeviceErrorCode.SERVICE_CLOSED, failureOf(connect).errorCode());
-        assertEquals(0, factory.transport(0).openCount.get());
+        DeviceException failure = failureWithin(connect, INTERRUPT_DEADLINE_SECONDS);
+        assertEquals(DeviceErrorCode.SERVICE_CLOSED, failure.errorCode());
+        assertTrue(factory.created.isEmpty());
+    }
+
+    @Test
+    public void writesRacingDisconnectNeverRunAfterTransportCloses() throws Exception {
+        for (int round = 0; round < RACE_ROUNDS; round++) {
+            String connectionId = await(pool.connect(printerA)).connectionId();
+            List<CompletableFuture<Void>> writes = new CopyOnWriteArrayList<>();
+            Thread writer = new Thread(() -> writeRepeatedly(connectionId, writes));
+
+            writer.start();
+            CompletableFuture<Void> disconnect = pool.disconnect(connectionId);
+            writer.join();
+            await(disconnect);
+
+            for (CompletableFuture<Void> write : writes) {
+                assertWriteSucceededOrNotConnected(write);
+            }
+        }
+    }
+
+    private void writeRepeatedly(String connectionId, List<CompletableFuture<Void>> writes) {
+        for (int index = 0; index < WRITES_PER_ROUND; index++) {
+            writes.add(pool.write(connectionId, new byte[] {1}, TIMEOUT_MS));
+        }
+    }
+
+    /** Ghi chạy sau khi transport đóng sẽ ra WRITE_FAILED (bản giả báo vậy) — điều không được xảy ra. */
+    private static void assertWriteSucceededOrNotConnected(CompletableFuture<Void> write) throws Exception {
+        try {
+            await(write);
+        } catch (ExecutionException exception) {
+            DeviceException failure = (DeviceException) exception.getCause();
+            assertEquals(DeviceErrorCode.NOT_CONNECTED, failure.errorCode());
+        }
+    }
+
+    private static DeviceException failureWithin(CompletableFuture<?> future, long seconds) throws Exception {
+        try {
+            future.get(seconds, TimeUnit.SECONDS);
+        } catch (ExecutionException exception) {
+            return (DeviceException) exception.getCause();
+        }
+
+        throw new AssertionError("Future thành công, mong đợi lỗi");
     }
 }
 ```
@@ -1521,21 +1596,24 @@ package com.ndtcorepos.device.transport;
 import com.ndtcorepos.device.error.DeviceException;
 
 /**
- * Truyền byte trên một đường truyền. Mọi hạn (`deadlineMillis`) là mốc tuyệt đối theo `System.currentTimeMillis()`
- * để một lần ghi nhiều khúc không cộng dồn timeout.
+ * Truyền byte trên một đường truyền. Mọi hạn (`deadlineNanos`) là mốc tuyệt đối theo `System.nanoTime()` để không
+ * lệch khi đồng hồ hệ thống đổi, và để một lần ghi nhiều khúc không cộng dồn timeout.
  */
 public interface ITransport {
 
     void open() throws DeviceException;
 
-    /** Ghi đủ toàn bộ `data`, hoặc ném `WRITE_TIMEOUT`/`WRITE_FAILED` kèm số byte chắc chắn đã gửi. */
-    void write(byte[] data, long deadlineMillis) throws DeviceException;
+    /** Ghi đủ toàn bộ `data`, hoặc ném `WRITE_TIMEOUT`/`WRITE_FAILED` kèm số byte của các khúc đã ghi xong. */
+    void write(byte[] data, long deadlineNanos) throws DeviceException;
 
     /** Trả ngay khi có ít nhất 1 byte (tối đa `maxBytes`); hết hạn mà chưa có byte → mảng rỗng. */
-    byte[] read(int maxBytes, long deadlineMillis) throws DeviceException;
+    byte[] read(int maxBytes, long deadlineNanos) throws DeviceException;
 
-    /** Không ném lỗi, gọi nhiều lần không sao; gọi được từ luồng khác để cắt ngang lần ghi/đọc đang chạy. */
+    /** Đóng bình thường, gọi khi không còn thao tác nào đang chạy; được phép chờ dữ liệu cuối gửi xong. */
     void close();
+
+    /** Cắt ngay, không chờ; gọi được từ luồng khác để giải phóng lần ghi/đọc đang kẹt. Gọi nhiều lần không sao. */
+    void abort();
 
     /** Còn dùng được không, kể cả sau một lỗi. */
     boolean isOpen();
@@ -1593,6 +1671,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /** Một kết nối đang mở; mọi thao tác chạy lần lượt trên một luồng riêng. */
@@ -1698,7 +1777,7 @@ public final class Connection {
             waitingOperations.remove(runningOperation);
         }
 
-        transport.close();
+        transport.abort();
 
         for (CompletableFuture<?> operation : waitingOperations) {
             operation.completeExceptionally(connectionLost(0));
@@ -1766,22 +1845,29 @@ public final class Connection {
         result.complete(value);
     }
 
+    /** Báo mất kết nối trước khi trả lỗi để nơi gọi thử lại ngay không rơi vào kết nối đã chết. */
     private void fail(CompletableFuture<?> result, DeviceException exception) {
-        synchronized (this) {
-            if (state == State.ABORTED) {
-                result.completeExceptionally(connectionLost(exception.bytesWritten()));
-                return;
-            }
+        DeviceException outcome;
 
-            result.completeExceptionally(exception);
+        synchronized (this) {
+            outcome = state == State.ABORTED ? connectionLost(exception.bytesWritten()) : exception;
         }
 
-        if (!transport.isOpen()) {
+        if (outcome == exception && !transport.isOpen()) {
             transportLostHandler.accept(this);
         }
+
+        result.completeExceptionally(outcome);
     }
 
+    /** Đã bị abort trong lúc chờ tới lượt thì transport đã đóng, không đóng bình thường lần nữa. */
     private void closeTransport() {
+        synchronized (this) {
+            if (state != State.CLOSING) {
+                return;
+            }
+        }
+
         transport.close();
 
         synchronized (this) {
@@ -1794,7 +1880,7 @@ public final class Connection {
     }
 
     private static long deadlineAfter(long timeoutMillis) {
-        return System.currentTimeMillis() + timeoutMillis;
+        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
     }
 
     private DeviceException notConnected() {
@@ -1830,22 +1916,40 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
-/** Nơi duy nhất sở hữu các kết nối native đang mở: mở, dùng lại, đóng, xử lý mất kết nối và chen ngang. */
+/** Nơi duy nhất sở hữu các kết nối native: mở, dùng lại, đóng, xử lý mất kết nối và chen ngang. */
 public final class ConnectionPool {
 
-    /** Kết quả giữ chỗ khi kết nối: dùng lại kết nối có sẵn, chờ một việc khác xong, hoặc tự mở. */
+    private enum EntryState {
+        OPENING,
+        OPEN,
+        CLOSING
+    }
+
+    /** Trạng thái một thiết bị trong pool; mọi field chỉ đọc/ghi trong khoá của pool. */
+    private static final class Entry {
+
+        private EntryState state = EntryState.OPENING;
+
+        /** `null` khi đang mở. */
+        private Connection connection;
+
+        /** Hoàn tất khi lần mở hoặc lần đóng đang diễn ra xong; bên muốn dùng thiết bị chờ nó rồi giữ chỗ lại. */
+        private CompletableFuture<Void> transition = new CompletableFuture<>();
+    }
+
+    /** Kết quả giữ chỗ: dùng lại kết nối đang mở, chờ một lần mở/đóng khác xong, hoặc được quyền tự mở. */
     private static final class Reservation {
 
         private final Connection existing;
 
-        private final CompletableFuture<?> busy;
+        private final CompletableFuture<Void> busy;
 
-        private final CompletableFuture<Connection> opening;
+        private final Entry opening;
 
         private Reservation(
                 Connection existing,
-                CompletableFuture<?> busy,
-                CompletableFuture<Connection> opening) {
+                CompletableFuture<Void> busy,
+                Entry opening) {
             this.existing = existing;
             this.busy = busy;
             this.opening = opening;
@@ -1855,11 +1959,11 @@ public final class ConnectionPool {
             return new Reservation(existing, null, null);
         }
 
-        private static Reservation waitFor(CompletableFuture<?> busy) {
+        private static Reservation waitFor(CompletableFuture<Void> busy) {
             return new Reservation(null, busy, null);
         }
 
-        private static Reservation open(CompletableFuture<Connection> opening) {
+        private static Reservation open(Entry opening) {
             return new Reservation(null, null, opening);
         }
     }
@@ -1871,7 +1975,7 @@ public final class ConnectionPool {
     /** Chạy tìm thiết bị + mở transport; được phép chặn (chờ quyền USB, mở socket). */
     private final ExecutorService connectExecutor;
 
-    /** Abort kết nối bị mất ngoài luồng gọi (broadcast chạy trên luồng UI, đóng Bluetooth có thể chờ vài giây). */
+    /** Abort kết nối bị mất ngoài luồng gọi (broadcast chạy trên luồng UI). */
     private final ExecutorService abortExecutor;
 
     /** Tạo luồng riêng cho mỗi kết nối mới. */
@@ -1879,16 +1983,11 @@ public final class ConnectionPool {
 
     private final Object lock = new Object();
 
-    private final Map<String, Connection> openConnections = new HashMap<>();
+    /** Thiết bị đang mở dở, đang mở hoặc đang đóng, theo `connectionId`. */
+    private final Map<String, Entry> entries = new HashMap<>();
 
-    /** Kết nối đang đóng do JS gọi `disconnect`. */
-    private final Map<String, Connection> closingConnections = new HashMap<>();
-
-    /** Các lần `connect` đang chạy, gộp theo `DeviceAddress.lookupKey()`. */
+    /** Các lần `connect` đang chạy, gộp theo `DeviceAddress.lookupKey()` (trước khi biết là thiết bị nào). */
     private final Map<String, CompletableFuture<ConnectedDevice>> pendingByLookupKey = new HashMap<>();
-
-    /** Thiết bị đang được mở, gộp các địa chỉ khác nhau cùng trỏ một máy. */
-    private final Map<String, CompletableFuture<Connection>> openingByConnectionId = new HashMap<>();
 
     private boolean closed;
 
@@ -1949,41 +2048,51 @@ public final class ConnectionPool {
         }
     }
 
-    /** Đóng sau khi thao tác đã xếp trước chạy xong; không phát sự kiện mất kết nối. */
+    /**
+     * Chuyển sang đang đóng ngay trong khoá: lời gọi ghi/đọc sau đó nhận `NOT_CONNECTED`, thao tác đã xếp trước chạy
+     * xong rồi mới đóng. Không phát sự kiện mất kết nối.
+     */
     public CompletableFuture<Void> disconnect(String connectionId) {
         synchronized (lock) {
             if (closed) {
                 return failedFuture(serviceClosed());
             }
 
-            Connection closing = closingConnections.get(connectionId);
+            Entry entry = entries.get(connectionId);
 
-            if (closing != null) {
-                return closing.close();
+            if (entry == null) {
+                return CompletableFuture.completedFuture(null);
             }
 
-            CompletableFuture<Connection> opening = openingByConnectionId.get(connectionId);
-
-            if (opening != null) {
-                return opening.handle((connection, error) -> null).thenCompose(ignored -> disconnect(connectionId));
+            if (entry.state == EntryState.OPENING) {
+                return entry.transition
+                        .handle((ignored, error) -> null)
+                        .thenCompose(ignored -> disconnect(connectionId));
             }
 
-            return closeOpenConnection(connectionId);
+            if (entry.state == EntryState.CLOSING) {
+                return entry.transition;
+            }
+
+            return beginClosing(connectionId, entry);
         }
     }
 
     /** Monitor báo một thiết bị vật lý đã mất. */
     public void onHardwareLost(String hardwareAddress, DisconnectReason reason) {
-        Connection lostConnection = findByHardwareAddress(hardwareAddress);
+        Connection lostConnection = findOpenByHardwareAddress(hardwareAddress);
 
         if (lostConnection != null) {
             loseConnection(lostConnection, reason);
         }
     }
 
-    /** Abort mọi kết nối, không chờ, không phát sự kiện; mọi lời gọi sau đó bị từ chối. */
+    /**
+     * Abort mọi kết nối, không chờ, không phát sự kiện; ngắt luồng đang chờ quyền USB hoặc mở socket. Mọi lời gọi sau
+     * đó, kể cả `connect` đang dở, kết thúc với `SERVICE_CLOSED`.
+     */
     public void closeAll() {
-        List<Connection> connectionsToAbort;
+        List<Connection> connectionsToAbort = new ArrayList<>();
 
         synchronized (lock) {
             if (closed) {
@@ -1991,11 +2100,15 @@ public final class ConnectionPool {
             }
 
             closed = true;
-            connectionsToAbort = new ArrayList<>(openConnections.values());
-            connectionsToAbort.addAll(closingConnections.values());
-            openConnections.clear();
-            closingConnections.clear();
-            connectExecutor.shutdown();
+
+            for (Entry entry : entries.values()) {
+                if (entry.connection != null) {
+                    connectionsToAbort.add(entry.connection);
+                }
+            }
+
+            entries.clear();
+            connectExecutor.shutdownNow();
             abortExecutor.shutdown();
         }
 
@@ -2011,17 +2124,17 @@ public final class ConnectionPool {
             Connection connection = acquireConnection(connectionId, transport);
             result.complete(new ConnectedDevice(connectionId, connection.serialNumber()));
         } catch (DeviceException | RuntimeException exception) {
-            result.completeExceptionally(exception);
+            result.completeExceptionally(isClosed() ? serviceClosed() : exception);
         }
     }
 
-    /** Dùng lại kết nối đang mở cùng thiết bị, chờ lần mở/đóng khác xong, hoặc tự mở. */
+    /** Giữ chỗ trước khi mở: chỉ một bên được mở một thiết bị, bên còn lại huỷ transport chưa mở của mình. */
     private Connection acquireConnection(String connectionId, ITransport transport) throws DeviceException {
         while (true) {
             Reservation reservation = reserve(connectionId, transport);
 
             if (reservation.existing != null) {
-                transport.close();
+                transport.abort();
                 return reservation.existing;
             }
 
@@ -2036,62 +2149,63 @@ public final class ConnectionPool {
     private Reservation reserve(String connectionId, ITransport transport) throws DeviceException {
         synchronized (lock) {
             throwIfClosed(transport);
-            Connection existing = openConnections.get(connectionId);
+            Entry entry = entries.get(connectionId);
 
-            if (existing != null && existing.isAlive()) {
-                return Reservation.reuse(existing);
+            if (entry != null && entry.state == EntryState.OPEN && entry.connection.isAlive()) {
+                return Reservation.reuse(entry.connection);
             }
 
-            discardDeadConnection(connectionId, existing);
-            CompletableFuture<?> busy = busyFuture(connectionId);
-
-            if (busy != null) {
-                return Reservation.waitFor(busy);
+            if (entry != null && entry.state == EntryState.OPEN) {
+                discardDeadConnection(connectionId, entry);
+                entry = null;
             }
 
-            CompletableFuture<Connection> opening = new CompletableFuture<>();
-            openingByConnectionId.put(connectionId, opening);
+            if (entry != null) {
+                return Reservation.waitFor(entry.transition);
+            }
+
+            Entry opening = new Entry();
+            entries.put(connectionId, opening);
             return Reservation.open(opening);
         }
     }
 
-    /** Gỡ khỏi danh sách đang mở trước khi hoàn tất future, vì callback của bên chờ chạy ngay khi future hoàn tất. */
+    /** Chuyển trạng thái trong khoá rồi mới hoàn tất `transition`, vì callback của bên chờ chạy ngay lúc đó. */
     private Connection openReserved(
             String connectionId,
             ITransport transport,
-            CompletableFuture<Connection> opening) throws DeviceException {
+            Entry opening) throws DeviceException {
+        CompletableFuture<Void> transition = opening.transition;
         Connection connection;
 
         try {
-            connection = openAndPublish(connectionId, transport);
+            transport.open();
+            connection = new Connection(
+                    connectionId,
+                    transport,
+                    operationExecutorFactory.get(),
+                    this::onTransportLost);
+            publish(connectionId, opening, connection);
         } catch (DeviceException | RuntimeException exception) {
-            transport.close();
-            removeOpening(connectionId, opening);
-            opening.completeExceptionally(exception);
+            transport.abort();
+            removeEntry(connectionId, opening);
+            transition.completeExceptionally(exception);
             throw exception;
         }
 
-        removeOpening(connectionId, opening);
-        opening.complete(connection);
+        transition.complete(null);
         return connection;
     }
 
-    private Connection openAndPublish(String connectionId, ITransport transport) throws DeviceException {
-        transport.open();
-        Connection connection = new Connection(
-                connectionId,
-                transport,
-                operationExecutorFactory.get(),
-                this::onTransportLost);
-        publish(connection);
-        return connection;
-    }
-
-    /** Đưa kết nối vào pool; pool đã đóng thì huỷ ngay để không bao giờ thêm kết nối sau `closeAll`. */
-    private void publish(Connection connection) throws DeviceException {
+    /** Pool đã đóng thì huỷ ngay để không bao giờ thêm kết nối sau `closeAll`. */
+    private void publish(
+            String connectionId,
+            Entry opening,
+            Connection connection) throws DeviceException {
         synchronized (lock) {
-            if (!closed) {
-                openConnections.put(connection.connectionId(), connection);
+            if (!closed && entries.get(connectionId) == opening) {
+                opening.connection = connection;
+                opening.state = EntryState.OPEN;
                 return;
             }
         }
@@ -2100,16 +2214,11 @@ public final class ConnectionPool {
         throw serviceClosed();
     }
 
-    private CompletableFuture<Void> closeOpenConnection(String connectionId) {
-        Connection connection = openConnections.remove(connectionId);
-
-        if (connection == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        closingConnections.put(connectionId, connection);
-        CompletableFuture<Void> closeFuture = connection.close();
-        closeFuture.whenComplete((ignored, error) -> removeClosing(connectionId, connection));
+    private CompletableFuture<Void> beginClosing(String connectionId, Entry entry) {
+        entry.state = EntryState.CLOSING;
+        CompletableFuture<Void> closeFuture = entry.connection.close();
+        entry.transition = closeFuture;
+        closeFuture.whenComplete((ignored, error) -> removeEntry(connectionId, entry));
         return closeFuture;
     }
 
@@ -2120,26 +2229,33 @@ public final class ConnectionPool {
     /** Nơi duy nhất chuyển một kết nối sang "mất": chỉ lần bỏ khỏi pool đầu tiên thành công mới báo và abort. */
     private void loseConnection(Connection connection, DisconnectReason reason) {
         synchronized (lock) {
-            if (!openConnections.remove(connection.connectionId(), connection)) {
+            Entry entry = entries.get(connection.connectionId());
+
+            if (entry == null || entry.state != EntryState.OPEN || entry.connection != connection) {
                 return;
             }
 
+            entries.remove(connection.connectionId());
             abortExecutor.execute(connection::abort);
         }
 
         listener.onDisconnected(connection.connectionId(), reason);
     }
 
-    private Connection findByHardwareAddress(String hardwareAddress) {
+    private Connection findOpenByHardwareAddress(String hardwareAddress) {
         synchronized (lock) {
-            for (Connection connection : openConnections.values()) {
-                if (connection.hardwareAddress().equalsIgnoreCase(hardwareAddress)) {
-                    return connection;
+            for (Entry entry : entries.values()) {
+                if (isOpenAt(entry, hardwareAddress)) {
+                    return entry.connection;
                 }
             }
 
             return null;
         }
+    }
+
+    private static boolean isOpenAt(Entry entry, String hardwareAddress) {
+        return entry.state == EntryState.OPEN && entry.connection.hardwareAddress().equalsIgnoreCase(hardwareAddress);
     }
 
     private Connection findOpenConnection(String connectionId) throws DeviceException {
@@ -2148,40 +2264,32 @@ public final class ConnectionPool {
                 throw serviceClosed();
             }
 
-            Connection connection = openConnections.get(connectionId);
+            Entry entry = entries.get(connectionId);
 
-            if (connection == null) {
+            if (entry == null || entry.state != EntryState.OPEN) {
                 throw new DeviceException(DeviceErrorCode.NOT_CONNECTED, "Chưa kết nối: " + connectionId);
             }
 
-            return connection;
+            return entry.connection;
         }
     }
 
     /** Kết nối còn trong pool nhưng transport đã chết: bỏ đi không phát sự kiện, để mở lại. */
-    private void discardDeadConnection(String connectionId, Connection deadConnection) {
-        if (deadConnection == null) {
-            return;
-        }
-
-        openConnections.remove(connectionId);
-        abortExecutor.execute(deadConnection::abort);
-    }
-
-    private CompletableFuture<?> busyFuture(String connectionId) {
-        Connection closing = closingConnections.get(connectionId);
-
-        if (closing != null) {
-            return closing.close();
-        }
-
-        return openingByConnectionId.get(connectionId);
+    private void discardDeadConnection(String connectionId, Entry deadEntry) {
+        entries.remove(connectionId);
+        abortExecutor.execute(deadEntry.connection::abort);
     }
 
     private void throwIfClosed(ITransport transport) throws DeviceException {
         if (closed) {
-            transport.close();
+            transport.abort();
             throw serviceClosed();
+        }
+    }
+
+    private boolean isClosed() {
+        synchronized (lock) {
+            return closed;
         }
     }
 
@@ -2191,23 +2299,17 @@ public final class ConnectionPool {
         }
     }
 
-    private void removeOpening(String connectionId, CompletableFuture<Connection> opening) {
+    private void removeEntry(String connectionId, Entry entry) {
         synchronized (lock) {
-            openingByConnectionId.remove(connectionId, opening);
+            entries.remove(connectionId, entry);
         }
     }
 
-    private void removeClosing(String connectionId, Connection connection) {
-        synchronized (lock) {
-            closingConnections.remove(connectionId, connection);
-        }
-    }
-
-    private static void awaitQuietly(CompletableFuture<?> future) {
+    private static void awaitQuietly(CompletableFuture<Void> future) {
         try {
             future.join();
         } catch (CompletionException ignored) {
-            // Việc mở/đóng kia lỗi thì vòng giữ chỗ tiếp theo tự xử lý lại từ đầu.
+            // Lần mở/đóng kia lỗi thì vòng giữ chỗ tiếp theo tự xử lý lại từ đầu.
         }
     }
 
@@ -2223,7 +2325,7 @@ public final class ConnectionPool {
 }
 ```
 
-- [ ] **Step 4: Chạy test 3 lần, mong đợi PASS cả 3** — `for i in 1 2 3; do cd android && ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest --tests "com.ndtcorepos.device.connection.*" -q || break; cd ..; done` → 24 test pass mỗi lần (test có chạy đua, phải ổn định).
+- [ ] **Step 4: Chạy test 3 lần, mong đợi PASS cả 3** — `for i in 1 2 3; do cd android && ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest --tests "com.ndtcorepos.device.connection.*" -q || break; cd ..; done` → 25 test pass mỗi lần (test có chạy đua, phải ổn định).
 
 - [ ] **Step 5: Kiểm quy ước** — `node check-style.js android/app/src/main/java/com/ndtcorepos android/app/src/test/java/com/ndtcorepos` → không in gì.
 
@@ -2839,7 +2941,7 @@ git commit -m "feat: add USB/Bluetooth discovery and USB permission request" -m 
 
 **Interfaces:**
 - Consumes: `ITransport`, `ITransportFactory` (Task 2); `UsbDiscovery.find/findPrinterInterface/findBulkEndpoint`, `BluetoothDiscovery.findBonded` (Task 3); `DeviceAddress`, `DeviceException` (Task 1).
-- Produces: `StreamWriter.writeAll(stream, connection, data, deadlineMillis, timer)`; `UsbTransport(UsbManager, UsbDevice)` + static `writeInChunks(data, deadlineMillis, IChunkWriter)`; `BluetoothTransport(BluetoothDevice, timer)`; `LanTransport(host, port, timer)`; `TransportFactory(UsbManager, UsbDiscovery, BluetoothDiscovery, ScheduledExecutorService)`.
+- Produces: `StreamWriter.writeAll(stream, connection, data, deadlineNanos, timer)`; `UsbTransport(UsbManager, UsbDevice)` + static `writeInChunks(data, deadlineNanos, IChunkWriter)`; `BluetoothTransport(BluetoothDevice, timer)`; `LanTransport(host, port, timer)`; `TransportFactory(UsbManager, UsbDiscovery, BluetoothDiscovery, ScheduledExecutorService)`.
 
 - [ ] **Step 1: Viết test**
 
@@ -2868,6 +2970,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class StreamWriterTest {
 
@@ -2976,15 +3079,15 @@ public class StreamWriterTest {
     public void expiredDeadlineTimesOutBeforeAnyByte() {
         stream.blockAtChunk = 0;
 
-        DeviceException failure = writeExpectingFailure(new byte[10], System.currentTimeMillis() - 1);
+        DeviceException failure = writeExpectingFailure(new byte[10], System.nanoTime() - 1);
 
         assertEquals(DeviceErrorCode.WRITE_TIMEOUT, failure.errorCode());
         assertEquals(0, failure.bytesWritten());
     }
 
-    private DeviceException writeExpectingFailure(byte[] data, long deadlineMillis) {
+    private DeviceException writeExpectingFailure(byte[] data, long deadlineNanos) {
         try {
-            StreamWriter.writeAll(stream, stream, data, deadlineMillis, timer);
+            StreamWriter.writeAll(stream, stream, data, deadlineNanos, timer);
         } catch (DeviceException exception) {
             return exception;
         }
@@ -2994,7 +3097,7 @@ public class StreamWriterTest {
     }
 
     private static long deadlineIn(long millis) {
-        return System.currentTimeMillis() + millis;
+        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
     }
 }
 ```
@@ -3016,6 +3119,7 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class UsbTransportTest {
 
@@ -3061,7 +3165,7 @@ public class UsbTransportTest {
 
     @Test
     public void expiredDeadlineTimesOutWithoutTransferring() {
-        DeviceException failure = writeExpectingFailure(System.currentTimeMillis() - 1, this::acceptAll);
+        DeviceException failure = writeExpectingFailure(System.nanoTime() - 1, this::acceptAll);
 
         assertEquals(DeviceErrorCode.WRITE_TIMEOUT, failure.errorCode());
         assertEquals(0, failure.bytesWritten());
@@ -3107,9 +3211,9 @@ public class UsbTransportTest {
         return failSecondChunk(buffer, offset, length, timeoutMillis);
     }
 
-    private DeviceException writeExpectingFailure(long deadlineMillis, UsbTransport.IChunkWriter chunkWriter) {
+    private DeviceException writeExpectingFailure(long deadlineNanos, UsbTransport.IChunkWriter chunkWriter) {
         try {
-            UsbTransport.writeInChunks(new byte[40_960], deadlineMillis, chunkWriter);
+            UsbTransport.writeInChunks(new byte[40_960], deadlineNanos, chunkWriter);
         } catch (DeviceException exception) {
             return exception;
         }
@@ -3119,7 +3223,7 @@ public class UsbTransportTest {
     }
 
     private static long deadlineIn(long millis) {
-        return System.currentTimeMillis() + millis;
+        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
     }
 
     private static void sleepQuietly(long millis) {
@@ -3153,8 +3257,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Ghi vào một stream không có timeout ghi (socket Bluetooth/TCP) theo khúc, đúng hạn và đếm được số byte đã gửi.
- * Quá hạn thì đóng kết nối để cắt lần ghi đang kẹt.
+ * Ghi vào một stream không có timeout ghi (socket Bluetooth/TCP) theo khúc, đúng hạn và đếm số byte của các khúc đã
+ * ghi xong (`write` + `flush` trả về; không bảo đảm máy in đã nhận). Quá hạn thì đóng kết nối để cắt lần ghi đang kẹt.
  */
 public final class StreamWriter {
 
@@ -3189,14 +3293,14 @@ public final class StreamWriter {
             OutputStream stream,
             Closeable connection,
             byte[] data,
-            long deadlineMillis,
+            long deadlineNanos,
             ScheduledExecutorService timer) throws DeviceException {
         WriteProgress progress = new WriteProgress();
-        long delayMillis = Math.max(0, deadlineMillis - System.currentTimeMillis());
+        long delayNanos = Math.max(0, deadlineNanos - System.nanoTime());
         ScheduledFuture<?> alarm = timer.schedule(
                 () -> closeOnTimeout(progress, connection),
-                delayMillis,
-                TimeUnit.MILLISECONDS);
+                delayNanos,
+                TimeUnit.NANOSECONDS);
 
         try {
             writeChunks(stream, data, progress);
@@ -3268,6 +3372,7 @@ import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /** Truyền byte qua USB bằng bulk transfer. */
 public final class UsbTransport implements ITransport {
@@ -3327,15 +3432,15 @@ public final class UsbTransport implements ITransport {
     }
 
     @Override
-    public void write(byte[] data, long deadlineMillis) throws DeviceException {
+    public void write(byte[] data, long deadlineNanos) throws DeviceException {
         UsbDeviceConnection connection = requireConnection();
         UsbEndpoint endpoint = outEndpoint;
-        writeInChunks(data, deadlineMillis, (buffer, offset, length, timeoutMillis) ->
+        writeInChunks(data, deadlineNanos, (buffer, offset, length, timeoutMillis) ->
                 connection.bulkTransfer(endpoint, buffer, offset, length, timeoutMillis));
     }
 
     @Override
-    public byte[] read(int maxBytes, long deadlineMillis) throws DeviceException {
+    public byte[] read(int maxBytes, long deadlineNanos) throws DeviceException {
         UsbDeviceConnection connection = requireConnection();
         UsbEndpoint endpoint = inEndpoint;
 
@@ -3344,7 +3449,7 @@ public final class UsbTransport implements ITransport {
         }
 
         byte[] buffer = new byte[maxBytes];
-        int received = connection.bulkTransfer(endpoint, buffer, maxBytes, remainingMillis(deadlineMillis));
+        int received = connection.bulkTransfer(endpoint, buffer, maxBytes, remainingMillis(deadlineNanos));
 
         if (received >= 0) {
             return Arrays.copyOf(buffer, received);
@@ -3357,9 +3462,15 @@ public final class UsbTransport implements ITransport {
         return new byte[0];
     }
 
+    /** USB không có dữ liệu chờ gửi sau khi bulkTransfer trả về, nên đóng bình thường cũng là đóng ngay. */
+    @Override
+    public void close() {
+        abort();
+    }
+
     /** Nhả interface và đóng kết nối USB; gọi được trong lúc luồng khác đang bulkTransfer để cắt ngang. */
     @Override
-    public synchronized void close() {
+    public synchronized void abort() {
         UsbDeviceConnection connection = deviceConnection;
         deviceConnection = null;
 
@@ -3390,12 +3501,12 @@ public final class UsbTransport implements ITransport {
     /** Ghi tới khi đủ, mỗi khúc tối đa 16 KB với thời gian chờ là phần còn lại của hạn. */
     public static void writeInChunks(
             byte[] data,
-            long deadlineMillis,
+            long deadlineNanos,
             IChunkWriter chunkWriter) throws DeviceException {
         int written = 0;
 
         while (written < data.length) {
-            int timeoutMillis = remainingMillis(deadlineMillis);
+            int timeoutMillis = remainingMillis(deadlineNanos);
 
             if (timeoutMillis <= 0) {
                 throw writeTimeout(written);
@@ -3405,7 +3516,7 @@ public final class UsbTransport implements ITransport {
             int transferred = chunkWriter.write(data, written, length, timeoutMillis);
 
             if (transferred < 0) {
-                throw failureAfter(written, deadlineMillis);
+                throw failureAfter(written, deadlineNanos);
             }
 
             written += transferred;
@@ -3431,13 +3542,13 @@ public final class UsbTransport implements ITransport {
         }
     }
 
-    private static int remainingMillis(long deadlineMillis) {
-        long remaining = deadlineMillis - System.currentTimeMillis();
+    private static int remainingMillis(long deadlineNanos) {
+        long remaining = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
         return (int) Math.max(0, Math.min(Integer.MAX_VALUE, remaining));
     }
 
-    private static DeviceException failureAfter(int written, long deadlineMillis) {
-        if (remainingMillis(deadlineMillis) <= 0) {
+    private static DeviceException failureAfter(int written, long deadlineNanos) {
+        if (remainingMillis(deadlineNanos) <= 0) {
             return writeTimeout(written);
         }
 
@@ -3467,7 +3578,6 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Truyền byte qua Bluetooth cổ điển (RFCOMM, Serial Port Profile). */
 public final class BluetoothTransport implements ITransport {
@@ -3490,9 +3600,6 @@ public final class BluetoothTransport implements ITransport {
 
     private volatile BluetoothSocket socket;
 
-    /** Đang ghi/đọc: `close()` lúc này là cắt ngang nên đóng ngay, không chờ dữ liệu cuối. */
-    private final AtomicBoolean operationInProgress = new AtomicBoolean();
-
     private volatile int lastWriteSizeBytes;
 
     public BluetoothTransport(BluetoothDevice device, ScheduledExecutorService timer) {
@@ -3513,30 +3620,26 @@ public final class BluetoothTransport implements ITransport {
     }
 
     @Override
-    public void write(byte[] data, long deadlineMillis) throws DeviceException {
+    public void write(byte[] data, long deadlineNanos) throws DeviceException {
         BluetoothSocket current = requireSocket();
-        operationInProgress.set(true);
 
         try {
-            StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineMillis, timer);
+            StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineNanos, timer);
             lastWriteSizeBytes = data.length;
         } catch (IOException exception) {
             throw new DeviceException(DeviceErrorCode.WRITE_FAILED, "Không ghi được Bluetooth", exception);
-        } finally {
-            operationInProgress.set(false);
         }
     }
 
     /** BluetoothSocket không có timeout đọc nên hỏi số byte sẵn có theo chu kỳ tới khi có dữ liệu hoặc hết hạn. */
     @Override
-    public byte[] read(int maxBytes, long deadlineMillis) throws DeviceException {
+    public byte[] read(int maxBytes, long deadlineNanos) throws DeviceException {
         BluetoothSocket current = requireSocket();
-        operationInProgress.set(true);
 
         try {
             InputStream input = current.getInputStream();
 
-            if (!waitForData(input, deadlineMillis)) {
+            if (!waitForData(input, deadlineNanos)) {
                 return new byte[0];
             }
 
@@ -3545,26 +3648,31 @@ public final class BluetoothTransport implements ITransport {
             return received < 0 ? new byte[0] : Arrays.copyOf(buffer, received);
         } catch (IOException exception) {
             throw new DeviceException(DeviceErrorCode.READ_FAILED, "Không đọc được Bluetooth", exception);
-        } finally {
-            operationInProgress.set(false);
         }
     }
 
-    /** Đóng bình thường thì chờ dữ liệu cuối kịp gửi (flush không bảo đảm máy in đã nhận); cắt ngang thì đóng ngay. */
+    /**
+     * `flush` không bảo đảm máy in đã nhận: một số máy in Bluetooth mất phần cuối nếu socket đóng ngay sau lần ghi,
+     * nên chờ theo cỡ lần ghi gần nhất rồi mới đóng.
+     */
     @Override
     public void close() {
-        BluetoothSocket current = socket;
-        socket = null;
-
-        if (current == null) {
+        if (socket == null) {
             return;
         }
 
-        if (!operationInProgress.get()) {
-            waitForDrain();
-        }
+        waitForDrain();
+        abort();
+    }
 
-        closeQuietly(current);
+    @Override
+    public void abort() {
+        BluetoothSocket current = socket;
+        socket = null;
+
+        if (current != null) {
+            closeQuietly(current);
+        }
     }
 
     @Override
@@ -3613,9 +3721,9 @@ public final class BluetoothTransport implements ITransport {
         return current;
     }
 
-    private static boolean waitForData(InputStream input, long deadlineMillis) throws IOException {
+    private static boolean waitForData(InputStream input, long deadlineNanos) throws IOException {
         while (input.available() == 0) {
-            if (System.currentTimeMillis() >= deadlineMillis) {
+            if (System.nanoTime() - deadlineNanos >= 0) {
                 return false;
             }
 
@@ -3663,6 +3771,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /** Truyền byte qua TCP. */
 public final class LanTransport implements ITransport {
@@ -3704,20 +3813,21 @@ public final class LanTransport implements ITransport {
     }
 
     @Override
-    public void write(byte[] data, long deadlineMillis) throws DeviceException {
+    public void write(byte[] data, long deadlineNanos) throws DeviceException {
         Socket current = requireSocket();
 
         try {
-            StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineMillis, timer);
+            StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineNanos, timer);
         } catch (IOException exception) {
             throw new DeviceException(DeviceErrorCode.WRITE_FAILED, "Không ghi được qua mạng", exception);
         }
     }
 
+    /** Không phát hiện được máy in đã chết nếu hệ điều hành chưa báo lỗi hay EOF; khi đó chỉ hết hạn, trả mảng rỗng. */
     @Override
-    public byte[] read(int maxBytes, long deadlineMillis) throws DeviceException {
+    public byte[] read(int maxBytes, long deadlineNanos) throws DeviceException {
         Socket current = requireSocket();
-        long remainingMillis = deadlineMillis - System.currentTimeMillis();
+        long remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime());
 
         if (remainingMillis <= 0) {
             return new byte[0];
@@ -3735,8 +3845,14 @@ public final class LanTransport implements ITransport {
         }
     }
 
+    /** TCP không giữ dữ liệu chờ gửi phía app sau `flush`, nên đóng bình thường cũng là đóng ngay. */
     @Override
     public void close() {
+        abort();
+    }
+
+    @Override
+    public void abort() {
         Socket current = socket;
         socket = null;
 
@@ -3763,7 +3879,7 @@ public final class LanTransport implements ITransport {
 
     /** Máy in đóng kết nối phía nó: đóng phía app để `isOpen()` phản ánh đúng rồi báo lỗi. */
     private byte[] closedByPeer() throws DeviceException {
-        close();
+        abort();
         throw new DeviceException(DeviceErrorCode.READ_FAILED, "Máy in đã đóng kết nối");
     }
 
@@ -4418,7 +4534,7 @@ public final class DeviceFactory {
 }
 ```
 
-- [ ] **Step 4: Chạy toàn bộ JUnit, mong đợi PASS** — `cd android && ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → 53 test pass.
+- [ ] **Step 4: Chạy toàn bộ JUnit, mong đợi PASS** — `cd android && ./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → 54 test pass.
 
 - [ ] **Step 5: Kiểm quy ước** — như Task 1.
 
@@ -4520,6 +4636,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
 
     private static final String DISCONNECTED_EVENT = "DeviceDisconnected";
 
+    /** Mã riêng của bridge cho lỗi lập trình (exception không mang mã); không thuộc `DeviceErrorCode`. */
     private static final String INTERNAL_ERROR_CODE = "INTERNAL_ERROR";
 
     private final DeviceService deviceService;
@@ -4561,7 +4678,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             Promise promise) {
         try {
             byte[] data = DeviceMapper.toBytes(base64Data);
-            long timeoutMillis = DeviceMapper.toPositiveLong(timeoutMs, "timeoutMs");
+            long timeoutMillis = DeviceMapper.toTimeoutMillis(timeoutMs);
             settle(deviceService.write(connectionId, data, timeoutMillis), promise, ignored -> null);
         } catch (DeviceException exception) {
             reject(promise, exception);
@@ -4575,8 +4692,8 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
             double timeoutMs,
             Promise promise) {
         try {
-            int maxByteCount = DeviceMapper.toPositiveInt(maxBytes, "maxBytes");
-            long timeoutMillis = DeviceMapper.toPositiveLong(timeoutMs, "timeoutMs");
+            int maxByteCount = DeviceMapper.toMaxBytes(maxBytes);
+            long timeoutMillis = DeviceMapper.toTimeoutMillis(timeoutMs);
             CompletableFuture<byte[]> response = deviceService.read(connectionId, maxByteCount, timeoutMillis);
             settle(response, promise, DeviceMapper::toBase64OrNull);
         } catch (DeviceException exception) {
@@ -4679,6 +4796,12 @@ import java.util.List;
 /** Đổi dữ liệu giữa kiểu React Native và kiểu của tầng thiết bị; tham số sai ném `INVALID_ARGUMENT`. */
 final class DeviceMapper {
 
+    /** Phản hồi máy in chỉ vài chục byte; chặn JS xin cấp phát mảng quá lớn. */
+    private static final int MAX_READ_BYTES = 64 * 1024;
+
+    /** Một thao tác ghi/đọc dài nhất được chờ; chặn hạn quá lớn làm tràn số khi cộng vào đồng hồ. */
+    private static final long MAX_OPERATION_TIMEOUT_MS = 10 * 60 * 1000;
+
     private DeviceMapper() {
     }
 
@@ -4750,20 +4873,12 @@ final class DeviceMapper {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
 
-    static long toPositiveLong(double value, String fieldName) throws DeviceException {
-        if (value <= 0 || value > Long.MAX_VALUE) {
-            throw invalid(fieldName + " phải lớn hơn 0");
-        }
-
-        return (long) value;
+    static long toTimeoutMillis(double timeoutMs) throws DeviceException {
+        return (long) requireInRange(timeoutMs, MAX_OPERATION_TIMEOUT_MS, "timeoutMs");
     }
 
-    static int toPositiveInt(double value, String fieldName) throws DeviceException {
-        if (value <= 0 || value > Integer.MAX_VALUE) {
-            throw invalid(fieldName + " phải lớn hơn 0");
-        }
-
-        return (int) value;
+    static int toMaxBytes(double maxBytes) throws DeviceException {
+        return (int) requireInRange(maxBytes, MAX_READ_BYTES, "maxBytes");
     }
 
     private static DeviceAddress toUsbAddress(ReadableMap map) throws DeviceException {
@@ -4854,6 +4969,17 @@ final class DeviceMapper {
         map.putString(key, value);
     }
 
+    private static double requireInRange(
+            double value,
+            double max,
+            String fieldName) throws DeviceException {
+        if (value < 1 || value > max) {
+            throw invalid(fieldName + " phải từ 1 tới " + (long) max);
+        }
+
+        return value;
+    }
+
     private static DeviceException invalid(String message) {
         return new DeviceException(DeviceErrorCode.INVALID_ARGUMENT, message);
     }
@@ -4917,7 +5043,7 @@ applyEdits({
 git rm -r -q android/app/src/main/java/com/ndtcorepos/thermalprinter
 ```
 
-- [ ] **Step 4: Compile và chạy toàn bộ JUnit** — `cd android && ./gradlew :app:compileDebugJavaWithJavac :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → không lỗi, 53 test pass. Rồi `npx jest` ở gốc repo → toàn bộ pass (TS chưa đổi, vẫn mock module cũ).
+- [ ] **Step 4: Compile và chạy toàn bộ JUnit** — `cd android && ./gradlew :app:compileDebugJavaWithJavac :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → không lỗi, 54 test pass. Rồi `npx jest` ở gốc repo → toàn bộ pass (TS chưa đổi, vẫn mock module cũ).
 
 - [ ] **Step 5: Kiểm quy ước** — như Task 1.
 
@@ -5087,20 +5213,38 @@ describe('NativeConnectionPool', () => {
     expect(deviceModule.disconnect).not.toHaveBeenCalled();
   });
 
-  it('release trong lúc acquire khác đang chờ connect không đóng nhầm kết nối', async () => {
+  it('acquire nhận đúng kết nối đang bị release đóng thì chờ đóng xong rồi kết nối lại', async () => {
     const { pool, deviceModule } = createPool();
     deviceModule.connect.mockResolvedValueOnce(connectedTo('c1'));
     const holder = await pool.acquire(PRINTER_A);
     const pendingConnect = deferred<NativeConnectedDevice>();
-    deviceModule.connect.mockReturnValueOnce(pendingConnect.promise);
+    const pendingDisconnect = deferred<void>();
+    deviceModule.connect.mockReturnValueOnce(pendingConnect.promise).mockResolvedValueOnce(connectedTo('c1'));
+    deviceModule.disconnect.mockReturnValueOnce(pendingDisconnect.promise);
 
     const newcomer = pool.acquire(PRINTER_A);
     const holderRelease = holder.release();
     pendingConnect.resolve(connectedTo('c1'));
-    await newcomer;
+    pendingDisconnect.resolve();
+    const newcomerLease = await newcomer;
     await holderRelease;
 
-    expect(deviceModule.disconnect).not.toHaveBeenCalled();
+    expect(deviceModule.connect).toHaveBeenCalledTimes(3);
+    expect(newcomerLease.connectionId).toBe('c1');
+    await newcomerLease.release();
+    expect(deviceModule.disconnect).toHaveBeenCalledTimes(2);
+  });
+
+  it('một máy đang chờ connect (vd hộp thoại quyền USB) không chặn acquire máy khác', async () => {
+    const { pool, deviceModule } = createPool();
+    deviceModule.connect
+      .mockReturnValueOnce(deferred<NativeConnectedDevice>().promise)
+      .mockResolvedValueOnce(connectedTo('lan:10.0.0.2:9100'));
+
+    pool.acquire(PRINTER_A_BY_OTHER_ADDRESS);
+    const otherPrinter = await pool.acquire({ type: 'lan', host: '10.0.0.2', port: 9100 });
+
+    expect(otherPrinter.connectionId).toBe('lan:10.0.0.2:9100');
   });
 
   it('acquire lỗi không tăng bộ đếm và không chặn lần sau', async () => {
@@ -5526,7 +5670,7 @@ export interface NativeConnectionLease {
   release(): Promise<void>;
 }
 
-/** Số nơi đang dùng một kết nối; mỗi lần kết nối mới là một đối tượng mới để lease cũ không trừ nhầm. */
+/** Số nơi đang dùng một kết nối; mỗi phiên kết nối là một đối tượng mới để lease cũ không trừ nhầm phiên mới. */
 interface ConnectionUsage {
   count: number;
 }
@@ -5535,13 +5679,17 @@ type DisconnectSubscriber = (callback: (event: DeviceDisconnectedEvent) => void)
 
 /**
  * Nơi duy nhất đếm số máy in đang dùng chung một kết nối native: người đầu tiên mở, người cuối cùng đóng.
- * Mọi `acquire`/`release` chạy tuần tự để `release` không đóng một kết nối mà `acquire` khác vừa nhận về.
+ * Các `acquire` chạy song song (máy này chờ hộp thoại quyền USB không chặn máy khác). Mọi thay đổi bộ đếm là đồng bộ;
+ * chỉ lệnh native được chờ.
  */
 export class NativeConnectionPool {
   private readonly usageByConnectionId = new Map<string, ConnectionUsage>();
 
-  /** Chuỗi việc tuần tự; luôn resolve để một việc lỗi không chặn việc sau. */
-  private queue: Promise<unknown> = Promise.resolve();
+  /**
+   * Lệnh native `disconnect` đang chạy theo `connectionId`. Native có thể trả về đúng kết nối sắp bị đóng cho một
+   * `acquire` gửi đi trước lệnh đóng, nên `acquire` nhận id này phải chờ đóng xong rồi kết nối lại.
+   */
+  private readonly closingByConnectionId = new Map<string, Promise<void>>();
 
   constructor(
     private readonly deviceModule: DeviceModuleApi = DeviceModule,
@@ -5550,12 +5698,21 @@ export class NativeConnectionPool {
     subscribe((event) => this.usageByConnectionId.delete(event.connectionId));
   }
 
-  acquire(address: NativeDeviceAddress): Promise<NativeConnectionLease> {
-    return this.enqueue(() => this.acquireNow(address));
+  /** Kiểm tra "đang đóng" và tăng bộ đếm trong cùng một bước đồng bộ để `release` không chen vào giữa. */
+  async acquire(address: NativeDeviceAddress): Promise<NativeConnectionLease> {
+    for (;;) {
+      const connected = await this.deviceModule.connect(address);
+      const closing = this.closingByConnectionId.get(connected.connectionId);
+
+      if (!closing) {
+        return this.register(connected);
+      }
+
+      await closing.catch(() => undefined);
+    }
   }
 
-  private async acquireNow(address: NativeDeviceAddress): Promise<NativeConnectionLease> {
-    const connected = await this.deviceModule.connect(address);
+  private register(connected: NativeConnectedDevice): NativeConnectionLease {
     const usage = this.usageByConnectionId.get(connected.connectionId) ?? { count: 0 };
     usage.count += 1;
     this.usageByConnectionId.set(connected.connectionId, usage);
@@ -5574,13 +5731,13 @@ export class NativeConnectionPool {
         }
 
         released = true;
-        return this.enqueue(() => this.releaseNow(connected.connectionId, usage));
+        return this.release(connected.connectionId, usage);
       },
     };
   }
 
-  /** Kết nối đã mất (sự kiện native) hoặc đã mở lại thành phiên mới thì lease cũ không còn gì để trả. */
-  private async releaseNow(connectionId: string, usage: ConnectionUsage): Promise<void> {
+  /** Kết nối đã mất (sự kiện native) hoặc đã thành phiên mới thì lease cũ không còn gì để trả. */
+  private async release(connectionId: string, usage: ConnectionUsage): Promise<void> {
     if (this.usageByConnectionId.get(connectionId) !== usage) {
       return;
     }
@@ -5592,13 +5749,16 @@ export class NativeConnectionPool {
     }
 
     this.usageByConnectionId.delete(connectionId);
-    await this.deviceModule.disconnect(connectionId);
-  }
+    const closing = this.deviceModule.disconnect(connectionId);
+    this.closingByConnectionId.set(connectionId, closing);
 
-  private enqueue<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(task, task);
-    this.queue = run.catch(() => undefined);
-    return run;
+    try {
+      await closing;
+    } finally {
+      if (this.closingByConnectionId.get(connectionId) === closing) {
+        this.closingByConnectionId.delete(connectionId);
+      }
+    }
   }
 }
 
@@ -6193,7 +6353,7 @@ git rm -q src/features/printer/transports/__tests__/UsbTransport.test.ts
 
 - [ ] **Step 7: Verify** — ở gốc repo:
   - `npx tsc --noEmit` → 0 lỗi.
-  - `npx jest` → toàn bộ pass (989 test, 136 suite).
+  - `npx jest` → toàn bộ pass (990 test, 136 suite).
   - `npx eslint src/features/printer jest.setup.js` → 0 lỗi (2 cảnh báo có sẵn trong `transports/__tests__`).
   - `node check-style.js src/features/printer/adapters/native/DeviceModule.ts src/features/printer/adapters/native/NativeConnectionPool.ts src/features/printer/adapters/native/toPrinterError.ts src/features/printer/adapters/native/NativeAdapter.ts src/features/printer/adapters/testing/MockPrinterAdapter.ts src/features/printer/adapters/native/__tests__/DeviceModule.test.ts src/features/printer/adapters/native/__tests__/NativeConnectionPool.test.ts src/features/printer/adapters/native/__tests__/toPrinterError.test.ts src/features/printer/adapters/native/__tests__/NativeAdapter.test.ts src/features/printer/adapters/testing/__tests__/MockPrinterAdapter.test.ts` → không in gì.
 
@@ -6318,9 +6478,9 @@ applyEdits({
 
 - [ ] **Step 2: Verify**
   - `npx jest src/features/printer/discovery` → 36 test pass (có test "viết hoa MAC…").
-  - `npx jest` → 990 test pass.
+  - `npx jest` → 991 test pass.
   - Không còn tên cũ trong code/tài liệu đang dùng: `git grep -n -E "thermalprinter|ThermalPrinterModule|getConnectionIdentity|PrinterNativeModule" -- . ':!docs/superpowers' ':!.superpowers'` → không có kết quả.
-  - `cd android && ./gradlew :app:compileDebugJavaWithJavac :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → 53 test pass.
+  - `cd android && ./gradlew :app:compileDebugJavaWithJavac :app:cleanTestDebugUnitTest :app:testDebugUnitTest -q` → 54 test pass.
 
 - [ ] **Step 3: Commit**
 
@@ -6335,4 +6495,4 @@ git commit -m "docs: point docs at the new native device layer; uppercase Blueto
 
 ### Task 9: Kiểm tra trên máy thật (người dùng thực hiện)
 
-Không giao subagent. Build `npm run android` lên máy POS thật và chạy danh sách ở spec §14 "Kiểm tra trên máy thật" (11 mục). Ghi kết quả từng mục vào mô tả PR; lỗi nào phát hiện thì mở task sửa riêng trên branch này.
+Không giao subagent. Build `npm run android` lên máy POS thật và chạy danh sách ở spec §14 "Kiểm tra trên máy thật" (12 mục). Ghi kết quả từng mục vào mô tả PR; lỗi nào phát hiện thì mở task sửa riêng trên branch này.
