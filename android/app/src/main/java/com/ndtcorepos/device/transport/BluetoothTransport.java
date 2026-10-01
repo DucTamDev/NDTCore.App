@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /** Truyền byte qua Bluetooth cổ điển (RFCOMM, Serial Port Profile). */
 public final class BluetoothTransport implements ITransport {
@@ -35,6 +36,8 @@ public final class BluetoothTransport implements ITransport {
     private volatile BluetoothSocket socket;
 
     private volatile int lastWriteSizeBytes;
+
+    private volatile long lastWriteCompletedAtNanos;
 
     public BluetoothTransport(BluetoothDevice device, ScheduledExecutorService timer) {
         this.device = device;
@@ -60,6 +63,7 @@ public final class BluetoothTransport implements ITransport {
         try {
             StreamWriter.writeAll(current.getOutputStream(), current, data, deadlineNanos, timer);
             lastWriteSizeBytes = data.length;
+            lastWriteCompletedAtNanos = System.nanoTime();
         } catch (IOException exception) {
             abort();
             throw new DeviceException(DeviceErrorCode.WRITE_FAILED, "Không ghi được Bluetooth", exception);
@@ -93,11 +97,10 @@ public final class BluetoothTransport implements ITransport {
      */
     @Override
     public void close() {
-        if (socket == null) {
-            return;
+        if (isOpen()) {
+            sleepQuietly(drainWaitMillis(lastWriteSizeBytes, System.nanoTime() - lastWriteCompletedAtNanos));
         }
 
-        waitForDrain();
         abort();
     }
 
@@ -175,10 +178,18 @@ public final class BluetoothTransport implements ITransport {
         return true;
     }
 
-    private void waitForDrain() {
-        int bytes = lastWriteSizeBytes;
-        long waitMillis = bytes <= DRAIN_SMALL_PAYLOAD_BYTES ? DRAIN_MIN_WAIT_MS : bytes / DRAIN_BYTES_PER_MS;
-        sleepQuietly(waitMillis);
+    /** Thời gian còn phải chờ để dữ liệu của lần ghi cuối kịp gửi: ước lượng theo cỡ trừ đi thời gian đã trôi qua. */
+    static long drainWaitMillis(
+            int lastWriteSizeBytes,
+            long elapsedSinceWriteNanos) {
+        if (lastWriteSizeBytes <= 0) {
+            return 0;
+        }
+
+        long estimateMillis = lastWriteSizeBytes <= DRAIN_SMALL_PAYLOAD_BYTES
+                ? DRAIN_MIN_WAIT_MS
+                : lastWriteSizeBytes / DRAIN_BYTES_PER_MS;
+        return Math.max(0, estimateMillis - TimeUnit.NANOSECONDS.toMillis(elapsedSinceWriteNanos));
     }
 
     private static void sleepQuietly(long millis) {
