@@ -111,7 +111,7 @@ android/app/src/main/java/com/ndtcorepos/
         └── BluetoothDisconnectMonitor.java
 ```
 
-28 file Java. Xoá toàn bộ `com/ndtcorepos/thermalprinter/`.
+30 file Java. Xoá toàn bộ `com/ndtcorepos/thermalprinter/`.
 
 **Hướng gọi** (một chiều, không vòng):
 
