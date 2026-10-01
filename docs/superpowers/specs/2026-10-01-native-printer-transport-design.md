@@ -72,7 +72,8 @@ android/app/src/main/java/com/ndtcorepos/
 │   ├── NdtCorePosPackage.java
 │   └── device/
 │       ├── DeviceModule.java
-│       └── DeviceMapper.java
+│       ├── DeviceMapper.java
+│       └── BridgeLimits.java
 │
 ├── common/
 │   └── CodedException.java
@@ -81,11 +82,15 @@ android/app/src/main/java/com/ndtcorepos/
     ├── DeviceFactory.java
     ├── DeviceService.java
     ├── model/
-    │   ├── DeviceType.java
     │   ├── DeviceAddress.java
     │   ├── DeviceInfo.java
-    │   ├── ConnectedDevice.java
+    │   └── ConnectedDevice.java
+    ├── enums/
+    │   ├── TransportType.java
     │   └── DisconnectReason.java
+    ├── constants/
+    │   ├── TransportConstants.java
+    │   └── PermissionConstants.java
     ├── error/
     │   ├── DeviceException.java
     │   └── DeviceErrorCode.java
@@ -113,7 +118,7 @@ android/app/src/main/java/com/ndtcorepos/
         └── BluetoothDisconnectMonitor.java
 ```
 
-30 file Java. Xoá toàn bộ `com/ndtcorepos/thermalprinter/`.
+33 file Java. Xoá toàn bộ `com/ndtcorepos/thermalprinter/`.
 
 **Hướng gọi** (một chiều, không vòng):
 
@@ -130,10 +135,12 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 **Quy tắc cấu trúc:**
 
 1. Chỉ `bridge/` import `com.facebook.react.*`.
-2. `bridge/` chỉ dùng `DeviceFactory`, `DeviceService`, `model/`, `error/`, `connection/IDisconnectListener`.
-3. Các folder trong `device/` gọi theo đúng hướng trên, không gọi ngược.
-4. `common/`, `model/`, `error/`, `connection/`, `DeviceService`, `transport/StreamWriter` không dùng API Android →
-   test bằng JUnit thuần.
+2. `bridge/` chỉ dùng `DeviceFactory`, `DeviceService`, `model/`, `enums/`, `error/`,
+   `connection/IDisconnectListener`.
+3. Các folder trong `device/` gọi theo đúng hướng trên, không gọi ngược. `model/`, `enums/`, `constants/`, `error/` là
+   lá: folder nào cũng được dùng, còn chúng không dùng folder nghiệp vụ nào.
+4. `common/`, `model/`, `enums/`, `constants/`, `error/`, `connection/`, `DeviceService`, `transport/StreamWriter`
+   không dùng API Android → test bằng JUnit thuần.
 5. **Quyền sở hữu:** `DeviceFactory` là composition root — lắp các dependency sống suốt vòng đời service rồi tạo
    `DeviceService`. Đối tượng thuộc quyền sở hữu của class nào thì class đó tạo (`TransportFactory` tạo transport,
    `ConnectionPool` tạo `Connection`). Mọi dependency khác nhận qua constructor; không class nào gọi lại
@@ -150,7 +157,9 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 | `bridge/` | Nói chuyện với JS: nhận lời gọi, đổi dữ liệu, trả Promise, phát sự kiện | Logic thiết bị, kết nối |
 | `common/` | Thứ dùng chung mọi tính năng native (hiện chỉ lỗi có mã) | Bất cứ thứ gì chỉ một tính năng dùng |
 | `device/` (gốc) | Lắp ráp (`DeviceFactory`) và cửa vào duy nhất (`DeviceService`) | Gọi Android API trực tiếp |
-| `device/model/` | Dữ liệu bất biến: loại, địa chỉ, thiết bị tìm thấy, kết quả kết nối, lý do mất kết nối | Logic, gọi Android |
+| `device/model/` | Dữ liệu bất biến: địa chỉ, thiết bị tìm thấy, kết quả kết nối | Logic, gọi Android |
+| `device/enums/` | Tập giá trị cố định trao đổi với JS: loại đường truyền, lý do mất kết nối | Logic ngoài đổi `wireValue` |
+| `device/constants/` | Hằng cấu hình chỉnh theo phần cứng: chunk, timeout, thời gian chờ đóng Bluetooth, thời gian chờ quyền | Hằng nội bộ của một class (trạng thái, UUID, giới hạn kiểm tra địa chỉ) |
 | `device/error/` | Mã lỗi và exception của device | — |
 | `device/discovery/` | Tìm thiết bị: liệt kê và tìm đúng thiết bị cho một địa chỉ | Mở kết nối, truyền byte |
 | `device/permission/` | Xin quyền USB và chờ người dùng trả lời | Quyền Bluetooth (TS xin) |
@@ -185,7 +194,7 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 
   | Hàm | Gọi xuống |
   |---|---|
-  | `discover(String type, Promise)` | `deviceService.discover(mapper.toDeviceType(type))` |
+  | `discover(String type, Promise)` | `deviceService.discover(mapper.toTransportType(type))` |
   | `connect(ReadableMap address, Promise)` | `deviceService.connect(mapper.toAddress(address))` |
   | `write(String connectionId, String base64Data, double timeoutMs, Promise)` | `deviceService.write(…)` |
   | `read(String connectionId, double maxBytes, double timeoutMs, Promise)` | `deviceService.read(…)` |
@@ -208,7 +217,7 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 
 - **Nhiệm vụ:** đổi dữ liệu giữa kiểu React Native và kiểu `device/model`.
 - **Hàm:**
-  - `DeviceType toDeviceType(String wireValue)` — sai → `INVALID_ARGUMENT`.
+  - `TransportType toTransportType(String wireValue)` — sai → `INVALID_ARGUMENT`.
   - `DeviceAddress toAddress(ReadableMap map)` — đọc `type` rồi các trường theo loại; thiếu/sai kiểu →
     `INVALID_ARGUMENT`.
   - `WritableArray toWritableArray(List<DeviceInfo> devices)` — đúng dạng TS (§8).
@@ -221,6 +230,11 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
     tham số từ JS).
   - `WritableMap toDisconnectedEvent(String connectionId, DisconnectReason reason)`.
 - **Không làm:** gọi `DeviceService`.
+
+#### `device/BridgeLimits`
+
+- **Nội dung:** giới hạn tham số số học nhận từ JS, `DeviceMapper` dùng: `MAX_READ_BYTES` = 65 536,
+  `MAX_OPERATION_TIMEOUT_MS` = 600 000. Class `final`, chỉ dùng trong package `bridge/device`.
 
 ### 7.3 `common/`
 
@@ -248,7 +262,7 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 #### `DeviceService`
 
 - **Nhiệm vụ:** cửa vào duy nhất của device cho `bridge/`; điều phối discovery và `ConnectionPool`; quản lý vòng đời.
-- **Constructor** (mỗi tham số 1 dòng): `Map<DeviceType, IDeviceDiscovery> discoveries`,
+- **Constructor** (mỗi tham số 1 dòng): `Map<TransportType, IDeviceDiscovery> discoveries`,
   `ConnectionPool connectionPool`, `List<IDisconnectMonitor> monitors`, `ExecutorService discoveryExecutor`,
   `ScheduledExecutorService timerExecutor`.
 - **Hàm:**
@@ -256,7 +270,7 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
   | Hàm | Làm gì |
   |---|---|
   | `start()` (package-private) | Bật mọi monitor; chỉ `DeviceFactory` gọi, đúng 1 lần |
-  | `CompletableFuture<List<DeviceInfo>> discover(DeviceType type)` | Chọn discovery theo loại, chạy trên luồng quét; không có (LAN) → `INVALID_ARGUMENT` |
+  | `CompletableFuture<List<DeviceInfo>> discover(TransportType type)` | Chọn discovery theo loại, chạy trên luồng quét; không có (LAN) → `INVALID_ARGUMENT` |
   | `CompletableFuture<ConnectedDevice> connect(DeviceAddress address)` | `connectionPool.connect(address)` |
   | `CompletableFuture<Void> write(String connectionId, byte[] data, long timeoutMillis)` | `connectionPool.write(…)` |
   | `CompletableFuture<byte[]> read(String connectionId, int maxBytes, long timeoutMillis)` | `connectionPool.read(…)` |
@@ -266,16 +280,34 @@ ConnectionPool ─► IDisconnectListener (DeviceModule cài đặt) ─► sự
 - Sau `close()`: mọi lời gọi → `SERVICE_CLOSED`.
 - **Không làm:** gọi Android API; tự tạo dependency.
 
-### 7.5 `device/model/`
+### 7.5 `device/model/`, `device/enums/`, `device/constants/`
 
 Tất cả bất biến (field `final`, không setter), không gọi Android.
 
-#### `DeviceType`
+#### `enums/TransportType`
 
-- **Nội dung:** enum `USB`, `BLUETOOTH`, `LAN`; `wireValue()` = `"usb"`, `"bluetooth"`, `"lan"`;
-  `static DeviceType fromWireValue(String)`.
+- **Nội dung:** loại đường truyền tới thiết bị (không phải loại thiết bị: một máy in có thể vừa USB vừa LAN). Enum
+  `USB`, `BLUETOOTH`, `LAN`; `wireValue()` = `"usb"`, `"bluetooth"`, `"lan"`;
+  `static TransportType fromWireValue(String)` — sai → `INVALID_ARGUMENT`.
 
-#### `DeviceAddress`
+#### `enums/DisconnectReason`
+
+- **Nội dung:** enum `USB_DETACHED`, `BLUETOOTH_DISCONNECTED`, `IO_ERROR`; `wireValue()` = `"usb_detached"`,
+  `"bluetooth_disconnected"`, `"io_error"`.
+
+#### `constants/TransportConstants`, `constants/PermissionConstants`
+
+- **Nhiệm vụ:** gom các hằng cấu hình có thể phải chỉnh theo máy in thực tế (class `final`, constructor `private`,
+  field `public static final`, mỗi field có summary). Class dùng hằng nhập bằng `import static`.
+- `TransportConstants`: `USB_CHUNK_SIZE_BYTES`, `STREAM_CHUNK_SIZE_BYTES`, `LAN_CONNECT_TIMEOUT_MS`,
+  `READ_POLL_INTERVAL_MS`, `DRAIN_MIN_WAIT_MS`, `DRAIN_SMALL_PAYLOAD_BYTES`, `DRAIN_BYTES_PER_MS`.
+- `PermissionConstants`: `PERMISSION_TIMEOUT_MS`.
+- Giới hạn tham số từ JS (`MAX_READ_BYTES`, `MAX_OPERATION_TIMEOUT_MS`) thuộc bridge nên ở
+  `bridge/device/BridgeLimits`.
+- **Không chứa:** hằng nội bộ chỉ có nghĩa trong một class (trạng thái của `StreamWriter`, UUID SPP, action intent
+  quyền USB, giới hạn kiểm tra trong `DeviceAddress`, tên module/sự kiện của bridge).
+
+#### `model/DeviceAddress`
 
 - **Nhiệm vụ:** cách tới một thiết bị.
 - **Tạo bằng** (kiểm tra tham số ngay, sai → `DeviceException(INVALID_ARGUMENT)`):
@@ -289,7 +321,7 @@ Tất cả bất biến (field `final`, không setter), không gọi Android.
   (vd `usb:8137:8214:SN123`, `usb:8137:8214:@/dev/bus/usb/001/004`, `bluetooth:66:22:A1:B2:C3:D4`,
   `lan:192.168.1.50:9100`).
 
-#### `DeviceInfo`
+#### `model/DeviceInfo`
 
 - **Nhiệm vụ:** một thiết bị tìm thấy khi quét.
 - **Field:** `deviceId`, `type`, `name`, `address` (`DeviceAddress` để TS truyền lại nguyên vẹn khi `connect`); USB
@@ -297,16 +329,11 @@ Tất cả bất biến (field `final`, không setter), không gọi Android.
 - `deviceId`: USB = `usb:` + đường dẫn thiết bị; Bluetooth = `bluetooth:` + MAC.
 - `address` USB có `devicePath` = đường dẫn thiết bị và `serialNumber` nếu đã có quyền (không thì `null`).
 
-#### `ConnectedDevice`
+#### `model/ConnectedDevice`
 
 - **Nhiệm vụ:** kết quả `connect`.
 - **Field:** `connectionId`; `serialNumber` — serial đọc từ thiết bị sau khi mở (USB), `null` nếu thiết bị không có
   hoặc đường truyền không hỗ trợ.
-
-#### `DisconnectReason`
-
-- **Nội dung:** enum `USB_DETACHED`, `BLUETOOTH_DISCONNECTED`, `IO_ERROR`; `wireValue()` = `"usb_detached"`,
-  `"bluetooth_disconnected"`, `"io_error"`.
 
 ### 7.6 `device/error/`
 
@@ -493,7 +520,7 @@ Không dùng API Android.
 
 - **Nhiệm vụ:** tạo đúng transport cho một địa chỉ (sở hữu việc tạo transport).
 - **Dependency:** `UsbManager`, `UsbDiscovery`, `BluetoothDiscovery`, `ScheduledExecutorService timerExecutor`.
-- **Hàm:** `create(address)` chỉ điều phối theo `DeviceType`, mỗi loại 1 hàm riêng:
+- **Hàm:** `create(address)` chỉ điều phối theo `TransportType`, mỗi loại 1 hàm riêng:
   - `createUsb` → `usbDiscovery.find(address)` → `new UsbTransport(usbManager, device)`.
   - `createBluetooth` → `bluetoothDiscovery.findBonded(address.mac())` → `new BluetoothTransport(device, timer)`.
   - `createLan` → `new LanTransport(address.host(), address.port(), timer)`.
@@ -837,7 +864,7 @@ Giống quy ước printer-core, cộng `docs/CODING_STANDARDS.md` (Java) và `d
    comment phải tự đủ nghĩa khi đọc riêng. Comment cho Android API đặt ở đầu hàm (Rule 14.3).
 5. **Độ dài dòng ≤ 120 ký tự**, đo bằng Node `line.length`.
 6. **Nesting:** Java ≤ 2 cấp (Rule 3.3), TS ≤ 3 cấp; guard clause, không `else` sau `return`.
-7. **1 hàm 1 trách nhiệm**; nhánh theo `DeviceType` chỉ điều phối, mỗi loại gọi 1 hàm riêng.
+7. **1 hàm 1 trách nhiệm**; nhánh theo `TransportType` chỉ điều phối, mỗi loại gọi 1 hàm riêng.
 8. **Không magic number:** hằng `UPPER_SNAKE_CASE` có đơn vị (`PERMISSION_TIMEOUT_MS`, `USB_CHUNK_SIZE_BYTES`).
 9. **Tên đầy đủ**, không viết tắt (`connection` không `conn`, `exception` không `e`); interface tiền tố `I`.
 10. **Tham số:** ≥ 3 tham số thì mỗi tham số 1 dòng; ít hơn thì 1 dòng.
