@@ -541,6 +541,40 @@ Lỗi I/O khi ghi/đọc Bluetooth/LAN → ActiveConnection → handleDeviceLost
  → abortExecutor: activeConnection.abort() → thao tác đang chờ reject CONNECTION_LOST
 ```
 
+#### 6.6 Vị trí trong `android/app/src`
+
+```
+android/app/src/
+├── main/
+│   ├── AndroidManifest.xml                 # quyền Bluetooth, uses-feature usb.host
+│   ├── assets/fonts/                       # font app (không thuộc tầng kết nối)
+│   ├── res/
+│   └── java/com/ndtcorepos/
+│       ├── MainActivity.kt                 # khung React Native, giữ nguyên
+│       ├── MainApplication.kt              # đăng ký DeviceConnectionPackage
+│       └── deviceconnection/               # toàn bộ tầng kết nối thiết bị (§6.1)
+│           ├── usb/
+│           ├── bluetooth/
+│           └── lan/
+└── test/java/com/ndtcorepos/deviceconnection/   # JUnit, cùng cấu trúc package với main
+    ├── ConnectionManagerTest.java
+    ├── ActiveConnectionTest.java
+    ├── DeadlineTest.java
+    ├── FakeTransport.java                  # ITransport giả cho 2 test trên
+    ├── usb/
+    │   ├── UsbTargetTest.java
+    │   ├── UsbDeviceMatcherTest.java
+    │   └── UsbChunkedWriterTest.java
+    ├── bluetooth/
+    │   └── BluetoothTargetTest.java
+    └── lan/
+        └── LanTargetTest.java
+```
+
+Quy tắc cho native module sau này: mỗi tính năng native là 1 package con ngay dưới `com.ndtcorepos`
+(`com.ndtcorepos.<tinhnang>`), tự có `<TinhNang>Package` + `<TinhNang>Module`, và chỉ đăng ký trong `MainApplication`.
+Gốc `com.ndtcorepos` chỉ giữ `MainActivity` và `MainApplication`.
+
 Xoá toàn bộ thư mục `com/ndtcorepos/thermalprinter/`. Cập nhật:
 
 - `MainApplication.kt`: import và `add(DeviceConnectionPackage())`.
