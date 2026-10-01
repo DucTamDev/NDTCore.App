@@ -1,5 +1,7 @@
 package com.ndtcorepos.device.transport;
 
+import static com.ndtcorepos.device.constants.TransportConstants.STREAM_CHUNK_SIZE_BYTES;
+
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 
@@ -16,8 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * ghi xong (`write` + `flush` trả về; không bảo đảm máy in đã nhận). Quá hạn thì đóng kết nối để cắt lần ghi đang kẹt.
  */
 public final class StreamWriter {
-
-    private static final int STREAM_CHUNK_SIZE_BYTES = 4_096;
 
     /** Tiến độ một lần ghi; trạng thái đổi bằng compare-and-set để "ghi xong" và "hết hạn" chỉ một bên thắng. */
     private static final class WriteProgress {

@@ -1,5 +1,8 @@
 package com.ndtcorepos.bridge.device;
 
+import static com.ndtcorepos.bridge.device.BridgeLimits.MAX_OPERATION_TIMEOUT_MS;
+import static com.ndtcorepos.bridge.device.BridgeLimits.MAX_READ_BYTES;
+
 import android.util.Base64;
 
 import com.facebook.react.bridge.Arguments;
@@ -7,40 +10,34 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.ndtcorepos.device.enums.DisconnectReason;
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.ConnectedDevice;
 import com.ndtcorepos.device.model.DeviceAddress;
 import com.ndtcorepos.device.model.DeviceInfo;
-import com.ndtcorepos.device.model.DeviceType;
-import com.ndtcorepos.device.model.DisconnectReason;
 
 import java.util.List;
 
 /** Đổi dữ liệu giữa kiểu React Native và kiểu của tầng thiết bị; tham số sai ném `INVALID_ARGUMENT`. */
 final class DeviceMapper {
 
-    /** Phản hồi máy in chỉ vài chục byte; chặn JS xin cấp phát mảng quá lớn. */
-    private static final int MAX_READ_BYTES = 64 * 1024;
-
-    /** Một thao tác ghi/đọc dài nhất được chờ; chặn hạn quá lớn làm tràn số khi cộng vào đồng hồ. */
-    private static final long MAX_OPERATION_TIMEOUT_MS = 10 * 60 * 1000;
-
     private DeviceMapper() {
     }
 
-    static DeviceType toDeviceType(String wireValue) throws DeviceException {
-        return DeviceType.fromWireValue(wireValue);
+    static TransportType toTransportType(String wireValue) throws DeviceException {
+        return TransportType.fromWireValue(wireValue);
     }
 
     static DeviceAddress toAddress(ReadableMap map) throws DeviceException {
-        DeviceType type = toDeviceType(requireString(map, "type"));
+        TransportType type = toTransportType(requireString(map, "type"));
 
-        if (type == DeviceType.USB) {
+        if (type == TransportType.USB) {
             return toUsbAddress(map);
         }
 
-        if (type == DeviceType.BLUETOOTH) {
+        if (type == TransportType.BLUETOOTH) {
             return DeviceAddress.bluetooth(requireString(map, "mac"));
         }
 
@@ -120,7 +117,7 @@ final class DeviceMapper {
         putNullableString(map, "name", device.name());
         map.putMap("address", toWritableMap(device.address()));
 
-        if (device.type() == DeviceType.USB) {
+        if (device.type() == TransportType.USB) {
             putNullableString(map, "manufacturerName", device.manufacturerName());
             putNullableString(map, "productName", device.productName());
             map.putBoolean("hasPermission", device.hasPermission());
@@ -133,7 +130,7 @@ final class DeviceMapper {
         WritableMap map = Arguments.createMap();
         map.putString("type", address.type().wireValue());
 
-        if (address.type() == DeviceType.USB) {
+        if (address.type() == TransportType.USB) {
             map.putInt("vendorId", address.vendorId());
             map.putInt("productId", address.productId());
             putNullableString(map, "serialNumber", address.serialNumber());
@@ -141,7 +138,7 @@ final class DeviceMapper {
             return map;
         }
 
-        if (address.type() == DeviceType.BLUETOOTH) {
+        if (address.type() == TransportType.BLUETOOTH) {
             map.putString("mac", address.mac());
             return map;
         }

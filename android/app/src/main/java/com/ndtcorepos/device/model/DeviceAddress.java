@@ -1,5 +1,6 @@
 package com.ndtcorepos.device.model;
 
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 
@@ -14,7 +15,7 @@ public final class DeviceAddress {
 
     private static final int MAX_PORT = 65_535;
 
-    private final DeviceType type;
+    private final TransportType type;
 
     private final int vendorId;
 
@@ -34,7 +35,7 @@ public final class DeviceAddress {
     private final int port;
 
     private DeviceAddress(
-            DeviceType type,
+            TransportType type,
             int vendorId,
             int productId,
             String serialNumber,
@@ -60,7 +61,7 @@ public final class DeviceAddress {
         requireInRange(vendorId, 0, MAX_USB_ID, "vendorId");
         requireInRange(productId, 0, MAX_USB_ID, "productId");
         return new DeviceAddress(
-                DeviceType.USB,
+                TransportType.USB,
                 vendorId,
                 productId,
                 emptyToNull(serialNumber),
@@ -72,21 +73,21 @@ public final class DeviceAddress {
 
     public static DeviceAddress bluetooth(String mac) throws DeviceException {
         String normalizedMac = requireNotBlank(mac, "mac").toUpperCase(Locale.ROOT);
-        return new DeviceAddress(DeviceType.BLUETOOTH, 0, 0, null, null, normalizedMac, null, 0);
+        return new DeviceAddress(TransportType.BLUETOOTH, 0, 0, null, null, normalizedMac, null, 0);
     }
 
     public static DeviceAddress lan(String host, int port) throws DeviceException {
         requireInRange(port, MIN_PORT, MAX_PORT, "port");
-        return new DeviceAddress(DeviceType.LAN, 0, 0, null, null, null, requireNotBlank(host, "host"), port);
+        return new DeviceAddress(TransportType.LAN, 0, 0, null, null, null, requireNotBlank(host, "host"), port);
     }
 
     /** Khoá gộp các lần kết nối đồng thời cùng địa chỉ, dùng trước khi biết đó là thiết bị vật lý nào. */
     public String lookupKey() {
-        if (type == DeviceType.BLUETOOTH) {
+        if (type == TransportType.BLUETOOTH) {
             return "bluetooth:" + mac;
         }
 
-        if (type == DeviceType.LAN) {
+        if (type == TransportType.LAN) {
             return "lan:" + host + ":" + port;
         }
 
@@ -107,7 +108,7 @@ public final class DeviceAddress {
         return base;
     }
 
-    public DeviceType type() {
+    public TransportType type() {
         return type;
     }
 

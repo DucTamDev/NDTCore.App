@@ -1,10 +1,10 @@
-package com.ndtcorepos.device.model;
+package com.ndtcorepos.device.enums;
 
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 
-/** Loại đường truyền tới thiết bị. */
-public enum DeviceType {
+/** Loại đường truyền tới thiết bị: USB, Bluetooth, LAN. */
+public enum TransportType {
     USB("usb"),
     BLUETOOTH("bluetooth"),
     LAN("lan");
@@ -12,7 +12,7 @@ public enum DeviceType {
     /** Giá trị trao đổi với JS. */
     private final String wireValue;
 
-    DeviceType(String wireValue) {
+    TransportType(String wireValue) {
         this.wireValue = wireValue;
     }
 
@@ -20,13 +20,13 @@ public enum DeviceType {
         return wireValue;
     }
 
-    public static DeviceType fromWireValue(String wireValue) throws DeviceException {
-        for (DeviceType type : values()) {
+    public static TransportType fromWireValue(String wireValue) throws DeviceException {
+        for (TransportType type : values()) {
             if (type.wireValue.equals(wireValue)) {
                 return type;
             }
         }
 
-        throw new DeviceException(DeviceErrorCode.INVALID_ARGUMENT, "Loại thiết bị không hợp lệ: " + wireValue);
+        throw new DeviceException(DeviceErrorCode.INVALID_ARGUMENT, "Loại đường truyền không hợp lệ: " + wireValue);
     }
 }

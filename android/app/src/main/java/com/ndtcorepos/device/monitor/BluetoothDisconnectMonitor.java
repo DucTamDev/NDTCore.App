@@ -10,7 +10,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.IntentCompat;
 
 import com.ndtcorepos.device.connection.ConnectionPool;
-import com.ndtcorepos.device.model.DisconnectReason;
+import com.ndtcorepos.device.enums.DisconnectReason;
 
 /** Báo `ConnectionPool` khi kết nối Bluetooth tới một thiết bị mất (ra khỏi tầm sóng, tắt máy in). */
 public final class BluetoothDisconnectMonitor implements IDisconnectMonitor {

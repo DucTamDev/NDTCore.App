@@ -1,4 +1,4 @@
-package com.ndtcorepos.device.model;
+package com.ndtcorepos.device.enums;
 
 /** Lý do một kết nối mất ngoài ý muốn. */
 public enum DisconnectReason {

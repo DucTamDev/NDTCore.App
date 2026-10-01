@@ -15,8 +15,8 @@ import com.ndtcorepos.common.CodedException;
 import com.ndtcorepos.device.DeviceFactory;
 import com.ndtcorepos.device.DeviceService;
 import com.ndtcorepos.device.connection.IDisconnectListener;
+import com.ndtcorepos.device.enums.DisconnectReason;
 import com.ndtcorepos.device.error.DeviceException;
-import com.ndtcorepos.device.model.DisconnectReason;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -50,7 +50,7 @@ public final class DeviceModule extends ReactContextBaseJavaModule implements ID
     @ReactMethod
     public void discover(String type, Promise promise) {
         try {
-            settle(deviceService.discover(DeviceMapper.toDeviceType(type)), promise, DeviceMapper::toWritableArray);
+            settle(deviceService.discover(DeviceMapper.toTransportType(type)), promise, DeviceMapper::toWritableArray);
         } catch (DeviceException | RuntimeException exception) {
             reject(promise, exception);
         }

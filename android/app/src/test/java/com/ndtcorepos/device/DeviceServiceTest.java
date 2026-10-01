@@ -6,11 +6,11 @@ import static org.junit.Assert.assertTrue;
 
 import com.ndtcorepos.device.connection.ConnectionPool;
 import com.ndtcorepos.device.discovery.IDeviceDiscovery;
+import com.ndtcorepos.device.enums.TransportType;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 import com.ndtcorepos.device.model.DeviceAddress;
 import com.ndtcorepos.device.model.DeviceInfo;
-import com.ndtcorepos.device.model.DeviceType;
 import com.ndtcorepos.device.monitor.IDisconnectMonitor;
 
 import org.junit.Before;
@@ -63,8 +63,8 @@ public class DeviceServiceTest {
         usbDevices = Collections.singletonList(
                 DeviceInfo.usb("usb:/dev/bus/usb/001/004", "XP-80C", usbAddress, null, null, false));
 
-        Map<DeviceType, IDeviceDiscovery> discoveries = new EnumMap<>(DeviceType.class);
-        discoveries.put(DeviceType.USB, this::discoverUsbAfterGate);
+        Map<TransportType, IDeviceDiscovery> discoveries = new EnumMap<>(TransportType.class);
+        discoveries.put(TransportType.USB, this::discoverUsbAfterGate);
 
         ConnectionPool connectionPool = new ConnectionPool(
                 address -> {
@@ -87,12 +87,14 @@ public class DeviceServiceTest {
     public void discoverUsesDiscoveryOfRequestedType() throws Exception {
         discoveryGate.countDown();
 
-        assertSame(usbDevices, await(deviceService.discover(DeviceType.USB)));
+        assertSame(usbDevices, await(deviceService.discover(TransportType.USB)));
     }
 
     @Test
     public void discoverLanIsInvalidArgument() throws Exception {
-        assertEquals(DeviceErrorCode.INVALID_ARGUMENT, failureOf(deviceService.discover(DeviceType.LAN)).errorCode());
+        DeviceException failure = failureOf(deviceService.discover(TransportType.LAN));
+
+        assertEquals(DeviceErrorCode.INVALID_ARGUMENT, failure.errorCode());
     }
 
     @Test
@@ -109,14 +111,14 @@ public class DeviceServiceTest {
         deviceService.close();
 
         DeviceAddress lanAddress = DeviceAddress.lan("10.0.0.1", 9100);
-        assertEquals(DeviceErrorCode.SERVICE_CLOSED, failureOf(deviceService.discover(DeviceType.USB)).errorCode());
+        assertEquals(DeviceErrorCode.SERVICE_CLOSED, failureOf(deviceService.discover(TransportType.USB)).errorCode());
         assertEquals(DeviceErrorCode.SERVICE_CLOSED, failureOf(deviceService.connect(lanAddress)).errorCode());
         assertEquals(DeviceErrorCode.SERVICE_CLOSED, failureOf(deviceService.disconnect("lan:x")).errorCode());
     }
 
     @Test
     public void closeLetsRunningDiscoveryFinish() throws Exception {
-        CompletableFuture<List<DeviceInfo>> running = deviceService.discover(DeviceType.USB);
+        CompletableFuture<List<DeviceInfo>> running = deviceService.discover(TransportType.USB);
 
         deviceService.close();
         discoveryGate.countDown();

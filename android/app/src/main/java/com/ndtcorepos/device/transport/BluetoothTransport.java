@@ -1,5 +1,10 @@
 package com.ndtcorepos.device.transport;
 
+import static com.ndtcorepos.device.constants.TransportConstants.DRAIN_BYTES_PER_MS;
+import static com.ndtcorepos.device.constants.TransportConstants.DRAIN_MIN_WAIT_MS;
+import static com.ndtcorepos.device.constants.TransportConstants.DRAIN_SMALL_PAYLOAD_BYTES;
+import static com.ndtcorepos.device.constants.TransportConstants.READ_POLL_INTERVAL_MS;
+
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 
@@ -18,15 +23,6 @@ import java.util.concurrent.TimeUnit;
 public final class BluetoothTransport implements ITransport {
 
     private static final UUID SERIAL_PORT_PROFILE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-
-    private static final long READ_POLL_INTERVAL_MS = 20;
-
-    private static final long DRAIN_MIN_WAIT_MS = 100;
-
-    private static final int DRAIN_SMALL_PAYLOAD_BYTES = 2_000;
-
-    /** Tốc độ ước lượng máy in nhận dữ liệu qua SPP, dùng để chờ dữ liệu cuối kịp gửi trước khi đóng. */
-    private static final int DRAIN_BYTES_PER_MS = 5;
 
     private final BluetoothDevice device;
 

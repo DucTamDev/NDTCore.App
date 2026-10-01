@@ -1,5 +1,7 @@
 package com.ndtcorepos.device.transport;
 
+import static com.ndtcorepos.device.constants.TransportConstants.LAN_CONNECT_TIMEOUT_MS;
+
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
 
@@ -13,8 +15,6 @@ import java.util.concurrent.TimeUnit;
 
 /** Truyền byte qua TCP. */
 public final class LanTransport implements ITransport {
-
-    private static final int LAN_CONNECT_TIMEOUT_MS = 5_000;
 
     private final String host;
 

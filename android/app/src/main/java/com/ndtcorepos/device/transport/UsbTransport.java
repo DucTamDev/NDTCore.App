@@ -1,5 +1,7 @@
 package com.ndtcorepos.device.transport;
 
+import static com.ndtcorepos.device.constants.TransportConstants.USB_CHUNK_SIZE_BYTES;
+
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -16,9 +18,6 @@ import java.util.concurrent.TimeUnit;
 
 /** Truyền byte qua USB bằng bulk transfer. */
 public final class UsbTransport implements ITransport {
-
-    /** Một lần bulkTransfer lớn hơn mức này bị một số kernel Android từ chối ngay. */
-    private static final int USB_CHUNK_SIZE_BYTES = 16_384;
 
     /** Ghi một khúc; trả số byte đã chuyển, âm khi lỗi hoặc hết thời gian. */
     public interface IChunkWriter {

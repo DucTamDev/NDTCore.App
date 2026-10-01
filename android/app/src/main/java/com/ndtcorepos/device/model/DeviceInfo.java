@@ -1,5 +1,7 @@
 package com.ndtcorepos.device.model;
 
+import com.ndtcorepos.device.enums.TransportType;
+
 /** Một thiết bị tìm thấy khi quét, chưa kết nối. */
 public final class DeviceInfo {
 
@@ -56,7 +58,7 @@ public final class DeviceInfo {
         return deviceId;
     }
 
-    public DeviceType type() {
+    public TransportType type() {
         return address.type();
     }
 
