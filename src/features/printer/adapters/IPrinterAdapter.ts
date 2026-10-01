@@ -52,7 +52,7 @@ export interface IPrinterAdapter {
   /** Encode ESC/POS từ `text` (có tag `<C>`/`<B>`…) rồi gửi. */
   printText(text: string, options: PrinterPrintTextOptions): Promise<void>;
 
-  /** Đọc 1 lần phản hồi trong `timeoutMs` — `null` nếu adapter/kết nối không đọc được (vd USB). */
+  /** Đọc 1 lần phản hồi trong `timeoutMs` — `null` nếu adapter/kết nối không đọc được. */
   read(timeoutMs: number): Promise<Uint8Array | null>;
 
   /** Đóng kết nối. */

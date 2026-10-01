@@ -23,10 +23,8 @@ import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../paper
 const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
 
 /**
- * ESC/POS đi qua `NativeAdapter` (`IPrinterAdapter`) — native module RN*Printer
- * gộp connect+encode+write theo namespace/connectionType (spec §2.3, ngoại lệ
- * pragmatic: KHÔNG dùng `read`, `printText` encode ở JS `EPToolkit`). Native là
- * Giữ đúng 1 máy in ESC/POS kết nối mỗi loại (`activeByType`); máy mất quyền thì trả kết nối ngay để native đóng.
+ * ESC/POS đi qua `NativeAdapter`; text được encode ở JS (`EPToolkit`) rồi ghi byte thô.
+ * Mỗi loại kết nối chỉ giữ một máy in ESC/POS đang kết nối (`activeByType`); máy mất quyền thì trả kết nối ngay.
  */
 export class EscPosDriver implements IPrinterDriver {
   private adapters = new Map<string, NativeAdapter>();
@@ -297,9 +295,8 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   /**
-   * ESC/POS không có discriminator thật (native không `read`). Trả `{}` khi đã
-   * kết nối (BLE/LAN — "weak confirm" cho auto-detect, xem `PrinterDiscoveryService`),
-   * `null` cho USB (không bao giờ tự xác nhận protocol qua USB — xem CLAUDE.md).
+   * ESC/POS không có phản hồi định danh đáng tin cậy. Trả `{}` khi đã kết nối (BLE/LAN — "weak confirm" cho
+   * auto-detect, xem `PrinterDiscoveryService`), `null` cho USB (không bao giờ tự xác nhận protocol qua USB).
    */
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
