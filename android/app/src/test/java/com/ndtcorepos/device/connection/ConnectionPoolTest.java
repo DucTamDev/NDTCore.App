@@ -161,6 +161,22 @@ public class ConnectionPoolTest {
     }
 
     @Test
+    public void disconnectCallbackCanReconnectSameDevice() throws Exception {
+        String connectionId = await(pool.connect(printerA)).connectionId();
+        CountDownLatch writeGate = new CountDownLatch(1);
+        factory.transport(0).writeGate = writeGate;
+        pool.write(connectionId, new byte[] {1}, TIMEOUT_MS);
+        awaitLatch(factory.transport(0).writeEntered);
+
+        CompletableFuture<ConnectedDevice> reconnect = pool.disconnect(connectionId)
+                .thenApply(ignored -> pool.connect(printerA).join());
+        writeGate.countDown();
+
+        assertEquals(connectionId, await(reconnect).connectionId());
+        assertEquals(2, factory.created.size());
+    }
+
+    @Test
     public void writeToUnknownOrDisconnectedIdIsNotConnected() throws Exception {
         DeviceException unknownId = failureOf(pool.write("lan:x", new byte[1], TIMEOUT_MS));
         assertEquals(DeviceErrorCode.NOT_CONNECTED, unknownId.errorCode());

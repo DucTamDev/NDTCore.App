@@ -193,7 +193,7 @@ public final class ConnectionPool {
      * đó, kể cả `connect` đang dở, kết thúc với `SERVICE_CLOSED`.
      */
     public void closeAll() {
-        List<Connection> connectionsToAbort = new ArrayList<>();
+        List<Connection> connectionsToAbort;
 
         synchronized (lock) {
             if (closed) {
@@ -201,13 +201,7 @@ public final class ConnectionPool {
             }
 
             closed = true;
-
-            for (Entry entry : entries.values()) {
-                if (entry.connection != null) {
-                    connectionsToAbort.add(entry.connection);
-                }
-            }
-
+            connectionsToAbort = openedConnections();
             entries.clear();
             connectExecutor.shutdownNow();
             abortExecutor.shutdown();
@@ -216,6 +210,19 @@ public final class ConnectionPool {
         for (Connection connection : connectionsToAbort) {
             connection.abort();
         }
+    }
+
+    /** Kết nối đã mở của mọi `Entry`; gọi trong khoá của pool. */
+    private List<Connection> openedConnections() {
+        List<Connection> connections = new ArrayList<>();
+
+        for (Entry entry : entries.values()) {
+            if (entry.connection != null) {
+                connections.add(entry.connection);
+            }
+        }
+
+        return connections;
     }
 
     private void connectOnWorker(DeviceAddress address, CompletableFuture<ConnectedDevice> result) {
@@ -315,12 +322,16 @@ public final class ConnectionPool {
         throw serviceClosed();
     }
 
+    /** `transition` do pool giữ và chỉ hoàn tất sau khi bỏ `Entry`, để bên chờ giữ chỗ lại không gặp `CLOSING` cũ. */
     private CompletableFuture<Void> beginClosing(String connectionId, Entry entry) {
+        CompletableFuture<Void> transition = new CompletableFuture<>();
         entry.state = EntryState.CLOSING;
-        CompletableFuture<Void> closeFuture = entry.connection.close();
-        entry.transition = closeFuture;
-        closeFuture.whenComplete((ignored, error) -> removeEntry(connectionId, entry));
-        return closeFuture;
+        entry.transition = transition;
+        entry.connection.close().whenComplete((ignored, error) -> {
+            removeEntry(connectionId, entry);
+            transition.complete(null);
+        });
+        return transition;
     }
 
     private void onTransportLost(Connection connection) {
@@ -345,13 +356,11 @@ public final class ConnectionPool {
 
     private Connection findOpenByHardwareAddress(String hardwareAddress) {
         synchronized (lock) {
-            for (Entry entry : entries.values()) {
-                if (isOpenAt(entry, hardwareAddress)) {
-                    return entry.connection;
-                }
-            }
-
-            return null;
+            return entries.values().stream()
+                    .filter(entry -> isOpenAt(entry, hardwareAddress))
+                    .map(entry -> entry.connection)
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
