@@ -17,7 +17,8 @@ Làm sạch feature `src/features/printer` (TS) ở hai việc gắn liền nhau
    trong cùng một ngữ cảnh.
 2. **Model chỉ là dữ liệu** và hàm thuần suy ra từ dữ liệu (vd `deviceIdOf`). Không chứa nhãn UI, không import từ
    `languages/`, `connection/`, `printing/`.
-3. **Trạng thái vô nghĩa không biểu diễn được.** Dùng discriminated union theo `type` thay cho field tuỳ chọn dùng chung.
+3. **Trạng thái vô nghĩa không biểu diễn được.** Dùng discriminated union theo `type` thay cho field tuỳ chọn
+   dùng chung.
 4. **Ngôn ngữ in không biết kết nối; tầng kết nối không biết ngôn ngữ.** Chỗ ghép hai thứ là `printing/` và
    `detection/`.
 5. **Hành vi giữ nguyên** trừ những điểm ghi rõ ở §11.
