@@ -49,7 +49,6 @@ export const createResourceLock = () => {
       // Mỗi task đã chuyển lỗi về promise ngoài nên nhánh này chỉ chạy khi chính hàng đợi hỏng.
       processQueue(key).catch((error: unknown) => {
         LoggerService.error('PrinterConnectionLock.processQueue', {
-          key,
           error: error instanceof Error ? error.message : String(error),
         });
       });
