@@ -66,5 +66,7 @@ const encodeRaster = (printer: Printer, documents: PrintDocuments): Uint8Array =
 /** Ngôn ngữ ESC/POS: máy hoá đơn không có lệnh dò nên không có `identifyProbe`. */
 export const EscPosLanguage: IPrintLanguage = {
   encode: (printer, documents) =>
-    printer.language.renderMode === RenderMode.Raster ? encodeRaster(printer, documents) : encodeCommand(printer, documents),
+    printer.language.renderMode === RenderMode.Raster
+      ? encodeRaster(printer, documents)
+      : encodeCommand(printer, documents),
 };

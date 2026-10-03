@@ -4,5 +4,15 @@ import { EscPosLanguage } from './escpos/EscPosLanguage';
 import { TsplLanguage } from './tspl/TsplLanguage';
 
 /** Ngôn ngữ in theo cấu hình của máy in. */
-export const getPrintLanguage = (type: PrintLanguage): IPrintLanguage =>
-  type === PrintLanguage.EscPos ? EscPosLanguage : TsplLanguage;
+export const getPrintLanguage = (type: PrintLanguage): IPrintLanguage => {
+  switch (type) {
+    case PrintLanguage.EscPos:
+      return EscPosLanguage;
+    case PrintLanguage.Tspl:
+      return TsplLanguage;
+    default: {
+      const unreachable: never = type;
+      return unreachable;
+    }
+  }
+};

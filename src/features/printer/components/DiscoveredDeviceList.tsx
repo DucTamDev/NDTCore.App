@@ -15,6 +15,9 @@ export interface DiscoveredDeviceListProps {
   /** `deviceIdOf` của kết nối đang chọn. */
   selectedConnectionKey?: string;
 
+  /** Mã quét native của thiết bị đang chọn. */
+  selectedScanId?: string;
+
   onSelect: (device: DiscoveredDevice) => void;
 }
 
@@ -25,6 +28,7 @@ const DISCOVERY_TIMEOUT_MS = 30000;
 export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
   connectionType,
   selectedConnectionKey,
+  selectedScanId,
   onSelect,
 }) => {
   const [loading, setLoading] = useState(true);
@@ -83,15 +87,20 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
       {!loading && !errorMessage && devices.length === 0 && <EmptyState message="Không tìm thấy thiết bị nào" />}
       {!loading &&
         !errorMessage &&
-        devices.map((discovered) => (
-          <List.Item
-            key={discovered.device.deviceId}
-            title={discovered.device.name}
-            onPress={() => onSelect(discovered)}
-            // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
-            right={() => (deviceIdOf(discovered.connection) === selectedConnectionKey ? <List.Icon icon="check" /> : null)}
-          />
-        ))}
+        devices.map((discovered) => {
+          const isSameScan = discovered.device.deviceId === selectedScanId;
+          const isSelected = isSameScan || deviceIdOf(discovered.connection) === selectedConnectionKey;
+
+          return (
+            <List.Item
+              key={discovered.device.deviceId}
+              title={discovered.device.name}
+              onPress={() => onSelect(discovered)}
+              // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
+              right={() => (isSelected ? <List.Icon icon="check" /> : null)}
+            />
+          );
+        })}
     </View>
   );
 };

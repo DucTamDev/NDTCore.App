@@ -16,6 +16,6 @@ export interface IPrintLanguage {
   /** Kiểm tra rồi encode; nội dung không in được (thiếu ảnh, ảnh quá cao…) ném `PrinterErrorException`. */
   encode(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Uint8Array;
 
-  /** Không có nghĩa là ngôn ngữ không có lệnh dò. */
+  /** Không có thì ngôn ngữ này không có lệnh dò. */
   identifyProbe?: IdentifyProbe;
 }

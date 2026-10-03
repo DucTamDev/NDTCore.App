@@ -303,6 +303,21 @@ describe('useAddPrinterFlow', () => {
     DeviceModule.discover.mockResolvedValueOnce([
       {
         type: 'usb',
+        deviceId: 'usb:/dev/bus/usb/001/003',
+        name: 'XP-420B',
+        address: {
+          type: 'usb',
+          vendorId: 11575,
+          productId: 33751,
+          serialNumber: 'OTHER',
+          devicePath: '/dev/bus/usb/001/003',
+        },
+        manufacturerName: null,
+        productName: null,
+        hasPermission: true,
+      },
+      {
+        type: 'usb',
         deviceId: 'usb:/dev/bus/usb/001/009',
         name: 'XP-420B',
         address: { type: 'usb', vendorId: 11575, productId: 33751, serialNumber: 'SN1', devicePath: '/dev/bus/usb/001/009' },
@@ -459,5 +474,6 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     expect(get().connectionSection.selectedConnectionKey).toBe(deviceIdOf(usbDevice.connection));
+    expect(get().connectionSection.selectedScanId).toBe(usbDevice.device.deviceId);
   });
 });

@@ -15,6 +15,7 @@ const IDENTIFY_TIMEOUT_MS = 1000;
 /** TSPL có lệnh dò là phép thử thật nên chạy trước; ESC/POS chỉ xác nhận yếu nên để cuối. */
 const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscPos];
 
+/** Giai đoạn của quá trình dò ngôn ngữ. */
 export const LanguageDetectionStage = {
   Connecting: 'Connecting',
   Identifying: 'Identifying',

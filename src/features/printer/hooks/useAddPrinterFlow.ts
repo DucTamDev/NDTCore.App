@@ -61,7 +61,7 @@ const resolveConnectLabel = (connectionState: ConnectionState): string => {
   return 'Kết nối';
 };
 
-/** Giá trị tạm để bản nháp đủ kiểu `Printer` trước khi dò xong ngôn ngữ; lúc dò mỗi ngôn ngữ thử tự ghi đè. */
+/** Giá trị tạm để bản nháp đủ kiểu `Printer` trước khi biết ngôn ngữ; kết nối và dò ngôn ngữ không đọc field này. */
 const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
 
 /**
@@ -287,6 +287,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       connectionType,
       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
       selectedConnectionKey: selectedDevice ? deviceIdOf(selectedDevice.connection) : undefined,
+      selectedScanId: selectedDevice?.device.deviceId,
       onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
       lanPort: lanForm.watch('lanPort'),

@@ -1,6 +1,7 @@
 import type { PrinterError } from '../../errors/PrinterError';
 import type { DiscoveredDevice } from './DiscoveredDevice';
 
+/** Loại cập nhật trong lúc tìm thiết bị. */
 export const DeviceDiscoveryEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
 
 export type DeviceDiscoveryEventType = (typeof DeviceDiscoveryEventType)[keyof typeof DeviceDiscoveryEventType];

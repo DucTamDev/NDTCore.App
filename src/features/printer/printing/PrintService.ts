@@ -33,7 +33,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
   /**
    * Target (paper + rasterSource) cần để render ảnh cho `kind` này, hoặc
    * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
-   * `renderMode: 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
+   * `renderMode: 'Raster'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
    * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
    * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */

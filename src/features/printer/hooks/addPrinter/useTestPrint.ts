@@ -27,8 +27,8 @@ export interface UseTestPrintInput {
 }
 
 /**
- * In thử trong luồng Thêm/Sửa máy in: dựng document mẫu theo `printer.type`
- * cố định, ở chế độ Bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
+ * In thử trong luồng Thêm/Sửa máy in: dựng document mẫu theo `kind`
+ * cố định, ở chế độ Raster thì chụp ảnh bill trước khi gửi, rồi gọi
  * `PrinterPrintService.testPrint`.
  */
 export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {

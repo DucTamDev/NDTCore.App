@@ -44,7 +44,7 @@ describe('printerSchema', () => {
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
-  it('accepts a language with no rasterSource at all (defaults to Image downstream)', () => {
+  it('accepts an ESC/POS language in Raster render mode', () => {
     const printer = makePrinter({ language: makeEscPosLanguage({ renderMode: RenderMode.Raster }) });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
@@ -79,7 +79,7 @@ describe('printerSchema', () => {
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
-  it('accepts connection.type Bluetooth với đúng field bluetooth (deviceId)', () => {
+  it('accepts connection.type Bluetooth với đúng field bluetooth (mac)', () => {
     const printer = makePrinter({ connection: { type: ConnectionType.Bluetooth, mac: '00:11:22:33:44:55' } });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });

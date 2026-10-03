@@ -51,7 +51,7 @@ PrinterConnectionLock
 ## 3. Interface
 
 Interface định nghĩa **contract** — dùng khi có ranh giới cần implement
-nhiều cách (native/library/vendor, mock cho test), không dùng cho object
+nhiều cách (native/vendor, mock cho test), không dùng cho object
 shape đơn thuần không có behavior thay thế được.
 
 ```ts
