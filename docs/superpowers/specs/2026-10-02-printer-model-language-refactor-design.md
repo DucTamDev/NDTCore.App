@@ -254,7 +254,7 @@ export interface Printer {
 ```
 
 `deviceIdOf(connection: PrinterConnection): string` (đổi tên từ `resolveIdentityKey`, giữ nguyên định dạng:
-`usb:<vid>:<pid>[:<serial>]`, `bluetooth:<MAC viết hoa>`, `lan:<host>:<port>`) là nơi duy nhất tính `deviceId`.
+`usb:<vid>:<pid>[:<serial>]`, `bluetooth:mac:<MAC viết hoa>`, `lan:<host>:<port>`) là nơi duy nhất tính `deviceId`.
 `PrinterRepository` luôn tính lại khi lưu, không tin giá trị truyền vào.
 
 ### 5.3 `models/device/`

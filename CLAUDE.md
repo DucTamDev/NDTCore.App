@@ -74,27 +74,35 @@ Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `
 
 ### Printer Module (`src/features/printer/`)
 
-Xem [`src/features/printer/ARCHITECTURE.md`](src/features/printer/ARCHITECTURE.md) để hiểu chi tiết toàn bộ layer, flow (discovery, in thật, in thử), resource key/identity key, và các giới hạn đã biết. Tóm tắt nhanh:
+Xem [`src/features/printer/ARCHITECTURE.md`](src/features/printer/ARCHITECTURE.md) để hiểu chi tiết toàn bộ layer,
+flow (tìm thiết bị, dò ngôn ngữ, in thật, in thử), `deviceId` và khoá in. Tóm tắt nhanh:
 
-Kiến trúc theo hướng driver, UI **không bao giờ** gọi thẳng SDK/native module — luôn qua `PrinterService`:
+Ngôn ngữ in chỉ encode; kết nối là một tầng chung. UI **không bao giờ** gọi thẳng native module — luôn qua service:
 
 ```text
-UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrinterDriver impl → IPrinterAdapter → native / lib / vendor
+In:        PrintService → PrintRoutingService → PrintScheduler (khoá theo máy) → PrinterPrintService
+               → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter → DeviceModule
+Thêm máy:  DeviceDiscoveryService → LanguageDetectionService → createPrinterDraft → PrinterRepository
 ```
 
-- **`drivers/IPrinterDriver.ts`** — `IPrinterDriver`: `scan`, `connect`, `disconnect`, `getStatus`, `onStatusChange`, `testPrint`, `print`, `identify`. Mọi driver mới phải implement đủ interface này.
-- **`adapters/IPrinterAdapter.ts`** — contract chung cho MỌI cách feature giao tiếp ra ngoài: `listDevices` / `connect` / `write` / `printText` / `read` / `disconnect` + `toConnectTarget(printer)`. 1 instance = 1 kết nối. 3 impl:
-  - **`adapters/native/NativeAdapter`** — qua native module `DeviceModule` (`adapters/native/DeviceModule.ts`; code Java ở `android/app/src/main/java/com/ndtcorepos/` — `bridge/` là cầu nối React Native, `device/` là tầng thiết bị; chỉ-Android). Native chỉ nhận địa chỉ thiết bị và trả `connectionId`; đọc/ghi USB, Bluetooth, LAN; kết nối dùng chung qua `NativeConnectionPool`. Thiết kế: `docs/superpowers/specs/2026-10-01-native-printer-transport-design.md`.
-  - **`adapters/library/LibraryAdapter`** — qua `react-native-tcp-socket` (LAN) + `react-native-bluetooth-classic` (BT), bọc `LanTransport`/`BluetoothTransport`. `read()` đọc được → TSPL BLE/LAN cần adapter này cho `identify` `~!T`. Không USB.
-  - **`adapters/vendor/VendorAdapter`** — SKELETON cho SDK hãng, mọi I/O ném `PRINTER_UNSUPPORTED_CONNECTION`.
-  - **`adapters/resolvePrinterAdapter`** — ESC/POS → Native; TSPL/USB → Native; TSPL/BLE-LAN → Library.
-  - **`adapters/testing/MockPrinterAdapter`** — mock factory (chỉ test).
-- **`drivers/`** — `EscPosDriver` (ESC/POS, luôn `NativeAdapter`; `activeByType` giữ 1 owner/connectionType vì native là singleton per loại), `TsplDriver` (TSPL qua `resolvePrinterAdapter`; `connections: Map<printerId, IPrinterAdapter>`). Qua USB, `identify()` của **cả 2 driver** trả `null` (không đọc được phản hồi) — `discoverProtocol()` **không bao giờ tự xác nhận protocol qua USB**, bắt buộc chọn "Printer Language" thủ công. USB dùng chung 1 native connection → không kết nối 1 ESC/POS + 1 TSPL qua USB đồng thời.
-- **`services/DriverRegistry.ts`** — `Record<Protocol, IPrinterDriver>`, khởi tạo 1 lần.
-- **`services/PrinterService.ts`** — facade duy nhất UI được gọi. Tách biệt các thao tác trên máy in đã lưu (storage-backed: `connect`, `disconnect`, `getStatus`...) và thao tác trên draft chưa lưu (`connectDraft`, `disconnectForProtocol`, `getStatusForProtocol` — dùng trong lúc modal "Thêm máy in" đang chạy, trước khi có `printerId` trong storage).
-- **`services/discoverProtocol.ts`** — orchestration tự nhận diện protocol: thử lần lượt `CANDIDATE_ORDER` cố định (`['tspl', 'escpos']`) — `connect()` + `identify()` thật từng candidate → emit `DiscoveryEvent` (`connecting`/`identifying`/`identified`/`unknown_protocol`/`error`). Không còn rule table theo vendor/model — chỉ `identify()` thật từ driver mới xác nhận protocol.
+- **`models/`** — `printer/` (`Printer`, `PrinterConnection`, `deviceIdOf`, `PrinterLanguage`, `PrinterCapabilities`),
+  `device/` (`DeviceInfo`, `DiscoveredDevice` — chỉ lúc tìm thiết bị), `paper/` (`PaperOptions`), `printing/`.
+  Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
+- **`languages/`** — `IPrintLanguage` (`encode`, `identifyProbe?`), `EscPosLanguage`, `TsplLanguage`,
+  `getPrintLanguage`. Byte encode ghim bằng fixture `testing/encodeCases.ts`.
+- **`adapters/`** — `IPrinterAdapter` (1 instance = 1 kết nối: `listDevices`, `connect`, `write`, `read`, `onLost`,
+  `disconnect`). `NativeAdapter` cho cả USB/Bluetooth/LAN qua `DeviceModule` (Java ở
+  `android/app/src/main/java/com/ndtcorepos/` — `bridge/`, `device/`; chỉ Android), kết nối dùng chung qua
+  `NativeConnectionPool`. `VendorAdapter` là khung cho SDK hãng.
+- **`connection/`** — `createPrinterAdapter(.web)`, `PrinterConnectionService` (phiên theo `printerId` cho cả máy đã
+  lưu lẫn bản nháp; không giới hạn số máy cùng loại kết nối), `PrinterConnectionLock` (`lockKeyOf` = máy vật lý).
+- **`discovery/DeviceDiscoveryService`**, **`detection/LanguageDetectionService`** — tìm thiết bị; dò ngôn ngữ trên
+  một lần kết nối (TSPL bằng lệnh dò `~!T`, ESC/POS xác nhận yếu trừ USB — USB không bao giờ tự xác nhận ESC/POS).
+- **`management/createPrinterDraft`** — mặc định khi tạo máy mới; **`forms/addPrinter/printerRules`** —
+  `canPrintKind` (ESC/POS chỉ in hoá đơn).
 - **`components/AddPrinterModal.tsx`** — modal cuộn 1 màn hình (không phải wizard nhiều bước). Xem chi tiết state machine ở `docs/superpowers/specs/2026-08-01-printer-modal-single-screen-design.md`.
-- **`hooks/usePrinterConnection.ts`** — subscribe `PrinterService.onStatusChange` vào Redux, dùng trong danh sách máy in đã lưu.
+- **`hooks/usePrinterConnection.ts`** — subscribe `PrinterConnectionService.onStatusChange` vào Redux, dùng trong danh
+  sách máy in đã lưu.
 
 ---
 
@@ -102,10 +110,10 @@ UI component → PrinterService (facade) → DriverRegistry[protocol] → IPrint
 
 - Toàn bộ text hiển thị cho người dùng: **tiếng Việt**
 - TypeScript strict, không dùng `any`
-- UI component không bao giờ gọi native module/SDK máy in trực tiếp — luôn qua `PrinterService`
-- Trạng thái kết nối máy in là **event-driven** (`onStatusChange`/`DiscoveryEvent`) — không polling
+- UI component không bao giờ gọi native module/SDK máy in trực tiếp — luôn qua service của feature printer
+- Trạng thái kết nối máy in là **event-driven** (`onStatusChange`/`DeviceDiscoveryEvent`/`LanguageDetectionEvent`) — không polling
 - **Disable, không Hide** — component điều kiện theo trạng thái (chưa kết nối, đang xử lý...) dùng prop `disabled`, không unmount/remount (`{condition && <X/>}` là anti-pattern trong các form nhiều bước phụ thuộc trạng thái)
-- Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, drivers, schemas, reducers, transports) mới có `.test.ts`, đặt trong thư mục con `__tests__/` cùng cấp với file logic nó test (vd `services/__tests__/XService.test.ts`) — không nằm chung thư mục với file logic. Jest tự nhận diện `__tests__/` mặc định, không cần cấu hình thêm.
+- Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, languages, schemas, reducers) mới có `.test.ts`, đặt trong thư mục con `__tests__/` cùng cấp với file logic nó test (vd `services/__tests__/XService.test.ts`) — không nằm chung thư mục với file logic. Jest tự nhận diện `__tests__/` mặc định, không cần cấu hình thêm.
 - Không thêm feature/abstraction/error-handling vượt quá yêu cầu — xem `usePrinterConnection.ts` làm ví dụ: 1 hook, 1 trách nhiệm
 - **TypeScript/TSX** (`src/`): xem [`docs/CODING_STANDARDS_TS.md`](docs/CODING_STANDARDS_TS.md) — tóm tắt: guard clause/early return (tối đa 2 cấp nesting), 1 function/class = 1 trách nhiệm, tên biến/field thể hiện rõ ý định (không dùng `data`/`result`/`value`/`temp`), field chỉ comment khi tên+type chưa đủ rõ (comment mô tả mục đích/constraint/lifecycle, không mô tả lại kiểu dữ liệu), comment giải thích WHY chứ không lặp lại WHAT, không abstraction/function trung gian khi chưa có responsibility rõ ràng.
 - **Java native** (`android/app/src/main/java/com/ndtcorepos/`): xem [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) — tóm tắt: ưu tiên guard clause/early return hơn nesting (tối đa 2 cấp), không `else` sau `return`, tên biến/method thể hiện rõ ý định (không viết tắt tuỳ tiện), không nested method call làm giảm readability, blank line tách logical block, hằng số log dùng `LOG_SOURCE` (không dùng `TAG`), comment function dùng trực tiếp Android API ở cấp function (không rải theo từng dòng API call, và chỉ khi tên+code chưa đủ rõ).
