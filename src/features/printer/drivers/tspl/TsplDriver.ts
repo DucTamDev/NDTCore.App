@@ -3,14 +3,12 @@ import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintOptions } from '../../models/printing/PrintOptions';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
-import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
-import { TsplTextStrategy } from './strategies/TsplTextStrategy';
-import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
+import { TsplLanguage } from '../../languages/tspl/TsplLanguage';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
 import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
@@ -21,23 +19,6 @@ import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionSe
 import { PrinterLogger } from '../../logging/PrinterLogger';
 
 const IDENTIFY_TIMEOUT_MS = 1000;
-
-const resolveRows = (options?: PrintOptions): number => {
-  const n = Math.floor(options?.rows ?? 1);
-  return Number.isFinite(n) ? Math.max(1, n) : 1;
-};
-
-const encodeAsciiCommand = (text: string): Uint8Array => {
-  const bytes = new Uint8Array(text.length);
-  for (let i = 0; i < text.length; i += 1) {
-    // eslint-disable-next-line no-bitwise -- intentional single-byte masking
-    bytes[i] = text.charCodeAt(i) & 0xff;
-  }
-  return bytes;
-};
-
-const tsplBitmapStrategy = new TsplBitmapStrategy();
-const tsplTextStrategy = new TsplTextStrategy();
 
 export class TsplDriver implements IPrinterDriver {
   private connections = new Map<string, IPrinterAdapter>();
@@ -208,21 +189,6 @@ export class TsplDriver implements IPrinterDriver {
     return () => this.listeners.get(printerId)?.delete(callback);
   }
 
-  /** Chọn strategy theo renderMode — y hệt cách EscPosDriver.sendDocuments() rẽ nhánh. */
-  private buildBytes(printer: Printer, documents: PrintDocuments, rows: number): Uint8Array {
-    const strategy = printer.language.renderMode === RenderMode.Raster ? tsplBitmapStrategy : tsplTextStrategy;
-    const context: TsplStrategyContext = {
-      printer,
-      documents,
-      kind: printer.kind,
-      paper: printer.paper,
-      rows,
-    };
-
-    strategy.validate(context);
-    return strategy.encode(context);
-  }
-
   async testPrint(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
     const startedAt = Date.now();
 
@@ -232,9 +198,7 @@ export class TsplDriver implements IPrinterDriver {
       }
 
       const adapter = this.connections.get(printer.id);
-      const rows = resolveRows(options);
-      const bytes = this.buildBytes(printer, documents, rows);
-      await adapter?.write(bytes);
+      await adapter?.write(TsplLanguage.encode(printer, documents, options));
       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -253,9 +217,7 @@ export class TsplDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     try {
-      const rows = resolveRows(options);
-      const bytes = this.buildBytes(printer, documents, rows);
-      await adapter.write(bytes);
+      await adapter.write(TsplLanguage.encode(printer, documents, options));
       PrinterLogger.printSucceeded({ printerId, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
       PrinterLogger.printFailed({ printerId, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
@@ -266,15 +228,16 @@ export class TsplDriver implements IPrinterDriver {
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const adapter = this.connections.get(printerId);
 
-    if (!adapter || !adapter.canRead) {
+    const probe = TsplLanguage.identifyProbe;
+
+    if (!adapter || !adapter.canRead || !probe) {
       return null;
     }
 
     try {
-      const query = encodeAsciiCommand('~!T\r\n');
-      await adapter.write(query);
+      await adapter.write(probe.command);
       const response = await adapter.read(IDENTIFY_TIMEOUT_MS);
-      return response && response.length > 0 ? {} : null;
+      return response && probe.matches(response) ? {} : null;
     } catch {
       return null;
     }

@@ -11,7 +11,7 @@ import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
  * `documents.image` (base64 PNG) → monochrome 1-bit → lệnh `BITMAP` (§31-38).
  * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
  */
-export class TsplBitmapStrategy implements ITsplPrintStrategy {
+export class TsplRasterStrategy implements ITsplPrintStrategy {
   readonly mode = RenderMode.Raster;
 
   validate(context: TsplStrategyContext): void {

@@ -3,9 +3,8 @@ import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintOptions } from '../../models/printing/PrintOptions';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { CutterMode } from '../../models/paper/PaperOptions';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
@@ -16,16 +15,10 @@ import { LoggerService } from '../../../../services/LoggerService';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
 import { toConnectTarget } from '../../adapters/IPrinterAdapter';
-import { buildEscPosText } from './EscPosTextBuilder';
-import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
-import { resolveEffectiveCutterMode } from '../../paper/cutter';
-import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
-import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
-
-const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
+import { EscPosLanguage } from '../../languages/escpos/EscPosLanguage';
 
 /**
- * ESC/POS đi qua `NativeAdapter`; text được encode ở JS (`EPToolkit`) rồi ghi byte thô.
+ * ESC/POS đi qua `NativeAdapter`; byte do `EscPosLanguage` encode rồi ghi thô.
  * Mỗi loại kết nối chỉ giữ một máy in ESC/POS đang kết nối (`activeByType`); máy mất quyền thì trả kết nối ngay.
  */
 export class EscPosDriver implements IPrinterDriver {
@@ -197,44 +190,7 @@ export class EscPosDriver implements IPrinterDriver {
   }
 
   private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
-    if (printer.language.renderMode === RenderMode.Raster) {
-      await this.sendBitmap(adapter, printer, documents);
-      return;
-    }
-
-    const cut = resolveEffectiveCutterMode(printer.paper) !== CutterMode.None;
-    const text = buildEscPosText(printer.paper.paperSize, documents);
-    await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
-  }
-
-  /**
-   * ESC/POS paper luôn `Continuous` (schema cấm die-cut cho ESC/POS) — không
-   * cần lặp theo cột như TSPL die-cut, đơn giản hơn hẳn theo đúng lý do vật lý.
-   */
-  private async sendBitmap(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
-    if (!documents.image) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_REQUIRED, message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.' });
-    }
-
-    const targetWidthPx = PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx;
-
-    let bitmap;
-
-    try {
-      bitmap = decodePngBase64ToMonochrome(documents.image, targetWidthPx);
-    } catch (error) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_INVALID, message: 'Ảnh bill không hợp lệ (không giải mã được PNG).', cause: error });
-    }
-
-    const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
-
-    if (bitmap.heightPx > maxHeightPx) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_TOO_LARGE, message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.` });
-    }
-
-    const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
-    // Ghi byte bitmap đã encode; printText() chỉ dành cho text có tag định dạng.
-    await adapter.write(bytes);
+    await adapter.write(EscPosLanguage.encode(printer, documents));
   }
 
   /** `_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */

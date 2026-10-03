@@ -14,11 +14,11 @@ import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../..
  * riêng. Không tự wrap dòng dài (spec §6) — mirror mức đơn giản của
  * `buildEscPosText` (ESC/POS Encoder).
  */
-export class TsplTextStrategy implements ITsplPrintStrategy {
+export class TsplCommandStrategy implements ITsplPrintStrategy {
   readonly mode = RenderMode.Command;
 
   validate(_context: TsplStrategyContext): void {
-    // Không có precondition — không cần ảnh như TsplBitmapStrategy.
+    // Không có precondition — không cần ảnh như TsplRasterStrategy.
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
@@ -28,7 +28,7 @@ export class TsplTextStrategy implements ITsplPrintStrategy {
 
     // Die-cut nhiều cột (`columnOffsets` trả `[0]` cho giấy continuous, nên
     // vòng lặp ngoài là no-op với Receipt) — lặp lại TOÀN BỘ nội dung ở mỗi
-    // x-offset cột, giống `TsplBitmapStrategy.encode()` lặp `encoder.image()`
+    // x-offset cột, giống `TsplRasterStrategy.encode()` lặp `encoder.image()`
     // theo `columnOffsets`. Thiếu vòng lặp này thì Text mode chỉ in được cột
     // đầu trên tem die-cut nhiều cột, trong khi Bitmap mode in đủ mọi cột.
     for (const dx of columnOffsets(paper)) {

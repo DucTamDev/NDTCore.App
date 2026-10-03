@@ -17,7 +17,7 @@ const CUT_BYTES = [0x1b, 0x6d]; // khớp hành vi cắt ESC/POS text-mode hiệ
  * vật lý người dùng đã quen với text-mode hiện tại — chưa xác nhận trên
  * phần cứng thật, cùng mức độ chưa-verify như TSPL truetype/internalfont.
  */
-export const buildEscPosBitmapBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
+export const buildEscPosRasterBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
   const header = [
     0x1d, 0x76, 0x30, 0x00,
     // eslint-disable-next-line no-bitwise -- intentional low-byte/high-byte split for little-endian width field

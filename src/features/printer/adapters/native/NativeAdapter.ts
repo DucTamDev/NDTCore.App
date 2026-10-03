@@ -7,7 +7,7 @@ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterErr
 import { DeviceModule, type NativeDeviceAddress, type NativeDeviceInfo } from './DeviceModule';
 import { nativeConnectionPool, type NativeConnectionLease } from './NativeConnectionPool';
 import { toPrinterError } from './toPrinterError';
-import * as EPToolkit from './utils/EPToolkit';
+import * as EPToolkit from '../../languages/escpos/EPToolkit';
 
 /** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
 const WRITE_BASE_TIMEOUT_MS = 30_000;

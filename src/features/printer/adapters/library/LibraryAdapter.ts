@@ -5,7 +5,7 @@ import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { LanTransport } from '../../transports/LanTransport';
 import { BluetoothTransport } from '../../transports/BluetoothTransport';
-import * as EPToolkit from '../native/utils/EPToolkit';
+import * as EPToolkit from '../../languages/escpos/EPToolkit';
 
 /**
  * `IPrinterAdapter` chạy qua thư viện npm generic — `react-native-tcp-socket`

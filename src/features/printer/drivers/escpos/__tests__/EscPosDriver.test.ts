@@ -2,7 +2,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { EscPosDriver } from '../EscPosDriver';
-import { buildEscPosText } from '../EscPosTextBuilder';
+import { buildEscPosText } from '../../../languages/escpos/EscPosTextBuilder';
 import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import { RenderMode, PrintLanguage } from '../../../models/printer/PrinterLanguage';

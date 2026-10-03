@@ -1,4 +1,4 @@
-import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
+import { TsplRasterStrategy } from '../TsplRasterStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { RenderMode } from '../../../../models/printer/PrinterLanguage';
@@ -36,8 +36,8 @@ const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
   ...over,
 });
 
-describe('TsplBitmapStrategy', () => {
-  const s = new TsplBitmapStrategy();
+describe('TsplRasterStrategy', () => {
+  const s = new TsplRasterStrategy();
 
   it('mode === Bitmap', () => expect(s.mode).toBe(RenderMode.Raster));
 

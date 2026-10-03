@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { TsplTextStrategy } from '../TsplTextStrategy';
+import { TsplCommandStrategy } from '../TsplCommandStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
 import { RenderMode } from '../../../../models/printer/PrinterLanguage';
@@ -35,8 +35,8 @@ const ctx = (document: PrintDocument, over: Partial<TsplStrategyContext> = {}): 
 // dung có dấu như "Xin chào"/"Tổng").
 const asAscii = (bytes: Uint8Array): string => Buffer.from(bytes).toString('utf-8');
 
-describe('TsplTextStrategy', () => {
-  const s = new TsplTextStrategy();
+describe('TsplCommandStrategy', () => {
+  const s = new TsplCommandStrategy();
 
   it('mode === Encoder', () => expect(s.mode).toBe(RenderMode.Command));
 
@@ -106,7 +106,7 @@ describe('TsplTextStrategy', () => {
   });
 
   it('die_cut 3 cột → cùng nội dung text được lặp lại ở x = 0, pitch, 2*pitch', () => {
-    // pitch = (30 + 2) * 8 = 256, giống fixture die-cut của TsplBitmapStrategy.test.ts
+    // pitch = (30 + 2) * 8 = 256, giống fixture die-cut của TsplRasterStrategy.test.ts
     const ascii = asAscii(s.encode(ctx({ elements: [{ type: 'text', content: 'Xin chào', x: 0, y: 0 }] }, { paper: DIE_CUT })));
     expect(ascii).toContain('TEXT 0,0,"3",0,1,1,"Xin chào"');
     expect(ascii).toContain('TEXT 256,0,"3",0,1,1,"Xin chào"');

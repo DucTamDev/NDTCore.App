@@ -97,7 +97,7 @@ const bluetoothLabelPrinter: Printer = {
 const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', kind: PrintKind.Receipt };
 const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', kind: PrintKind.Receipt };
 
-/** renderMode Encoder — dùng cho test rẽ nhánh sang TsplTextStrategy (không cần documents.image). */
+/** renderMode Encoder — dùng cho test rẽ nhánh sang TsplCommandStrategy (không cần documents.image). */
 const lanEncoderPrinter: Printer = { ...lanLabelPrinter, id: 'label-encoder', language: makeTsplLanguage({ renderMode: RenderMode.Command }) };
 
 const sampleDocuments: PrintDocuments = {
@@ -257,7 +257,7 @@ describe('TsplDriver', () => {
     expect(ascii).toContain('PRINT 1,1');
   });
 
-  it('renderMode Encoder gọi TsplTextStrategy (TEXT command), không cần documents.image', async () => {
+  it('renderMode Encoder gọi TsplCommandStrategy (TEXT command), không cần documents.image', async () => {
     const driver = new TsplDriver();
     await driver.connect(lanEncoderPrinter);
     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
@@ -333,7 +333,7 @@ describe('TsplDriver', () => {
     // (384px, xem `decodePngBase64ToMonochrome`) bất kể kích thước gốc — ảnh
     // test rộng 2px bị scale lên 384px (widthBytes = ceil(384/8) = 48), cao
     // tương ứng theo tỉ lệ (1px * 384/2 = 192px). `documents.image` là base64
-    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplBitmapStrategy.
+    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplRasterStrategy.
     const header = 'BITMAP 0,0,48,192,0,';
     expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
   });
