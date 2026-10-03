@@ -7,12 +7,13 @@ import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceDiscoveryEventType } from '../models/device/DeviceDiscoveryEvent';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import type { ConnectionType } from '../models/printer/ConnectionType';
+import { deviceIdOf } from '../models/printer/deviceIdOf';
 
 export interface DiscoveredDeviceListProps {
   connectionType: ConnectionType;
 
-  /** `DeviceInfo.deviceId` của thiết bị đang chọn. */
-  selectedDeviceId?: string;
+  /** `deviceIdOf` của kết nối đang chọn. */
+  selectedConnectionKey?: string;
 
   onSelect: (device: DiscoveredDevice) => void;
 }
@@ -23,7 +24,7 @@ const DISCOVERY_TIMEOUT_MS = 30000;
 /** Danh sách thiết bị tìm thấy cho một loại kết nối; tự quét khi mở và khi bấm làm mới. */
 export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
   connectionType,
-  selectedDeviceId,
+  selectedConnectionKey,
   onSelect,
 }) => {
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,7 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
             title={discovered.device.name}
             onPress={() => onSelect(discovered)}
             // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
-            right={() => (selectedDeviceId === discovered.device.deviceId ? <List.Icon icon="check" /> : null)}
+            right={() => (deviceIdOf(discovered.connection) === selectedConnectionKey ? <List.Icon icon="check" /> : null)}
           />
         ))}
     </View>

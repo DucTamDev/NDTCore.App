@@ -24,6 +24,7 @@ import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useLanguageDetection } from './addPrinter/useLanguageDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
 import { useDriverConfig } from './addPrinter/useDriverConfig';
+import { deviceIdOf } from '../models/printer/deviceIdOf';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -285,7 +286,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionSection: {
       connectionType,
       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
-      selectedDeviceId: selectedDevice?.device.deviceId,
+      selectedConnectionKey: selectedDevice ? deviceIdOf(selectedDevice.connection) : undefined,
       onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
       lanPort: lanForm.watch('lanPort'),

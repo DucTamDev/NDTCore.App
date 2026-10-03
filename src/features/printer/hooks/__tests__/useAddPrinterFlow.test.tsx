@@ -11,6 +11,7 @@ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../.
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
+import { deviceIdOf } from '../../models/printer/deviceIdOf';
 import type { Printer } from '../../models/printer/Printer';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 
@@ -433,5 +434,30 @@ describe('useAddPrinterFlow', () => {
     act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
     expect(get().hasDieCutMediaError).toBe(true);
     expect(get().infoCard.saveDisabled).toBe(true);
+  });
+
+  it('edit mode USB printer có selectedConnectionKey bằng deviceIdOf kết nối đã lưu', () => {
+    const savedUsbPrinter: Printer = {
+      id: 'p3',
+      kind: PrintKind.Label,
+      name: 'Máy USB',
+      language: savedTspl.language,
+      paper: savedTspl.paper,
+      connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
+      deviceId: 'usb:11575:33751:SN1',
+      capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
+      autoReconnect: true,
+      enabled: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { get } = render({ visible: true, initialValues: savedUsbPrinter, onSaved: jest.fn(), kind: savedUsbPrinter.kind });
+    expect(get().connectionSection.selectedConnectionKey).toBe('usb:11575:33751:SN1');
+  });
+
+  it('sau onSelectDevice quét được thiết bị → selectedConnectionKey bằng deviceIdOf thiết bị đó', () => {
+    const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    expect(get().connectionSection.selectedConnectionKey).toBe(deviceIdOf(usbDevice.connection));
   });
 });

@@ -10,7 +10,7 @@ import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;
   onConnectionTypeChange: (value: ConnectionType) => void;
-  selectedDeviceId?: string;
+  selectedConnectionKey?: string;
   onSelectDevice: (device: DiscoveredDevice) => void;
   lanIp: string;
   lanPort: string;
@@ -32,7 +32,7 @@ export interface ConnectionSectionProps {
 export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectionType,
   onConnectionTypeChange,
-  selectedDeviceId,
+  selectedConnectionKey,
   onSelectDevice,
   lanIp,
   lanPort,
@@ -79,7 +79,7 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
     ) : (
       <DiscoveredDeviceList
         connectionType={connectionType}
-        selectedDeviceId={selectedDeviceId}
+        selectedConnectionKey={selectedConnectionKey}
         onSelect={disabled ? () => undefined : onSelectDevice}
       />
     )}
