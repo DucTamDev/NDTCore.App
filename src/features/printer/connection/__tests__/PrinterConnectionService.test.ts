@@ -1,4 +1,5 @@
 import { createPrinterConnectionService } from '../PrinterConnectionService';
+import { createResourceLock, lockKeyOf } from '../PrinterConnectionLock';
 import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { PrinterLogger } from '../../logging/PrinterLogger';
@@ -50,9 +51,10 @@ const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
     return next;
   });
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
-  const service = createPrinterConnectionService({ createAdapter, ensureBluetoothPermission, repository });
+  const lock = createResourceLock();
+  const service = createPrinterConnectionService({ createAdapter, ensureBluetoothPermission, repository, lock });
 
-  return { service, repository, createAdapter, ensureBluetoothPermission };
+  return { service, repository, lock, createAdapter, ensureBluetoothPermission };
 };
 
 /** Ghi lại mọi trạng thái của một máy in kể từ lúc gọi. */
@@ -191,6 +193,41 @@ describe('PrinterConnectionService', () => {
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
       code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
     });
+  });
+
+  it('ngắt kết nối chờ lệnh đang giữ khoá của máy xong mới trả adapter', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, lock } = setup([adapter]);
+    await service.connect(basePrinter);
+    let release: () => void = () => undefined;
+    const held = lock.runExclusive(
+      lockKeyOf(basePrinter),
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+
+    const disconnecting = service.disconnect(basePrinter.id);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(adapter.disconnect).not.toHaveBeenCalled();
+
+    release();
+    await held;
+    await disconnecting;
+
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('kết nối không bị khoá giữ chặn (print kết nối bên trong khoá)', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const { service, lock } = setup([first, second]);
+    await service.connect(basePrinter);
+
+    await lock.runExclusive(lockKeyOf(basePrinter), () => service.connect(basePrinter));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
   });
 
   it('ngắt máy chưa kết nối chỉ đặt Disconnected', async () => {

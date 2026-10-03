@@ -7,6 +7,7 @@ import { PrinterLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 import { createPrinterAdapter } from './createPrinterAdapter';
+import { PrinterConnectionLock, lockKeyOf, type createResourceLock } from './PrinterConnectionLock';
 
 type StatusListener = (status: PrinterStatus) => void;
 
@@ -20,11 +21,17 @@ export interface PrinterConnectionServiceDeps {
 
   /** Nguồn máy in đã lưu cho `reconnect` và tự kết nối lại. */
   repository: Pick<ReturnType<typeof createPrinterRepository>, 'findOrThrow' | 'getPrinters'>;
+
+  /** Khoá dùng chung với tầng in. */
+  lock: ReturnType<typeof createResourceLock>;
 }
 
 /** Kết nối đang mở của một máy in. */
 interface ConnectionSession {
   adapter: IPrinterAdapter;
+
+  /** Khoá của máy vật lý mà phiên này đang giữ. */
+  lockKey: string;
 
   /** Huỷ lắng nghe mất kết nối của `adapter`. */
   stopWatchingLost: Unsubscribe;
@@ -75,7 +82,9 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
   };
 
   /** Chỉ phiên còn hiệu lực mới được đổi trạng thái; adapter đã bị thay thì bỏ qua. */
-  const openSession = async (printerId: string, adapter: IPrinterAdapter): Promise<void> => {
+  const openSession = async (printer: Printer, adapter: IPrinterAdapter): Promise<void> => {
+    const printerId = printer.id;
+    const lockKey = lockKeyOf(printer);
     const previous = sessions.get(printerId);
     const stopWatchingLost = adapter.onLost(() => {
       if (sessions.get(printerId)?.adapter === adapter) {
@@ -83,11 +92,20 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
       }
     });
 
-    sessions.set(printerId, { adapter, stopWatchingLost });
+    sessions.set(printerId, { adapter, lockKey, stopWatchingLost });
 
-    if (previous) {
-      await closeQuietly(printerId, previous);
+    if (!previous) {
+      return;
     }
+
+    // Cùng khoá thì người gọi đã giữ khoá (in) hoặc không có lệnh in nào dùng adapter cũ; khoá không tái nhập nên
+    // chờ lại sẽ tự kẹt.
+    if (previous.lockKey === lockKey) {
+      await closeQuietly(printerId, previous);
+      return;
+    }
+
+    await deps.lock.runExclusive(previous.lockKey, () => closeQuietly(printerId, previous));
   };
 
   const requireAdapter = (printerId: string): IPrinterAdapter => {
@@ -110,7 +128,7 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
       await ensurePermission(connectionType);
       const adapter = deps.createAdapter();
       await adapter.connect(printer.connection);
-      await openSession(printer.id, adapter);
+      await openSession(printer, adapter);
       setStatus(printer.id, PrinterStatus.Connected);
       PrinterLogger.connectSucceeded({ printerId: printer.id, connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
@@ -125,6 +143,10 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
     }
   };
 
+  /**
+   * Chờ lệnh in đang chạy trên cùng máy xong rồi mới trả kết nối. Chỉ ngắt mới khoá: `connect` được `print` gọi
+   * bên trong khoá của hàng đợi in và khoá không tái nhập nên khoá ở đó sẽ tự kẹt.
+   */
   const disconnect = async (printerId: string): Promise<void> => {
     const session = sessions.get(printerId);
 
@@ -133,20 +155,22 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
       return;
     }
 
-    setStatus(printerId, PrinterStatus.Disconnecting);
-    sessions.delete(printerId);
-    session.stopWatchingLost();
+    await deps.lock.runExclusive(session.lockKey, async () => {
+      setStatus(printerId, PrinterStatus.Disconnecting);
+      sessions.delete(printerId);
+      session.stopWatchingLost();
 
-    try {
-      await session.adapter.disconnect();
-    } catch (error) {
-      setStatus(printerId, PrinterStatus.Error);
-      PrinterLogger.disconnectFailed({ printerId, errorCode: errorCodeOf(error) });
-      throw error;
-    }
+      try {
+        await session.adapter.disconnect();
+      } catch (error) {
+        setStatus(printerId, PrinterStatus.Error);
+        PrinterLogger.disconnectFailed({ printerId, errorCode: errorCodeOf(error) });
+        throw error;
+      }
 
-    setStatus(printerId, PrinterStatus.Disconnected);
-    PrinterLogger.disconnectSucceeded({ printerId });
+      setStatus(printerId, PrinterStatus.Disconnected);
+      PrinterLogger.disconnectSucceeded({ printerId });
+    });
   };
 
   const send = async (printerId: string, bytes: Uint8Array): Promise<void> => requireAdapter(printerId).write(bytes);
@@ -187,4 +211,5 @@ export const PrinterConnectionService = createPrinterConnectionService({
   createAdapter: createPrinterAdapter,
   ensureBluetoothPermission,
   repository: PrinterRepository,
+  lock: PrinterConnectionLock,
 });
