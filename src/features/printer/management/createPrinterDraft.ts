@@ -2,10 +2,8 @@ import { generateId } from '../../../utils/id';
 import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import type { ContinuousPaper } from '../models/paper/PaperOptions';
 import { deviceIdOf } from '../models/printer/deviceIdOf';
-import type { PrintKind } from '../models/printer/PrintKind';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterCapabilities } from '../models/printer/PrinterCapabilities';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
 import type { LanguageSelection, PrinterLanguage } from '../models/printer/PrinterLanguage';
 
@@ -42,20 +40,13 @@ export const createPrinterLanguage = (type: PrintLanguage, selection: LanguageSe
 /** Khả năng mặc định theo ngôn ngữ. */
 export const defaultCapabilitiesOf = (type: PrintLanguage): PrinterCapabilities => ({ ...DEFAULT_CAPABILITIES[type] });
 
-/** Thông tin cần để dựng một máy in mới. */
-export interface PrinterDraftInput {
-  /** Thiếu thì sinh mới. */
-  id?: string;
-
-  kind: PrintKind;
-
-  connection: PrinterConnection;
-
-  language: PrinterLanguage;
-}
-
-/** Máy in mới với mọi giá trị mặc định; nơi gọi ghi đè các field người dùng đã chỉnh. */
-export const createPrinterDraft = ({ id, kind, connection, language }: PrinterDraftInput): Printer => {
+/** Máy in mới với mọi giá trị mặc định (thiếu `id` thì sinh mới); nơi gọi ghi đè các field người dùng đã chỉnh. */
+export const createPrinterDraft = ({
+  id,
+  kind,
+  connection,
+  language,
+}: Pick<Printer, 'kind' | 'connection' | 'language'> & Partial<Pick<Printer, 'id'>>): Printer => {
   const now = new Date().toISOString();
 
   return {
