@@ -96,24 +96,24 @@ src/features/printer/
 │
 ├── models/
 │   ├── device/          DeviceInfo, DiscoveredDevice, DeviceDiscoveryEvent — dùng lúc tìm thiết bị, không lưu
-│   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection, deviceIdOf,
+│   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
-│   ├── paper/           PaperOptions, paperSpec (thông số theo khổ giấy), cutter (cách cắt thực tế)
+│   ├── paper/           PaperOptions (+ resolveEffectiveCutterMode), paperSpec (thông số theo khổ giấy)
 │   └── printing/        PrintDocument, PrintDocuments, PrintOptions, PrintJob
 │
 ├── languages/
+│   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
 │   ├── IPrintLanguage.ts
-│   ├── getPrintLanguage.ts
 │   ├── escpos/          EscPosLanguage, EscPosTextBuilder, EscPosRasterEncoder, EPToolkit
 │   └── tspl/            TsplLanguage, TsplEncoder, TsplCommandEncoder, TsplRasterEncoder
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
-│   ├── native/          NativeAdapter, DeviceModule, NativeConnectionPool, toPrinterError
+│   ├── native/          NativeAdapter (+ toPrinterError), DeviceModule, NativeConnectionPool
 │   └── vendor/          VendorAdapter (khung)
 │
 ├── connection/
-│   ├── createPrinterAdapter.ts / .web.ts
+│   ├── PrinterAdapterFactory.ts / .web.ts   createPrinterAdapter theo nền tảng
 │   ├── PrinterConnectionService.ts
 │   └── PrinterConnectionLock.ts
 │
@@ -129,7 +129,7 @@ src/features/printer/
 │
 ├── components/
 ├── hooks/
-├── forms/               schema, PaperDraft + paperValidation, printerRules (canPrintKind)
+├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
 ├── store/
 ├── utils/
 │
@@ -258,7 +258,7 @@ export interface PrinterLanguage {
 }
 ```
 
-Giá trị mặc định khi tạo máy mới nằm ở `management/createPrinterDraft.ts` (`createPrinterLanguage`,
+Giá trị mặc định khi tạo máy mới nằm ở `management/PrinterDefaults.ts` (`createPrinterLanguage`,
 `createPrinterDraft`):
 
 | Field          | ESC/POS   | TSPL     |
@@ -349,7 +349,8 @@ rowWidth = columns × itemWidthMm + (columns - 1) × horizontalGapMm
 rowWidth > printableWidth → cấu hình không hợp lệ
 ```
 
-Rule nằm ở `forms/addPrinter/paperValidation.ts`; schema gắn `superRefine` lên union.
+Rule nằm ở `forms/addPrinter/PaperDraft.ts` (`dieCutMediaError`, `dieCutRowOverflow`); schema gắn `superRefine` lên
+union.
 
 ---
 
@@ -357,16 +358,16 @@ Rule nằm ở `forms/addPrinter/paperValidation.ts`; schema gắn `superRefine`
 
 ```text
 models/paper/
-├── PaperOptions.ts     ContinuousPaper | DieCutPaper, PaperSize, CutterMode
-├── paperSpec.ts        thông số theo khổ: vùng in, ký tự/dòng, bề rộng ảnh, trần chiều cao giấy cuộn
-└── cutter.ts           cách cắt thực tế (DieCut → None, Continuous → paper.cutterMode)
+├── PaperOptions.ts     ContinuousPaper | DieCutPaper, PaperSize, CutterMode,
+│                       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
+└── paperSpec.ts        thông số theo khổ: vùng in, ký tự/dòng, bề rộng ảnh, trần chiều cao giấy cuộn
 
 forms/addPrinter/
-├── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions
-└── paperValidation.ts  thiếu kích thước tem, hàng tem tràn khổ — nhận PaperDraft
+└── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions,
+                        dieCutMediaError / dieCutRowOverflow (thiếu kích thước tem, hàng tem tràn khổ)
 ```
 
-`paperSpec` và `cutter` là dữ liệu và hàm thuần của giấy nên nằm trong model. Validation nhận bản nháp nên nằm cạnh
+`paperSpec` và cách cắt là dữ liệu và hàm thuần của giấy nên nằm trong model. Validation nhận bản nháp nên nằm cạnh
 form; schema và repository gọi lại cùng hàm, không phân tán vào nhiều layer.
 
 ---
@@ -450,7 +451,7 @@ interface IPrinterAdapter {
   `NativeConnectionPool`: hai `Printer` cùng một thiết bị chỉ mở một kết nối native, đóng khi printer cuối cùng ngắt.
   `onLost` nghe `DeviceDisconnected` và so `connectionId` của kết nối đang giữ.
 * `VendorAdapter` là khung cho SDK hãng, chưa tích hợp.
-* `connection/createPrinterAdapter.ts` trả `NativeAdapter`; `createPrinterAdapter.web.ts` trả adapter báo
+* `createPrinterAdapter` (`connection/PrinterAdapterFactory.ts`) trả `NativeAdapter`; bản `.web.ts` trả adapter báo
   `PRINTER_UNSUPPORTED_CONNECTION`.
 
 Không đưa business rule vào adapter.
@@ -673,7 +674,7 @@ boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService
 
 * `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setRenderMode`, `setRasterSource`,
   `setPaper`).
-* `management/createPrinterDraft.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
+* `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
   giá trị mặc định (giấy cuộn 80mm cắt cuối job, render mode và capabilities theo ngôn ngữ, `autoReconnect` bật).
   Mọi nơi tạo máy in dùng hàm này.
 * `forms/addPrinter/printerRules.ts`: `canPrintKind`.
@@ -729,7 +730,7 @@ Không log binary payload, MAC/IP hay nội dung hoá đơn.
 `errors/PrinterError.ts` — printer errors có stable error code (`PrinterErrorCode`), vd `PRINTER_NOT_CONNECTED`,
 `PRINTER_CONNECTION_FAILED`, `PRINTER_WRITE_FAILED`, `PRINTER_UNSUPPORTED_CONNECTION`, `IMAGE_REQUIRED`,
 `IMAGE_TOO_LARGE`, `TSPL_ELEMENT_UNSUPPORTED`. Native error được đổi sang `PrinterErrorException` ở
-`adapters/native/toPrinterError.ts`.
+`toPrinterError` (`adapters/native/NativeAdapter.ts`).
 
 Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable
 identifier.
@@ -1008,7 +1009,7 @@ không nên nhét toàn bộ rule vào comments.
 Rule phải nằm trong:
 
 ```text
-forms/addPrinter/paperValidation.ts
+forms/addPrinter/PaperDraft.ts
 ```
 
 ---
@@ -1321,7 +1322,7 @@ LanguageDetectionService → kết nối một lần, lệnh dò, xác nhận y�
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoveredDevice
 PrintScheduler           → ordering, khoá theo máy vật lý
 PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print
-paperValidation          → paper rule tests
+PaperDraft               → paper rule tests
 ```
 
 `printing/__tests__/encodeCases.test.ts` chạy trọn đường in thử (service thật + `DeviceModule` mock) và so dấu vân tay

@@ -4,10 +4,10 @@ import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../model
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorCode, errorCodeOf, type PrinterError } from '../errors/PrinterError';
 import { PrinterLogger } from '../logging/PrinterLogger';
-import { getPrintLanguage } from '../languages/getPrintLanguage';
+import { getPrintLanguage } from '../languages';
 import { PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { canPrintKind } from '../forms/addPrinter/printerRules';
-import { createPrinterLanguage } from '../management/createPrinterDraft';
+import { createPrinterLanguage } from '../management/PrinterDefaults';
 
 /** Máy TSPL trả lời lệnh dò trong vài trăm mili giây; quá hạn coi như không phải ngôn ngữ đó. */
 const IDENTIFY_TIMEOUT_MS = 1000;

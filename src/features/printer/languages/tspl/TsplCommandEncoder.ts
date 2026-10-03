@@ -1,7 +1,7 @@
 import type { Printer } from '../../models/printer/Printer';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintElement } from '../../models/printing/PrintDocument';
-import { resolveEffectiveCutterMode } from '../../models/paper/cutter';
+import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { formatRow } from '../../utils/formatRow';
 import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../../rendering/printLayoutConstants';

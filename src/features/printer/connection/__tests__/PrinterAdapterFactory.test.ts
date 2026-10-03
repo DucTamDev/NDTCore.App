@@ -1,5 +1,5 @@
-import { createPrinterAdapter } from '../createPrinterAdapter';
-import { createPrinterAdapter as createWebPrinterAdapter } from '../createPrinterAdapter.web';
+import { createPrinterAdapter } from '../PrinterAdapterFactory';
+import { createPrinterAdapter as createWebPrinterAdapter } from '../PrinterAdapterFactory.web';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrinterErrorCode } from '../../errors/PrinterError';

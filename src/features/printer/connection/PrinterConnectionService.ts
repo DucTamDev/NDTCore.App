@@ -6,7 +6,7 @@ import { PrinterErrorCode, PrinterErrorException, errorCodeOf } from '../errors/
 import { PrinterLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
-import { createPrinterAdapter } from './createPrinterAdapter';
+import { createPrinterAdapter } from './PrinterAdapterFactory';
 import { PrinterConnectionLock, lockKeyOf, type createResourceLock } from './PrinterConnectionLock';
 
 type StatusListener = (status: PrinterStatus) => void;

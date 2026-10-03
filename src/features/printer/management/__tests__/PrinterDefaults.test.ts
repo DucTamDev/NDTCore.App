@@ -1,4 +1,4 @@
-import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../createPrinterDraft';
+import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../PrinterDefaults';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';

@@ -1,4 +1,4 @@
-import { deviceIdOf } from '../models/printer/deviceIdOf';
+import { deviceIdOf } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';
 import { LoggerService } from '../../../services/LoggerService';
 

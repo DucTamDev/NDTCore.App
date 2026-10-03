@@ -15,15 +15,14 @@ import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLangu
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
-import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
-import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
+import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/PrinterDefaults';
+import { toPaperOptions, type PaperDraft, dieCutMediaError } from '../forms/addPrinter/PaperDraft';
 import type { Printer } from '../models/printer/Printer';
-import { dieCutMediaError } from '../forms/addPrinter/paperValidation';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useLanguageDetection } from './addPrinter/useLanguageDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
-import { deviceIdOf } from '../models/printer/deviceIdOf';
+import { deviceIdOf } from '../models/printer/PrinterConnection';
 import { usePrintSettings } from './addPrinter/usePrintSettings';
 
 export interface UseAddPrinterFlowInput {

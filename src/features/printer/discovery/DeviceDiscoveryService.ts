@@ -5,7 +5,7 @@ import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/d
 import { PrinterErrorCode, PrinterErrorException } from '../errors/PrinterError';
 import { PrinterLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
-import { createPrinterAdapter } from '../connection/createPrinterAdapter';
+import { createPrinterAdapter } from '../connection/PrinterAdapterFactory';
 import { LoggerService } from '../../../services/LoggerService';
 
 /** Phụ thuộc của service, tách ra để test thay được. */

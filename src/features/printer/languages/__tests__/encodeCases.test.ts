@@ -1,4 +1,4 @@
-import { getPrintLanguage } from '../getPrintLanguage';
+import { getPrintLanguage } from '..';
 import { ENCODE_CASES, fingerprintOf } from '../../testing/encodeCases';
 
 describe('byte ngôn ngữ in sinh ra', () => {

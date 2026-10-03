@@ -4,7 +4,7 @@ import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
 import { errorCodeOf } from '../errors/PrinterError';
 import { PrinterLogger } from '../logging/PrinterLogger';
-import { getPrintLanguage } from '../languages/getPrintLanguage';
+import { getPrintLanguage } from '../languages';
 import { PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { PrinterConnectionLock, lockKeyOf, type createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';

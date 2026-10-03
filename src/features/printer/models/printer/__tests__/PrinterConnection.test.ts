@@ -1,4 +1,4 @@
-import { deviceIdOf } from '../deviceIdOf';
+import { deviceIdOf } from '../PrinterConnection';
 import { ConnectionType } from '../ConnectionType';
 
 describe('deviceIdOf', () => {

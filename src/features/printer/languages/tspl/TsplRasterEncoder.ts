@@ -1,7 +1,6 @@
 import type { Printer } from '../../models/printer/Printer';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
-import { PaperType, type PaperOptions } from '../../models/paper/PaperOptions';
-import { resolveEffectiveCutterMode } from '../../models/paper/cutter';
+import { PaperType, type PaperOptions, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';

@@ -3,7 +3,7 @@ import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { dieCutRowOverflow } from './paperValidation';
+import { dieCutRowOverflow } from './PaperDraft';
 import { canPrintKind } from './printerRules';
 
 const paperSizeSchema = z.union([

@@ -10,8 +10,7 @@ import type { Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { EscPosLanguage } from '../../languages/escpos/EscPosLanguage';
-import { TsplLanguage } from '../../languages/tspl/TsplLanguage';
+import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({

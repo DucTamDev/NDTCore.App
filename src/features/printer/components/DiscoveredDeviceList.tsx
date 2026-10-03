@@ -7,7 +7,7 @@ import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceDiscoveryEventType } from '../models/device/DeviceDiscoveryEvent';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import type { ConnectionType } from '../models/printer/ConnectionType';
-import { deviceIdOf } from '../models/printer/deviceIdOf';
+import { deviceIdOf } from '../models/printer/PrinterConnection';
 
 export interface DiscoveredDeviceListProps {
   connectionType: ConnectionType;

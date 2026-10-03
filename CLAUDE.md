@@ -94,12 +94,12 @@ Thêm máy:  DeviceDiscoveryService → LanguageDetectionService → createPrint
   `disconnect`). `NativeAdapter` cho cả USB/Bluetooth/LAN qua `DeviceModule` (Java ở
   `android/app/src/main/java/com/ndtcorepos/` — `bridge/`, `device/`; chỉ Android), kết nối dùng chung qua
   `NativeConnectionPool`. `VendorAdapter` là khung cho SDK hãng.
-- **`connection/`** — `createPrinterAdapter(.web)`, `PrinterConnectionService` (phiên theo `printerId` cho cả máy đã
+- **`connection/`** — `PrinterAdapterFactory(.web)`, `PrinterConnectionService` (phiên theo `printerId` cho cả máy đã
   lưu lẫn bản nháp; không giới hạn số máy cùng loại kết nối), `PrinterConnectionLock` (`lockKeyOf` = máy vật lý).
 - **`discovery/DeviceDiscoveryService`**, **`detection/LanguageDetectionService`** — tìm thiết bị; dò ngôn ngữ trên
   một lần kết nối (TSPL bằng lệnh dò `~!T`, ESC/POS xác nhận yếu trừ USB — USB không bao giờ tự xác nhận ESC/POS).
-- **`management/createPrinterDraft`** — mặc định khi tạo máy mới; **`forms/addPrinter/printerRules`** —
-  `canPrintKind` (ESC/POS chỉ in hoá đơn).
+- **`management/PrinterDefaults`** — mặc định khi tạo máy mới (`createPrinterDraft`);
+  **`forms/addPrinter/printerRules`** — `canPrintKind` (ESC/POS chỉ in hoá đơn).
 - **`components/AddPrinterModal.tsx`** — modal cuộn 1 màn hình (không phải wizard nhiều bước). Xem chi tiết state machine ở `docs/superpowers/specs/2026-08-01-printer-modal-single-screen-design.md`.
 - **`hooks/usePrinterConnection.ts`** — subscribe `PrinterConnectionService.onStatusChange` vào Redux, dùng trong danh
   sách máy in đã lưu.

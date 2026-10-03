@@ -11,7 +11,7 @@ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../.
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { deviceIdOf } from '../../models/printer/deviceIdOf';
+import { deviceIdOf } from '../../models/printer/PrinterConnection';
 import type { Printer } from '../../models/printer/Printer';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 

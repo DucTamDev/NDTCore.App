@@ -1,9 +1,8 @@
-import { CutterMode } from '../../models/paper/PaperOptions';
+import { CutterMode, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import type { Printer } from '../../models/printer/Printer';
 import { RenderMode } from '../../models/printer/PrinterLanguage';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PrinterErrorCode, PrinterErrorException } from '../../errors/PrinterError';
-import { resolveEffectiveCutterMode } from '../../models/paper/cutter';
 import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';

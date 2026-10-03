@@ -6,7 +6,7 @@ import {
   type LanguageDetectionEvent,
 } from '../../detection/LanguageDetectionService';
 import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
-import { createPrinterLanguage } from '../../management/createPrinterDraft';
+import { createPrinterLanguage } from '../../management/PrinterDefaults';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
