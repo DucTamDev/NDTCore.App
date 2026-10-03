@@ -1,7 +1,7 @@
 import { PrinterErrorException, PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
 import { PrinterPrintService } from './PrinterPrintService';
 import { PrinterRepository } from '../storage/PrinterRepository';
-import { PrinterConnectionLock, connectionResourceKey, type createResourceLock } from '../connection/PrinterConnectionLock';
+import { PrinterConnectionLock, lockKeyOf, type createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrintJobStatus, type PrintJob } from '../models/printing/PrintJob';
 
 type PrintDispatchDeps = { print: typeof PrinterPrintService.print; getPrinters: typeof PrinterRepository.getPrinters };
@@ -14,26 +14,15 @@ export const createPrintScheduler = (
   const toPrinterError = (error: unknown): PrinterError =>
     error instanceof PrinterErrorException ? { code: error.code, message: error.message } : { code: PrinterErrorCode.UNKNOWN_ERROR, message: String(error) };
 
-  /**
-   * Tra printer sẽ xử lý `job.printerId`, rồi tính resource key theo đúng
-   * đặc thù driver của printer đó (spec §9, xem `connectionResourceKey`) —
-   * mỗi `Printer` giờ chỉ có đúng 1 driver nên không cần tìm driver nào khớp
-   * `kind` nữa. Rơi về `job.printerId` nếu không tìm thấy cấu hình
-   * (không nên xảy ra trong thực tế).
-   */
-  const resourceKeyFor = (job: PrintJob): string => {
-    const printer = printerService.getPrinters().find((p) => p.id === job.printerId);
-
-    if (!printer) {
-      return job.printerId;
-    }
-
-    return connectionResourceKey({ driverType: printer.language.type, connection: printer.connection });
+  /** Máy in không còn trong danh sách thì khoá theo `printerId` để các job của nó vẫn chạy lần lượt. */
+  const lockKeyFor = (job: PrintJob): string => {
+    const printer = printerService.getPrinters().find((candidate) => candidate.id === job.printerId);
+    return printer ? lockKeyOf(printer) : job.printerId;
   };
 
   const enqueue = (job: PrintJob): Promise<PrintJob> =>
     lock
-      .runExclusive(resourceKeyFor(job), async () => {
+      .runExclusive(lockKeyFor(job), async () => {
         job.status = PrintJobStatus.Printing;
         job.startedAt = new Date().toISOString();
         try {

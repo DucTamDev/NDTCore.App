@@ -213,8 +213,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       return undefined;
     }
 
-    setLiveStatus(PrinterConnectionService.getStatusForDriver(language.type, printerId));
-    return PrinterConnectionService.onStatusChangeForDriver(language.type, printerId, setLiveStatus);
+    setLiveStatus(PrinterConnectionService.getStatus(printerId));
+    return PrinterConnectionService.onStatusChange(printerId, setLiveStatus);
   }, [language, printerId]);
 
   useEffect(() => {
@@ -223,7 +223,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       discoveryUnsubscribeRef.current = null;
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        PrinterConnectionService.disconnectForDriver(current.language.type, printerId).catch(() => undefined);
+        PrinterConnectionService.disconnect(printerId).catch(() => undefined);
       }
     }
     return () => {
@@ -237,7 +237,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     () => () => {
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        PrinterConnectionService.disconnectForDriver(current.language.type, printerId).catch(() => undefined);
+        PrinterConnectionService.disconnect(printerId).catch(() => undefined);
       }
     },
     [printerId],
@@ -264,7 +264,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     if (liveStatus === PrinterStatus.Connected) {
       PrinterConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
-      PrinterConnectionService.connect(printer.id).catch(() => undefined);
+      PrinterConnectionService.connect(PrinterRepository.findOrThrow(printer.id)).catch(() => undefined);
     }
     onSaved();
   });

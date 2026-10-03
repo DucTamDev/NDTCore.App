@@ -2,6 +2,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { EscPosLanguage } from '../EscPosLanguage';
 import { RenderMode } from '../../../models/printer/PrinterLanguage';
+import type { PrintElement } from '../../../models/printing/PrintDocument';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makeEscPosLanguage, makePrinter } from '../../../testing/printerFixtures';
 
@@ -42,6 +43,16 @@ describe('EscPosLanguage', () => {
   it('ảnh cao quá trần an toàn → IMAGE_TOO_LARGE', () => {
     expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument, image: tallPngBase64() })).toThrow(
       expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
+    );
+  });
+
+  it.each<PrintElement>([
+    { type: 'barcode', content: '123', x: 0, y: 0 },
+    { type: 'qrCode', content: 'https://x', x: 0, y: 0 },
+    { type: 'image', data: 'AAAA', x: 0, y: 0 },
+  ])('phần tử $type không in được bằng lệnh văn bản → TSPL_ELEMENT_UNSUPPORTED', (element) => {
+    expect(() => EscPosLanguage.encode(makePrinter(), { text: { elements: [element] } })).toThrow(
+      expect.objectContaining({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }),
     );
   });
 

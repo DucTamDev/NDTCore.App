@@ -6,8 +6,7 @@ import { formatRow } from '../../utils/formatRow';
 
 /**
  * `documents.text` → chuỗi text ESC/POS (có tag `<C>`/`<B>`…). THUẦN — không
- * connect / native. `EscPosDriver` đưa chuỗi này cho `NativeAdapter.printText`
- * (adapter tự encode ra byte qua `EPToolkit`).
+ * connect / native. `EscPosLanguage` encode chuỗi này ra byte qua `EPToolkit`.
  */
 export const buildEscPosText = (paperSize: PaperSize, documents: PrintDocuments): string => {
   const charsPerLine = PAPER_SIZE_SPECS[paperSize].charsPerLine;

@@ -1,42 +1,33 @@
-import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
+import { createResourceLock, lockKeyOf } from '../PrinterConnectionLock';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+import { makePrinter, makeTsplLanguage } from '../../testing/printerFixtures';
 
 const bluetoothConnection = (mac: string): PrinterConnection => ({ type: ConnectionType.Bluetooth, mac });
+
 const lanConnection: PrinterConnection = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 };
+
 const usbConnection: PrinterConnection = { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 };
 
-describe('connectionResourceKey', () => {
-  it('is "usb" for any driver over USB (RNUSBPrinter is a shared native singleton)', () => {
-    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: usbConnection })).toBe('usb');
-    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: usbConnection })).toBe('usb');
+describe('lockKeyOf', () => {
+  it('cùng máy vật lý thì cùng khoá, dù khác máy in đã lưu và khác ngôn ngữ', () => {
+    const receipt = makePrinter({ id: 'receipt', connection: lanConnection });
+    const label = makePrinter({ id: 'label', connection: lanConnection, language: makeTsplLanguage() });
+
+    expect(lockKeyOf(receipt)).toBe(lockKeyOf(label));
   });
 
-  it('is "escpos:bluetooth" regardless of device — the vendor library BLEPrinter namespace is a global singleton', () => {
-    const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
-    const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceA })).toBe(
-      connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceB }),
-    );
-    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceA })).toBe('escpos:bluetooth');
+  it('máy khác nhau cùng loại kết nối thì khác khoá', () => {
+    const deviceA = makePrinter({ connection: bluetoothConnection('AA:AA:AA:AA:AA:AA') });
+    const deviceB = makePrinter({ connection: bluetoothConnection('BB:BB:BB:BB:BB:BB') });
+
+    expect(lockKeyOf(deviceA)).not.toBe(lockKeyOf(deviceB));
   });
 
-  it('is "escpos:lan" regardless of host:port — the vendor library NetPrinter namespace is a global singleton', () => {
-    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: lanConnection })).toBe('escpos:lan');
-  });
+  it('tính từ kết nối nên bản nháp chưa có deviceId vẫn khoá đúng máy', () => {
+    const draft = makePrinter({ deviceId: '', connection: usbConnection });
 
-  it('is per-device for tspl over bluetooth — TsplDriver manages its own transport per printer, no shared native singleton', () => {
-    const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
-    const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceA })).not.toBe(
-      connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceB }),
-    );
-    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
-  });
-
-  it('is per-host:port for tspl over lan', () => {
-    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
+    expect(lockKeyOf(draft)).toBe('usb:1155:22222');
   });
 });
 

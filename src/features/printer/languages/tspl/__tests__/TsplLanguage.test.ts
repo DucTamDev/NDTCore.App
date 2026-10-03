@@ -1,11 +1,31 @@
+import UPNG from 'upng-js';
+import { Buffer } from 'buffer';
 import { TsplLanguage } from '../TsplLanguage';
 import { fingerprintOf } from '../../../testing/encodeCases';
 import { RenderMode } from '../../../models/printer/PrinterLanguage';
+import { PrintKind } from '../../../models/printer/PrintKind';
+import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 
 const printer = makePrinter({ language: makeTsplLanguage({ renderMode: RenderMode.Command }) });
 
 const documents = { text: { elements: [{ type: 'text' as const, content: 'Trà đào', x: 0, y: 0 }] } };
+
+const paper58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob } as const;
+
+const rasterLabelPrinter = makePrinter({ kind: PrintKind.Label, language: makeTsplLanguage(), paper: paper58 });
+
+/** Ảnh vuông toàn đen: chuẩn hoá về bề rộng 384px của giấy 58mm thì cao 384px, vượt chiều cao tem 30mm (240px). */
+const squarePngBase64 = (): string => {
+  const rgba = new Uint8Array(2 * 2 * 4);
+
+  for (let alpha = 3; alpha < rgba.length; alpha += 4) {
+    rgba[alpha] = 255;
+  }
+
+  return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 2, 0, [], true))).toString('base64');
+};
 
 describe('TsplLanguage', () => {
   it('lệnh dò là ~!T và chỉ khớp khi máy có trả lời', () => {
@@ -21,5 +41,17 @@ describe('TsplLanguage', () => {
 
     expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: 0 }))).toBe(oneRow);
     expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: Number.NaN }))).toBe(oneRow);
+  });
+
+  it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
+    expect(() => TsplLanguage.encode(rasterLabelPrinter, { ...documents, image: squarePngBase64() })).toThrow(
+      expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
+    );
+  });
+
+  it('cùng ảnh đó in hoá đơn giấy cuộn thì vẫn in được', () => {
+    const receiptPrinter = { ...rasterLabelPrinter, kind: PrintKind.Receipt };
+
+    expect(() => TsplLanguage.encode(receiptPrinter, { ...documents, image: squarePngBase64() })).not.toThrow();
   });
 });

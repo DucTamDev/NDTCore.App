@@ -3,17 +3,14 @@ import { createPrinterPrintService } from '../PrinterPrintService';
 import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { PrintLanguage } from '../../models/printer/PrinterLanguage';
-import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { makePrinter as makePrinterFixture, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
+import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testing/printerFixtures';
+import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
 
-const escposDriver = makeEscPosLanguage();
-const tsplDriver = makeTsplLanguage();
+const tsplLanguage = makeTsplLanguage();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', kind: PrintKind.Receipt,
@@ -55,7 +52,7 @@ describe('PrintScheduler', () => {
     expect(result.status).toBe(PrintJobStatus.Success);
   });
 
-  it('never runs two jobs for the same printerId concurrently when the printer is not found in getPrinters (resourceKeyFor falls back to printerId)', async () => {
+  it('never runs two jobs for the same printerId concurrently when the printer is not found in getPrinters (lock key falls back to printerId)', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printerService = {
@@ -76,10 +73,37 @@ describe('PrintScheduler', () => {
     expect(maxInFlight).toBe(1);
   });
 
-  it('serializes jobs for different printers that share the same resource key (escpos:lan, vendor library singleton)', async () => {
+  it('hai máy in đã lưu trỏ cùng một máy vật lý thì in lần lượt, dù khác ngôn ngữ', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
-    const printers = [makePrinter({ id: 'receipt-1' }), makePrinter({ id: 'receipt-2' })];
+    const printers = [
+      makePrinter({ id: 'receipt-1' }),
+      makePrinter({ id: 'label-1', kind: PrintKind.Label, language: tsplLanguage }),
+    ];
+    const printerService = {
+      print: jest.fn().mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }),
+      getPrinters: jest.fn().mockReturnValue(printers),
+    };
+    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    await Promise.all([
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-1' })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-1', kind: PrintKind.Label })),
+    ]);
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('máy vật lý khác nhau cùng loại kết nối thì in song song', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const printers = [
+      makePrinter({ id: 'receipt-1', connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'receipt-2', connection: { type: ConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
+    ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
         inFlight += 1;
@@ -94,89 +118,24 @@ describe('PrintScheduler', () => {
       scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-1' })),
       scheduler.enqueue(makeJob({ id: 'b', printerId: 'receipt-2' })),
     ]);
-    expect(maxInFlight).toBe(1);
-  });
-
-  it('runs jobs in parallel for tspl printers on different LAN hosts (per-connection resource key)', async () => {
-    let inFlight = 0;
-    let maxInFlight = 0;
-    const printers = [
-      makePrinter({ id: 'label-1', kind: PrintKind.Label, language: tsplDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
-      makePrinter({ id: 'label-2', kind: PrintKind.Label, language: tsplDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
-    ];
-    const printerService = {
-      print: jest.fn().mockImplementation(async () => {
-        inFlight += 1;
-        maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        inFlight -= 1;
-      }),
-      getPrinters: jest.fn().mockReturnValue(printers),
-    };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
-    await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', kind: PrintKind.Label })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', kind: PrintKind.Label })),
-    ]);
     expect(maxInFlight).toBe(2);
   });
 
-  it('runs jobs in parallel for different driver+connectionType combos (escpos:lan vs tspl:bluetooth)', async () => {
-    let inFlight = 0;
-    let maxInFlight = 0;
-    const printers = [
-      makePrinter({ id: 'receipt-lan', kind: PrintKind.Receipt, language: escposDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
-      makePrinter({
-        id: 'label-bt', kind: PrintKind.Label, language: tsplDriver,
-        connection: { type: ConnectionType.Bluetooth, mac: 'd1' },
-      }),
-    ];
-    const printerService = {
-      print: jest.fn().mockImplementation(async () => {
-        inFlight += 1;
-        maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        inFlight -= 1;
-      }),
-      getPrinters: jest.fn().mockReturnValue(printers),
-    };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
-    await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', kind: PrintKind.Receipt })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', kind: PrintKind.Label })),
-    ]);
-    expect(maxInFlight).toBe(2);
-  });
-
-  it('serializes a scheduled print() job against a manual PrinterPrintService.testPrint() call sharing the same lock', async () => {
+  it('job trong hàng đợi và nút "In thử" cùng máy dùng chung khoá nên chạy lần lượt', async () => {
     const order: string[] = [];
-    const escposIPrinterDriver: IPrinterDriver = {
-      scan: jest.fn().mockReturnValue(() => undefined),
-      connect: jest.fn().mockResolvedValue(undefined),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
-      onStatusChange: jest.fn().mockReturnValue(() => undefined),
-      testPrint: jest.fn().mockImplementation(async () => {
-        order.push('testPrint-start');
-        order.push('testPrint-end');
-      }),
-      print: jest.fn().mockImplementation(async () => {
-        order.push('print-start');
+    let sendCount = 0;
+    const connectionService = makeMockConnectionService({
+      send: jest.fn().mockImplementation(async () => {
+        sendCount += 1;
+        const call = sendCount;
+        order.push(`send-${call}-start`);
         await new Promise((resolve) => setTimeout(resolve, 5));
-        order.push('print-end');
+        order.push(`send-${call}-end`);
       }),
-      identify: jest.fn().mockResolvedValue(null),
-    };
-    // Chung 1 lock — đây chính là cầu nối giữa PrintScheduler (đơn hàng thật)
-    // và PrinterPrintService.testPrint() (nút "In thử" thủ công), lý do sửa lỗi
-    // multi-printer race lần trước không đủ (chỉ khoá được PrintScheduler).
+    });
     const lock = createResourceLock();
     const repository = createPrinterRepository();
-    const printerService = createPrinterPrintService(
-      { [PrintLanguage.EscPos]: escposIPrinterDriver, [PrintLanguage.Tspl]: escposIPrinterDriver },
-      repository,
-      lock,
-    );
+    const printerService = createPrinterPrintService(connectionService, repository, lock);
     const printer: Printer = makePrinter({ id: 'receipt-1' });
     repository.addPrinter(printer);
     const scheduler = createPrintScheduler({ print: printerService.print, getPrinters: repository.getPrinters }, lock);
@@ -184,13 +143,11 @@ describe('PrintScheduler', () => {
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'order-job', printerId: printer.id })),
       (async () => {
-        // Bấm "In thử" ngay sau khi đơn hàng bắt đầu in — phải đợi đơn hàng
-        // in xong mới tới lượt, không được xen vào giữa.
         await new Promise((resolve) => setTimeout(resolve, 1));
         await printerService.testPrint(printer, { text: { elements: [] } });
       })(),
     ]);
 
-    expect(order).toEqual(['print-start', 'print-end', 'testPrint-start', 'testPrint-end']);
+    expect(order).toEqual(['send-1-start', 'send-1-end', 'send-2-start', 'send-2-end']);
   });
 });

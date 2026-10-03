@@ -62,9 +62,16 @@ export const usePrinterList = (): UsePrinterList => {
     [dispatch],
   );
 
-  const connect = useCallback((printerId: string) => {
-    PrinterConnectionService.connect(printerId).catch(() => undefined);
-  }, []);
+  const connect = useCallback(
+    (printerId: string) => {
+      const printer = printers.find((candidate) => candidate.id === printerId);
+
+      if (printer) {
+        PrinterConnectionService.connect(printer).catch(() => undefined);
+      }
+    },
+    [printers],
+  );
 
   // `disconnect` trả Promise để card "Xoá khi đang kết nối" chờ ngắt xong mới xoá.
   const disconnect = useCallback((printerId: string) => PrinterConnectionService.disconnect(printerId).catch(() => undefined), []);

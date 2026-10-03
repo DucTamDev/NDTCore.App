@@ -1,6 +1,14 @@
+import type { IPrinterAdapter } from '../adapters/IPrinterAdapter';
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+import type { PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+import {
+  LanguageSelection,
+  PrintLanguage,
+  RasterSource,
+  RenderMode,
+  type PrinterLanguage,
+} from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import { type Printer } from '../models/printer/Printer';
@@ -12,13 +20,45 @@ import { PrintKind } from '../models/printer/PrintKind';
  */
 export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
   scan: jest.fn().mockReturnValue(() => undefined),
+  identify: jest.fn().mockResolvedValue(null),
+  ...overrides,
+});
+
+/** Adapter giả ghi nhận lời gọi; `lose()` giả lập kết nối của adapter bị mất. */
+export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose: () => void } => {
+  const lostCallbacks = new Set<() => void>();
+
+  const adapter: jest.Mocked<IPrinterAdapter> = {
+    source: 'native',
+    canRead: true,
+    listDevices: jest.fn().mockResolvedValue([]),
+    connect: jest.fn().mockResolvedValue(undefined),
+    write: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn().mockResolvedValue(null),
+    onLost: jest.fn((callback: () => void) => {
+      lostCallbacks.add(callback);
+      return () => lostCallbacks.delete(callback);
+    }),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+  };
+
+  return { adapter, lose: () => lostCallbacks.forEach((callback) => callback()) };
+};
+
+type ConnectionServiceApi = typeof PrinterConnectionService;
+
+/** Connection service giả: mặc định máy đã kết nối, gửi và ngắt đều thành công. */
+export const makeMockConnectionService = (
+  overrides: Partial<jest.Mocked<ConnectionServiceApi>> = {},
+): jest.Mocked<ConnectionServiceApi> => ({
   connect: jest.fn().mockResolvedValue(undefined),
   disconnect: jest.fn().mockResolvedValue(undefined),
+  send: jest.fn().mockResolvedValue(undefined),
+  read: jest.fn().mockResolvedValue(null),
   getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
   onStatusChange: jest.fn().mockReturnValue(() => undefined),
-  testPrint: jest.fn().mockResolvedValue(undefined),
-  print: jest.fn().mockResolvedValue(undefined),
-  identify: jest.fn().mockResolvedValue(null),
+  reconnect: jest.fn().mockResolvedValue(undefined),
+  reconnectAutoPrinters: jest.fn(),
   ...overrides,
 });
 

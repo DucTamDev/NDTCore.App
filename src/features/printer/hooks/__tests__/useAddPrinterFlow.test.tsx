@@ -23,15 +23,15 @@ jest.mock('../../storage/PrinterRepository', () => ({
     getPrinters: jest.fn(() => []),
     addPrinter: jest.fn(),
     updatePrinter: jest.fn(),
+    findOrThrow: jest.fn((printerId: string) => ({ id: printerId })),
   },
 }));
 
 jest.mock('../../connection/PrinterConnectionService', () => ({
   PrinterConnectionService: {
-    getStatusForDriver: jest.fn(() => mockIdleStatus),
-    onStatusChangeForDriver: jest.fn(() => () => undefined),
-    disconnectForDriver: jest.fn(() => Promise.resolve()),
-    connectDraft: jest.fn(() => Promise.resolve()),
+    getStatus: jest.fn(() => mockIdleStatus),
+    onStatusChange: jest.fn(() => () => undefined),
+    disconnect: jest.fn(() => Promise.resolve()),
     connect: jest.fn(() => Promise.resolve()),
     reconnect: jest.fn(() => Promise.resolve()),
   },
@@ -124,7 +124,7 @@ describe('useAddPrinterFlow', () => {
     jest.clearAllMocks();
     mockCaptureBillImage.mockClear();
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
-    (PrinterConnectionService.getStatusForDriver as jest.Mock).mockReturnValue(PrinterStatus.Idle);
+    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
     (DeviceScanService.discoverDriver as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
       capturedDiscoveryHandler = handler;
       return () => undefined;
@@ -181,7 +181,7 @@ describe('useAddPrinterFlow', () => {
       get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
     });
 
-    expect(PrinterConnectionService.connectDraft).toHaveBeenCalled();
+    expect(PrinterConnectionService.connect).toHaveBeenCalled();
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().infoCard.language).toEqual(expect.objectContaining({ type: PrintLanguage.EscPos, selection: LanguageSelection.Manual }));
   });
@@ -189,7 +189,7 @@ describe('useAddPrinterFlow', () => {
   it('cleanup: đóng modal trong lúc đang connected mà chưa Save → disconnect language', () => {
     const { update } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    expect(PrinterConnectionService.disconnectForDriver).toHaveBeenCalledWith(PrintLanguage.Tspl, 'p1');
+    expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('KHÔNG disconnect khi đóng modal ngay sau khi vừa Save', async () => {
@@ -197,15 +197,15 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    (PrinterConnectionService.disconnectForDriver as jest.Mock).mockClear();
+    (PrinterConnectionService.disconnect as jest.Mock).mockClear();
     update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    expect(PrinterConnectionService.disconnectForDriver).not.toHaveBeenCalled();
+    expect(PrinterConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
   it('unmount (phone backToList) trong lúc đang connected mà chưa Save → disconnect', () => {
     const { unmount } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     unmount();
-    expect(PrinterConnectionService.disconnectForDriver).toHaveBeenCalledWith(PrintLanguage.Tspl, 'p1');
+    expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('unmount sau khi Save thành công KHÔNG disconnect', async () => {
@@ -213,9 +213,9 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    (PrinterConnectionService.disconnectForDriver as jest.Mock).mockClear();
+    (PrinterConnectionService.disconnect as jest.Mock).mockClear();
     unmount();
-    expect(PrinterConnectionService.disconnectForDriver).not.toHaveBeenCalled();
+    expect(PrinterConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
   it('onSave khi language KHÔNG đang connected (autoReconnect bật) → connect (không reconnect)', async () => {
@@ -242,7 +242,7 @@ describe('useAddPrinterFlow', () => {
   });
 
   it('onSave khi language đang connected → reconnect (không connect) để context lấy paper đã lưu', async () => {
-    (PrinterConnectionService.getStatusForDriver as jest.Mock).mockReturnValue(PrinterStatus.Connected);
+    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Connected);
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     await act(async () => {
       await get().infoCard.onSave();

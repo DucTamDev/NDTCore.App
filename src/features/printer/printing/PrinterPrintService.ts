@@ -1,56 +1,69 @@
-import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import type { PrintOptions } from '../models/printing/PrintOptions';
-import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
-import { DriverRegistry } from '../drivers/DriverRegistry';
-import { PrinterConnectionLock, resourceKeyFor, type createResourceLock } from '../connection/PrinterConnectionLock';
+import { errorCodeOf } from '../errors/PrinterError';
+import { PrinterLogger } from '../logging/PrinterLogger';
+import { getPrintLanguage } from '../languages/getPrintLanguage';
+import { PrinterConnectionService } from '../connection/PrinterConnectionService';
+import { PrinterConnectionLock, lockKeyOf, type createResourceLock } from '../connection/PrinterConnectionLock';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 
 type ResourceLockLike = ReturnType<typeof createResourceLock>;
-type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
 
-/**
- * Thực thi print/test-print cho 1 printer cụ thể — tách khỏi
- * `PrinterConnectionService` (chỉ còn connection lifecycle) vì đây là 1
- * trách nhiệm khác: dùng driver ĐÃ/SẮP connect để in, không quản lý connection
- * state (ARCHITECTURE.md §26 `PrinterPrintService`).
- *
- * Anh em cùng cấp với `PrinterConnectionService`, KHÔNG phải wrapper quanh nó
- * — `print()` gọi `driver.connect()` trực tiếp khi cần (không qua
- * `PrinterConnectionService.connect()`), nên chỉ cần chung `registry`/
- * `repository`/`lock`, không phụ thuộc method nào của
- * `PrinterConnectionService`.
- */
+type PrinterRepositoryLike = Pick<ReturnType<typeof createPrinterRepository>, 'findOrThrow'>;
+
+type ConnectionServiceLike = Pick<typeof PrinterConnectionService, 'connect' | 'getStatus' | 'send'>;
+
+/** In nội dung ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
 export const createPrinterPrintService = (
-  registry: Record<PrintLanguage, IPrinterDriver> = DriverRegistry,
+  connectionService: ConnectionServiceLike = PrinterConnectionService,
   repository: PrinterRepositoryLike = PrinterRepository,
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
-  const getDriver = (type: PrintLanguage): IPrinterDriver => registry[type];
-
-  /**
-   * KHÔNG tự `lock.runExclusive` — luôn được `PrintScheduler.enqueue()` gọi
-   * từ BÊN TRONG 1 `lock.runExclusive` đã acquire sẵn ở tầng scheduler cùng
-   * `resourceKey`. `testPrint()` tự lock vì được UI gọi thẳng, không qua scheduler.
-   */
-  const print = async (printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
-    const printer = repository.findOrThrow(printerId);
-    const driver = getDriver(printer.language.type);
-
-    if (driver.getStatus(printerId) !== PrinterStatus.Connected) {
-      await driver.connect(printer);
+  const sendDocuments = async (printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
+    if (connectionService.getStatus(printer.id) !== PrinterStatus.Connected) {
+      await connectionService.connect(printer);
     }
 
-    await driver.print(printerId, documents, options);
+    const bytes = getPrintLanguage(printer.language.type).encode(printer, documents, options);
+    await connectionService.send(printer.id, bytes);
   };
 
-  const testPrint = async (printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.language.type).testPrint(printer, documents, options));
+  /** Không tự khoá: `PrintScheduler` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */
+  const print = async (printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
+    const printer = repository.findOrThrow(printerId);
+    const language = printer.language.type;
+    const startedAt = Date.now();
+
+    try {
+      await sendDocuments(printer, documents, options);
+      PrinterLogger.printSucceeded({ printerId, language, durationMs: Date.now() - startedAt });
+    } catch (error) {
+      const errorCode = errorCodeOf(error);
+      PrinterLogger.printFailed({ printerId, language, errorCode, durationMs: Date.now() - startedAt });
+      throw error;
+    }
   };
+
+  /** Máy in có thể chưa lưu (đang thêm máy); tự khoá vì UI gọi thẳng, không qua hàng đợi. */
+  const testPrint = (printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> =>
+    lock.runExclusive(lockKeyOf(printer), async () => {
+      const printerId = printer.id;
+      const language = printer.language.type;
+      const startedAt = Date.now();
+
+      try {
+        await sendDocuments(printer, documents, options);
+        PrinterLogger.testPrintSucceeded({ printerId, language, durationMs: Date.now() - startedAt });
+      } catch (error) {
+        const errorCode = errorCodeOf(error);
+        PrinterLogger.testPrintFailed({ printerId, language, errorCode, durationMs: Date.now() - startedAt });
+        throw error;
+      }
+    });
 
   return { print, testPrint };
 };
 
-export const PrinterPrintService = createPrinterPrintService(DriverRegistry, PrinterRepository, PrinterConnectionLock);
+export const PrinterPrintService = createPrinterPrintService();

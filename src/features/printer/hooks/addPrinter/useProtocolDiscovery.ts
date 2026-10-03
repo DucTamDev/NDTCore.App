@@ -30,7 +30,7 @@ export interface UseProtocolDiscoveryInput {
 /**
  * State machine kết nối + dò protocol của luồng Thêm/Sửa máy in: bấm "Kết nối"
  * → `DeviceScanService.discoverDriver`, xử lý các `DiscoveryEvent`, và nhánh
- * chọn "Printer Language" thủ công qua `PrinterConnectionService.connectDraft`.
+ * chọn "Printer Language" thủ công qua `PrinterConnectionService.connect`.
  */
 export const useProtocolDiscovery = ({
   initialValues,
@@ -115,7 +115,7 @@ export const useProtocolDiscovery = ({
     setProtocolState('detecting');
     const draftLanguage: PrinterLanguage = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
     const draftPrinter: Printer = { ...buildDraftPrinter(), language: draftLanguage };
-    PrinterConnectionService.connectDraft(draftPrinter)
+    PrinterConnectionService.connect(draftPrinter)
       .then(() => {
         setConnectionState('connected');
         setProtocolState('identified');

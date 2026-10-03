@@ -7,6 +7,7 @@ import { PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
 import { PrinterLogger } from '../logging/PrinterLogger';
 import { canPrintKind } from '../forms/addPrinter/printerRules';
 import { createPrinterLanguage } from '../management/createPrinterDraft';
+import { PrinterConnectionService } from '../connection/PrinterConnectionService';
 
 /**
  * Thử `Tspl` trước `EscPos`: `TsplDriver.identify()` là 1 discriminator thật
@@ -47,8 +48,13 @@ export interface DiscoverPrinterInput {
 
 export type Unsubscribe = () => void;
 
+type DiscoveryConnectionService = Pick<typeof PrinterConnectionService, 'connect' | 'disconnect'>;
+
 export const createDiscoverDriver =
-  (registry: Record<PrintLanguage, IPrinterDriver>) =>
+  (
+    registry: Record<PrintLanguage, IPrinterDriver>,
+    connectionService: DiscoveryConnectionService = PrinterConnectionService,
+  ) =>
   (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => {
     let cancelled = false;
 
@@ -74,11 +80,12 @@ export const createDiscoverDriver =
         const driver = registry[type];
         const attemptLanguage: PrinterLanguage = createPrinterLanguage(type, LanguageSelection.Auto);
         const attemptPrinter: Printer = { ...draftPrinter, language: attemptLanguage };
-        const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
+        const disconnectQuietly = (): Promise<void> =>
+          connectionService.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: DiscoveryStage.Connecting, protocol: type });
 
         try {
-          await driver.connect(attemptPrinter);
+          await connectionService.connect(attemptPrinter);
         } catch {
           connectFailures += 1;
           PrinterLogger.discoveryCandidateRejected({ printerId, protocol: type, connectionType, reason: 'connect_failed' });
@@ -91,7 +98,7 @@ export const createDiscoverDriver =
         }
 
         onEvent({ stage: DiscoveryStage.Identifying, protocol: type });
-        const deviceInfo = await driver.identify(printerId).catch(() => null);
+        const deviceInfo = await driver.identify(attemptPrinter).catch(() => null);
 
         if (cancelled) {
           await disconnectQuietly();

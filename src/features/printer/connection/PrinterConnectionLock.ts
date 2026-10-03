@@ -1,56 +1,19 @@
-import { ConnectionType } from '../models/printer/ConnectionType';
-import { PrintLanguage } from '../models/printer/PrinterLanguage';
+import { deviceIdOf } from '../models/printer/deviceIdOf';
 import type { Printer } from '../models/printer/Printer';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 
-export interface ConnectionResourceKeyInput {
-  driverType: PrintLanguage;
-  connection: PrinterConnection;
-}
-
 /**
- * Khoá lệnh in: mỗi key chỉ chạy một lệnh in tại một thời điểm, vì một lệnh in gồm nhiều lần gọi native mà native
- * chỉ giữ đúng thứ tự từng lần gọi, không giữ trọn vẹn cả lệnh in.
- *
- * Key hiện thô hơn mức cần: USB dùng chung `"usb"`, ESC/POS Bluetooth/LAN dùng chung theo loại kết nối, nên hai máy
- * khác nhau cùng loại in lần lượt thay vì song song — vẫn an toàn. TSPL Bluetooth/LAN đi qua transport thư viện riêng
- * từng máy nên đã khoá theo từng kết nối.
+ * Khoá theo máy vật lý: một lệnh in gồm nhiều lần gọi native, native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn
+ * cả lệnh in, nên hai lệnh in cùng một máy phải chạy lần lượt; máy khác nhau in song song. Tính từ kết nối để bản
+ * nháp chưa lưu cũng có khoá đúng máy.
  */
-export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
-  const { connection, driverType } = input;
-
-  if (connection.type === ConnectionType.Usb) {
-    return 'usb';
-  }
-
-  if (driverType === PrintLanguage.EscPos) {
-    return connection.type === ConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
-  }
-
-  if (connection.type === ConnectionType.Bluetooth) {
-    return `tspl:bluetooth:${connection.mac}`;
-  }
-
-  return `tspl:lan:${connection.host}:${connection.port}`;
-};
+export const lockKeyOf = (printer: Printer): string => deviceIdOf(printer.connection);
 
 /**
- * Tra resource key từ 1 `Printer` — helper dùng chung bởi
- * `PrinterConnectionService` và `PrinterConfigService`, wrapper mỏng quanh
- * `connectionResourceKey`. Mỗi `Printer` giờ chỉ có 1 driver nên không cần
- * tham số `driverType` rời như bản cũ.
- */
-export const resourceKeyFor = (printer: Printer): string =>
-  connectionResourceKey({ driverType: printer.language.type, connection: printer.connection });
-
-/**
- * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi
- * `PrintScheduler` (hàng đợi in) và `PrinterPrintService.testPrint()` (thao tác
- * thủ công "In thử"), để 2 đường gọi này không bao giờ chạm cùng 1 kết nối
- * native cùng lúc.
+ * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Hàng đợi in và
+ * nút "In thử" dùng chung một khoá để không bao giờ chạm cùng một máy cùng lúc.
  */
 export const createResourceLock = () => {
   const queues = new Map<string, Task[]>();
@@ -83,9 +46,7 @@ export const createResourceLock = () => {
       }
 
       queues.get(key)?.push(() => task().then(resolve, reject));
-      // `processQueue` tự nuốt lỗi từng task (mỗi task đã `.then(resolve, reject)`
-      // về promise ngoài) nên `.catch` này gần như không bao giờ chạy — chỉ để
-      // không bỏ floating promise nếu chính `processQueue` hỏng ngoài dự kiến.
+      // Mỗi task đã chuyển lỗi về promise ngoài nên nhánh này chỉ chạy khi chính hàng đợi hỏng.
       processQueue(key).catch((error: unknown) => {
         LoggerService.error('PrinterConnectionLock.processQueue', {
           key,

@@ -6,13 +6,11 @@ import type { PrintLanguage } from '../models/printer/PrinterLanguage';
 /**
  * Điểm log chuẩn hoá duy nhất cho printer module — mỗi hàm ứng với đúng 1
  * event name cố định và chỉ nhận field an toàn để log (printerId nội bộ,
- * protocol, connectionType, errorCode, durationMs). Không có tham số nào cho
+ * ngôn ngữ in, connectionType, errorCode, durationMs). Không có tham số nào cho
  * phép truyền MAC/IP/rawDevice/nội dung hoá đơn, để log không bao giờ chứa
  * dữ liệu nhạy cảm dù được ghi ra console hay (sau này) gửi lên server.
  *
- * `resourceKey` KHÔNG được log ở đây: với TSPL LAN nó là `tspl:lan:<ip>:<port>`
- * — nhúng IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
- * concurrency mà không lộ IP (spec §12.6).
+ * Khoá in KHÔNG được log: key là `deviceId`, nhúng IP/MAC của máy in.
  *
  * Mọi payload đều kèm field chuẩn (§9.2 / §105):
  * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `print`).
@@ -49,18 +47,12 @@ export const PrinterLogger = {
     LoggerService.warning('printer.scan.failed', withStdFields('scan', 'failure', params));
   },
 
-  connectSucceeded(params: {
-    printerId: string;
-    protocol: PrintLanguage;
-    connectionType: ConnectionType;
-    durationMs: number;
-  }): void {
+  connectSucceeded(params: { printerId: string; connectionType: ConnectionType; durationMs: number }): void {
     LoggerService.info('printer.connect.succeeded', withStdFields('connect', 'success', params));
   },
 
   connectFailed(params: {
     printerId: string;
-    protocol: PrintLanguage;
     connectionType: ConnectionType;
     errorCode: PrinterErrorCode;
     durationMs: number;
@@ -68,21 +60,21 @@ export const PrinterLogger = {
     LoggerService.warning('printer.connect.failed', withStdFields('connect', 'failure', params));
   },
 
-  disconnectSucceeded(params: { printerId: string; protocol: PrintLanguage }): void {
+  disconnectSucceeded(params: { printerId: string }): void {
     LoggerService.info('printer.disconnect.succeeded', withStdFields('disconnect', 'success', params));
   },
 
-  disconnectFailed(params: { printerId: string; protocol: PrintLanguage; errorCode: PrinterErrorCode }): void {
+  disconnectFailed(params: { printerId: string; errorCode: PrinterErrorCode }): void {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
   },
 
-  testPrintSucceeded(params: { printerId: string; protocol: PrintLanguage; durationMs: number }): void {
+  testPrintSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.test-print.succeeded', withStdFields('test-print', 'success', params));
   },
 
   testPrintFailed(params: {
     printerId: string;
-    protocol: PrintLanguage;
+    language: PrintLanguage;
     errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
@@ -142,11 +134,16 @@ export const PrinterLogger = {
     LoggerService.warning('printer.protocol.unknown', withStdFields('discovery', 'failure', params));
   },
 
-  printSucceeded(params: { printerId: string; protocol: PrintLanguage; durationMs: number }): void {
+  printSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.print.succeeded', withStdFields('print', 'success', params));
   },
 
-  printFailed(params: { printerId: string; protocol: PrintLanguage; errorCode: PrinterErrorCode; durationMs: number }): void {
+  printFailed(params: {
+    printerId: string;
+    language: PrintLanguage;
+    errorCode: PrinterErrorCode;
+    durationMs: number;
+  }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
   },
 };

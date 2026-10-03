@@ -94,7 +94,8 @@ describe('usePrinterList', () => {
   });
 
   it('connect/disconnect/reconnect delegate to PrinterConnectionService and swallow rejections', async () => {
-    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
+    const saved = printer({ id: 'p1' });
+    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([saved]);
     (PrinterConnectionService.connect as jest.Mock).mockRejectedValueOnce(new Error('boom'));
     const { get } = render();
     await act(async () => {
@@ -102,7 +103,7 @@ describe('usePrinterList', () => {
       await get().disconnect('p1');
       get().reconnect('p1');
     });
-    expect(PrinterConnectionService.connect).toHaveBeenCalledWith('p1');
+    expect(PrinterConnectionService.connect).toHaveBeenCalledWith(saved);
     expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
     expect(PrinterConnectionService.reconnect).toHaveBeenCalledWith('p1');
   });

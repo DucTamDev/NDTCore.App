@@ -1,33 +1,10 @@
 import type { IPrinterDriver, Unsubscribe } from './IPrinterDriver';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
+/** Trình duyệt không quét được thiết bị và không xác nhận được ngôn ngữ nào. */
 class WebUnsupportedDriver implements IPrinterDriver {
   scan(): Unsubscribe {
-    return () => {};
-  }
-
-  async connect(): Promise<void> {
-    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
-  }
-
-  async disconnect(): Promise<void> {}
-
-  getStatus(): PrinterStatus {
-    return PrinterStatus.Error;
-  }
-
-  onStatusChange(): Unsubscribe {
-    return () => {};
-  }
-
-  async testPrint(): Promise<void> {
-    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
-  }
-
-  async print(): Promise<void> {
-    throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'Chức năng máy in không khả dụng trên trình duyệt web' });
+    return () => undefined;
   }
 
   async identify(): Promise<null> {

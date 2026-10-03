@@ -2,10 +2,10 @@ import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../Pr
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
-import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { makePrinter } from '../../testing/printerFixtures';
+import { makeMockConnectionService, makeMockDriver } from '../../testing/printerServiceTestKit';
 import { PrintKind } from '../../models/printer/PrintKind';
 
 jest.mock('../../logging/PrinterLogger', () => ({
@@ -15,17 +15,7 @@ jest.mock('../../logging/PrinterLogger', () => ({
   },
 }));
 
-const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
-  scan: jest.fn().mockReturnValue(() => undefined),
-  connect: jest.fn().mockResolvedValue(undefined),
-  disconnect: jest.fn().mockResolvedValue(undefined),
-  getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
-  onStatusChange: jest.fn().mockReturnValue(() => undefined),
-  testPrint: jest.fn().mockResolvedValue(undefined),
-  print: jest.fn().mockResolvedValue(undefined),
-  identify: jest.fn().mockResolvedValue(null),
-  ...overrides,
-});
+let connectionService = makeMockConnectionService();
 
 const collectEvents = (
   registry: Record<PrintLanguage, IPrinterDriver>,
@@ -33,7 +23,7 @@ const collectEvents = (
 ): Promise<DiscoveryEvent[]> =>
   new Promise((resolve) => {
     const events: DiscoveryEvent[] = [];
-    createDiscoverDriver(registry)(input, (event) => {
+    createDiscoverDriver(registry, connectionService)(input, (event) => {
       events.push(event);
       if (event.stage === DiscoveryStage.Identified || event.stage === DiscoveryStage.UnknownProtocol || event.stage === DiscoveryStage.Error) resolve(events);
     });
@@ -44,6 +34,10 @@ describe('PrinterDiscoveryService', () => {
   // (do caller tự dựng), gồm `type`/`paper`/`driver` placeholder theo shape mới.
   const baseDraftPrinter = makePrinter({ name: 'Máy in mới' });
   const baseInput = { draftPrinter: baseDraftPrinter };
+
+  beforeEach(() => {
+    connectionService = makeMockConnectionService();
+  });
 
   afterEach(() => jest.clearAllMocks());
 
@@ -60,8 +54,9 @@ describe('PrinterDiscoveryService', () => {
       rasterSource: RasterSource.Image,
     });
     expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
-    expect(tsplDriver.disconnect).not.toHaveBeenCalled();
-    expect(escposDriver.connect).not.toHaveBeenCalled();
+    expect(connectionService.disconnect).not.toHaveBeenCalled();
+    expect(connectionService.connect).toHaveBeenCalledTimes(1);
+    expect(escposDriver.identify).not.toHaveBeenCalled();
   });
 
   it('excludes EscPos from the candidate list when draftPrinter.type is Label (capability filter)', async () => {
@@ -71,8 +66,8 @@ describe('PrinterDiscoveryService', () => {
     const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, { draftPrinter: labelDraftPrinter });
     expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
     expect(events[2].protocol).toBe(PrintLanguage.Tspl);
-    expect(tsplDriver.connect).toHaveBeenCalledTimes(1);
-    expect(escposDriver.connect).not.toHaveBeenCalled();
+    expect(connectionService.connect).toHaveBeenCalledTimes(1);
+    expect(escposDriver.identify).not.toHaveBeenCalled();
     expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith(
       expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
     );
@@ -82,7 +77,7 @@ describe('PrinterDiscoveryService', () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
     const escposDriver = makeMockDriver();
     await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
-    const [attemptPrinter] = tsplDriver.connect.mock.calls[0] as [{ language: { renderMode: RenderMode } }];
+    const [attemptPrinter] = connectionService.connect.mock.calls[0];
     expect(attemptPrinter.language.renderMode).toBe(RenderMode.Raster);
   });
 
@@ -93,7 +88,7 @@ describe('PrinterDiscoveryService', () => {
     const identified = events.find((e) => e.stage === DiscoveryStage.Identified);
     expect(identified?.protocol).toBe(PrintLanguage.EscPos);
     expect(identified?.language?.type).toBe(PrintLanguage.EscPos);
-    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('emits unknown_protocol when every remaining candidate connects but none identifies', async () => {
@@ -104,8 +99,9 @@ describe('PrinterDiscoveryService', () => {
   });
 
   it('emits error when every remaining candidate fails to even connect', async () => {
-    const escposDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
-    const tsplDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('down')) });
+    connectionService.connect.mockRejectedValue(new Error('down'));
+    const escposDriver = makeMockDriver();
+    const tsplDriver = makeMockDriver();
     const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     const last = events[events.length - 1];
     expect(last.stage).toBe(DiscoveryStage.Error);
@@ -137,12 +133,11 @@ describe('PrinterDiscoveryService', () => {
 
   it('unsubscribing before completion stops further events from being emitted', async () => {
     let resolveConnect: () => void = () => undefined;
-    const tsplDriver = makeMockDriver({
-      connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; })),
-    });
+    connectionService.connect.mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; }));
+    const tsplDriver = makeMockDriver();
     const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
       events.push(event);
     });
     unsubscribe();
@@ -152,14 +147,13 @@ describe('PrinterDiscoveryService', () => {
     expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting]);
   });
 
-  it('disconnects the driver when cancelled right after connect() succeeds (wizard closed mid-connect)', async () => {
+  it('disconnects when cancelled right after connect() succeeds (wizard closed mid-connect)', async () => {
     let resolveConnect: () => void = () => undefined;
-    const tsplDriver = makeMockDriver({
-      connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; })),
-    });
+    connectionService.connect.mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; }));
+    const tsplDriver = makeMockDriver();
     const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
       events.push(event);
     });
 
@@ -169,18 +163,18 @@ describe('PrinterDiscoveryService', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
     expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting]);
   });
 
-  it('disconnects the driver when cancelled right after identify() resolves (wizard closed mid-identify)', async () => {
+  it('disconnects when cancelled right after identify() resolves (wizard closed mid-identify)', async () => {
     let resolveIdentify: (value: null) => void = () => undefined;
     const tsplDriver = makeMockDriver({
       identify: jest.fn().mockImplementation(() => new Promise((resolve) => { resolveIdentify = resolve; })),
     });
     const escposDriver = makeMockDriver();
     const events: DiscoveryEvent[] = [];
-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver })(baseInput, (event) => {
+    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
       events.push(event);
     });
 
@@ -192,7 +186,7 @@ describe('PrinterDiscoveryService', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(tsplDriver.disconnect).toHaveBeenCalledWith('p1');
+    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
     expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying]);
   });
 
