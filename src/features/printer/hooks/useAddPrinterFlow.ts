@@ -18,7 +18,7 @@ import type { PrintKind } from '../models/printer/PrintKind';
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
 import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
 import type { Printer } from '../models/printer/Printer';
-import { dieCutMediaError } from '../paper/validation';
+import { dieCutMediaError } from '../forms/addPrinter/paperValidation';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useLanguageDetection } from './addPrinter/useLanguageDetection';

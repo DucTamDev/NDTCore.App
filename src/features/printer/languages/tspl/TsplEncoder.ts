@@ -2,7 +2,7 @@ import type { DieCutPaper, PaperOptions } from '../../models/paper/PaperOptions'
 import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
-import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../models/paper/paperSpec';
 
 /**
  * Mã hoá UTF-8 thật theo code point (không phải cắt byte thấp của

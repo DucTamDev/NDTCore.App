@@ -2,7 +2,7 @@ import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.typ
 import { RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, contentWidthChars, columnOffsets } from '../TsplEncoder';
-import { resolveEffectiveCutterMode } from '../../../paper/cutter';
+import { resolveEffectiveCutterMode } from '../../../models/paper/cutter';
 import { formatRow } from '../../../utils/formatRow';
 import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../../../rendering/printLayoutConstants';
 

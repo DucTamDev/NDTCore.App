@@ -98,7 +98,7 @@ src/features/printer/
 │   ├── device/          DeviceInfo, DiscoveredDevice, DeviceDiscoveryEvent — dùng lúc tìm thiết bị, không lưu
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection, deviceIdOf,
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
-│   ├── paper/           PaperOptions
+│   ├── paper/           PaperOptions, paperSpec (thông số theo khổ giấy), cutter (cách cắt thực tế)
 │   └── printing/        PrintDocument, PrintDocuments, PrintOptions, PrintJob
 │
 ├── languages/
@@ -123,14 +123,13 @@ src/features/printer/
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
-├── paper/               cutter, paperSpec, validation
 ├── rendering/           render document → ảnh (Raster)
 ├── logging/             PrinterLogger
 ├── errors/              PrinterError
 │
 ├── components/
 ├── hooks/
-├── forms/               schema + PaperDraft + printerRules (canPrintKind)
+├── forms/               schema, PaperDraft + paperValidation, printerRules (canPrintKind)
 ├── store/
 ├── utils/
 │
@@ -146,7 +145,6 @@ src/features/printer/
 * `connection/` quản lý phiên kết nối và khoá; không biết ngôn ngữ in.
 * `discovery/` tìm thiết bị; `detection/` dò ngôn ngữ.
 * `printing/` ghép ngôn ngữ với kết nối để in.
-* `paper/` chứa paper calculation, specification và validation.
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
 * `management/` chứa cấu hình máy in và giá trị mặc định khi tạo máy mới.
@@ -351,20 +349,25 @@ rowWidth = columns × itemWidthMm + (columns - 1) × horizontalGapMm
 rowWidth > printableWidth → cấu hình không hợp lệ
 ```
 
-Rule nằm ở `paper/validation.ts`; schema gắn `superRefine` lên union.
+Rule nằm ở `forms/addPrinter/paperValidation.ts`; schema gắn `superRefine` lên union.
 
 ---
 
 # 13. Paper Module
 
 ```text
-paper/
-├── cutter.ts       cutter rules (DieCut → None, Continuous → paper.cutterMode)
-├── paperSpec.ts    kích thước, vùng in, chiều cao an toàn
-└── validation.ts   business validation (tràn hàng tem, thiếu kích thước)
+models/paper/
+├── PaperOptions.ts     ContinuousPaper | DieCutPaper, PaperSize, CutterMode
+├── paperSpec.ts        thông số theo khổ: vùng in, ký tự/dòng, bề rộng ảnh, trần chiều cao giấy cuộn
+└── cutter.ts           cách cắt thực tế (DieCut → None, Continuous → paper.cutterMode)
+
+forms/addPrinter/
+├── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions
+└── paperValidation.ts  thiếu kích thước tem, hàng tem tràn khổ — nhận PaperDraft
 ```
 
-Validation không phân tán vào nhiều layer.
+`paperSpec` và `cutter` là dữ liệu và hàm thuần của giấy nên nằm trong model. Validation nhận bản nháp nên nằm cạnh
+form; schema và repository gọi lại cùng hàm, không phân tán vào nhiều layer.
 
 ---
 
@@ -1005,7 +1008,7 @@ không nên nhét toàn bộ rule vào comments.
 Rule phải nằm trong:
 
 ```text
-paper/validation.ts
+forms/addPrinter/paperValidation.ts
 ```
 
 ---
@@ -1318,7 +1321,7 @@ LanguageDetectionService → kết nối một lần, lệnh dò, xác nhận y�
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoveredDevice
 PrintScheduler           → ordering, khoá theo máy vật lý
 PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print
-paper/validation         → paper rule tests
+paperValidation          → paper rule tests
 ```
 
 `printing/__tests__/encodeCases.test.ts` chạy trọn đường in thử (service thật + `DeviceModule` mock) và so dấu vân tay

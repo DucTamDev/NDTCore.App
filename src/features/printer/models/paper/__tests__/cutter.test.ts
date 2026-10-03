@@ -1,6 +1,6 @@
 import { resolveEffectiveCutterMode } from '../cutter';
-import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
-import type { PaperOptions } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperType } from '../PaperOptions';
+import type { PaperOptions } from '../PaperOptions';
 
 const dieCut: PaperOptions = {
   type: PaperType.DieCut,

@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { BillImagePreview } from '../components/BillImagePreview';
-import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paper/paperSpec';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../models/paper/paperSpec';
 import type { PrintDocument } from '../models/printing/PrintDocument';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PaperType } from '../models/paper/PaperOptions';

@@ -3,8 +3,8 @@ import { RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PaperType } from '../../../models/paper/PaperOptions';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
-import { resolveEffectiveCutterMode } from '../../../paper/cutter';
-import { PAPER_SIZE_SPECS } from '../../../paper/paperSpec';
+import { resolveEffectiveCutterMode } from '../../../models/paper/cutter';
+import { PAPER_SIZE_SPECS } from '../../../models/paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
 
 /**

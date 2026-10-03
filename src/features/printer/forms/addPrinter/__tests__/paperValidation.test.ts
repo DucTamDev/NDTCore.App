@@ -1,6 +1,6 @@
-import { dieCutRowOverflow, dieCutMediaError } from '../validation';
-import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
-import type { PaperDraft } from '../../forms/addPrinter/PaperDraft';
+import { dieCutRowOverflow, dieCutMediaError } from '../paperValidation';
+import { CutterMode, PaperType } from '../../../models/paper/PaperOptions';
+import type { PaperDraft } from '../PaperDraft';
 
 const die = (o: Partial<PaperDraft>): PaperDraft => ({
   type: PaperType.DieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, ...o,

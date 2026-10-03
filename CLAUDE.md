@@ -86,8 +86,8 @@ Thêm máy:  DeviceDiscoveryService → LanguageDetectionService → createPrint
 ```
 
 - **`models/`** — `printer/` (`Printer`, `PrinterConnection`, `deviceIdOf`, `PrinterLanguage`, `PrinterCapabilities`),
-  `device/` (`DeviceInfo`, `DiscoveredDevice` — chỉ lúc tìm thiết bị), `paper/` (`PaperOptions`), `printing/`.
-  Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
+  `device/` (`DeviceInfo`, `DiscoveredDevice` — chỉ lúc tìm thiết bị), `paper/` (`PaperOptions`, `paperSpec`, `cutter`),
+  `printing/`. Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
 - **`languages/`** — `IPrintLanguage` (`encode`, `identifyProbe?`), `EscPosLanguage`, `TsplLanguage`,
   `getPrintLanguage`. Byte encode ghim bằng fixture `testing/encodeCases.ts`.
 - **`adapters/`** — `IPrinterAdapter` (1 instance = 1 kết nối: `listDevices`, `connect`, `write`, `read`, `onLost`,

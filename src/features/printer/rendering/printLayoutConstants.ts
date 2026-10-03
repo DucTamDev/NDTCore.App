@@ -1,9 +1,9 @@
 /**
  * Hằng số layout dùng chung giữa `TsplCommandStrategy` (đơn vị: dot TSPL) và
  * `renderDocumentToBitmap` (đơn vị: pixel canvas Skia) — CÙNG 1 giá trị vì cả
- * 2 đều theo mật độ 8 dot/mm của máy in nhiệt (`DOTS_PER_MM` ở `paper/paperSpec.ts`),
- * không phải trùng hợp: `PAPER_SIZE_SPECS[...].imageWidthPx` đã tính đúng
- * `printableWidthMm * 8` — px và dot LÀ CÙNG 1 đơn vị trong codebase này.
+ * 2 đều theo mật độ 8 dot/mm của máy in nhiệt (`DOTS_PER_MM` ở `models/paper/paperSpec.ts`),
+ * không phải trùng hợp: `PAPER_SIZE_SPECS[...].imageWidthPx` tính bằng dot — px và dot LÀ CÙNG 1 đơn vị
+ * trong codebase này.
  *
  * `LINE_HEIGHT` ước lượng theo font built-in `"3"` của TSPL (chưa verify
  * trên phần cứng thật, ghi nhận là ước lượng — xem spec §9). `BARCODE_HEIGHT`

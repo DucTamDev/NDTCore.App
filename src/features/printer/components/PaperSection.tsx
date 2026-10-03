@@ -6,7 +6,7 @@ import { AppInput } from '../../../components/AppInput';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PaperSize, PaperType } from '../models/paper/PaperOptions';
 import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
-import { dieCutMediaError } from '../paper/validation';
+import { dieCutMediaError } from '../forms/addPrinter/paperValidation';
 
 const PAPER_SIZE_OPTIONS = [PaperSize.Mm58, PaperSize.Mm80, PaperSize.Mm100, PaperSize.Mm104].map((n) => ({ label: `${n}mm`, value: String(n) }));
 const MEDIA_TYPE_OPTIONS = [

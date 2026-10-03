@@ -3,7 +3,7 @@ import { Skia, ImageFormat } from '@shopify/react-native-skia';
 import type { PrintDocument } from '../models/printing/PrintDocument';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PaperType } from '../models/paper/PaperOptions';
-import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paper/paperSpec';
+import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../models/paper/paperSpec';
 import { create as createQrCode } from 'qrcode';
 import {
   LINE_HEIGHT_DOTS as LINE_HEIGHT_PX,

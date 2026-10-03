@@ -1,6 +1,6 @@
-import { PaperType } from '../models/paper/PaperOptions';
-import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
-import { PAPER_SIZE_SPECS } from './paperSpec';
+import { PaperType } from '../../models/paper/PaperOptions';
+import type { PaperDraft } from './PaperDraft';
+import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 
 /** Kích thước bắt buộc của giấy tem, theo thứ tự hiển thị trong thông báo lỗi. */
 const DIE_CUT_REQUIRED_FIELDS = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
