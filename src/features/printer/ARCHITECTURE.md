@@ -105,7 +105,7 @@ src/features/printer/
 │   ├── IPrintLanguage.ts
 │   ├── getPrintLanguage.ts
 │   ├── escpos/          EscPosLanguage, EscPosTextBuilder, EscPosRasterEncoder, EPToolkit
-│   └── tspl/            TsplLanguage, TsplEncoder, strategies/ (TsplCommandStrategy, TsplRasterStrategy)
+│   └── tspl/            TsplLanguage, TsplEncoder, TsplCommandEncoder, TsplRasterEncoder
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
@@ -378,7 +378,7 @@ form; schema và repository gọi lại cùng hàm, không phân tán vào nhi�
 ## `Command`
 
 Ngôn ngữ tạo lệnh văn bản trực tiếp. ESC/POS qua `EscPosTextBuilder` + `EPToolkit` (cần đúng codepage); TSPL qua
-`TsplCommandStrategy` (font máy, thường thiếu dấu tiếng Việt).
+`encodeTsplCommand` (font máy, thường thiếu dấu tiếng Việt).
 
 ## `Raster`
 
@@ -420,8 +420,8 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
 * `EscPosLanguage`: `Command` → `EscPosTextBuilder` + `EPToolkit`, bỏ tiền tố khởi tạo mà `EPToolkit` luôn thêm, cắt
   giấy theo `resolveEffectiveCutterMode`; `Raster` → `EscPosRasterEncoder` (`IMAGE_REQUIRED`, `IMAGE_INVALID`,
   `IMAGE_TOO_LARGE`). Không có lệnh dò.
-* `TsplLanguage`: chọn strategy theo `renderMode` (`TsplCommandStrategy` / `TsplRasterStrategy`), `validate` rồi
-  `encode`; `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
+* `TsplLanguage`: theo `renderMode` gọi `encodeTsplCommand` hoặc `encodeTsplRaster` (tự kiểm tra ảnh rồi encode);
+  `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 

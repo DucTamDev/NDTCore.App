@@ -1,5 +1,5 @@
 /**
- * Hằng số layout dùng chung giữa `TsplCommandStrategy` (đơn vị: dot TSPL) và
+ * Hằng số layout dùng chung giữa `encodeTsplCommand` (đơn vị: dot TSPL) và
  * `renderDocumentToBitmap` (đơn vị: pixel canvas Skia) — CÙNG 1 giá trị vì cả
  * 2 đều theo mật độ 8 dot/mm của máy in nhiệt (`DOTS_PER_MM` ở `models/paper/paperSpec.ts`),
  * không phải trùng hợp: `PAPER_SIZE_SPECS[...].imageWidthPx` tính bằng dot — px và dot LÀ CÙNG 1 đơn vị

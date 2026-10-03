@@ -174,7 +174,7 @@ export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) =>
  *
  * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
  * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở
- * `TsplRasterStrategy.validate()`/`EscPosLanguage.encode()` (`IMAGE_REQUIRED`)
+ * `encodeTsplRaster()`/`EscPosLanguage.encode()` (`IMAGE_REQUIRED`)
  * thay vì âm thầm in sai — các target khác (Encoder mode) không cần ảnh nên
  * vẫn in bình thường.
  */
