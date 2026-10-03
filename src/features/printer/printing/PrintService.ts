@@ -4,8 +4,7 @@ import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrinterErrorCode } from '../errors/PrinterError';
 import type { PrintKind } from '../models/printer/PrintKind';
-import { usesRasterRenderMode } from '../drivers/driverConfig';
-import { RasterSource } from '../models/printer/PrinterLanguage';
+import { RenderMode, type RasterSource } from '../models/printer/PrinterLanguage';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
@@ -39,8 +38,10 @@ export const createPrintService = (deps: PrintServiceDeps) => {
    * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
   const imageDocumentTarget = (kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null => {
-    const target = deps.routing.resolveTargets(kind).find((printer) => usesRasterRenderMode(printer.language));
-    return target ? { paper: target.paper, rasterSource: target.language.rasterSource ?? RasterSource.Image } : null;
+    const target = deps.routing
+      .resolveTargets(kind)
+      .find((printer) => printer.language.renderMode === RenderMode.Raster);
+    return target ? { paper: target.paper, rasterSource: target.language.rasterSource } : null;
   };
 
   const print = async (kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> => {

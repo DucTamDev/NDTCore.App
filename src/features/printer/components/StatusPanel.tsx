@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
+import { canPrintKind } from '../forms/addPrinter/printerRules';
 import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 import type { PrintKind } from '../models/printer/PrintKind';
 
@@ -39,7 +39,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   onChooseProtocol,
 }) => {
   if (protocolState === 'unknown') {
-    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(kind));
+    const choices = ALL_PROTOCOLS.filter((type) => canPrintKind(type, kind));
     return (
       <View style={styles.container}>
         <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>

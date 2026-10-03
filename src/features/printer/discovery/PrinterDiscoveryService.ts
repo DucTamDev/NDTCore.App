@@ -1,11 +1,12 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
-import { LanguageSelection, PrintLanguage, RasterSource } from '../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 import { PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
 import { PrinterLogger } from '../logging/PrinterLogger';
-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
+import { canPrintKind } from '../forms/addPrinter/printerRules';
+import { createPrinterLanguage } from '../management/createPrinterDraft';
 
 /**
  * Thử `Tspl` trước `EscPos`: `TsplDriver.identify()` là 1 discriminator thật
@@ -39,8 +40,7 @@ export interface DiscoverPrinterInput {
    * v.v.) do caller (`useProtocolDiscovery`) tự dựng — service này KHÔNG tự
    * tổng hợp draft. `draftPrinter.language` là placeholder, bị GHI ĐÈ theo từng
    * candidate lúc thử — chỉ `draftPrinter.type`/`.connection`/`.paper` được
-   * dùng nguyên vẹn. Candidate bị lọc theo `getDriverCapabilities(type).contentTypes`
-   * có chứa `draftPrinter.type` hay không (vd ESC/POS không được thử khi `type === Label`).
+   * dùng nguyên vẹn. Chỉ thử ngôn ngữ in được `draftPrinter.kind` (`canPrintKind`), vd không thử ESC/POS khi in tem.
    */
   draftPrinter: Printer;
 }
@@ -58,7 +58,7 @@ export const createDiscoverDriver =
       const printerId = draftPrinter.id;
       const connectionType = draftPrinter.connection.type;
       const candidates = CANDIDATE_ORDER.filter(
-        (type) => Boolean(registry[type]) && getDriverCapabilities(type).contentTypes.includes(draftPrinter.kind),
+        (type) => Boolean(registry[type]) && canPrintKind(type, draftPrinter.kind),
       );
       const candidatesTried: PrintLanguage[] = [];
       let connectFailures = 0;
@@ -72,12 +72,7 @@ export const createDiscoverDriver =
 
         candidatesTried.push(type);
         const driver = registry[type];
-        const attemptLanguage: PrinterLanguage = {
-          type,
-          selection: LanguageSelection.Auto,
-          renderMode: getDriverCapabilities(type).defaultConfig.renderMode,
-          rasterSource: RasterSource.Image,
-        };
+        const attemptLanguage: PrinterLanguage = createPrinterLanguage(type, LanguageSelection.Auto);
         const attemptPrinter: Printer = { ...draftPrinter, language: attemptLanguage };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: DiscoveryStage.Connecting, protocol: type });

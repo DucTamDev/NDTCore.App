@@ -4,7 +4,7 @@ import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../.
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { dieCutRowOverflow } from '../../paper/validation';
-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+import { canPrintKind } from './printerRules';
 
 const paperSizeSchema = z.union([
   z.literal(PaperSize.Mm58),
@@ -98,7 +98,7 @@ export const printerSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paper', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
 
-    if (!getDriverCapabilities(printer.language.type).contentTypes.includes(printer.kind)) {
+    if (!canPrintKind(printer.language.type, printer.kind)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['language', 'type'],

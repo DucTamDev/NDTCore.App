@@ -6,7 +6,6 @@ import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { PrinterLogger } from '../../logging/PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { makePrinter } from '../../testing/printerFixtures';
-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import { PrintKind } from '../../models/printer/PrintKind';
 
 jest.mock('../../logging/PrinterLogger', () => ({
@@ -57,7 +56,7 @@ describe('PrinterDiscoveryService', () => {
     expect(events[2].language).toEqual({
       type: PrintLanguage.Tspl,
       selection: LanguageSelection.Auto,
-      renderMode: getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode,
+      renderMode: RenderMode.Raster,
       rasterSource: RasterSource.Image,
     });
     expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
@@ -79,20 +78,12 @@ describe('PrinterDiscoveryService', () => {
     );
   });
 
-  it('hands the candidate driver its own defaultConfig (no leftover state from a previous attempt)', async () => {
+  it('hands the candidate driver the default language config for that language', async () => {
     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
     const escposDriver = makeMockDriver();
     await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
     const [attemptPrinter] = tsplDriver.connect.mock.calls[0] as [{ language: { renderMode: RenderMode } }];
-    expect(attemptPrinter.language.renderMode).toBe(getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode);
-  });
-
-  it('does not mutate the shared defaultConfig when building the candidate driver', async () => {
-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
-    expect(getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode).toBe(RenderMode.Raster);
-    expect(getDriverCapabilities(PrintLanguage.EscPos).defaultConfig.renderMode).toBe(RenderMode.Command);
+    expect(attemptPrinter.language.renderMode).toBe(RenderMode.Raster);
   });
 
   it('falls through to the next candidate when the first identify() returns null', async () => {

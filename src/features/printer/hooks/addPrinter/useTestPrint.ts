@@ -2,13 +2,12 @@ import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
-import { usesRasterRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
+import { RenderMode, type PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
 import type { UseBillImageCapture } from '../useBillImageCapture';
 
@@ -38,7 +37,7 @@ export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrin
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
   const resolveTestPrintDocuments = async (printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
-    if (!language || !usesRasterRenderMode(language)) {
+    if (!language || language.renderMode !== RenderMode.Raster) {
       return { text: document };
     }
 

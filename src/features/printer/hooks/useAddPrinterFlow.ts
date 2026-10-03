@@ -11,11 +11,11 @@ import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
-import { DEFAULT_PAPER } from '../drivers/driverConfig';
+import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
 import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
 import type { Printer } from '../models/printer/Printer';
 import type { UsbRawDevice } from '../models/printer/PrinterDevice';
@@ -63,12 +63,7 @@ const resolveConnectLabel = (connectionState: ConnectionState): string => {
 };
 
 /** Giá trị tạm để bản nháp đủ kiểu `Printer` trước khi dò xong ngôn ngữ; lúc dò mỗi ngôn ngữ thử tự ghi đè. */
-const PLACEHOLDER_LANGUAGE: PrinterLanguage = {
-  type: PrintLanguage.EscPos,
-  selection: LanguageSelection.Auto,
-  renderMode: RenderMode.Command,
-  rasterSource: RasterSource.Image,
-};
+const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
 
 /**
  * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
@@ -144,22 +139,25 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
    */
   const buildDraftPrinter = (): PrinterWriteInput => {
     const usbRaw = connectionType === ConnectionType.Usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
-    return {
+    const draft = createPrinterDraft({
       id: printerId,
       kind,
-      name: displayForm.getValues('name') || 'Máy in mới',
+      connection: buildConnection(),
+      language: language ?? PLACEHOLDER_LANGUAGE,
+    });
+
+    return {
+      ...draft,
+      name: displayForm.getValues('name') || draft.name,
       vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
       model: initialValues?.model ?? usbRaw?.productName ?? undefined,
-      connection: buildConnection(),
       deviceId: currentIdentityKey() ?? undefined,
-      capabilities: initialValues?.capabilities ?? { cutter: false, cashDrawer: false, color: false, image: false },
-      language: language ?? PLACEHOLDER_LANGUAGE,
+      capabilities: initialValues?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
       paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
       autoReconnect,
       enabled: initialValues?.enabled ?? true,
-      createdAt: initialValues?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: initialValues?.createdAt ?? draft.createdAt,
     };
   };
 

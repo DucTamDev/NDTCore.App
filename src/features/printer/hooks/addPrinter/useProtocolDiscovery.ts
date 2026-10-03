@@ -2,11 +2,11 @@ import { useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { DeviceScanService } from '../../discovery/DeviceScanService';
 import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+import { createPrinterLanguage } from '../../management/createPrinterDraft';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { DiscoveryStage, type DiscoveryEvent } from '../../discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { LanguageSelection, RasterSource, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
@@ -113,12 +113,7 @@ export const useProtocolDiscovery = ({
   const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
     setConnectionState('connecting');
     setProtocolState('detecting');
-    const draftLanguage: PrinterLanguage = {
-      type: chosenProtocol,
-      selection: LanguageSelection.Manual,
-      renderMode: getDriverCapabilities(chosenProtocol).defaultConfig.renderMode,
-      rasterSource: RasterSource.Image,
-    };
+    const draftLanguage: PrinterLanguage = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
     const draftPrinter: Printer = { ...buildDraftPrinter(), language: draftLanguage };
     PrinterConnectionService.connectDraft(draftPrinter)
       .then(() => {
