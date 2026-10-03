@@ -6,8 +6,8 @@ import { AppInput } from '../../../components/AppInput';
 import { AppSwitch } from '../../../components/AppSwitch';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { DriverMediaSection } from './DriverMediaSection';
-import { DriverRenderModeSection } from './DriverRenderModeSection';
+import { PaperSection } from './PaperSection';
+import { RenderModeSection } from './RenderModeSection';
 import { TestPrintPanel } from './TestPrintPanel';
 import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import { PrintKind } from '../models/printer/PrintKind';
@@ -24,7 +24,7 @@ const connectionLabel: Record<ConnectionType, string> = {
   Lan: 'LAN',
 };
 
-const protocolLabel: Record<PrinterLanguage['type'], string> = {
+const languageLabel: Record<PrinterLanguage['type'], string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
@@ -100,9 +100,9 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
       </View>
 
       {language ? (
-        <View style={styles.driverCard}>
+        <View style={styles.languageCard}>
           <View style={styles.row}>
-            <Chip>{`Driver: ${protocolLabel[language.type]}`}</Chip>
+            <Chip>{`Driver: ${languageLabel[language.type]}`}</Chip>
             <Chip>{language.selection === LanguageSelection.Auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
             <Chip>{`In: ${PRINT_KIND_LABELS[kind]}`}</Chip>
           </View>
@@ -116,9 +116,9 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         style={styles.advancedAccordion}
       >
         <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
-        <DriverMediaSection driverType={language?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
+        <PaperSection languageType={language?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
         {language ? (
-          <DriverRenderModeSection language={language} disabled={locked} onSelectRenderMode={onSelectRenderMode} onSelectRasterSource={onSelectRasterSource} />
+          <RenderModeSection language={language} disabled={locked} onSelectRenderMode={onSelectRenderMode} onSelectRasterSource={onSelectRasterSource} />
         ) : null}
         {kind === PrintKind.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />
@@ -134,6 +134,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
 const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  driverCard: { gap: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
+  languageCard: { gap: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
   advancedAccordion: { paddingHorizontal: 0 },
 });

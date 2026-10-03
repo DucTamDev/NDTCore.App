@@ -7,10 +7,7 @@ import type { PrinterWriteInput } from './PrinterWriteInput';
 
 /**
  * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
- * (`deviceId` tính lại + chống trùng). Không phụ thuộc driver/lock.
- *
- * Printer repository — wraps `PrinterStorage` plus the identity invariants
- * (recomputed `deviceId` + duplicate guard). No driver/lock dependency.
+ * (`deviceId` tính lại + chống trùng). Không phụ thuộc kết nối hay khoá in.
  */
 export const createPrinterRepository = () => {
   const getPrinters = (): Printer[] => PrinterStorage.getPrinters();

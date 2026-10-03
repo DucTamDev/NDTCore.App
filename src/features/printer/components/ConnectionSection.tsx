@@ -25,7 +25,7 @@ export interface ConnectionSectionProps {
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
-  /** Điểm kết nối vật lý cố định sau khi driver đầu tiên được xác nhận. */
+  /** Điểm kết nối vật lý cố định sau khi đã xác nhận ngôn ngữ. */
   disabled: boolean;
 }
 

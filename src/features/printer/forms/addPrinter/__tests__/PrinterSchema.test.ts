@@ -10,7 +10,7 @@ describe('printerSchema', () => {
     expect(printerSchema.safeParse(makePrinter()).success).toBe(true);
   });
 
-  it('rejects ESC/POS driver + paper.type DieCut', () => {
+  it('rejects ESC/POS language + paper.type DieCut', () => {
     const printer = makePrinter({
       language: makeEscPosLanguage(),
       paper: {
@@ -44,7 +44,7 @@ describe('printerSchema', () => {
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
-  it('accepts a driver config with no rasterSource at all (defaults to Image downstream)', () => {
+  it('accepts a language with no rasterSource at all (defaults to Image downstream)', () => {
     const printer = makePrinter({ language: makeEscPosLanguage({ renderMode: RenderMode.Raster }) });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });

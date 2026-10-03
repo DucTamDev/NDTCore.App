@@ -14,11 +14,11 @@ const tsplRenderModeLabel: Record<RenderMode, string> = {
   Raster: 'Ảnh (chậm hơn, đúng mọi máy kể cả tiếng Việt)',
 };
 
-const renderModeLabelFor = (driverType: PrintLanguage): Record<RenderMode, string> =>
-  driverType === PrintLanguage.EscPos ? escPosRenderModeLabel : tsplRenderModeLabel;
+const renderModeLabelFor = (languageType: PrintLanguage): Record<RenderMode, string> =>
+  languageType === PrintLanguage.EscPos ? escPosRenderModeLabel : tsplRenderModeLabel;
 
-const renderModeOptionsFor = (driverType: PrintLanguage) => {
-  const labels = renderModeLabelFor(driverType);
+const renderModeOptionsFor = (languageType: PrintLanguage) => {
+  const labels = renderModeLabelFor(languageType);
   return [RenderMode.Command, RenderMode.Raster].map((mode) => ({ label: labels[mode], value: mode }));
 };
 
@@ -32,7 +32,7 @@ const rasterSourceOptions = [RasterSource.Image, RasterSource.Ast].map((source) 
   value: source,
 }));
 
-interface DriverRenderModeSectionProps {
+interface RenderModeSectionProps {
   language: PrinterLanguage;
   disabled: boolean;
   onSelectRenderMode: (mode: RenderMode) => void;
@@ -40,7 +40,7 @@ interface DriverRenderModeSectionProps {
 }
 
 /** Cả ESC/POS và TSPL đều chọn được cách render; ô chọn nguồn ảnh chỉ hiện khi in ảnh. */
-export const DriverRenderModeSection: React.FC<DriverRenderModeSectionProps> = ({ language, disabled, onSelectRenderMode, onSelectRasterSource }) => (
+export const RenderModeSection: React.FC<RenderModeSectionProps> = ({ language, disabled, onSelectRenderMode, onSelectRasterSource }) => (
   <View style={styles.renderModeBlock}>
     <AppSelect
       label="Chế độ in"

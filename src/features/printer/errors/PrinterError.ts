@@ -13,7 +13,7 @@ export const PrinterErrorCode = {
   PRINTER_BUSY: 'PRINTER_BUSY',
   PRINTER_WRITE_FAILED: 'PRINTER_WRITE_FAILED',
 
-  /** Dùng chung mọi protocol có bitmap mode — mô tả trạng thái `documents.image`, không phải lỗi riêng TSPL. */
+  /** Dùng chung mọi ngôn ngữ in ảnh — mô tả trạng thái `documents.image`, không phải lỗi riêng TSPL. */
   IMAGE_REQUIRED: 'IMAGE_REQUIRED',
   IMAGE_INVALID: 'IMAGE_INVALID',
   IMAGE_TOO_LARGE: 'IMAGE_TOO_LARGE',

@@ -100,7 +100,7 @@ const savedEscpos: Printer = {
   deviceId: 'lan:10.0.0.6:9100',
 };
 
-let capturedDiscoveryHandler: ((event: unknown) => void) | undefined;
+let capturedDetectionHandler: ((event: unknown) => void) | undefined;
 
 /** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
 const usbDevice: DiscoveredDevice = {
@@ -134,7 +134,7 @@ describe('useAddPrinterFlow', () => {
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
     (LanguageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
-      capturedDiscoveryHandler = handler;
+      capturedDetectionHandler = handler;
       return () => undefined;
     });
   });
@@ -159,14 +159,14 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.locked).toBe(true);
 
     act(() => get().connectionSection.onConnectPress());
-    const detectedDriver = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto, renderMode: RenderMode.Raster };
+    const detectedLanguage = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto, renderMode: RenderMode.Raster };
     act(() =>
-      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedDriver }),
+      capturedDetectionHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedLanguage }),
     );
 
     expect(get().statusPanel.connectionState).toBe('connected');
-    expect(get().statusPanel.protocolState).toBe('identified');
-    expect(get().infoCard.language).toEqual(detectedDriver);
+    expect(get().statusPanel.languageState).toBe('identified');
+    expect(get().infoCard.language).toEqual(detectedLanguage);
     expect(get().infoCard.locked).toBe(false);
 
     await act(async () => {
@@ -174,19 +174,19 @@ describe('useAddPrinterFlow', () => {
     });
 
     expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: PrintKind.Label, language: detectedDriver }),
+      expect.objectContaining({ kind: PrintKind.Label, language: detectedLanguage }),
     );
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it('unknown_protocol → chọn tay protocol connect draft và gán language "manual"', async () => {
+  it('không nhận ra ngôn ngữ → chọn tay, kết nối bản nháp và gán ngôn ngữ "manual"', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
-    expect(get().statusPanel.protocolState).toBe('unknown');
+    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    expect(get().statusPanel.languageState).toBe('unknown');
 
     await act(async () => {
-      get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
+      get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
 
     expect(PrinterConnectionService.connect).toHaveBeenCalled();
@@ -231,7 +231,7 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, onSaved, kind: PrintKind.Label });
     act(() => get().connectionSection.onConnectPress());
     act(() =>
-      capturedDiscoveryHandler?.({
+      capturedDetectionHandler?.({
         stage: LanguageDetectionStage.Detected,
         language: {
     type: PrintLanguage.Tspl,
@@ -279,7 +279,7 @@ describe('useAddPrinterFlow', () => {
   it('discovery "error" stage hiển thị lỗi và không có language', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
+    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
     expect(get().statusPanel.connectionState).toBe('error');
     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
     expect(get().infoCard.language).toBeUndefined();
@@ -289,9 +289,9 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
     await act(async () => {
-      get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
+      get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
   });
@@ -315,7 +315,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
     await act(async () => {
-      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: savedTspl.language });
+      capturedDetectionHandler?.({ stage: LanguageDetectionStage.Detected, language: savedTspl.language });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
@@ -338,9 +338,9 @@ describe('useAddPrinterFlow', () => {
       (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1';
     });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
     await act(async () => {
-      get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
+      get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });

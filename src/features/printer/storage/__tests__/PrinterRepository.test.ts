@@ -25,10 +25,10 @@ describe('PrinterRepository', () => {
     expect(repository.getPrinters()).toHaveLength(1);
   });
 
-  it('addPrinter() allows the same deviceId when type differs (dual-protocol device on one connection)', () => {
+  it('addPrinter() allows the same deviceId when kind differs (one device printing two kinds)', () => {
     const repository = createPrinterRepository();
     repository.addPrinter(basePrinter);
-    // Tem đòi driver hỗ trợ PrintKind.Label (EscPos chỉ phục vụ Receipt) — dùng Tspl để record thứ 2 hợp lệ.
+    // Tem đòi ngôn ngữ in được PrintKind.Label (EscPos chỉ phục vụ Receipt) — dùng Tspl để record thứ 2 hợp lệ.
     const labelPrinter: Printer = { ...basePrinter, id: 'p2', name: 'Máy in tem', kind: PrintKind.Label, language: tsplLanguage };
     expect(() => repository.addPrinter(labelPrinter)).not.toThrow();
     expect(repository.getPrinters()).toHaveLength(2);

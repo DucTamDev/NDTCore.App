@@ -14,9 +14,9 @@ const MEDIA_TYPE_OPTIONS = [
   { label: 'Die-cut (tem rời, nhiều cột)', value: PaperType.DieCut },
 ];
 
-export interface DriverMediaSectionProps {
-  /** `undefined` trước khi driver được xác nhận — TSPL-only field (loại giấy/die-cut) chỉ hiện khi đã biết driver là TSPL. */
-  driverType?: PrintLanguage;
+export interface PaperSectionProps {
+  /** `undefined` trước khi xác nhận ngôn ngữ; ô loại giấy và kích thước tem chỉ hiện khi là TSPL. */
+  languageType?: PrintLanguage;
   paper: PaperDraft;
   disabled: boolean;
   onChange: (patch: Partial<PaperDraft>) => void;
@@ -25,8 +25,9 @@ export interface DriverMediaSectionProps {
 const parseNum = (t: string): number | undefined => (t.trim() === '' ? undefined : Number(t));
 const numStr = (n: number | undefined): string => (n == null ? '' : String(n));
 
-export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverType, paper, disabled, onChange }) => {
-  const isTspl = driverType === PrintLanguage.Tspl;
+/** Chọn khổ giấy, và với TSPL thì thêm loại giấy và kích thước tem. */
+export const PaperSection: React.FC<PaperSectionProps> = ({ languageType, paper, disabled, onChange }) => {
+  const isTspl = languageType === PrintLanguage.Tspl;
   const isDieCut = paper.type === PaperType.DieCut;
   const mediaError = dieCutMediaError(paper);
   return (

@@ -170,7 +170,7 @@ export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) =>
  * `rasterSource` của target đã resolve — `Ast` dùng `renderDocumentToBitmap`
  * (hàm thuần, không cần React tree), `Image` dùng `captureBillImage` (hook,
  * cần `captureNode` đã mount). Cả 2 gán vào CÙNG field `documents.image` —
- * driver không biết/không cần biết nguồn nào tạo ra ảnh.
+ * ngôn ngữ in không biết/không cần biết nguồn nào tạo ra ảnh.
  *
  * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
  * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở

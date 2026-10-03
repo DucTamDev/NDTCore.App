@@ -82,9 +82,9 @@ describe('createResourceLock', () => {
     await expect(lock.runExclusive('k', async () => undefined)).resolves.toBeUndefined();
     await expect(
       lock.runExclusive('k', async () => {
-        throw new Error('driver lỗi');
+        throw new Error('tác vụ lỗi');
       }),
-    ).rejects.toThrow('driver lỗi');
+    ).rejects.toThrow('tác vụ lỗi');
   });
 
   it('a rejecting task does not block the next queued task for the same key', async () => {
@@ -92,7 +92,7 @@ describe('createResourceLock', () => {
     const order: string[] = [];
     const first = lock
       .runExclusive('k', async () => {
-        throw new Error('driver lỗi');
+        throw new Error('tác vụ lỗi');
       })
       .catch(() => order.push('first-rejected'));
     const second = lock.runExclusive('k', async () => {

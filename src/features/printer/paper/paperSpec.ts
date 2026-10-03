@@ -25,7 +25,7 @@ export const PAPER_SIZE_SPECS: Record<PaperSize, PaperSizeSpec> = {
  * Ngưỡng an toàn chiều cao (mm) cho nội dung render bitmap trên giấy cuộn
  * liên tục (continuous) — không phải giới hạn phần cứng thật, chỉ để chặn 1
  * document lỗi/vô hạn vòng lặp tạo ra bitmap khổng lồ. Dùng chung cho mọi
- * protocol in trên giấy cuộn liên tục (ESC/POS luôn continuous; TSPL
+ * ngôn ngữ in trên giấy cuộn liên tục (ESC/POS luôn continuous; TSPL
  * continuous Receipt).
  */
 export const CONTINUOUS_HEIGHT_MM = 200;

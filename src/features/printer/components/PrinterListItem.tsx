@@ -23,7 +23,7 @@ const connectionLabel: Record<ConnectionType, string> = {
   Lan: 'LAN',
 };
 
-const protocolLabel: Record<PrintLanguage, string> = {
+const languageLabel: Record<PrintLanguage, string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
@@ -36,7 +36,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const closeMenu = (): void => setMenuVisible(false);
   const enabled = printer.enabled ?? true;
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connection.type], protocolLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connection.type], languageLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
   const requestDelete = (): void => {
     if (status === PrinterStatus.Connected) {

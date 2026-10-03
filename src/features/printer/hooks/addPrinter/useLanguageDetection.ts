@@ -7,7 +7,7 @@ import {
 } from '../../detection/LanguageDetectionService';
 import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
 import { createPrinterLanguage } from '../../management/createPrinterDraft';
-import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
+import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
@@ -52,13 +52,13 @@ export const useLanguageDetection = ({
 }: UseLanguageDetectionInput) => {
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
-  const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
-  const [lastProtocol, setLastProtocol] = useState<PrintLanguage | undefined>(initialValues?.language.type);
+  const [languageState, setLanguageState] = useState<LanguageState>(initialValues ? 'identified' : 'idle');
+  const [languageType, setLanguageType] = useState<PrintLanguage | undefined>(initialValues?.language.type);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
 
   const resetDetectionFields = (nextConnectionState: ConnectionState): void => {
     setConnectionState(nextConnectionState);
-    setProtocolState('idle');
+    setLanguageState('idle');
     setConnectionErrorMessage(undefined);
     setConnectionDirty(true);
   };
@@ -72,8 +72,8 @@ export const useLanguageDetection = ({
   /** Đã kết nối và biết ngôn ngữ (tự dò hoặc người dùng chọn). */
   const applyLanguage = (language: PrinterLanguage): void => {
     setConnectionState('connected');
-    setProtocolState('identified');
-    setLastProtocol(language.type);
+    setLanguageState('identified');
+    setLanguageType(language.type);
     setConnectionDirty(false);
     setLanguage(language);
     refreshUsbSerial();
@@ -83,18 +83,18 @@ export const useLanguageDetection = ({
   const onDetectionEvent = (event: LanguageDetectionEvent): void => {
     switch (event.stage) {
       case LanguageDetectionStage.Identifying:
-        setProtocolState('detecting');
+        setLanguageState('detecting');
         break;
       case LanguageDetectionStage.Detected:
         applyLanguage(event.language);
         break;
       case LanguageDetectionStage.Unknown:
         setConnectionState('idle');
-        setProtocolState('unknown');
+        setLanguageState('unknown');
         break;
       case LanguageDetectionStage.Error:
         setConnectionState('error');
-        setProtocolState('idle');
+        setLanguageState('idle');
         setConnectionErrorMessage(event.error.message);
         break;
       default:
@@ -116,28 +116,28 @@ export const useLanguageDetection = ({
     }
   };
 
-  const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
+  const onChooseLanguage = (chosenLanguage: PrintLanguage): void => {
     setConnectionState('connecting');
-    setProtocolState('detecting');
-    const language = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
+    setLanguageState('detecting');
+    const language = createPrinterLanguage(chosenLanguage, LanguageSelection.Manual);
 
     PrinterConnectionService.connect({ ...buildDraftPrinter(), language })
       .then(() => applyLanguage(language))
       .catch((error: { message: string }) => {
         setConnectionState('error');
-        setProtocolState('idle');
+        setLanguageState('idle');
         setConnectionErrorMessage(error.message);
       });
   };
 
   return {
     connectionState,
-    protocolState,
-    lastProtocol,
+    languageState,
+    languageType,
     connectionErrorMessage,
     connectionDirty,
     resetConnectionResult,
     onConnectPress,
-    onChooseProtocol,
+    onChooseLanguage,
   };
 };

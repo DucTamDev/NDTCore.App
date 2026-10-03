@@ -8,7 +8,7 @@ import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
-import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
+import type { StatusPanelProps, ConnectionState, LanguageState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
@@ -23,8 +23,8 @@ import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { useLanguageDetection } from './addPrinter/useLanguageDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
-import { useDriverConfig } from './addPrinter/useDriverConfig';
 import { deviceIdOf } from '../models/printer/deviceIdOf';
+import { usePrintSettings } from './addPrinter/usePrintSettings';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -70,7 +70,7 @@ const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguag
  *
  * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`, `autoReconnect`,
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
- * `useConnectionSetup`, `useLanguageDetection`, `useTestPrint`, `useDriverConfig`.
+ * `useConnectionSetup`, `useLanguageDetection`, `useTestPrint`, `usePrintSettings`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
@@ -98,11 +98,11 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
   const detectionRef = useRef<{
     connectionState: ConnectionState;
-    protocolState: ProtocolState;
+    languageState: LanguageState;
     resetConnectionResult: () => void;
   }>({
     connectionState: initialValues ? 'connected' : 'idle',
-    protocolState: initialValues ? 'identified' : 'idle',
+    languageState: initialValues ? 'identified' : 'idle',
     resetConnectionResult: () => undefined,
   });
 
@@ -110,9 +110,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     initialValues,
     printerId,
     kind,
-    hasDriver: Boolean(language),
+    hasLanguage: Boolean(language),
     getConnectionState: () => detectionRef.current.connectionState,
-    getProtocolState: () => detectionRef.current.protocolState,
+    getLanguageState: () => detectionRef.current.languageState,
     resetConnectionResult: () => detectionRef.current.resetConnectionResult(),
   });
   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
@@ -133,8 +133,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   };
 
   /**
-   * Bản nháp phải đủ field vì driver giữ nó làm ngữ cảnh kết nối. `PLACEHOLDER_LANGUAGE` không được dùng khi dò
-   * (mỗi ngôn ngữ thử tự gắn cấu hình riêng); chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
+   * Bản nháp phải đủ field vì kết nối, dò ngôn ngữ và in thử đều nhận `Printer`. `PLACEHOLDER_LANGUAGE` không
+   * ảnh hưởng lúc dò; chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
    */
   const buildDraftPrinter = (): PrinterWriteInput => {
     const draft = createPrinterDraft({
@@ -182,7 +182,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   const paperError = dieCutMediaError(paper);
   const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
-  const driverConfig = useDriverConfig({ printerId, language, setLanguage, paper, setPaper });
+  const printSettings = usePrintSettings({ printerId, language, setLanguage, paper, setPaper });
 
   const languageDetection = useLanguageDetection({
     initialValues,
@@ -196,10 +196,10 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   });
   detectionRef.current = {
     connectionState: languageDetection.connectionState,
-    protocolState: languageDetection.protocolState,
+    languageState: languageDetection.languageState,
     resetConnectionResult: languageDetection.resetConnectionResult,
   };
-  const { connectionState, protocolState, connectionDirty } = languageDetection;
+  const { connectionState, languageState, connectionDirty } = languageDetection;
 
   useEffect(() => {
     connectionRef.current = { connectionState, language };
@@ -305,12 +305,12 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     },
     statusPanel: {
       connectionState,
-      protocolState,
-      protocol: languageDetection.lastProtocol,
+      languageState,
+      languageType: languageDetection.languageType,
       device: selectedDevice?.device,
       errorMessage: languageDetection.connectionErrorMessage,
       kind,
-      onChooseProtocol: languageDetection.onChooseProtocol,
+      onChooseLanguage: languageDetection.onChooseLanguage,
     },
     infoCard: {
       control: displayForm.control,
@@ -318,15 +318,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       connectionType,
       language,
       paper,
-      onChangePaper: driverConfig.onChangePaper,
+      onChangePaper: printSettings.onChangePaper,
       device: selectedDevice?.device,
       status: liveStatus,
       autoReconnect,
       onAutoReconnectChange: setAutoReconnect,
       testPrintPending: testPrint.testPrintPending,
       onTestPrint: testPrint.onTestPrint,
-      onSelectRenderMode: driverConfig.onSelectRenderMode,
-      onSelectRasterSource: driverConfig.onSelectRasterSource,
+      onSelectRenderMode: printSettings.onSelectRenderMode,
+      onSelectRasterSource: printSettings.onSelectRasterSource,
       testPrintRowsText: testPrint.testPrintRowsText,
       onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       kind,

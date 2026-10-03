@@ -114,7 +114,7 @@ describe('PrintService.imageDocumentTarget', () => {
     expect(createPrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Image });
   });
 
-  it('returns the target driver config rasterSource when explicitly set to Ast', () => {
+  it('returns the target language rasterSource when explicitly set to Ast', () => {
     const p1 = makePrinter({
       id: 'p1',
       language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),

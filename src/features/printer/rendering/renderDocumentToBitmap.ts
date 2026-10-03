@@ -116,7 +116,7 @@ const resolveFont = (): ReturnType<typeof Skia.Font> => {
  * mount `View`, không phụ thuộc `onLayout`/`devicePixelRatio` như
  * `useBillImageCapture`. Cùng contract `(document, media) => base64 PNG |
  * null` với `CaptureBillImage` — nơi gọi (`OrderPrintTrigger`) chọn 1 trong 2
- * theo `rasterSource`, driver không biết/không cần biết khác biệt này.
+ * theo `rasterSource`, ngôn ngữ in không biết/không cần biết khác biệt này.
  *
  * Lỗi luôn trả `null` (không throw) — CÙNG hợp đồng với
  * `useBillImageCapture.tsx`'s `captureBillImage` (path `Image`, cũng nuốt lỗi

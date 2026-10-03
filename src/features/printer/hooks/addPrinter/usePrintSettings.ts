@@ -4,7 +4,7 @@ import { PaperType } from '../../models/paper/PaperOptions';
 import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
 import { PrinterConfigService } from '../../management/PrinterConfigService';
 
-export interface UseDriverConfigInput {
+export interface UsePrintSettingsInput {
   printerId: string;
   language?: PrinterLanguage;
   setLanguage: (language: PrinterLanguage) => void;
@@ -16,7 +16,7 @@ export interface UseDriverConfigInput {
  * Chỉnh cấu hình in sau khi đã xác định ngôn ngữ: cách render, nguồn ảnh (chỉ khi in ảnh), khổ và loại giấy.
  * Máy in đã lưu thì ghi ngay qua `PrinterConfigService`; bản nháp chưa lưu thì để lúc bấm Lưu.
  */
-export const useDriverConfig = ({ printerId, language, setLanguage, paper, setPaper }: UseDriverConfigInput) => {
+export const usePrintSettings = ({ printerId, language, setLanguage, paper, setPaper }: UsePrintSettingsInput) => {
   const onSelectRenderMode = (mode: RenderMode): void => {
     if (!language) {
       return;

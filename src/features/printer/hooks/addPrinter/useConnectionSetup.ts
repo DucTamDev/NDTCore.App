@@ -6,14 +6,14 @@ import { getCurrentWifiIp } from '../../discovery/NetworkInfoService';
 import { deviceIdOf } from '../../models/printer/deviceIdOf';
 import { createPrinterAdapter } from '../../connection/createPrinterAdapter';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
-import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
+import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 import type { PrintKind } from '../../models/printer/PrintKind';
 
 /**
- * Input cho {@link useConnectionSetup}. `getConnectionState`/`getProtocolState`
+ * Input cho {@link useConnectionSetup}. `getConnectionState`/`getLanguageState`
  * đọc state của {@link useLanguageDetection} tại thời điểm handler chạy (không
  * phải render) — coordinator cung cấp qua ref bridge để phá vòng phụ thuộc.
  */
@@ -22,10 +22,10 @@ export interface UseConnectionSetupInput {
   printerId: string;
   /** Loại nội dung CỐ ĐỊNH của printer này — dùng để check trùng đúng cặp `(deviceId, type)`. */
   kind: PrintKind;
-  /** true khi đã xác nhận driver — khoá input kết nối, không cho đổi giữa chừng. */
-  hasDriver: boolean;
+  /** true khi đã xác nhận ngôn ngữ — khoá input kết nối, không cho đổi giữa chừng. */
+  hasLanguage: boolean;
   getConnectionState: () => ConnectionState;
-  getProtocolState: () => ProtocolState;
+  getLanguageState: () => LanguageState;
   resetConnectionResult: () => void;
 }
 
@@ -56,9 +56,9 @@ export const useConnectionSetup = ({
   initialValues,
   printerId,
   kind,
-  hasDriver,
+  hasLanguage,
   getConnectionState,
-  getProtocolState,
+  getLanguageState,
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.Usb);
@@ -129,13 +129,13 @@ export const useConnectionSetup = ({
   };
 
   const resetIfDirty = (): void => {
-    if (getConnectionState() !== 'idle' || getProtocolState() !== 'idle') {
+    if (getConnectionState() !== 'idle' || getLanguageState() !== 'idle') {
       resetConnectionResult();
     }
   };
 
   const onConnectionTypeChange = (value: ConnectionType): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
@@ -145,7 +145,7 @@ export const useConnectionSetup = ({
   };
 
   const onSelectDevice = (device: DiscoveredDevice): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
@@ -154,7 +154,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanIpChange = (text: string): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
@@ -163,7 +163,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanPortChange = (text: string): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
