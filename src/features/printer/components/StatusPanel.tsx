@@ -5,7 +5,7 @@ import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { canPrintKind } from '../forms/addPrinter/printerRules';
-import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { PrintKind } from '../models/printer/PrintKind';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
@@ -15,7 +15,8 @@ export interface StatusPanelProps {
   connectionState: ConnectionState;
   protocolState: ProtocolState;
   protocol?: PrintLanguage;
-  deviceInfo?: PrinterDeviceInfo;
+  /** Thiết bị đang chọn, để hiển thị hãng và model nếu đọc được. */
+  device?: DeviceInfo;
   errorMessage?: string;
   /** Lọc danh sách protocol cho phép chọn tay — ESC/POS không hỗ trợ Label. */
   kind: PrintKind;
@@ -33,7 +34,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,
   protocolState,
   protocol,
-  deviceInfo,
+  device,
   errorMessage,
   kind,
   onChooseProtocol,
@@ -82,8 +83,8 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
     return (
       <View style={styles.container}>
         <Text variant="bodyMedium" style={styles.successText}>✓ Đã kết nối</Text>
-        {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
-        {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
+        {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
+        {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
         {protocol ? <Text variant="bodySmall">Giao thức: {protocolLabel[protocol]}</Text> : null}
       </View>
     );

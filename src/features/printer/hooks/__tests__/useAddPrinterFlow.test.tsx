@@ -5,14 +5,14 @@ import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
 import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { PrinterConfigService } from '../../management/PrinterConfigService';
-import { DeviceScanService } from '../../discovery/DeviceScanService';
-import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
+import { LanguageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
+import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 
 // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
 // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
@@ -50,9 +50,10 @@ jest.mock('../../management/PrinterConfigService', () => ({
   },
 }));
 
-jest.mock('../../discovery/DeviceScanService', () => ({
-  DeviceScanService: {
-    discoverDriver: jest.fn(() => () => undefined),
+jest.mock('../../detection/LanguageDetectionService', () => ({
+  ...jest.requireActual('../../detection/LanguageDetectionService'),
+  LanguageDetectionService: {
+    detect: jest.fn(() => () => undefined),
   },
 }));
 
@@ -100,6 +101,12 @@ const savedEscpos: Printer = {
 
 let capturedDiscoveryHandler: ((event: unknown) => void) | undefined;
 
+/** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
+const usbDevice: DiscoveredDevice = {
+  device: { deviceId: 'usb:/dev/bus/usb/001/009', name: 'XP-420B', hasPermission: true },
+  connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751 },
+};
+
 type FlowProps = Parameters<typeof useAddPrinterFlow>[0];
 
 const render = (props: FlowProps) => {
@@ -125,7 +132,7 @@ describe('useAddPrinterFlow', () => {
     mockCaptureBillImage.mockClear();
     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
-    (DeviceScanService.discoverDriver as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
+    (LanguageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
       capturedDiscoveryHandler = handler;
       return () => undefined;
     });
@@ -153,7 +160,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onConnectPress());
     const detectedDriver = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto, renderMode: RenderMode.Raster };
     act(() =>
-      capturedDiscoveryHandler?.({ stage: DiscoveryStage.Identified, protocol: PrintLanguage.Tspl, language: detectedDriver }),
+      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedDriver }),
     );
 
     expect(get().statusPanel.connectionState).toBe('connected');
@@ -174,7 +181,7 @@ describe('useAddPrinterFlow', () => {
   it('unknown_protocol → chọn tay protocol connect draft và gán language "manual"', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
     expect(get().statusPanel.protocolState).toBe('unknown');
 
     await act(async () => {
@@ -224,8 +231,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onConnectPress());
     act(() =>
       capturedDiscoveryHandler?.({
-        stage: DiscoveryStage.Identified,
-        protocol: PrintLanguage.Tspl,
+        stage: LanguageDetectionStage.Detected,
         language: {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
@@ -272,7 +278,7 @@ describe('useAddPrinterFlow', () => {
   it('discovery "error" stage hiển thị lỗi và không có language', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
+    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
     expect(get().statusPanel.connectionState).toBe('error');
     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
     expect(get().infoCard.language).toBeUndefined();
@@ -280,23 +286,58 @@ describe('useAddPrinterFlow', () => {
 
   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
-    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
     });
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
   });
 
+  it('USB: sau khi kết nối đọc lại serial theo mã quét của native để lưu đúng máy', async () => {
+    const { DeviceModule } = jest.requireMock('../../adapters/native/DeviceModule') as {
+      DeviceModule: { discover: jest.Mock };
+    };
+    DeviceModule.discover.mockResolvedValueOnce([
+      {
+        type: 'usb',
+        deviceId: 'usb:/dev/bus/usb/001/009',
+        name: 'XP-420B',
+        address: { type: 'usb', vendorId: 11575, productId: 33751, serialNumber: 'SN1', devicePath: '/dev/bus/usb/001/009' },
+        manufacturerName: null,
+        productName: null,
+        hasPermission: true,
+      },
+    ]);
+    const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    act(() => get().connectionSection.onConnectPress());
+    await act(async () => {
+      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: savedTspl.language });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await act(async () => {
+      await get().infoCard.onSave();
+    });
+
+    expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
+        deviceId: 'usb:11575:33751:SN1',
+      }),
+    );
+  });
+
   it('KHÔNG ghi đè tên hiển thị nếu user đã gõ', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
-    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => {
       (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1';
     });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
+    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
     });

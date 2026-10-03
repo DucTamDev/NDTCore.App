@@ -15,7 +15,7 @@ import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { LanguageSelection, RenderMode, type RasterSource, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 
 const connectionLabel: Record<ConnectionType, string> = {
@@ -37,7 +37,8 @@ export interface PrinterInfoCardProps {
   language?: PrinterLanguage;
   paper: PaperDraft;
   onChangePaper: (patch: Partial<PaperDraft>) => void;
-  deviceInfo?: PrinterDeviceInfo;
+  /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
+  device?: DeviceInfo;
   status: PrinterStatus;
   autoReconnect: boolean;
   onAutoReconnectChange: (value: boolean) => void;
@@ -63,7 +64,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   language,
   paper,
   onChangePaper,
-  deviceInfo,
+  device,
   status,
   autoReconnect,
   onAutoReconnectChange,
@@ -90,9 +91,9 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         )}
       />
 
-      {deviceInfo?.deviceName ? <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text> : null}
-      {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
-      {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
+      {device?.name ? <Text variant="bodySmall">Tên thiết bị: {device.name}</Text> : null}
+      {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
+      {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
       <View style={styles.row}>
         <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
         <PrinterStatusBadge status={status} />

@@ -1,5 +1,4 @@
 import type { IPrinterAdapter } from '../adapters/IPrinterAdapter';
-import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import type { PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import {
@@ -14,15 +13,7 @@ import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import { type Printer } from '../models/printer/Printer';
 import { PrintKind } from '../models/printer/PrintKind';
 
-/**
- * Fixture dùng chung cho các file test service — nằm ngoài `__tests__/` và
- * không có đuôi `.test.` nên Jest bỏ qua.
- */
-export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
-  scan: jest.fn().mockReturnValue(() => undefined),
-  identify: jest.fn().mockResolvedValue(null),
-  ...overrides,
-});
+// Fixture dùng chung cho các file test service; nằm ngoài `__tests__/` và không có đuôi `.test.` nên Jest bỏ qua.
 
 /** Adapter giả ghi nhận lời gọi; `lose()` giả lập kết nối của adapter bị mất. */
 export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose: () => void } => {

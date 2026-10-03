@@ -3,15 +3,15 @@ import { View, StyleSheet } from 'react-native';
 import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
-import { DeviceScanList } from './DeviceScanList';
+import { DiscoveredDeviceList } from './DiscoveredDeviceList';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;
   onConnectionTypeChange: (value: ConnectionType) => void;
   selectedDeviceId?: string;
-  onSelectDevice: (device: PrinterDevice) => void;
+  onSelectDevice: (device: DiscoveredDevice) => void;
   lanIp: string;
   lanPort: string;
   onLanIpChange: (value: string) => void;
@@ -77,7 +77,11 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
         />
       </>
     ) : (
-      <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={disabled ? () => undefined : onSelectDevice} />
+      <DiscoveredDeviceList
+        connectionType={connectionType}
+        selectedDeviceId={selectedDeviceId}
+        onSelect={disabled ? () => undefined : onSelectDevice}
+      />
     )}
     <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
   </View>

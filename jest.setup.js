@@ -23,33 +23,6 @@ jest.mock('react-native-mmkv', () => {
   };
 });
 
-jest.mock('react-native-bluetooth-classic', () => ({
-  __esModule: true,
-  default: {
-    startDiscovery: jest.fn().mockResolvedValue([]),
-    cancelDiscovery: jest.fn().mockResolvedValue(true),
-    connectToDevice: jest.fn(),
-  },
-}));
-
-// react-native-tcp-socket, like react-native-bluetooth-classic above, needs a
-// global mock for the same reason: LanTransport.ts (used by TsplDriver) pulls
-// it in at import time, and any test that transitively imports TsplDriver.ts
-// (e.g. via DriverRegistry) would otherwise fail to parse it.
-jest.mock('react-native-tcp-socket', () => ({
-  __esModule: true,
-  default: {
-    createConnection: jest.fn().mockImplementation((_options, callback) => {
-      if (callback) callback();
-      return {
-        on: jest.fn(),
-        write: jest.fn(),
-        destroy: jest.fn(),
-      };
-    }),
-  },
-}));
-
 // @react-native-community/netinfo touches the RNCNetInfo native module at
 // import time (nativeInterface.ts), so any test that transitively imports
 // NetworkInfoService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to

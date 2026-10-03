@@ -1,7 +1,7 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import type { ConnectionType } from '../models/printer/ConnectionType';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
-import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 const unsupported = (): PrinterErrorException =>
@@ -16,7 +16,7 @@ class WebUnsupportedAdapter implements IPrinterAdapter {
 
   readonly canRead = false;
 
-  async listDevices(_connectionType: ConnectionType): Promise<PrinterDevice[]> {
+  async listDevices(_connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
     throw unsupported();
   }
 

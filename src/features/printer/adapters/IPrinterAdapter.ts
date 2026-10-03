@@ -1,6 +1,6 @@
 import type { ConnectionType } from '../models/printer/ConnectionType';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
-import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 
 /** Huỷ một đăng ký lắng nghe. */
 export type Unsubscribe = () => void;
@@ -16,7 +16,7 @@ export interface IPrinterAdapter {
   readonly canRead: boolean;
 
   /** Thiết bị tìm thấy cho một loại kết nối; `[]` nếu adapter không quét loại đó. */
-  listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]>;
+  listDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]>;
 
   /** Mở kết nối; mở được rồi mới trả kết nối cũ của chính instance này. */
   connect(connection: PrinterConnection): Promise<void>;

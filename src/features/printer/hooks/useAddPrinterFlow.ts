@@ -18,12 +18,10 @@ import type { PrintKind } from '../models/printer/PrintKind';
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
 import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
 import type { Printer } from '../models/printer/Printer';
-import type { UsbRawDevice } from '../models/printer/PrinterDevice';
 import { dieCutMediaError } from '../paper/validation';
-import { buildBluetoothConnection, buildLanConnection, buildUsbConnection } from '../discovery/PrinterResolver';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
-import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';
+import { useLanguageDetection } from './addPrinter/useLanguageDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
 import { useDriverConfig } from './addPrinter/useDriverConfig';
 
@@ -66,12 +64,12 @@ const resolveConnectLabel = (connectionState: ConnectionState): string => {
 const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
 
 /**
- * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
+ * Toàn bộ orchestration của luồng Thêm/Sửa máy in — tìm thiết bị, dò ngôn ngữ, dựng draft,
  * in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ còn render + wiring.
  *
  * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`, `autoReconnect`,
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
- * `useConnectionSetup`, `useProtocolDiscovery`, `useTestPrint`, `useDriverConfig`.
+ * `useConnectionSetup`, `useLanguageDetection`, `useTestPrint`, `useDriverConfig`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
@@ -89,15 +87,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     },
   });
 
-  const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
+  const detectionUnsubscribeRef = useRef<(() => void) | null>(null);
   const savedRef = useRef(false);
   const connectionRef = useRef<{ connectionState: ConnectionState; language?: PrinterLanguage }>({
     connectionState: initialValues ? 'connected' : 'idle',
     language: initialValues?.language,
   });
-  // Bridge để `useConnectionSetup` đọc state của `useProtocolDiscovery` tại thời
+  // Bridge để `useConnectionSetup` đọc state của `useLanguageDetection` tại thời
   // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
-  const discoveryRef = useRef<{
+  const detectionRef = useRef<{
     connectionState: ConnectionState;
     protocolState: ProtocolState;
     resetConnectionResult: () => void;
@@ -112,20 +110,20 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     printerId,
     kind,
     hasDriver: Boolean(language),
-    getConnectionState: () => discoveryRef.current.connectionState,
-    getProtocolState: () => discoveryRef.current.protocolState,
-    resetConnectionResult: () => discoveryRef.current.resetConnectionResult(),
+    getConnectionState: () => detectionRef.current.connectionState,
+    getProtocolState: () => detectionRef.current.protocolState,
+    resetConnectionResult: () => detectionRef.current.resetConnectionResult(),
   });
   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
 
   const buildConnection = (): PrinterConnection => {
     if (connectionType === ConnectionType.Lan) {
       const { ip, port } = buildLan(lanForm.getValues());
-      return buildLanConnection(ip, port);
+      return { type: ConnectionType.Lan, host: ip, port };
     }
 
     if (selectedDevice) {
-      return connectionType === ConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+      return selectedDevice.connection;
     }
 
     return connectionType === ConnectionType.Usb
@@ -138,7 +136,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
    * (mỗi ngôn ngữ thử tự gắn cấu hình riêng); chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
    */
   const buildDraftPrinter = (): PrinterWriteInput => {
-    const usbRaw = connectionType === ConnectionType.Usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
     const draft = createPrinterDraft({
       id: printerId,
       kind,
@@ -149,8 +146,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     return {
       ...draft,
       name: displayForm.getValues('name') || draft.name,
-      vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
-      model: initialValues?.model ?? usbRaw?.productName ?? undefined,
+      vendor: initialValues?.vendor ?? selectedDevice?.device.manufacturer,
+      model: initialValues?.model ?? selectedDevice?.device.model,
       deviceId: currentIdentityKey() ?? undefined,
       capabilities: initialValues?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
@@ -161,7 +158,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     };
   };
 
-  /** `useTestPrint`/`useProtocolDiscovery` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế khi đã có device/LAN hợp lệ. */
+  /** `useTestPrint`/`useLanguageDetection` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế khi đã có device/LAN hợp lệ. */
   const buildFullDraftPrinter = (): Printer => {
     const draft = buildDraftPrinter();
     return { ...draft, deviceId: draft.deviceId ?? '' };
@@ -170,7 +167,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   /**
    * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn TRỐNG.
    */
-  const prefillDisplayName = (deviceName?: string): void => {
+  const prefillDisplayName = (): void => {
     if (displayForm.getValues('name')) {
       return;
     }
@@ -178,7 +175,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     const lanIp = connectionType === ConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
     displayForm.setValue(
       'name',
-      deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
+      selectedDevice?.device.name || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
     );
   };
 
@@ -186,22 +183,22 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
   const driverConfig = useDriverConfig({ printerId, language, setLanguage, paper, setPaper });
 
-  const protocolDiscovery = useProtocolDiscovery({
+  const languageDetection = useLanguageDetection({
     initialValues,
     connectionType,
     lanForm,
-    discoveryUnsubscribeRef,
+    detectionUnsubscribeRef,
     buildDraftPrinter: buildFullDraftPrinter,
     setLanguage,
     refreshUsbSerial: connectionSetup.refreshUsbSerial,
     prefillDisplayName,
   });
-  discoveryRef.current = {
-    connectionState: protocolDiscovery.connectionState,
-    protocolState: protocolDiscovery.protocolState,
-    resetConnectionResult: protocolDiscovery.resetConnectionResult,
+  detectionRef.current = {
+    connectionState: languageDetection.connectionState,
+    protocolState: languageDetection.protocolState,
+    resetConnectionResult: languageDetection.resetConnectionResult,
   };
-  const { connectionState, protocolState, deviceInfo, connectionDirty } = protocolDiscovery;
+  const { connectionState, protocolState, connectionDirty } = languageDetection;
 
   useEffect(() => {
     connectionRef.current = { connectionState, language };
@@ -219,15 +216,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   useEffect(() => {
     if (!visible) {
-      discoveryUnsubscribeRef.current?.();
-      discoveryUnsubscribeRef.current = null;
+      detectionUnsubscribeRef.current?.();
+      detectionUnsubscribeRef.current = null;
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
         PrinterConnectionService.disconnect(printerId).catch(() => undefined);
       }
     }
     return () => {
-      discoveryUnsubscribeRef.current?.();
+      detectionUnsubscribeRef.current?.();
     };
   }, [visible, printerId]);
 
@@ -288,7 +285,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionSection: {
       connectionType,
       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
-      selectedDeviceId: selectedDevice?.deviceId,
+      selectedDeviceId: selectedDevice?.device.deviceId,
       onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
       lanPort: lanForm.watch('lanPort'),
@@ -302,17 +299,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       lanPortError: lanForm.formState.errors.lanPort?.message,
       connectLabel,
       connectDisabled,
-      onConnectPress: protocolDiscovery.onConnectPress,
+      onConnectPress: languageDetection.onConnectPress,
       disabled: Boolean(language),
     },
     statusPanel: {
       connectionState,
       protocolState,
-      protocol: protocolDiscovery.lastProtocol,
-      deviceInfo,
-      errorMessage: protocolDiscovery.connectionErrorMessage,
+      protocol: languageDetection.lastProtocol,
+      device: selectedDevice?.device,
+      errorMessage: languageDetection.connectionErrorMessage,
       kind,
-      onChooseProtocol: protocolDiscovery.onChooseProtocol,
+      onChooseProtocol: languageDetection.onChooseProtocol,
     },
     infoCard: {
       control: displayForm.control,
@@ -321,7 +318,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       language,
       paper,
       onChangePaper: driverConfig.onChangePaper,
-      deviceInfo,
+      device: selectedDevice?.device,
       status: liveStatus,
       autoReconnect,
       onAutoReconnectChange: setAutoReconnect,

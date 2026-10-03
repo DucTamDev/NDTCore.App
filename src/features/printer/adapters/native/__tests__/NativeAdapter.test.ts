@@ -38,16 +38,21 @@ describe('NativeAdapter', () => {
     expect(deviceModule().discover).not.toHaveBeenCalled();
   });
 
-  it('listDevices(bluetooth) dùng MAC làm deviceId', async () => {
+  it('listDevices(bluetooth) trả mã quét của native và kết nối theo MAC', async () => {
     deviceModule().discover.mockResolvedValueOnce([
       { type: 'bluetooth', deviceId: 'bluetooth:AA:BB', name: 'BT', address: { type: 'bluetooth', mac: 'AA:BB' } },
     ]);
     const devices = await new NativeAdapter().listDevices(ConnectionType.Bluetooth);
     expect(deviceModule().discover).toHaveBeenCalledWith('bluetooth');
-    expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { type: 'bluetooth', mac: 'AA:BB' } }]);
+    expect(devices).toEqual([
+      {
+        device: { deviceId: 'bluetooth:AA:BB', name: 'BT', hasPermission: true },
+        connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
+      },
+    ]);
   });
 
-  it('listDevices(usb) giữ deviceId vendorId:productId và đưa serial/devicePath vào rawDevice', async () => {
+  it('listDevices(usb) trả thông tin thiết bị và kết nối USB, không giữ đường dẫn thiết bị', async () => {
     deviceModule().discover.mockResolvedValueOnce([
       {
         type: 'usb',
@@ -68,18 +73,38 @@ describe('NativeAdapter', () => {
     const devices = await new NativeAdapter().listDevices(ConnectionType.Usb);
     expect(devices).toEqual([
       {
-        deviceId: '1155:22222',
-        displayName: 'X',
-        rawDevice: {
-          vendorId: 1155,
-          productId: 22222,
-          serialNumber: null,
-          devicePath: '/dev/bus/usb/001/004',
-          manufacturerName: null,
-          productName: 'X',
-        },
+        device: { deviceId: 'usb:/dev/bus/usb/001/004', name: 'X', model: 'X', hasPermission: false },
+        connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
       },
     ]);
+  });
+
+  it('listDevices: thiếu tên thì dùng MAC hoặc đường dẫn; USB có serial thì đưa vào kết nối', async () => {
+    deviceModule().discover.mockResolvedValueOnce([
+      { type: 'bluetooth', deviceId: 'bluetooth:AA:BB', name: null, address: { type: 'bluetooth', mac: 'AA:BB' } },
+      {
+        type: 'usb',
+        deviceId: 'usb:/dev/bus/usb/001/005',
+        name: null,
+        address: { type: 'usb', vendorId: 1, productId: 2, serialNumber: 'SN9', devicePath: '/dev/bus/usb/001/005' },
+        manufacturerName: 'Xprinter',
+        productName: null,
+        hasPermission: true,
+      },
+    ]);
+
+    const [bluetooth, usb] = await new NativeAdapter().listDevices(ConnectionType.Usb);
+
+    expect(bluetooth.device.name).toBe('AA:BB');
+    expect(usb).toEqual({
+      device: {
+        deviceId: 'usb:/dev/bus/usb/001/005',
+        name: '/dev/bus/usb/001/005',
+        manufacturer: 'Xprinter',
+        hasPermission: true,
+      },
+      connection: { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN9' },
+    });
   });
 
   it('connect gửi địa chỉ native theo từng loại kết nối', async () => {
