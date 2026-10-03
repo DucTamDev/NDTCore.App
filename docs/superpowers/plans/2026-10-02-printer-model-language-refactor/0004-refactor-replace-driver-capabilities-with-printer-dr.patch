@@ -1,0 +1,625 @@
+From 0d718861d0004d41a831403584dfe3570c7f2918 Mon Sep 17 00:00:00 2001
+From: Tam Nguyen <tam.nguyen@mercatus.com>
+Date: Sat, 3 Oct 2026 21:07:30 +0700
+Subject: [PATCH 4/9] refactor: replace driver capabilities with printer draft
+ defaults and kind rules
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../printer/components/StatusPanel.tsx        |  4 +-
+ .../discovery/PrinterDiscoveryService.ts      | 17 ++---
+ .../__tests__/PrinterDiscoveryService.test.ts | 15 +---
+ .../printer/drivers/DriverCapabilities.ts     | 20 -----
+ .../__tests__/DriverCapabilities.test.ts      | 25 -------
+ .../drivers/__tests__/driverConfig.test.ts    | 31 --------
+ src/features/printer/drivers/driverConfig.ts  | 10 ---
+ .../printer/forms/addPrinter/PrinterSchema.ts |  4 +-
+ .../addPrinter/__tests__/printerRules.test.ts | 15 ++++
+ .../printer/forms/addPrinter/printerRules.ts  | 12 +++
+ .../hooks/addPrinter/useProtocolDiscovery.ts  | 11 +--
+ .../printer/hooks/addPrinter/useTestPrint.ts  |  5 +-
+ .../printer/hooks/useAddPrinterFlow.ts        | 28 ++++---
+ .../__tests__/createPrinterDraft.test.ts      | 60 +++++++++++++++
+ .../printer/management/createPrinterDraft.ts  | 75 +++++++++++++++++++
+ src/features/printer/printing/PrintService.ts |  9 ++-
+ 16 files changed, 198 insertions(+), 143 deletions(-)
+ delete mode 100644 src/features/printer/drivers/DriverCapabilities.ts
+ delete mode 100644 src/features/printer/drivers/__tests__/DriverCapabilities.test.ts
+ delete mode 100644 src/features/printer/drivers/__tests__/driverConfig.test.ts
+ delete mode 100644 src/features/printer/drivers/driverConfig.ts
+ create mode 100644 src/features/printer/forms/addPrinter/__tests__/printerRules.test.ts
+ create mode 100644 src/features/printer/forms/addPrinter/printerRules.ts
+ create mode 100644 src/features/printer/management/__tests__/createPrinterDraft.test.ts
+ create mode 100644 src/features/printer/management/createPrinterDraft.ts
+
+diff --git a/src/features/printer/components/StatusPanel.tsx b/src/features/printer/components/StatusPanel.tsx
+index e13395b..a27dc72 100644
+--- a/src/features/printer/components/StatusPanel.tsx
++++ b/src/features/printer/components/StatusPanel.tsx
+@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
+ import { LoadingOverlay } from '../../../components/LoadingOverlay';
+ import { AppButton } from '../../../components/AppButton';
+ import { PrintLanguage } from '../models/printer/PrinterLanguage';
+-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
++import { canPrintKind } from '../forms/addPrinter/printerRules';
+ import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+ import type { PrintKind } from '../models/printer/PrintKind';
+ 
+@@ -39,7 +39,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
+   onChooseProtocol,
+ }) => {
+   if (protocolState === 'unknown') {
+-    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(kind));
++    const choices = ALL_PROTOCOLS.filter((type) => canPrintKind(type, kind));
+     return (
+       <View style={styles.container}>
+         <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
+diff --git a/src/features/printer/discovery/PrinterDiscoveryService.ts b/src/features/printer/discovery/PrinterDiscoveryService.ts
+index 7bc8455..cf85d00 100644
+--- a/src/features/printer/discovery/PrinterDiscoveryService.ts
++++ b/src/features/printer/discovery/PrinterDiscoveryService.ts
+@@ -1,11 +1,12 @@
+ import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+-import { LanguageSelection, PrintLanguage, RasterSource } from '../models/printer/PrinterLanguage';
++import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
+ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+ import type { Printer } from '../models/printer/Printer';
+ import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+ import { PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
+ import { PrinterLogger } from '../logging/PrinterLogger';
+-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
++import { canPrintKind } from '../forms/addPrinter/printerRules';
++import { createPrinterLanguage } from '../management/createPrinterDraft';
+ 
+ /**
+  * Thử `Tspl` trước `EscPos`: `TsplDriver.identify()` là 1 discriminator thật
+@@ -39,8 +40,7 @@ export interface DiscoverPrinterInput {
+    * v.v.) do caller (`useProtocolDiscovery`) tự dựng — service này KHÔNG tự
+    * tổng hợp draft. `draftPrinter.language` là placeholder, bị GHI ĐÈ theo từng
+    * candidate lúc thử — chỉ `draftPrinter.type`/`.connection`/`.paper` được
+-   * dùng nguyên vẹn. Candidate bị lọc theo `getDriverCapabilities(type).contentTypes`
+-   * có chứa `draftPrinter.type` hay không (vd ESC/POS không được thử khi `type === Label`).
++   * dùng nguyên vẹn. Chỉ thử ngôn ngữ in được `draftPrinter.kind` (`canPrintKind`), vd không thử ESC/POS khi in tem.
+    */
+   draftPrinter: Printer;
+ }
+@@ -58,7 +58,7 @@ export const createDiscoverDriver =
+       const printerId = draftPrinter.id;
+       const connectionType = draftPrinter.connection.type;
+       const candidates = CANDIDATE_ORDER.filter(
+-        (type) => Boolean(registry[type]) && getDriverCapabilities(type).contentTypes.includes(draftPrinter.kind),
++        (type) => Boolean(registry[type]) && canPrintKind(type, draftPrinter.kind),
+       );
+       const candidatesTried: PrintLanguage[] = [];
+       let connectFailures = 0;
+@@ -72,12 +72,7 @@ export const createDiscoverDriver =
+ 
+         candidatesTried.push(type);
+         const driver = registry[type];
+-        const attemptLanguage: PrinterLanguage = {
+-          type,
+-          selection: LanguageSelection.Auto,
+-          renderMode: getDriverCapabilities(type).defaultConfig.renderMode,
+-          rasterSource: RasterSource.Image,
+-        };
++        const attemptLanguage: PrinterLanguage = createPrinterLanguage(type, LanguageSelection.Auto);
+         const attemptPrinter: Printer = { ...draftPrinter, language: attemptLanguage };
+         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
+         onEvent({ stage: DiscoveryStage.Connecting, protocol: type });
+diff --git a/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts b/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
+index ffec711..71fb8aa 100644
+--- a/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
++++ b/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
+@@ -6,7 +6,6 @@ import { PrinterStatus } from '../../models/printer/PrinterStatus';
+ import { PrinterLogger } from '../../logging/PrinterLogger';
+ import { PrinterErrorCode } from '../../errors/PrinterError';
+ import { makePrinter } from '../../testing/printerFixtures';
+-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ 
+ jest.mock('../../logging/PrinterLogger', () => ({
+@@ -57,7 +56,7 @@ describe('PrinterDiscoveryService', () => {
+     expect(events[2].language).toEqual({
+       type: PrintLanguage.Tspl,
+       selection: LanguageSelection.Auto,
+-      renderMode: getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode,
++      renderMode: RenderMode.Raster,
+       rasterSource: RasterSource.Image,
+     });
+     expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
+@@ -79,20 +78,12 @@ describe('PrinterDiscoveryService', () => {
+     );
+   });
+ 
+-  it('hands the candidate driver its own defaultConfig (no leftover state from a previous attempt)', async () => {
++  it('hands the candidate driver the default language config for that language', async () => {
+     const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
+     const escposDriver = makeMockDriver();
+     await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+     const [attemptPrinter] = tsplDriver.connect.mock.calls[0] as [{ language: { renderMode: RenderMode } }];
+-    expect(attemptPrinter.language.renderMode).toBe(getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode);
+-  });
+-
+-  it('does not mutate the shared defaultConfig when building the candidate driver', async () => {
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    expect(getDriverCapabilities(PrintLanguage.Tspl).defaultConfig.renderMode).toBe(RenderMode.Raster);
+-    expect(getDriverCapabilities(PrintLanguage.EscPos).defaultConfig.renderMode).toBe(RenderMode.Command);
++    expect(attemptPrinter.language.renderMode).toBe(RenderMode.Raster);
+   });
+ 
+   it('falls through to the next candidate when the first identify() returns null', async () => {
+diff --git a/src/features/printer/drivers/DriverCapabilities.ts b/src/features/printer/drivers/DriverCapabilities.ts
+deleted file mode 100644
+index 13798d0..0000000
+--- a/src/features/printer/drivers/DriverCapabilities.ts
++++ /dev/null
+@@ -1,20 +0,0 @@
+-import { RenderMode, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+-import { PrintKind } from '../models/printer/PrintKind';
+-
+-export interface DriverCapabilities {
+-  contentTypes: PrintKind[];
+-  /** Config khởi tạo khi tạo 1 `Printer` mới với driver loại này — nguồn sự thật duy nhất, không viết tay rải rác ở nơi gọi. */
+-  defaultConfig: Pick<PrinterLanguage, 'renderMode'>;
+-}
+-
+-/**
+- * Capability TĨNH theo driver TYPE — driver loại này CÓ THỂ phục vụ loại nội
+- * dung nào (dùng để lọc candidate lúc discovery theo `kind` đang mở, xem
+- * `PrinterDiscoveryService.ts`). KHÔNG phải rule table theo vendor/model.
+- */
+-export const DRIVER_CAPABILITIES: Record<PrintLanguage, DriverCapabilities> = {
+-  [PrintLanguage.EscPos]: { contentTypes: [PrintKind.Receipt], defaultConfig: { renderMode: RenderMode.Command } },
+-  [PrintLanguage.Tspl]: { contentTypes: [PrintKind.Receipt, PrintKind.Label], defaultConfig: { renderMode: RenderMode.Raster } },
+-};
+-
+-export const getDriverCapabilities = (type: PrintLanguage): DriverCapabilities => DRIVER_CAPABILITIES[type];
+diff --git a/src/features/printer/drivers/__tests__/DriverCapabilities.test.ts b/src/features/printer/drivers/__tests__/DriverCapabilities.test.ts
+deleted file mode 100644
+index 8a2e1a5..0000000
+--- a/src/features/printer/drivers/__tests__/DriverCapabilities.test.ts
++++ /dev/null
+@@ -1,25 +0,0 @@
+-import { DRIVER_CAPABILITIES, getDriverCapabilities } from '../DriverCapabilities';
+-import { RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
+-import { PrintKind } from '../../models/printer/PrintKind';
+-
+-describe('DriverCapabilities', () => {
+-  it('EscPos only supports Receipt', () => {
+-    expect(DRIVER_CAPABILITIES[PrintLanguage.EscPos].contentTypes).toEqual([PrintKind.Receipt]);
+-  });
+-
+-  it('Tspl supports both Receipt and Label', () => {
+-    expect(DRIVER_CAPABILITIES[PrintLanguage.Tspl].contentTypes).toEqual([PrintKind.Receipt, PrintKind.Label]);
+-  });
+-
+-  it('getDriverCapabilities returns the definition for a given type', () => {
+-    expect(getDriverCapabilities(PrintLanguage.Tspl)).toBe(DRIVER_CAPABILITIES[PrintLanguage.Tspl]);
+-  });
+-
+-  it('EscPos default config is { renderMode: Encoder }', () => {
+-    expect(DRIVER_CAPABILITIES[PrintLanguage.EscPos].defaultConfig).toEqual({ renderMode: RenderMode.Command });
+-  });
+-
+-  it('Tspl default config is { renderMode: Bitmap }', () => {
+-    expect(DRIVER_CAPABILITIES[PrintLanguage.Tspl].defaultConfig).toEqual({ renderMode: RenderMode.Raster });
+-  });
+-});
+diff --git a/src/features/printer/drivers/__tests__/driverConfig.test.ts b/src/features/printer/drivers/__tests__/driverConfig.test.ts
+deleted file mode 100644
+index b678582..0000000
+--- a/src/features/printer/drivers/__tests__/driverConfig.test.ts
++++ /dev/null
+@@ -1,31 +0,0 @@
+-import { DEFAULT_PAPER, usesRasterRenderMode } from '../driverConfig';
+-import { LanguageSelection, RasterSource, RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
+-import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
+-import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+-
+-describe('DEFAULT_PAPER', () => {
+-  it('là giấy cuộn liên tục 80mm', () => {
+-    expect(DEFAULT_PAPER).toEqual({ type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob });
+-  });
+-});
+-
+-describe('usesRasterRenderMode', () => {
+-  const driver = (type: PrintLanguage, renderMode: RenderMode): PrinterLanguage => ({
+-    type,
+-    selection: LanguageSelection.Auto,
+-    renderMode,
+-    rasterSource: RasterSource.Image,
+-  });
+-
+-  it('true cho Tspl Bitmap', () => {
+-    expect(usesRasterRenderMode(driver(PrintLanguage.Tspl, RenderMode.Raster))).toBe(true);
+-  });
+-
+-  it('true cho EscPos Bitmap', () => {
+-    expect(usesRasterRenderMode(driver(PrintLanguage.EscPos, RenderMode.Raster))).toBe(true);
+-  });
+-
+-  it('false cho EscPos Encoder', () => {
+-    expect(usesRasterRenderMode(driver(PrintLanguage.EscPos, RenderMode.Command))).toBe(false);
+-  });
+-});
+diff --git a/src/features/printer/drivers/driverConfig.ts b/src/features/printer/drivers/driverConfig.ts
+deleted file mode 100644
+index 6dcae14..0000000
+--- a/src/features/printer/drivers/driverConfig.ts
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import { RenderMode } from '../models/printer/PrinterLanguage';
+-import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+-import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+-import type { PaperOptions } from '../models/paper/PaperOptions';
+-
+-/** Cấu hình giấy mặc định khi tạo 1 `Printer` mới — 80mm, cuộn liên tục. */
+-export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
+-
+-/** Máy in có đang in ảnh không. */
+-export const usesRasterRenderMode = (language: PrinterLanguage): boolean => language.renderMode === RenderMode.Raster;
+diff --git a/src/features/printer/forms/addPrinter/PrinterSchema.ts b/src/features/printer/forms/addPrinter/PrinterSchema.ts
+index db438c2..0b701b9 100644
+--- a/src/features/printer/forms/addPrinter/PrinterSchema.ts
++++ b/src/features/printer/forms/addPrinter/PrinterSchema.ts
+@@ -4,7 +4,7 @@ import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../.
+ import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import { dieCutRowOverflow } from '../../paper/validation';
+-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
++import { canPrintKind } from './printerRules';
+ 
+ const paperSizeSchema = z.union([
+   z.literal(PaperSize.Mm58),
+@@ -98,7 +98,7 @@ export const printerSchema = z
+       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paper', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
+     }
+ 
+-    if (!getDriverCapabilities(printer.language.type).contentTypes.includes(printer.kind)) {
++    if (!canPrintKind(printer.language.type, printer.kind)) {
+       ctx.addIssue({
+         code: z.ZodIssueCode.custom,
+         path: ['language', 'type'],
+diff --git a/src/features/printer/forms/addPrinter/__tests__/printerRules.test.ts b/src/features/printer/forms/addPrinter/__tests__/printerRules.test.ts
+new file mode 100644
+index 0000000..baeffad
+--- /dev/null
++++ b/src/features/printer/forms/addPrinter/__tests__/printerRules.test.ts
+@@ -0,0 +1,15 @@
++import { canPrintKind } from '../printerRules';
++import { PrintKind } from '../../../models/printer/PrintKind';
++import { PrintLanguage } from '../../../models/printer/PrinterLanguage';
++
++describe('canPrintKind', () => {
++  it('ESC/POS chỉ in hoá đơn', () => {
++    expect(canPrintKind(PrintLanguage.EscPos, PrintKind.Receipt)).toBe(true);
++    expect(canPrintKind(PrintLanguage.EscPos, PrintKind.Label)).toBe(false);
++  });
++
++  it('TSPL in được hoá đơn và tem', () => {
++    expect(canPrintKind(PrintLanguage.Tspl, PrintKind.Receipt)).toBe(true);
++    expect(canPrintKind(PrintLanguage.Tspl, PrintKind.Label)).toBe(true);
++  });
++});
+diff --git a/src/features/printer/forms/addPrinter/printerRules.ts b/src/features/printer/forms/addPrinter/printerRules.ts
+new file mode 100644
+index 0000000..131680f
+--- /dev/null
++++ b/src/features/printer/forms/addPrinter/printerRules.ts
+@@ -0,0 +1,12 @@
++import { PrintKind } from '../../models/printer/PrintKind';
++import { PrintLanguage } from '../../models/printer/PrinterLanguage';
++
++/** ESC/POS chỉ có lệnh cho giấy cuộn hoá đơn; TSPL in được cả hoá đơn lẫn tem. */
++const PRINTABLE_KINDS: Record<PrintLanguage, readonly PrintKind[]> = {
++  [PrintLanguage.EscPos]: [PrintKind.Receipt],
++  [PrintLanguage.Tspl]: [PrintKind.Receipt, PrintKind.Label],
++};
++
++/** Máy in dùng ngôn ngữ này có in được loại nội dung này không. */
++export const canPrintKind = (language: PrintLanguage, kind: PrintKind): boolean =>
++  PRINTABLE_KINDS[language].includes(kind);
+diff --git a/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts b/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
+index a702fba..7e31de5 100644
+--- a/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
++++ b/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
+@@ -2,11 +2,11 @@ import { useState, type MutableRefObject } from 'react';
+ import type { UseFormReturn } from 'react-hook-form';
+ import { DeviceScanService } from '../../discovery/DeviceScanService';
+ import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+-import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
++import { createPrinterLanguage } from '../../management/createPrinterDraft';
+ import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
+ import { DiscoveryStage, type DiscoveryEvent } from '../../discovery/PrinterDiscoveryService';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { LanguageSelection, RasterSource, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
++import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
+ import type { Printer } from '../../models/printer/Printer';
+ import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+ import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
+@@ -113,12 +113,7 @@ export const useProtocolDiscovery = ({
+   const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
+     setConnectionState('connecting');
+     setProtocolState('detecting');
+-    const draftLanguage: PrinterLanguage = {
+-      type: chosenProtocol,
+-      selection: LanguageSelection.Manual,
+-      renderMode: getDriverCapabilities(chosenProtocol).defaultConfig.renderMode,
+-      rasterSource: RasterSource.Image,
+-    };
++    const draftLanguage: PrinterLanguage = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
+     const draftPrinter: Printer = { ...buildDraftPrinter(), language: draftLanguage };
+     PrinterConnectionService.connectDraft(draftPrinter)
+       .then(() => {
+diff --git a/src/features/printer/hooks/addPrinter/useTestPrint.ts b/src/features/printer/hooks/addPrinter/useTestPrint.ts
+index 7892f9a..d6de7ef 100644
+--- a/src/features/printer/hooks/addPrinter/useTestPrint.ts
++++ b/src/features/printer/hooks/addPrinter/useTestPrint.ts
+@@ -2,13 +2,12 @@ import { useState } from 'react';
+ import type { UseFormReturn } from 'react-hook-form';
+ import { PrinterPrintService } from '../../printing/PrinterPrintService';
+ import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
+-import { usesRasterRenderMode } from '../../drivers/driverConfig';
+ import { PrinterErrorException } from '../../errors/PrinterError';
+ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
+ import type { PrintDocument } from '../../models/printing/PrintDocument';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import type { Printer } from '../../models/printer/Printer';
+-import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
++import { RenderMode, type PrinterLanguage } from '../../models/printer/PrinterLanguage';
+ import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
+ import type { UseBillImageCapture } from '../useBillImageCapture';
+ 
+@@ -38,7 +37,7 @@ export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrin
+   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
+ 
+   const resolveTestPrintDocuments = async (printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
+-    if (!language || !usesRasterRenderMode(language)) {
++    if (!language || language.renderMode !== RenderMode.Raster) {
+       return { text: document };
+     }
+ 
+diff --git a/src/features/printer/hooks/useAddPrinterFlow.ts b/src/features/printer/hooks/useAddPrinterFlow.ts
+index e813923..b6055ed 100644
+--- a/src/features/printer/hooks/useAddPrinterFlow.ts
++++ b/src/features/printer/hooks/useAddPrinterFlow.ts
+@@ -11,11 +11,11 @@ import type { ConnectionSectionProps } from '../components/ConnectionSection';
+ import type { StatusPanelProps, ConnectionState, ProtocolState } from '../components/StatusPanel';
+ import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
+ import { ConnectionType } from '../models/printer/ConnectionType';
+-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
++import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
+ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../models/printer/PrinterStatus';
+ import type { PrintKind } from '../models/printer/PrintKind';
+-import { DEFAULT_PAPER } from '../drivers/driverConfig';
++import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
+ import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
+ import type { Printer } from '../models/printer/Printer';
+ import type { UsbRawDevice } from '../models/printer/PrinterDevice';
+@@ -63,12 +63,7 @@ const resolveConnectLabel = (connectionState: ConnectionState): string => {
+ };
+ 
+ /** Giá trị tạm để bản nháp đủ kiểu `Printer` trước khi dò xong ngôn ngữ; lúc dò mỗi ngôn ngữ thử tự ghi đè. */
+-const PLACEHOLDER_LANGUAGE: PrinterLanguage = {
+-  type: PrintLanguage.EscPos,
+-  selection: LanguageSelection.Auto,
+-  renderMode: RenderMode.Command,
+-  rasterSource: RasterSource.Image,
+-};
++const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
+ 
+ /**
+  * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
+@@ -144,22 +139,25 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+    */
+   const buildDraftPrinter = (): PrinterWriteInput => {
+     const usbRaw = connectionType === ConnectionType.Usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
+-    return {
++    const draft = createPrinterDraft({
+       id: printerId,
+       kind,
+-      name: displayForm.getValues('name') || 'Máy in mới',
++      connection: buildConnection(),
++      language: language ?? PLACEHOLDER_LANGUAGE,
++    });
++
++    return {
++      ...draft,
++      name: displayForm.getValues('name') || draft.name,
+       vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
+       model: initialValues?.model ?? usbRaw?.productName ?? undefined,
+-      connection: buildConnection(),
+       deviceId: currentIdentityKey() ?? undefined,
+-      capabilities: initialValues?.capabilities ?? { cutter: false, cashDrawer: false, color: false, image: false },
+-      language: language ?? PLACEHOLDER_LANGUAGE,
++      capabilities: initialValues?.capabilities ?? draft.capabilities,
+       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
+       paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
+       autoReconnect,
+       enabled: initialValues?.enabled ?? true,
+-      createdAt: initialValues?.createdAt ?? new Date().toISOString(),
+-      updatedAt: new Date().toISOString(),
++      createdAt: initialValues?.createdAt ?? draft.createdAt,
+     };
+   };
+ 
+diff --git a/src/features/printer/management/__tests__/createPrinterDraft.test.ts b/src/features/printer/management/__tests__/createPrinterDraft.test.ts
+new file mode 100644
+index 0000000..486a825
+--- /dev/null
++++ b/src/features/printer/management/__tests__/createPrinterDraft.test.ts
+@@ -0,0 +1,60 @@
++import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../createPrinterDraft';
++import { ConnectionType } from '../../models/printer/ConnectionType';
++import { PrintKind } from '../../models/printer/PrintKind';
++import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
++import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
++
++const lan = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 } as const;
++
++describe('createPrinterLanguage', () => {
++  it('ESC/POS mặc định in lệnh văn bản', () => {
++    expect(createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto)).toEqual({
++      type: PrintLanguage.EscPos,
++      selection: LanguageSelection.Auto,
++      renderMode: RenderMode.Command,
++      rasterSource: RasterSource.Image,
++    });
++  });
++
++  it('TSPL mặc định in ảnh', () => {
++    expect(createPrinterLanguage(PrintLanguage.Tspl, LanguageSelection.Manual).renderMode).toBe(RenderMode.Raster);
++  });
++});
++
++describe('createPrinterDraft', () => {
++  it('điền mặc định và tính deviceId từ kết nối', () => {
++    const language = createPrinterLanguage(PrintLanguage.Tspl, LanguageSelection.Auto);
++    const printer = createPrinterDraft({ id: 'p1', kind: PrintKind.Label, connection: lan, language });
++
++    expect(printer).toMatchObject({
++      id: 'p1',
++      deviceId: 'lan:192.168.1.50:9100',
++      kind: PrintKind.Label,
++      connection: lan,
++      language,
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
++      capabilities: { cutter: false, cashDrawer: false, color: false, image: true },
++      autoReconnect: true,
++      enabled: true,
++    });
++  });
++
++  it('khả năng mặc định của ESC/POS có dao cắt và ngăn kéo tiền', () => {
++    const language = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
++
++    expect(createPrinterDraft({ kind: PrintKind.Receipt, connection: lan, language }).capabilities).toEqual({
++      cutter: true,
++      cashDrawer: true,
++      color: false,
++      image: true,
++    });
++  });
++
++  it('không có id thì sinh mới; giấy mặc định là bản sao', () => {
++    const language = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
++    const printer = createPrinterDraft({ kind: PrintKind.Receipt, connection: lan, language });
++
++    expect(printer.id).toEqual(expect.any(String));
++    expect(printer.paper).not.toBe(DEFAULT_PAPER);
++  });
++});
+diff --git a/src/features/printer/management/createPrinterDraft.ts b/src/features/printer/management/createPrinterDraft.ts
+new file mode 100644
+index 0000000..184f346
+--- /dev/null
++++ b/src/features/printer/management/createPrinterDraft.ts
+@@ -0,0 +1,75 @@
++import { generateId } from '../../../utils/id';
++import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
++import type { ContinuousPaper } from '../models/paper/PaperOptions';
++import { deviceIdOf } from '../models/printer/deviceIdOf';
++import type { PrintKind } from '../models/printer/PrintKind';
++import type { Printer } from '../models/printer/Printer';
++import type { PrinterCapabilities } from '../models/printer/PrinterCapabilities';
++import type { PrinterConnection } from '../models/printer/PrinterConnection';
++import { PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
++import type { LanguageSelection, PrinterLanguage } from '../models/printer/PrinterLanguage';
++
++/** Giấy mặc định khi tạo máy in mới: cuộn 80mm, cắt cuối job. */
++export const DEFAULT_PAPER: ContinuousPaper = {
++  type: PaperType.Continuous,
++  paperSize: PaperSize.Mm80,
++  cutterMode: CutterMode.PerJob,
++};
++
++/** ESC/POS in lệnh văn bản nhanh và đủ dấu khi đúng codepage; TSPL dùng font máy thường thiếu dấu nên in ảnh. */
++const DEFAULT_RENDER_MODE: Record<PrintLanguage, RenderMode> = {
++  [PrintLanguage.EscPos]: RenderMode.Command,
++  [PrintLanguage.Tspl]: RenderMode.Raster,
++};
++
++/** Khả năng phổ biến theo dòng máy: máy hoá đơn ESC/POS có dao cắt và cổng ngăn kéo, máy tem TSPL thì không. */
++const DEFAULT_CAPABILITIES: Record<PrintLanguage, PrinterCapabilities> = {
++  [PrintLanguage.EscPos]: { cutter: true, cashDrawer: true, color: false, image: true },
++  [PrintLanguage.Tspl]: { cutter: false, cashDrawer: false, color: false, image: true },
++};
++
++/** Tên tạm cho máy in mới khi người dùng chưa đặt. */
++const DEFAULT_PRINTER_NAME = 'Máy in mới';
++
++/** Cấu hình ngôn ngữ ban đầu cho máy in mới. */
++export const createPrinterLanguage = (type: PrintLanguage, selection: LanguageSelection): PrinterLanguage => ({
++  type,
++  selection,
++  renderMode: DEFAULT_RENDER_MODE[type],
++  rasterSource: RasterSource.Image,
++});
++
++/** Khả năng mặc định theo ngôn ngữ. */
++export const defaultCapabilitiesOf = (type: PrintLanguage): PrinterCapabilities => ({ ...DEFAULT_CAPABILITIES[type] });
++
++/** Thông tin cần để dựng một máy in mới. */
++export interface PrinterDraftInput {
++  /** Thiếu thì sinh mới. */
++  id?: string;
++
++  kind: PrintKind;
++
++  connection: PrinterConnection;
++
++  language: PrinterLanguage;
++}
++
++/** Máy in mới với mọi giá trị mặc định; nơi gọi ghi đè các field người dùng đã chỉnh. */
++export const createPrinterDraft = ({ id, kind, connection, language }: PrinterDraftInput): Printer => {
++  const now = new Date().toISOString();
++
++  return {
++    id: id ?? generateId(),
++    deviceId: deviceIdOf(connection),
++    kind,
++    name: DEFAULT_PRINTER_NAME,
++    connection,
++    language,
++    paper: { ...DEFAULT_PAPER },
++    capabilities: defaultCapabilitiesOf(language.type),
++    autoReconnect: true,
++    enabled: true,
++    createdAt: now,
++    updatedAt: now,
++  };
++};
+diff --git a/src/features/printer/printing/PrintService.ts b/src/features/printer/printing/PrintService.ts
+index 920ef30..26f5e65 100644
+--- a/src/features/printer/printing/PrintService.ts
++++ b/src/features/printer/printing/PrintService.ts
+@@ -4,8 +4,7 @@ import { generateId } from '../../../utils/id';
+ import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
+ import { PrinterErrorCode } from '../errors/PrinterError';
+ import type { PrintKind } from '../models/printer/PrintKind';
+-import { usesRasterRenderMode } from '../drivers/driverConfig';
+-import { RasterSource } from '../models/printer/PrinterLanguage';
++import { RenderMode, type RasterSource } from '../models/printer/PrinterLanguage';
+ import type { PaperOptions } from '../models/paper/PaperOptions';
+ import type { PrintDocuments } from '../models/printing/PrintDocuments';
+ import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
+@@ -39,8 +38,10 @@ export const createPrintService = (deps: PrintServiceDeps) => {
+    * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
+    */
+   const imageDocumentTarget = (kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null => {
+-    const target = deps.routing.resolveTargets(kind).find((printer) => usesRasterRenderMode(printer.language));
+-    return target ? { paper: target.paper, rasterSource: target.language.rasterSource ?? RasterSource.Image } : null;
++    const target = deps.routing
++      .resolveTargets(kind)
++      .find((printer) => printer.language.renderMode === RenderMode.Raster);
++    return target ? { paper: target.paper, rasterSource: target.language.rasterSource } : null;
+   };
+ 
+   const print = async (kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> => {
+-- 
+2.55.0.windows.5
+

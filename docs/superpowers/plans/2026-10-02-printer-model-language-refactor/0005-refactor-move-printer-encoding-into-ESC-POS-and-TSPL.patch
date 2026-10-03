@@ -1,0 +1,830 @@
+From 6b7ed96770497084d948266ddc2ce1eecaa53d6c Mon Sep 17 00:00:00 2001
+From: Tam Nguyen <tam.nguyen@mercatus.com>
+Date: Sat, 3 Oct 2026 21:17:37 +0700
+Subject: [PATCH 5/9] refactor: move printer encoding into ESC/POS and TSPL
+ language modules
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../cart/services/OrderPrintTrigger.ts        |  2 +-
+ .../adapters/library/LibraryAdapter.ts        |  2 +-
+ .../printer/adapters/native/NativeAdapter.ts  |  2 +-
+ .../printer/drivers/escpos/EscPosDriver.ts    | 52 ++------------
+ .../escpos/__tests__/EscPosDriver.test.ts     |  2 +-
+ .../printer/drivers/tspl/TsplDriver.ts        | 55 +++------------
+ .../drivers/tspl/__tests__/TsplDriver.test.ts |  6 +-
+ .../printer/languages/IPrintLanguage.ts       | 21 ++++++
+ .../languages/__tests__/encodeCases.test.ts   | 12 ++++
+ .../utils => languages/escpos}/EPToolkit.ts   |  0
+ .../languages/escpos/EscPosLanguage.ts        | 70 +++++++++++++++++++
+ .../escpos/EscPosRasterEncoder.ts}            |  2 +-
+ .../escpos/EscPosTextBuilder.ts               |  0
+ .../escpos/__tests__/EscPosLanguage.test.ts   | 51 ++++++++++++++
+ .../__tests__/EscPosRasterEncoder.test.ts}    | 16 ++---
+ .../__tests__/EscPosTextBuilder.test.ts       |  0
+ .../escpos}/buffer-helper.ts                  |  0
+ .../printer/languages/getPrintLanguage.ts     |  8 +++
+ .../tspl/TsplEncoder.ts                       |  0
+ .../printer/languages/tspl/TsplLanguage.ts    | 41 +++++++++++
+ .../tspl/__tests__/TsplEncoder.test.ts        |  0
+ .../tspl/__tests__/TsplLanguage.test.ts       | 25 +++++++
+ .../tspl/strategies/TsplCommandStrategy.ts}   |  6 +-
+ .../tspl/strategies/TsplRasterStrategy.ts}    |  2 +-
+ .../__tests__/TsplCommandStrategy.test.ts}    |  8 +--
+ .../__tests__/TsplRasterStrategy.test.ts}     |  6 +-
+ .../tspl/strategies/tsplStrategy.types.ts     |  0
+ .../printer/rendering/printLayoutConstants.ts |  2 +-
+ 28 files changed, 269 insertions(+), 122 deletions(-)
+ create mode 100644 src/features/printer/languages/IPrintLanguage.ts
+ create mode 100644 src/features/printer/languages/__tests__/encodeCases.test.ts
+ rename src/features/printer/{adapters/native/utils => languages/escpos}/EPToolkit.ts (100%)
+ create mode 100644 src/features/printer/languages/escpos/EscPosLanguage.ts
+ rename src/features/printer/{drivers/escpos/EscPosBitmapEncoder.ts => languages/escpos/EscPosRasterEncoder.ts} (96%)
+ rename src/features/printer/{drivers => languages}/escpos/EscPosTextBuilder.ts (100%)
+ create mode 100644 src/features/printer/languages/escpos/__tests__/EscPosLanguage.test.ts
+ rename src/features/printer/{drivers/escpos/__tests__/EscPosBitmapEncoder.test.ts => languages/escpos/__tests__/EscPosRasterEncoder.test.ts} (83%)
+ rename src/features/printer/{drivers => languages}/escpos/__tests__/EscPosTextBuilder.test.ts (100%)
+ rename src/features/printer/{adapters/native/utils => languages/escpos}/buffer-helper.ts (100%)
+ create mode 100644 src/features/printer/languages/getPrintLanguage.ts
+ rename src/features/printer/{drivers => languages}/tspl/TsplEncoder.ts (100%)
+ create mode 100644 src/features/printer/languages/tspl/TsplLanguage.ts
+ rename src/features/printer/{drivers => languages}/tspl/__tests__/TsplEncoder.test.ts (100%)
+ create mode 100644 src/features/printer/languages/tspl/__tests__/TsplLanguage.test.ts
+ rename src/features/printer/{drivers/tspl/strategies/TsplTextStrategy.ts => languages/tspl/strategies/TsplCommandStrategy.ts} (93%)
+ rename src/features/printer/{drivers/tspl/strategies/TsplBitmapStrategy.ts => languages/tspl/strategies/TsplRasterStrategy.ts} (97%)
+ rename src/features/printer/{drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts => languages/tspl/strategies/__tests__/TsplCommandStrategy.test.ts} (96%)
+ rename src/features/printer/{drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts => languages/tspl/strategies/__tests__/TsplRasterStrategy.test.ts} (96%)
+ rename src/features/printer/{drivers => languages}/tspl/strategies/tsplStrategy.types.ts (100%)
+
+diff --git a/src/features/cart/services/OrderPrintTrigger.ts b/src/features/cart/services/OrderPrintTrigger.ts
+index d1aadef..35f8b55 100644
+--- a/src/features/cart/services/OrderPrintTrigger.ts
++++ b/src/features/cart/services/OrderPrintTrigger.ts
+@@ -174,7 +174,7 @@ export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) =>
+  *
+  * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
+  * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở
+- * `TsplBitmapStrategy.validate()`/`EscPosDriver.sendBitmap()` (`IMAGE_REQUIRED`)
++ * `TsplRasterStrategy.validate()`/`EscPosLanguage.encode()` (`IMAGE_REQUIRED`)
+  * thay vì âm thầm in sai — các target khác (Encoder mode) không cần ảnh nên
+  * vẫn in bình thường.
+  */
+diff --git a/src/features/printer/adapters/library/LibraryAdapter.ts b/src/features/printer/adapters/library/LibraryAdapter.ts
+index 6d9b4d4..641c521 100644
+--- a/src/features/printer/adapters/library/LibraryAdapter.ts
++++ b/src/features/printer/adapters/library/LibraryAdapter.ts
+@@ -5,7 +5,7 @@ import type { PrinterDevice } from '../../models/printer/PrinterDevice';
+ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
+ import { LanTransport } from '../../transports/LanTransport';
+ import { BluetoothTransport } from '../../transports/BluetoothTransport';
+-import * as EPToolkit from '../native/utils/EPToolkit';
++import * as EPToolkit from '../../languages/escpos/EPToolkit';
+ 
+ /**
+  * `IPrinterAdapter` chạy qua thư viện npm generic — `react-native-tcp-socket`
+diff --git a/src/features/printer/adapters/native/NativeAdapter.ts b/src/features/printer/adapters/native/NativeAdapter.ts
+index a043c76..9f7e6c6 100644
+--- a/src/features/printer/adapters/native/NativeAdapter.ts
++++ b/src/features/printer/adapters/native/NativeAdapter.ts
+@@ -7,7 +7,7 @@ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterErr
+ import { DeviceModule, type NativeDeviceAddress, type NativeDeviceInfo } from './DeviceModule';
+ import { nativeConnectionPool, type NativeConnectionLease } from './NativeConnectionPool';
+ import { toPrinterError } from './toPrinterError';
+-import * as EPToolkit from './utils/EPToolkit';
++import * as EPToolkit from '../../languages/escpos/EPToolkit';
+ 
+ /** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
+ const WRITE_BASE_TIMEOUT_MS = 30_000;
+diff --git a/src/features/printer/drivers/escpos/EscPosDriver.ts b/src/features/printer/drivers/escpos/EscPosDriver.ts
+index ba03efd..6fbfeb6 100644
+--- a/src/features/printer/drivers/escpos/EscPosDriver.ts
++++ b/src/features/printer/drivers/escpos/EscPosDriver.ts
+@@ -3,9 +3,8 @@ import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
+ import type { PrintOptions } from '../../models/printing/PrintOptions';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
++import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../../models/printer/PrinterStatus';
+-import { CutterMode } from '../../models/paper/PaperOptions';
+ import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+ import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+ import type { Printer } from '../../models/printer/Printer';
+@@ -16,16 +15,10 @@ import { LoggerService } from '../../../../services/LoggerService';
+ import { NativeAdapter } from '../../adapters/native/NativeAdapter';
+ import { subscribeDeviceDisconnected } from '../../adapters/native/DeviceModule';
+ import { toConnectTarget } from '../../adapters/IPrinterAdapter';
+-import { buildEscPosText } from './EscPosTextBuilder';
+-import { buildEscPosBitmapBytes } from './EscPosBitmapEncoder';
+-import { resolveEffectiveCutterMode } from '../../paper/cutter';
+-import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
+-import { PAPER_SIZE_SPECS, DOTS_PER_MM, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
+-
+-const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding: 'UTF8' } as const;
++import { EscPosLanguage } from '../../languages/escpos/EscPosLanguage';
+ 
+ /**
+- * ESC/POS đi qua `NativeAdapter`; text được encode ở JS (`EPToolkit`) rồi ghi byte thô.
++ * ESC/POS đi qua `NativeAdapter`; byte do `EscPosLanguage` encode rồi ghi thô.
+  * Mỗi loại kết nối chỉ giữ một máy in ESC/POS đang kết nối (`activeByType`); máy mất quyền thì trả kết nối ngay.
+  */
+ export class EscPosDriver implements IPrinterDriver {
+@@ -197,44 +190,7 @@ export class EscPosDriver implements IPrinterDriver {
+   }
+ 
+   private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
+-    if (printer.language.renderMode === RenderMode.Raster) {
+-      await this.sendBitmap(adapter, printer, documents);
+-      return;
+-    }
+-
+-    const cut = resolveEffectiveCutterMode(printer.paper) !== CutterMode.None;
+-    const text = buildEscPosText(printer.paper.paperSize, documents);
+-    await adapter.printText(text, { ...ESC_POS_BASE_OPTIONS, cut });
+-  }
+-
+-  /**
+-   * ESC/POS paper luôn `Continuous` (schema cấm die-cut cho ESC/POS) — không
+-   * cần lặp theo cột như TSPL die-cut, đơn giản hơn hẳn theo đúng lý do vật lý.
+-   */
+-  private async sendBitmap(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
+-    if (!documents.image) {
+-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_REQUIRED, message: 'Chế độ Bitmap cần ảnh bill đã render — capture ảnh thất bại hoặc chưa chạy.' });
+-    }
+-
+-    const targetWidthPx = PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx;
+-
+-    let bitmap;
+-
+-    try {
+-      bitmap = decodePngBase64ToMonochrome(documents.image, targetWidthPx);
+-    } catch (error) {
+-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_INVALID, message: 'Ảnh bill không hợp lệ (không giải mã được PNG).', cause: error });
+-    }
+-
+-    const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
+-
+-    if (bitmap.heightPx > maxHeightPx) {
+-      throw new PrinterErrorException({ code: PrinterErrorCode.IMAGE_TOO_LARGE, message: `Nội dung cao khoảng ${Math.ceil(bitmap.heightPx / DOTS_PER_MM)}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.` });
+-    }
+-
+-    const bytes = buildEscPosBitmapBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
+-    // Ghi byte bitmap đã encode; printText() chỉ dành cho text có tag định dạng.
+-    await adapter.write(bytes);
++    await adapter.write(EscPosLanguage.encode(printer, documents));
+   }
+ 
+   /** `_options` không dùng ở ESC/POS (không phân biệt bill/label, không grid) — chỉ giữ tham số để khớp `IPrinterDriver`. */
+diff --git a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts b/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+index 0d374e7..3e9173d 100644
+--- a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
++++ b/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+@@ -2,7 +2,7 @@ import UPNG from 'upng-js';
+ import { Buffer } from 'buffer';
+ import { Platform } from 'react-native';
+ import { EscPosDriver } from '../EscPosDriver';
+-import { buildEscPosText } from '../EscPosTextBuilder';
++import { buildEscPosText } from '../../../languages/escpos/EscPosTextBuilder';
+ import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+ import { ConnectionType } from '../../../models/printer/ConnectionType';
+ import { RenderMode, PrintLanguage } from '../../../models/printer/PrinterLanguage';
+diff --git a/src/features/printer/drivers/tspl/TsplDriver.ts b/src/features/printer/drivers/tspl/TsplDriver.ts
+index 611102c..b68e124 100644
+--- a/src/features/printer/drivers/tspl/TsplDriver.ts
++++ b/src/features/printer/drivers/tspl/TsplDriver.ts
+@@ -3,14 +3,12 @@ import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
+ import type { PrintOptions } from '../../models/printing/PrintOptions';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
++import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../../models/printer/PrinterStatus';
+ import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+ import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+ import type { Printer } from '../../models/printer/Printer';
+-import { TsplBitmapStrategy } from './strategies/TsplBitmapStrategy';
+-import { TsplTextStrategy } from './strategies/TsplTextStrategy';
+-import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
++import { TsplLanguage } from '../../languages/tspl/TsplLanguage';
+ import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
+ import { toConnectTarget } from '../../adapters/IPrinterAdapter';
+ import { resolvePrinterAdapter } from '../../adapters/resolvePrinterAdapter';
+@@ -22,23 +20,6 @@ import { PrinterLogger } from '../../logging/PrinterLogger';
+ 
+ const IDENTIFY_TIMEOUT_MS = 1000;
+ 
+-const resolveRows = (options?: PrintOptions): number => {
+-  const n = Math.floor(options?.rows ?? 1);
+-  return Number.isFinite(n) ? Math.max(1, n) : 1;
+-};
+-
+-const encodeAsciiCommand = (text: string): Uint8Array => {
+-  const bytes = new Uint8Array(text.length);
+-  for (let i = 0; i < text.length; i += 1) {
+-    // eslint-disable-next-line no-bitwise -- intentional single-byte masking
+-    bytes[i] = text.charCodeAt(i) & 0xff;
+-  }
+-  return bytes;
+-};
+-
+-const tsplBitmapStrategy = new TsplBitmapStrategy();
+-const tsplTextStrategy = new TsplTextStrategy();
+-
+ export class TsplDriver implements IPrinterDriver {
+   private connections = new Map<string, IPrinterAdapter>();
+   private contexts = new Map<string, Printer>();
+@@ -208,21 +189,6 @@ export class TsplDriver implements IPrinterDriver {
+     return () => this.listeners.get(printerId)?.delete(callback);
+   }
+ 
+-  /** Chọn strategy theo renderMode — y hệt cách EscPosDriver.sendDocuments() rẽ nhánh. */
+-  private buildBytes(printer: Printer, documents: PrintDocuments, rows: number): Uint8Array {
+-    const strategy = printer.language.renderMode === RenderMode.Raster ? tsplBitmapStrategy : tsplTextStrategy;
+-    const context: TsplStrategyContext = {
+-      printer,
+-      documents,
+-      kind: printer.kind,
+-      paper: printer.paper,
+-      rows,
+-    };
+-
+-    strategy.validate(context);
+-    return strategy.encode(context);
+-  }
+-
+   async testPrint(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
+     const startedAt = Date.now();
+ 
+@@ -232,9 +198,7 @@ export class TsplDriver implements IPrinterDriver {
+       }
+ 
+       const adapter = this.connections.get(printer.id);
+-      const rows = resolveRows(options);
+-      const bytes = this.buildBytes(printer, documents, rows);
+-      await adapter?.write(bytes);
++      await adapter?.write(TsplLanguage.encode(printer, documents, options));
+       PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
+     } catch (error) {
+       PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+@@ -253,9 +217,7 @@ export class TsplDriver implements IPrinterDriver {
+     const startedAt = Date.now();
+ 
+     try {
+-      const rows = resolveRows(options);
+-      const bytes = this.buildBytes(printer, documents, rows);
+-      await adapter.write(bytes);
++      await adapter.write(TsplLanguage.encode(printer, documents, options));
+       PrinterLogger.printSucceeded({ printerId, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
+     } catch (error) {
+       PrinterLogger.printFailed({ printerId, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+@@ -266,15 +228,16 @@ export class TsplDriver implements IPrinterDriver {
+   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
+     const adapter = this.connections.get(printerId);
+ 
+-    if (!adapter || !adapter.canRead) {
++    const probe = TsplLanguage.identifyProbe;
++
++    if (!adapter || !adapter.canRead || !probe) {
+       return null;
+     }
+ 
+     try {
+-      const query = encodeAsciiCommand('~!T\r\n');
+-      await adapter.write(query);
++      await adapter.write(probe.command);
+       const response = await adapter.read(IDENTIFY_TIMEOUT_MS);
+-      return response && response.length > 0 ? {} : null;
++      return response && probe.matches(response) ? {} : null;
+     } catch {
+       return null;
+     }
+diff --git a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts b/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+index 3a1335f..5c8ea2c 100644
+--- a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
++++ b/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+@@ -97,7 +97,7 @@ const bluetoothLabelPrinter: Printer = {
+ const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', kind: PrintKind.Receipt };
+ const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', kind: PrintKind.Receipt };
+ 
+-/** renderMode Encoder — dùng cho test rẽ nhánh sang TsplTextStrategy (không cần documents.image). */
++/** renderMode Encoder — dùng cho test rẽ nhánh sang TsplCommandStrategy (không cần documents.image). */
+ const lanEncoderPrinter: Printer = { ...lanLabelPrinter, id: 'label-encoder', language: makeTsplLanguage({ renderMode: RenderMode.Command }) };
+ 
+ const sampleDocuments: PrintDocuments = {
+@@ -257,7 +257,7 @@ describe('TsplDriver', () => {
+     expect(ascii).toContain('PRINT 1,1');
+   });
+ 
+-  it('renderMode Encoder gọi TsplTextStrategy (TEXT command), không cần documents.image', async () => {
++  it('renderMode Encoder gọi TsplCommandStrategy (TEXT command), không cần documents.image', async () => {
+     const driver = new TsplDriver();
+     await driver.connect(lanEncoderPrinter);
+     const { LanTransport } = jest.requireMock('../../../transports/LanTransport') as { LanTransport: jest.Mock };
+@@ -333,7 +333,7 @@ describe('TsplDriver', () => {
+     // (384px, xem `decodePngBase64ToMonochrome`) bất kể kích thước gốc — ảnh
+     // test rộng 2px bị scale lên 384px (widthBytes = ceil(384/8) = 48), cao
+     // tương ứng theo tỉ lệ (1px * 384/2 = 192px). `documents.image` là base64
+-    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplBitmapStrategy.
++    // string thuần (không còn x/y riêng) — luôn vẽ tại (0,0), xem TsplRasterStrategy.
+     const header = 'BITMAP 0,0,48,192,0,';
+     expect(asAscii.slice(bitmapStart, bitmapStart + header.length)).toBe(header);
+   });
+diff --git a/src/features/printer/languages/IPrintLanguage.ts b/src/features/printer/languages/IPrintLanguage.ts
+new file mode 100644
+index 0000000..609bd82
+--- /dev/null
++++ b/src/features/printer/languages/IPrintLanguage.ts
+@@ -0,0 +1,21 @@
++import type { Printer } from '../models/printer/Printer';
++import type { PrintDocuments } from '../models/printing/PrintDocuments';
++import type { PrintOptions } from '../models/printing/PrintOptions';
++
++/** Lệnh dò để nhận ra máy in dùng một ngôn ngữ, và cách đọc phản hồi. */
++export interface IdentifyProbe {
++  /** Byte gửi tới máy in. */
++  command: Uint8Array;
++
++  /** Phản hồi đọc được có xác nhận ngôn ngữ này không. */
++  matches(response: Uint8Array): boolean;
++}
++
++/** Một ngôn ngữ lệnh máy in: chỉ biến nội dung thành byte, không biết kết nối. */
++export interface IPrintLanguage {
++  /** Kiểm tra rồi encode; nội dung không in được (thiếu ảnh, ảnh quá cao…) ném `PrinterErrorException`. */
++  encode(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Uint8Array;
++
++  /** Không có nghĩa là ngôn ngữ không có lệnh dò. */
++  identifyProbe?: IdentifyProbe;
++}
+diff --git a/src/features/printer/languages/__tests__/encodeCases.test.ts b/src/features/printer/languages/__tests__/encodeCases.test.ts
+new file mode 100644
+index 0000000..00021ac
+--- /dev/null
++++ b/src/features/printer/languages/__tests__/encodeCases.test.ts
+@@ -0,0 +1,12 @@
++import { getPrintLanguage } from '../getPrintLanguage';
++import { ENCODE_CASES, fingerprintOf } from '../../testing/encodeCases';
++
++describe('byte ngôn ngữ in sinh ra', () => {
++  it.each(ENCODE_CASES.map((encodeCase) => [encodeCase.name, encodeCase] as const))('%s', (_name, encodeCase) => {
++    const language = getPrintLanguage(encodeCase.printer.language.type);
++
++    const bytes = language.encode(encodeCase.printer, encodeCase.documents, encodeCase.options);
++
++    expect(fingerprintOf(bytes)).toBe(encodeCase.fingerprint);
++  });
++});
+diff --git a/src/features/printer/adapters/native/utils/EPToolkit.ts b/src/features/printer/languages/escpos/EPToolkit.ts
+similarity index 100%
+rename from src/features/printer/adapters/native/utils/EPToolkit.ts
+rename to src/features/printer/languages/escpos/EPToolkit.ts
+diff --git a/src/features/printer/languages/escpos/EscPosLanguage.ts b/src/features/printer/languages/escpos/EscPosLanguage.ts
+new file mode 100644
+index 0000000..c8ccfcd
+--- /dev/null
++++ b/src/features/printer/languages/escpos/EscPosLanguage.ts
+@@ -0,0 +1,70 @@
++import { CutterMode } from '../../models/paper/PaperOptions';
++import type { Printer } from '../../models/printer/Printer';
++import { RenderMode } from '../../models/printer/PrinterLanguage';
++import type { PrintDocuments } from '../../models/printing/PrintDocuments';
++import { PrinterErrorCode, PrinterErrorException } from '../../errors/PrinterError';
++import { resolveEffectiveCutterMode } from '../../paper/cutter';
++import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../paper/paperSpec';
++import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
++import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
++import type { IPrintLanguage } from '../IPrintLanguage';
++import { exchange_text } from './EPToolkit';
++import { buildEscPosRasterBytes } from './EscPosRasterEncoder';
++import { buildEscPosText } from './EscPosTextBuilder';
++
++/** Luôn thêm dòng trống cuối cho dễ xé giấy, và in văn bản UTF-8. */
++const TEXT_OPTIONS = { tailingLine: true, encoding: 'UTF8' } as const;
++
++/** Chuỗi mở đầu cố định `exchange_text` luôn chèn (ESC @, chọn UTF-8, ESC 2); không gửi chuỗi này tới máy in. */
++const TEXT_PREAMBLE = [0x1b, 0x40, 0x1c, 0x26, 0x1c, 0x43, 0xff, 0x1b, 0x32];
++
++const withoutPreamble = (bytes: Uint8Array): Uint8Array =>
++  TEXT_PREAMBLE.every((byte, index) => bytes[index] === byte) ? bytes.subarray(TEXT_PREAMBLE.length) : bytes;
++
++const encodeCommand = (printer: Printer, documents: PrintDocuments): Uint8Array => {
++  const cut = resolveEffectiveCutterMode(printer.paper) !== CutterMode.None;
++  const text = buildEscPosText(printer.paper.paperSize, documents);
++  return withoutPreamble(new Uint8Array(exchange_text(text, { ...TEXT_OPTIONS, cut })));
++};
++
++const decodeImage = (image: string, widthPx: number): MonochromeBitmap => {
++  try {
++    return decodePngBase64ToMonochrome(image, widthPx);
++  } catch (error) {
++    throw new PrinterErrorException({
++      code: PrinterErrorCode.IMAGE_INVALID,
++      message: 'Ảnh bill không hợp lệ (không giải mã được PNG).',
++      cause: error,
++    });
++  }
++};
++
++/** Giấy ESC/POS luôn là giấy cuộn nên ảnh không chia cột; ảnh quá cao bị chặn để máy không đẩy giấy quá dài. */
++const encodeRaster = (printer: Printer, documents: PrintDocuments): Uint8Array => {
++  if (!documents.image) {
++    throw new PrinterErrorException({
++      code: PrinterErrorCode.IMAGE_REQUIRED,
++      message: 'In ảnh cần ảnh bill đã render — chụp ảnh thất bại hoặc chưa chạy.',
++    });
++  }
++
++  const bitmap = decodeImage(documents.image, PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx);
++  const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
++
++  if (bitmap.heightPx > maxHeightPx) {
++    const heightMm = Math.ceil(bitmap.heightPx / DOTS_PER_MM);
++
++    throw new PrinterErrorException({
++      code: PrinterErrorCode.IMAGE_TOO_LARGE,
++      message: `Nội dung cao khoảng ${heightMm}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.`,
++    });
++  }
++
++  return buildEscPosRasterBytes(bitmap, resolveEffectiveCutterMode(printer.paper));
++};
++
++/** Ngôn ngữ ESC/POS: máy hoá đơn không có lệnh dò nên không có `identifyProbe`. */
++export const EscPosLanguage: IPrintLanguage = {
++  encode: (printer, documents) =>
++    printer.language.renderMode === RenderMode.Raster ? encodeRaster(printer, documents) : encodeCommand(printer, documents),
++};
+diff --git a/src/features/printer/drivers/escpos/EscPosBitmapEncoder.ts b/src/features/printer/languages/escpos/EscPosRasterEncoder.ts
+similarity index 96%
+rename from src/features/printer/drivers/escpos/EscPosBitmapEncoder.ts
+rename to src/features/printer/languages/escpos/EscPosRasterEncoder.ts
+index 22e808f..fd51904 100644
+--- a/src/features/printer/drivers/escpos/EscPosBitmapEncoder.ts
++++ b/src/features/printer/languages/escpos/EscPosRasterEncoder.ts
+@@ -17,7 +17,7 @@ const CUT_BYTES = [0x1b, 0x6d]; // khớp hành vi cắt ESC/POS text-mode hiệ
+  * vật lý người dùng đã quen với text-mode hiện tại — chưa xác nhận trên
+  * phần cứng thật, cùng mức độ chưa-verify như TSPL truetype/internalfont.
+  */
+-export const buildEscPosBitmapBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
++export const buildEscPosRasterBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
+   const header = [
+     0x1d, 0x76, 0x30, 0x00,
+     // eslint-disable-next-line no-bitwise -- intentional low-byte/high-byte split for little-endian width field
+diff --git a/src/features/printer/drivers/escpos/EscPosTextBuilder.ts b/src/features/printer/languages/escpos/EscPosTextBuilder.ts
+similarity index 100%
+rename from src/features/printer/drivers/escpos/EscPosTextBuilder.ts
+rename to src/features/printer/languages/escpos/EscPosTextBuilder.ts
+diff --git a/src/features/printer/languages/escpos/__tests__/EscPosLanguage.test.ts b/src/features/printer/languages/escpos/__tests__/EscPosLanguage.test.ts
+new file mode 100644
+index 0000000..1de7678
+--- /dev/null
++++ b/src/features/printer/languages/escpos/__tests__/EscPosLanguage.test.ts
+@@ -0,0 +1,51 @@
++import UPNG from 'upng-js';
++import { Buffer } from 'buffer';
++import { EscPosLanguage } from '../EscPosLanguage';
++import { RenderMode } from '../../../models/printer/PrinterLanguage';
++import { PrinterErrorCode } from '../../../errors/PrinterError';
++import { makeEscPosLanguage, makePrinter } from '../../../testing/printerFixtures';
++
++const textDocument = { elements: [{ type: 'text' as const, content: 'In thử', x: 0, y: 0 }] };
++
++const rasterPrinter = makePrinter({ language: makeEscPosLanguage({ renderMode: RenderMode.Raster }) });
++
++/** Ảnh 2x6 toàn đen: chuẩn hoá về bề rộng 576px thì cao 1728px, vượt trần an toàn 1600px của giấy 80mm. */
++const tallPngBase64 = (): string => {
++  const rgba = new Uint8Array(2 * 6 * 4);
++
++  for (let alpha = 3; alpha < rgba.length; alpha += 4) {
++    rgba[alpha] = 255;
++  }
++
++  return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 6, 0, [], true))).toString('base64');
++};
++
++describe('EscPosLanguage', () => {
++  it('lệnh văn bản không gửi chuỗi mở đầu ESC @ của bộ encode', () => {
++    const bytes = EscPosLanguage.encode(makePrinter(), { text: textDocument });
++
++    expect([bytes[0], bytes[1]]).not.toEqual([0x1b, 0x40]);
++  });
++
++  it('in ảnh mà thiếu ảnh → IMAGE_REQUIRED', () => {
++    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument })).toThrow(
++      expect.objectContaining({ code: PrinterErrorCode.IMAGE_REQUIRED }),
++    );
++  });
++
++  it('ảnh không giải mã được → IMAGE_INVALID', () => {
++    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument, image: 'not-a-png' })).toThrow(
++      expect.objectContaining({ code: PrinterErrorCode.IMAGE_INVALID }),
++    );
++  });
++
++  it('ảnh cao quá trần an toàn → IMAGE_TOO_LARGE', () => {
++    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument, image: tallPngBase64() })).toThrow(
++      expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
++    );
++  });
++
++  it('không có lệnh dò', () => {
++    expect(EscPosLanguage.identifyProbe).toBeUndefined();
++  });
++});
+diff --git a/src/features/printer/drivers/escpos/__tests__/EscPosBitmapEncoder.test.ts b/src/features/printer/languages/escpos/__tests__/EscPosRasterEncoder.test.ts
+similarity index 83%
+rename from src/features/printer/drivers/escpos/__tests__/EscPosBitmapEncoder.test.ts
+rename to src/features/printer/languages/escpos/__tests__/EscPosRasterEncoder.test.ts
+index c1a3414..9b29adc 100644
+--- a/src/features/printer/drivers/escpos/__tests__/EscPosBitmapEncoder.test.ts
++++ b/src/features/printer/languages/escpos/__tests__/EscPosRasterEncoder.test.ts
+@@ -1,11 +1,11 @@
+-import { buildEscPosBitmapBytes } from '../EscPosBitmapEncoder';
++import { buildEscPosRasterBytes } from '../EscPosRasterEncoder';
+ import { CutterMode } from '../../../models/paper/PaperOptions';
+ import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
+ 
+-describe('buildEscPosBitmapBytes', () => {
++describe('buildEscPosRasterBytes', () => {
+   it('phát đúng header ESC @ + GS v 0 (m=0) với width/height little-endian, theo sau bởi đúng data bits', () => {
+     const bitmap: MonochromeBitmap = { widthBytes: 2, heightPx: 3, bits: new Uint8Array([0xff, 0x00, 0x0f, 0xf0, 0xaa, 0x55]) };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerJob);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.PerJob);
+ 
+     expect(Array.from(bytes.slice(0, 10))).toEqual([
+       0x1b, 0x40, // ESC @
+@@ -20,7 +20,7 @@ describe('buildEscPosBitmapBytes', () => {
+     const widthBytes = 300; // 0x012C -> low 0x2C, high 0x01
+     const heightPx = 500; // 0x01F4 -> low 0xF4, high 0x01
+     const bitmap: MonochromeBitmap = { widthBytes, heightPx, bits: new Uint8Array(widthBytes * heightPx) };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.None);
+ 
+     expect(bytes[6]).toBe(0x2c);
+     expect(bytes[7]).toBe(0x01);
+@@ -30,7 +30,7 @@ describe('buildEscPosBitmapBytes', () => {
+ 
+   it('cutterMode = none → không phát cut_bytes ([0x1b, 0x6d]) ở cuối', () => {
+     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0xff]) };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.None);
+ 
+     // header (6) + width/height (4) + 1 byte data = 11 byte, không có gì thêm sau đó.
+     expect(bytes.length).toBe(11);
+@@ -39,7 +39,7 @@ describe('buildEscPosBitmapBytes', () => {
+ 
+   it('cutterMode = perJob → phát cut_bytes ([0x1b, 0x6d]) ngay sau data', () => {
+     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0xff]) };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerJob);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.PerJob);
+ 
+     expect(bytes.length).toBe(13);
+     expect(Array.from(bytes.slice(-2))).toEqual([0x1b, 0x6d]);
+@@ -47,7 +47,7 @@ describe('buildEscPosBitmapBytes', () => {
+ 
+   it('cutterMode = perRow → cũng phát cut_bytes (chỉ "none" mới bỏ qua)', () => {
+     const bitmap: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0x00]) };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.PerRow);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.PerRow);
+ 
+     expect(Array.from(bytes.slice(-2))).toEqual([0x1b, 0x6d]);
+   });
+@@ -55,7 +55,7 @@ describe('buildEscPosBitmapBytes', () => {
+   it('data KHÔNG bị đảo bit — khớp nguyên vẹn MonochromeBitmap.bits (khác quirk đảo bit riêng của lệnh BITMAP TSPL)', () => {
+     const bits = new Uint8Array([0b10110100, 0b00000000, 0b11111111]);
+     const bitmap: MonochromeBitmap = { widthBytes: 3, heightPx: 1, bits };
+-    const bytes = buildEscPosBitmapBytes(bitmap, CutterMode.None);
++    const bytes = buildEscPosRasterBytes(bitmap, CutterMode.None);
+ 
+     expect(Array.from(bytes.slice(10, 13))).toEqual(Array.from(bits));
+   });
+diff --git a/src/features/printer/drivers/escpos/__tests__/EscPosTextBuilder.test.ts b/src/features/printer/languages/escpos/__tests__/EscPosTextBuilder.test.ts
+similarity index 100%
+rename from src/features/printer/drivers/escpos/__tests__/EscPosTextBuilder.test.ts
+rename to src/features/printer/languages/escpos/__tests__/EscPosTextBuilder.test.ts
+diff --git a/src/features/printer/adapters/native/utils/buffer-helper.ts b/src/features/printer/languages/escpos/buffer-helper.ts
+similarity index 100%
+rename from src/features/printer/adapters/native/utils/buffer-helper.ts
+rename to src/features/printer/languages/escpos/buffer-helper.ts
+diff --git a/src/features/printer/languages/getPrintLanguage.ts b/src/features/printer/languages/getPrintLanguage.ts
+new file mode 100644
+index 0000000..29c0f9c
+--- /dev/null
++++ b/src/features/printer/languages/getPrintLanguage.ts
+@@ -0,0 +1,8 @@
++import { PrintLanguage } from '../models/printer/PrinterLanguage';
++import type { IPrintLanguage } from './IPrintLanguage';
++import { EscPosLanguage } from './escpos/EscPosLanguage';
++import { TsplLanguage } from './tspl/TsplLanguage';
++
++/** Ngôn ngữ in theo cấu hình của máy in. */
++export const getPrintLanguage = (type: PrintLanguage): IPrintLanguage =>
++  type === PrintLanguage.EscPos ? EscPosLanguage : TsplLanguage;
+diff --git a/src/features/printer/drivers/tspl/TsplEncoder.ts b/src/features/printer/languages/tspl/TsplEncoder.ts
+similarity index 100%
+rename from src/features/printer/drivers/tspl/TsplEncoder.ts
+rename to src/features/printer/languages/tspl/TsplEncoder.ts
+diff --git a/src/features/printer/languages/tspl/TsplLanguage.ts b/src/features/printer/languages/tspl/TsplLanguage.ts
+new file mode 100644
+index 0000000..08f5718
+--- /dev/null
++++ b/src/features/printer/languages/tspl/TsplLanguage.ts
+@@ -0,0 +1,41 @@
++import { RenderMode } from '../../models/printer/PrinterLanguage';
++import type { PrintOptions } from '../../models/printing/PrintOptions';
++import type { IPrintLanguage } from '../IPrintLanguage';
++import { TsplCommandStrategy } from './strategies/TsplCommandStrategy';
++import { TsplRasterStrategy } from './strategies/TsplRasterStrategy';
++import type { TsplStrategyContext } from './strategies/tsplStrategy.types';
++
++/** Lệnh hỏi trạng thái TSPL: máy TSPL trả lời, máy dùng ngôn ngữ khác im lặng. */
++const STATUS_QUERY = '~!T\r\n';
++
++const commandStrategy = new TsplCommandStrategy();
++
++const rasterStrategy = new TsplRasterStrategy();
++
++/** Số hàng tem cần in, tối thiểu 1; giá trị không hợp lệ coi như 1. */
++const rowsOf = (options?: PrintOptions): number => {
++  const rows = Math.floor(options?.rows ?? 1);
++  return Number.isFinite(rows) ? Math.max(1, rows) : 1;
++};
++
++/** Ngôn ngữ TSPL (máy in tem, cũng in được hoá đơn trên giấy cuộn). */
++export const TsplLanguage: IPrintLanguage = {
++  encode: (printer, documents, options) => {
++    const strategy = printer.language.renderMode === RenderMode.Raster ? rasterStrategy : commandStrategy;
++    const context: TsplStrategyContext = {
++      printer,
++      documents,
++      kind: printer.kind,
++      paper: printer.paper,
++      rows: rowsOf(options),
++    };
++
++    strategy.validate(context);
++    return strategy.encode(context);
++  },
++
++  identifyProbe: {
++    command: Uint8Array.from(STATUS_QUERY, (character) => character.charCodeAt(0)),
++    matches: (response) => response.length > 0,
++  },
++};
+diff --git a/src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts b/src/features/printer/languages/tspl/__tests__/TsplEncoder.test.ts
+similarity index 100%
+rename from src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
+rename to src/features/printer/languages/tspl/__tests__/TsplEncoder.test.ts
+diff --git a/src/features/printer/languages/tspl/__tests__/TsplLanguage.test.ts b/src/features/printer/languages/tspl/__tests__/TsplLanguage.test.ts
+new file mode 100644
+index 0000000..a32fa4f
+--- /dev/null
++++ b/src/features/printer/languages/tspl/__tests__/TsplLanguage.test.ts
+@@ -0,0 +1,25 @@
++import { TsplLanguage } from '../TsplLanguage';
++import { fingerprintOf } from '../../../testing/encodeCases';
++import { RenderMode } from '../../../models/printer/PrinterLanguage';
++import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
++
++const printer = makePrinter({ language: makeTsplLanguage({ renderMode: RenderMode.Command }) });
++
++const documents = { text: { elements: [{ type: 'text' as const, content: 'Trà đào', x: 0, y: 0 }] } };
++
++describe('TsplLanguage', () => {
++  it('lệnh dò là ~!T và chỉ khớp khi máy có trả lời', () => {
++    const probe = TsplLanguage.identifyProbe;
++
++    expect(probe && Array.from(probe.command)).toEqual([0x7e, 0x21, 0x54, 0x0d, 0x0a]);
++    expect(probe?.matches(new Uint8Array([]))).toBe(false);
++    expect(probe?.matches(new Uint8Array([0x00]))).toBe(true);
++  });
++
++  it('số hàng không hợp lệ coi như 1 hàng', () => {
++    const oneRow = fingerprintOf(TsplLanguage.encode(printer, documents));
++
++    expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: 0 }))).toBe(oneRow);
++    expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: Number.NaN }))).toBe(oneRow);
++  });
++});
+diff --git a/src/features/printer/drivers/tspl/strategies/TsplTextStrategy.ts b/src/features/printer/languages/tspl/strategies/TsplCommandStrategy.ts
+similarity index 93%
+rename from src/features/printer/drivers/tspl/strategies/TsplTextStrategy.ts
+rename to src/features/printer/languages/tspl/strategies/TsplCommandStrategy.ts
+index 71e15af..86e29e9 100644
+--- a/src/features/printer/drivers/tspl/strategies/TsplTextStrategy.ts
++++ b/src/features/printer/languages/tspl/strategies/TsplCommandStrategy.ts
+@@ -14,11 +14,11 @@ import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../..
+  * riêng. Không tự wrap dòng dài (spec §6) — mirror mức đơn giản của
+  * `buildEscPosText` (ESC/POS Encoder).
+  */
+-export class TsplTextStrategy implements ITsplPrintStrategy {
++export class TsplCommandStrategy implements ITsplPrintStrategy {
+   readonly mode = RenderMode.Command;
+ 
+   validate(_context: TsplStrategyContext): void {
+-    // Không có precondition — không cần ảnh như TsplBitmapStrategy.
++    // Không có precondition — không cần ảnh như TsplRasterStrategy.
+   }
+ 
+   encode(context: TsplStrategyContext): Uint8Array {
+@@ -28,7 +28,7 @@ export class TsplTextStrategy implements ITsplPrintStrategy {
+ 
+     // Die-cut nhiều cột (`columnOffsets` trả `[0]` cho giấy continuous, nên
+     // vòng lặp ngoài là no-op với Receipt) — lặp lại TOÀN BỘ nội dung ở mỗi
+-    // x-offset cột, giống `TsplBitmapStrategy.encode()` lặp `encoder.image()`
++    // x-offset cột, giống `TsplRasterStrategy.encode()` lặp `encoder.image()`
+     // theo `columnOffsets`. Thiếu vòng lặp này thì Text mode chỉ in được cột
+     // đầu trên tem die-cut nhiều cột, trong khi Bitmap mode in đủ mọi cột.
+     for (const dx of columnOffsets(paper)) {
+diff --git a/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts b/src/features/printer/languages/tspl/strategies/TsplRasterStrategy.ts
+similarity index 97%
+rename from src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts
+rename to src/features/printer/languages/tspl/strategies/TsplRasterStrategy.ts
+index 972b5f0..a890aae 100644
+--- a/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts
++++ b/src/features/printer/languages/tspl/strategies/TsplRasterStrategy.ts
+@@ -11,7 +11,7 @@ import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
+  * `documents.image` (base64 PNG) → monochrome 1-bit → lệnh `BITMAP` (§31-38).
+  * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
+  */
+-export class TsplBitmapStrategy implements ITsplPrintStrategy {
++export class TsplRasterStrategy implements ITsplPrintStrategy {
+   readonly mode = RenderMode.Raster;
+ 
+   validate(context: TsplStrategyContext): void {
+diff --git a/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts b/src/features/printer/languages/tspl/strategies/__tests__/TsplCommandStrategy.test.ts
+similarity index 96%
+rename from src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts
+rename to src/features/printer/languages/tspl/strategies/__tests__/TsplCommandStrategy.test.ts
+index 7b2ddd5..4832bf1 100644
+--- a/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts
++++ b/src/features/printer/languages/tspl/strategies/__tests__/TsplCommandStrategy.test.ts
+@@ -1,5 +1,5 @@
+ import { Buffer } from 'buffer';
+-import { TsplTextStrategy } from '../TsplTextStrategy';
++import { TsplCommandStrategy } from '../TsplCommandStrategy';
+ import type { TsplStrategyContext } from '../tsplStrategy.types';
+ import { PrinterErrorCode } from '../../../../errors/PrinterError';
+ import { RenderMode } from '../../../../models/printer/PrinterLanguage';
+@@ -35,8 +35,8 @@ const ctx = (document: PrintDocument, over: Partial<TsplStrategyContext> = {}):
+ // dung có dấu như "Xin chào"/"Tổng").
+ const asAscii = (bytes: Uint8Array): string => Buffer.from(bytes).toString('utf-8');
+ 
+-describe('TsplTextStrategy', () => {
+-  const s = new TsplTextStrategy();
++describe('TsplCommandStrategy', () => {
++  const s = new TsplCommandStrategy();
+ 
+   it('mode === Encoder', () => expect(s.mode).toBe(RenderMode.Command));
+ 
+@@ -106,7 +106,7 @@ describe('TsplTextStrategy', () => {
+   });
+ 
+   it('die_cut 3 cột → cùng nội dung text được lặp lại ở x = 0, pitch, 2*pitch', () => {
+-    // pitch = (30 + 2) * 8 = 256, giống fixture die-cut của TsplBitmapStrategy.test.ts
++    // pitch = (30 + 2) * 8 = 256, giống fixture die-cut của TsplRasterStrategy.test.ts
+     const ascii = asAscii(s.encode(ctx({ elements: [{ type: 'text', content: 'Xin chào', x: 0, y: 0 }] }, { paper: DIE_CUT })));
+     expect(ascii).toContain('TEXT 0,0,"3",0,1,1,"Xin chào"');
+     expect(ascii).toContain('TEXT 256,0,"3",0,1,1,"Xin chào"');
+diff --git a/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts b/src/features/printer/languages/tspl/strategies/__tests__/TsplRasterStrategy.test.ts
+similarity index 96%
+rename from src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts
+rename to src/features/printer/languages/tspl/strategies/__tests__/TsplRasterStrategy.test.ts
+index 8e180fc..b83428b 100644
+--- a/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts
++++ b/src/features/printer/languages/tspl/strategies/__tests__/TsplRasterStrategy.test.ts
+@@ -1,4 +1,4 @@
+-import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
++import { TsplRasterStrategy } from '../TsplRasterStrategy';
+ import type { TsplStrategyContext } from '../tsplStrategy.types';
+ import { PrinterErrorCode } from '../../../../errors/PrinterError';
+ import { RenderMode } from '../../../../models/printer/PrinterLanguage';
+@@ -36,8 +36,8 @@ const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
+   ...over,
+ });
+ 
+-describe('TsplBitmapStrategy', () => {
+-  const s = new TsplBitmapStrategy();
++describe('TsplRasterStrategy', () => {
++  const s = new TsplRasterStrategy();
+ 
+   it('mode === Bitmap', () => expect(s.mode).toBe(RenderMode.Raster));
+ 
+diff --git a/src/features/printer/drivers/tspl/strategies/tsplStrategy.types.ts b/src/features/printer/languages/tspl/strategies/tsplStrategy.types.ts
+similarity index 100%
+rename from src/features/printer/drivers/tspl/strategies/tsplStrategy.types.ts
+rename to src/features/printer/languages/tspl/strategies/tsplStrategy.types.ts
+diff --git a/src/features/printer/rendering/printLayoutConstants.ts b/src/features/printer/rendering/printLayoutConstants.ts
+index 731bf4d..6227b61 100644
+--- a/src/features/printer/rendering/printLayoutConstants.ts
++++ b/src/features/printer/rendering/printLayoutConstants.ts
+@@ -1,5 +1,5 @@
+ /**
+- * Hằng số layout dùng chung giữa `TsplTextStrategy` (đơn vị: dot TSPL) và
++ * Hằng số layout dùng chung giữa `TsplCommandStrategy` (đơn vị: dot TSPL) và
+  * `renderDocumentToBitmap` (đơn vị: pixel canvas Skia) — CÙNG 1 giá trị vì cả
+  * 2 đều theo mật độ 8 dot/mm của máy in nhiệt (`DOTS_PER_MM` ở `paper/paperSpec.ts`),
+  * không phải trùng hợp: `PAPER_SIZE_SPECS[...].imageWidthPx` đã tính đúng
+-- 
+2.55.0.windows.5
+
