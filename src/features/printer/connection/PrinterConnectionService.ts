@@ -1,5 +1,5 @@
 import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
 import { DriverRegistry } from '../drivers/DriverRegistry';
@@ -16,20 +16,20 @@ type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
  * cấp), không phải service này.
  */
 export const createPrinterConnectionService = (
-  registry: Record<PrinterDriverType, IPrinterDriver> = DriverRegistry,
+  registry: Record<PrintLanguage, IPrinterDriver> = DriverRegistry,
   repository: PrinterRepositoryLike = PrinterRepository,
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
-  const getDriver = (type: PrinterDriverType): IPrinterDriver => registry[type];
+  const getDriver = (type: PrintLanguage): IPrinterDriver => registry[type];
 
   const connect = async (printerId: string): Promise<void> => {
     const printer = repository.findOrThrow(printerId);
-    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.driver.type).connect(printer));
+    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.language.type).connect(printer));
   };
 
   const disconnect = async (printerId: string): Promise<void> => {
     const printer = repository.findOrThrow(printerId);
-    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.driver.type).disconnect(printerId));
+    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.language.type).disconnect(printerId));
   };
 
   const reconnect = async (printerId: string): Promise<void> => {
@@ -47,21 +47,21 @@ export const createPrinterConnectionService = (
   };
 
   const connectDraft = async (printer: Printer): Promise<void> => {
-    await getDriver(printer.driver.type).connect(printer);
+    await getDriver(printer.language.type).connect(printer);
   };
 
-  const disconnectForDriver = async (type: PrinterDriverType, printerId: string): Promise<void> => {
+  const disconnectForDriver = async (type: PrintLanguage, printerId: string): Promise<void> => {
     await getDriver(type).disconnect(printerId);
   };
 
   const getStatus = (printerId: string): PrinterStatus => {
     const printer = repository.findOrThrow(printerId);
-    return getDriver(printer.driver.type).getStatus(printerId);
+    return getDriver(printer.language.type).getStatus(printerId);
   };
 
   const onStatusChange = (printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe => {
     const printer = repository.findOrThrow(printerId);
-    return getDriver(printer.driver.type).onStatusChange(printerId, callback);
+    return getDriver(printer.language.type).onStatusChange(printerId, callback);
   };
 
   /**
@@ -70,9 +70,9 @@ export const createPrinterConnectionService = (
    * `PRINTER_NOT_FOUND`). Vẫn giữ ở bản atomic-driver này vì lý do tồn tại
    * không phải multi-driver dedup mà là "printer chưa tồn tại trong storage".
    */
-  const getStatusForDriver = (type: PrinterDriverType, printerId: string): PrinterStatus => getDriver(type).getStatus(printerId);
+  const getStatusForDriver = (type: PrintLanguage, printerId: string): PrinterStatus => getDriver(type).getStatus(printerId);
 
-  const onStatusChangeForDriver = (type: PrinterDriverType, printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe =>
+  const onStatusChangeForDriver = (type: PrintLanguage, printerId: string, callback: (status: PrinterStatus) => void): Unsubscribe =>
     getDriver(type).onStatusChange(printerId, callback);
 
   return {

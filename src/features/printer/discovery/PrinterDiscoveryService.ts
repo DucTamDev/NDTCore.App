@@ -1,6 +1,6 @@
 import type { IPrinterDriver } from '../drivers/IPrinterDriver';
-import { DriverSource, PrinterDriverType } from '../models/printer/PrinterDriver';
-import type { PrinterDriver } from '../models/printer/PrinterDriver';
+import { LanguageSelection, PrintLanguage, RasterSource } from '../models/printer/PrinterLanguage';
+import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 import { PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
@@ -12,7 +12,7 @@ import { getDriverCapabilities } from '../drivers/DriverCapabilities';
  * (gửi lệnh dò `~!T`), trong khi ESC/POS's `identify()` chỉ chứng minh "đã
  * connect thành công". Qua USB cả 2 driver luôn trả `null` — cố ý.
  */
-const CANDIDATE_ORDER: PrinterDriverType[] = [PrinterDriverType.Tspl, PrinterDriverType.EscPos];
+const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscPos];
 
 export const DiscoveryStage = {
   Connecting: 'Connecting',
@@ -26,9 +26,9 @@ export type DiscoveryStage = (typeof DiscoveryStage)[keyof typeof DiscoveryStage
 
 export interface DiscoveryEvent {
   stage: DiscoveryStage;
-  protocol?: PrinterDriverType;
-  /** Driver đã xác nhận — chỉ có khi `stage === 'Identified'`. Caller gán thẳng `printer.driver = event.driver`. */
-  driver?: PrinterDriver;
+  protocol?: PrintLanguage;
+  /** Ngôn ngữ đã xác nhận, chỉ có khi `stage === 'Identified'`; nơi gọi gán thẳng vào `printer.language`. */
+  language?: PrinterLanguage;
   deviceInfo?: PrinterDeviceInfo;
   error?: PrinterError;
 }
@@ -37,7 +37,7 @@ export interface DiscoverPrinterInput {
   /**
    * Draft `Printer` ĐẦY ĐỦ (id, connection, type, paper, driver placeholder,
    * v.v.) do caller (`useProtocolDiscovery`) tự dựng — service này KHÔNG tự
-   * tổng hợp draft. `draftPrinter.driver` là placeholder, bị GHI ĐÈ theo từng
+   * tổng hợp draft. `draftPrinter.language` là placeholder, bị GHI ĐÈ theo từng
    * candidate lúc thử — chỉ `draftPrinter.type`/`.connection`/`.paper` được
    * dùng nguyên vẹn. Candidate bị lọc theo `getDriverCapabilities(type).contentTypes`
    * có chứa `draftPrinter.type` hay không (vd ESC/POS không được thử khi `type === Label`).
@@ -48,7 +48,7 @@ export interface DiscoverPrinterInput {
 export type Unsubscribe = () => void;
 
 export const createDiscoverDriver =
-  (registry: Record<PrinterDriverType, IPrinterDriver>) =>
+  (registry: Record<PrintLanguage, IPrinterDriver>) =>
   (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => {
     let cancelled = false;
 
@@ -58,9 +58,9 @@ export const createDiscoverDriver =
       const printerId = draftPrinter.id;
       const connectionType = draftPrinter.connection.type;
       const candidates = CANDIDATE_ORDER.filter(
-        (type) => Boolean(registry[type]) && getDriverCapabilities(type).contentTypes.includes(draftPrinter.type),
+        (type) => Boolean(registry[type]) && getDriverCapabilities(type).contentTypes.includes(draftPrinter.kind),
       );
-      const candidatesTried: PrinterDriverType[] = [];
+      const candidatesTried: PrintLanguage[] = [];
       let connectFailures = 0;
 
       PrinterLogger.discoveryStarted({ printerId, connectionType, candidates });
@@ -72,8 +72,13 @@ export const createDiscoverDriver =
 
         candidatesTried.push(type);
         const driver = registry[type];
-        const attemptDriver: PrinterDriver = { type, source: DriverSource.Auto, config: { ...getDriverCapabilities(type).defaultConfig } };
-        const attemptPrinter: Printer = { ...draftPrinter, driver: attemptDriver };
+        const attemptLanguage: PrinterLanguage = {
+          type,
+          selection: LanguageSelection.Auto,
+          renderMode: getDriverCapabilities(type).defaultConfig.renderMode,
+          rasterSource: RasterSource.Image,
+        };
+        const attemptPrinter: Printer = { ...draftPrinter, language: attemptLanguage };
         const disconnectQuietly = (): Promise<void> => driver.disconnect(printerId).catch(() => undefined);
         onEvent({ stage: DiscoveryStage.Connecting, protocol: type });
 
@@ -99,7 +104,7 @@ export const createDiscoverDriver =
         }
 
         if (deviceInfo) {
-          onEvent({ stage: DiscoveryStage.Identified, protocol: type, driver: attemptDriver, deviceInfo });
+          onEvent({ stage: DiscoveryStage.Identified, protocol: type, language: attemptLanguage, deviceInfo });
           PrinterLogger.protocolDetected({ printerId, protocol: type, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
           return;
         }

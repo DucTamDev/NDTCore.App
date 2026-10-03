@@ -1,8 +1,8 @@
 import { Buffer } from 'buffer';
 import { Skia, ImageFormat } from '@shopify/react-native-skia';
 import type { PrintDocument } from '../models/printing/PrintDocument';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import { PrintPaperType } from '../models/paper/PrintPaperConfig';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import { PaperType } from '../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../paper/paperSpec';
 import { create as createQrCode } from 'qrcode';
 import {
@@ -18,8 +18,8 @@ type SkiaSurface = ReturnType<typeof Skia.Surface.MakeOffscreen>;
 export type SkiaCanvas = ReturnType<NonNullable<SkiaSurface>['getCanvas']>;
 
 /** Cùng logic đo bề rộng với `useBillImageCapture.tsx` — die-cut theo itemWidthMm, còn lại theo khổ giấy. */
-const resolveWidthPx = (media: PrintPaperConfig): number =>
-  media.type === PrintPaperType.DieCut ? (media.itemWidthMm ?? 0) * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
+const resolveWidthPx = (media: PaperOptions): number =>
+  media.type === PaperType.DieCut ? (media.itemWidthMm ?? 0) * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
 
 /**
  * Đếm số dòng sẽ vẽ (không wrap — spec §6, mỗi phần tử/mỗi row trong table là
@@ -116,7 +116,7 @@ const resolveFont = (): ReturnType<typeof Skia.Font> => {
  * mount `View`, không phụ thuộc `onLayout`/`devicePixelRatio` như
  * `useBillImageCapture`. Cùng contract `(document, media) => base64 PNG |
  * null` với `CaptureBillImage` — nơi gọi (`OrderPrintTrigger`) chọn 1 trong 2
- * theo `bitmapSource`, driver không biết/không cần biết khác biệt này.
+ * theo `rasterSource`, driver không biết/không cần biết khác biệt này.
  *
  * Lỗi luôn trả `null` (không throw) — CÙNG hợp đồng với
  * `useBillImageCapture.tsx`'s `captureBillImage` (path `Image`, cũng nuốt lỗi
@@ -124,7 +124,7 @@ const resolveFont = (): ReturnType<typeof Skia.Font> => {
  * fail không có gì hiện trên màn hình để debug — log `warning` ở cả 2 nhánh
  * lỗi chỉ để còn dấu vết, KHÔNG đổi hợp đồng trả về.
  */
-export const renderDocumentToBitmap = async (document: PrintDocument, media: PrintPaperConfig): Promise<string | null> => {
+export const renderDocumentToBitmap = async (document: PrintDocument, media: PaperOptions): Promise<string | null> => {
   try {
     const widthPx = resolveWidthPx(media);
     const heightPx = estimateHeightPx(document);

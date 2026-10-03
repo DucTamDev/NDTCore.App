@@ -1,7 +1,7 @@
 import type { PrintDocument } from '../PrintDocument';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
-import { PrintType } from '../PrintType';
+import { PrintKind } from '../../printer/PrintKind';
 
 const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 
@@ -11,7 +11,7 @@ describe('print job types', () => {
       id: 'job1',
       requestId: 'req1',
       printerId: 'p1',
-      printType: PrintType.Receipt,
+      kind: PrintKind.Receipt,
       documents: { text: document },
       status: PrintJobStatus.Pending,
       retryCount: 0,
@@ -25,7 +25,7 @@ describe('print job types', () => {
       id: '1',
       requestId: 'r',
       printerId: 'p',
-      printType: PrintType.Receipt,
+      kind: PrintKind.Receipt,
       documents: { text: { elements: [] } },
       status: PrintJobStatus.Pending,
       retryCount: 0,

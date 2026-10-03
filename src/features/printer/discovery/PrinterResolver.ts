@@ -1,5 +1,5 @@
 import type { PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
+import { ConnectionType } from '../models/printer/ConnectionType';
 import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnection, UsbPrinterConnection } from '../models/printer/PrinterConnection';
 
 /**
@@ -10,18 +10,18 @@ import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnectio
  */
 export const buildUsbConnection = (device: PrinterDevice): UsbPrinterConnection => {
   const raw = device.rawDevice as unknown as UsbRawDevice;
-  const connection: UsbPrinterConnection = { type: PrinterConnectionType.Usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
+  const connection: UsbPrinterConnection = { type: ConnectionType.Usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
   return raw.serialNumber ? { ...connection, serialNumber: raw.serialNumber } : connection;
 };
 
 /** Dựng `BluetoothPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan. */
 export const buildBluetoothConnection = (device: PrinterDevice): BluetoothPrinterConnection => {
-  const connection: BluetoothPrinterConnection = { type: PrinterConnectionType.Bluetooth, deviceId: device.deviceId };
-  return device.displayName ? { ...connection, name: device.displayName } : connection;
+  const connection: BluetoothPrinterConnection = { type: ConnectionType.Bluetooth, mac: device.deviceId };
+  return connection;
 };
 
 /** Dựng `LanPrinterConnection` từ IP/port đã nhập (form Add Printer). */
-export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: PrinterConnectionType.Lan, host, port });
+export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: ConnectionType.Lan, host, port });
 
 /**
  * Chiều ngược lại `buildUsbConnection`/`buildBluetoothConnection` — dựng lại
@@ -33,40 +33,14 @@ export const buildLanConnection = (host: string, port: number): LanPrinterConnec
  * thị, chỉ để round-trip lại đúng connection.
  */
 export const deviceFromConnection = (connection: PrinterConnection): PrinterDevice | undefined => {
-  if (connection.type === PrinterConnectionType.Usb) {
+  if (connection.type === ConnectionType.Usb) {
     const rawDevice: UsbRawDevice = { vendorId: connection.vendorId, productId: connection.productId, serialNumber: connection.serialNumber };
     return { deviceId: `${connection.vendorId}:${connection.productId}`, displayName: '', rawDevice: rawDevice as unknown as Record<string, unknown> };
   }
 
-  if (connection.type === PrinterConnectionType.Bluetooth) {
-    return { deviceId: connection.deviceId, displayName: connection.name ?? '', rawDevice: {} };
+  if (connection.type === ConnectionType.Bluetooth) {
+    return { deviceId: connection.mac, displayName: '', rawDevice: {} };
   }
 
   return undefined;
-};
-
-/**
- * Tính identityKey của 1 physical printer — CHỈ phụ thuộc `PrinterConnection`,
- * không phụ thuộc driver/protocol nào được gán (spec §6.1). KHÔNG tự quyết
- * định "có phải trùng lặp không" — so khớp với printer đã lưu là việc của
- * `storage/PrinterRepository.ts` (spec §6.2).
- *
- * USB: `usb:<vendorId>:<productId>[:<serialNumber>]`. Serial (từ
- * `USBPrinter.getDeviceList()`, cần quyền USB — có sau khi user "Kết nối") pin
- * thêm vào để rút/cắm lại đổi bus path vẫn nhận ra cùng máy. Không có serial
- * thì chỉ `vendorId:productId` — KHÔNG phân biệt được 2 máy cùng model cắm
- * cùng lúc.
- */
-export const resolveIdentityKey = (connection: PrinterConnection): string => {
-  if (connection.type === PrinterConnectionType.Lan) {
-    return `lan:${connection.host}:${connection.port}`;
-  }
-
-  if (connection.type === PrinterConnectionType.Bluetooth) {
-    return `bluetooth:mac:${connection.deviceId.toUpperCase()}`;
-  }
-
-  return connection.serialNumber
-    ? `usb:${connection.vendorId}:${connection.productId}:${connection.serialNumber}`
-    : `usb:${connection.vendorId}:${connection.productId}`;
 };

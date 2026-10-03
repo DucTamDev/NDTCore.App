@@ -1,5 +1,5 @@
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import { RenderMode, BitmapSource } from '../models/printer/PrinterDriver';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import { RenderMode, RasterSource } from '../models/printer/PrinterLanguage';
 import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
 
 type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
@@ -18,11 +18,11 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     }
 
     repository.savePrinters(
-      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, driver: { ...p.driver, config: { ...p.driver.config, renderMode } } })),
+      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, language: { ...p.language, renderMode } })),
     );
   };
 
-  const setBitmapSource = (printerId: string, bitmapSource: BitmapSource): void => {
+  const setRasterSource = (printerId: string, rasterSource: RasterSource): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
 
     if (!printer) {
@@ -30,11 +30,11 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     }
 
     repository.savePrinters(
-      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, driver: { ...p.driver, config: { ...p.driver.config, bitmapSource } } })),
+      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, language: { ...p.language, rasterSource } })),
     );
   };
 
-  const setPaper = (printerId: string, patch: Partial<PrintPaperConfig>): void => {
+  const setPaper = (printerId: string, patch: Partial<PaperOptions>): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
 
     if (!printer) {
@@ -44,7 +44,7 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper: { ...p.paper, ...patch } })));
   };
 
-  return { setRenderMode, setBitmapSource, setPaper };
+  return { setRenderMode, setRasterSource, setPaper };
 };
 
 export const PrinterConfigService = createPrinterConfigService(PrinterRepository);

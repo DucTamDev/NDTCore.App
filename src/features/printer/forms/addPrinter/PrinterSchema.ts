@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { DriverSource, RenderMode, PrinterDriverType, BitmapSource } from '../../models/printer/PrinterDriver';
-import { CutterMode, PaperSize, PrintPaperType } from '../../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
-import { PrintType } from '../../models/printing/PrintType';
+import { ConnectionType } from '../../models/printer/ConnectionType';
+import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../../models/printer/PrinterLanguage';
+import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
+import { PrintKind } from '../../models/printer/PrintKind';
 import { dieCutRowOverflow } from '../../paper/validation';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 
@@ -18,7 +18,7 @@ const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalG
 
 const printPaperConfigSchema = z
   .object({
-    type: z.enum([PrintPaperType.Continuous, PrintPaperType.DieCut]),
+    type: z.enum([PaperType.Continuous, PaperType.DieCut]),
     paperSize: paperSizeSchema,
     itemWidthMm: z.number().positive().optional(),
     itemHeightMm: z.number().positive().optional(),
@@ -28,7 +28,7 @@ const printPaperConfigSchema = z
     cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]).optional(),
   })
   .superRefine((paper, ctx) => {
-    if (paper.type !== PrintPaperType.DieCut) {
+    if (paper.type !== PaperType.DieCut) {
       return;
     }
 
@@ -42,41 +42,41 @@ const printPaperConfigSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
     }
 
-    const overflow = dieCutRowOverflow(paper as PrintPaperConfig);
+    const overflow = dieCutRowOverflow(paper as PaperOptions);
 
     if (overflow) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
     }
   });
 
-const printerCapabilitiesSchema = z.object({ cutter: z.boolean() });
-
-const printerDriverConfigSchema = z.object({
-  renderMode: z.enum([RenderMode.Encoder, RenderMode.Bitmap]),
-  bitmapSource: z.enum([BitmapSource.Image, BitmapSource.Ast]).optional(),
+const printerCapabilitiesSchema = z.object({
+  cutter: z.boolean(),
+  cashDrawer: z.boolean(),
+  color: z.boolean(),
+  image: z.boolean(),
 });
 
-export const printerDriverSchema = z.object({
-  type: z.enum([PrinterDriverType.EscPos, PrinterDriverType.Tspl]),
-  source: z.enum([DriverSource.Auto, DriverSource.Manual]),
-  config: printerDriverConfigSchema,
+const printerLanguageSchema = z.object({
+  type: z.enum([PrintLanguage.EscPos, PrintLanguage.Tspl]),
+  selection: z.enum([LanguageSelection.Auto, LanguageSelection.Manual]),
+  renderMode: z.enum([RenderMode.Command, RenderMode.Raster]),
+  rasterSource: z.enum([RasterSource.Image, RasterSource.Ast]),
 });
 
 const usbPrinterConnectionSchema = z.object({
-  type: z.literal(PrinterConnectionType.Usb),
+  type: z.literal(ConnectionType.Usb),
   vendorId: z.number(),
   productId: z.number(),
   serialNumber: z.string().optional(),
 });
 
 const bluetoothPrinterConnectionSchema = z.object({
-  type: z.literal(PrinterConnectionType.Bluetooth),
-  deviceId: z.string(),
-  name: z.string().optional(),
+  type: z.literal(ConnectionType.Bluetooth),
+  mac: z.string(),
 });
 
 const lanPrinterConnectionSchema = z.object({
-  type: z.literal(PrinterConnectionType.Lan),
+  type: z.literal(ConnectionType.Lan),
   host: z.string(),
   port: z.number(),
 });
@@ -87,21 +87,18 @@ const printerConnectionSchema = z.discriminatedUnion('type', [
   lanPrinterConnectionSchema,
 ]);
 
-/**
- * Safety net ở service layer (spec §3), KHÔNG thay thế validation UI (UI đã
- * tự ngăn phần lớn state không hợp lệ trước khi tới đây).
- */
+/** Lưới an toàn khi lưu ở tầng service; UI đã tự chặn phần lớn trạng thái sai trước khi tới đây. */
 export const printerSchema = z
   .object({
     id: z.string(),
     name: z.string().min(1),
     vendor: z.string().optional(),
     model: z.string().optional(),
-    type: z.enum([PrintType.Receipt, PrintType.Label]),
-    driver: printerDriverSchema,
+    kind: z.enum([PrintKind.Receipt, PrintKind.Label]),
+    language: printerLanguageSchema,
     connection: printerConnectionSchema,
     paper: printPaperConfigSchema,
-    identityKey: z.string().min(1),
+    deviceId: z.string().min(1),
     capabilities: printerCapabilitiesSchema,
     autoReconnect: z.boolean(),
     enabled: z.boolean(),
@@ -109,12 +106,16 @@ export const printerSchema = z
     updatedAt: z.string(),
   })
   .superRefine((printer, ctx) => {
-    if (printer.driver.type === PrinterDriverType.EscPos && printer.paper.type !== PrintPaperType.Continuous) {
+    if (printer.language.type === PrintLanguage.EscPos && printer.paper.type !== PaperType.Continuous) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['paper', 'type'], message: 'ESC/POS chỉ in giấy cuộn liên tục' });
     }
 
-    if (!getDriverCapabilities(printer.driver.type).contentTypes.includes(printer.type)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['driver', 'type'], message: `Driver ${printer.driver.type} không hỗ trợ loại nội dung ${printer.type}` });
+    if (!getDriverCapabilities(printer.language.type).contentTypes.includes(printer.kind)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['language', 'type'],
+        message: `Ngôn ngữ ${printer.language.type} không in được loại nội dung ${printer.kind}`,
+      });
     }
   });
 

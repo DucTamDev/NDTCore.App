@@ -1,5 +1,5 @@
 import { createDeviceScanService } from '../DeviceScanService';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { ConnectionType } from '../../models/printer/ConnectionType';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import { DiscoveryStage } from '../PrinterDiscoveryService';
 import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
@@ -11,16 +11,16 @@ describe('DeviceScanService', () => {
     const escposDriver = makeMockDriver();
     const service = createDeviceScanService({ EscPos: escposDriver, Tspl: makeMockDriver() });
     const onEvent = jest.fn();
-    service.scanForConnectionType(PrinterConnectionType.Usb, onEvent);
-    expect(escposDriver.scan).toHaveBeenCalledWith(PrinterConnectionType.Usb, expect.any(Function));
+    service.scanForConnectionType(ConnectionType.Usb, onEvent);
+    expect(escposDriver.scan).toHaveBeenCalledWith(ConnectionType.Usb, expect.any(Function));
   });
 
   it('scanForConnectionType(bluetooth) forwards to the Tspl driver scan', () => {
     const tsplDriver = makeMockDriver();
     const service = createDeviceScanService({ EscPos: makeMockDriver(), Tspl: tsplDriver });
     const onEvent = jest.fn();
-    service.scanForConnectionType(PrinterConnectionType.Bluetooth, onEvent);
-    expect(tsplDriver.scan).toHaveBeenCalledWith(PrinterConnectionType.Bluetooth, expect.any(Function));
+    service.scanForConnectionType(ConnectionType.Bluetooth, onEvent);
+    expect(tsplDriver.scan).toHaveBeenCalledWith(ConnectionType.Bluetooth, expect.any(Function));
   });
 
   it('scan events pass through the logging tap to the caller unchanged', () => {
@@ -31,7 +31,7 @@ describe('DeviceScanService', () => {
     });
     const service = createDeviceScanService({ EscPos: escposDriver, Tspl: makeMockDriver() });
     const onEvent = jest.fn();
-    service.scanForConnectionType(PrinterConnectionType.Usb, onEvent);
+    service.scanForConnectionType(ConnectionType.Usb, onEvent);
     expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({
       type: DeviceScanEventType.Found,
       devices: [expect.objectContaining({ deviceId: '11575:33751' })],

@@ -1,42 +1,42 @@
 import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 
-const bluetoothConnection = (deviceId: string): PrinterConnection => ({ type: PrinterConnectionType.Bluetooth, deviceId });
-const lanConnection: PrinterConnection = { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 };
-const usbConnection: PrinterConnection = { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 };
+const bluetoothConnection = (mac: string): PrinterConnection => ({ type: ConnectionType.Bluetooth, mac });
+const lanConnection: PrinterConnection = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 };
+const usbConnection: PrinterConnection = { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 };
 
 describe('connectionResourceKey', () => {
   it('is "usb" for any driver over USB (RNUSBPrinter is a shared native singleton)', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: usbConnection })).toBe('usb');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: usbConnection })).toBe('usb');
+    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: usbConnection })).toBe('usb');
+    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: usbConnection })).toBe('usb');
   });
 
   it('is "escpos:bluetooth" regardless of device — the vendor library BLEPrinter namespace is a global singleton', () => {
     const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
     const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceB }),
+    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceA })).toBe(
+      connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceB }),
     );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe('escpos:bluetooth');
+    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: deviceA })).toBe('escpos:bluetooth');
   });
 
   it('is "escpos:lan" regardless of host:port — the vendor library NetPrinter namespace is a global singleton', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: lanConnection })).toBe('escpos:lan');
+    expect(connectionResourceKey({ driverType: PrintLanguage.EscPos, connection: lanConnection })).toBe('escpos:lan');
   });
 
   it('is per-device for tspl over bluetooth — TsplDriver manages its own transport per printer, no shared native singleton', () => {
     const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
     const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).not.toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceB }),
+    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceA })).not.toBe(
+      connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceB }),
     );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
+    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
   });
 
   it('is per-host:port for tspl over lan', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
+    expect(connectionResourceKey({ driverType: PrintLanguage.Tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
   });
 });
 

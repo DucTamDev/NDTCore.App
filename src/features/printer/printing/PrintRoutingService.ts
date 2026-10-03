@@ -1,4 +1,4 @@
-import type { PrintType } from '../models/printing/PrintType';
+import type { PrintKind } from '../models/printer/PrintKind';
 import type { Printer } from '../models/printer/Printer';
 import { PrinterRepository } from '../storage/PrinterRepository';
 
@@ -11,8 +11,8 @@ interface PrintRoutingServiceDeps {
  * định đúng 1 `type` nên không còn bước tìm driver bên trong nữa.
  */
 export const createPrintRoutingService = (deps: PrintRoutingServiceDeps) => {
-  const resolveTargets = (printType: PrintType): Printer[] =>
-    deps.getPrinters().filter((printer) => printer.enabled && printer.type === printType);
+  const resolveTargets = (kind: PrintKind): Printer[] =>
+    deps.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);
 
   return { resolveTargets };
 };

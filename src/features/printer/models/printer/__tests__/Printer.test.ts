@@ -1,48 +1,54 @@
-import { PrinterConnectionType } from '../PrinterConnection';
-import { DriverSource, PrinterDriverType, RenderMode, type PrinterDriver } from '../PrinterDriver';
+import { ConnectionType } from '../ConnectionType';
+import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../PrinterLanguage';
 import { type Printer } from '../Printer';
-import { PrintType } from '../../printing/PrintType';
-import { PaperSize, PrintPaperType } from '../../paper/PrintPaperConfig';
+import { PrintKind } from '../PrintKind';
+import { PaperSize, PaperType } from '../../paper/PaperOptions';
 
 describe('Printer domain type', () => {
-  it('accepts a fully-formed Printer with a tspl driver for a LAN label printer', () => {
-    const driver: PrinterDriver = {
-      type: PrinterDriverType.Tspl,
-      source: DriverSource.Auto,
-      config: { renderMode: RenderMode.Bitmap },
+  it('accepts a fully-formed Printer with a TSPL language for a LAN label printer', () => {
+    const language: PrinterLanguage = {
+      type: PrintLanguage.Tspl,
+      selection: LanguageSelection.Auto,
+      renderMode: RenderMode.Raster,
+      rasterSource: RasterSource.Image,
     };
     const printer: Printer = {
       id: 'p1',
-      identityKey: 'lan:192.168.1.50:9100',
-      type: PrintType.Label,
+      deviceId: 'lan:192.168.1.50:9100',
+      kind: PrintKind.Label,
       name: 'Máy in tem quầy 1',
-      driver,
-      connection: { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 },
-      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 },
-      capabilities: { cutter: false },
+      language,
+      connection: { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
+      capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
       autoReconnect: true,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
-    expect(printer.driver.type).toBe(PrinterDriverType.Tspl);
+    expect(printer.language.type).toBe(PrintLanguage.Tspl);
   });
 
-  it('accepts a Printer with a single escpos driver over USB', () => {
+  it('accepts a Printer with an ESC/POS language over USB', () => {
     const printer: Printer = {
       id: 'p1',
-      identityKey: 'usb:1155:22222',
-      type: PrintType.Receipt,
+      deviceId: 'usb:1155:22222',
+      kind: PrintKind.Receipt,
       name: 'Máy in hóa đơn quầy 1',
-      driver: { type: PrinterDriverType.EscPos, source: DriverSource.Manual, config: { renderMode: RenderMode.Encoder } },
-      connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
-      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 },
-      capabilities: { cutter: false },
+      language: {
+        type: PrintLanguage.EscPos,
+        selection: LanguageSelection.Manual,
+        renderMode: RenderMode.Command,
+        rasterSource: RasterSource.Image,
+      },
+      connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
+      capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
       autoReconnect: false,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
-    expect(printer.driver.type).toBe(PrinterDriverType.EscPos);
+    expect(printer.language.type).toBe(PrintLanguage.EscPos);
   });
 });

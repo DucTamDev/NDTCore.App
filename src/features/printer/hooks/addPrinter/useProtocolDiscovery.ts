@@ -5,24 +5,24 @@ import { PrinterConnectionService } from '../../connection/PrinterConnectionServ
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
 import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
 import { DiscoveryStage, type DiscoveryEvent } from '../../discovery/PrinterDiscoveryService';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { DriverSource, type PrinterDriver, type PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { ConnectionType } from '../../models/printer/ConnectionType';
+import { LanguageSelection, RasterSource, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
 import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
- * Input cho {@link useProtocolDiscovery}. `buildDraftPrinter`/`setDriver`/
+ * Input cho {@link useProtocolDiscovery}. `buildDraftPrinter`/`setLanguage`/
  * `refreshUsbSerial`/`prefillDisplayName` do coordinator / {@link useConnectionSetup}
  * sở hữu — hook này chỉ điều phối state machine dò protocol.
  */
 export interface UseProtocolDiscoveryInput {
   initialValues?: Printer;
-  connectionType: PrinterConnectionType;
+  connectionType: ConnectionType;
   lanForm: UseFormReturn<LanConnectionValues>;
   discoveryUnsubscribeRef: MutableRefObject<(() => void) | null>;
   buildDraftPrinter: () => Printer;
-  setDriver: (driver: PrinterDriver) => void;
+  setLanguage: (language: PrinterLanguage) => void;
   refreshUsbSerial: () => Promise<void>;
   prefillDisplayName: (deviceName?: string) => void;
 }
@@ -31,7 +31,6 @@ export interface UseProtocolDiscoveryInput {
  * State machine kết nối + dò protocol của luồng Thêm/Sửa máy in: bấm "Kết nối"
  * → `DeviceScanService.discoverDriver`, xử lý các `DiscoveryEvent`, và nhánh
  * chọn "Printer Language" thủ công qua `PrinterConnectionService.connectDraft`.
- * Mỗi lần dò chỉ tìm ĐÚNG 1 driver — không còn khái niệm dò thêm driver thứ 2.
  */
 export const useProtocolDiscovery = ({
   initialValues,
@@ -39,14 +38,14 @@ export const useProtocolDiscovery = ({
   lanForm,
   discoveryUnsubscribeRef,
   buildDraftPrinter,
-  setDriver,
+  setLanguage,
   refreshUsbSerial,
   prefillDisplayName,
 }: UseProtocolDiscoveryInput) => {
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
   const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
-  const [lastProtocol, setLastProtocol] = useState<PrinterDriverType | undefined>(initialValues?.driver.type);
+  const [lastProtocol, setLastProtocol] = useState<PrintLanguage | undefined>(initialValues?.language.type);
   const [deviceInfo, setDeviceInfo] = useState<PrinterDeviceInfo | undefined>(undefined);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
 
@@ -74,7 +73,7 @@ export const useProtocolDiscovery = ({
             setProtocolState('detecting');
             break;
           case DiscoveryStage.Identified:
-            if (!event.protocol || !event.driver) {
+            if (!event.protocol || !event.language) {
               break;
             }
 
@@ -83,7 +82,7 @@ export const useProtocolDiscovery = ({
             setLastProtocol(event.protocol);
             setDeviceInfo(event.deviceInfo);
             setConnectionDirty(false);
-            setDriver(event.driver);
+            setLanguage(event.language);
             refreshUsbSerial();
             prefillDisplayName(event.deviceInfo?.deviceName);
             break;
@@ -104,18 +103,23 @@ export const useProtocolDiscovery = ({
   };
 
   const onConnectPress = (): void => {
-    if (connectionType === PrinterConnectionType.Lan) {
+    if (connectionType === ConnectionType.Lan) {
       lanForm.handleSubmit(() => startDiscovery())();
     } else {
       startDiscovery();
     }
   };
 
-  const onChooseProtocol = (chosenProtocol: PrinterDriverType): void => {
+  const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
     setConnectionState('connecting');
     setProtocolState('detecting');
-    const draftDriver: PrinterDriver = { type: chosenProtocol, source: DriverSource.Manual, config: { ...getDriverCapabilities(chosenProtocol).defaultConfig } };
-    const draftPrinter: Printer = { ...buildDraftPrinter(), driver: draftDriver };
+    const draftLanguage: PrinterLanguage = {
+      type: chosenProtocol,
+      selection: LanguageSelection.Manual,
+      renderMode: getDriverCapabilities(chosenProtocol).defaultConfig.renderMode,
+      rasterSource: RasterSource.Image,
+    };
+    const draftPrinter: Printer = { ...buildDraftPrinter(), language: draftLanguage };
     PrinterConnectionService.connectDraft(draftPrinter)
       .then(() => {
         setConnectionState('connected');
@@ -123,7 +127,7 @@ export const useProtocolDiscovery = ({
         setLastProtocol(chosenProtocol);
         setDeviceInfo(undefined);
         setConnectionDirty(false);
-        setDriver(draftDriver);
+        setLanguage(draftLanguage);
         refreshUsbSerial();
         prefillDisplayName();
       })

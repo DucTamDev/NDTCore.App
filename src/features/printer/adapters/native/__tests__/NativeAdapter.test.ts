@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { NativeAdapter } from '../NativeAdapter';
-import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
+import { ConnectionType } from '../../../models/printer/ConnectionType';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 // `NativeAdapter.printText` có nhánh iOS gọi module in cũ của iOS. Jest preset RN mặc định Platform.OS='ios' — ép
@@ -19,11 +19,11 @@ const deviceModule = () =>
     DeviceModule: { discover: jest.Mock; connect: jest.Mock; write: jest.Mock; read: jest.Mock; disconnect: jest.Mock };
   }).DeviceModule;
 
-const lanTarget = { printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '10.0.0.5', port: 9100 } };
+const lanTarget = { printerId: 'p1', connectionType: ConnectionType.Lan, lan: { ip: '10.0.0.5', port: 9100 } };
 
 const bluetoothTarget = {
   printerId: 'p2',
-  connectionType: PrinterConnectionType.Bluetooth,
+  connectionType: ConnectionType.Bluetooth,
   bluetooth: { deviceId: 'AA:BB' },
 };
 
@@ -37,7 +37,7 @@ describe('NativeAdapter', () => {
   });
 
   it('listDevices(lan) trả [] mà không gọi native', async () => {
-    await expect(new NativeAdapter().listDevices(PrinterConnectionType.Lan)).resolves.toEqual([]);
+    await expect(new NativeAdapter().listDevices(ConnectionType.Lan)).resolves.toEqual([]);
     expect(deviceModule().discover).not.toHaveBeenCalled();
   });
 
@@ -45,7 +45,7 @@ describe('NativeAdapter', () => {
     deviceModule().discover.mockResolvedValueOnce([
       { type: 'bluetooth', deviceId: 'bluetooth:AA:BB', name: 'BT', address: { type: 'bluetooth', mac: 'AA:BB' } },
     ]);
-    const devices = await new NativeAdapter().listDevices(PrinterConnectionType.Bluetooth);
+    const devices = await new NativeAdapter().listDevices(ConnectionType.Bluetooth);
     expect(deviceModule().discover).toHaveBeenCalledWith('bluetooth');
     expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { type: 'bluetooth', mac: 'AA:BB' } }]);
   });
@@ -68,7 +68,7 @@ describe('NativeAdapter', () => {
         hasPermission: false,
       },
     ]);
-    const devices = await new NativeAdapter().listDevices(PrinterConnectionType.Usb);
+    const devices = await new NativeAdapter().listDevices(ConnectionType.Usb);
     expect(devices).toEqual([
       {
         deviceId: '1155:22222',
@@ -90,7 +90,7 @@ describe('NativeAdapter', () => {
     await new NativeAdapter().connect(bluetoothTarget);
     await new NativeAdapter().connect({
       printerId: 'p3',
-      connectionType: PrinterConnectionType.Usb,
+      connectionType: ConnectionType.Usb,
       usb: { vendorId: 1155, productId: 22222, serialNumber: 'SN1' },
     });
 
@@ -106,7 +106,7 @@ describe('NativeAdapter', () => {
   });
 
   it('connect(usb) thiếu target.usb -> VALIDATION_ERROR', async () => {
-    const connect = new NativeAdapter().connect({ printerId: 'p1', connectionType: PrinterConnectionType.Usb });
+    const connect = new NativeAdapter().connect({ printerId: 'p1', connectionType: ConnectionType.Usb });
     await expect(connect).rejects.toMatchObject({ code: PrinterErrorCode.VALIDATION_ERROR });
   });
 

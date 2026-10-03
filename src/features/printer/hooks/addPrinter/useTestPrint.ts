@@ -2,13 +2,13 @@ import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { PrinterPrintService } from '../../printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
-import { usesBitmapRenderMode } from '../../drivers/driverConfig';
+import { usesRasterRenderMode } from '../../drivers/driverConfig';
 import { PrinterErrorException } from '../../errors/PrinterError';
-import type { PrintDocuments } from '../../drivers/IPrinterDriver';
+import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintDocument } from '../../models/printing/PrintDocument';
-import { PrintType } from '../../models/printing/PrintType';
+import { PrintKind } from '../../models/printer/PrintKind';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDriver } from '../../models/printer/PrinterDriver';
+import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
 import type { UseBillImageCapture } from '../useBillImageCapture';
 
@@ -17,7 +17,7 @@ import type { UseBillImageCapture } from '../useBillImageCapture';
  * coordinator sở hữu và truyền xuống.
  */
 export interface UseTestPrintInput {
-  driver?: PrinterDriver;
+  language?: PrinterLanguage;
   displayForm: UseFormReturn<PrinterDisplayValues>;
   buildDraftPrinter: () => Printer;
   captureBillImage: UseBillImageCapture['captureBillImage'];
@@ -28,13 +28,13 @@ export interface UseTestPrintInput {
  * cố định, ở chế độ Bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
  * `PrinterPrintService.testPrint`.
  */
-export const useTestPrint = ({ driver, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
+export const useTestPrint = ({ language, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
   const [testPrintPending, setTestPrintPending] = useState(false);
   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
 
   const resolveTestPrintDocuments = async (printer: Printer, document: PrintDocument): Promise<PrintDocuments> => {
-    if (!driver || !usesBitmapRenderMode(driver)) {
+    if (!language || !usesRasterRenderMode(language)) {
       return { text: document };
     }
 
@@ -48,7 +48,7 @@ export const useTestPrint = ({ driver, displayForm, buildDraftPrinter, captureBi
   };
 
   const onTestPrint = async (): Promise<void> => {
-    if (!driver) {
+    if (!language) {
       return;
     }
 
@@ -62,9 +62,9 @@ export const useTestPrint = ({ driver, displayForm, buildDraftPrinter, captureBi
     setTestPrintPending(true);
     setTestPrintErrorMessage(null);
     try {
-      const sampleDocument = printer.type === PrintType.Label ? buildSampleLabelDocument() : buildSampleReceiptDocument();
+      const sampleDocument = printer.kind === PrintKind.Label ? buildSampleLabelDocument() : buildSampleReceiptDocument();
       const documents = await resolveTestPrintDocuments(printer, sampleDocument);
-      const options = printer.type === PrintType.Label ? { rows: Number(testPrintRowsText) } : undefined;
+      const options = printer.kind === PrintKind.Label ? { rows: Number(testPrintRowsText) } : undefined;
       await PrinterPrintService.testPrint(printer, documents, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');

@@ -1,12 +1,12 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
-import { PrintType } from '../../../models/printing/PrintType';
-import { PrintPaperType, CutterMode } from '../../../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
+import { PrintKind } from '../../../models/printer/PrintKind';
+import { PaperType, CutterMode } from '../../../models/paper/PaperOptions';
+import type { PaperOptions } from '../../../models/paper/PaperOptions';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
-const CONT = (paperSize: PrintPaperConfig['paperSize'] = 58): PrintPaperConfig => ({ type: PrintPaperType.Continuous, paperSize });
-const DIE = (): PrintPaperConfig => ({
-  type: PrintPaperType.DieCut,
+const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({ type: PaperType.Continuous, paperSize });
+const DIE = (): PaperOptions => ({
+  type: PaperType.DieCut,
   paperSize: 100,
   itemWidthMm: 30,
   itemHeightMm: 20,
@@ -56,7 +56,7 @@ describe('TsplEncoder', () => {
   });
 
   it('initialize(continuous, Label) does NOT gap-sense — GAP 0,0, DEFAULT_LABEL_HEIGHT_MM, sized for 58mm paper', () => {
-    const output = decode(new TsplEncoder().initialize(CONT(58), PrintType.Label).encode());
+    const output = decode(new TsplEncoder().initialize(CONT(58), PrintKind.Label).encode());
     expect(output).toContain('SIZE 50 mm, 30 mm');
     expect(output).toContain('GAP 0 mm, 0 mm');
   });
@@ -87,9 +87,9 @@ describe('TsplEncoder', () => {
   });
 
   it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → itemHeightMm ?? DEFAULT', () => {
-    expect(resolveSizeHeightMm(DIE(), PrintType.Label)).toBe(20);
-    expect(resolveSizeHeightMm(CONT(), PrintType.Receipt)).toBe(200);
-    expect(resolveSizeHeightMm(CONT(), PrintType.Label)).toBe(30);
+    expect(resolveSizeHeightMm(DIE(), PrintKind.Label)).toBe(20);
+    expect(resolveSizeHeightMm(CONT(), PrintKind.Receipt)).toBe(200);
+    expect(resolveSizeHeightMm(CONT(), PrintKind.Label)).toBe(30);
   });
 
   it('cut(3, per_job) → SET CUTTER 3 then PRINT 3,1', () => {

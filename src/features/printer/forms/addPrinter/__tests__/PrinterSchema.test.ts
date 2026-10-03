@@ -1,9 +1,9 @@
 import { printerSchema } from '../PrinterSchema';
-import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
-import { RenderMode, BitmapSource } from '../../../models/printer/PrinterDriver';
-import { CutterMode, PaperSize, PrintPaperType } from '../../../models/paper/PrintPaperConfig';
-import { PrintType } from '../../../models/printing/PrintType';
-import { makePrinter, makeEscPosDriver, makeTsplDriver } from '../../../testing/printerFixtures';
+import { ConnectionType } from '../../../models/printer/ConnectionType';
+import { RenderMode, RasterSource } from '../../../models/printer/PrinterLanguage';
+import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+import { PrintKind } from '../../../models/printer/PrintKind';
+import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../../testing/printerFixtures';
 
 describe('printerSchema', () => {
   it('accepts a fully valid printer with the new atomic shape', () => {
@@ -12,9 +12,9 @@ describe('printerSchema', () => {
 
   it('rejects ESC/POS driver + paper.type DieCut', () => {
     const printer = makePrinter({
-      driver: makeEscPosDriver(),
+      language: makeEscPosLanguage(),
       paper: {
-        type: PrintPaperType.DieCut,
+        type: PaperType.DieCut,
         paperSize: PaperSize.Mm80,
         itemWidthMm: 30,
         itemHeightMm: 20,
@@ -30,30 +30,30 @@ describe('printerSchema', () => {
     }
   });
 
-  it('accepts TSPL driver with driver.config.renderMode Encoder', () => {
+  it('accepts TSPL with renderMode Command', () => {
     const printer = makePrinter({
-      driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }),
+      language: makeTsplLanguage({ renderMode: RenderMode.Command }),
     });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
-  it('accepts TSPL driver with bitmapSource Ast when renderMode is Bitmap', () => {
+  it('accepts TSPL with rasterSource Ast when renderMode is Raster', () => {
     const printer = makePrinter({
-      driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap, bitmapSource: BitmapSource.Ast } }),
+      language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),
     });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
-  it('accepts a driver config with no bitmapSource at all (defaults to Image downstream)', () => {
-    const printer = makePrinter({ driver: makeEscPosDriver({ config: { renderMode: RenderMode.Bitmap } }) });
+  it('accepts a driver config with no rasterSource at all (defaults to Image downstream)', () => {
+    const printer = makePrinter({ language: makeEscPosLanguage({ renderMode: RenderMode.Raster }) });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('rejects die-cut paper missing a required field', () => {
     const printer = makePrinter({
-      driver: makeTsplDriver(),
+      language: makeTsplLanguage(),
       paper: {
-        type: PrintPaperType.DieCut,
+        type: PaperType.DieCut,
         paperSize: PaperSize.Mm100,
         itemWidthMm: 30,
         itemHeightMm: 20,
@@ -67,9 +67,9 @@ describe('printerSchema', () => {
 
   it('rejects die-cut paper with cutterMode other than None', () => {
     const printer = makePrinter({
-      driver: makeTsplDriver(),
+      language: makeTsplLanguage(),
       paper: {
-        type: PrintPaperType.DieCut,
+        type: PaperType.DieCut,
         paperSize: PaperSize.Mm100,
         itemWidthMm: 30,
         itemHeightMm: 20,
@@ -86,32 +86,32 @@ describe('printerSchema', () => {
     }
   });
 
-  it('rejects ESC/POS driver + type Label (ESC/POS chỉ phục vụ Receipt)', () => {
-    const printer = makePrinter({ driver: makeEscPosDriver(), type: PrintType.Label });
+  it('rejects ESC/POS + kind Label (ESC/POS chỉ in Receipt)', () => {
+    const printer = makePrinter({ language: makeEscPosLanguage(), kind: PrintKind.Label });
     const result = printerSchema.safeParse(printer);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.join('.') === 'driver.type')).toBe(true);
+      expect(result.error.issues.some((i) => i.path.join('.') === 'language.type')).toBe(true);
     }
   });
 
   it('accepts connection.type Usb với đúng field usb (vendorId/productId)', () => {
-    const printer = makePrinter({ connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 } });
+    const printer = makePrinter({ connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 } });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('accepts connection.type Bluetooth với đúng field bluetooth (deviceId)', () => {
-    const printer = makePrinter({ connection: { type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:55' } });
+    const printer = makePrinter({ connection: { type: ConnectionType.Bluetooth, mac: '00:11:22:33:44:55' } });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('accepts connection.type Lan với đúng field lan (host/port)', () => {
-    const printer = makePrinter({ connection: { type: PrinterConnectionType.Lan, host: '192.168.1.20', port: 9100 } });
+    const printer = makePrinter({ connection: { type: ConnectionType.Lan, host: '192.168.1.20', port: 9100 } });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });
 
   it('rejects connection thiếu field bắt buộc của variant (usb thiếu productId)', () => {
-    const printer = { ...makePrinter(), connection: { type: PrinterConnectionType.Usb, vendorId: 1155 } };
+    const printer = { ...makePrinter(), connection: { type: ConnectionType.Usb, vendorId: 1155 } };
     expect(printerSchema.safeParse(printer).success).toBe(false);
   });
 });

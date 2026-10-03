@@ -1,39 +1,33 @@
-/**
- * Thông tin kết nối đã lưu của 1 `Printer` — khác `PrinterDevice`
- * (PrinterDevice.ts) là kết quả scan tạm thời. Discriminated union theo
- * `type` để loại trừ trạng thái vô nghĩa (vd `Usb` thiếu `vendorId`) ở
- * compile-time thay vì validate tay.
- */
-export const PrinterConnectionType = {
-  Usb: 'Usb',
-  Bluetooth: 'Bluetooth',
-  Lan: 'Lan',
-} as const;
+import type { ConnectionType } from './ConnectionType';
 
-export type PrinterConnectionType = (typeof PrinterConnectionType)[keyof typeof PrinterConnectionType];
-
+/** Cách kết nối tới máy in qua USB. */
 export interface UsbPrinterConnection {
-  type: typeof PrinterConnectionType.Usb;
+  type: typeof ConnectionType.Usb;
+
   vendorId: number;
+
   productId: number;
-  /** Cần quyền USB Android 10+ — có thể chưa có lúc scan lần đầu, xem `PrinterResolver`. */
+
+  /** Có khi đã được cấp quyền USB; phân biệt hai máy cùng model. */
   serialNumber?: string;
 }
 
+/** Cách kết nối tới máy in qua Bluetooth cổ điển (đã ghép đôi). */
 export interface BluetoothPrinterConnection {
-  type: typeof PrinterConnectionType.Bluetooth;
-  deviceId: string;
-  /** Tên hiển thị lúc scan — chỉ để tham khảo, KHÔNG dùng cho identity/resource key. */
-  name?: string;
+  type: typeof ConnectionType.Bluetooth;
+
+  /** Địa chỉ MAC viết hoa. */
+  mac: string;
 }
 
+/** Cách kết nối tới máy in qua mạng TCP. */
 export interface LanPrinterConnection {
-  type: typeof PrinterConnectionType.Lan;
+  type: typeof ConnectionType.Lan;
+
   host: string;
+
   port: number;
 }
 
-export type PrinterConnection =
-  | UsbPrinterConnection
-  | BluetoothPrinterConnection
-  | LanPrinterConnection;
+/** Cách kết nối tới một máy in; đủ để kết nối lại mà không cần quét. */
+export type PrinterConnection = UsbPrinterConnection | BluetoothPrinterConnection | LanPrinterConnection;

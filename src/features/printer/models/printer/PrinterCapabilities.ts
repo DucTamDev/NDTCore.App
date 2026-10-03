@@ -1,4 +1,14 @@
+/** Khả năng phần cứng của máy in; hiện chỉ khai báo, chưa chặn hành vi in. */
 export interface PrinterCapabilities {
-  /** Máy in có dao cắt (phần cứng). */
+  /** Có dao cắt giấy. */
   cutter: boolean;
+
+  /** Có cổng mở ngăn kéo tiền. */
+  cashDrawer: boolean;
+
+  /** In được màu. */
+  color: boolean;
+
+  /** In được ảnh. */
+  image: boolean;
 }

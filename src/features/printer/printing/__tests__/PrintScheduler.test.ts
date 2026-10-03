@@ -4,26 +4,26 @@ import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { ConnectionType } from '../../models/printer/ConnectionType';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
-import { PrintType } from '../../models/printing/PrintType';
-import { makePrinter as makePrinterFixture, makeEscPosDriver, makeTsplDriver } from '../../testing/printerFixtures';
+import { PrintKind } from '../../models/printer/PrintKind';
+import { makePrinter as makePrinterFixture, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
 
-const escposDriver = makeEscPosDriver();
-const tsplDriver = makeTsplDriver();
+const escposDriver = makeEscPosLanguage();
+const tsplDriver = makeTsplLanguage();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
-  id: 'job1', requestId: 'req1', printerId: 'p1', printType: PrintType.Receipt,
+  id: 'job1', requestId: 'req1', printerId: 'p1', kind: PrintKind.Receipt,
   documents: { text: { elements: [] } }, status: PrintJobStatus.Pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
 const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
   makePrinterFixture({
-    name: 'Máy in', connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 }, identityKey: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
+    name: 'Máy in', connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 }, deviceId: 'lan:1.1.1.1:9100', createdAt: 'x', updatedAt: 'x',
     ...overrides,
   });
 
@@ -101,8 +101,8 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'label-1', type: PrintType.Label, driver: tsplDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
-      makePrinter({ id: 'label-2', type: PrintType.Label, driver: tsplDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
+      makePrinter({ id: 'label-1', kind: PrintKind.Label, language: tsplDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'label-2', kind: PrintKind.Label, language: tsplDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.2', port: 9100 } }),
     ];
     const printerService = {
       print: jest.fn().mockImplementation(async () => {
@@ -115,8 +115,8 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', printType: PrintType.Label })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', printType: PrintType.Label })),
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'label-1', kind: PrintKind.Label })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-2', kind: PrintKind.Label })),
     ]);
     expect(maxInFlight).toBe(2);
   });
@@ -125,10 +125,10 @@ describe('PrintScheduler', () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const printers = [
-      makePrinter({ id: 'receipt-lan', type: PrintType.Receipt, driver: escposDriver, connection: { type: PrinterConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
+      makePrinter({ id: 'receipt-lan', kind: PrintKind.Receipt, language: escposDriver, connection: { type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 } }),
       makePrinter({
-        id: 'label-bt', type: PrintType.Label, driver: tsplDriver,
-        connection: { type: PrinterConnectionType.Bluetooth, deviceId: 'd1' },
+        id: 'label-bt', kind: PrintKind.Label, language: tsplDriver,
+        connection: { type: ConnectionType.Bluetooth, mac: 'd1' },
       }),
     ];
     const printerService = {
@@ -142,8 +142,8 @@ describe('PrintScheduler', () => {
     };
     const scheduler = createPrintScheduler(printerService, createResourceLock());
     await Promise.all([
-      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', printType: PrintType.Receipt })),
-      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', printType: PrintType.Label })),
+      scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-lan', kind: PrintKind.Receipt })),
+      scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-bt', kind: PrintKind.Label })),
     ]);
     expect(maxInFlight).toBe(2);
   });
@@ -173,7 +173,7 @@ describe('PrintScheduler', () => {
     const lock = createResourceLock();
     const repository = createPrinterRepository();
     const printerService = createPrinterPrintService(
-      { [PrinterDriverType.EscPos]: escposIPrinterDriver, [PrinterDriverType.Tspl]: escposIPrinterDriver },
+      { [PrintLanguage.EscPos]: escposIPrinterDriver, [PrintLanguage.Tspl]: escposIPrinterDriver },
       repository,
       lock,
     );

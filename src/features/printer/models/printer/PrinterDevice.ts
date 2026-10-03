@@ -12,7 +12,7 @@ export interface PrinterDevice {
 }
 
 /**
- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === PrinterConnectionType.Usb` — dựng từ
+ * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === ConnectionType.Usb` — dựng từ
  * `NativeUsbDeviceInfo` (`vendorId`/`productId` luôn có; `serialNumber`
  * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
  */

@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { EscPosDriver } from '../escpos/EscPosDriver';
 import { TsplDriver } from '../tspl/TsplDriver';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ENCODE_CASES, fingerprintOf } from '../../testing/encodeCases';
 
 jest.mock('../../logging/PrinterLogger', () => ({
@@ -34,7 +34,7 @@ describe('byte driver gửi tới máy in', () => {
   afterEach(() => jest.clearAllMocks());
 
   it.each(ENCODE_CASES.map((encodeCase) => [encodeCase.name, encodeCase] as const))('%s', async (_name, encodeCase) => {
-    const driver = encodeCase.printer.driver.type === PrinterDriverType.EscPos ? new EscPosDriver() : new TsplDriver();
+    const driver = encodeCase.printer.language.type === PrintLanguage.EscPos ? new EscPosDriver() : new TsplDriver();
 
     await driver.testPrint(encodeCase.printer, encodeCase.documents, encodeCase.options);
 

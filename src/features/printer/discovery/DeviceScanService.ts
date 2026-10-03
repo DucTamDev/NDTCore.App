@@ -1,6 +1,6 @@
 import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/printer/ConnectionType';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { DeviceScanEvent } from '../models/printer/PrinterDevice';
 import { LoggerService } from '../../../services/LoggerService';
 import { createDiscoverDriver, type DiscoveryEvent, type DiscoverPrinterInput } from './PrinterDiscoveryService';
@@ -12,9 +12,9 @@ import { DriverRegistry } from '../drivers/DriverRegistry';
  * Device scan + driver discovery — needs only `registry`, no storage/lock.
  */
 export const createDeviceScanService = (
-  registry: Record<PrinterDriverType, IPrinterDriver> = DriverRegistry,
+  registry: Record<PrintLanguage, IPrinterDriver> = DriverRegistry,
 ) => {
-  const getDriver = (type: PrinterDriverType): IPrinterDriver => registry[type];
+  const getDriver = (type: PrintLanguage): IPrinterDriver => registry[type];
   const discoverDriverFn = createDiscoverDriver(registry);
 
   /**
@@ -24,7 +24,7 @@ export const createDeviceScanService = (
    * cố ý không nhận `rawDevice`/MAC; đây là log dev thuần.
    */
   const withScanLogging =
-    (connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
+    (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
     (event: DeviceScanEvent): void => {
       LoggerService.debug('printer.scan.event', {
         connectionType,
@@ -36,21 +36,21 @@ export const createDeviceScanService = (
       onEvent(event);
     };
 
-  const scanDevices = (type: PrinterDriverType, connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
+  const scanDevices = (type: PrintLanguage, connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
     getDriver(type).scan(connectionType, withScanLogging(connectionType, onEvent));
 
-  const scanForConnectionType = (connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
+  const scanForConnectionType = (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
     const tapped = withScanLogging(connectionType, onEvent);
 
-    if (connectionType === PrinterConnectionType.Usb) {
-      return getDriver(PrinterDriverType.EscPos).scan(PrinterConnectionType.Usb, tapped);
+    if (connectionType === ConnectionType.Usb) {
+      return getDriver(PrintLanguage.EscPos).scan(ConnectionType.Usb, tapped);
     }
 
-    if (connectionType === PrinterConnectionType.Bluetooth) {
-      return getDriver(PrinterDriverType.Tspl).scan(PrinterConnectionType.Bluetooth, tapped);
+    if (connectionType === ConnectionType.Bluetooth) {
+      return getDriver(PrintLanguage.Tspl).scan(ConnectionType.Bluetooth, tapped);
     }
 
-    return getDriver(PrinterDriverType.Tspl).scan(PrinterConnectionType.Lan, tapped);
+    return getDriver(PrintLanguage.Tspl).scan(ConnectionType.Lan, tapped);
   };
 
   const discoverDriver = (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);

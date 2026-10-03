@@ -1,5 +1,5 @@
 import { buildEscPosBitmapBytes } from '../EscPosBitmapEncoder';
-import { CutterMode } from '../../../models/paper/PrintPaperConfig';
+import { CutterMode } from '../../../models/paper/PaperOptions';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
 describe('buildEscPosBitmapBytes', () => {

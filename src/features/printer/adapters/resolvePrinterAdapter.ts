@@ -1,6 +1,6 @@
 import type { IPrinterAdapter } from './IPrinterAdapter';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/printer/ConnectionType';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { NativeAdapter } from './native/NativeAdapter';
 import { LibraryAdapter } from './library/LibraryAdapter';
 
@@ -11,14 +11,14 @@ import { LibraryAdapter } from './library/LibraryAdapter';
  * - **TSPL / BLE-LAN**: `LibraryAdapter` — `tcp-socket`/`bluetooth-classic` đọc được phản hồi (cần cho `identify` `~!T`).
  */
 export const resolvePrinterAdapter = (
-  driverType: PrinterDriverType,
-  connectionType: PrinterConnectionType,
+  driverType: PrintLanguage,
+  connectionType: ConnectionType,
 ): IPrinterAdapter => {
-  if (driverType === PrinterDriverType.EscPos) {
+  if (driverType === PrintLanguage.EscPos) {
     return new NativeAdapter();
   }
 
-  if (connectionType === PrinterConnectionType.Usb) {
+  if (connectionType === ConnectionType.Usb) {
     return new NativeAdapter();
   }
 

@@ -2,14 +2,14 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplDriver } from '../TsplDriver';
 import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
-import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
-import { PrinterDriverType, RenderMode } from '../../../models/printer/PrinterDriver';
+import { ConnectionType } from '../../../models/printer/ConnectionType';
+import { PrintLanguage, RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
-import { PrintType } from '../../../models/printing/PrintType';
-import { PaperSize, PrintPaperType } from '../../../models/paper/PrintPaperConfig';
+import { PrintKind } from '../../../models/printer/PrintKind';
+import { PaperSize, PaperType } from '../../../models/paper/PaperOptions';
 import { type Printer } from '../../../models/printer/Printer';
-import { makePrinter, makeTsplDriver } from '../../../testing/printerFixtures';
-import type { PrintDocuments } from '../../IPrinterDriver';
+import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
+import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 
 /**
@@ -68,37 +68,37 @@ jest.mock('../../../logging/PrinterLogger', () => ({
   },
 }));
 
-const MEDIA_58 = { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58 } as const;
+const MEDIA_58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58 } as const;
 
 /** Máy in Tem (LAN) — dùng cho các test phụ thuộc `resolveSizeHeightMm`/DEFAULT_LABEL_HEIGHT_MM (rows/cutter/IMAGE_TOO_LARGE). */
 const lanLabelPrinter: Printer = makePrinter({
   id: 'label-1',
   name: 'Máy in tem',
-  identityKey: 'lan:192.168.1.60:9100',
-  type: PrintType.Label,
-  driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap } }),
-  connection: { type: PrinterConnectionType.Lan, host: '192.168.1.60', port: 9100 },
+  deviceId: 'lan:192.168.1.60:9100',
+  kind: PrintKind.Label,
+  language: makeTsplLanguage({ renderMode: RenderMode.Raster }),
+  connection: { type: ConnectionType.Lan, host: '192.168.1.60', port: 9100 },
   paper: { ...MEDIA_58 },
 });
 
 const usbLabelPrinter: Printer = {
   ...lanLabelPrinter,
   id: 'label-usb',
-  connection: { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 },
+  connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
 };
 
 const bluetoothLabelPrinter: Printer = {
   ...lanLabelPrinter,
   id: 'label-bt',
-  connection: { type: PrinterConnectionType.Bluetooth, deviceId: '00:11:22:33:44:66', name: 'Máy in tem BT' },
+  connection: { type: ConnectionType.Bluetooth, mac: '00:11:22:33:44:66' },
 };
 
 /** Máy in Hoá đơn (giấy Continuous không giới hạn chiều cao cố định) — dùng cho các test IMAGE_TOO_LARGE/Receipt. */
-const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', type: PrintType.Receipt };
-const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', type: PrintType.Receipt };
+const lanReceiptPrinter: Printer = { ...lanLabelPrinter, id: 'receipt-1', kind: PrintKind.Receipt };
+const usbReceiptPrinter: Printer = { ...usbLabelPrinter, id: 'receipt-usb', kind: PrintKind.Receipt };
 
 /** renderMode Encoder — dùng cho test rẽ nhánh sang TsplTextStrategy (không cần documents.image). */
-const lanEncoderPrinter: Printer = { ...lanLabelPrinter, id: 'label-encoder', driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }) };
+const lanEncoderPrinter: Printer = { ...lanLabelPrinter, id: 'label-encoder', language: makeTsplLanguage({ renderMode: RenderMode.Command }) };
 
 const sampleDocuments: PrintDocuments = {
   text: { elements: [{ type: 'text', content: 'In thử', x: 0, y: 0 }] },
@@ -141,7 +141,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { disconnectFailed: jest.Mock };
     };
     expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl }),
     );
   });
 
@@ -285,14 +285,14 @@ describe('TsplDriver', () => {
   it('scan() on lan immediately reports empty (no scan for LAN)', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan(PrinterConnectionType.Lan, (event) => events.push(event.type));
+    driver.scan(ConnectionType.Lan, (event) => events.push(event.type));
     expect(events).toEqual([DeviceScanEventType.Empty]);
   });
 
   it('scan() on usb immediately reports error', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
-    driver.scan(PrinterConnectionType.Usb, (event) => events.push(event.type));
+    driver.scan(ConnectionType.Usb, (event) => events.push(event.type));
     expect(events).toEqual([DeviceScanEventType.Error]);
   });
 
@@ -365,7 +365,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { printFailed: jest.Mock };
     };
     expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl, errorCode: PrinterErrorCode.IMAGE_REQUIRED }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl, errorCode: PrinterErrorCode.IMAGE_REQUIRED }),
     );
   });
 
@@ -377,7 +377,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { printSucceeded: jest.Mock };
     };
     expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl }),
     );
   });
 
@@ -424,7 +424,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectSucceeded: jest.Mock };
     };
     expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl, connectionType: PrinterConnectionType.Lan }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl, connectionType: ConnectionType.Lan }),
     );
   });
 
@@ -437,7 +437,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { connectFailed: jest.Mock };
     };
     expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrinterDriverType.Tspl, connectionType: PrinterConnectionType.Usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrintLanguage.Tspl, connectionType: ConnectionType.Usb, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -448,7 +448,7 @@ describe('TsplDriver', () => {
     const { PrinterLogger } = jest.requireMock('../../../logging/PrinterLogger') as {
       PrinterLogger: { disconnectSucceeded: jest.Mock };
     };
-    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl });
+    expect(PrinterLogger.disconnectSucceeded).toHaveBeenCalledWith({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl });
   });
 
   it('testPrint() logs testPrintSucceeded', async () => {
@@ -459,7 +459,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { testPrintSucceeded: jest.Mock };
     };
     expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrinterDriverType.Tspl }),
+      expect.objectContaining({ printerId: lanLabelPrinter.id, protocol: PrintLanguage.Tspl }),
     );
   });
 
@@ -472,7 +472,7 @@ describe('TsplDriver', () => {
       PrinterLogger: { testPrintFailed: jest.Mock };
     };
     expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrinterDriverType.Tspl, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: usbLabelPrinter.id, protocol: PrintLanguage.Tspl, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });
 
@@ -480,7 +480,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan(PrinterConnectionType.Bluetooth, (event) => {
+      driver.scan(ConnectionType.Bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== DeviceScanEventType.Loading) resolve();
       });
@@ -504,7 +504,7 @@ describe('TsplDriver', () => {
     const driver = new TsplDriver();
     const events: string[] = [];
     await new Promise<void>((resolve) => {
-      driver.scan(PrinterConnectionType.Bluetooth, (event) => {
+      driver.scan(ConnectionType.Bluetooth, (event) => {
         events.push(event.type);
         if (event.type !== DeviceScanEventType.Loading) resolve();
       });

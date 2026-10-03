@@ -1,6 +1,6 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { RenderMode } from '../../../models/printer/PrinterDriver';
-import { PrintPaperType } from '../../../models/paper/PrintPaperConfig';
+import { RenderMode } from '../../../models/printer/PrinterLanguage';
+import { PaperType } from '../../../models/paper/PaperOptions';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../paper/cutter';
@@ -12,7 +12,7 @@ import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
  * KHÔNG fallback: thiếu ảnh / ảnh hỏng / ảnh quá cao đều là hard failure.
  */
 export class TsplBitmapStrategy implements ITsplPrintStrategy {
-  readonly mode = RenderMode.Bitmap;
+  readonly mode = RenderMode.Raster;
 
   validate(context: TsplStrategyContext): void {
     if (!context.documents.image) {
@@ -24,10 +24,10 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { printType, paper, rows, documents } = context;
-    const heightMm = resolveSizeHeightMm(paper, printType);
+    const { kind, paper, rows, documents } = context;
+    const heightMm = resolveSizeHeightMm(paper, kind);
     const paperSize = paper.paperSize;
-    const targetWidthPx = paper.type === PrintPaperType.DieCut
+    const targetWidthPx = paper.type === PaperType.DieCut
       ? (paper.itemWidthMm ?? 0) * DOTS_PER_MM
       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
 
@@ -52,7 +52,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
       });
     }
 
-    const encoder = new TsplEncoder().initialize(paper, printType);
+    const encoder = new TsplEncoder().initialize(paper, kind);
 
     for (const dx of columnOffsets(paper)) {
       encoder.image(dx, 0, bitmap);

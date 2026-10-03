@@ -1,11 +1,11 @@
 import { TsplBitmapStrategy } from '../TsplBitmapStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { RenderMode } from '../../../../models/printer/PrinterDriver';
-import { PrintType } from '../../../../models/printing/PrintType';
+import { RenderMode } from '../../../../models/printer/PrinterLanguage';
+import { PrintKind } from '../../../../models/printer/PrintKind';
 import type { Printer } from '../../../../models/printer/Printer';
-import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
-import { makePrinter, makeTsplDriver } from '../../../../testing/printerFixtures';
+import type { PaperOptions } from '../../../../models/paper/PaperOptions';
+import { makePrinter, makeTsplLanguage } from '../../../../testing/printerFixtures';
 import { decodePngBase64ToMonochrome } from '../../../../utils/pngToMonochrome';
 
 jest.mock('../../../../utils/pngToMonochrome', () => {
@@ -13,9 +13,9 @@ jest.mock('../../../../utils/pngToMonochrome', () => {
   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
 });
 
-const MEDIA: PrintPaperConfig = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
 
-const DIE_CUT: PrintPaperConfig = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
 
 // PNG 4x4 trắng hợp lệ, base64 (không data: prefix)
 const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAEAQMAAACTPww9AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAA/wAAG/+NIgAAAAJ0Uk5TAAB2k804AAAAC0lEQVR4nGNggAAAAAgAAbdYc5UAAAAASUVORK5CYII=';
@@ -23,14 +23,14 @@ const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAEAQMAAACTPww9AAAAAXNSR0IB2cksfw
 const printer: Printer = makePrinter({
   id: 'p1',
   name: 'M',
-  driver: makeTsplDriver({ config: { renderMode: RenderMode.Bitmap } }),
+  language: makeTsplLanguage({ renderMode: RenderMode.Raster }),
   paper: MEDIA,
 });
 
 const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
   printer,
   documents: { text: { elements: [] }, image: TINY_PNG },
-  printType: PrintType.Receipt,
+  kind: PrintKind.Receipt,
   paper: MEDIA,
   rows: 1,
   ...over,
@@ -39,7 +39,7 @@ const ctx = (over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
 describe('TsplBitmapStrategy', () => {
   const s = new TsplBitmapStrategy();
 
-  it('mode === Bitmap', () => expect(s.mode).toBe(RenderMode.Bitmap));
+  it('mode === Bitmap', () => expect(s.mode).toBe(RenderMode.Raster));
 
   it('validate ném IMAGE_REQUIRED khi thiếu documents.image', () => {
     expect(() => s.validate(ctx({ documents: { text: { elements: [] } } }))).toThrow();
@@ -92,7 +92,7 @@ describe('TsplBitmapStrategy', () => {
     // itemHeightMm cực nhỏ + Label để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
     const tiny: Partial<TsplStrategyContext> = {
       paper: { type: 'Continuous', paperSize: 80, itemHeightMm: 0.01 },
-      printType: PrintType.Label,
+      kind: PrintKind.Label,
     };
     expect(() => s.encode(ctx(tiny))).toThrow();
     try {

@@ -1,13 +1,13 @@
 import { PrintRoutingService } from './PrintRoutingService';
 import { PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
-import { PRINT_TYPE_LABELS } from '../models/printing/PrintType';
+import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrinterErrorCode } from '../errors/PrinterError';
-import type { PrintType } from '../models/printing/PrintType';
-import { usesBitmapRenderMode } from '../drivers/driverConfig';
-import { BitmapSource } from '../models/printer/PrinterDriver';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import type { PrintDocuments } from '../drivers/IPrinterDriver';
+import type { PrintKind } from '../models/printer/PrintKind';
+import { usesRasterRenderMode } from '../drivers/driverConfig';
+import { RasterSource } from '../models/printer/PrinterLanguage';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
 
 export type { PrintDocuments };
@@ -32,25 +32,25 @@ const resolveResultStatus = (successCount: number, total: number): PrintResultSt
 
 export const createPrintService = (deps: PrintServiceDeps) => {
   /**
-   * Target (paper + bitmapSource) cần để render ảnh cho `printType` này, hoặc
+   * Target (paper + rasterSource) cần để render ảnh cho `kind` này, hoặc
    * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
    * `renderMode: 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
    * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
    * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
-  const imageDocumentTarget = (printType: PrintType): { paper: PrintPaperConfig; bitmapSource: BitmapSource } | null => {
-    const target = deps.routing.resolveTargets(printType).find((printer) => usesBitmapRenderMode(printer.driver));
-    return target ? { paper: target.paper, bitmapSource: target.driver.config.bitmapSource ?? BitmapSource.Image } : null;
+  const imageDocumentTarget = (kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null => {
+    const target = deps.routing.resolveTargets(kind).find((printer) => usesRasterRenderMode(printer.language));
+    return target ? { paper: target.paper, rasterSource: target.language.rasterSource ?? RasterSource.Image } : null;
   };
 
-  const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
-    const targets = deps.routing.resolveTargets(printType);
+  const print = async (kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> => {
+    const targets = deps.routing.resolveTargets(kind);
 
     if (targets.length === 0) {
       return {
         status: PrintResultStatus.NoAvailablePrinter,
         jobs: [],
-        error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
+        error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}` },
       };
     }
 
@@ -61,7 +61,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
           id: generateId(),
           requestId,
           printerId: printer.id,
-          printType,
+          kind,
           documents,
           status: PrintJobStatus.Pending,
           retryCount: 0,

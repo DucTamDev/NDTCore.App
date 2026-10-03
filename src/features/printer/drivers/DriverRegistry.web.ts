@@ -1,6 +1,6 @@
 import type { IPrinterDriver, Unsubscribe } from './IPrinterDriver';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 
 class WebUnsupportedDriver implements IPrinterDriver {
@@ -37,7 +37,7 @@ class WebUnsupportedDriver implements IPrinterDriver {
 
 const webUnsupportedDriver = new WebUnsupportedDriver();
 
-export const DriverRegistry: Record<PrinterDriverType, IPrinterDriver> = {
-  [PrinterDriverType.EscPos]: webUnsupportedDriver,
-  [PrinterDriverType.Tspl]: webUnsupportedDriver,
+export const DriverRegistry: Record<PrintLanguage, IPrinterDriver> = {
+  [PrintLanguage.EscPos]: webUnsupportedDriver,
+  [PrintLanguage.Tspl]: webUnsupportedDriver,
 };

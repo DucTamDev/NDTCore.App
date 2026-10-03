@@ -1,3 +1,4 @@
+/** Trạng thái kết nối của một máy in trong phiên chạy hiện tại; không lưu. */
 export const PrinterStatus = {
   Idle: 'Idle',
   Connecting: 'Connecting',

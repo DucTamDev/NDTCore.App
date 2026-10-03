@@ -5,9 +5,9 @@ import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { PrintRowElement, PrintTextElement } from '../../../printer/models/printing/PrintDocument';
 import type { StoreViewModel } from '../../../store/types/store.types';
-import { PrintType } from '../../../printer/models/printing/PrintType';
-import { PrintPaperType } from '../../../printer/models/paper/PrintPaperConfig';
-import { BitmapSource } from '../../../printer/models/printer/PrinterDriver';
+import { PrintKind } from '../../../printer/models/printer/PrintKind';
+import { PaperType } from '../../../printer/models/paper/PaperOptions';
+import { RasterSource } from '../../../printer/models/printer/PrinterLanguage';
 
 jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
@@ -166,13 +166,13 @@ describe('printReceipt', () => {
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
     await printReceipt(document, noopCapture);
     expect(noopCapture).not.toHaveBeenCalled();
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
+    expect(PrintService.print).toHaveBeenCalledWith(PrintKind.Receipt, { text: document });
   });
 
-  it('captures a bill image and sends it alongside the text document when a target printer uses Image bitmapSource', async () => {
+  it('captures a bill image and sends it alongside the text document when a target printer uses Image rasterSource', async () => {
     (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 58 },
-      bitmapSource: BitmapSource.Image,
+      paper: { type: PaperType.Continuous, paperSize: 58 },
+      rasterSource: RasterSource.Image,
     });
     const capture = jest.fn().mockResolvedValue('base64-png-data');
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
@@ -180,17 +180,17 @@ describe('printReceipt', () => {
 
     await printReceipt(document, capture);
 
-    expect(capture).toHaveBeenCalledWith(document, { type: PrintPaperType.Continuous, paperSize: 58 });
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
+    expect(capture).toHaveBeenCalledWith(document, { type: PaperType.Continuous, paperSize: 58 });
+    expect(PrintService.print).toHaveBeenCalledWith(PrintKind.Receipt, {
       text: document,
       image: 'base64-png-data',
     });
   });
 
-  it('renders via Skia and sends the result alongside the text document when a target printer uses Ast bitmapSource', async () => {
+  it('renders via Skia and sends the result alongside the text document when a target printer uses Ast rasterSource', async () => {
     (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 58 },
-      bitmapSource: BitmapSource.Ast,
+      paper: { type: PaperType.Continuous, paperSize: 58 },
+      rasterSource: RasterSource.Ast,
     });
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
     const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
@@ -198,7 +198,7 @@ describe('printReceipt', () => {
     await printReceipt(document, noopCapture);
 
     expect(noopCapture).not.toHaveBeenCalled();
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
+    expect(PrintService.print).toHaveBeenCalledWith(PrintKind.Receipt, {
       text: document,
       image: expect.any(String),
     });
@@ -206,8 +206,8 @@ describe('printReceipt', () => {
 
   it('falls back to text-only when captureBillImage resolves null (capture failed)', async () => {
     (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 80 },
-      bitmapSource: BitmapSource.Image,
+      paper: { type: PaperType.Continuous, paperSize: 80 },
+      rasterSource: RasterSource.Image,
     });
     const capture = jest.fn().mockResolvedValue(null);
     (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
@@ -215,6 +215,6 @@ describe('printReceipt', () => {
 
     await printReceipt(document, capture);
 
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
+    expect(PrintService.print).toHaveBeenCalledWith(PrintKind.Receipt, { text: document });
   });
 });

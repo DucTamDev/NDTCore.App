@@ -1,7 +1,9 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
-import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType, RenderMode } from '../../models/printer/PrinterDriver';
+import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+import type { PrintDocuments } from '../../models/printing/PrintDocuments';
+import type { PrintOptions } from '../../models/printing/PrintOptions';
+import { ConnectionType } from '../../models/printer/ConnectionType';
+import { PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
@@ -59,13 +61,13 @@ export class TsplDriver implements IPrinterDriver {
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
   }
 
-  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
-    if (connectionType === PrinterConnectionType.Lan) {
+  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+    if (connectionType === ConnectionType.Lan) {
       onEvent({ type: DeviceScanEventType.Empty });
       return () => undefined;
     }
 
-    if (connectionType === PrinterConnectionType.Usb) {
+    if (connectionType === ConnectionType.Usb) {
       onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
       return () => undefined;
     }
@@ -131,7 +133,7 @@ export class TsplDriver implements IPrinterDriver {
     try {
       await adapter.disconnect();
     } catch (error) {
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error) });
     }
   }
 
@@ -140,7 +142,7 @@ export class TsplDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     try {
-      if (printer.connection.type === PrinterConnectionType.Bluetooth) {
+      if (printer.connection.type === ConnectionType.Bluetooth) {
         const granted = await ensureBluetoothPermission();
 
         if (!granted) {
@@ -148,7 +150,7 @@ export class TsplDriver implements IPrinterDriver {
         }
       }
 
-      const adapter = resolvePrinterAdapter(PrinterDriverType.Tspl, printer.connection.type);
+      const adapter = resolvePrinterAdapter(PrintLanguage.Tspl, printer.connection.type);
       await adapter.connect(toConnectTarget(printer));
 
       const replacedAdapter = this.connections.get(printer.id);
@@ -166,10 +168,10 @@ export class TsplDriver implements IPrinterDriver {
       await this.releaseReplacedAdapter(printer.id, replacedAdapter);
 
       this.setStatus(printer.id, PrinterStatus.Connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrintLanguage.Tspl, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.Error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.Tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrintLanguage.Tspl, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -182,7 +184,7 @@ export class TsplDriver implements IPrinterDriver {
       await adapter?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.connections.delete(printerId);
@@ -190,7 +192,7 @@ export class TsplDriver implements IPrinterDriver {
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.Tspl });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrintLanguage.Tspl });
   }
 
   getStatus(printerId: string): PrinterStatus {
@@ -208,11 +210,11 @@ export class TsplDriver implements IPrinterDriver {
 
   /** Chọn strategy theo renderMode — y hệt cách EscPosDriver.sendDocuments() rẽ nhánh. */
   private buildBytes(printer: Printer, documents: PrintDocuments, rows: number): Uint8Array {
-    const strategy = printer.driver.config.renderMode === RenderMode.Bitmap ? tsplBitmapStrategy : tsplTextStrategy;
+    const strategy = printer.language.renderMode === RenderMode.Raster ? tsplBitmapStrategy : tsplTextStrategy;
     const context: TsplStrategyContext = {
       printer,
       documents,
-      printType: printer.type,
+      kind: printer.kind,
       paper: printer.paper,
       rows,
     };
@@ -233,9 +235,9 @@ export class TsplDriver implements IPrinterDriver {
       const rows = resolveRows(options);
       const bytes = this.buildBytes(printer, documents, rows);
       await adapter?.write(bytes);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.Tspl, durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -254,9 +256,9 @@ export class TsplDriver implements IPrinterDriver {
       const rows = resolveRows(options);
       const bytes = this.buildBytes(printer, documents, rows);
       await adapter.write(bytes);
-      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.Tspl, durationMs: Date.now() - startedAt });
+      PrinterLogger.printSucceeded({ printerId, protocol: PrintLanguage.Tspl, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.printFailed({ printerId, protocol: PrintLanguage.Tspl, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }

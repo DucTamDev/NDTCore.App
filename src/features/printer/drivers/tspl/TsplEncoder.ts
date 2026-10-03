@@ -1,6 +1,6 @@
-import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
-import { CutterMode, PrintPaperType } from '../../models/paper/PrintPaperConfig';
-import { PrintType } from '../../models/printing/PrintType';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
+import { PrintKind } from '../../models/printer/PrintKind';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
 import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../paper/paperSpec';
 
@@ -42,7 +42,7 @@ const encodeUtf8 = (text: string): number[] => {
 
 /**
  * Chiều cao khổ giấy mặc định khai báo trong `SIZE`/`GAP` khi in Tem
- * (`PrintType.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
+ * (`PrintKind.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
  * (máy in đã lưu từ trước khi field này tồn tại). Với giấy tem rời có khe,
  * con số này phải khớp chiều dài tem VẬT LÝ để cảm biến dò khe hoạt động
  * đúng — không phải khớp nội dung cần in, và KHÔNG có nghĩa mọi máy đều dùng
@@ -58,17 +58,17 @@ export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
  * Chiều cao khai báo cho `SIZE`:
  * - die_cut → `itemHeightMm` (schema SP-A đảm bảo có).
  * - continuous Label → `itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM`.
- * - continuous Receipt (hoặc không truyền printType) → `CONTINUOUS_HEIGHT_MM`.
+ * - continuous Receipt (hoặc không truyền kind) → `CONTINUOUS_HEIGHT_MM`.
  *
  * Declared height for `SIZE`: die_cut → item height; continuous Label →
  * item height or the default; continuous Receipt → the wide safety ceiling.
  */
-export const resolveSizeHeightMm = (media: PrintPaperConfig, printType: PrintType): number => {
-  if (media.type === PrintPaperType.DieCut) {
+export const resolveSizeHeightMm = (media: PaperOptions, kind: PrintKind): number => {
+  if (media.type === PaperType.DieCut) {
     return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
   }
 
-  if (printType === PrintType.Label) {
+  if (kind === PrintKind.Label) {
     return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
   }
 
@@ -81,7 +81,7 @@ export const resolveSizeHeightMm = (media: PrintPaperConfig, printType: PrintTyp
  *
  * Centre-to-centre pitch between two die-cut columns, in dots.
  */
-export const columnPitchDots = (media: PrintPaperConfig): number =>
+export const columnPitchDots = (media: PaperOptions): number =>
   ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
 
 /**
@@ -90,8 +90,8 @@ export const columnPitchDots = (media: PrintPaperConfig): number =>
  *
  * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
  */
-export const columnOffsets = (media: PrintPaperConfig): number[] => {
-  if (media.type !== PrintPaperType.DieCut) {
+export const columnOffsets = (media: PaperOptions): number[] => {
+  if (media.type !== PaperType.DieCut) {
     return [0];
   }
 
@@ -104,9 +104,9 @@ export const columnOffsets = (media: PrintPaperConfig): number[] => {
  * die_cut ước lượng theo tỉ lệ `itemWidthMm` trên bề rộng in được; continuous
  * dùng cả khổ giấy.
  */
-export const contentWidthChars = (media: PrintPaperConfig): number => {
+export const contentWidthChars = (media: PaperOptions): number => {
   const spec = PAPER_SIZE_SPECS[media.paperSize];
-  if (media.type !== PrintPaperType.DieCut) {
+  if (media.type !== PaperType.DieCut) {
     return spec.charsPerLine;
   }
 
@@ -134,17 +134,17 @@ export class TsplEncoder {
    * - die_cut → giấy tem rời có khe thật giữa các hàng: `SIZE` khai báo BỀ
    *   RỘNG cả hàng (mọi cột + khe ngang) × `itemHeightMm`, `GAP <verticalGapMm>`
    *   để cảm biến dò khe dọc.
-   * - continuous (Receipt hoặc Label, hoặc không truyền printType) → giấy cuộn
+   * - continuous (Receipt hoặc Label, hoặc không truyền kind) → giấy cuộn
    *   liên tục KHÔNG có khe vật lý: `GAP 0,0` (tắt dò khe). Chiều cao lấy từ
    *   `resolveSizeHeightMm`.
    *
    * `SIZE`/`GAP` follow `media.type`: die_cut declares the full row width and
    * senses the vertical gap; continuous always emits `GAP 0,0`.
    */
-  initialize(media: PrintPaperConfig, printType: PrintType = PrintType.Receipt): this {
-    const heightMm = resolveSizeHeightMm(media, printType);
+  initialize(media: PaperOptions, kind: PrintKind = PrintKind.Receipt): this {
+    const heightMm = resolveSizeHeightMm(media, kind);
 
-    if (media.type === PrintPaperType.DieCut) {
+    if (media.type === PaperType.DieCut) {
       const columns = media.columns ?? 1;
       const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);

@@ -3,10 +3,10 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { getDriverCapabilities } from '../drivers/DriverCapabilities';
 import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
-import type { PrintType } from '../models/printing/PrintType';
+import type { PrintKind } from '../models/printer/PrintKind';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
 export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';
@@ -14,20 +14,20 @@ export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';
 export interface StatusPanelProps {
   connectionState: ConnectionState;
   protocolState: ProtocolState;
-  protocol?: PrinterDriverType;
+  protocol?: PrintLanguage;
   deviceInfo?: PrinterDeviceInfo;
   errorMessage?: string;
   /** Lọc danh sách protocol cho phép chọn tay — ESC/POS không hỗ trợ Label. */
-  printType: PrintType;
-  onChooseProtocol: (protocol: PrinterDriverType) => void;
+  kind: PrintKind;
+  onChooseProtocol: (protocol: PrintLanguage) => void;
 }
 
-const protocolLabel: Record<PrinterDriverType, string> = {
+const protocolLabel: Record<PrintLanguage, string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
 
-const ALL_PROTOCOLS: PrinterDriverType[] = [PrinterDriverType.EscPos, PrinterDriverType.Tspl];
+const ALL_PROTOCOLS: PrintLanguage[] = [PrintLanguage.EscPos, PrintLanguage.Tspl];
 
 export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,
@@ -35,11 +35,11 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   protocol,
   deviceInfo,
   errorMessage,
-  printType,
+  kind,
   onChooseProtocol,
 }) => {
   if (protocolState === 'unknown') {
-    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(printType));
+    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(kind));
     return (
       <View style={styles.container}>
         <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>

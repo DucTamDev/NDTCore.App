@@ -5,8 +5,8 @@ import { usePrinterConnection } from '../hooks/usePrinterConnection';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
+import { ConnectionType } from '../models/printer/ConnectionType';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../models/printer/Printer';
@@ -17,13 +17,13 @@ export interface PrinterListItemProps {
   onEdit: (printer: Printer) => void;
 }
 
-const connectionLabel: Record<PrinterConnectionType, string> = {
+const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
   Bluetooth: 'Bluetooth',
   Lan: 'LAN',
 };
 
-const protocolLabel: Record<PrinterDriverType, string> = {
+const protocolLabel: Record<PrintLanguage, string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
@@ -36,7 +36,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const closeMenu = (): void => setMenuVisible(false);
   const enabled = printer.enabled ?? true;
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connection.type], protocolLabel[printer.driver.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connection.type], protocolLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
   const requestDelete = (): void => {
     if (status === PrinterStatus.Connected) {

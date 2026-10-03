@@ -1,39 +1,41 @@
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { DriverSource, PrinterDriverType, RenderMode } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/printer/ConnectionType';
+import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
-import type { PrinterDriver } from '../models/printer/PrinterDriver';
-import { PaperSize, PrintPaperType } from '../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import { PrintType } from '../models/printing/PrintType';
+import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import { PrintKind } from '../models/printer/PrintKind';
 
-export const DEFAULT_PAPER: PrintPaperConfig = { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 };
+export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80 };
 
-export const makeEscPosDriver = (o: Partial<PrinterDriver> = {}): PrinterDriver => ({
-  type: PrinterDriverType.EscPos,
-  source: DriverSource.Auto,
-  config: { renderMode: RenderMode.Encoder },
+export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
+  type: PrintLanguage.EscPos,
+  selection: LanguageSelection.Auto,
+  renderMode: RenderMode.Command,
+  rasterSource: RasterSource.Image,
   ...o,
 });
 
-export const makeTsplDriver = (o: Partial<PrinterDriver> = {}): PrinterDriver => ({
-  type: PrinterDriverType.Tspl,
-  source: DriverSource.Auto,
-  config: { renderMode: RenderMode.Bitmap },
+export const makeTsplLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
+  type: PrintLanguage.Tspl,
+  selection: LanguageSelection.Auto,
+  renderMode: RenderMode.Raster,
+  rasterSource: RasterSource.Image,
   ...o,
 });
 
-const DEFAULT_CONNECTION: PrinterConnection = { type: PrinterConnectionType.Lan, host: '192.168.1.10', port: 9100 };
+const DEFAULT_CONNECTION: PrinterConnection = { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 };
 
 export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   id: 'p1',
-  identityKey: 'lan:192.168.1.10:9100',
-  type: PrintType.Receipt,
+  deviceId: 'lan:192.168.1.10:9100',
+  kind: PrintKind.Receipt,
   name: 'Máy in test',
-  driver: makeEscPosDriver(),
+  language: makeEscPosLanguage(),
   connection: DEFAULT_CONNECTION,
   paper: { ...DEFAULT_PAPER },
-  capabilities: { cutter: false },
+  capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
   autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',

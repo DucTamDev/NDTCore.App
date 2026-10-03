@@ -1,10 +1,10 @@
 import { renderDocumentToBitmap } from '../renderDocumentToBitmap';
 import { Skia } from '@shopify/react-native-skia';
-import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { encodeCode128 } from '../code128';
 import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../printLayoutConstants';
 
-const MEDIA: PrintPaperConfig = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
 
 describe('renderDocumentToBitmap', () => {
   beforeEach(() => {

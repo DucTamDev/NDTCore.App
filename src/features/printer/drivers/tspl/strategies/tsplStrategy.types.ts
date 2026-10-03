@@ -1,8 +1,8 @@
 import type { Printer } from '../../../models/printer/Printer';
-import type { RenderMode } from '../../../models/printer/PrinterDriver';
-import type { PrintPaperConfig } from '../../../models/paper/PrintPaperConfig';
-import type { PrintDocuments } from '../../IPrinterDriver';
-import type { PrintType } from '../../../models/printing/PrintType';
+import type { RenderMode } from '../../../models/printer/PrinterLanguage';
+import type { PaperOptions } from '../../../models/paper/PaperOptions';
+import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
+import type { PrintKind } from '../../../models/printer/PrintKind';
 
 /**
  * Input đã resolve đầy đủ cho 1 lần render TSPL. CONFIG-ONLY có chủ đích —
@@ -11,9 +11,9 @@ import type { PrintType } from '../../../models/printing/PrintType';
 export interface TsplStrategyContext {
   printer: Printer;
   documents: PrintDocuments;
-  printType: PrintType;
+  kind: PrintKind;
   /** = `printer.paper`. Nguồn cho `SIZE`/`GAP`/`SET CUTTER`/layout cột. */
-  paper: PrintPaperConfig;
+  paper: PaperOptions;
   /** Số hàng die-cut cần in (>= 1). Continuous: số bản sao. */
   rows: number;
 }

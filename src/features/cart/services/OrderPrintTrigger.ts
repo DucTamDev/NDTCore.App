@@ -7,10 +7,10 @@ import { SERVICE_TYPE_LABELS } from '../types/cart.types';
 import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
 import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
-import { PrintType } from '../../printer/models/printing/PrintType';
-import type { PrintPaperConfig } from '../../printer/models/paper/PrintPaperConfig';
+import { PrintKind } from '../../printer/models/printer/PrintKind';
+import type { PaperOptions } from '../../printer/models/paper/PaperOptions';
 import { renderDocumentToBitmap } from '../../printer/rendering/renderDocumentToBitmap';
-import { BitmapSource } from '../../printer/models/printer/PrinterDriver';
+import { RasterSource } from '../../printer/models/printer/PrinterLanguage';
 
 interface BillItem {
   name: string;
@@ -161,13 +161,13 @@ export const buildReprintDocument = (order: OrderDetail, store: StoreViewModel |
 export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
 /** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG theo `media` cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
-export type CaptureBillImage = (document: PrintDocument, media: PrintPaperConfig) => Promise<string | null>;
+export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) => Promise<string | null>;
 
 /**
  * Chỉ render + tạo ảnh khi thật sự có máy in bitmap-mode được gán cho
- * `printType` (`PrintService.imageDocumentTarget`) — tạo ảnh tốn chi phí,
+ * `kind` (`PrintService.imageDocumentTarget`) — tạo ảnh tốn chi phí,
  * không làm nếu không có máy nào cần tới. Chọn đúng hàm sinh ảnh theo
- * `bitmapSource` của target đã resolve — `Ast` dùng `renderDocumentToBitmap`
+ * `rasterSource` của target đã resolve — `Ast` dùng `renderDocumentToBitmap`
  * (hàm thuần, không cần React tree), `Image` dùng `captureBillImage` (hook,
  * cần `captureNode` đã mount). Cả 2 gán vào CÙNG field `documents.image` —
  * driver không biết/không cần biết nguồn nào tạo ra ảnh.
@@ -179,14 +179,14 @@ export type CaptureBillImage = (document: PrintDocument, media: PrintPaperConfig
  * vẫn in bình thường.
  */
 const buildPrintDocumentVariants = async (
-  printType: PrintType,
+  kind: PrintKind,
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
 ): Promise<PrintDocuments> => {
-  const target = PrintService.imageDocumentTarget(printType);
+  const target = PrintService.imageDocumentTarget(kind);
   if (!target) return { text: textDocument };
   const base64 =
-    target.bitmapSource === BitmapSource.Ast
+    target.rasterSource === RasterSource.Ast
       ? await renderDocumentToBitmap(textDocument, target.paper)
       : await captureBillImage(textDocument, target.paper);
   if (!base64) return { text: textDocument };
@@ -207,8 +207,8 @@ export const printReceipt = async (
   captureBillImage: CaptureBillImage,
 ): Promise<PrintReceiptOutcome> => {
   try {
-    const documents = await buildPrintDocumentVariants(PrintType.Receipt, textDocument, captureBillImage);
-    const result = await PrintService.print(PrintType.Receipt, documents);
+    const documents = await buildPrintDocumentVariants(PrintKind.Receipt, textDocument, captureBillImage);
+    const result = await PrintService.print(PrintKind.Receipt, documents);
     if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
     if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);

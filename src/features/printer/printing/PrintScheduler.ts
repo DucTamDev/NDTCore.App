@@ -18,7 +18,7 @@ export const createPrintScheduler = (
    * Tra printer sẽ xử lý `job.printerId`, rồi tính resource key theo đúng
    * đặc thù driver của printer đó (spec §9, xem `connectionResourceKey`) —
    * mỗi `Printer` giờ chỉ có đúng 1 driver nên không cần tìm driver nào khớp
-   * `printType` nữa. Rơi về `job.printerId` nếu không tìm thấy cấu hình
+   * `kind` nữa. Rơi về `job.printerId` nếu không tìm thấy cấu hình
    * (không nên xảy ra trong thực tế).
    */
   const resourceKeyFor = (job: PrintJob): string => {
@@ -28,7 +28,7 @@ export const createPrintScheduler = (
       return job.printerId;
     }
 
-    return connectionResourceKey({ driverType: printer.driver.type, connection: printer.connection });
+    return connectionResourceKey({ driverType: printer.language.type, connection: printer.connection });
   };
 
   const enqueue = (job: PrintJob): Promise<PrintJob> =>

@@ -6,10 +6,10 @@ import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceScanEventType } from '../models/printer/PrinterDevice';
 import type { PrinterDevice } from '../models/printer/PrinterDevice';
-import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
+import type { ConnectionType } from '../models/printer/ConnectionType';
 
 export interface DeviceScanListProps {
-  connectionType: PrinterConnectionType;
+  connectionType: ConnectionType;
   selectedDeviceId?: string;
   onSelect: (device: PrinterDevice) => void;
 }

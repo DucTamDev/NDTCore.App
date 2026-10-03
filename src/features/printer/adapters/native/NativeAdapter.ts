@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { NativeModules, Platform } from 'react-native';
 import type { IPrinterAdapter, PrinterConnectTarget, PrinterPrintTextOptions } from '../IPrinterAdapter';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterDevice } from '../../models/printer/PrinterDevice';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { DeviceModule, type NativeDeviceAddress, type NativeDeviceInfo } from './DeviceModule';
@@ -43,8 +43,8 @@ const writeTimeoutMs = (base64: string): number => {
 const textTo64Base64 = (text: string, opts: PrinterPrintTextOptions): string =>
   EPToolkit.exchange_text(text, opts).toString('base64').replace('G0AcJhxD/xsy', '');
 
-const toNativeDiscoverableType = (connectionType: PrinterConnectionType): 'usb' | 'bluetooth' =>
-  connectionType === PrinterConnectionType.Usb ? 'usb' : 'bluetooth';
+const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'bluetooth' =>
+  connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
 
 /** USB giữ `deviceId` dạng `vendorId:productId` như dữ liệu đã lưu; Bluetooth dùng MAC làm `deviceId`. */
 const toPrinterDevice = (device: NativeDeviceInfo): PrinterDevice => {
@@ -74,7 +74,7 @@ const notConnected = (): PrinterErrorException =>
   new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
 
 const toNativeAddress = (target: PrinterConnectTarget): NativeDeviceAddress => {
-  if (target.connectionType === PrinterConnectionType.Usb) {
+  if (target.connectionType === ConnectionType.Usb) {
     if (!target.usb) {
       throw missingTarget('Thiếu thông tin thiết bị USB');
     }
@@ -83,7 +83,7 @@ const toNativeAddress = (target: PrinterConnectTarget): NativeDeviceAddress => {
     return { type: 'usb', vendorId, productId, serialNumber: serialNumber ?? null, devicePath: null };
   }
 
-  if (target.connectionType === PrinterConnectionType.Bluetooth) {
+  if (target.connectionType === ConnectionType.Bluetooth) {
     if (!target.bluetooth) {
       throw missingTarget('Chưa chọn thiết bị Bluetooth');
     }
@@ -116,12 +116,12 @@ export class NativeAdapter implements IPrinterAdapter {
 
   readonly canRead = true;
 
-  private connectionType?: PrinterConnectionType;
+  private connectionType?: ConnectionType;
 
   private lease?: NativeConnectionLease;
 
-  async listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]> {
-    if (connectionType === PrinterConnectionType.Lan) {
+  async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
+    if (connectionType === ConnectionType.Lan) {
       return [];
     }
 
@@ -158,7 +158,7 @@ export class NativeAdapter implements IPrinterAdapter {
       throw notConnected();
     }
 
-    if (Platform.OS === 'ios' && this.connectionType !== PrinterConnectionType.Usb) {
+    if (Platform.OS === 'ios' && this.connectionType !== ConnectionType.Usb) {
       return this.printTextLegacyIOS(text);
     }
 
@@ -195,7 +195,7 @@ export class NativeAdapter implements IPrinterAdapter {
   /** Native iOS chưa có `DeviceModule`; giữ lệnh gọi module in cũ của iOS. */
   private printTextLegacyIOS(text: string): Promise<void> {
     const legacyModule =
-      this.connectionType === PrinterConnectionType.Bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
+      this.connectionType === ConnectionType.Bluetooth ? NativeModules.RNBLEPrinter : NativeModules.RNNetPrinter;
     const processed = textPreprocessingIOS(text);
 
     return new Promise((resolve, reject) => {

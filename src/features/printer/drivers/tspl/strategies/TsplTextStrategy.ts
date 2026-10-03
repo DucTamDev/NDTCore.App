@@ -1,5 +1,5 @@
 import type { ITsplPrintStrategy, TsplStrategyContext } from './tsplStrategy.types';
-import { RenderMode } from '../../../models/printer/PrinterDriver';
+import { RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PrinterErrorException, PrinterErrorCode } from '../../../errors/PrinterError';
 import { TsplEncoder, contentWidthChars, columnOffsets } from '../TsplEncoder';
 import { resolveEffectiveCutterMode } from '../../../paper/cutter';
@@ -15,15 +15,15 @@ import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../..
  * `buildEscPosText` (ESC/POS Encoder).
  */
 export class TsplTextStrategy implements ITsplPrintStrategy {
-  readonly mode = RenderMode.Encoder;
+  readonly mode = RenderMode.Command;
 
   validate(_context: TsplStrategyContext): void {
     // Không có precondition — không cần ảnh như TsplBitmapStrategy.
   }
 
   encode(context: TsplStrategyContext): Uint8Array {
-    const { documents, paper, printType, rows } = context;
-    const encoder = new TsplEncoder().initialize(paper, printType);
+    const { documents, paper, kind, rows } = context;
+    const encoder = new TsplEncoder().initialize(paper, kind);
     const charsPerLine = contentWidthChars(paper);
 
     // Die-cut nhiều cột (`columnOffsets` trả `[0]` cho giấy continuous, nên

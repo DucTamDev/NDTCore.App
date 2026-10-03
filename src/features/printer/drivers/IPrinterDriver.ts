@@ -1,4 +1,4 @@
-import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
+import type { ConnectionType } from '../models/printer/ConnectionType';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterStatus } from '../models/printer/PrinterStatus';
@@ -23,9 +23,9 @@ export interface PrintOptions {
   rows?: number;
 }
 
-/** `printer.driver`/`printer.type`/`printer.paper` đã đủ context — không còn tham số `driver`/`printType` rời như bản cũ (mỗi `Printer` giờ chỉ có 1 driver). */
+/** `printer.language`/`printer.type`/`printer.paper` đã đủ context — không còn tham số `driver`/`kind` rời như bản cũ (mỗi `Printer` giờ chỉ có 1 driver). */
 export interface IPrinterDriver {
-  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
+  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
   connect(printer: Printer): Promise<void>;
   disconnect(printerId: string): Promise<void>;
   getStatus(printerId: string): PrinterStatus;

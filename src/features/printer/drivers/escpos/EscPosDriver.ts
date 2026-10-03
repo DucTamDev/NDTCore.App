@@ -1,9 +1,11 @@
 import { Platform } from 'react-native';
-import type { IPrinterDriver, PrintDocuments, PrintOptions, Unsubscribe } from '../IPrinterDriver';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import { RenderMode, PrinterDriverType } from '../../models/printer/PrinterDriver';
+import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+import type { PrintDocuments } from '../../models/printing/PrintDocuments';
+import type { PrintOptions } from '../../models/printing/PrintOptions';
+import { ConnectionType } from '../../models/printer/ConnectionType';
+import { RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { CutterMode } from '../../models/paper/PrintPaperConfig';
+import { CutterMode } from '../../models/paper/PaperOptions';
 import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
 import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
 import type { Printer } from '../../models/printer/Printer';
@@ -28,11 +30,11 @@ const ESC_POS_BASE_OPTIONS = { keepConnection: true, tailingLine: true, encoding
  */
 export class EscPosDriver implements IPrinterDriver {
   private adapters = new Map<string, NativeAdapter>();
-  private connectedTypes = new Map<string, PrinterConnectionType>();
+  private connectedTypes = new Map<string, ConnectionType>();
   private statuses = new Map<string, PrinterStatus>();
   private listeners = new Map<string, Set<(status: PrinterStatus) => void>>();
   private contexts = new Map<string, Printer>();
-  private activeByType = new Map<PrinterConnectionType, string>();
+  private activeByType = new Map<ConnectionType, string>();
   private connectionIds = new Map<string, string>();
 
   constructor() {
@@ -50,13 +52,13 @@ export class EscPosDriver implements IPrinterDriver {
     this.listeners.get(printerId)?.forEach((callback) => callback(status));
   }
 
-  scan(connectionType: PrinterConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
-    if (connectionType === PrinterConnectionType.Lan) {
+  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+    if (connectionType === ConnectionType.Lan) {
       onEvent({ type: DeviceScanEventType.Empty });
       return () => undefined;
     }
 
-    if (connectionType === PrinterConnectionType.Usb && Platform.OS !== 'android') {
+    if (connectionType === ConnectionType.Usb && Platform.OS !== 'android') {
       onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
       return () => undefined;
     }
@@ -67,7 +69,7 @@ export class EscPosDriver implements IPrinterDriver {
 
     const run = async (): Promise<void> => {
       try {
-        if (connectionType === PrinterConnectionType.Bluetooth) {
+        if (connectionType === ConnectionType.Bluetooth) {
           const granted = await ensureBluetoothPermission();
 
           if (cancelled) {
@@ -118,7 +120,7 @@ export class EscPosDriver implements IPrinterDriver {
     try {
       await adapter?.disconnect();
     } catch (error) {
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrintLanguage.EscPos, errorCode: errorCodeOf(error) });
     }
   }
 
@@ -127,7 +129,7 @@ export class EscPosDriver implements IPrinterDriver {
     const startedAt = Date.now();
 
     try {
-      if (printer.connection.type === PrinterConnectionType.Bluetooth) {
+      if (printer.connection.type === ConnectionType.Bluetooth) {
         const granted = await ensureBluetoothPermission();
 
         if (!granted) {
@@ -160,10 +162,10 @@ export class EscPosDriver implements IPrinterDriver {
 
       this.activeByType.set(printer.connection.type, printer.id);
       this.setStatus(printer.id, PrinterStatus.Connected);
-      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrinterDriverType.EscPos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
+      PrinterLogger.connectSucceeded({ printerId: printer.id, protocol: PrintLanguage.EscPos, connectionType: printer.connection.type, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.setStatus(printer.id, PrinterStatus.Error);
-      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrinterDriverType.EscPos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.connectFailed({ printerId: printer.id, protocol: PrintLanguage.EscPos, connectionType: printer.connection.type, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -177,7 +179,7 @@ export class EscPosDriver implements IPrinterDriver {
       await this.adapters.get(printerId)?.disconnect();
     } catch (error) {
       this.setStatus(printerId, PrinterStatus.Error);
-      PrinterLogger.disconnectFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error) });
+      PrinterLogger.disconnectFailed({ printerId, protocol: PrintLanguage.EscPos, errorCode: errorCodeOf(error) });
       throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: error instanceof Error ? error.message : String(error) });
     } finally {
       if (isActiveOwner) {
@@ -191,11 +193,11 @@ export class EscPosDriver implements IPrinterDriver {
     }
 
     this.setStatus(printerId, PrinterStatus.Disconnected);
-    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrinterDriverType.EscPos });
+    PrinterLogger.disconnectSucceeded({ printerId, protocol: PrintLanguage.EscPos });
   }
 
   private async sendDocuments(adapter: NativeAdapter, printer: Printer, documents: PrintDocuments): Promise<void> {
-    if (printer.driver.config.renderMode === RenderMode.Bitmap) {
+    if (printer.language.renderMode === RenderMode.Raster) {
       await this.sendBitmap(adapter, printer, documents);
       return;
     }
@@ -249,9 +251,9 @@ export class EscPosDriver implements IPrinterDriver {
 
     try {
       await this.sendDocuments(adapter, printer, documents);
-      PrinterLogger.printSucceeded({ printerId, protocol: PrinterDriverType.EscPos, durationMs: Date.now() - startedAt });
+      PrinterLogger.printSucceeded({ printerId, protocol: PrintLanguage.EscPos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.printFailed({ printerId, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.printFailed({ printerId, protocol: PrintLanguage.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -287,9 +289,9 @@ export class EscPosDriver implements IPrinterDriver {
       }
 
       await this.sendDocuments(adapter, printer, documents);
-      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrinterDriverType.EscPos, durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintSucceeded({ printerId: printer.id, protocol: PrintLanguage.EscPos, durationMs: Date.now() - startedAt });
     } catch (error) {
-      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrinterDriverType.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
+      PrinterLogger.testPrintFailed({ printerId: printer.id, protocol: PrintLanguage.EscPos, errorCode: errorCodeOf(error), durationMs: Date.now() - startedAt });
       throw error;
     }
   }
@@ -301,7 +303,7 @@ export class EscPosDriver implements IPrinterDriver {
   async identify(printerId: string): Promise<PrinterDeviceInfo | null> {
     const connectionType = this.connectedTypes.get(printerId);
 
-    if (!connectionType || connectionType === PrinterConnectionType.Usb) {
+    if (!connectionType || connectionType === ConnectionType.Usb) {
       return null;
     }
 

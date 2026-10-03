@@ -3,10 +3,10 @@ import { createPrinterRepository } from '../../storage/PrinterRepository';
 import { createResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterStorage } from '../../storage/PrinterStorage';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { type Printer } from '../../models/printer/Printer';
-import { PrintType } from '../../models/printing/PrintType';
-import { makeMockDriver, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
+import { PrintKind } from '../../models/printer/PrintKind';
+import { makeMockDriver, tsplLanguage, basePrinter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
 
@@ -19,7 +19,7 @@ describe('PrinterPrintService', () => {
     const escposDriver = makeMockDriver();
     const tsplDriver = makeMockDriver();
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: tsplDriver }, repository, createResourceLock());
     repository.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
     await service.print(basePrinter.id, documents);
@@ -30,7 +30,7 @@ describe('PrinterPrintService', () => {
   it('print() connects first when the driver reports the printer is not connected', async () => {
     const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle) });
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: makeMockDriver() }, repository, createResourceLock());
     repository.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
     await service.print(basePrinter.id, documents);
@@ -41,7 +41,7 @@ describe('PrinterPrintService', () => {
   it('print() does not reconnect when the driver reports the printer is already connected', async () => {
     const escposDriver = makeMockDriver();
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: makeMockDriver() }, repository, createResourceLock());
     repository.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
     await service.print(basePrinter.id, documents);
@@ -51,8 +51,8 @@ describe('PrinterPrintService', () => {
   it('print() forwards options through to driver.print', async () => {
     const tsplDriver = makeMockDriver();
     const repository = createPrinterRepository();
-    const tsplPrinter: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:192.168.1.11:9100', type: PrintType.Label, driver: tsplDriverEntry };
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
+    const tsplPrinter: Printer = { ...basePrinter, id: 'p2', deviceId: 'lan:192.168.1.11:9100', kind: PrintKind.Label, language: tsplLanguage };
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: makeMockDriver(), [PrintLanguage.Tspl]: tsplDriver }, repository, createResourceLock());
     repository.addPrinter(tsplPrinter);
     const documents = { text: { elements: [] } };
     await service.print(tsplPrinter.id, documents, { rows: 3 });
@@ -71,7 +71,7 @@ describe('PrinterPrintService', () => {
     const lock = createResourceLock();
     const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, lock);
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: makeMockDriver() }, repository, lock);
     repository.addPrinter(basePrinter);
     await service.print(basePrinter.id, { text: { elements: [] } });
     expect(runExclusiveSpy).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe('PrinterPrintService', () => {
   it('testPrint() forwards printer+documents straight to the matching driver, without persisting it', async () => {
     const escposDriver = makeMockDriver();
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: makeMockDriver() }, repository, createResourceLock());
     const documents = { text: { elements: [] } };
     await service.testPrint(basePrinter, documents);
     expect(escposDriver.testPrint).toHaveBeenCalledWith(basePrinter, documents, undefined);
@@ -92,7 +92,7 @@ describe('PrinterPrintService', () => {
     const lock = createResourceLock();
     const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, lock);
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: escposDriver, [PrintLanguage.Tspl]: makeMockDriver() }, repository, lock);
     await service.testPrint(basePrinter, { text: { elements: [] } });
     expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
   });
@@ -100,8 +100,8 @@ describe('PrinterPrintService', () => {
   it('testPrint() forwards options down to driver.testPrint', async () => {
     const tsplDriver = makeMockDriver();
     const repository = createPrinterRepository();
-    const p: Printer = { ...basePrinter, driver: tsplDriverEntry };
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
+    const p: Printer = { ...basePrinter, language: tsplLanguage };
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: makeMockDriver(), [PrintLanguage.Tspl]: tsplDriver }, repository, createResourceLock());
     const documents = { text: { elements: [] } };
     await service.testPrint(p, documents, { rows: 3 });
     expect(tsplDriver.testPrint).toHaveBeenCalledWith(p, documents, { rows: 3 });
@@ -110,7 +110,7 @@ describe('PrinterPrintService', () => {
   it('print() / testPrint() never invoke the tspl driver installTsplFont (RULE 15-17)', async () => {
     const tsplDriver = { ...makeMockDriver(), installTsplFont: jest.fn().mockResolvedValue(undefined) };
     const repository = createPrinterRepository();
-    const service = createPrinterPrintService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver as never }, repository, createResourceLock());
+    const service = createPrinterPrintService({ [PrintLanguage.EscPos]: makeMockDriver(), [PrintLanguage.Tspl]: tsplDriver as never }, repository, createResourceLock());
     repository.addPrinter(basePrinter);
     const documents = { text: { elements: [] } };
 

@@ -1,5 +1,5 @@
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/printer/ConnectionType';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { LoggerService } from '../../../services/LoggerService';
@@ -7,7 +7,7 @@ import { LoggerService } from '../../../services/LoggerService';
 type Task = () => Promise<void>;
 
 export interface ConnectionResourceKeyInput {
-  driverType: PrinterDriverType;
+  driverType: PrintLanguage;
   connection: PrinterConnection;
 }
 
@@ -22,16 +22,16 @@ export interface ConnectionResourceKeyInput {
 export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
   const { connection, driverType } = input;
 
-  if (connection.type === PrinterConnectionType.Usb) {
+  if (connection.type === ConnectionType.Usb) {
     return 'usb';
   }
 
-  if (driverType === PrinterDriverType.EscPos) {
-    return connection.type === PrinterConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
+  if (driverType === PrintLanguage.EscPos) {
+    return connection.type === ConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
   }
 
-  if (connection.type === PrinterConnectionType.Bluetooth) {
-    return `tspl:bluetooth:${connection.deviceId}`;
+  if (connection.type === ConnectionType.Bluetooth) {
+    return `tspl:bluetooth:${connection.mac}`;
   }
 
   return `tspl:lan:${connection.host}:${connection.port}`;
@@ -44,7 +44,7 @@ export const connectionResourceKey = (input: ConnectionResourceKeyInput): string
  * tham số `driverType` rời như bản cũ.
  */
 export const resourceKeyFor = (printer: Printer): string =>
-  connectionResourceKey({ driverType: printer.driver.type, connection: printer.connection });
+  connectionResourceKey({ driverType: printer.language.type, connection: printer.connection });
 
 /**
  * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi

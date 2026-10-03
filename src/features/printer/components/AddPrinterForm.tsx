@@ -6,7 +6,7 @@ import { useAddPrinterFlow } from '../hooks/useAddPrinterFlow';
 import { ConnectionSection } from './ConnectionSection';
 import { StatusPanel } from './StatusPanel';
 import { PrinterInfoCard } from './PrinterInfoCard';
-import type { PrintType } from '../models/printing/PrintType';
+import type { PrintKind } from '../models/printer/PrintKind';
 import type { Printer } from '../models/printer/Printer';
 
 /**
@@ -22,7 +22,7 @@ export interface AddPrinterFormProps {
   /** Ẩn nút "‹ Quay lại" khi màn cha đã có sẵn nút back riêng. Mặc định hiện — bắt buộc với `AddPrinterModal`. */
   showBackButton?: boolean;
   /** Loại nội dung CỐ ĐỊNH của printer này — tab đang mở lúc Thêm mới, hoặc `initialValues.type` lúc Sửa. */
-  printType: PrintType;
+  kind: PrintKind;
 }
 
 export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
@@ -31,9 +31,9 @@ export const AddPrinterForm: React.FC<AddPrinterFormProps> = ({
   onSaved,
   onBack,
   showBackButton = true,
-  printType,
+  kind,
 }) => {
-  const flow = useAddPrinterFlow({ visible, initialValues, onSaved, printType });
+  const flow = useAddPrinterFlow({ visible, initialValues, onSaved, kind });
 
   return (
     <View style={styles.root}>

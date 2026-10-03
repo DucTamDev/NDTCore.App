@@ -3,31 +3,31 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import { PaperSize, PrintPaperType } from '../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
+import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+import type { PaperOptions } from '../models/paper/PaperOptions';
 import { dieCutMediaError } from '../paper/validation';
 
 const PAPER_SIZE_OPTIONS = [PaperSize.Mm58, PaperSize.Mm80, PaperSize.Mm100, PaperSize.Mm104].map((n) => ({ label: `${n}mm`, value: String(n) }));
 const MEDIA_TYPE_OPTIONS = [
-  { label: 'Giấy cuộn liên tục', value: PrintPaperType.Continuous },
-  { label: 'Die-cut (tem rời, nhiều cột)', value: PrintPaperType.DieCut },
+  { label: 'Giấy cuộn liên tục', value: PaperType.Continuous },
+  { label: 'Die-cut (tem rời, nhiều cột)', value: PaperType.DieCut },
 ];
 
 export interface DriverMediaSectionProps {
   /** `undefined` trước khi driver được xác nhận — TSPL-only field (loại giấy/die-cut) chỉ hiện khi đã biết driver là TSPL. */
-  driverType?: PrinterDriverType;
-  paper: PrintPaperConfig;
+  driverType?: PrintLanguage;
+  paper: PaperOptions;
   disabled: boolean;
-  onChange: (patch: Partial<PrintPaperConfig>) => void;
+  onChange: (patch: Partial<PaperOptions>) => void;
 }
 
 const parseNum = (t: string): number | undefined => (t.trim() === '' ? undefined : Number(t));
 const numStr = (n: number | undefined): string => (n == null ? '' : String(n));
 
 export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverType, paper, disabled, onChange }) => {
-  const isTspl = driverType === PrinterDriverType.Tspl;
-  const isDieCut = paper.type === PrintPaperType.DieCut;
+  const isTspl = driverType === PrintLanguage.Tspl;
+  const isDieCut = paper.type === PaperType.DieCut;
   const mediaError = dieCutMediaError(paper);
   return (
     <View style={styles.block}>
@@ -43,7 +43,7 @@ export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverTy
           <AppSelect
             label="Loại giấy"
             value={paper.type}
-            onSelect={(v) => onChange({ type: v as PrintPaperConfig['type'] })}
+            onSelect={(v) => onChange({ type: v as PaperOptions['type'] })}
             options={MEDIA_TYPE_OPTIONS}
             disabled={disabled}
           />

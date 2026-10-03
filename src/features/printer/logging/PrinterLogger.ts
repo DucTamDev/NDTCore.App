@@ -1,7 +1,7 @@
 import { LoggerService } from '../../../services/LoggerService';
 import type { PrinterErrorCode } from '../errors/PrinterError';
-import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import type { PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { ConnectionType } from '../models/printer/ConnectionType';
+import type { PrintLanguage } from '../models/printer/PrinterLanguage';
 
 /**
  * Điểm log chuẩn hoá duy nhất cho printer module — mỗi hàm ứng với đúng 1
@@ -41,18 +41,18 @@ const withStdFields = <T extends Record<string, unknown>>(
 });
 
 export const PrinterLogger = {
-  scanCompleted(params: { connectionType: PrinterConnectionType; deviceCount: number; durationMs: number }): void {
+  scanCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void {
     LoggerService.info('printer.scan.completed', withStdFields('scan', 'success', params));
   },
 
-  scanFailed(params: { connectionType: PrinterConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
+  scanFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
     LoggerService.warning('printer.scan.failed', withStdFields('scan', 'failure', params));
   },
 
   connectSucceeded(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
+    protocol: PrintLanguage;
+    connectionType: ConnectionType;
     durationMs: number;
   }): void {
     LoggerService.info('printer.connect.succeeded', withStdFields('connect', 'success', params));
@@ -60,29 +60,29 @@ export const PrinterLogger = {
 
   connectFailed(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
+    protocol: PrintLanguage;
+    connectionType: ConnectionType;
     errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.connect.failed', withStdFields('connect', 'failure', params));
   },
 
-  disconnectSucceeded(params: { printerId: string; protocol: PrinterDriverType }): void {
+  disconnectSucceeded(params: { printerId: string; protocol: PrintLanguage }): void {
     LoggerService.info('printer.disconnect.succeeded', withStdFields('disconnect', 'success', params));
   },
 
-  disconnectFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode }): void {
+  disconnectFailed(params: { printerId: string; protocol: PrintLanguage; errorCode: PrinterErrorCode }): void {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
   },
 
-  testPrintSucceeded(params: { printerId: string; protocol: PrinterDriverType; durationMs: number }): void {
+  testPrintSucceeded(params: { printerId: string; protocol: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.test-print.succeeded', withStdFields('test-print', 'success', params));
   },
 
   testPrintFailed(params: {
     printerId: string;
-    protocol: PrinterDriverType;
+    protocol: PrintLanguage;
     errorCode: PrinterErrorCode;
     durationMs: number;
   }): void {
@@ -90,11 +90,11 @@ export const PrinterLogger = {
   },
 
   /** Permission là cửa chặn của scan (Bluetooth/USB) — coi như `scan` fail. */
-  permissionDenied(params: { connectionType: PrinterConnectionType }): void {
+  permissionDenied(params: { connectionType: ConnectionType }): void {
     LoggerService.warning('printer.permission.denied', withStdFields('scan', 'failure', params));
   },
 
-  discoveryStarted(params: { printerId: string; connectionType: PrinterConnectionType; candidates: PrinterDriverType[] }): void {
+  discoveryStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrintLanguage[] }): void {
     LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
   },
 
@@ -106,8 +106,8 @@ export const PrinterLogger = {
    */
   discoveryCandidateRejected(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
+    protocol: PrintLanguage;
+    connectionType: ConnectionType;
     reason: 'connect_failed' | 'not_confirmed';
   }): void {
     LoggerService.debug('printer.discovery.candidate-rejected', withStdFields('discovery', 'failure', params));
@@ -116,8 +116,8 @@ export const PrinterLogger = {
   /** Toàn bộ candidate đều KHÔNG connect được — khác `protocolUnknown` (connect được nhưng không xác nhận được protocol). */
   discoveryFailed(params: {
     printerId: string;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
+    connectionType: ConnectionType;
+    candidatesTried: PrintLanguage[];
     durationMs: number;
   }): void {
     LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
@@ -125,9 +125,9 @@ export const PrinterLogger = {
 
   protocolDetected(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
+    protocol: PrintLanguage;
+    connectionType: ConnectionType;
+    candidatesTried: PrintLanguage[];
     durationMs: number;
   }): void {
     LoggerService.info('printer.protocol.detected', withStdFields('discovery', 'success', params));
@@ -135,18 +135,18 @@ export const PrinterLogger = {
 
   protocolUnknown(params: {
     printerId: string;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
+    connectionType: ConnectionType;
+    candidatesTried: PrintLanguage[];
     durationMs: number;
   }): void {
     LoggerService.warning('printer.protocol.unknown', withStdFields('discovery', 'failure', params));
   },
 
-  printSucceeded(params: { printerId: string; protocol: PrinterDriverType; durationMs: number }): void {
+  printSucceeded(params: { printerId: string; protocol: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.print.succeeded', withStdFields('print', 'success', params));
   },
 
-  printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode; durationMs: number }): void {
+  printFailed(params: { printerId: string; protocol: PrintLanguage; errorCode: PrinterErrorCode; durationMs: number }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
   },
 };

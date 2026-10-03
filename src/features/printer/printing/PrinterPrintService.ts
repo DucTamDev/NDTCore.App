@@ -1,5 +1,7 @@
-import type { IPrinterDriver, PrintDocuments, PrintOptions } from '../drivers/IPrinterDriver';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+import type { PrintDocuments } from '../models/printing/PrintDocuments';
+import type { PrintOptions } from '../models/printing/PrintOptions';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
 import { DriverRegistry } from '../drivers/DriverRegistry';
@@ -22,11 +24,11 @@ type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
  * `PrinterConnectionService`.
  */
 export const createPrinterPrintService = (
-  registry: Record<PrinterDriverType, IPrinterDriver> = DriverRegistry,
+  registry: Record<PrintLanguage, IPrinterDriver> = DriverRegistry,
   repository: PrinterRepositoryLike = PrinterRepository,
   lock: ResourceLockLike = PrinterConnectionLock,
 ) => {
-  const getDriver = (type: PrinterDriverType): IPrinterDriver => registry[type];
+  const getDriver = (type: PrintLanguage): IPrinterDriver => registry[type];
 
   /**
    * KHÔNG tự `lock.runExclusive` — luôn được `PrintScheduler.enqueue()` gọi
@@ -35,7 +37,7 @@ export const createPrinterPrintService = (
    */
   const print = async (printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
     const printer = repository.findOrThrow(printerId);
-    const driver = getDriver(printer.driver.type);
+    const driver = getDriver(printer.language.type);
 
     if (driver.getStatus(printerId) !== PrinterStatus.Connected) {
       await driver.connect(printer);
@@ -45,7 +47,7 @@ export const createPrinterPrintService = (
   };
 
   const testPrint = async (printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> => {
-    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.driver.type).testPrint(printer, documents, options));
+    await lock.runExclusive(resourceKeyFor(printer), () => getDriver(printer.language.type).testPrint(printer, documents, options));
   };
 
   return { print, testPrint };

@@ -9,7 +9,7 @@ import type { PrintDocument, PrintElement } from '../models/printing/PrintDocume
  * — không đọc `OrderPrintTrigger` trực tiếp (đơn hàng/cart là data-owning feature ở tầng trên,
  * `printer` không phụ thuộc ngược lại nó) nên layout ở đây độc lập, chỉ cố tình khớp hình dạng.
  * Chỉ dùng `text`/`line`/`row` — 2 loại phần tử duy nhất cả `ThermalReceiptDriver` lẫn
- * `TsplDriver` đều mã hoá được, vì `PrintType` (Bill/Label) độc lập với `Protocol`
+ * `TsplDriver` đều mã hoá được, vì `PrintKind` (Bill/Label) độc lập với `Protocol`
  * (ESC/POS/TSPL): 1 máy in ESC/POS vẫn có thể được gán in Label và ngược lại.
  */
 

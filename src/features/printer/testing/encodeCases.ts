@@ -1,13 +1,14 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { RenderMode } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/printer/ConnectionType';
+import { RenderMode } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
-import { CutterMode, PaperSize, PrintPaperType } from '../models/paper/PrintPaperConfig';
-import { PrintType } from '../models/printing/PrintType';
+import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { PrintKind } from '../models/printer/PrintKind';
 import type { PrintDocument } from '../models/printing/PrintDocument';
-import type { PrintDocuments, PrintOptions } from '../drivers/IPrinterDriver';
-import { makeEscPosDriver, makePrinter, makeTsplDriver } from './printerFixtures';
+import type { PrintDocuments } from '../models/printing/PrintDocuments';
+import type { PrintOptions } from '../models/printing/PrintOptions';
+import { makeEscPosLanguage, makePrinter, makeTsplLanguage } from './printerFixtures';
 
 /** Một trường hợp encode cố định: cấu hình máy in, nội dung, và dấu vân tay byte phải ra đúng. */
 export interface EncodeCase {
@@ -71,10 +72,10 @@ const labelDocument: PrintDocument = {
   ],
 };
 
-const usbConnection = { type: PrinterConnectionType.Usb, vendorId: 1, productId: 2 } as const;
+const usbConnection = { type: ConnectionType.Usb, vendorId: 1, productId: 2 } as const;
 
 const dieCutPaper = {
-  type: PrintPaperType.DieCut,
+  type: PaperType.DieCut,
   paperSize: PaperSize.Mm58,
   itemWidthMm: 20,
   itemHeightMm: 10,
@@ -89,7 +90,7 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'ESC/POS lệnh văn bản, 80mm, cắt cuối job',
     printer: makePrinter({
       connection: usbConnection,
-      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
     }),
     documents: { text: receiptDocument },
     fingerprint: '234:f64def3b',
@@ -98,7 +99,7 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'ESC/POS lệnh văn bản, 58mm, không cắt',
     printer: makePrinter({
       connection: usbConnection,
-      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
     }),
     documents: { text: receiptDocument },
     fingerprint: '184:89696237',
@@ -107,7 +108,7 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'ESC/POS ảnh, 80mm, cắt cuối job',
     printer: makePrinter({
       connection: usbConnection,
-      driver: makeEscPosDriver({ config: { renderMode: RenderMode.Bitmap } }),
+      language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
     }),
     documents: { text: receiptDocument, image: stripedPngBase64() },
     fingerprint: '10380:a79412dd',
@@ -116,8 +117,8 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'ESC/POS ảnh, 58mm, không cắt',
     printer: makePrinter({
       connection: usbConnection,
-      driver: makeEscPosDriver({ config: { renderMode: RenderMode.Bitmap } }),
-      paper: { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
+      language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
     }),
     documents: { text: receiptDocument, image: stripedPngBase64() },
     fingerprint: '4618:ad6f37a5',
@@ -126,14 +127,14 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'TSPL lệnh văn bản, hoá đơn giấy cuộn 80mm',
     printer: makePrinter({
       connection: usbConnection,
-      driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }),
+      language: makeTsplLanguage({ renderMode: RenderMode.Command }),
     }),
     documents: { text: receiptDocument },
     fingerprint: '383:4af9d05e',
   },
   {
     name: 'TSPL ảnh, hoá đơn giấy cuộn 80mm',
-    printer: makePrinter({ connection: usbConnection, driver: makeTsplDriver() }),
+    printer: makePrinter({ connection: usbConnection, language: makeTsplLanguage() }),
     documents: { text: receiptDocument, image: stripedPngBase64() },
     fingerprint: '10472:4d5f733a',
   },
@@ -141,8 +142,8 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'TSPL lệnh văn bản, tem 2 cột',
     printer: makePrinter({
       connection: usbConnection,
-      type: PrintType.Label,
-      driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }),
+      kind: PrintKind.Label,
+      language: makeTsplLanguage({ renderMode: RenderMode.Command }),
       paper: { ...dieCutPaper },
     }),
     documents: { text: labelDocument },
@@ -152,8 +153,8 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'TSPL ảnh, tem 2 cột, 2 hàng',
     printer: makePrinter({
       connection: usbConnection,
-      type: PrintType.Label,
-      driver: makeTsplDriver(),
+      kind: PrintKind.Label,
+      language: makeTsplLanguage(),
       paper: { ...dieCutPaper },
     }),
     documents: { text: labelDocument, image: stripedPngBase64() },

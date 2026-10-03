@@ -1,6 +1,6 @@
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import type { PaperSize } from '../../models/paper/PrintPaperConfig';
-import type { PrintDocuments } from '../IPrinterDriver';
+import type { PaperSize } from '../../models/paper/PaperOptions';
+import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PAPER_SIZE_SPECS } from '../../paper/paperSpec';
 import { formatRow } from '../../utils/formatRow';
 

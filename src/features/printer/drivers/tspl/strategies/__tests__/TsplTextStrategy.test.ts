@@ -2,28 +2,28 @@ import { Buffer } from 'buffer';
 import { TsplTextStrategy } from '../TsplTextStrategy';
 import type { TsplStrategyContext } from '../tsplStrategy.types';
 import { PrinterErrorCode } from '../../../../errors/PrinterError';
-import { RenderMode } from '../../../../models/printer/PrinterDriver';
-import { PrintType } from '../../../../models/printing/PrintType';
+import { RenderMode } from '../../../../models/printer/PrinterLanguage';
+import { PrintKind } from '../../../../models/printer/PrintKind';
 import type { Printer } from '../../../../models/printer/Printer';
-import type { PrintPaperConfig } from '../../../../models/paper/PrintPaperConfig';
+import type { PaperOptions } from '../../../../models/paper/PaperOptions';
 import type { PrintDocument } from '../../../../models/printing/PrintDocument';
-import { makePrinter, makeTsplDriver } from '../../../../testing/printerFixtures';
+import { makePrinter, makeTsplLanguage } from '../../../../testing/printerFixtures';
 
-const MEDIA: PrintPaperConfig = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
 
-const DIE_CUT: PrintPaperConfig = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
 
 const printer: Printer = makePrinter({
   id: 'p1',
   name: 'M',
-  driver: makeTsplDriver({ config: { renderMode: RenderMode.Encoder } }),
+  language: makeTsplLanguage({ renderMode: RenderMode.Command }),
   paper: MEDIA,
 });
 
 const ctx = (document: PrintDocument, over: Partial<TsplStrategyContext> = {}): TsplStrategyContext => ({
   printer,
   documents: { text: document },
-  printType: PrintType.Receipt,
+  kind: PrintKind.Receipt,
   paper: MEDIA,
   rows: 1,
   ...over,
@@ -38,7 +38,7 @@ const asAscii = (bytes: Uint8Array): string => Buffer.from(bytes).toString('utf-
 describe('TsplTextStrategy', () => {
   const s = new TsplTextStrategy();
 
-  it('mode === Encoder', () => expect(s.mode).toBe(RenderMode.Encoder));
+  it('mode === Encoder', () => expect(s.mode).toBe(RenderMode.Command));
 
   it('validate không ném lỗi (không cần precondition như Bitmap)', () => {
     expect(() => s.validate(ctx({ elements: [] }))).not.toThrow();

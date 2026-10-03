@@ -1,30 +1,48 @@
-import type { PrinterDriver } from './PrinterDriver';
+import type { PaperOptions } from '../paper/PaperOptions';
+import type { PrintKind } from './PrintKind';
 import type { PrinterCapabilities } from './PrinterCapabilities';
 import type { PrinterConnection } from './PrinterConnection';
-import type { PrintPaperConfig } from '../paper/PrintPaperConfig';
-import type { PrintType } from '../printing/PrintType';
+import type { PrinterLanguage } from './PrinterLanguage';
 
-/**
- * 1 cấu hình in đã lưu — ĐÚNG 1 connection + ĐÚNG 1 driver + ĐÚNG 1 loại nội
- * dung (`type`) + ĐÚNG 1 cấu hình giấy. Khác `PrinterDevice` (PrinterDevice.ts)
- * là kết quả scan tạm thời trước khi lưu. Cùng 1 máy in vật lý phục vụ cả Hoá
- * đơn lẫn Tem thì có 2 `Printer` riêng, có thể cùng `connection` khác `driver`
- * (xem ARCHITECTURE.md).
- */
+/** Một máy in đã lưu: đúng một kết nối, một ngôn ngữ, một loại nội dung và một cấu hình giấy. */
 export interface Printer {
+  /** ID của bản ghi, sinh khi tạo, không đổi khi sửa. */
   id: string;
-  /** Chỉ phụ thuộc connection, không phụ thuộc driver — xem `discovery/PrinterResolver.ts`. Ràng buộc unique là cặp `(identityKey, type)`, không phải `identityKey` một mình — xem `storage/PrinterRepository.ts`. */
-  identityKey: string;
-  type: PrintType;
+
+  /**
+   * Định danh máy in vật lý, tính từ `connection` bằng `deviceIdOf`, ổn định qua các lần cắm. Unique theo cặp
+   * (`deviceId`, `kind`). Không so với `DeviceInfo.deviceId`.
+   */
+  deviceId: string;
+
+  kind: PrintKind;
+
+  /** Tên hiển thị do người dùng đặt. */
   name: string;
+
+  /** Hãng thiết bị, nếu đọc được lúc thêm máy. */
   vendor?: string;
+
+  /** Model thiết bị, nếu đọc được lúc thêm máy. */
   model?: string;
+
   connection: PrinterConnection;
-  driver: PrinterDriver;
-  paper: PrintPaperConfig;
+
+  language: PrinterLanguage;
+
+  paper: PaperOptions;
+
   capabilities: PrinterCapabilities;
+
+  /** Tự kết nối lại khi mở app và khi mất kết nối lúc in. */
   autoReconnect: boolean;
+
+  /** Tắt thì không nhận lệnh in nhưng vẫn giữ cấu hình. */
   enabled: boolean;
+
+  /** Thời điểm tạo, ISO 8601 UTC. */
   createdAt: string;
+
+  /** Thời điểm cập nhật, ISO 8601 UTC. */
   updatedAt: string;
 }

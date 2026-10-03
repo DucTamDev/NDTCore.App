@@ -1,16 +1,16 @@
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
 import { PrinterStorage } from './PrinterStorage';
-import { resolveIdentityKey } from '../discovery/PrinterResolver';
+import { deviceIdOf } from '../models/printer/deviceIdOf';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
 import type { PrinterWriteInput } from './PrinterWriteInput';
 
 /**
  * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
- * (`identityKey` tính lại + chống trùng). Không phụ thuộc driver/lock.
+ * (`deviceId` tính lại + chống trùng). Không phụ thuộc driver/lock.
  *
  * Printer repository — wraps `PrinterStorage` plus the identity invariants
- * (recomputed `identityKey` + duplicate guard). No driver/lock dependency.
+ * (recomputed `deviceId` + duplicate guard). No driver/lock dependency.
  */
 export const createPrinterRepository = () => {
   const getPrinters = (): Printer[] => PrinterStorage.getPrinters();
@@ -28,7 +28,7 @@ export const createPrinterRepository = () => {
 
   const assertNoDuplicateIdentity = (printer: Printer): void => {
     const collision = getPrinters().find(
-      (p) => p.id !== printer.id && p.identityKey === printer.identityKey && p.type === printer.type,
+      (p) => p.id !== printer.id && p.deviceId === printer.deviceId && p.kind === printer.kind,
     );
 
     if (collision) {
@@ -40,14 +40,14 @@ export const createPrinterRepository = () => {
   };
 
   /**
-   * Tính lại `identityKey` từ chính `printer.connection` — KHÔNG tin thẳng
+   * Tính lại `deviceId` từ chính `printer.connection` — KHÔNG tin thẳng
    * giá trị caller truyền vào (defense-in-depth, cùng triết lý với
    * `printerSchema.parse()` bên dưới: UI đã tự tính đúng, đây là lưới an toàn
    * ở service layer, không phải nguồn sự thật duy nhất).
    */
   const withRecomputedIdentity = (printer: PrinterWriteInput): Printer => ({
     ...printer,
-    identityKey: resolveIdentityKey(printer.connection),
+    deviceId: deviceIdOf(printer.connection),
   });
 
   const addPrinter = (printer: PrinterWriteInput): void => {

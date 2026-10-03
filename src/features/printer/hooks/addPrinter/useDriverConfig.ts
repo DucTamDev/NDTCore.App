@@ -1,46 +1,44 @@
-import { RenderMode, BitmapSource } from '../../models/printer/PrinterDriver';
-import type { PrinterDriver } from '../../models/printer/PrinterDriver';
-import { PrintPaperType } from '../../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../../models/paper/PrintPaperConfig';
+import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
+import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
+import { PaperType } from '../../models/paper/PaperOptions';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { PrinterConfigService } from '../../management/PrinterConfigService';
 
 export interface UseDriverConfigInput {
   printerId: string;
-  driver?: PrinterDriver;
-  setDriver: (driver: PrinterDriver) => void;
-  paper: PrintPaperConfig;
-  setPaper: (paper: PrintPaperConfig) => void;
+  language?: PrinterLanguage;
+  setLanguage: (language: PrinterLanguage) => void;
+  paper: PaperOptions;
+  setPaper: (paper: PaperOptions) => void;
 }
 
 /**
- * Chỉnh cấu hình sau khi đã có driver: render mode (cả ESC/POS và TSPL đều
- * chọn được), nguồn ảnh bitmap (chỉ có ý nghĩa khi renderMode === Bitmap),
- * khổ giấy/loại giấy. Mọi thay đổi persist đối xứng qua `PrinterConfigService`
- * — no-op nếu là draft chưa lưu, `Save` lo phần đó.
+ * Chỉnh cấu hình in sau khi đã xác định ngôn ngữ: cách render, nguồn ảnh (chỉ khi in ảnh), khổ và loại giấy.
+ * Máy in đã lưu thì ghi ngay qua `PrinterConfigService`; bản nháp chưa lưu thì để lúc bấm Lưu.
  */
-export const useDriverConfig = ({ printerId, driver, setDriver, paper, setPaper }: UseDriverConfigInput) => {
+export const useDriverConfig = ({ printerId, language, setLanguage, paper, setPaper }: UseDriverConfigInput) => {
   const onSelectRenderMode = (mode: RenderMode): void => {
-    if (!driver) {
+    if (!language) {
       return;
     }
 
-    setDriver({ ...driver, config: { ...driver.config, renderMode: mode } });
+    setLanguage({ ...language, renderMode: mode });
     PrinterConfigService.setRenderMode(printerId, mode);
   };
 
-  const onSelectBitmapSource = (bitmapSource: BitmapSource): void => {
-    if (!driver) {
+  const onSelectRasterSource = (rasterSource: RasterSource): void => {
+    if (!language) {
       return;
     }
 
-    setDriver({ ...driver, config: { ...driver.config, bitmapSource } });
-    PrinterConfigService.setBitmapSource(printerId, bitmapSource);
+    setLanguage({ ...language, rasterSource });
+    PrinterConfigService.setRasterSource(printerId, rasterSource);
   };
 
-  const onChangePaper = (patch: Partial<PrintPaperConfig>): void => {
-    let next = { ...paper, ...patch } as PrintPaperConfig;
+  const onChangePaper = (patch: Partial<PaperOptions>): void => {
+    let next = { ...paper, ...patch } as PaperOptions;
 
-    if (next.type === PrintPaperType.DieCut) {
+    if (next.type === PaperType.DieCut) {
       next = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...next };
     }
 
@@ -48,5 +46,5 @@ export const useDriverConfig = ({ printerId, driver, setDriver, paper, setPaper 
     PrinterConfigService.setPaper(printerId, next);
   };
 
-  return { onSelectRenderMode, onSelectBitmapSource, onChangePaper };
+  return { onSelectRenderMode, onSelectRasterSource, onChangePaper };
 };
