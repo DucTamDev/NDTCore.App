@@ -7,7 +7,7 @@ import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import { RenderMode, PrintLanguage } from '../../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
-import { CutterMode, PaperSize } from '../../../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
 import { type Printer } from '../../../models/printer/Printer';
 import { makePrinter, makeEscPosLanguage } from '../../../testing/printerFixtures';
 import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
@@ -131,7 +131,7 @@ describe('EscPosDriver', () => {
     expect(bytesOf(base64).toString('utf8')).toContain('In thử');
   });
 
-  it('sendDocuments gửi cut:true khi media.cutterMode undefined (mặc định giữ hành vi cũ)', async () => {
+  it('sendDocuments gửi lệnh cắt khi giấy cuộn cắt cuối job', async () => {
     const driver = new EscPosDriver();
     await driver.connect(lanPrinter);
     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
@@ -141,7 +141,10 @@ describe('EscPosDriver', () => {
   });
 
   it('sendDocuments gửi cut:false khi media.cutterMode = none', async () => {
-    const noCutPrinter: Printer = { ...lanPrinter, paper: { ...lanPrinter.paper, cutterMode: CutterMode.None } };
+    const noCutPrinter: Printer = {
+      ...lanPrinter,
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.None },
+    };
     const driver = new EscPosDriver();
     await driver.connect(noCutPrinter);
     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
@@ -190,12 +193,15 @@ describe('EscPosDriver', () => {
     // eslint-disable-next-line no-bitwise -- intentional low-byte/high-byte reconstruction of a little-endian field
     const widthBytes = bytes[6] | (bytes[7] << 8);
     expect(widthBytes).toBe(72); // ceil(PAPER_SIZE_SPECS[80].imageWidthPx / 8) = ceil(576/8)
-    // media.cutterMode undefined trên continuous → resolveEffectiveCutterMode = perJob → có cut_bytes cuối payload.
+    // Giấy cuộn cắt cuối job → có lệnh cắt cuối payload.
     expect(bytes.subarray(bytes.length - 2)).toEqual(Buffer.from([0x1b, 0x6d]));
   });
 
   it('sendDocuments bitmap mode: cutterMode = none → không phát cut_bytes cuối payload', async () => {
-    const noCutBitmapPrinter: Printer = { ...bitmapPrinter, paper: { ...bitmapPrinter.paper, cutterMode: CutterMode.None } };
+    const noCutBitmapPrinter: Printer = {
+      ...bitmapPrinter,
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.None },
+    };
     const driver = new EscPosDriver();
     await driver.connect(noCutBitmapPrinter);
     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };

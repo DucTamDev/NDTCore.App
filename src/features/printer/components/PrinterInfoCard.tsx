@@ -16,7 +16,7 @@ import { LanguageSelection, RenderMode, type RasterSource, type PrinterLanguage 
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
-import type { PaperOptions } from '../models/paper/PaperOptions';
+import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 
 const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
@@ -35,8 +35,8 @@ export interface PrinterInfoCardProps {
   connectionType: ConnectionType;
   /** `undefined` trước khi discovery xác nhận. */
   language?: PrinterLanguage;
-  paper: PaperOptions;
-  onChangePaper: (patch: Partial<PaperOptions>) => void;
+  paper: PaperDraft;
+  onChangePaper: (patch: Partial<PaperDraft>) => void;
   deviceInfo?: PrinterDeviceInfo;
   status: PrinterStatus;
   autoReconnect: boolean;

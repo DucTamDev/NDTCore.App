@@ -19,7 +19,7 @@ export type SkiaCanvas = ReturnType<NonNullable<SkiaSurface>['getCanvas']>;
 
 /** Cùng logic đo bề rộng với `useBillImageCapture.tsx` — die-cut theo itemWidthMm, còn lại theo khổ giấy. */
 const resolveWidthPx = (media: PaperOptions): number =>
-  media.type === PaperType.DieCut ? (media.itemWidthMm ?? 0) * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
+  media.type === PaperType.DieCut ? media.itemWidthMm * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
 
 /**
  * Đếm số dòng sẽ vẽ (không wrap — spec §6, mỗi phần tử/mỗi row trong table là

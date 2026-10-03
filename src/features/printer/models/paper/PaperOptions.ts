@@ -32,26 +32,36 @@ export const CutterMode = {
 
 export type CutterMode = (typeof CutterMode)[keyof typeof CutterMode];
 
-/** Cấu hình giấy của một máy in; các field kích thước tem chỉ có nghĩa với giấy tem. */
-export interface PaperOptions {
-  type: PaperType;
+/** Giấy cuộn liên tục. */
+export interface ContinuousPaper {
+  type: typeof PaperType.Continuous;
+
+  paperSize: PaperSize;
+
+  cutterMode: CutterMode;
+}
+
+/** Giấy tem rời; tách bằng răng cưa nên không cắt. */
+export interface DieCutPaper {
+  type: typeof PaperType.DieCut;
 
   paperSize: PaperSize;
 
   /** Chiều rộng một con tem (mm). */
-  itemWidthMm?: number;
+  itemWidthMm: number;
 
   /** Chiều cao một con tem (mm). */
-  itemHeightMm?: number;
+  itemHeightMm: number;
 
   /** Số con tem trên một hàng. */
-  columns?: number;
+  columns: number;
 
   /** Khe giữa hai con tem cạnh nhau (mm). */
-  horizontalGapMm?: number;
+  horizontalGapMm: number;
 
   /** Khe giữa hai hàng tem (mm). */
-  verticalGapMm?: number;
-
-  cutterMode?: CutterMode;
+  verticalGapMm: number;
 }
+
+/** Cấu hình giấy của một máy in. */
+export type PaperOptions = ContinuousPaper | DieCutPaper;

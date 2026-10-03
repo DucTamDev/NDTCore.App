@@ -1,11 +1,11 @@
 import { DEFAULT_PAPER, usesRasterRenderMode } from '../driverConfig';
 import { LanguageSelection, RasterSource, RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
-import { PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 
 describe('DEFAULT_PAPER', () => {
   it('là giấy cuộn liên tục 80mm', () => {
-    expect(DEFAULT_PAPER).toEqual({ type: PaperType.Continuous, paperSize: PaperSize.Mm80 });
+    expect(DEFAULT_PAPER).toEqual({ type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob });
   });
 });
 

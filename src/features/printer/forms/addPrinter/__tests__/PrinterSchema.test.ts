@@ -1,7 +1,7 @@
 import { printerSchema } from '../PrinterSchema';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import { RenderMode, RasterSource } from '../../../models/printer/PrinterLanguage';
-import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+import { PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../../testing/printerFixtures';
 
@@ -59,31 +59,10 @@ describe('printerSchema', () => {
         itemHeightMm: 20,
         columns: 3,
         horizontalGapMm: 2,
-        // thiếu verticalGapMm
-      },
+        // thiếu verticalGapMm; dữ liệu không qua kiểu (vd đọc từ bộ nhớ) vẫn phải bị chặn.
+      } as unknown as PaperOptions,
     });
     expect(printerSchema.safeParse(printer).success).toBe(false);
-  });
-
-  it('rejects die-cut paper with cutterMode other than None', () => {
-    const printer = makePrinter({
-      language: makeTsplLanguage(),
-      paper: {
-        type: PaperType.DieCut,
-        paperSize: PaperSize.Mm100,
-        itemWidthMm: 30,
-        itemHeightMm: 20,
-        columns: 3,
-        horizontalGapMm: 2,
-        verticalGapMm: 3,
-        cutterMode: CutterMode.PerJob,
-      },
-    });
-    const result = printerSchema.safeParse(printer);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((i) => i.path.join('.') === 'paper.cutterMode')).toBe(true);
-    }
   });
 
   it('rejects ESC/POS + kind Label (ESC/POS chỉ in Receipt)', () => {

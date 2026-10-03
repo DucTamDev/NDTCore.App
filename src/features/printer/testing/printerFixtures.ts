@@ -3,11 +3,11 @@ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../m
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintKind } from '../models/printer/PrintKind';
 
-export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80 };
+export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
 
 export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
   type: PrintLanguage.EscPos,

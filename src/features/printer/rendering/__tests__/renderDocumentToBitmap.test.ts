@@ -4,7 +4,7 @@ import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { encodeCode128 } from '../code128';
 import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../printLayoutConstants';
 
-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
 
 describe('renderDocumentToBitmap', () => {
   beforeEach(() => {

@@ -1,11 +1,15 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { PaperType, CutterMode } from '../../../models/paper/PaperOptions';
-import type { PaperOptions } from '../../../models/paper/PaperOptions';
+import type { DieCutPaper, PaperOptions } from '../../../models/paper/PaperOptions';
 import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
 
-const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({ type: PaperType.Continuous, paperSize });
-const DIE = (): PaperOptions => ({
+const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({
+  type: PaperType.Continuous,
+  paperSize,
+  cutterMode: CutterMode.PerJob,
+});
+const DIE = (): DieCutPaper => ({
   type: PaperType.DieCut,
   paperSize: 100,
   itemWidthMm: 30,
@@ -86,7 +90,7 @@ describe('TsplEncoder', () => {
     expect(columnOffsets(CONT())).toEqual([0]);
   });
 
-  it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → itemHeightMm ?? DEFAULT', () => {
+  it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → DEFAULT', () => {
     expect(resolveSizeHeightMm(DIE(), PrintKind.Label)).toBe(20);
     expect(resolveSizeHeightMm(CONT(), PrintKind.Receipt)).toBe(200);
     expect(resolveSizeHeightMm(CONT(), PrintKind.Label)).toBe(30);

@@ -13,7 +13,7 @@ jest.mock('../../../../utils/pngToMonochrome', () => {
   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
 });
 
-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
 
 const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
 
@@ -89,9 +89,9 @@ describe('TsplBitmapStrategy', () => {
   });
 
   it('encode ném IMAGE_TOO_LARGE khi ảnh cao hơn resolveSizeHeightMm(paper)*DOTS_PER_MM', () => {
-    // itemHeightMm cực nhỏ + Label để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
+    // Tem cao cực nhỏ để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
     const tiny: Partial<TsplStrategyContext> = {
-      paper: { type: 'Continuous', paperSize: 80, itemHeightMm: 0.01 },
+      paper: { ...DIE_CUT, itemHeightMm: 0.01 },
       kind: PrintKind.Label,
     };
     expect(() => s.encode(ctx(tiny))).toThrow();

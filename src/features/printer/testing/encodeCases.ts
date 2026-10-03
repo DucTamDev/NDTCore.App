@@ -90,7 +90,7 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'ESC/POS lệnh văn bản, 80mm, cắt cuối job',
     printer: makePrinter({
       connection: usbConnection,
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
     }),
     documents: { text: receiptDocument },
     fingerprint: '234:f64def3b',

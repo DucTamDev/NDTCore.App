@@ -5,7 +5,7 @@ import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { PaperSize, PaperType } from '../models/paper/PaperOptions';
-import type { PaperOptions } from '../models/paper/PaperOptions';
+import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 import { dieCutMediaError } from '../paper/validation';
 
 const PAPER_SIZE_OPTIONS = [PaperSize.Mm58, PaperSize.Mm80, PaperSize.Mm100, PaperSize.Mm104].map((n) => ({ label: `${n}mm`, value: String(n) }));
@@ -17,9 +17,9 @@ const MEDIA_TYPE_OPTIONS = [
 export interface DriverMediaSectionProps {
   /** `undefined` trước khi driver được xác nhận — TSPL-only field (loại giấy/die-cut) chỉ hiện khi đã biết driver là TSPL. */
   driverType?: PrintLanguage;
-  paper: PaperOptions;
+  paper: PaperDraft;
   disabled: boolean;
-  onChange: (patch: Partial<PaperOptions>) => void;
+  onChange: (patch: Partial<PaperDraft>) => void;
 }
 
 const parseNum = (t: string): number | undefined => (t.trim() === '' ? undefined : Number(t));
@@ -43,7 +43,7 @@ export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverTy
           <AppSelect
             label="Loại giấy"
             value={paper.type}
-            onSelect={(v) => onChange({ type: v as PaperOptions['type'] })}
+            onSelect={(v) => onChange({ type: v as PaperType })}
             options={MEDIA_TYPE_OPTIONS}
             disabled={disabled}
           />

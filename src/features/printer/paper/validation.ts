@@ -1,67 +1,51 @@
 import { PaperType } from '../models/paper/PaperOptions';
-import type { PaperOptions } from '../models/paper/PaperOptions';
+import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 import { PAPER_SIZE_SPECS } from './paperSpec';
 
+/** Kích thước bắt buộc của giấy tem, theo thứ tự hiển thị trong thông báo lỗi. */
+const DIE_CUT_REQUIRED_FIELDS = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
+
 /**
- * `null` nếu một hàng die-cut vừa vùng in được của khổ giấy (hoặc chưa đủ field
- * để tính, hoặc là giấy cuộn); ngược lại trả message tiếng Việt. Dùng chung cho
- * `printMediaSchema` (chặn Save) và `PrinterInfoCard` (cảnh báo inline).
+ * Thông báo khi một hàng tem rộng hơn vùng in được của khổ giấy; `null` nếu vừa, chưa đủ số liệu để tính, hoặc là
+ * giấy cuộn. Nhận cả cấu hình đã hợp lệ lẫn bản nháp đang nhập.
  */
-export const dieCutRowOverflow = (media: PaperOptions): string | null => {
-  if (media.type !== PaperType.DieCut) {
+export const dieCutRowOverflow = (paper: PaperDraft): string | null => {
+  if (paper.type !== PaperType.DieCut) {
     return null;
   }
 
-  if (
-    media.columns == null ||
-    media.itemWidthMm == null ||
-    media.horizontalGapMm == null
-  ) {
+  const { columns, itemWidthMm, horizontalGapMm } = paper;
+
+  if (columns === undefined || itemWidthMm === undefined || horizontalGapMm === undefined) {
     return null;
   }
 
-  const itemsWidthTotalMm = media.columns * media.itemWidthMm;
-  // `columns - 1`: gap chỉ nằm giữa các tem, không có sau con tem cuối cùng.
-  const gapsWidthTotalMm = (media.columns - 1) * media.horizontalGapMm;
-  const requiredWidthMm = itemsWidthTotalMm + gapsWidthTotalMm;
-
-  const printableWidthMm = PAPER_SIZE_SPECS[media.paperSize].printableWidthMm;
+  // Khe chỉ nằm giữa các tem, không có sau con tem cuối.
+  const requiredWidthMm = columns * itemWidthMm + (columns - 1) * horizontalGapMm;
+  const printableWidthMm = PAPER_SIZE_SPECS[paper.paperSize].printableWidthMm;
 
   if (requiredWidthMm <= printableWidthMm) {
     return null;
   }
 
   return (
-    `Hàng ${media.columns} cột rộng ${requiredWidthMm}mm, ` +
+    `Hàng ${columns} cột rộng ${requiredWidthMm}mm, ` +
     `vượt khổ in được ${printableWidthMm}mm — ` +
-    `giảm số cột / kích thước tem / khoảng cách.`
+    'giảm số cột / kích thước tem / khoảng cách.'
   );
 };
 
-const DIE_CUT_REQUIRED_FIELDS: (keyof PaperOptions)[] = [
-  'itemWidthMm',
-  'itemHeightMm',
-  'columns',
-  'horizontalGapMm',
-  'verticalGapMm',
-];
-
-/**
- * Lỗi cấu hình media để hiển thị cho người dùng — thiếu field die-cut, hoặc
- * hàng vượt khổ giấy — hoặc `null` nếu hợp lệ. Là nguồn sự thật CHUNG với
- * `printMediaSchema` (schema thêm issue theo từng `path`; hàm này gộp thành 1
- * message để `saveDisabled` + cảnh báo inline dùng).
- */
-export const dieCutMediaError = (media: PaperOptions): string | null => {
-  if (media.type !== PaperType.DieCut) {
+/** Lỗi cấu hình giấy để hiện cho người dùng (thiếu kích thước tem hoặc hàng tràn khổ); `null` nếu hợp lệ. */
+export const dieCutMediaError = (paper: PaperDraft): string | null => {
+  if (paper.type !== PaperType.DieCut) {
     return null;
   }
 
-  const missingFields = DIE_CUT_REQUIRED_FIELDS.filter((field) => media[field] == null);
+  const missingFields = DIE_CUT_REQUIRED_FIELDS.filter((field) => paper[field] === undefined);
 
   if (missingFields.length > 0) {
     return `Giấy die-cut cần đủ: ${missingFields.join(', ')}`;
   }
 
-  return dieCutRowOverflow(media);
+  return dieCutRowOverflow(paper);
 };

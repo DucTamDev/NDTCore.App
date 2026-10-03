@@ -1,4 +1,4 @@
-import type { PaperOptions } from '../../models/paper/PaperOptions';
+import type { DieCutPaper, PaperOptions } from '../../models/paper/PaperOptions';
 import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
@@ -41,62 +41,37 @@ const encodeUtf8 = (text: string): number[] => {
 };
 
 /**
- * Chiều cao khổ giấy mặc định khai báo trong `SIZE`/`GAP` khi in Tem
- * (`PrintKind.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
- * (máy in đã lưu từ trước khi field này tồn tại). Với giấy tem rời có khe,
- * con số này phải khớp chiều dài tem VẬT LÝ để cảm biến dò khe hoạt động
- * đúng — không phải khớp nội dung cần in, và KHÔNG có nghĩa mọi máy đều dùng
- * tem 30mm (giấy vật lý mỗi nơi khác nhau) — xem `media.itemHeightMm`.
- * Nội dung cao hơn khổ giấy thật phải bị chặn ở tầng gọi (`TsplDriver`),
- * không thể "sửa" bằng cách nới `SIZE` lên tuỳ tiện.
+ * Chiều cao khai báo trong `SIZE` khi in tem trên giấy cuộn (không có kích thước tem). Nội dung cao hơn phải bị
+ * chặn ở nơi gọi; nới `SIZE` không làm máy in thêm giấy.
  */
 export const DEFAULT_LABEL_HEIGHT_MM = 30;
 
 export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
 
-/**
- * Chiều cao khai báo cho `SIZE`:
- * - die_cut → `itemHeightMm` (schema SP-A đảm bảo có).
- * - continuous Label → `itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM`.
- * - continuous Receipt (hoặc không truyền kind) → `CONTINUOUS_HEIGHT_MM`.
- *
- * Declared height for `SIZE`: die_cut → item height; continuous Label →
- * item height or the default; continuous Receipt → the wide safety ceiling.
- */
+/** Chiều cao khai báo cho `SIZE`: giấy tem theo con tem; tem trên giấy cuộn theo mặc định; hoá đơn theo trần an toàn. */
 export const resolveSizeHeightMm = (media: PaperOptions, kind: PrintKind): number => {
   if (media.type === PaperType.DieCut) {
-    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+    return media.itemHeightMm;
   }
 
   if (kind === PrintKind.Label) {
-    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
+    return DEFAULT_LABEL_HEIGHT_MM;
   }
 
   return CONTINUOUS_HEIGHT_MM;
 };
 
-/**
- * Khoảng cách tâm-đến-tâm giữa 2 cột die-cut, theo dot. Chỉ có nghĩa khi
- * `media.type === 'die_cut'`.
- *
- * Centre-to-centre pitch between two die-cut columns, in dots.
- */
-export const columnPitchDots = (media: PaperOptions): number =>
-  ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
+/** Khoảng cách tâm-đến-tâm giữa hai cột tem (dot). */
+export const columnPitchDots = (media: DieCutPaper): number => (media.itemWidthMm + media.horizontalGapMm) * DOTS_PER_MM;
 
-/**
- * x-offset (dot) cho từng cột: die_cut → `[0, pitch, ...]` (`columns` phần
- * tử); mọi trường hợp khác → `[0]`.
- *
- * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
- */
+/** Toạ độ x (dot) của từng cột: giấy tem một phần tử mỗi cột; giấy cuộn chỉ `[0]`. */
 export const columnOffsets = (media: PaperOptions): number[] => {
   if (media.type !== PaperType.DieCut) {
     return [0];
   }
 
   const pitch = columnPitchDots(media);
-  return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
+  return Array.from({ length: media.columns }, (_, i) => i * pitch);
 };
 
 /**
@@ -110,7 +85,7 @@ export const contentWidthChars = (media: PaperOptions): number => {
     return spec.charsPerLine;
   }
 
-  const dieCutWidthRatio = (media.itemWidthMm ?? 0) / spec.printableWidthMm;
+  const dieCutWidthRatio = media.itemWidthMm / spec.printableWidthMm;
   return Math.max(1, Math.floor(spec.charsPerLine * dieCutWidthRatio));
 };
 
@@ -145,10 +120,10 @@ export class TsplEncoder {
     const heightMm = resolveSizeHeightMm(media, kind);
 
     if (media.type === PaperType.DieCut) {
-      const columns = media.columns ?? 1;
-      const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
+      const { columns } = media;
+      const rowWidthMm = columns * media.itemWidthMm + (columns - 1) * media.horizontalGapMm;
       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
-      this.pushLine(`GAP ${media.verticalGapMm ?? 0} mm, 0 mm`);
+      this.pushLine(`GAP ${media.verticalGapMm} mm, 0 mm`);
     } else {
       this.pushLine(`SIZE ${PAPER_SIZE_SPECS[media.paperSize].printableWidthMm} mm, ${heightMm} mm`);
       this.pushLine('GAP 0 mm, 0 mm');

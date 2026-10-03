@@ -1,15 +1,15 @@
 import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import { PaperType } from '../../models/paper/PaperOptions';
-import type { PaperOptions } from '../../models/paper/PaperOptions';
+import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
 import { PrinterConfigService } from '../../management/PrinterConfigService';
 
 export interface UseDriverConfigInput {
   printerId: string;
   language?: PrinterLanguage;
   setLanguage: (language: PrinterLanguage) => void;
-  paper: PaperOptions;
-  setPaper: (paper: PaperOptions) => void;
+  paper: PaperDraft;
+  setPaper: (paper: PaperDraft) => void;
 }
 
 /**
@@ -35,15 +35,17 @@ export const useDriverConfig = ({ printerId, language, setLanguage, paper, setPa
     PrinterConfigService.setRasterSource(printerId, rasterSource);
   };
 
-  const onChangePaper = (patch: Partial<PaperOptions>): void => {
-    let next = { ...paper, ...patch } as PaperOptions;
-
-    if (next.type === PaperType.DieCut) {
-      next = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...next };
-    }
+  /** Giấy tem còn thiếu kích thước thì chỉ cập nhật form, chưa ghi vào máy in đã lưu. */
+  const onChangePaper = (patch: Partial<PaperDraft>): void => {
+    const merged: PaperDraft = { ...paper, ...patch };
+    const next = merged.type === PaperType.DieCut ? { ...DIE_CUT_DRAFT_DEFAULTS, ...merged } : merged;
+    const options = toPaperOptions(next);
 
     setPaper(next);
-    PrinterConfigService.setPaper(printerId, next);
+
+    if (options) {
+      PrinterConfigService.setPaper(printerId, options);
+    }
   };
 
   return { onSelectRenderMode, onSelectRasterSource, onChangePaper };

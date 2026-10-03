@@ -28,7 +28,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
     const heightMm = resolveSizeHeightMm(paper, kind);
     const paperSize = paper.paperSize;
     const targetWidthPx = paper.type === PaperType.DieCut
-      ? (paper.itemWidthMm ?? 0) * DOTS_PER_MM
+      ? paper.itemWidthMm * DOTS_PER_MM
       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
 
     let bitmap;

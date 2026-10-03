@@ -1,8 +1,8 @@
 import { dieCutRowOverflow, dieCutMediaError } from '../validation';
-import { PaperType } from '../../models/paper/PaperOptions';
-import type { PaperOptions } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
+import type { PaperDraft } from '../../forms/addPrinter/PaperDraft';
 
-const die = (o: Partial<PaperOptions>): PaperOptions => ({
+const die = (o: Partial<PaperDraft>): PaperDraft => ({
   type: PaperType.DieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, ...o,
 });
 
@@ -16,7 +16,7 @@ describe('dieCutRowOverflow', () => {
     expect(msg).toContain('96');
   });
   it('null cho media continuous', () => {
-    expect(dieCutRowOverflow({ type: PaperType.Continuous, paperSize: 80 })).toBeNull();
+    expect(dieCutRowOverflow({ type: PaperType.Continuous, paperSize: 80, cutterMode: CutterMode.PerJob })).toBeNull();
   });
   it('null khi die-cut thiếu field (chưa đủ để tính)', () => {
     expect(dieCutRowOverflow({ type: PaperType.DieCut, paperSize: 100 })).toBeNull();
@@ -37,6 +37,6 @@ describe('dieCutMediaError', () => {
     expect(dieCutMediaError(die({}))).toBeNull();
   });
   it('null cho media continuous', () => {
-    expect(dieCutMediaError({ type: PaperType.Continuous, paperSize: 80 })).toBeNull();
+    expect(dieCutMediaError({ type: PaperType.Continuous, paperSize: 80, cutterMode: CutterMode.PerJob })).toBeNull();
   });
 });

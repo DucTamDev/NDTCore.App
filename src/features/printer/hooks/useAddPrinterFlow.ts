@@ -16,7 +16,7 @@ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
 import { DEFAULT_PAPER } from '../drivers/driverConfig';
-import type { PaperOptions } from '../models/paper/PaperOptions';
+import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
 import type { Printer } from '../models/printer/Printer';
 import type { UsbRawDevice } from '../models/printer/PrinterDevice';
 import { dieCutMediaError } from '../paper/validation';
@@ -82,7 +82,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
-  const [paper, setPaper] = useState<PaperOptions>(initialValues?.paper ?? { ...DEFAULT_PAPER });
+  const [paper, setPaper] = useState<PaperDraft>(initialValues?.paper ?? { ...DEFAULT_PAPER });
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureBillImage } = useBillImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.Idle);
@@ -154,7 +154,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       deviceId: currentIdentityKey() ?? undefined,
       capabilities: initialValues?.capabilities ?? { cutter: false, cashDrawer: false, color: false, image: false },
       language: language ?? PLACEHOLDER_LANGUAGE,
-      paper,
+      // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
+      paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
       autoReconnect,
       enabled: initialValues?.enabled ?? true,
       createdAt: initialValues?.createdAt ?? new Date().toISOString(),
@@ -183,7 +184,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     );
   };
 
-  const testPrint = useTestPrint({ language, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
+  const paperError = dieCutMediaError(paper);
+  const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
   const driverConfig = useDriverConfig({ printerId, language, setLanguage, paper, setPaper });
 
   const protocolDiscovery = useProtocolDiscovery({
@@ -274,7 +276,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionState === 'connecting' ||
     (connectionType !== ConnectionType.Lan && !selectedDevice) ||
     Boolean(identityErrorMessage);
-  const hasDieCutMediaError = dieCutMediaError(paper) != null;
+  const hasDieCutMediaError = paperError != null;
 
   return {
     title: initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in',

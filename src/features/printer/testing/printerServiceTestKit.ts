@@ -2,7 +2,7 @@ import type { IPrinterDriver } from '../drivers/IPrinterDriver';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import { type Printer } from '../models/printer/Printer';
 import { PrintKind } from '../models/printer/PrintKind';
 
@@ -43,7 +43,7 @@ export const basePrinter: Printer = {
   name: 'Máy in hóa đơn quầy 1',
   language: escposLanguage,
   connection: { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 },
-  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
+  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
   autoReconnect: false,
   enabled: true,

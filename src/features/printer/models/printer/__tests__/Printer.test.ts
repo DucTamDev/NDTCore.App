@@ -2,7 +2,7 @@ import { ConnectionType } from '../ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../PrinterLanguage';
 import { type Printer } from '../Printer';
 import { PrintKind } from '../PrintKind';
-import { PaperSize, PaperType } from '../../paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../../paper/PaperOptions';
 
 describe('Printer domain type', () => {
   it('accepts a fully-formed Printer with a TSPL language for a LAN label printer', () => {
@@ -19,7 +19,7 @@ describe('Printer domain type', () => {
       name: 'Máy in tem quầy 1',
       language,
       connection: { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 },
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
       capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
       autoReconnect: true,
       enabled: true,
@@ -42,7 +42,7 @@ describe('Printer domain type', () => {
         rasterSource: RasterSource.Image,
       },
       connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
       capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
       autoReconnect: false,
       enabled: true,

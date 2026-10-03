@@ -34,14 +34,14 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
     );
   };
 
-  const setPaper = (printerId: string, patch: Partial<PaperOptions>): void => {
+  const setPaper = (printerId: string, paper: PaperOptions): void => {
     const printer = repository.getPrinters().find((p) => p.id === printerId);
 
     if (!printer) {
       return;
     }
 
-    repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper: { ...p.paper, ...patch } })));
+    repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper })));
   };
 
   return { setRenderMode, setRasterSource, setPaper };

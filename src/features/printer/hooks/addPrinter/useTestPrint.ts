@@ -18,6 +18,10 @@ import type { UseBillImageCapture } from '../useBillImageCapture';
  */
 export interface UseTestPrintInput {
   language?: PrinterLanguage;
+
+  /** Lỗi cấu hình giấy đang nhập; có lỗi thì không in thử. */
+  paperError: string | null;
+
   displayForm: UseFormReturn<PrinterDisplayValues>;
   buildDraftPrinter: () => Printer;
   captureBillImage: UseBillImageCapture['captureBillImage'];
@@ -28,7 +32,7 @@ export interface UseTestPrintInput {
  * cố định, ở chế độ Bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
  * `PrinterPrintService.testPrint`.
  */
-export const useTestPrint = ({ language, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
+export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
   const [testPrintPending, setTestPrintPending] = useState(false);
   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
@@ -49,6 +53,11 @@ export const useTestPrint = ({ language, displayForm, buildDraftPrinter, capture
 
   const onTestPrint = async (): Promise<void> => {
     if (!language) {
+      return;
+    }
+
+    if (paperError) {
+      setTestPrintErrorMessage(paperError);
       return;
     }
 

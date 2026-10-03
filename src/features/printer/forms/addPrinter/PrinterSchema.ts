@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
-import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { dieCutRowOverflow } from '../../paper/validation';
 import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
@@ -14,40 +13,29 @@ const paperSizeSchema = z.union([
   z.literal(PaperSize.Mm104),
 ]);
 
-const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
+const continuousPaperSchema = z.object({
+  type: z.literal(PaperType.Continuous),
+  paperSize: paperSizeSchema,
+  cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]),
+});
 
-const printPaperConfigSchema = z
-  .object({
-    type: z.enum([PaperType.Continuous, PaperType.DieCut]),
-    paperSize: paperSizeSchema,
-    itemWidthMm: z.number().positive().optional(),
-    itemHeightMm: z.number().positive().optional(),
-    columns: z.number().int().min(1).optional(),
-    horizontalGapMm: z.number().min(0).optional(),
-    verticalGapMm: z.number().min(0).optional(),
-    cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]).optional(),
-  })
-  .superRefine((paper, ctx) => {
-    if (paper.type !== PaperType.DieCut) {
-      return;
-    }
+const dieCutPaperSchema = z.object({
+  type: z.literal(PaperType.DieCut),
+  paperSize: paperSizeSchema,
+  itemWidthMm: z.number().positive(),
+  itemHeightMm: z.number().positive(),
+  columns: z.number().int().min(1),
+  horizontalGapMm: z.number().min(0),
+  verticalGapMm: z.number().min(0),
+});
 
-    for (const f of DIE_CUT_REQUIRED) {
-      if (paper[f] === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `Giấy die-cut cần ${f}` });
-      }
-    }
+const paperOptionsSchema = z.discriminatedUnion('type', [continuousPaperSchema, dieCutPaperSchema]).superRefine((paper, ctx) => {
+  const overflow = dieCutRowOverflow(paper);
 
-    if (paper.cutterMode && paper.cutterMode !== CutterMode.None) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
-    }
-
-    const overflow = dieCutRowOverflow(paper as PaperOptions);
-
-    if (overflow) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
-    }
-  });
+  if (overflow) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
+  }
+});
 
 const printerCapabilitiesSchema = z.object({
   cutter: z.boolean(),
@@ -97,7 +85,7 @@ export const printerSchema = z
     kind: z.enum([PrintKind.Receipt, PrintKind.Label]),
     language: printerLanguageSchema,
     connection: printerConnectionSchema,
-    paper: printPaperConfigSchema,
+    paper: paperOptionsSchema,
     deviceId: z.string().min(1),
     capabilities: printerCapabilitiesSchema,
     autoReconnect: z.boolean(),

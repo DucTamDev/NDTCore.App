@@ -9,7 +9,7 @@ import type { PaperOptions } from '../../../../models/paper/PaperOptions';
 import type { PrintDocument } from '../../../../models/printing/PrintDocument';
 import { makePrinter, makeTsplLanguage } from '../../../../testing/printerFixtures';
 
-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
+const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
 
 const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
 

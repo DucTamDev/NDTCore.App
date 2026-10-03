@@ -9,7 +9,7 @@ import { DeviceScanService } from '../../discovery/DeviceScanService';
 import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
-import { PaperType, PaperSize } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
@@ -73,7 +73,7 @@ const savedTspl: Printer = {
     renderMode: RenderMode.Raster,
     rasterSource: RasterSource.Image,
   },
-  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
+  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
   connection: { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 },
   deviceId: 'lan:10.0.0.5:9100',
   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
@@ -334,6 +334,22 @@ describe('useAddPrinterFlow', () => {
       expect.objectContaining({ text: expect.anything() }),
       { rows: 3 },
     );
+  });
+
+  it('onTestPrint khi giấy tem thiếu kích thước → báo lỗi giấy, không gửi lệnh in', async () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
+    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
+    await act(async () => {
+      await get().infoCard.onTestPrint();
+    });
+    expect(PrinterPrintService.testPrint).not.toHaveBeenCalled();
+    expect(get().testPrintErrorMessage).toContain('itemWidthMm');
+  });
+
+  it('onChangePaper giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
+    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
+    expect(PrinterConfigService.setPaper).not.toHaveBeenCalled();
   });
 
   it('onTestPrint ở chế độ Bitmap gọi captureBillImage trước khi in; ở Encoder thì không', async () => {

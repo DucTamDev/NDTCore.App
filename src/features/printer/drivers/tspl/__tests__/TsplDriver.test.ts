@@ -6,7 +6,7 @@ import { ConnectionType } from '../../../models/printer/ConnectionType';
 import { PrintLanguage, RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../../../models/printer/PrinterStatus';
 import { PrintKind } from '../../../models/printer/PrintKind';
-import { PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
 import { type Printer } from '../../../models/printer/Printer';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
@@ -68,7 +68,7 @@ jest.mock('../../../logging/PrinterLogger', () => ({
   },
 }));
 
-const MEDIA_58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58 } as const;
+const MEDIA_58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob } as const;
 
 /** Máy in Tem (LAN) — dùng cho các test phụ thuộc `resolveSizeHeightMm`/DEFAULT_LABEL_HEIGHT_MM (rows/cutter/IMAGE_TOO_LARGE). */
 const lanLabelPrinter: Printer = makePrinter({

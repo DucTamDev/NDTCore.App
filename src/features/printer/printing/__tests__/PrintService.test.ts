@@ -1,6 +1,6 @@
 import { createPrintService, PrintService } from '../PrintService';
 import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
-import { PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrinterErrorCode } from '../../errors/PrinterError';
@@ -106,7 +106,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const p1 = makePrinter({
       id: 'p1',
       language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
     });
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
@@ -118,7 +118,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const p1 = makePrinter({
       id: 'p1',
       language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
+      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
     });
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
@@ -128,7 +128,7 @@ describe('PrintService.imageDocumentTarget', () => {
 
   it('returns the bitmap target when a mix of encoder and bitmap targets both resolve the same kind', () => {
     const p1 = makePrinter({ id: 'p1', language: makeEscPosLanguage() });
-    const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage(), paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 } });
+    const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage(), paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob } });
     const deps = makeDeps([p1, p2], () => {
       throw new Error('unused');
     });
