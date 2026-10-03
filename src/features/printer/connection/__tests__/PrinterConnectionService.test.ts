@@ -218,6 +218,30 @@ describe('PrinterConnectionService', () => {
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
   });
 
+  it('lệnh ngắt đang chờ khoá không xoá phiên của lần kết nối mới hơn', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const { service, lock } = setup([first, second]);
+    await service.connect(basePrinter);
+    let release: () => void = () => undefined;
+    const held = lock.runExclusive(
+      lockKeyOf(basePrinter),
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+
+    const disconnecting = service.disconnect(basePrinter.id);
+    await service.connect(basePrinter);
+    release();
+    await held;
+    await disconnecting;
+    await service.send(basePrinter.id, new Uint8Array([7]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.disconnect).not.toHaveBeenCalled();
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([7]));
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
+  });
+
   it('kết nối không bị khoá giữ chặn (print kết nối bên trong khoá)', async () => {
     const first = makeFakeAdapter().adapter;
     const second = makeFakeAdapter().adapter;

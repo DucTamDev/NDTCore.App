@@ -98,8 +98,8 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
       return;
     }
 
-    // Cùng khoá thì người gọi đã giữ khoá (in) hoặc không có lệnh in nào dùng adapter cũ; khoá không tái nhập nên
-    // chờ lại sẽ tự kẹt.
+    // Cùng khoá thì người gọi có thể đang giữ chính khoá này (in kết nối bên trong khoá); khoá không tái nhập nên
+    // chờ lại sẽ tự kẹt, đành đóng ngay.
     if (previous.lockKey === lockKey) {
       await closeQuietly(printerId, previous);
       return;
@@ -156,6 +156,11 @@ export const createPrinterConnectionService = (deps: PrinterConnectionServiceDep
     }
 
     await deps.lock.runExclusive(session.lockKey, async () => {
+      // Trong lúc chờ khoá, phiên có thể đã bị một lần kết nối mới thay (và đóng) hoặc đã bị ngắt.
+      if (sessions.get(printerId) !== session) {
+        return;
+      }
+
       setStatus(printerId, PrinterStatus.Disconnecting);
       sessions.delete(printerId);
       session.stopWatchingLost();
