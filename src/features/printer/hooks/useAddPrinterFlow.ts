@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterRepository } from '../storage/PrinterRepository';
+import { printerRepository } from '../storage/PrinterRepository';
 import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
-import { PrinterConnectionService } from '../connection/PrinterConnectionService';
+import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { useBillImageCapture } from './useBillImageCapture';
 import { generateId } from '../../../utils/id';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
@@ -210,8 +210,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       return undefined;
     }
 
-    setLiveStatus(PrinterConnectionService.getStatus(printerId));
-    return PrinterConnectionService.onStatusChange(printerId, setLiveStatus);
+    setLiveStatus(printerConnectionService.getStatus(printerId));
+    return printerConnectionService.onStatusChange(printerId, setLiveStatus);
   }, [language, printerId]);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       detectionUnsubscribeRef.current = null;
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        PrinterConnectionService.disconnect(printerId).catch(() => undefined);
+        printerConnectionService.disconnect(printerId).catch(() => undefined);
       }
     }
     return () => {
@@ -234,7 +234,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     () => () => {
       const current = connectionRef.current;
       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        PrinterConnectionService.disconnect(printerId).catch(() => undefined);
+        printerConnectionService.disconnect(printerId).catch(() => undefined);
       }
     },
     [printerId],
@@ -249,9 +249,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
     try {
       if (initialValues) {
-        PrinterRepository.updatePrinter(printer);
+        printerRepository.updatePrinter(printer);
       } else {
-        PrinterRepository.addPrinter(printer);
+        printerRepository.addPrinter(printer);
       }
     } catch (error) {
       setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
@@ -259,9 +259,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     }
     savedRef.current = true;
     if (liveStatus === PrinterStatus.Connected) {
-      PrinterConnectionService.reconnect(printer.id).catch(() => undefined);
+      printerConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
-      PrinterConnectionService.connect(PrinterRepository.findOrThrow(printer.id)).catch(() => undefined);
+      printerConnectionService.connect(printerRepository.findOrThrow(printer.id)).catch(() => undefined);
     }
     onSaved();
   });

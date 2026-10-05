@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterRepository } from '../../storage/PrinterRepository';
+import { printerRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../discovery/NetworkInfoService';
 import { deviceIdOf } from '../../models/printer/PrinterConnection';
 import { createPrinterAdapter } from '../../connection/PrinterAdapterFactory';
@@ -103,7 +103,7 @@ export const useConnectionSetup = ({
       return;
     }
 
-    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.deviceId === key && p.kind === kind);
+    const collision = printerRepository.getPrinters().find((p) => p.id !== printerId && p.deviceId === key && p.kind === kind);
     setIdentityErrorMessage(collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chạy lại khi connectionType/selectedDevice/lan form thay đổi, đọc qua currentIdentityKey() ở trên
   }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);

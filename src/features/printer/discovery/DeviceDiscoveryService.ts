@@ -3,7 +3,7 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
 import { PrinterErrorCode, PrinterErrorException } from '../errors/PrinterError';
-import { PrinterLogger } from '../logging/PrinterLogger';
+import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { createPrinterAdapter } from '../connection/PrinterAdapterFactory';
 import { LoggerService } from '../../../services/LoggerService';
@@ -35,21 +35,15 @@ const logEvent = (connectionType: ConnectionType, event: DeviceDiscoveryEvent): 
 };
 
 /** Tìm máy in để người dùng chọn khi thêm máy; LAN không quét được nên người dùng tự nhập địa chỉ. */
-export const createDeviceDiscoveryService = (
-  deps: DeviceDiscoveryServiceDeps = { createAdapter: createPrinterAdapter, ensureBluetoothPermission },
-) => {
-  const findDevices = async (connectionType: ConnectionType): Promise<DiscoveredDevice[]> => {
-    if (connectionType === ConnectionType.Bluetooth && !(await deps.ensureBluetoothPermission())) {
-      throw new PrinterErrorException({
-        code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
-        message: 'Chưa được cấp quyền Bluetooth',
-      });
-    }
+export class DeviceDiscoveryService {
+  constructor(
+    private readonly deps: DeviceDiscoveryServiceDeps = {
+      createAdapter: createPrinterAdapter,
+      ensureBluetoothPermission,
+    },
+  ) {}
 
-    return deps.createAdapter().listDevices(connectionType);
-  };
-
-  const discover = (connectionType: ConnectionType, onEvent: (event: DeviceDiscoveryEvent) => void): Unsubscribe => {
+  discover(connectionType: ConnectionType, onEvent: (event: DeviceDiscoveryEvent) => void): Unsubscribe {
     let cancelled = false;
     const startedAt = Date.now();
 
@@ -64,7 +58,7 @@ export const createDeviceDiscoveryService = (
       const deviceCount = devices.length;
       const found: DeviceDiscoveryEvent = { type: DeviceDiscoveryEventType.Found, devices };
       emit(deviceCount > 0 ? found : { type: DeviceDiscoveryEventType.Empty });
-      PrinterLogger.discoveryCompleted({ connectionType, deviceCount, durationMs: Date.now() - startedAt });
+      printerLogger.discoveryCompleted({ connectionType, deviceCount, durationMs: Date.now() - startedAt });
     };
 
     const fail = (error: unknown): void => {
@@ -77,7 +71,7 @@ export const createDeviceDiscoveryService = (
 
       const errorCode = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
       emit({ type: DeviceDiscoveryEventType.Error, error: { code: errorCode, message } });
-      PrinterLogger.discoveryFailed({ connectionType, errorCode, durationMs: Date.now() - startedAt });
+      printerLogger.discoveryFailed({ connectionType, errorCode, durationMs: Date.now() - startedAt });
     };
 
     if (connectionType === ConnectionType.Lan) {
@@ -85,16 +79,25 @@ export const createDeviceDiscoveryService = (
       return () => undefined;
     }
 
-    PrinterLogger.discoveryStarted({ connectionType });
+    printerLogger.discoveryStarted({ connectionType });
     emit({ type: DeviceDiscoveryEventType.Loading });
-    findDevices(connectionType).then(complete, fail);
+    this.findDevices(connectionType).then(complete, fail);
 
     return () => {
       cancelled = true;
     };
-  };
+  }
 
-  return { discover };
-};
+  private async findDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+    if (connectionType === ConnectionType.Bluetooth && !(await this.deps.ensureBluetoothPermission())) {
+      throw new PrinterErrorException({
+        code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+        message: 'Chưa được cấp quyền Bluetooth',
+      });
+    }
 
-export const DeviceDiscoveryService = createDeviceDiscoveryService();
+    return this.deps.createAdapter().listDevices(connectionType);
+  }
+}
+
+export const deviceDiscoveryService = new DeviceDiscoveryService();

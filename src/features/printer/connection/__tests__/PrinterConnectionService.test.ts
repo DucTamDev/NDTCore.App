@@ -1,8 +1,8 @@
-import { createPrinterConnectionService } from '../PrinterConnectionService';
-import { createResourceLock, lockKeyOf } from '../PrinterConnectionLock';
-import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { PrinterStorage } from '../../storage/PrinterStorage';
-import { PrinterLogger } from '../../logging/PrinterLogger';
+import { PrinterConnectionService } from '../PrinterConnectionService';
+import { ResourceLock, lockKeyOf } from '../PrinterConnectionLock';
+import { PrinterRepository } from '../../storage/PrinterRepository';
+import { printerStorage } from '../../storage/PrinterStorage';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
@@ -15,7 +15,7 @@ jest.mock('../../../../services/LoggerService', () => ({
 }));
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  PrinterLogger: {
+  printerLogger: {
     connectSucceeded: jest.fn(),
     connectFailed: jest.fn(),
     disconnectSucceeded: jest.fn(),
@@ -39,7 +39,7 @@ const secondLanPrinter: Printer = {
 
 /** Service với các adapter giả lần lượt trả về cho mỗi lần kết nối. */
 const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
-  const repository = createPrinterRepository();
+  const repository = new PrinterRepository();
   const queue = [...adapters];
   const createAdapter = jest.fn(() => {
     const next = queue.shift();
@@ -51,8 +51,8 @@ const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
     return next;
   });
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
-  const lock = createResourceLock();
-  const service = createPrinterConnectionService({ createAdapter, ensureBluetoothPermission, repository, lock });
+  const lock = new ResourceLock();
+  const service = new PrinterConnectionService({ createAdapter, ensureBluetoothPermission, repository, lock });
 
   return { service, repository, lock, createAdapter, ensureBluetoothPermission };
 };
@@ -66,7 +66,7 @@ const recordStatuses = (service: ReturnType<typeof setup>['service'], printerId:
 
 describe('PrinterConnectionService', () => {
   beforeEach(() => {
-    PrinterStorage.savePrinters([]);
+    printerStorage.savePrinters([]);
     jest.clearAllMocks();
   });
 
@@ -85,7 +85,7 @@ describe('PrinterConnectionService', () => {
 
     expect(adapter.connect).toHaveBeenCalledWith(basePrinter.connection);
     expect(statuses).toEqual([PrinterStatus.Connecting, PrinterStatus.Connected]);
-    expect(PrinterLogger.connectSucceeded).toHaveBeenCalledWith(
+    expect(printerLogger.connectSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, connectionType: ConnectionType.Lan }),
     );
   });
@@ -120,7 +120,7 @@ describe('PrinterConnectionService', () => {
     await expect(service.connect(basePrinter)).rejects.toBe(failure);
 
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Error);
-    expect(PrinterLogger.connectFailed).toHaveBeenCalledWith(
+    expect(printerLogger.connectFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED }),
     );
   });
@@ -164,7 +164,7 @@ describe('PrinterConnectionService', () => {
     await service.connect(basePrinter);
 
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
-    expect(PrinterLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: basePrinter.id }));
+    expect(printerLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: basePrinter.id }));
   });
 
   it('hai máy cùng loại kết nối giữ kết nối song song', async () => {

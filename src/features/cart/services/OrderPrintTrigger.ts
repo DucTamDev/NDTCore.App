@@ -1,4 +1,4 @@
-import { PrintService, type PrintDocuments } from '../../printer/printing/PrintService';
+import { printService, type PrintDocuments } from '../../printer/printing/PrintService';
 import { PrintResultStatus } from '../../printer/models/printing/PrintJob';
 import { LoggerService } from '../../../services/LoggerService';
 import { formatCurrency } from '../../../utils/formatCurrency';
@@ -183,7 +183,7 @@ const buildPrintDocumentVariants = async (
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
 ): Promise<PrintDocuments> => {
-  const target = PrintService.imageDocumentTarget(kind);
+  const target = printService.imageDocumentTarget(kind);
   if (!target) return { text: textDocument };
   const base64 =
     target.rasterSource === RasterSource.Ast
@@ -208,7 +208,7 @@ export const printReceipt = async (
 ): Promise<PrintReceiptOutcome> => {
   try {
     const documents = await buildPrintDocumentVariants(PrintKind.Receipt, textDocument, captureBillImage);
-    const result = await PrintService.print(PrintKind.Receipt, documents);
+    const result = await printService.print(PrintKind.Receipt, documents);
     if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
     if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);

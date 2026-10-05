@@ -1,7 +1,7 @@
-import { createPrintScheduler } from '../PrintScheduler';
-import { createPrinterPrintService } from '../PrinterPrintService';
-import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { createResourceLock } from '../../connection/PrinterConnectionLock';
+import { PrintScheduler } from '../PrintScheduler';
+import { PrinterPrintService } from '../PrinterPrintService';
+import { PrinterRepository } from '../../storage/PrinterRepository';
+import { ResourceLock } from '../../connection/PrinterConnectionLock';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { type Printer } from '../../models/printer/Printer';
@@ -24,21 +24,27 @@ const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
     ...overrides,
   });
 
+/** Printer service giả vừa in vừa trả danh sách máy in. */
+type FakePrinterService = { print: jest.Mock; getPrinters: jest.Mock };
+
+const makeScheduler = (printerService: FakePrinterService): PrintScheduler =>
+  new PrintScheduler({ printing: printerService, repository: printerService, lock: new ResourceLock() });
+
 describe('PrintScheduler', () => {
-  it('enqueue() resolves with status success when PrinterPrintService.print resolves', async () => {
+  it('enqueue() resolves with status success when printerPrintService.print resolves', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.Success);
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and an PrinterError when PrinterPrintService.print rejects', async () => {
+  it('enqueue() resolves with status failed and an PrinterError when printerPrintService.print rejects', async () => {
     const printerService = {
       print: jest.fn().mockRejectedValue(new PrinterErrorException({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.Failed);
     expect(result.error).toEqual({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
@@ -46,7 +52,7 @@ describe('PrintScheduler', () => {
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined), getPrinters: jest.fn().mockReturnValue([]) };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     const result = await scheduler.retry(makeJob({ status: PrintJobStatus.Failed, retryCount: 0 }));
     expect(result.retryCount).toBe(1);
     expect(result.status).toBe(PrintJobStatus.Success);
@@ -64,7 +70,7 @@ describe('PrintScheduler', () => {
       }),
       getPrinters: jest.fn().mockReturnValue([]),
     };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'a' })),
       scheduler.enqueue(makeJob({ id: 'b' })),
@@ -89,7 +95,7 @@ describe('PrintScheduler', () => {
       }),
       getPrinters: jest.fn().mockReturnValue(printers),
     };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-1' })),
       scheduler.enqueue(makeJob({ id: 'b', printerId: 'label-1', kind: PrintKind.Label })),
@@ -113,7 +119,7 @@ describe('PrintScheduler', () => {
       }),
       getPrinters: jest.fn().mockReturnValue(printers),
     };
-    const scheduler = createPrintScheduler(printerService, createResourceLock());
+    const scheduler = makeScheduler(printerService);
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'a', printerId: 'receipt-1' })),
       scheduler.enqueue(makeJob({ id: 'b', printerId: 'receipt-2' })),
@@ -133,12 +139,12 @@ describe('PrintScheduler', () => {
         order.push(`send-${call}-end`);
       }),
     });
-    const lock = createResourceLock();
-    const repository = createPrinterRepository();
-    const printerService = createPrinterPrintService(connectionService, repository, lock);
+    const lock = new ResourceLock();
+    const repository = new PrinterRepository();
+    const printerService = new PrinterPrintService(connectionService, repository, lock);
     const printer: Printer = makePrinter({ id: 'receipt-1' });
     repository.addPrinter(printer);
-    const scheduler = createPrintScheduler({ print: printerService.print, getPrinters: repository.getPrinters }, lock);
+    const scheduler = new PrintScheduler({ printing: printerService, repository, lock });
 
     await Promise.all([
       scheduler.enqueue(makeJob({ id: 'order-job', printerId: printer.id })),

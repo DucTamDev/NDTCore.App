@@ -25,14 +25,16 @@ const resetIfOutdated = (): void => {
 };
 
 /** Đọc/ghi danh sách máy in đã lưu. */
-export const PrinterStorage = {
+export class PrinterStorage {
   getPrinters(): Printer[] {
     resetIfOutdated();
     return StorageService.getItem<Printer[]>(PRINTER_LIST_KEY) ?? [];
-  },
+  }
 
   savePrinters(printers: Printer[]): void {
     resetIfOutdated();
     StorageService.setItem(PRINTER_LIST_KEY, printers);
-  },
-};
+  }
+}
+
+export const printerStorage = new PrinterStorage();

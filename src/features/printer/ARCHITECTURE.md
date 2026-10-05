@@ -528,8 +528,8 @@ Không chịu trách nhiệm `print`, `route`, `schedule`, `render`, `encode`, `
 
 ```ts
 lockKeyOf(printer)       = deviceIdOf(printer.connection)
-createResourceLock()     → { runExclusive(key, task) }
-PrinterConnectionLock    singleton dùng chung
+class ResourceLock       → runExclusive(key, task)
+printerConnectionLock    instance dùng chung
 ```
 
 Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn cả lệnh in, nên hai lệnh

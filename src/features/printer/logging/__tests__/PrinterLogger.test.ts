@@ -1,5 +1,5 @@
 import { LoggerService } from '../../../../services/LoggerService';
-import { PrinterLogger } from '../PrinterLogger';
+import { printerLogger } from '../PrinterLogger';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
@@ -12,7 +12,7 @@ type Level = 'debug' | 'info' | 'warning' | 'error';
 
 /** Một dòng: hàm log, tham số, mức log, tên sự kiện, operation và result mong đợi. */
 interface LogCase {
-  log: (logger: typeof PrinterLogger) => void;
+  log: (logger: typeof printerLogger) => void;
   params: Record<string, unknown>;
   level: Level;
   event: string;
@@ -28,7 +28,7 @@ const failed = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
 
 /** Dựng một dòng bảng từ hàm log và tham số của nó, để tham số chỉ viết một lần. */
 const logCase = <T extends Record<string, unknown>>(
-  call: (logger: typeof PrinterLogger, params: T) => void,
+  call: (logger: typeof printerLogger, params: T) => void,
   params: T,
   expected: Omit<LogCase, 'log' | 'params'>,
 ): [string, LogCase] => [expected.event, { log: (logger) => call(logger, params), params, ...expected }];
@@ -136,7 +136,7 @@ describe('PrinterLogger', () => {
   afterEach(() => jest.clearAllMocks());
 
   it.each(CASES)('%s ghi đúng mức log, tham số và field chuẩn', (_event, testCase) => {
-    testCase.log(PrinterLogger);
+    testCase.log(printerLogger);
 
     const result = testCase.result ? { result: testCase.result } : {};
     const expected = { ...testCase.params, operation: testCase.operation, ...result };
@@ -144,7 +144,7 @@ describe('PrinterLogger', () => {
   });
 
   it('log kết nối không mang khoá in, IP hay MAC', () => {
-    PrinterLogger.connectSucceeded({ printerId: 'p1', connectionType: lan, durationMs: 200 });
+    printerLogger.connectSucceeded({ printerId: 'p1', connectionType: lan, durationMs: 200 });
 
     const payload = (LoggerService.info as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('lockKey');

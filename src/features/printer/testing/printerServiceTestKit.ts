@@ -36,7 +36,8 @@ export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose
   return { adapter, lose: () => lostCallbacks.forEach((callback) => callback()) };
 };
 
-type ConnectionServiceApi = typeof PrinterConnectionService;
+/** Chỉ phần công khai: object giả không thể có field private của class. */
+type ConnectionServiceApi = Pick<PrinterConnectionService, keyof PrinterConnectionService>;
 
 /** Connection service giả: mặc định máy đã kết nối, gửi và ngắt đều thành công. */
 export const makeMockConnectionService = (

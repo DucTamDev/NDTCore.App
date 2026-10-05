@@ -2,8 +2,8 @@ import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { LoggerService } from '../../../services/LoggerService';
-import { PrinterRepository } from '../storage/PrinterRepository';
-import { PrinterConnectionService } from '../connection/PrinterConnectionService';
+import { printerRepository } from '../storage/PrinterRepository';
+import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
 import type { Printer } from '../models/printer/Printer';
 
@@ -34,7 +34,7 @@ export const usePrinterList = (): UsePrinterList => {
   const printers = useSelector((state: RootState) => selectPrinters(state));
 
   const reload = useCallback(() => {
-    const list = PrinterRepository.getPrinters();
+    const list = printerRepository.getPrinters();
     LoggerService.debug('usePrinterList.reload', {
       count: list.length,
       printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connection.type, language: p.language.type, enabled: p.enabled ?? true })),
@@ -48,7 +48,7 @@ export const usePrinterList = (): UsePrinterList => {
 
   const setEnabled = useCallback(
     (printerId: string, enabled: boolean) => {
-      PrinterRepository.setEnabled(printerId, enabled);
+      printerRepository.setEnabled(printerId, enabled);
       dispatch(printerEnabledChanged({ printerId, enabled }));
     },
     [dispatch],
@@ -56,7 +56,7 @@ export const usePrinterList = (): UsePrinterList => {
 
   const remove = useCallback(
     (printerId: string) => {
-      PrinterRepository.removePrinter(printerId);
+      printerRepository.removePrinter(printerId);
       dispatch(printerRemoved(printerId));
     },
     [dispatch],
@@ -67,17 +67,17 @@ export const usePrinterList = (): UsePrinterList => {
       const printer = printers.find((candidate) => candidate.id === printerId);
 
       if (printer) {
-        PrinterConnectionService.connect(printer).catch(() => undefined);
+        printerConnectionService.connect(printer).catch(() => undefined);
       }
     },
     [printers],
   );
 
   // `disconnect` trả Promise để card "Xoá khi đang kết nối" chờ ngắt xong mới xoá.
-  const disconnect = useCallback((printerId: string) => PrinterConnectionService.disconnect(printerId).catch(() => undefined), []);
+  const disconnect = useCallback((printerId: string) => printerConnectionService.disconnect(printerId).catch(() => undefined), []);
 
   const reconnect = useCallback((printerId: string) => {
-    PrinterConnectionService.reconnect(printerId).catch(() => undefined);
+    printerConnectionService.reconnect(printerId).catch(() => undefined);
   }, []);
 
   return { printers, reload, setEnabled, remove, connect, disconnect, reconnect };

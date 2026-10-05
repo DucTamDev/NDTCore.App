@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { PrinterPrintService } from '../../printing/PrinterPrintService';
+import { printerPrintService } from '../../printing/PrinterPrintService';
 import { buildSampleReceiptDocument, buildSampleLabelDocument } from '../../utils/sampleDocuments';
 import { PrinterErrorException } from '../../errors/PrinterError';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
@@ -73,7 +73,7 @@ export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrin
       const sampleDocument = printer.kind === PrintKind.Label ? buildSampleLabelDocument() : buildSampleReceiptDocument();
       const documents = await resolveTestPrintDocuments(printer, sampleDocument);
       const options = printer.kind === PrintKind.Label ? { rows: Number(testPrintRowsText) } : undefined;
-      await PrinterPrintService.testPrint(printer, documents, options);
+      await printerPrintService.testPrint(printer, documents, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
     } finally {

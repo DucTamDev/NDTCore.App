@@ -1,5 +1,5 @@
-import { PrintRoutingService } from './PrintRoutingService';
-import { PrintScheduler } from './PrintScheduler';
+import { printRoutingService, type PrintRoutingService } from './PrintRoutingService';
+import { printScheduler, type PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrinterErrorCode } from '../errors/PrinterError';
@@ -11,9 +11,11 @@ import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } fr
 
 export type { PrintDocuments };
 
-interface PrintServiceDeps {
-  routing: Pick<typeof PrintRoutingService, 'resolveTargets'>;
-  scheduler: Pick<typeof PrintScheduler, 'enqueue'>;
+/** Phụ thuộc của service, tách ra để test thay được. */
+export interface PrintServiceDeps {
+  routing: Pick<PrintRoutingService, 'resolveTargets'>;
+
+  scheduler: Pick<PrintScheduler, 'enqueue'>;
 }
 
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
@@ -29,7 +31,10 @@ const resolveResultStatus = (successCount: number, total: number): PrintResultSt
   return PrintResultStatus.PartialFailure;
 };
 
-export const createPrintService = (deps: PrintServiceDeps) => {
+/** Điểm vào công khai: in một loại nội dung ra mọi máy in đang nhận loại đó. */
+export class PrintService {
+  constructor(private readonly deps: PrintServiceDeps) {}
+
   /**
    * Target (paper + rasterSource) cần để render ảnh cho `kind` này, hoặc
    * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
@@ -37,15 +42,15 @@ export const createPrintService = (deps: PrintServiceDeps) => {
    * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
    * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
    */
-  const imageDocumentTarget = (kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null => {
-    const target = deps.routing
+  imageDocumentTarget(kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null {
+    const target = this.deps.routing
       .resolveTargets(kind)
       .find((printer) => printer.language.renderMode === RenderMode.Raster);
     return target ? { paper: target.paper, rasterSource: target.language.rasterSource } : null;
-  };
+  }
 
-  const print = async (kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> => {
-    const targets = deps.routing.resolveTargets(kind);
+  async print(kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> {
+    const targets = this.deps.routing.resolveTargets(kind);
 
     if (targets.length === 0) {
       return {
@@ -58,7 +63,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
     const requestId = generateId();
     const jobs: PrintJob[] = await Promise.all(
       targets.map((printer) =>
-        deps.scheduler.enqueue({
+        this.deps.scheduler.enqueue({
           id: generateId(),
           requestId,
           printerId: printer.id,
@@ -73,9 +78,7 @@ export const createPrintService = (deps: PrintServiceDeps) => {
     const successCount = jobs.filter((job) => job.status === PrintJobStatus.Success).length;
     const status = resolveResultStatus(successCount, jobs.length);
     return { status, jobs };
-  };
+  }
+}
 
-  return { print, imageDocumentTarget };
-};
-
-export const PrintService = createPrintService({ routing: PrintRoutingService, scheduler: PrintScheduler });
+export const printService = new PrintService({ routing: printRoutingService, scheduler: printScheduler });

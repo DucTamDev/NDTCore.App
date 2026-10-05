@@ -130,28 +130,29 @@ Redux (vd config object truyền 1 lần cho constructor, DTO chỉ đọc).
 
 ---
 
-## 7. Constructor / Factory Function
+## 7. Service là class, kèm một instance dùng chung
 
-Codebase dùng **factory-function + closure** cho service (không dùng
-class), đã hỗ trợ dependency injection đầy đủ qua default parameter:
+Service viết bằng **class** (không dùng factory function + closure). Phụ
+thuộc truyền qua constructor, có giá trị mặc định là instance dùng chung để
+test thay được. Class đặt PascalCase, instance dùng chung đặt camelCase:
 
 ```ts
-export const createPrinterConfigService = (
-  repository: PrinterRepositoryLike = PrinterRepository,
-) => {
-  // ...
-  return { setRenderMode, setPaper };
-};
+export class PrinterConfigService {
+  constructor(
+    private readonly repository: Pick<PrinterRepository, 'getPrinters' | 'savePrinters'> = printerRepository,
+  ) {}
 
-export const PrinterConfigService = createPrinterConfigService(PrinterRepository);
+  setPaper(printerId: string, paper: PaperOptions): void { /* ... */ }
+}
+
+export const printerConfigService = new PrinterConfigService();
 ```
 
-**Không đổi sang class-based OOP** (`new PrinterConfigService(repository)`)
-— pattern hiện tại đạt cùng lợi ích DI mà không cần class, đổi chỉ là style
-rewrite không có lợi ích chức năng, chi phí rất cao (mọi service).
-
-Factory function không nên chứa workflow phức tạp trong closure setup —
-chỉ khởi tạo state/helper nội bộ, method thật nằm trong object trả về.
+Kiểu phụ thuộc dùng `Pick<Class, ...>` (chỉ phần công khai cần dùng), không
+dùng `ReturnType<typeof ...>`. Truyền **instance** làm phụ thuộc, không truyền
+method rời (`{ getPrinters: printerRepository.getPrinters }`) — method rời
+mất `this`. Hàm thuần không có state (`createPrinterDraft`,
+`createPrinterAdapter`) vẫn là function.
 
 ---
 

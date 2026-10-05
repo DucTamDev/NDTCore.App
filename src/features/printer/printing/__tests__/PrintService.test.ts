@@ -1,4 +1,4 @@
-import { createPrintService, PrintService } from '../PrintService';
+import { PrintService, printService } from '../PrintService';
 import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { type Printer } from '../../models/printer/Printer';
@@ -20,7 +20,7 @@ describe('PrintService.print', () => {
     const deps = makeDeps([], () => {
       throw new Error('should not be called');
     });
-    const service = createPrintService(deps);
+    const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, { text: textDocument });
     expect(result.status).toBe(PrintResultStatus.NoAvailablePrinter);
     expect(result.error?.code).toBe(PrinterErrorCode.NO_AVAILABLE_PRINTER);
@@ -39,7 +39,7 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = createPrintService(deps);
+    const service = new PrintService(deps);
     const documents = { text: textDocument, image: imageBase64 };
     await service.print(PrintKind.Receipt, documents);
     expect(deps.scheduler.enqueue).toHaveBeenCalledWith(expect.objectContaining({ printerId: 'p1', documents }));
@@ -56,7 +56,7 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = createPrintService(deps);
+    const service = new PrintService(deps);
     expect((await service.print(PrintKind.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.Success);
   });
 
@@ -71,7 +71,7 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = createPrintService(deps);
+    const service = new PrintService(deps);
     expect((await service.print(PrintKind.Receipt, { text: textDocument })).status).toBe(PrintResultStatus.PartialFailure);
   });
 
@@ -87,7 +87,7 @@ describe('PrintService.print', () => {
       createdAt: 'now',
       error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' },
     }));
-    const service = createPrintService(deps);
+    const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, { text: textDocument });
     expect(result.status).toBe(PrintResultStatus.Failed);
     expect(result.error).toBeUndefined();
@@ -99,7 +99,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([makePrinter({ id: 'p1' })], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toBeNull();
+    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toBeNull();
   });
 
   it('returns the paper + Image rasterSource default when the target has no rasterSource set', () => {
@@ -111,7 +111,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Image });
+    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Image });
   });
 
   it('returns the target language rasterSource when explicitly set to Ast', () => {
@@ -123,7 +123,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Ast });
+    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Ast });
   });
 
   it('returns the bitmap target when a mix of encoder and bitmap targets both resolve the same kind', () => {
@@ -132,10 +132,10 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([p1, p2], () => {
       throw new Error('unused');
     });
-    expect(createPrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p2.paper, rasterSource: RasterSource.Image });
+    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p2.paper, rasterSource: RasterSource.Image });
   });
 
-  it('the real exported PrintService singleton has no configured printers by default, so it returns null', () => {
-    expect(PrintService.imageDocumentTarget(PrintKind.Receipt)).toBeNull();
+  it('the real exported printService singleton has no configured printers by default, so it returns null', () => {
+    expect(printService.imageDocumentTarget(PrintKind.Receipt)).toBeNull();
   });
 });

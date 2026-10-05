@@ -1,6 +1,6 @@
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
-import { PrinterStorage } from './PrinterStorage';
+import { printerStorage, type PrinterStorage } from './PrinterStorage';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
 import type { PrinterWriteInput } from './PrinterWriteInput';
@@ -9,23 +9,63 @@ import type { PrinterWriteInput } from './PrinterWriteInput';
  * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
  * (`deviceId` tính lại + chống trùng). Không phụ thuộc kết nối hay khoá in.
  */
-export const createPrinterRepository = () => {
-  const getPrinters = (): Printer[] => PrinterStorage.getPrinters();
-  const savePrinters = (printers: Printer[]): void => PrinterStorage.savePrinters(printers);
+export class PrinterRepository {
+  constructor(private readonly storage: Pick<PrinterStorage, 'getPrinters' | 'savePrinters'> = printerStorage) {}
 
-  const findOrThrow = (printerId: string): Printer => {
-    const found = getPrinters().find((p) => p.id === printerId);
+  getPrinters(): Printer[] {
+    return this.storage.getPrinters();
+  }
+
+  savePrinters(printers: Printer[]): void {
+    this.storage.savePrinters(printers);
+  }
+
+  findOrThrow(printerId: string): Printer {
+    const found = this.getPrinters().find((printer) => printer.id === printerId);
 
     if (!found) {
-      throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: `Không tìm thấy máy in với id ${printerId}` });
+      throw new PrinterErrorException({
+        code: PrinterErrorCode.PRINTER_NOT_FOUND,
+        message: `Không tìm thấy máy in với id ${printerId}`,
+      });
     }
 
     return found;
-  };
+  }
 
-  const assertNoDuplicateIdentity = (printer: Printer): void => {
-    const collision = getPrinters().find(
-      (p) => p.id !== printer.id && p.deviceId === printer.deviceId && p.kind === printer.kind,
+  addPrinter(printer: PrinterWriteInput): void {
+    const withIdentity = this.validated(printer);
+    this.savePrinters([...this.getPrinters(), withIdentity]);
+  }
+
+  updatePrinter(printer: PrinterWriteInput): void {
+    const withIdentity = this.validated(printer);
+    this.savePrinters(this.getPrinters().map((saved) => (saved.id === withIdentity.id ? withIdentity : saved)));
+  }
+
+  removePrinter(printerId: string): void {
+    this.savePrinters(this.getPrinters().filter((printer) => printer.id !== printerId));
+  }
+
+  setEnabled(printerId: string, enabled: boolean): void {
+    const printers = this.getPrinters();
+    this.savePrinters(printers.map((printer) => (printer.id === printerId ? { ...printer, enabled } : printer)));
+  }
+
+  /**
+   * Tính lại `deviceId` từ chính `printer.connection` (không tin giá trị nơi gọi truyền vào), kiểm tra schema rồi
+   * chống trùng (`deviceId`, `kind`) — lưới an toàn ở tầng lưu, UI đã tự kiểm trước.
+   */
+  private validated(printer: PrinterWriteInput): Printer {
+    const withIdentity: Printer = { ...printer, deviceId: deviceIdOf(printer.connection) };
+    printerSchema.parse(withIdentity);
+    this.assertNoDuplicateIdentity(withIdentity);
+    return withIdentity;
+  }
+
+  private assertNoDuplicateIdentity(printer: Printer): void {
+    const collision = this.getPrinters().find(
+      (saved) => saved.id !== printer.id && saved.deviceId === printer.deviceId && saved.kind === printer.kind,
     );
 
     if (collision) {
@@ -34,42 +74,7 @@ export const createPrinterRepository = () => {
         message: `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".`,
       });
     }
-  };
+  }
+}
 
-  /**
-   * Tính lại `deviceId` từ chính `printer.connection` — KHÔNG tin thẳng
-   * giá trị caller truyền vào (defense-in-depth, cùng triết lý với
-   * `printerSchema.parse()` bên dưới: UI đã tự tính đúng, đây là lưới an toàn
-   * ở service layer, không phải nguồn sự thật duy nhất).
-   */
-  const withRecomputedIdentity = (printer: PrinterWriteInput): Printer => ({
-    ...printer,
-    deviceId: deviceIdOf(printer.connection),
-  });
-
-  const addPrinter = (printer: PrinterWriteInput): void => {
-    const withIdentity = withRecomputedIdentity(printer);
-    printerSchema.parse(withIdentity);
-    assertNoDuplicateIdentity(withIdentity);
-    savePrinters([...getPrinters(), withIdentity]);
-  };
-
-  const updatePrinter = (printer: PrinterWriteInput): void => {
-    const withIdentity = withRecomputedIdentity(printer);
-    printerSchema.parse(withIdentity);
-    assertNoDuplicateIdentity(withIdentity);
-    savePrinters(getPrinters().map((p) => (p.id === withIdentity.id ? withIdentity : p)));
-  };
-
-  const removePrinter = (printerId: string): void => {
-    savePrinters(getPrinters().filter((p) => p.id !== printerId));
-  };
-
-  const setEnabled = (printerId: string, enabled: boolean): void => {
-    savePrinters(getPrinters().map((p) => (p.id === printerId ? { ...p, enabled } : p)));
-  };
-
-  return { getPrinters, savePrinters, findOrThrow, addPrinter, updatePrinter, removePrinter, setEnabled };
-};
-
-export const PrinterRepository = createPrinterRepository();
+export const printerRepository = new PrinterRepository();

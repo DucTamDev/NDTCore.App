@@ -1,5 +1,5 @@
 import {
-  createLanguageDetectionService,
+  LanguageDetectionService,
   LanguageDetectionStage,
   type LanguageDetectionEvent,
 } from '../LanguageDetectionService';
@@ -8,12 +8,12 @@ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../.
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { Printer } from '../../models/printer/Printer';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { PrinterLogger } from '../../logging/PrinterLogger';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { makePrinter } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  PrinterLogger: {
+  printerLogger: {
     detectionStarted: jest.fn(),
     detectionCandidateRejected: jest.fn(),
     detectionFailed: jest.fn(),
@@ -40,7 +40,7 @@ const detectUntilDone = (
 ): Promise<LanguageDetectionEvent[]> =>
   new Promise((resolve) => {
     const events: LanguageDetectionEvent[] = [];
-    createLanguageDetectionService(connectionService).detect({ draftPrinter }, (event) => {
+    new LanguageDetectionService(connectionService).detect({ draftPrinter }, (event) => {
       events.push(event);
 
       if (isFinal(event)) {
@@ -78,7 +78,7 @@ describe('LanguageDetectionService', () => {
     expect(connectionService.connect).toHaveBeenCalledWith(lanDraft);
     expect(connectionService.send).toHaveBeenCalledWith(lanDraft.id, new Uint8Array([0x7e, 0x21, 0x54, 0x0d, 0x0a]));
     expect(connectionService.disconnect).not.toHaveBeenCalled();
-    expect(PrinterLogger.languageDetected).toHaveBeenCalledWith(
+    expect(printerLogger.languageDetected).toHaveBeenCalledWith(
       expect.objectContaining({ language: PrintLanguage.Tspl, candidatesTried: [PrintLanguage.Tspl] }),
     );
   });
@@ -92,7 +92,7 @@ describe('LanguageDetectionService', () => {
       { stage: LanguageDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
     );
     expect(connectionService.connect).toHaveBeenCalledTimes(1);
-    expect(PrinterLogger.detectionCandidateRejected).toHaveBeenCalledWith(
+    expect(printerLogger.detectionCandidateRejected).toHaveBeenCalledWith(
       expect.objectContaining({ language: PrintLanguage.Tspl, connectionType: ConnectionType.Lan }),
     );
   });
@@ -104,7 +104,7 @@ describe('LanguageDetectionService', () => {
 
     expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
     expect(connectionService.disconnect).toHaveBeenCalledWith(usbDraft.id);
-    expect(PrinterLogger.languageUnknown).toHaveBeenCalledWith(
+    expect(printerLogger.languageUnknown).toHaveBeenCalledWith(
       expect.objectContaining({ candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos] }),
     );
   });
@@ -118,7 +118,7 @@ describe('LanguageDetectionService', () => {
       { stage: LanguageDetectionStage.Identifying, language: PrintLanguage.Tspl },
     ]);
     expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
-    expect(PrinterLogger.detectionStarted).toHaveBeenCalledWith(
+    expect(printerLogger.detectionStarted).toHaveBeenCalledWith(
       expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
     );
   });
@@ -143,7 +143,7 @@ describe('LanguageDetectionService', () => {
       stage: LanguageDetectionStage.Error,
       error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
     });
-    expect(PrinterLogger.detectionFailed).toHaveBeenCalledWith(
+    expect(printerLogger.detectionFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: lanDraft.id, connectionType: ConnectionType.Lan }),
     );
   });
@@ -155,7 +155,7 @@ describe('LanguageDetectionService', () => {
     });
     const events: LanguageDetectionEvent[] = [];
 
-    const unsubscribe = createLanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new LanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
       events.push(event),
     );
     unsubscribe();
@@ -174,7 +174,7 @@ describe('LanguageDetectionService', () => {
     });
     const events: LanguageDetectionEvent[] = [];
 
-    const unsubscribe = createLanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new LanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
       events.push(event),
     );
     await flush();

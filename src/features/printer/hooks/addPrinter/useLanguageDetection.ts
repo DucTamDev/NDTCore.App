@@ -1,11 +1,11 @@
 import { useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import {
-  LanguageDetectionService,
+  languageDetectionService,
   LanguageDetectionStage,
   type LanguageDetectionEvent,
 } from '../../detection/LanguageDetectionService';
-import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { createPrinterLanguage } from '../../management/PrinterDefaults';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
@@ -105,7 +105,7 @@ export const useLanguageDetection = ({
   const startDetection = (): void => {
     resetDetectionFields('connecting');
     const draftPrinter = buildDraftPrinter();
-    detectionUnsubscribeRef.current = LanguageDetectionService.detect({ draftPrinter }, onDetectionEvent);
+    detectionUnsubscribeRef.current = languageDetectionService.detect({ draftPrinter }, onDetectionEvent);
   };
 
   const onConnectPress = (): void => {
@@ -121,7 +121,7 @@ export const useLanguageDetection = ({
     setLanguageState('detecting');
     const language = createPrinterLanguage(chosenLanguage, LanguageSelection.Manual);
 
-    PrinterConnectionService.connect({ ...buildDraftPrinter(), language })
+    printerConnectionService.connect({ ...buildDraftPrinter(), language })
       .then(() => applyLanguage(language))
       .catch((error: { message: string }) => {
         setConnectionState('error');

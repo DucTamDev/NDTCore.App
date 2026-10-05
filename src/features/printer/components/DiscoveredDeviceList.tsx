@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';
-import { DeviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
+import { deviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DeviceDiscoveryEventType } from '../models/device/DeviceDiscoveryEvent';
@@ -47,7 +47,7 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
       setLoading(false);
     };
 
-    const unsubscribe = DeviceDiscoveryService.discover(connectionType, (event) => {
+    const unsubscribe = deviceDiscoveryService.discover(connectionType, (event) => {
       if (settled || event.type === DeviceDiscoveryEventType.Loading) {
         return;
       }

@@ -3,9 +3,9 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorCode, errorCodeOf, type PrinterError } from '../errors/PrinterError';
-import { PrinterLogger } from '../logging/PrinterLogger';
+import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
-import { PrinterConnectionService } from '../connection/PrinterConnectionService';
+import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
 import { canPrintKind } from '../forms/addPrinter/printerRules';
 import { createPrinterLanguage } from '../management/PrinterDefaults';
 
@@ -40,7 +40,7 @@ export interface LanguageDetectionInput {
   draftPrinter: Printer;
 }
 
-type DetectionConnectionService = Pick<typeof PrinterConnectionService, 'connect' | 'disconnect' | 'send' | 'read'>;
+type DetectionConnectionService = Pick<PrinterConnectionService, 'connect' | 'disconnect' | 'send' | 'read'>;
 
 /** Những thứ một lần dò cần, gom lại để tách các bước ra hàm riêng. */
 interface DetectionContext {
@@ -93,24 +93,46 @@ const findLanguage = async (
     }
 
     const connectionType = printer.connection.type;
-    PrinterLogger.detectionCandidateRejected({ printerId: printer.id, language: type, connectionType });
+    printerLogger.detectionCandidateRejected({ printerId: printer.id, language: type, connectionType });
   }
 
   return undefined;
 };
 
 /** Dò ngôn ngữ của máy in mới trên một lần kết nối duy nhất. */
-export const createLanguageDetectionService = (
-  connectionService: DetectionConnectionService = PrinterConnectionService,
-) => {
-  const run = async (context: DetectionContext): Promise<void> => {
-    const { printer, onEvent, isCancelled } = context;
+export class LanguageDetectionService {
+  constructor(private readonly connectionService: DetectionConnectionService = printerConnectionService) {}
+
+  /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
+  detect(input: LanguageDetectionInput, onEvent: (event: LanguageDetectionEvent) => void): Unsubscribe {
+    let cancelled = false;
+    const isCancelled = (): boolean => cancelled;
+    const guardedOnEvent = (event: LanguageDetectionEvent): void => {
+      if (!cancelled) {
+        onEvent(event);
+      }
+    };
+
+    this.run({
+      printer: input.draftPrinter,
+      connectionService: this.connectionService,
+      onEvent: guardedOnEvent,
+      isCancelled,
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }
+
+  private async run(context: DetectionContext): Promise<void> {
+    const { printer, onEvent, isCancelled, connectionService } = context;
     const logFields = { printerId: printer.id, connectionType: printer.connection.type };
     const candidates = CANDIDATE_ORDER.filter((type) => canPrintKind(type, printer.kind));
     const startedAt = Date.now();
     const disconnectQuietly = (): Promise<void> => connectionService.disconnect(printer.id).catch(() => undefined);
 
-    PrinterLogger.detectionStarted({ ...logFields, candidates });
+    printerLogger.detectionStarted({ ...logFields, candidates });
     onEvent({ stage: LanguageDetectionStage.Connecting });
 
     try {
@@ -120,7 +142,7 @@ export const createLanguageDetectionService = (
         const failure = { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' };
         onEvent({ stage: LanguageDetectionStage.Error, error: failure });
         const errorCode = errorCodeOf(error);
-        PrinterLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });
+        printerLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });
       }
 
       return;
@@ -139,33 +161,14 @@ export const createLanguageDetectionService = (
     if (detected) {
       const language = createPrinterLanguage(detected, LanguageSelection.Auto);
       onEvent({ stage: LanguageDetectionStage.Detected, language });
-      PrinterLogger.languageDetected({ ...logFields, language: detected, candidatesTried, durationMs });
+      printerLogger.languageDetected({ ...logFields, language: detected, candidatesTried, durationMs });
       return;
     }
 
     await disconnectQuietly();
     onEvent({ stage: LanguageDetectionStage.Unknown });
-    PrinterLogger.languageUnknown({ ...logFields, candidatesTried, durationMs });
-  };
+    printerLogger.languageUnknown({ ...logFields, candidatesTried, durationMs });
+  }
+}
 
-  /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
-  const detect = (input: LanguageDetectionInput, onEvent: (event: LanguageDetectionEvent) => void): Unsubscribe => {
-    let cancelled = false;
-    const isCancelled = (): boolean => cancelled;
-    const guardedOnEvent = (event: LanguageDetectionEvent): void => {
-      if (!cancelled) {
-        onEvent(event);
-      }
-    };
-
-    run({ printer: input.draftPrinter, connectionService, onEvent: guardedOnEvent, isCancelled });
-
-    return () => {
-      cancelled = true;
-    };
-  };
-
-  return { detect };
-};
-
-export const LanguageDetectionService = createLanguageDetectionService();
+export const languageDetectionService = new LanguageDetectionService();

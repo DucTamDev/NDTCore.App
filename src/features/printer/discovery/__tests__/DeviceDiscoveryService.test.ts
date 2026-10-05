@@ -1,9 +1,9 @@
-import { createDeviceDiscoveryService } from '../DeviceDiscoveryService';
+import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../models/device/DeviceDiscoveryEvent';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 import { PrinterErrorCode } from '../../errors/PrinterError';
-import { PrinterLogger } from '../../logging/PrinterLogger';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
 
 jest.mock('../../../../services/LoggerService', () => ({
@@ -11,7 +11,7 @@ jest.mock('../../../../services/LoggerService', () => ({
 }));
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  PrinterLogger: { discoveryStarted: jest.fn(), discoveryCompleted: jest.fn(), discoveryFailed: jest.fn() },
+  printerLogger: { discoveryStarted: jest.fn(), discoveryCompleted: jest.fn(), discoveryFailed: jest.fn() },
 }));
 
 const bluetoothPrinter: DiscoveredDevice = {
@@ -23,7 +23,7 @@ const bluetoothPrinter: DiscoveredDevice = {
 const setup = (bluetoothGranted = true) => {
   const { adapter } = makeFakeAdapter();
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
-  const service = createDeviceDiscoveryService({ createAdapter: () => adapter, ensureBluetoothPermission });
+  const service = new DeviceDiscoveryService({ createAdapter: () => adapter, ensureBluetoothPermission });
 
   return { service, adapter, ensureBluetoothPermission };
 };
@@ -69,7 +69,7 @@ describe('DeviceDiscoveryService', () => {
       { type: DeviceDiscoveryEventType.Loading },
       { type: DeviceDiscoveryEventType.Found, devices: [bluetoothPrinter] },
     ]);
-    expect(PrinterLogger.discoveryCompleted).toHaveBeenCalledWith(
+    expect(printerLogger.discoveryCompleted).toHaveBeenCalledWith(
       expect.objectContaining({ connectionType: ConnectionType.Bluetooth, deviceCount: 1 }),
     );
   });
@@ -115,7 +115,7 @@ describe('DeviceDiscoveryService', () => {
       type: DeviceDiscoveryEventType.Error,
       error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'bluetooth adapter off' },
     });
-    expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
+    expect(printerLogger.discoveryFailed).toHaveBeenCalledWith(
       expect.objectContaining({ connectionType: ConnectionType.Bluetooth }),
     );
   });

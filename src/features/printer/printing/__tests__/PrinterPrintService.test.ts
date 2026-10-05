@@ -1,8 +1,8 @@
-import { createPrinterPrintService } from '../PrinterPrintService';
-import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { createResourceLock } from '../../connection/PrinterConnectionLock';
-import { PrinterStorage } from '../../storage/PrinterStorage';
-import { PrinterLogger } from '../../logging/PrinterLogger';
+import { PrinterPrintService } from '../PrinterPrintService';
+import { PrinterRepository } from '../../storage/PrinterRepository';
+import { ResourceLock } from '../../connection/PrinterConnectionLock';
+import { printerStorage } from '../../storage/PrinterStorage';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/printer/ConnectionType';
@@ -18,7 +18,7 @@ jest.mock('../../../../services/LoggerService', () => ({
 }));
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  PrinterLogger: {
+  printerLogger: {
     printSucceeded: jest.fn(),
     printFailed: jest.fn(),
     testPrintSucceeded: jest.fn(),
@@ -41,16 +41,16 @@ const tsplLabelPrinter: Printer = {
 /** Service với connection giả, repository thật trên storage đã xoá sạch. */
 const setup = (connectionOverrides: Parameters<typeof makeMockConnectionService>[0] = {}) => {
   const connectionService = makeMockConnectionService(connectionOverrides);
-  const repository = createPrinterRepository();
-  const lock = createResourceLock();
-  const service = createPrinterPrintService(connectionService, repository, lock);
+  const repository = new PrinterRepository();
+  const lock = new ResourceLock();
+  const service = new PrinterPrintService(connectionService, repository, lock);
 
   return { service, connectionService, repository, lock };
 };
 
 describe('PrinterPrintService', () => {
   beforeEach(() => {
-    PrinterStorage.savePrinters([]);
+    printerStorage.savePrinters([]);
     jest.clearAllMocks();
   });
 
@@ -61,7 +61,7 @@ describe('PrinterPrintService', () => {
     await service.print(basePrinter.id, documents);
 
     expect(connectionService.send).toHaveBeenCalledWith(basePrinter.id, EscPosLanguage.encode(basePrinter, documents));
-    expect(PrinterLogger.printSucceeded).toHaveBeenCalledWith(
+    expect(printerLogger.printSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, language: PrintLanguage.EscPos }),
     );
   });
@@ -114,7 +114,7 @@ describe('PrinterPrintService', () => {
     });
 
     expect(connectionService.send).not.toHaveBeenCalled();
-    expect(PrinterLogger.printFailed).toHaveBeenCalledWith(
+    expect(printerLogger.printFailed).toHaveBeenCalledWith(
       expect.objectContaining({ errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }),
     );
   });
@@ -139,7 +139,7 @@ describe('PrinterPrintService', () => {
     expect(runExclusive).toHaveBeenCalledWith('lan:192.168.1.10:9100', expect.any(Function));
     expect(connectionService.send).toHaveBeenCalledWith(basePrinter.id, expect.any(Uint8Array));
     expect(repository.getPrinters()).toEqual([]);
-    expect(PrinterLogger.testPrintSucceeded).toHaveBeenCalledWith(
+    expect(printerLogger.testPrintSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, language: PrintLanguage.EscPos }),
     );
   });
@@ -152,7 +152,7 @@ describe('PrinterPrintService', () => {
 
     await expect(service.testPrint(basePrinter, documents)).rejects.toThrow('offline');
 
-    expect(PrinterLogger.testPrintFailed).toHaveBeenCalledWith(
+    expect(printerLogger.testPrintFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
     );
   });

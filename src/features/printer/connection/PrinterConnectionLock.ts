@@ -15,46 +15,48 @@ export const lockKeyOf = (printer: Printer): string => deviceIdOf(printer.connec
  * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Hàng đợi in và
  * nút "In thử" dùng chung một khoá để không bao giờ chạm cùng một máy cùng lúc.
  */
-export const createResourceLock = () => {
-  const queues = new Map<string, Task[]>();
-  const processing = new Set<string>();
+export class ResourceLock {
+  /** Việc đang chờ theo key; việc đầu hàng là việc đang chạy. */
+  private readonly queues = new Map<string, Task[]>();
 
-  const processQueue = async (key: string): Promise<void> => {
-    if (processing.has(key)) {
-      return;
-    }
+  /** Key đang có vòng xử lý hàng đợi, để không chạy hai vòng cho cùng một key. */
+  private readonly processing = new Set<string>();
 
-    processing.add(key);
-
-    try {
-      const queue = queues.get(key);
-      while (queue && queue.length > 0) {
-        const task = queue[0];
-        await task();
-        queue.shift();
-      }
-    } finally {
-      queues.delete(key);
-      processing.delete(key);
-    }
-  };
-
-  const runExclusive = <T>(key: string, task: () => Promise<T>): Promise<T> =>
-    new Promise<T>((resolve, reject) => {
-      if (!queues.has(key)) {
-        queues.set(key, []);
+  runExclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.queues.has(key)) {
+        this.queues.set(key, []);
       }
 
-      queues.get(key)?.push(() => task().then(resolve, reject));
+      this.queues.get(key)?.push(() => task().then(resolve, reject));
       // Mỗi task đã chuyển lỗi về promise ngoài nên nhánh này chỉ chạy khi chính hàng đợi hỏng.
-      processQueue(key).catch((error: unknown) => {
+      this.processQueue(key).catch((error: unknown) => {
         LoggerService.error('PrinterConnectionLock.processQueue', {
           error: error instanceof Error ? error.message : String(error),
         });
       });
     });
+  }
 
-  return { runExclusive };
-};
+  private async processQueue(key: string): Promise<void> {
+    if (this.processing.has(key)) {
+      return;
+    }
 
-export const PrinterConnectionLock = createResourceLock();
+    this.processing.add(key);
+
+    try {
+      const queue = this.queues.get(key);
+
+      while (queue && queue.length > 0) {
+        await queue[0]();
+        queue.shift();
+      }
+    } finally {
+      this.queues.delete(key);
+      this.processing.delete(key);
+    }
+  }
+}
+
+export const printerConnectionLock = new ResourceLock();

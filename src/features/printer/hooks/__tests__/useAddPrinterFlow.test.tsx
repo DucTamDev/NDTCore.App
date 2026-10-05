@@ -1,11 +1,11 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow';
-import { PrinterRepository } from '../../storage/PrinterRepository';
-import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
-import { PrinterPrintService } from '../../printing/PrinterPrintService';
-import { PrinterConfigService } from '../../management/PrinterConfigService';
-import { LanguageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
+import { printerRepository } from '../../storage/PrinterRepository';
+import { printerConnectionService } from '../../connection/PrinterConnectionService';
+import { printerPrintService } from '../../printing/PrinterPrintService';
+import { printerConfigService } from '../../management/PrinterConfigService';
+import { languageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
@@ -20,7 +20,7 @@ import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 const mockIdleStatus = PrinterStatus.Idle;
 
 jest.mock('../../storage/PrinterRepository', () => ({
-  PrinterRepository: {
+  printerRepository: {
     getPrinters: jest.fn(() => []),
     addPrinter: jest.fn(),
     updatePrinter: jest.fn(),
@@ -29,7 +29,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
 }));
 
 jest.mock('../../connection/PrinterConnectionService', () => ({
-  PrinterConnectionService: {
+  printerConnectionService: {
     getStatus: jest.fn(() => mockIdleStatus),
     onStatusChange: jest.fn(() => () => undefined),
     disconnect: jest.fn(() => Promise.resolve()),
@@ -39,13 +39,13 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
 }));
 
 jest.mock('../../printing/PrinterPrintService', () => ({
-  PrinterPrintService: {
+  printerPrintService: {
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
 
 jest.mock('../../management/PrinterConfigService', () => ({
-  PrinterConfigService: {
+  printerConfigService: {
     setRenderMode: jest.fn(),
     setPaper: jest.fn(),
   },
@@ -53,7 +53,7 @@ jest.mock('../../management/PrinterConfigService', () => ({
 
 jest.mock('../../detection/LanguageDetectionService', () => ({
   ...jest.requireActual('../../detection/LanguageDetectionService'),
-  LanguageDetectionService: {
+  languageDetectionService: {
     detect: jest.fn(() => () => undefined),
   },
 }));
@@ -131,9 +131,9 @@ describe('useAddPrinterFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCaptureBillImage.mockClear();
-    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
-    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
-    (LanguageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
+    (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
+    (languageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
       capturedDetectionHandler = handler;
       return () => undefined;
     });
@@ -173,7 +173,7 @@ describe('useAddPrinterFlow', () => {
       await get().infoCard.onSave();
     });
 
-    expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(
+    expect(printerRepository.addPrinter).toHaveBeenCalledWith(
       expect.objectContaining({ kind: PrintKind.Label, language: detectedLanguage }),
     );
     expect(onSaved).toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe('useAddPrinterFlow', () => {
       get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
 
-    expect(PrinterConnectionService.connect).toHaveBeenCalled();
+    expect(printerConnectionService.connect).toHaveBeenCalled();
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().infoCard.language).toEqual(expect.objectContaining({ type: PrintLanguage.EscPos, selection: LanguageSelection.Manual }));
   });
@@ -197,7 +197,7 @@ describe('useAddPrinterFlow', () => {
   it('cleanup: đóng modal trong lúc đang connected mà chưa Save → disconnect language', () => {
     const { update } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('KHÔNG disconnect khi đóng modal ngay sau khi vừa Save', async () => {
@@ -205,15 +205,15 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    (PrinterConnectionService.disconnect as jest.Mock).mockClear();
+    (printerConnectionService.disconnect as jest.Mock).mockClear();
     update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    expect(PrinterConnectionService.disconnect).not.toHaveBeenCalled();
+    expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
   it('unmount (phone backToList) trong lúc đang connected mà chưa Save → disconnect', () => {
     const { unmount } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     unmount();
-    expect(PrinterConnectionService.disconnect).toHaveBeenCalledWith('p1');
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
   });
 
   it('unmount sau khi Save thành công KHÔNG disconnect', async () => {
@@ -221,9 +221,9 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    (PrinterConnectionService.disconnect as jest.Mock).mockClear();
+    (printerConnectionService.disconnect as jest.Mock).mockClear();
     unmount();
-    expect(PrinterConnectionService.disconnect).not.toHaveBeenCalled();
+    expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
   it('onSave khi language KHÔNG đang connected (autoReconnect bật) → connect (không reconnect)', async () => {
@@ -244,22 +244,22 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    expect(PrinterConnectionService.connect).toHaveBeenCalled();
-    expect(PrinterConnectionService.reconnect).not.toHaveBeenCalled();
+    expect(printerConnectionService.connect).toHaveBeenCalled();
+    expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
   });
 
   it('onSave khi language đang connected → reconnect (không connect) để context lấy paper đã lưu', async () => {
-    (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Connected);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Connected);
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     await act(async () => {
       await get().infoCard.onSave();
     });
-    expect(PrinterConnectionService.reconnect).toHaveBeenCalledWith('p1');
-    expect(PrinterConnectionService.connect).not.toHaveBeenCalled();
+    expect(printerConnectionService.reconnect).toHaveBeenCalledWith('p1');
+    expect(printerConnectionService.connect).not.toHaveBeenCalled();
   });
 
   it('identity trùng (deviceId, type) — cùng key + cùng type → báo lỗi', () => {
-    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id' }]);
+    (printerRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id' }]);
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
     act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
     act(() => get().connectionSection.onLanIpChange('10.0.0.5'));
@@ -268,7 +268,7 @@ describe('useAddPrinterFlow', () => {
   });
 
   it('identity cùng key nhưng KHÁC type → không báo lỗi (2 Printer cùng máy vật lý, khác nội dung)', () => {
-    (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id', kind: PrintKind.Receipt }]);
+    (printerRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id', kind: PrintKind.Receipt }]);
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
     act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
     act(() => get().connectionSection.onLanIpChange('10.0.0.5'));
@@ -338,7 +338,7 @@ describe('useAddPrinterFlow', () => {
       await get().infoCard.onSave();
     });
 
-    expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(
+    expect(printerRepository.addPrinter).toHaveBeenCalledWith(
       expect.objectContaining({
         connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
         deviceId: 'usb:11575:33751:SN1',
@@ -360,18 +360,18 @@ describe('useAddPrinterFlow', () => {
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });
 
-  it('onSelectRenderMode cập nhật language và persist qua PrinterConfigService.setRenderMode', () => {
+  it('onSelectRenderMode cập nhật language và persist qua printerConfigService.setRenderMode', () => {
     const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
     act(() => get().infoCard.onSelectRenderMode(RenderMode.Raster));
-    expect(PrinterConfigService.setRenderMode).toHaveBeenCalledWith('p2', RenderMode.Raster);
+    expect(printerConfigService.setRenderMode).toHaveBeenCalledWith('p2', RenderMode.Raster);
     expect(get().infoCard.language?.renderMode).toBe(RenderMode.Raster);
   });
 
-  it('onChangePaper merge patch và persist qua PrinterConfigService.setPaper', () => {
+  it('onChangePaper merge patch và persist qua printerConfigService.setPaper', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onChangePaper({ paperSize: PaperSize.Mm100 }));
     expect(get().infoCard.paper.paperSize).toBe(PaperSize.Mm100);
-    expect(PrinterConfigService.setPaper).toHaveBeenCalledWith('p1', expect.objectContaining({ paperSize: PaperSize.Mm100 }));
+    expect(printerConfigService.setPaper).toHaveBeenCalledWith('p1', expect.objectContaining({ paperSize: PaperSize.Mm100 }));
   });
 
   it('onChangePaper type=DieCut điền sẵn 5 field default', () => {
@@ -380,13 +380,13 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.paper).toMatchObject({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
   });
 
-  it('onTestPrint gọi PrinterPrintService.testPrint với printer.type cố định (Label → rows)', async () => {
+  it('onTestPrint gọi printerPrintService.testPrint với printer.type cố định (Label → rows)', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onTestPrintRowsChange('3'));
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
-    expect(PrinterPrintService.testPrint).toHaveBeenCalledWith(
+    expect(printerPrintService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1', kind: PrintKind.Label }),
       expect.objectContaining({ text: expect.anything() }),
       { rows: 3 },
@@ -399,14 +399,14 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
-    expect(PrinterPrintService.testPrint).not.toHaveBeenCalled();
+    expect(printerPrintService.testPrint).not.toHaveBeenCalled();
     expect(get().testPrintErrorMessage).toContain('itemWidthMm');
   });
 
   it('onChangePaper giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
-    expect(PrinterConfigService.setPaper).not.toHaveBeenCalled();
+    expect(printerConfigService.setPaper).not.toHaveBeenCalled();
   });
 
   it('onTestPrint ở chế độ Bitmap gọi captureBillImage trước khi in; ở Encoder thì không', async () => {
@@ -425,13 +425,13 @@ describe('useAddPrinterFlow', () => {
     expect(mockCaptureBillImage).not.toHaveBeenCalled();
   });
 
-  it('onSave (edit) gọi PrinterRepository.updatePrinter với draft đầy đủ', async () => {
+  it('onSave (edit) gọi printerRepository.updatePrinter với draft đầy đủ', async () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved, kind: savedTspl.kind });
     await act(async () => {
       await get().infoCard.onSave();
     });
-    expect(PrinterRepository.updatePrinter).toHaveBeenCalledWith(
+    expect(printerRepository.updatePrinter).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'p1',
         kind: PrintKind.Label,

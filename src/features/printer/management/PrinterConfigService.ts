@@ -1,50 +1,38 @@
 import type { PaperOptions } from '../models/paper/PaperOptions';
+import type { Printer } from '../models/printer/Printer';
 import { RenderMode, RasterSource } from '../models/printer/PrinterLanguage';
-import { PrinterRepository, type createPrinterRepository } from '../storage/PrinterRepository';
-
-type PrinterRepositoryLike = ReturnType<typeof createPrinterRepository>;
+import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
 /**
- * Cấu hình render mode / bitmap source / giấy cho 1 printer ĐÃ LƯU. Printer
- * draft chưa lưu → no-op ở cả 3 setter — modal Thêm máy in mang state vào lúc
- * Save (xem `useAddPrinterFlow.ts`).
+ * Sửa cách render / nguồn ảnh / giấy của một máy in ĐÃ LƯU. Bản nháp chưa lưu thì không làm gì — modal Thêm máy in
+ * mang các giá trị này vào lúc Lưu.
  */
-export const createPrinterConfigService = (repository: PrinterRepositoryLike = PrinterRepository) => {
-  const setRenderMode = (printerId: string, renderMode: RenderMode): void => {
-    const printer = repository.getPrinters().find((p) => p.id === printerId);
+export class PrinterConfigService {
+  constructor(
+    private readonly repository: Pick<PrinterRepository, 'getPrinters' | 'savePrinters'> = printerRepository,
+  ) {}
 
-    if (!printer) {
+  setRenderMode(printerId: string, renderMode: RenderMode): void {
+    this.update(printerId, (printer) => ({ ...printer, language: { ...printer.language, renderMode } }));
+  }
+
+  setRasterSource(printerId: string, rasterSource: RasterSource): void {
+    this.update(printerId, (printer) => ({ ...printer, language: { ...printer.language, rasterSource } }));
+  }
+
+  setPaper(printerId: string, paper: PaperOptions): void {
+    this.update(printerId, (printer) => ({ ...printer, paper }));
+  }
+
+  private update(printerId: string, change: (printer: Printer) => Printer): void {
+    const printers = this.repository.getPrinters();
+
+    if (!printers.some((printer) => printer.id === printerId)) {
       return;
     }
 
-    repository.savePrinters(
-      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, language: { ...p.language, renderMode } })),
-    );
-  };
+    this.repository.savePrinters(printers.map((printer) => (printer.id === printerId ? change(printer) : printer)));
+  }
+}
 
-  const setRasterSource = (printerId: string, rasterSource: RasterSource): void => {
-    const printer = repository.getPrinters().find((p) => p.id === printerId);
-
-    if (!printer) {
-      return;
-    }
-
-    repository.savePrinters(
-      repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, language: { ...p.language, rasterSource } })),
-    );
-  };
-
-  const setPaper = (printerId: string, paper: PaperOptions): void => {
-    const printer = repository.getPrinters().find((p) => p.id === printerId);
-
-    if (!printer) {
-      return;
-    }
-
-    repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper })));
-  };
-
-  return { setRenderMode, setRasterSource, setPaper };
-};
-
-export const PrinterConfigService = createPrinterConfigService(PrinterRepository);
+export const printerConfigService = new PrinterConfigService();

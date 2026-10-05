@@ -2,7 +2,7 @@ import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import { PaperType } from '../../models/paper/PaperOptions';
 import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
-import { PrinterConfigService } from '../../management/PrinterConfigService';
+import { printerConfigService } from '../../management/PrinterConfigService';
 
 export interface UsePrintSettingsInput {
   printerId: string;
@@ -23,7 +23,7 @@ export const usePrintSettings = ({ printerId, language, setLanguage, paper, setP
     }
 
     setLanguage({ ...language, renderMode: mode });
-    PrinterConfigService.setRenderMode(printerId, mode);
+    printerConfigService.setRenderMode(printerId, mode);
   };
 
   const onSelectRasterSource = (rasterSource: RasterSource): void => {
@@ -32,7 +32,7 @@ export const usePrintSettings = ({ printerId, language, setLanguage, paper, setP
     }
 
     setLanguage({ ...language, rasterSource });
-    PrinterConfigService.setRasterSource(printerId, rasterSource);
+    printerConfigService.setRasterSource(printerId, rasterSource);
   };
 
   /** Giấy tem còn thiếu kích thước thì chỉ cập nhật form, chưa ghi vào máy in đã lưu. */
@@ -44,7 +44,7 @@ export const usePrintSettings = ({ printerId, language, setLanguage, paper, setP
     setPaper(next);
 
     if (options) {
-      PrinterConfigService.setPaper(printerId, options);
+      printerConfigService.setPaper(printerId, options);
     }
   };
 

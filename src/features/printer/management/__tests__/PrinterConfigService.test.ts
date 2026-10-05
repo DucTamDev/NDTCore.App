@@ -1,6 +1,6 @@
-import { createPrinterConfigService } from '../PrinterConfigService';
-import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { PrinterStorage } from '../../storage/PrinterStorage';
+import { PrinterConfigService } from '../PrinterConfigService';
+import { PrinterRepository } from '../../storage/PrinterRepository';
+import { printerStorage } from '../../storage/PrinterStorage';
 import { RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { type Printer } from '../../models/printer/Printer';
@@ -10,12 +10,12 @@ jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug:
 
 describe('PrinterConfigService', () => {
   beforeEach(() => {
-    PrinterStorage.savePrinters([]);
+    printerStorage.savePrinters([]);
   });
 
   it('setRenderMode() persists renderMode vào printer.language cho printer đã lưu', () => {
-    const repository = createPrinterRepository();
-    const service = createPrinterConfigService(repository);
+    const repository = new PrinterRepository();
+    const service = new PrinterConfigService(repository);
     repository.addPrinter(basePrinter);
 
     service.setRenderMode(basePrinter.id, RenderMode.Raster);
@@ -25,16 +25,16 @@ describe('PrinterConfigService', () => {
   });
 
   it('setRenderMode() là no-op cho printer chưa lưu', () => {
-    const repository = createPrinterRepository();
-    const service = createPrinterConfigService(repository);
+    const repository = new PrinterRepository();
+    const service = new PrinterConfigService(repository);
 
     expect(() => service.setRenderMode('draft-not-saved', RenderMode.Raster)).not.toThrow();
     expect(repository.getPrinters()).toEqual([]);
   });
 
   it('setPaper() ghi đè printer.paper cho printer đã lưu', () => {
-    const repository = createPrinterRepository();
-    const service = createPrinterConfigService(repository);
+    const repository = new PrinterRepository();
+    const service = new PrinterConfigService(repository);
     const printer: Printer = { ...basePrinter, paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob } };
     repository.addPrinter(printer);
 
@@ -45,8 +45,8 @@ describe('PrinterConfigService', () => {
   });
 
   it('setPaper() là no-op cho printer chưa lưu', () => {
-    const repository = createPrinterRepository();
-    const service = createPrinterConfigService(repository);
+    const repository = new PrinterRepository();
+    const service = new PrinterConfigService(repository);
 
     const paper = { type: PaperType.Continuous, paperSize: PaperSize.Mm100, cutterMode: CutterMode.PerJob } as const;
 

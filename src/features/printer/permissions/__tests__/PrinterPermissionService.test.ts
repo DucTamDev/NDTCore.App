@@ -1,10 +1,10 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { ensureBluetoothPermission } from '../PrinterPermissionService';
-import { PrinterLogger } from '../../logging/PrinterLogger';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  PrinterLogger: {
+  printerLogger: {
     permissionDenied: jest.fn(),
   },
 }));
@@ -77,7 +77,7 @@ describe('ensureBluetoothPermission', () => {
     } as unknown as Awaited<ReturnType<typeof PermissionsAndroid.requestMultiple>>);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(false);
-    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.Bluetooth });
+    expect(printerLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.Bluetooth });
   });
 
   it('requests ACCESS_FINE_LOCATION on Android below API 31, returns true when granted', async () => {
@@ -95,7 +95,7 @@ describe('ensureBluetoothPermission', () => {
     jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
     const result = await ensureBluetoothPermission();
     expect(result).toBe(false);
-    expect(PrinterLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.Bluetooth });
+    expect(printerLogger.permissionDenied).toHaveBeenCalledWith({ connectionType: ConnectionType.Bluetooth });
   });
 
   it('does not log permissionDenied when permission is granted', async () => {
@@ -106,6 +106,6 @@ describe('ensureBluetoothPermission', () => {
       [PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT]: PermissionsAndroid.RESULTS.GRANTED,
     } as unknown as Awaited<ReturnType<typeof PermissionsAndroid.requestMultiple>>);
     await ensureBluetoothPermission();
-    expect(PrinterLogger.permissionDenied).not.toHaveBeenCalled();
+    expect(printerLogger.permissionDenied).not.toHaveBeenCalled();
   });
 });
