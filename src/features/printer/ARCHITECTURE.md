@@ -493,7 +493,7 @@ Comment cần giải thích:
 | Hàm | Làm gì |
 | --- | --- |
 | `connect(printer)` | Mở kết nối bằng adapter mới, `Connecting` → `Connected` / `Error` (chi tiết dưới bảng) |
-| `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; chưa kết nối thì chỉ đặt `Disconnected` |
+| `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; huỷ cả lượt `connect` đang chạy |
 | `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `NOT_CONNECTED` |
 | `read(printerId, timeoutMs)` | Đọc phản hồi; `null` khi hết hạn |
 | `getStatus` / `onStatusChange` | Theo phiên trong bộ nhớ; chưa từng kết nối là `Idle` |
@@ -501,7 +501,12 @@ Comment cần giải thích:
 
 * `connect`: Bluetooth thì xin quyền trước. Thành công mới thay phiên cũ rồi trả adapter cũ (lỗi khi trả chỉ ghi
   log); thất bại thì phiên cũ giữ nguyên.
-* Adapter báo `onLost` → `Disconnected` (adapter đã bị thay thì bỏ qua).
+* Mỗi `connect` là một lượt; chỉ lượt mới nhất được đổi trạng thái. Lượt bị thay (có `connect` mới hơn hoặc
+  `disconnect`) mà mở được kết nối thì trả kết nối đó ngay và kết thúc êm, thất bại thì vẫn ném lỗi nhưng không đổi
+  trạng thái.
+* Adapter báo `onLost` → bỏ phiên, trả adapter, `Disconnected`; `send`/`read` sau đó báo `NOT_CONNECTED` (adapter
+  đã bị thay thì bỏ qua).
+* Listener trạng thái ném lỗi chỉ bị ghi log, không làm hỏng việc kết nối hay chặn listener khác.
 * Không giới hạn số máy cùng loại kết nối kết nối cùng lúc.
 * Không biết ngôn ngữ in; log kết nối không mang ngôn ngữ.
 * **Không tự khoá**: `PrinterPrintService.print` kết nối bên trong khoá của scheduler, khoá lại sẽ treo.

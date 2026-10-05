@@ -7,9 +7,11 @@ import { DeviceErrorException, errorCodeOf } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
+import { LoggerService } from '../../../services/LoggerService';
 import { createPrinterAdapter } from './PrinterAdapterFactory';
 import { printerConnectionLock, lockKeyOf, type ResourceLock } from './PrinterConnectionLock';
 
+/** Nơi nhận trạng thái mới của một máy in. */
 type StatusListener = (status: PrinterStatus) => void;
 
 /** Phụ thuộc của service, tách ra để test thay được. */
@@ -29,6 +31,7 @@ export interface PrinterConnectionServiceDeps {
 
 /** Kết nối đang mở của một máy in. */
 interface ConnectionSession {
+  /** Adapter đang giữ kết nối này. */
   adapter: IPrinterAdapter;
 
   /** Khoá của máy vật lý mà phiên này đang giữ. */
@@ -58,25 +61,53 @@ export class PrinterConnectionService {
   /** Nơi nghe đổi trạng thái theo `printerId`. */
   private readonly listeners = new Map<string, Set<StatusListener>>();
 
+  /**
+   * Lượt kết nối mới nhất theo `printerId`. `connect` nhớ lượt của mình; lượt bị thay (có `connect` mới hơn hoặc
+   * `disconnect`) thì không được đổi trạng thái hay giữ kết nối nữa.
+   */
+  private readonly attempts = new Map<string, number>();
+
+  /** Bộ đếm sinh mã lượt, tăng dần cho mọi máy. */
+  private attemptCounter = 0;
+
   constructor(private readonly deps: PrinterConnectionServiceDeps) {}
 
-  /** Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên. */
+  /**
+   * Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên. Lượt đã bị thay (bởi `connect` mới hơn hoặc `disconnect`)
+   * thì trả lại kết nối vừa mở và không đổi trạng thái.
+   */
   async connect(printer: Printer): Promise<void> {
+    const printerId = printer.id;
     const connectionType = printer.connection.type;
     const startedAt = Date.now();
-    this.setStatus(printer.id, PrinterStatus.Connecting);
+    const attempt = this.beginAttempt(printerId);
+    this.setStatus(printerId, PrinterStatus.Connecting);
 
     try {
       await this.ensurePermission(connectionType);
       const adapter = this.deps.createAdapter();
       await adapter.connect(printer.connection);
+
+      if (!this.isCurrentAttempt(printerId, attempt)) {
+        await adapter.disconnect().catch(() => undefined);
+        return;
+      }
+
       await this.openSession(printer, adapter);
-      this.setStatus(printer.id, PrinterStatus.Connected);
-      printerLogger.connectSucceeded({ printerId: printer.id, connectionType, durationMs: Date.now() - startedAt });
+
+      if (!this.isCurrentAttempt(printerId, attempt)) {
+        return;
+      }
+
+      this.setStatus(printerId, PrinterStatus.Connected);
+      printerLogger.connectSucceeded({ printerId, connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
-      this.setStatus(printer.id, PrinterStatus.Error);
+      if (this.isCurrentAttempt(printerId, attempt)) {
+        this.setStatus(printerId, PrinterStatus.Error);
+      }
+
       printerLogger.connectFailed({
-        printerId: printer.id,
+        printerId,
         connectionType,
         errorCode: errorCodeOf(error),
         durationMs: Date.now() - startedAt,
@@ -90,6 +121,7 @@ export class PrinterConnectionService {
    * bên trong khoá của hàng đợi in và khoá không tái nhập nên khoá ở đó sẽ tự kẹt.
    */
   async disconnect(printerId: string): Promise<void> {
+    this.beginAttempt(printerId);
     const session = this.sessions.get(printerId);
 
     if (!session) {
@@ -100,6 +132,7 @@ export class PrinterConnectionService {
     await this.deps.lock.runExclusive(session.lockKey, () => this.closeSession(printerId, session));
   }
 
+  /** Chưa kết nối (hoặc đã mất kết nối) thì báo `NOT_CONNECTED`. */
   async send(printerId: string, bytes: Uint8Array): Promise<void> {
     return this.requireAdapter(printerId).write(bytes);
   }
@@ -109,24 +142,33 @@ export class PrinterConnectionService {
     return this.requireAdapter(printerId).read(timeoutMs);
   }
 
+  /** Máy chưa từng kết nối là `Idle`. */
   getStatus(printerId: string): PrinterStatus {
     return this.statuses.get(printerId) ?? PrinterStatus.Idle;
   }
 
+  /** Chỉ nhận các lần đổi trạng thái sau khi đăng ký, không nhận trạng thái hiện tại. */
   onStatusChange(printerId: string, listener: StatusListener): Unsubscribe {
-    if (!this.listeners.has(printerId)) {
-      this.listeners.set(printerId, new Set());
-    }
+    const listeners = this.listeners.get(printerId) ?? new Set<StatusListener>();
+    listeners.add(listener);
+    this.listeners.set(printerId, listeners);
 
-    this.listeners.get(printerId)?.add(listener);
-    return () => this.listeners.get(printerId)?.delete(listener);
+    return () => {
+      listeners.delete(listener);
+
+      if (listeners.size === 0 && this.listeners.get(printerId) === listeners) {
+        this.listeners.delete(printerId);
+      }
+    };
   }
 
+  /** Ngắt (bỏ qua lỗi ngắt) rồi kết nối lại bằng cấu hình đã lưu của máy in. */
   async reconnect(printerId: string): Promise<void> {
     await this.disconnect(printerId).catch(() => undefined);
     await this.connect(this.deps.repository.findOrThrow(printerId));
   }
 
+  /** Gọi khi app khởi động: kết nối mọi máy đang bật và cho phép tự kết nối lại; lỗi từng máy bỏ qua. */
   reconnectAutoPrinters(): void {
     this.deps.repository
       .getPrinters()
@@ -136,9 +178,29 @@ export class PrinterConnectionService {
       });
   }
 
+  private beginAttempt(printerId: string): number {
+    this.attemptCounter += 1;
+    this.attempts.set(printerId, this.attemptCounter);
+    return this.attemptCounter;
+  }
+
+  private isCurrentAttempt(printerId: string, attempt: number): boolean {
+    return this.attempts.get(printerId) === attempt;
+  }
+
+  /** Một listener lỗi không được làm hỏng việc kết nối đang chạy hay chặn các listener khác. */
   private setStatus(printerId: string, status: PrinterStatus): void {
     this.statuses.set(printerId, status);
-    this.listeners.get(printerId)?.forEach((listener) => listener(status));
+    this.listeners.get(printerId)?.forEach((listener) => {
+      try {
+        listener(status);
+      } catch (error) {
+        LoggerService.warning('printer.connection.status-listener-failed', {
+          printerId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
   }
 
   private async ensurePermission(connectionType: ConnectionType): Promise<void> {
@@ -162,16 +224,11 @@ export class PrinterConnectionService {
     }
   }
 
-  /** Chỉ phiên còn hiệu lực mới được đổi trạng thái; adapter đã bị thay thì bỏ qua. */
   private async openSession(printer: Printer, adapter: IPrinterAdapter): Promise<void> {
     const printerId = printer.id;
     const lockKey = lockKeyOf(printer);
     const previous = this.sessions.get(printerId);
-    const stopWatchingLost = adapter.onLost(() => {
-      if (this.sessions.get(printerId)?.adapter === adapter) {
-        this.setStatus(printerId, PrinterStatus.Disconnected);
-      }
-    });
+    const stopWatchingLost = adapter.onLost(() => this.handleLost(printerId, adapter));
 
     this.sessions.set(printerId, { adapter, lockKey, stopWatchingLost });
 
@@ -187,6 +244,21 @@ export class PrinterConnectionService {
     }
 
     await this.deps.lock.runExclusive(previous.lockKey, () => this.closeQuietly(printerId, previous));
+  }
+
+  /**
+   * Bỏ phiên ngay để `send`/`read` báo `NOT_CONNECTED` thay vì gọi vào kết nối đã chết. Adapter đã bị thay thì bỏ qua.
+   */
+  private handleLost(printerId: string, adapter: IPrinterAdapter): void {
+    const session = this.sessions.get(printerId);
+
+    if (session?.adapter !== adapter) {
+      return;
+    }
+
+    this.sessions.delete(printerId);
+    this.setStatus(printerId, PrinterStatus.Disconnected);
+    this.closeQuietly(printerId, session);
   }
 
   /** Chạy trong khoá của máy; trong lúc chờ khoá, phiên có thể đã bị một lần kết nối mới thay hoặc đã bị ngắt. */

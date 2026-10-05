@@ -292,7 +292,7 @@ describe('PrinterConnectionService', () => {
     expect(adapter.read).toHaveBeenCalledWith(500);
   });
 
-  it('adapter báo mất kết nối → Disconnected', async () => {
+  it('adapter báo mất kết nối → Disconnected, bỏ phiên và trả adapter', async () => {
     const { adapter, lose } = makeFakeAdapter();
     const { service } = setup([adapter]);
     await service.connect(basePrinter);
@@ -300,6 +300,101 @@ describe('PrinterConnectionService', () => {
     lose();
 
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('ngắt sau khi đã mất kết nối thì không gọi lại adapter', async () => {
+    const { adapter, lose } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+    lose();
+
+    await service.disconnect(basePrinter.id);
+
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
+  });
+
+  it('lượt kết nối cũ thất bại sau khi lượt mới đã kết nối thì không ghi đè trạng thái', async () => {
+    const slow = makeFakeAdapter();
+    let failSlow: (error: Error) => void = () => undefined;
+    slow.adapter.connect.mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        failSlow = reject;
+      }),
+    );
+    const fast = makeFakeAdapter();
+    const { service } = setup([slow.adapter, fast.adapter]);
+
+    const first = service.connect(basePrinter);
+    await service.connect(basePrinter);
+    failSlow(new Error('timeout'));
+
+    await expect(first).rejects.toThrow('timeout');
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).resolves.toBeUndefined();
+    expect(fast.adapter.write).toHaveBeenCalled();
+  });
+
+  it('lượt kết nối cũ xong sau lượt mới thì trả adapter của nó, giữ phiên mới', async () => {
+    const slow = makeFakeAdapter();
+    let finishSlow: () => void = () => undefined;
+    slow.adapter.connect.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishSlow = resolve;
+      }),
+    );
+    const fast = makeFakeAdapter();
+    const { service } = setup([slow.adapter, fast.adapter]);
+
+    const first = service.connect(basePrinter);
+    await service.connect(basePrinter);
+    finishSlow();
+    await first;
+
+    expect(slow.adapter.disconnect).toHaveBeenCalledTimes(1);
+    expect(fast.adapter.disconnect).not.toHaveBeenCalled();
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
+  });
+
+  it('ngắt trong lúc đang kết nối thì kết nối xong bị trả lại, trạng thái giữ Disconnected', async () => {
+    const { adapter } = makeFakeAdapter();
+    let finishConnect: () => void = () => undefined;
+    adapter.connect.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishConnect = resolve;
+      }),
+    );
+    const { service } = setup([adapter]);
+
+    const connecting = service.connect(basePrinter);
+    await service.disconnect(basePrinter.id);
+    finishConnect();
+    await connecting;
+
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('listener ném lỗi không làm hỏng kết nối và không chặn listener khác', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    const after = jest.fn();
+    service.onStatusChange(basePrinter.id, () => {
+      throw new Error('listener hỏng');
+    });
+    service.onStatusChange(basePrinter.id, after);
+
+    await expect(service.connect(basePrinter)).resolves.toBeUndefined();
+
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
+    expect(after).toHaveBeenCalledWith(PrinterStatus.Connected);
   });
 
   it('adapter đã bị thay báo mất kết nối thì không đổi trạng thái', async () => {
