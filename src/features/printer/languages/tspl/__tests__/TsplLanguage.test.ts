@@ -3,8 +3,10 @@ import { Buffer } from 'buffer';
 import { TsplLanguage } from '../TsplLanguage';
 import { fingerprintOf, stripedPngBase64 } from '../../../testing/encodeCases';
 import { PrintKind } from '../../../models/printer/PrintKind';
-import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
-import { PrinterErrorCode } from '../../../errors/PrinterError';
+import { CutterMode } from '../../../models/paper/CutterMode';
+import { PaperSize } from '../../../models/paper/PaperSize';
+import { PaperType } from '../../../models/paper/PaperType';
+import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 
 const printer = makePrinter({ language: makeTsplLanguage() });

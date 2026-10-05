@@ -6,7 +6,7 @@ import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
 import { PrintKind } from '../../../printer/models/printer/PrintKind';
-import { PaperType } from '../../../printer/models/paper/PaperOptions';
+import { PaperType } from '../../../printer/models/paper/PaperType';
 
 jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');

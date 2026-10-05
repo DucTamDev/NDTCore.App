@@ -2,7 +2,9 @@ import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../Pri
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
-import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode } from '../../models/paper/CutterMode';
+import { PaperSize } from '../../models/paper/PaperSize';
+import { PaperType } from '../../models/paper/PaperType';
 
 const lan = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 } as const;
 

@@ -1,38 +1,6 @@
-
-
-/** Khổ giấy (mm). */
-export const PaperSize = {
-  Mm58: 58,
-  Mm80: 80,
-  Mm100: 100,
-  Mm104: 104,
-} as const;
-
-export type PaperSize = (typeof PaperSize)[keyof typeof PaperSize];
-
-/** Giấy cuộn liên tục hay giấy tem rời có khe. */
-export const PaperType = {
-  /** Giấy cuộn liên tục, không có khe giữa các tem. */
-  Continuous: 'Continuous',
-
-  /** Giấy tem rời, có khe giữa các tem. */
-  DieCut: 'DieCut',
-} as const;
-
-export type PaperType = (typeof PaperType)[keyof typeof PaperType];
-
-/** Thời điểm cắt giấy. */
-export const CutterMode = {
-  None: 'None',
-
-  /** Cắt một lần sau khi in xong cả job. */
-  PerJob: 'PerJob',
-
-  /** Cắt sau mỗi hàng in. */
-  PerRow: 'PerRow',
-} as const;
-
-export type CutterMode = (typeof CutterMode)[keyof typeof CutterMode];
+import { CutterMode } from './CutterMode';
+import type { PaperSize } from './PaperSize';
+import { PaperType } from './PaperType';
 
 /** Giấy cuộn liên tục. */
 export interface ContinuousPaper {

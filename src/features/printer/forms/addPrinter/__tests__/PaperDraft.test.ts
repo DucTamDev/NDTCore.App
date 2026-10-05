@@ -1,5 +1,7 @@
 import { toPaperOptions, dieCutRowOverflow, dieCutMediaError } from '../PaperDraft';
-import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+import { CutterMode } from '../../../models/paper/CutterMode';
+import { PaperSize } from '../../../models/paper/PaperSize';
+import { PaperType } from '../../../models/paper/PaperType';
 import type { PaperDraft } from '../PaperDraft';
 
 describe('toPaperOptions', () => {

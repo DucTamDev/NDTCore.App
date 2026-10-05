@@ -1,5 +1,6 @@
 import type { Printer } from '../models/printer/Printer';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
+import { PrinterErrorException } from '../exceptions/PrinterErrorException';
+import { PrinterErrorCode } from '../errors/PrinterErrorCode';
 import { printerStorage, type PrinterStorage } from './PrinterStorage';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';

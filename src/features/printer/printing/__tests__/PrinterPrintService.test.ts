@@ -8,7 +8,7 @@ import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { PrinterErrorCode } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';

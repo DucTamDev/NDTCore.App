@@ -1,41 +1,12 @@
-export const PrinterErrorCode = {
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  NO_AVAILABLE_PRINTER: 'NO_AVAILABLE_PRINTER',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+import type { PrinterErrorCode } from './PrinterErrorCode';
 
-  PRINTER_NOT_FOUND: 'PRINTER_NOT_FOUND',
-  PRINTER_ALREADY_EXISTS: 'PRINTER_ALREADY_EXISTS',
-  PRINTER_CONNECTION_FAILED: 'PRINTER_CONNECTION_FAILED',
-  PRINTER_CONNECTION_TIMEOUT: 'PRINTER_CONNECTION_TIMEOUT',
-  PRINTER_NOT_CONNECTED: 'PRINTER_NOT_CONNECTED',
-  PRINTER_PROTOCOL_UNKNOWN: 'PRINTER_PROTOCOL_UNKNOWN',
-  PRINTER_UNSUPPORTED_CONNECTION: 'PRINTER_UNSUPPORTED_CONNECTION',
-  PRINTER_BUSY: 'PRINTER_BUSY',
-  PRINTER_WRITE_FAILED: 'PRINTER_WRITE_FAILED',
-
-  IMAGE_INVALID: 'IMAGE_INVALID',
-  IMAGE_TOO_LARGE: 'IMAGE_TOO_LARGE',
-} as const;
-
-export type PrinterErrorCode = (typeof PrinterErrorCode)[keyof typeof PrinterErrorCode];
-
+/** Lỗi máy in dạng dữ liệu, lưu được vào job in và trả về cho UI. */
 export interface PrinterError {
   code: PrinterErrorCode;
+
+  /** Câu thông báo tiếng Việt cho người dùng. */
   message: string;
+
+  /** Lỗi gốc (vd lỗi native) để chẩn đoán. */
   cause?: unknown;
 }
-
-export class PrinterErrorException extends Error {
-  code: PrinterErrorCode;
-  cause?: unknown;
-
-  constructor(error: PrinterError) {
-    super(error.message);
-    this.name = 'PrinterErrorException';
-    this.code = error.code;
-    this.cause = error.cause;
-  }
-}
-
-/** Trả `'UNKNOWN_ERROR'` nếu không phải `PrinterErrorException` (vd lỗi native module ném thẳng). */
-export const errorCodeOf = (error: unknown): PrinterErrorCode => (error instanceof PrinterErrorException ? error.code : PrinterErrorCode.UNKNOWN_ERROR);

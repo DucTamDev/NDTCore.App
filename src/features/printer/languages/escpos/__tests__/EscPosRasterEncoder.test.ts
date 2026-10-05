@@ -1,5 +1,5 @@
 import { buildEscPosRasterBytes } from '../EscPosRasterEncoder';
-import { CutterMode } from '../../../models/paper/PaperOptions';
+import { CutterMode } from '../../../models/paper/CutterMode';
 import type { MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 
 describe('buildEscPosRasterBytes', () => {

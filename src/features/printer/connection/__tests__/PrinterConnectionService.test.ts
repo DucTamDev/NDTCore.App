@@ -6,7 +6,8 @@ import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
-import { PrinterErrorCode, PrinterErrorException } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
+import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { basePrinter, makeFakeAdapter } from '../../testing/printerServiceTestKit';
 

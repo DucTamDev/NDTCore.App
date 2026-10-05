@@ -1,5 +1,6 @@
 import type { DieCutPaper, PaperOptions } from '../../models/paper/PaperOptions';
-import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode } from '../../models/paper/CutterMode';
+import { PaperType } from '../../models/paper/PaperType';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../models/paper/paperSpec';

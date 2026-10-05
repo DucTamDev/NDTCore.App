@@ -1,4 +1,4 @@
-import { PaperType } from '../../models/paper/PaperOptions';
+import { PaperType } from '../../models/paper/PaperType';
 import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
 import { printerConfigService } from '../../management/PrinterConfigService';
 

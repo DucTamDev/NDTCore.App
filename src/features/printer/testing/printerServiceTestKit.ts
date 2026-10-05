@@ -7,7 +7,9 @@ import {
   type PrinterLanguage,
 } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { CutterMode } from '../models/paper/CutterMode';
+import { PaperSize } from '../models/paper/PaperSize';
+import { PaperType } from '../models/paper/PaperType';
 import { type Printer } from '../models/printer/Printer';
 import { PrintKind } from '../models/printer/PrintKind';
 

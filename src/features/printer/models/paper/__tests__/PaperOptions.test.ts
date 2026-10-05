@@ -1,4 +1,6 @@
-import { CutterMode, resolveEffectiveCutterMode, PaperType } from '../PaperOptions';
+import { CutterMode } from '../CutterMode';
+import { resolveEffectiveCutterMode } from '../PaperOptions';
+import { PaperType } from '../PaperType';
 import type { PaperOptions } from '../PaperOptions';
 
 describe('PaperOptions domain types', () => {

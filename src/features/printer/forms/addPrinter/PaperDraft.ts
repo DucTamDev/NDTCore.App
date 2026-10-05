@@ -1,5 +1,7 @@
-import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
-import type { PaperOptions, PaperSize } from '../../models/paper/PaperOptions';
+import { CutterMode } from '../../models/paper/CutterMode';
+import { PaperType } from '../../models/paper/PaperType';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
+import type { PaperSize } from '../../models/paper/PaperSize';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 
 /** Cấu hình giấy đang nhập trong form; kích thước tem có thể còn trống khi người dùng đang gõ. */

@@ -1,8 +1,11 @@
 import { encodeTsplRaster } from '../TsplRasterEncoder';
-import { PrinterErrorCode } from '../../../errors/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import type { Printer } from '../../../models/printer/Printer';
-import { CutterMode, PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
+import { CutterMode } from '../../../models/paper/CutterMode';
+import { PaperSize } from '../../../models/paper/PaperSize';
+import { PaperType } from '../../../models/paper/PaperType';
+import type { PaperOptions } from '../../../models/paper/PaperOptions';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
 

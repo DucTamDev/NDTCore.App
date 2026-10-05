@@ -1,4 +1,4 @@
-import type { PaperSize } from './PaperOptions';
+import type { PaperSize } from './PaperSize';
 
 /** 203 dpi ≈ 8 dot/mm — mật độ dot chuẩn của máy in nhiệt, dùng để đổi mm ↔ dot. */
 export const DOTS_PER_MM = 8;

@@ -1,5 +1,7 @@
 import { generateId } from '../../../utils/id';
-import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { CutterMode } from '../models/paper/CutterMode';
+import { PaperSize } from '../models/paper/PaperSize';
+import { PaperType } from '../models/paper/PaperType';
 import type { ContinuousPaper } from '../models/paper/PaperOptions';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';

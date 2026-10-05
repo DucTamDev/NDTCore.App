@@ -2,7 +2,7 @@ import { createPrinterAdapter } from '../PrinterAdapterFactory';
 import { createPrinterAdapter as createWebPrinterAdapter } from '../PrinterAdapterFactory.web';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { PrinterErrorCode } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 
 describe('createPrinterAdapter', () => {
   it('trên thiết bị luôn dùng NativeAdapter, mỗi lần một instance mới', () => {

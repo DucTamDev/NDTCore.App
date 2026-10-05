@@ -1,6 +1,8 @@
 import { printerSchema } from '../PrinterSchema';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
-import { PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
+import { PaperSize } from '../../../models/paper/PaperSize';
+import { PaperType } from '../../../models/paper/PaperType';
+import type { PaperOptions } from '../../../models/paper/PaperOptions';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../../testing/printerFixtures';
 

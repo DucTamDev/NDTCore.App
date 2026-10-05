@@ -2,7 +2,9 @@ import { ConnectionType } from '../ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../PrinterLanguage';
 import { type Printer } from '../Printer';
 import { PrintKind } from '../PrintKind';
-import { CutterMode, PaperSize, PaperType } from '../../paper/PaperOptions';
+import { CutterMode } from '../../paper/CutterMode';
+import { PaperSize } from '../../paper/PaperSize';
+import { PaperType } from '../../paper/PaperType';
 
 describe('Printer domain type', () => {
   it('accepts a fully-formed Printer with a TSPL language for a LAN label printer', () => {

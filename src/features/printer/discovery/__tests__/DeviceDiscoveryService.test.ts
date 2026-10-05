@@ -2,7 +2,7 @@ import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../models/device/DeviceDiscoveryEvent';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
-import { PrinterErrorCode } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
 

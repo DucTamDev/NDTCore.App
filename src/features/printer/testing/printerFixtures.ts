@@ -3,7 +3,9 @@ import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLangu
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { CutterMode } from '../models/paper/CutterMode';
+import { PaperSize } from '../models/paper/PaperSize';
+import { PaperType } from '../models/paper/PaperType';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintKind } from '../models/printer/PrintKind';
 

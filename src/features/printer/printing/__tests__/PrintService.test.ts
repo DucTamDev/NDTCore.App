@@ -1,8 +1,10 @@
 import { PrintService, printService } from '../PrintService';
-import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode } from '../../models/paper/CutterMode';
+import { PaperSize } from '../../models/paper/PaperSize';
+import { PaperType } from '../../models/paper/PaperType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
-import { PrinterErrorCode } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
 

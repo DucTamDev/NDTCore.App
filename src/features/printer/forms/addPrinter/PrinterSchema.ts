@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
-import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+import { CutterMode } from '../../models/paper/CutterMode';
+import { PaperSize } from '../../models/paper/PaperSize';
+import { PaperType } from '../../models/paper/PaperType';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { dieCutRowOverflow } from './PaperDraft';
 import { canPrintKind } from './printerRules';

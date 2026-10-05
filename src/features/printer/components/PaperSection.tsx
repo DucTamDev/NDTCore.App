@@ -4,7 +4,8 @@ import { Text } from 'react-native-paper';
 import { AppSelect } from '../../../components/AppSelect';
 import { AppInput } from '../../../components/AppInput';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+import { PaperSize } from '../models/paper/PaperSize';
+import { PaperType } from '../models/paper/PaperType';
 import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 import { dieCutMediaError } from '../forms/addPrinter/PaperDraft';
 

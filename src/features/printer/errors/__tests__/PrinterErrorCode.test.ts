@@ -1,4 +1,4 @@
-import { PrinterErrorCode, PrinterErrorException, errorCodeOf } from '../PrinterError';
+import { PrinterErrorCode } from '../PrinterErrorCode';
 
 describe('PrinterErrorCode', () => {
   it('có đủ bộ code §101', () => {
@@ -17,10 +17,5 @@ describe('PrinterErrorCode', () => {
     expect((PrinterErrorCode as Record<string, string>).ENCODING_FAILED).toBeUndefined();
     expect((PrinterErrorCode as Record<string, string>).PRINT_ERROR).toBeUndefined();
     expect((PrinterErrorCode as Record<string, string>).UNSUPPORTED_CONNECTION).toBeUndefined();
-  });
-
-  it('errorCodeOf trả UNKNOWN_ERROR cho lỗi không phải PrinterErrorException', () => {
-    expect(errorCodeOf(new Error('x'))).toBe(PrinterErrorCode.UNKNOWN_ERROR);
-    expect(errorCodeOf(new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message: 'y' }))).toBe(PrinterErrorCode.PRINTER_NOT_FOUND);
   });
 });

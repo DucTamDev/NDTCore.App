@@ -98,7 +98,8 @@ src/features/printer/
 │   ├── device/          DeviceInfo, DiscoveredDevice, DeviceDiscoveryEvent — dùng lúc tìm thiết bị, không lưu
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
-│   ├── paper/           PaperOptions (+ resolveEffectiveCutterMode), paperSpec (thông số theo khổ giấy)
+│   ├── paper/           PaperOptions (+ resolveEffectiveCutterMode), PaperSize, PaperType, CutterMode,
+│   │                    paperSpec (thông số theo khổ giấy)
 │   └── printing/        PrintOptions, PrintJob
 │
 ├── languages/
@@ -125,7 +126,8 @@ src/features/printer/
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
-├── errors/              PrinterError
+├── errors/              PrinterError (lỗi dạng dữ liệu), PrinterErrorCode
+├── exceptions/          PrinterErrorException (+ errorCodeOf)
 │
 ├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
@@ -148,7 +150,7 @@ src/features/printer/
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
 * `management/` chứa cấu hình máy in và giá trị mặc định khi tạo máy mới.
-* `logging/` chứa structured logging; `errors/` chứa printer-specific errors.
+* `logging/` chứa structured logging; `errors/` chứa lỗi dạng dữ liệu và mã lỗi; `exceptions/` chứa exception ném ra.
 
 Không tạo thêm folder chỉ vì muốn "đủ layer".
 
@@ -350,9 +352,12 @@ union.
 
 ```text
 models/paper/
-├── PaperOptions.ts     ContinuousPaper | DieCutPaper, PaperSize, CutterMode,
+├── PaperOptions.ts     ContinuousPaper | DieCutPaper,
 │                       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
-└── paperSpec.ts        thông số theo khổ: vùng in, ký tự/dòng, bề rộng ảnh, trần chiều cao giấy cuộn
+├── PaperSize.ts        58 | 80 | 100 | 104 (mm)
+├── PaperType.ts        Continuous | DieCut
+├── CutterMode.ts       None | PerJob | PerRow
+└── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh, trần chiều cao giấy cuộn
 
 forms/addPrinter/
 └── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions,
@@ -708,10 +713,11 @@ Không log binary payload, MAC/IP hay nội dung hoá đơn.
 
 # 33. Errors
 
-`errors/PrinterError.ts` — printer errors có stable error code (`PrinterErrorCode`), vd `PRINTER_NOT_CONNECTED`,
+`errors/PrinterErrorCode.ts` — mã lỗi ổn định, vd `PRINTER_NOT_CONNECTED`,
 `PRINTER_CONNECTION_FAILED`, `PRINTER_WRITE_FAILED`, `PRINTER_UNSUPPORTED_CONNECTION`, `IMAGE_INVALID`,
-`IMAGE_TOO_LARGE`. Native error được đổi sang `PrinterErrorException` ở
-`toPrinterError` (`adapters/native/NativeAdapter.ts`).
+`IMAGE_TOO_LARGE`. `errors/PrinterError.ts` là lỗi dạng dữ liệu (lưu trong job in, trả cho UI);
+`exceptions/PrinterErrorException.ts` là exception mang nó khi ném. Native error được đổi sang
+`PrinterErrorException` ở `toPrinterError` (`adapters/native/NativeAdapter.ts`).
 
 Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable
 identifier.

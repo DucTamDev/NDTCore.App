@@ -1,6 +1,7 @@
 import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
 import { PrintKind } from '../../../models/printer/PrintKind';
-import { PaperType, CutterMode } from '../../../models/paper/PaperOptions';
+import { PaperType } from '../../../models/paper/PaperType';
+import { CutterMode } from '../../../models/paper/CutterMode';
 import type { DieCutPaper, PaperOptions } from '../../../models/paper/PaperOptions';
 import type { MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 

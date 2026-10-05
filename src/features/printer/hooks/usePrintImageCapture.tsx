@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../models/paper/paperSpec';
 import type { PaperOptions } from '../models/paper/PaperOptions';
-import { PaperType } from '../models/paper/PaperOptions';
+import { PaperType } from '../models/paper/PaperType';
 
 /** Chụp `content` thành PNG base64 (không tiền tố `data:`) rộng theo `paper`; `null` khi chụp thất bại. */
 export type CaptureImage = (content: React.ReactElement, paper: PaperOptions) => Promise<string | null>;

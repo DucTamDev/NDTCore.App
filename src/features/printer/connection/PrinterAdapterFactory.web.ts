@@ -2,7 +2,8 @@ import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import type { ConnectionType } from '../models/printer/ConnectionType';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
-import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
+import { PrinterErrorException } from '../exceptions/PrinterErrorException';
+import { PrinterErrorCode } from '../errors/PrinterErrorCode';
 
 const unsupported = (): PrinterErrorException =>
   new PrinterErrorException({

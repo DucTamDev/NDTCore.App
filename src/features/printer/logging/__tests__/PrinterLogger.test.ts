@@ -1,6 +1,6 @@
 import { LoggerService } from '../../../../services/LoggerService';
 import { printerLogger } from '../PrinterLogger';
-import { PrinterErrorCode } from '../../errors/PrinterError';
+import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 

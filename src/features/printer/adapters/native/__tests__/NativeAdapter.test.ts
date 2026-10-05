@@ -1,7 +1,7 @@
 import { NativeAdapter, toPrinterError } from '../NativeAdapter';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../../models/printer/PrinterConnection';
-import { PrinterErrorCode } from '../../../errors/PrinterError';
+import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 
 type DisconnectListener = (event: { connectionId: string; reason: string }) => void;
 
