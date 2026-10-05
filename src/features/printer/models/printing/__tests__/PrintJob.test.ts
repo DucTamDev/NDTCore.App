@@ -1,6 +1,6 @@
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../PrintJob';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { PrintKind } from '../../printer/PrintKind';
+import { PrintErrorCode } from '../../../errors/PrintErrorCode';
 
 describe('print job types', () => {
   it('accepts a pending PrintJob', () => {
@@ -18,12 +18,16 @@ describe('print job types', () => {
   });
 
   it('accepts every PrintResult status', () => {
-    // 'UNKNOWN_ERROR' ở đây chỉ là 1 PrinterErrorCode bất kỳ để thoả shape.
+    // 'UNKNOWN_ERROR' ở đây chỉ là một mã lỗi bất kỳ để thoả shape.
     const results: PrintResult[] = [
       { status: PrintResultStatus.Success, jobs: [] },
       { status: PrintResultStatus.PartialFailure, jobs: [] },
       { status: PrintResultStatus.Failed, jobs: [] },
-      { status: PrintResultStatus.NoAvailablePrinter, jobs: [], error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' } },
+      {
+        status: PrintResultStatus.NoAvailablePrinter,
+        jobs: [],
+        error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' },
+      },
     ];
     expect(results).toHaveLength(4);
   });

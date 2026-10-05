@@ -2,8 +2,9 @@ import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
-import { PrinterErrorCode } from '../errors/PrinterErrorCode';
-import { PrinterErrorException } from '../exceptions/PrinterErrorException';
+import { DeviceErrorCode } from '../errors/DeviceErrorCode';
+import { DeviceErrorException } from '../exceptions/DeviceErrorException';
+import { errorCodeOf } from '../exceptions/PrinterFeatureException';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { createPrinterAdapter } from '../connection/PrinterAdapterFactory';
@@ -70,7 +71,7 @@ export class DeviceDiscoveryService {
         return;
       }
 
-      const errorCode = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
+      const errorCode = errorCodeOf(error);
       emit({ type: DeviceDiscoveryEventType.Error, error: { code: errorCode, message } });
       printerLogger.discoveryFailed({ connectionType, errorCode, durationMs: Date.now() - startedAt });
     };
@@ -91,8 +92,8 @@ export class DeviceDiscoveryService {
 
   private async findDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
     if (connectionType === ConnectionType.Bluetooth && !(await this.deps.ensureBluetoothPermission())) {
-      throw new PrinterErrorException({
-        code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+      throw new DeviceErrorException({
+        code: DeviceErrorCode.PERMISSION_DENIED,
         message: 'Chưa được cấp quyền Bluetooth',
       });
     }

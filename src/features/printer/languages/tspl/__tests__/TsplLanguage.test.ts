@@ -6,8 +6,8 @@ import { PrintKind } from '../../../models/printer/PrintKind';
 import { CutterMode } from '../../../models/paper/CutterMode';
 import { PaperSize } from '../../../models/paper/PaperSize';
 import { PaperType } from '../../../models/paper/PaperType';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
+import { PrintErrorCode } from '../../../errors/PrintErrorCode';
 
 const printer = makePrinter({ language: makeTsplLanguage() });
 
@@ -45,7 +45,7 @@ describe('TsplLanguage', () => {
 
   it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
     expect(() => TsplLanguage.encode(rasterLabelPrinter, squarePngBase64())).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
+      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
   });
 

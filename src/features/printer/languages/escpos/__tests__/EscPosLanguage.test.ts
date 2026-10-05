@@ -1,8 +1,8 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { EscPosLanguage } from '../EscPosLanguage';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { makeEscPosLanguage, makePrinter } from '../../../testing/printerFixtures';
+import { PrintErrorCode } from '../../../errors/PrintErrorCode';
 
 const printer = makePrinter({ language: makeEscPosLanguage() });
 
@@ -20,13 +20,13 @@ const tallPngBase64 = (): string => {
 describe('EscPosLanguage', () => {
   it('ảnh không giải mã được → IMAGE_INVALID', () => {
     expect(() => EscPosLanguage.encode(printer, 'not-a-png')).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_INVALID }),
+      expect.objectContaining({ code: PrintErrorCode.INVALID_IMAGE }),
     );
   });
 
   it('ảnh cao quá trần an toàn → IMAGE_TOO_LARGE', () => {
     expect(() => EscPosLanguage.encode(printer, tallPngBase64())).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
+      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
   });
 

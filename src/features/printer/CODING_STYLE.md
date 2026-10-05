@@ -104,8 +104,8 @@ export type PrintLanguage = (typeof PrintLanguage)[keyof typeof PrintLanguage];
 ```
 
 Sử dụng: `printer.language.type === PrintLanguage.EscPos` — không so sánh string
-literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ
-`PrinterErrorCode` (giữ SCREAMING_SNAKE_CASE).
+literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ các bộ mã lỗi
+(`DeviceErrorCode`, `PrinterErrorCode`, `PrintErrorCode`) giữ SCREAMING_SNAKE_CASE.
 
 ---
 

@@ -3,8 +3,8 @@ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
-import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
+import { DeviceErrorException } from '../../exceptions/DeviceErrorException';
+import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
 import {
   DeviceModule,
   subscribeDeviceDisconnected,
@@ -57,8 +57,8 @@ const toDiscoveredDevice = (device: NativeDeviceInfo): DiscoveredDevice => {
   };
 };
 
-const notConnected = (): PrinterErrorException =>
-  new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Adapter chưa connect' });
+const notConnected = (): DeviceErrorException =>
+  new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'Adapter chưa connect' });
 
 const toNativeAddress = (connection: PrinterConnection): NativeDeviceAddress => {
   if (connection.type === ConnectionType.Usb) {
@@ -73,24 +73,21 @@ const toNativeAddress = (connection: PrinterConnection): NativeDeviceAddress => 
   return { type: 'lan', host: connection.host, port: connection.port };
 };
 
-/** Mã lỗi `DeviceModule` (native) → mã lỗi máy in và thông báo hiển thị cho người dùng. */
-const NATIVE_ERRORS: Record<string, { code: PrinterErrorCode; message: string }> = {
-  INVALID_ARGUMENT: { code: PrinterErrorCode.VALIDATION_ERROR, message: 'Thông tin kết nối máy in không hợp lệ' },
-  DEVICE_NOT_FOUND: { code: PrinterErrorCode.PRINTER_NOT_FOUND, message: 'Không tìm thấy máy in' },
-  AMBIGUOUS_DEVICE: {
-    code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
-    message: 'Có nhiều máy in USB cùng loại, chưa xác định được máy cần dùng',
-  },
-  PERMISSION_DENIED: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền dùng máy in' },
-  BLUETOOTH_DISABLED: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Bluetooth đang tắt' },
-  CONNECTION_FAILED: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không kết nối được máy in' },
-  NOT_CONNECTED: { code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' },
-  CONNECTION_LOST: { code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Mất kết nối máy in' },
-  SERVICE_CLOSED: { code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' },
-  WRITE_FAILED: { code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: 'Gửi dữ liệu tới máy in thất bại' },
-  WRITE_TIMEOUT: { code: PrinterErrorCode.PRINTER_WRITE_FAILED, message: 'Máy in không nhận hết dữ liệu kịp thời' },
-  READ_NOT_SUPPORTED: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Máy in không hỗ trợ đọc phản hồi' },
-  READ_FAILED: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không đọc được phản hồi máy in' },
+/** Thông báo tiếng Việt cho từng mã lỗi của `DeviceModule` (native). */
+const NATIVE_ERROR_MESSAGES: Record<DeviceErrorCode, string> = {
+  INVALID_ARGUMENT: 'Thông tin kết nối máy in không hợp lệ',
+  DEVICE_NOT_FOUND: 'Không tìm thấy máy in',
+  AMBIGUOUS_DEVICE: 'Có nhiều máy in USB cùng loại, chưa xác định được máy cần dùng',
+  PERMISSION_DENIED: 'Chưa được cấp quyền dùng máy in',
+  BLUETOOTH_DISABLED: 'Bluetooth đang tắt',
+  CONNECTION_FAILED: 'Không kết nối được máy in',
+  NOT_CONNECTED: 'Máy in chưa kết nối',
+  CONNECTION_LOST: 'Mất kết nối máy in',
+  SERVICE_CLOSED: 'Máy in chưa kết nối',
+  WRITE_FAILED: 'Gửi dữ liệu tới máy in thất bại',
+  WRITE_TIMEOUT: 'Máy in không nhận hết dữ liệu kịp thời',
+  READ_NOT_SUPPORTED: 'Máy in không hỗ trợ đọc phản hồi',
+  READ_FAILED: 'Không đọc được phản hồi máy in',
 };
 
 const nativeCodeOf = (error: unknown): string | undefined => {
@@ -102,25 +99,26 @@ const nativeCodeOf = (error: unknown): string | undefined => {
   return typeof code === 'string' ? code : undefined;
 };
 
-/** Lỗi không mang mã native (lỗi lập trình, lỗi lạ) giữ `UNKNOWN_ERROR` kèm thông báo gốc. */
-export const toPrinterError = (error: unknown): PrinterErrorException => {
-  const nativeCode = nativeCodeOf(error);
-  const mapped = nativeCode ? NATIVE_ERRORS[nativeCode] : undefined;
+const isDeviceErrorCode = (code: string): code is DeviceErrorCode =>
+  Object.prototype.hasOwnProperty.call(NATIVE_ERROR_MESSAGES, code);
 
-  if (mapped) {
-    return new PrinterErrorException({ code: mapped.code, message: mapped.message, cause: error });
+/** Lỗi không mang mã thiết bị (lỗi lập trình, lỗi native lạ) ném nguyên, không gán đại một mã thiết bị. */
+export const toDeviceError = (error: unknown): unknown => {
+  const nativeCode = nativeCodeOf(error);
+
+  if (!nativeCode || !isDeviceErrorCode(nativeCode)) {
+    return error;
   }
 
-  const message = error instanceof Error ? error.message : String(error);
-  return new PrinterErrorException({ code: PrinterErrorCode.UNKNOWN_ERROR, message, cause: error });
+  return new DeviceErrorException({ code: nativeCode, message: NATIVE_ERROR_MESSAGES[nativeCode], cause: error });
 };
 
-/** Gọi native và đổi mã lỗi native sang `PrinterErrorException` có thông báo tiếng Việt. */
+/** Gọi native và đổi mã lỗi native sang `DeviceErrorException` có thông báo tiếng Việt. */
 const callNative = async <T>(call: () => Promise<T>): Promise<T> => {
   try {
     return await call();
   } catch (error) {
-    throw toPrinterError(error);
+    throw toDeviceError(error);
   }
 };
 

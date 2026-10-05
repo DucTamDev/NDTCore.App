@@ -2,7 +2,7 @@ import { createElement, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { printerPrintService } from '../../printing/PrinterPrintService';
 import { SampleLabel, SampleReceipt } from '../../components/SamplePrint';
-import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
+import { PrinterFeatureException } from '../../exceptions/PrinterFeatureException';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';
@@ -59,7 +59,7 @@ export const useTestPrint = (input: UseTestPrintInput) => {
       const options = isLabel ? { rows: Number(testPrintRowsText) } : undefined;
       await printerPrintService.testPrint(printer, image, options);
     } catch (error) {
-      setTestPrintErrorMessage(error instanceof PrinterErrorException ? error.message : 'In thử thất bại');
+      setTestPrintErrorMessage(error instanceof PrinterFeatureException ? error.message : 'In thử thất bại');
     } finally {
       setTestPrintPending(false);
     }

@@ -8,10 +8,10 @@ import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -101,12 +101,12 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(basePrinter);
     await expect(service.print(basePrinter.id, 'not-a-png')).rejects.toMatchObject({
-      code: PrinterErrorCode.IMAGE_INVALID,
+      code: PrintErrorCode.INVALID_IMAGE,
     });
 
     expect(connectionService.send).not.toHaveBeenCalled();
     expect(printerLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ errorCode: PrinterErrorCode.IMAGE_INVALID }),
+      expect.objectContaining({ errorCode: PrintErrorCode.INVALID_IMAGE }),
     );
   });
 
@@ -144,7 +144,7 @@ describe('PrinterPrintService', () => {
     await expect(service.testPrint(basePrinter, image)).rejects.toThrow('offline');
 
     expect(printerLogger.testPrintFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: basePrinter.id, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),
+      expect.objectContaining({ printerId: basePrinter.id, errorCode: PrintErrorCode.UNKNOWN_ERROR }),
     );
   });
 });

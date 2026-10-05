@@ -2,7 +2,7 @@ import { printRoutingService, type PrintRoutingService } from './PrintRoutingSer
 import { printScheduler, type PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import { PrinterErrorCode } from '../errors/PrinterErrorCode';
+import { PrintErrorCode } from '../errors/PrintErrorCode';
 import type { PrintKind } from '../models/printer/PrintKind';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
@@ -46,7 +46,10 @@ export class PrintService {
       return {
         status: PrintResultStatus.NoAvailablePrinter,
         jobs: [],
-        error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}` },
+        error: {
+          code: PrintErrorCode.NO_AVAILABLE_PRINTER,
+          message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}`,
+        },
       };
     }
 

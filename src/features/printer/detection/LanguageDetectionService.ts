@@ -2,8 +2,8 @@ import type { Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
-import { PrinterErrorCode } from '../errors/PrinterErrorCode';
-import { errorCodeOf } from '../exceptions/PrinterErrorException';
+import { DeviceErrorCode } from '../errors/DeviceErrorCode';
+import { errorCodeOf } from '../exceptions/PrinterFeatureException';
 import type { PrinterError } from '../errors/PrinterError';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
@@ -141,7 +141,7 @@ export class LanguageDetectionService {
       await connectionService.connect(printer);
     } catch (error) {
       if (!isCancelled()) {
-        const failure = { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' };
+        const failure = { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' };
         onEvent({ stage: LanguageDetectionStage.Error, error: failure });
         const errorCode = errorCodeOf(error);
         printerLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });

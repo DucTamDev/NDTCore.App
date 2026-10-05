@@ -1,21 +1,23 @@
+import { DeviceErrorCode } from '../DeviceErrorCode';
 import { PrinterErrorCode } from '../PrinterErrorCode';
+import { PrintErrorCode } from '../PrintErrorCode';
+
+describe.each([
+  ['DeviceErrorCode', DeviceErrorCode],
+  ['PrinterErrorCode', PrinterErrorCode],
+  ['PrintErrorCode', PrintErrorCode],
+])('%s', (_name, codes) => {
+  it('giá trị mỗi mã trùng tên mã', () => {
+    for (const [key, value] of Object.entries(codes)) expect(value).toBe(key);
+  });
+});
 
 describe('PrinterErrorCode', () => {
-  it('có đủ bộ code §101', () => {
-    const required = [
-      'PRINTER_NOT_FOUND', 'PRINTER_ALREADY_EXISTS', 'PRINTER_CONNECTION_FAILED',
-      'PRINTER_CONNECTION_TIMEOUT', 'PRINTER_NOT_CONNECTED', 'PRINTER_PROTOCOL_UNKNOWN',
-      'PRINTER_UNSUPPORTED_CONNECTION', 'PRINTER_BUSY', 'PRINTER_WRITE_FAILED',
-      'IMAGE_INVALID', 'IMAGE_TOO_LARGE',
-      'VALIDATION_ERROR', 'NO_AVAILABLE_PRINTER', 'UNKNOWN_ERROR',
-    ] as const;
-    for (const code of required) expect(PrinterErrorCode[code]).toBe(code);
-  });
+  it('không chứa mã của tầng thiết bị hay của lệnh in', () => {
+    const printerCodes: string[] = Object.values(PrinterErrorCode);
 
-  it('không còn code cũ đã bỏ', () => {
-    expect((PrinterErrorCode as Record<string, string>).CONNECTION_ERROR).toBeUndefined();
-    expect((PrinterErrorCode as Record<string, string>).ENCODING_FAILED).toBeUndefined();
-    expect((PrinterErrorCode as Record<string, string>).PRINT_ERROR).toBeUndefined();
-    expect((PrinterErrorCode as Record<string, string>).UNSUPPORTED_CONNECTION).toBeUndefined();
+    expect(printerCodes).not.toContain('PRINTER_CONNECTION_FAILED');
+    expect(printerCodes).not.toContain('IMAGE_TOO_LARGE');
+    expect(printerCodes).not.toContain('UNKNOWN_ERROR');
   });
 });

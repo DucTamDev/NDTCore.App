@@ -1,5 +1,5 @@
-import { PrinterErrorException } from '../exceptions/PrinterErrorException';
-import { PrinterErrorCode } from '../errors/PrinterErrorCode';
+import { PrinterFeatureException } from '../exceptions/PrinterFeatureException';
+import { PrintErrorCode } from '../errors/PrintErrorCode';
 import type { PrinterError } from '../errors/PrinterError';
 import { printerPrintService, type PrinterPrintService } from './PrinterPrintService';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
@@ -19,9 +19,9 @@ export interface PrintSchedulerDeps {
 }
 
 const toPrinterError = (error: unknown): PrinterError =>
-  error instanceof PrinterErrorException
+  error instanceof PrinterFeatureException
     ? { code: error.code, message: error.message }
-    : { code: PrinterErrorCode.UNKNOWN_ERROR, message: String(error) };
+    : { code: PrintErrorCode.UNKNOWN_ERROR, message: String(error) };
 
 /** Chạy job in theo thứ tự, mỗi máy vật lý một job tại một thời điểm. */
 export class PrintScheduler {

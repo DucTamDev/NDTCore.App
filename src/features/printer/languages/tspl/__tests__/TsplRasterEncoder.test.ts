@@ -1,5 +1,4 @@
 import { encodeTsplRaster } from '../TsplRasterEncoder';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import type { Printer } from '../../../models/printer/Printer';
 import { CutterMode } from '../../../models/paper/CutterMode';
@@ -8,6 +7,7 @@ import { PaperType } from '../../../models/paper/PaperType';
 import type { PaperOptions } from '../../../models/paper/PaperOptions';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
+import { PrintErrorCode } from '../../../errors/PrintErrorCode';
 
 jest.mock('../../../rendering/MonochromeBitmap', () => {
   const actual = jest.requireActual('../../../rendering/MonochromeBitmap');
@@ -71,7 +71,7 @@ describe('encodeTsplRaster', () => {
   it('base64 không phải PNG → IMAGE_INVALID', () => {
 
     expect(() => encodeTsplRaster(printerWith(CONTINUOUS), 'bm90LWEtcG5n', 1)).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_INVALID }),
+      expect.objectContaining({ code: PrintErrorCode.INVALID_IMAGE }),
     );
   });
 
@@ -79,7 +79,7 @@ describe('encodeTsplRaster', () => {
     const tinyLabel = printerWith({ ...DIE_CUT, itemHeightMm: 0.01 }, PrintKind.Label);
 
     expect(() => encodeTsplRaster(tinyLabel, TINY_PNG, 1)).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
+      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
   });
 });

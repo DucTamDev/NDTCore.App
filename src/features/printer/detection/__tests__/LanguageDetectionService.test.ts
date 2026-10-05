@@ -7,10 +7,10 @@ import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { Printer } from '../../models/printer/Printer';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makePrinter } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
+import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
 
 jest.mock('../../logging/PrinterLogger', () => ({
   printerLogger: {
@@ -139,7 +139,7 @@ describe('LanguageDetectionService', () => {
 
     expect(events[events.length - 1]).toEqual({
       stage: LanguageDetectionStage.Error,
-      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
+      error: { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
     });
     expect(printerLogger.detectionFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: lanDraft.id, connectionType: ConnectionType.Lan }),

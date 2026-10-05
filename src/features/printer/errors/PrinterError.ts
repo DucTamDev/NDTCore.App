@@ -1,8 +1,8 @@
-import type { PrinterErrorCode } from './PrinterErrorCode';
+import type { ErrorCode } from './ErrorCode';
 
 /** Lỗi máy in dạng dữ liệu, lưu được vào job in và trả về cho UI. */
 export interface PrinterError {
-  code: PrinterErrorCode;
+  code: ErrorCode;
 
   /** Câu thông báo tiếng Việt cho người dùng. */
   message: string;

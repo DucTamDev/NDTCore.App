@@ -2,8 +2,9 @@ import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import type { Printer } from '../models/printer/Printer';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
-import { PrinterErrorCode } from '../errors/PrinterErrorCode';
-import { PrinterErrorException, errorCodeOf } from '../exceptions/PrinterErrorException';
+import { DeviceErrorCode } from '../errors/DeviceErrorCode';
+import { DeviceErrorException } from '../exceptions/DeviceErrorException';
+import { errorCodeOf } from '../exceptions/PrinterFeatureException';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
@@ -38,14 +39,11 @@ interface ConnectionSession {
   stopWatchingLost: Unsubscribe;
 }
 
-const notConnected = (): PrinterErrorException =>
-  new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_CONNECTED, message: 'Máy in chưa kết nối' });
+const notConnected = (): DeviceErrorException =>
+  new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'Máy in chưa kết nối' });
 
-const bluetoothDenied = (): PrinterErrorException =>
-  new PrinterErrorException({
-    code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
-    message: 'Chưa được cấp quyền Bluetooth',
-  });
+const bluetoothDenied = (): DeviceErrorException =>
+  new DeviceErrorException({ code: DeviceErrorCode.PERMISSION_DENIED, message: 'Chưa được cấp quyền Bluetooth' });
 
 /**
  * Kết nối của từng máy in (đã lưu hoặc bản nháp) theo `printerId`: mở, đóng, gửi byte, đọc phản hồi và trạng thái.

@@ -2,8 +2,6 @@ import { PrintScheduler } from '../PrintScheduler';
 import { PrinterPrintService } from '../PrinterPrintService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { ResourceLock } from '../../connection/PrinterConnectionLock';
-import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
@@ -11,6 +9,8 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorException } from '../../exceptions/PrintErrorException';
 
 const tsplLanguage = makeTsplLanguage();
 
@@ -41,15 +41,17 @@ describe('PrintScheduler', () => {
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and an PrinterError when printerPrintService.print rejects', async () => {
+  it('enqueue() resolves with status failed and a PrinterError when printerPrintService.print rejects', async () => {
     const printerService = {
-      print: jest.fn().mockRejectedValue(new PrinterErrorException({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
+      print: jest
+        .fn()
+        .mockRejectedValue(new PrintErrorException({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' })),
       getPrinters: jest.fn().mockReturnValue([]),
     };
     const scheduler = makeScheduler(printerService);
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.Failed);
-    expect(result.error).toEqual({ code: PrinterErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
+    expect(result.error).toEqual({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {

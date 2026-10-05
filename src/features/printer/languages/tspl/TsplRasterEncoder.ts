@@ -2,8 +2,8 @@ import type { Printer } from '../../models/printer/Printer';
 import { PaperType } from '../../models/paper/PaperType';
 import { type PaperOptions, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
-import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
+import { PrintErrorException } from '../../exceptions/PrintErrorException';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from './TsplEncoder';
@@ -16,8 +16,8 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   try {
     return decodePngBase64ToMonochrome(image, widthDots);
   } catch (error) {
-    throw new PrinterErrorException({
-      code: PrinterErrorCode.IMAGE_INVALID,
+    throw new PrintErrorException({
+      code: PrintErrorCode.INVALID_IMAGE,
       message: 'Ảnh bill không hợp lệ (không giải mã được PNG).',
       cause: error,
     });
@@ -32,8 +32,8 @@ export const encodeTsplRaster = (printer: Printer, image: string, rows: number):
 
   if (bitmap.heightPx > heightMm * DOTS_PER_MM) {
     const contentHeightMm = Math.ceil(bitmap.heightPx / DOTS_PER_MM);
-    throw new PrinterErrorException({
-      code: PrinterErrorCode.IMAGE_TOO_LARGE,
+    throw new PrintErrorException({
+      code: PrintErrorCode.IMAGE_TOO_LARGE,
       message:
         `Nội dung cao khoảng ${contentHeightMm}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — ` +
         'dùng giấy dài hơn hoặc rút gọn nội dung.',

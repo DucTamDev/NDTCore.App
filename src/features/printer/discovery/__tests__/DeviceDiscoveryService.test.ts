@@ -2,9 +2,10 @@ import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../models/device/DeviceDiscoveryEvent';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
+import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -81,7 +82,7 @@ describe('DeviceDiscoveryService', () => {
 
     expect(events[1]).toEqual({
       type: DeviceDiscoveryEventType.Error,
-      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' },
+      error: { code: DeviceErrorCode.PERMISSION_DENIED, message: 'Chưa được cấp quyền Bluetooth' },
     });
     expect(adapter.listDevices).not.toHaveBeenCalled();
   });
@@ -113,7 +114,7 @@ describe('DeviceDiscoveryService', () => {
 
     expect(events[1]).toEqual({
       type: DeviceDiscoveryEventType.Error,
-      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'bluetooth adapter off' },
+      error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'bluetooth adapter off' },
     });
     expect(printerLogger.discoveryFailed).toHaveBeenCalledWith(
       expect.objectContaining({ connectionType: ConnectionType.Bluetooth }),

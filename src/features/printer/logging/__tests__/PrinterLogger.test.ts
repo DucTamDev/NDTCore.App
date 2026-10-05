@@ -1,8 +1,9 @@
 import { LoggerService } from '../../../../services/LoggerService';
 import { printerLogger } from '../PrinterLogger';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -24,7 +25,7 @@ const bluetooth = ConnectionType.Bluetooth;
 
 const lan = ConnectionType.Lan;
 
-const failed = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
+const failed = DeviceErrorCode.CONNECTION_FAILED;
 
 /** Dựng một dòng bảng từ hàm log và tham số của nó, để tham số chỉ viết một lần. */
 const logCase = <T extends Record<string, unknown>>(
@@ -112,7 +113,7 @@ const CASES: [string, LogCase][] = [
   ),
   logCase(
     (l, p) => l.testPrintFailed(p),
-    { printerId: 'p1', language: PrintLanguage.EscPos, errorCode: PrinterErrorCode.UNKNOWN_ERROR, durationMs: 500 },
+    { printerId: 'p1', language: PrintLanguage.EscPos, errorCode: PrintErrorCode.UNKNOWN_ERROR, durationMs: 500 },
     { level: 'error', event: 'printer.test-print.failed', operation: 'test-print', result: 'failure' },
   ),
   logCase(
@@ -125,7 +126,7 @@ const CASES: [string, LogCase][] = [
     {
       printerId: 'p1',
       language: PrintLanguage.EscPos,
-      errorCode: PrinterErrorCode.IMAGE_INVALID,
+      errorCode: PrintErrorCode.INVALID_IMAGE,
       durationMs: 80,
     },
     { level: 'error', event: 'printer.print.failed', operation: 'print', result: 'failure' },

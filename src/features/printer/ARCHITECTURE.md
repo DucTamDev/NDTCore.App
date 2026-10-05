@@ -110,7 +110,7 @@ src/features/printer/
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
-│   ├── native/          NativeAdapter (+ toPrinterError), DeviceModule, NativeConnectionPool
+│   ├── native/          NativeAdapter (+ toDeviceError), DeviceModule, NativeConnectionPool
 │   └── vendor/          VendorAdapter (khung)
 │
 ├── connection/
@@ -126,8 +126,10 @@ src/features/printer/
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
-├── errors/              PrinterError (lỗi dạng dữ liệu), PrinterErrorCode
-├── exceptions/          PrinterErrorException (+ errorCodeOf)
+├── errors/              DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã),
+│                        PrinterError (lỗi dạng dữ liệu)
+├── exceptions/          PrinterFeatureException (lớp nền + errorCodeOf), DeviceErrorException,
+│                        PrinterErrorException, PrintErrorException
 │
 ├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
@@ -405,8 +407,8 @@ interface IPrintLanguage {
 getPrintLanguage(type: PrintLanguage): IPrintLanguage
 ```
 
-* `encode` kiểm tra rồi encode; ảnh hỏng (`IMAGE_INVALID`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
-  `PrinterErrorException`.
+* `encode` kiểm tra rồi encode; ảnh hỏng (`INVALID_IMAGE`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
+  `PrintErrorException`.
 * `EscPosLanguage`: `EscPosRasterEncoder`, cắt giấy theo `resolveEffectiveCutterMode`. Không có lệnh dò.
 * `TsplLanguage`: `encodeTsplRaster`; `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi
   máy trả lời ít nhất 1 byte.
@@ -493,7 +495,7 @@ Comment cần giải thích:
 | --- | --- |
 | `connect(printer)` | Mở kết nối bằng adapter mới, `Connecting` → `Connected` / `Error` (chi tiết dưới bảng) |
 | `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; chưa kết nối thì chỉ đặt `Disconnected` |
-| `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `PRINTER_NOT_CONNECTED` |
+| `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `NOT_CONNECTED` |
 | `read(printerId, timeoutMs)` | Đọc phản hồi; `null` khi hết hạn |
 | `getStatus` / `onStatusChange` | Theo phiên trong bộ nhớ; chưa từng kết nối là `Idle` |
 | `reconnect(printerId)`, `reconnectAutoPrinters()` | Đọc máy in đã lưu từ `PrinterRepository` |
@@ -581,7 +583,7 @@ Public receipt printing không throw error ra UI flow nếu application policy y
 layers vẫn trả structured error:
 
 ```text
-Native / adapter error (PrinterErrorException)
+Native / adapter error (DeviceErrorException), encode error (PrintErrorException)
     ↓
 PrinterPrintService (log print* failed)
     ↓
@@ -713,11 +715,18 @@ Không log binary payload, MAC/IP hay nội dung hoá đơn.
 
 # 33. Errors
 
-`errors/PrinterErrorCode.ts` — mã lỗi ổn định, vd `PRINTER_NOT_CONNECTED`,
-`PRINTER_CONNECTION_FAILED`, `PRINTER_WRITE_FAILED`, `PRINTER_UNSUPPORTED_CONNECTION`, `IMAGE_INVALID`,
-`IMAGE_TOO_LARGE`. `errors/PrinterError.ts` là lỗi dạng dữ liệu (lưu trong job in, trả cho UI);
-`exceptions/PrinterErrorException.ts` là exception mang nó khi ném. Native error được đổi sang
-`PrinterErrorException` ở `toPrinterError` (`adapters/native/NativeAdapter.ts`).
+Ba bộ mã lỗi ổn định, mỗi bộ một tầng:
+
+| Bộ mã              | Tầng                                    | Exception               |
+| ------------------ | --------------------------------------- | ----------------------- |
+| `DeviceErrorCode`  | thiết bị, kết nối, đọc ghi (khớp 1:1 native) | `DeviceErrorException`  |
+| `PrinterErrorCode` | cấu hình và tìm máy in                  | `PrinterErrorException` |
+| `PrintErrorCode`   | một lệnh in (ảnh, encode, không có máy nhận) | `PrintErrorException`   |
+
+Ba exception kế thừa `PrinterFeatureException` nên nơi gọi bắt chung và đọc `code` (`ErrorCode`, hợp 3 bộ mã);
+`errorCodeOf` trả `UNKNOWN_ERROR` cho lỗi không phải exception của feature. `errors/PrinterError.ts` là lỗi dạng dữ
+liệu (lưu trong job in, trả cho UI). `toDeviceError` (`adapters/native/NativeAdapter.ts`) giữ nguyên mã native và
+gắn thông báo tiếng Việt; lỗi native không mang mã thiết bị được ném nguyên.
 
 Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable
 identifier.

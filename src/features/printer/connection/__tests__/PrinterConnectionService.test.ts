@@ -6,10 +6,10 @@ import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
-import { PrinterErrorException } from '../../exceptions/PrinterErrorException';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { basePrinter, makeFakeAdapter } from '../../testing/printerServiceTestKit';
+import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
+import { DeviceErrorException } from '../../exceptions/DeviceErrorException';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -101,11 +101,11 @@ describe('PrinterConnectionService', () => {
     expect(adapter.connect).toHaveBeenCalledWith(bluetoothPrinter.connection);
   });
 
-  it('không có quyền Bluetooth → PRINTER_CONNECTION_FAILED, trạng thái Error, không mở adapter', async () => {
+  it('không có quyền Bluetooth → PERMISSION_DENIED, trạng thái Error, không mở adapter', async () => {
     const { service, createAdapter } = setup([], false);
 
     await expect(service.connect(bluetoothPrinter)).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+      code: DeviceErrorCode.PERMISSION_DENIED,
     });
 
     expect(createAdapter).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('PrinterConnectionService', () => {
 
   it('kết nối thất bại → trạng thái Error, ghi log và ném lại lỗi', async () => {
     const { adapter } = makeFakeAdapter();
-    const failure = new PrinterErrorException({ code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'down' });
+    const failure = new DeviceErrorException({ code: DeviceErrorCode.CONNECTION_FAILED, message: 'down' });
     adapter.connect.mockRejectedValueOnce(failure);
     const { service } = setup([adapter]);
 
@@ -122,7 +122,7 @@ describe('PrinterConnectionService', () => {
 
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Error);
     expect(printerLogger.connectFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: basePrinter.id, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED }),
+      expect.objectContaining({ printerId: basePrinter.id, errorCode: DeviceErrorCode.CONNECTION_FAILED }),
     );
   });
 
@@ -192,7 +192,7 @@ describe('PrinterConnectionService', () => {
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
     expect(statuses).toEqual([PrinterStatus.Disconnecting, PrinterStatus.Disconnected]);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
+      code: DeviceErrorCode.NOT_CONNECTED,
     });
   });
 
@@ -274,11 +274,11 @@ describe('PrinterConnectionService', () => {
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Error);
   });
 
-  it('gửi khi chưa kết nối → PRINTER_NOT_CONNECTED', async () => {
+  it('gửi khi chưa kết nối → NOT_CONNECTED', async () => {
     const { service } = setup([]);
 
     await expect(service.send('never', new Uint8Array([1]))).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
+      code: DeviceErrorCode.NOT_CONNECTED,
     });
   });
 

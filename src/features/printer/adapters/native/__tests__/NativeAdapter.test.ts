@@ -1,7 +1,8 @@
-import { NativeAdapter, toPrinterError } from '../NativeAdapter';
+import { NativeAdapter, toDeviceError } from '../NativeAdapter';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../../models/printer/PrinterConnection';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
+import { DeviceErrorCode } from '../../../errors/DeviceErrorCode';
+import { DeviceErrorException } from '../../../exceptions/DeviceErrorException';
 
 type DisconnectListener = (event: { connectionId: string; reason: string }) => void;
 
@@ -218,19 +219,19 @@ describe('NativeAdapter', () => {
     expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', expect.any(String), 600_000);
   });
 
-  it('write trước connect -> PRINTER_NOT_CONNECTED', async () => {
+  it('write trước connect -> NOT_CONNECTED', async () => {
     await expect(new NativeAdapter().write(new Uint8Array([1]))).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_NOT_CONNECTED,
+      code: DeviceErrorCode.NOT_CONNECTED,
     });
   });
 
-  it('lỗi native được đổi sang PrinterErrorException theo mã', async () => {
+  it('lỗi native được đổi sang DeviceErrorException giữ nguyên mã', async () => {
     const adapter = new NativeAdapter();
     await adapter.connect(lanConnection);
     deviceModule().write.mockRejectedValueOnce({ code: 'WRITE_TIMEOUT', message: 'timeout' });
 
     const write = adapter.write(new Uint8Array([1]));
-    await expect(write).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_WRITE_FAILED });
+    await expect(write).rejects.toMatchObject({ code: DeviceErrorCode.WRITE_TIMEOUT });
   });
 
   it('disconnect trả lease (native disconnect) và lần thứ hai không làm gì', async () => {
@@ -243,35 +244,22 @@ describe('NativeAdapter', () => {
   });
 });
 
-describe('toPrinterError', () => {
-  it.each([
-    ['INVALID_ARGUMENT', PrinterErrorCode.VALIDATION_ERROR],
-    ['DEVICE_NOT_FOUND', PrinterErrorCode.PRINTER_NOT_FOUND],
-    ['AMBIGUOUS_DEVICE', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-    ['PERMISSION_DENIED', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-    ['BLUETOOTH_DISABLED', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-    ['CONNECTION_FAILED', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-    ['NOT_CONNECTED', PrinterErrorCode.PRINTER_NOT_CONNECTED],
-    ['CONNECTION_LOST', PrinterErrorCode.PRINTER_NOT_CONNECTED],
-    ['SERVICE_CLOSED', PrinterErrorCode.PRINTER_NOT_CONNECTED],
-    ['WRITE_FAILED', PrinterErrorCode.PRINTER_WRITE_FAILED],
-    ['WRITE_TIMEOUT', PrinterErrorCode.PRINTER_WRITE_FAILED],
-    ['READ_NOT_SUPPORTED', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-    ['READ_FAILED', PrinterErrorCode.PRINTER_CONNECTION_FAILED],
-  ])('mã native %s → %s, kèm thông báo tiếng Việt và lỗi gốc', (nativeCode, expected) => {
-    const nativeError = { code: nativeCode, message: 'native message' };
+describe('toDeviceError', () => {
+  it.each(Object.values(DeviceErrorCode))('mã native %s giữ nguyên, kèm thông báo tiếng Việt và lỗi gốc', (code) => {
+    const nativeError = { code, message: 'native message' };
 
-    const error = toPrinterError(nativeError);
+    const error = toDeviceError(nativeError);
 
-    expect(error.code).toBe(expected);
-    expect(error.message).not.toBe('native message');
-    expect(error.cause).toBe(nativeError);
+    expect(error).toBeInstanceOf(DeviceErrorException);
+    expect(error).toMatchObject({ code, cause: nativeError });
+    expect((error as DeviceErrorException).message).not.toBe('native message');
   });
 
-  it('lỗi không có mã native giữ UNKNOWN_ERROR và thông báo gốc', () => {
-    const error = toPrinterError(new Error('native connect failed'));
+  it('lỗi không có mã thiết bị được trả nguyên', () => {
+    const plain = new Error('native connect failed');
+    const internal = { code: 'INTERNAL_ERROR', message: 'boom' };
 
-    expect(error.code).toBe(PrinterErrorCode.UNKNOWN_ERROR);
-    expect(error.message).toBe('native connect failed');
+    expect(toDeviceError(plain)).toBe(plain);
+    expect(toDeviceError(internal)).toBe(internal);
   });
 });

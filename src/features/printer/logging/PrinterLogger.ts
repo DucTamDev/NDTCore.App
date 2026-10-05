@@ -1,5 +1,5 @@
 import { LoggerService } from '../../../services/LoggerService';
-import type { PrinterErrorCode } from '../errors/PrinterErrorCode';
+import type { ErrorCode } from '../errors/ErrorCode';
 import type { ConnectionType } from '../models/printer/ConnectionType';
 import type { PrintLanguage } from '../models/printer/PrinterLanguage';
 
@@ -41,7 +41,7 @@ export class PrinterLogger {
     LoggerService.info('printer.discovery.completed', withStdFields('discovery', 'success', params));
   }
 
-  discoveryFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
+  discoveryFailed(params: { connectionType: ConnectionType; errorCode: ErrorCode; durationMs: number }): void {
     LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
   }
 
@@ -57,7 +57,7 @@ export class PrinterLogger {
   connectFailed(params: {
     printerId: string;
     connectionType: ConnectionType;
-    errorCode: PrinterErrorCode;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.connect.failed', withStdFields('connect', 'failure', params));
@@ -67,7 +67,7 @@ export class PrinterLogger {
     LoggerService.info('printer.disconnect.succeeded', withStdFields('disconnect', 'success', params));
   }
 
-  disconnectFailed(params: { printerId: string; errorCode: PrinterErrorCode }): void {
+  disconnectFailed(params: { printerId: string; errorCode: ErrorCode }): void {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
   }
 
@@ -88,7 +88,7 @@ export class PrinterLogger {
   detectionFailed(params: {
     printerId: string;
     connectionType: ConnectionType;
-    errorCode: PrinterErrorCode;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.detection.failed', withStdFields('detection', 'failure', params));
@@ -120,7 +120,7 @@ export class PrinterLogger {
   testPrintFailed(params: {
     printerId: string;
     language: PrintLanguage;
-    errorCode: PrinterErrorCode;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.error('printer.test-print.failed', withStdFields('test-print', 'failure', params));
@@ -133,7 +133,7 @@ export class PrinterLogger {
   printFailed(params: {
     printerId: string;
     language: PrintLanguage;
-    errorCode: PrinterErrorCode;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));

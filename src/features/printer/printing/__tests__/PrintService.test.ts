@@ -4,9 +4,9 @@ import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
+import { PrintErrorCode } from '../../errors/PrintErrorCode';
 
 const image = 'base64-png';
 
@@ -23,7 +23,7 @@ describe('PrintService.print', () => {
     const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintResultStatus.NoAvailablePrinter);
-    expect(result.error?.code).toBe(PrinterErrorCode.NO_AVAILABLE_PRINTER);
+    expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
 
@@ -84,7 +84,7 @@ describe('PrintService.print', () => {
       status: PrintJobStatus.Failed,
       retryCount: 0,
       createdAt: 'now',
-      error: { code: PrinterErrorCode.UNKNOWN_ERROR, message: 'x' },
+      error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' },
     }));
     const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, image);
