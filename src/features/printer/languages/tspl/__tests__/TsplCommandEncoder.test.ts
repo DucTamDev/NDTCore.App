@@ -56,8 +56,7 @@ describe('encodeTsplCommand', () => {
   it('phần tử row canh trái/phải', () => {
     const text = encodeToText({ elements: [{ type: 'row', left: 'Tổng', right: '10.000đ', x: 0, y: 0 }] });
 
-    expect(text).toContain('Tổng');
-    expect(text).toContain('10.000đ');
+    expect(text).toContain(`"Tổng${' '.repeat(37)}10.000đ"`);
   });
 
   it('phần tử table: mỗi hàng một dòng TEXT, phần tử sau nằm dưới hàng cuối', () => {

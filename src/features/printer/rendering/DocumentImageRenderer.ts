@@ -93,7 +93,7 @@ const drawQrCode = (canvas: SkiaCanvas, content: string, x: number, y: number, p
 
 /**
  * Font monospace hệ thống, cỡ `LINE_HEIGHT_PX` — bắt buộc monospace vì
- * `table`/`row` dựa vào `formatRow`/`row.join('  ')` tạo lưới ký tự CỐ ĐỊNH
+ * `table`/`row` dựa vào căn cột theo số ký tự / `row.join('  ')` tạo lưới ký tự CỐ ĐỊNH
  * bề rộng (cùng giả định với path `Image`, nơi `BillImagePreview.tsx` dùng
  * `fontFamily: 'monospace'`); dùng font tỉ lệ (proportional) sẽ làm lệch cột.
  * Cỡ chữ phải khớp `LINE_HEIGHT_PX` (= `LINE_HEIGHT_DOTS` = 24) — mọi hằng số

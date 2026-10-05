@@ -2,7 +2,12 @@ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterErr
 import type { PaperSize } from '../../models/paper/PaperOptions';
 import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
-import { formatRow } from '../TextLayout';
+
+/** Căn "nhãn trái ... giá trị phải" cho đủ `width` ký tự; luôn giữ ít nhất 1 khoảng trắng kể cả khi tràn dòng. */
+const formatRow = (left: string, right: string, width: number): string => {
+  const gap = Math.max(1, width - left.length - right.length);
+  return `${left}${' '.repeat(gap)}${right}`;
+};
 
 /**
  * `documents.text` → chuỗi text ESC/POS (có tag `<C>`/`<B>`…). THUẦN — không

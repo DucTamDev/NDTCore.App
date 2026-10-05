@@ -104,7 +104,6 @@ src/features/printer/
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
 │   ├── IPrintLanguage.ts
-│   ├── TextLayout.ts    formatRow — canh dòng trái/phải cho in lệnh (ESC/POS, TSPL)
 │   ├── escpos/          EscPosLanguage, EscPosTextBuilder, EscPosRasterEncoder, EPToolkit
 │   └── tspl/            TsplLanguage, TsplEncoder, TsplCommandEncoder, TsplRasterEncoder
 │

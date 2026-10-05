@@ -3,7 +3,6 @@ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintElement } from '../../models/printing/PrintDocument';
 import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import { formatRow } from '../TextLayout';
 import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../../rendering/printLayoutConstants';
 import { TsplEncoder, contentWidthChars, columnOffsets } from './TsplEncoder';
 
@@ -13,6 +12,12 @@ interface DrawPosition {
 
   y: number;
 }
+
+/** Căn "nhãn trái ... giá trị phải" cho đủ `width` ký tự; luôn giữ ít nhất 1 khoảng trắng kể cả khi tràn dòng. */
+const formatRow = (left: string, right: string, width: number): string => {
+  const gap = Math.max(1, width - left.length - right.length);
+  return `${left}${' '.repeat(gap)}${right}`;
+};
 
 /** Vẽ một phần tử tại `position`; trả về chiều cao (dot) phần tử chiếm để phần tử sau xuống dòng. */
 const drawElement = (
