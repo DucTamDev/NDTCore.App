@@ -1,6 +1,5 @@
 import { Buffer } from 'buffer';
 import * as iconv from 'iconv-lite';
-import { BufferHelper } from './BufferHelper';
 
 /**
  * Encode chuỗi văn bản (có tag định dạng `<C>`, `<B>`...) thành byte ESC/POS —
@@ -95,33 +94,33 @@ const default_options: ExchangeOptions = {
  */
 export function exchange_text(text: string, options?: ExchangeOptions): Buffer {
   const m_options = options || default_options;
-  const bytes = new BufferHelper();
-  bytes.concat(init_printer_bytes);
+  const bytes: Buffer[] = [];
+  bytes.push(init_printer_bytes);
 
   const encoding = m_options.encoding ?? 'UTF8';
   if (m_options.encoding && options_controller.encoding[m_options.encoding]) {
-    bytes.concat(options_controller.encoding[m_options.encoding]);
+    bytes.push(options_controller.encoding[m_options.encoding]);
   }
-  bytes.concat(default_space_bytes);
+  bytes.push(default_space_bytes);
 
   let temp = '';
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     switch (ch) {
       case '<':
-        bytes.concat(iconv.encode(temp, encoding));
+        bytes.push(iconv.encode(temp, encoding));
         temp = '';
         for (const tag in controller) {
           if (text.substring(i, i + tag.length) === tag) {
-            bytes.concat(controller[tag]);
+            bytes.push(controller[tag]);
             i += tag.length - 1;
           }
         }
         break;
       case '\n':
         temp = `${temp}${ch}`;
-        bytes.concat(iconv.encode(temp, encoding));
-        bytes.concat(reset_bytes);
+        bytes.push(iconv.encode(temp, encoding));
+        bytes.push(reset_bytes);
         temp = '';
         break;
       default:
@@ -129,16 +128,16 @@ export function exchange_text(text: string, options?: ExchangeOptions): Buffer {
         break;
     }
   }
-  if (temp.length) bytes.concat(iconv.encode(temp, encoding));
+  if (temp.length) bytes.push(iconv.encode(temp, encoding));
 
   if (typeof m_options.tailingLine === 'boolean' && m_options.tailingLine) {
-    bytes.concat(options_controller.tailingLine);
+    bytes.push(options_controller.tailingLine);
   }
   if (typeof m_options.cut === 'boolean' && m_options.cut) {
-    bytes.concat(options_controller.cut);
+    bytes.push(options_controller.cut);
   }
   if (typeof m_options.beep === 'boolean' && m_options.beep) {
-    bytes.concat(options_controller.beep);
+    bytes.push(options_controller.beep);
   }
-  return bytes.toBuffer();
+  return Buffer.concat(bytes);
 }
