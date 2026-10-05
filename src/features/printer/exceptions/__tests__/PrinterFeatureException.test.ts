@@ -1,7 +1,8 @@
 import { DeviceErrorException } from '../DeviceErrorException';
 import { PrintErrorException } from '../PrintErrorException';
 import { PrinterErrorException } from '../PrinterErrorException';
-import { PrinterFeatureException, errorCodeOf } from '../PrinterFeatureException';
+import { PrinterFeatureException } from '../PrinterFeatureException';
+import { errorCodeOf, toPrinterFeatureException } from '..';
 import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
 import { PrintErrorCode } from '../../errors/PrintErrorCode';
 import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
@@ -37,5 +38,22 @@ describe('errorCodeOf', () => {
 
   it('lỗi không phải exception của feature → UNKNOWN_ERROR', () => {
     expect(errorCodeOf(new Error('x'))).toBe(PrintErrorCode.UNKNOWN_ERROR);
+  });
+});
+
+describe('toPrinterFeatureException', () => {
+  it('exception của feature trả nguyên', () => {
+    const error = new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'x' });
+
+    expect(toPrinterFeatureException(error)).toBe(error);
+  });
+
+  it('lỗi khác bọc thành PrintErrorException UNKNOWN_ERROR, giữ thông báo và lỗi gốc', () => {
+    const cause = new Error('boom');
+    const error = toPrinterFeatureException(cause);
+
+    expect(error).toBeInstanceOf(PrintErrorException);
+    expect(error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, cause });
+    expect(error.message).toBe('boom');
   });
 });

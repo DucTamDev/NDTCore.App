@@ -1,7 +1,7 @@
 import type { PrintOptions } from '../models/printing/PrintOptions';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
-import { errorCodeOf } from '../exceptions/PrinterFeatureException';
+import { errorCodeOf } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';

@@ -1,4 +1,4 @@
-import type { PrinterError } from '../../errors/PrinterError';
+import type { PrinterFeatureException } from '../../exceptions';
 import type { DiscoveredDevice } from './DiscoveredDevice';
 
 /** Loại cập nhật trong lúc tìm thiết bị. */
@@ -11,4 +11,4 @@ export type DeviceDiscoveryEvent =
   | { type: typeof DeviceDiscoveryEventType.Loading }
   | { type: typeof DeviceDiscoveryEventType.Found; devices: DiscoveredDevice[] }
   | { type: typeof DeviceDiscoveryEventType.Empty }
-  | { type: typeof DeviceDiscoveryEventType.Error; error: PrinterError };
+  | { type: typeof DeviceDiscoveryEventType.Error; error: PrinterFeatureException };

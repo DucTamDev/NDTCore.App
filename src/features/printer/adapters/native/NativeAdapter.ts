@@ -3,7 +3,7 @@ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
-import { DeviceErrorException } from '../../exceptions/DeviceErrorException';
+import { DeviceErrorException } from '../../exceptions';
 import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
 import {
   DeviceModule,

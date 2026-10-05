@@ -3,8 +3,7 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import { DeviceErrorCode } from '../errors/DeviceErrorCode';
-import { errorCodeOf } from '../exceptions/PrinterFeatureException';
-import type { PrinterError } from '../errors/PrinterError';
+import { DeviceErrorException, errorCodeOf, type PrinterFeatureException } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
@@ -34,7 +33,7 @@ export type LanguageDetectionEvent =
   | { stage: typeof LanguageDetectionStage.Identifying; language: PrintLanguage }
   | { stage: typeof LanguageDetectionStage.Detected; language: PrinterLanguage }
   | { stage: typeof LanguageDetectionStage.Unknown }
-  | { stage: typeof LanguageDetectionStage.Error; error: PrinterError };
+  | { stage: typeof LanguageDetectionStage.Error; error: PrinterFeatureException };
 
 /** Máy in cần dò ngôn ngữ. */
 export interface LanguageDetectionInput {
@@ -141,7 +140,11 @@ export class LanguageDetectionService {
       await connectionService.connect(printer);
     } catch (error) {
       if (!isCancelled()) {
-        const failure = { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' };
+        const failure = new DeviceErrorException({
+          code: DeviceErrorCode.CONNECTION_FAILED,
+          message: 'Không thể kết nối tới máy in',
+          cause: error,
+        });
         onEvent({ stage: LanguageDetectionStage.Error, error: failure });
         const errorCode = errorCodeOf(error);
         printerLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });

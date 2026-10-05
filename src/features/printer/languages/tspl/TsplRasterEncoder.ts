@@ -2,7 +2,7 @@ import type { Printer } from '../../models/printer/Printer';
 import { PaperType } from '../../models/paper/PaperType';
 import { type PaperOptions, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
-import { PrintErrorException } from '../../exceptions/PrintErrorException';
+import { PrintErrorException } from '../../exceptions';
 import { PrintErrorCode } from '../../errors/PrintErrorCode';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';

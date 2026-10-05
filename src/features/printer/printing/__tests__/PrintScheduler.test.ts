@@ -10,7 +10,7 @@ import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testi
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
 import { PrintErrorCode } from '../../errors/PrintErrorCode';
-import { PrintErrorException } from '../../exceptions/PrintErrorException';
+import { PrintErrorException } from '../../exceptions';
 
 const tsplLanguage = makeTsplLanguage();
 
@@ -41,7 +41,7 @@ describe('PrintScheduler', () => {
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and a PrinterError when printerPrintService.print rejects', async () => {
+  it('enqueue() resolves with status failed and the exception when printerPrintService.print rejects', async () => {
     const printerService = {
       print: jest
         .fn()
@@ -51,7 +51,7 @@ describe('PrintScheduler', () => {
     const scheduler = makeScheduler(printerService);
     const result = await scheduler.enqueue(makeJob());
     expect(result.status).toBe(PrintJobStatus.Failed);
-    expect(result.error).toEqual({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
+    expect(result.error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('retry() increments retryCount and re-enqueues the same job id', async () => {

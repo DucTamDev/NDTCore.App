@@ -2,7 +2,7 @@ import { createElement, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { printerPrintService } from '../../printing/PrinterPrintService';
 import { SampleLabel, SampleReceipt } from '../../components/SamplePrint';
-import { PrinterFeatureException } from '../../exceptions/PrinterFeatureException';
+import { PrinterFeatureException } from '../../exceptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
 import type { PrinterDisplayValues } from '../../forms/addPrinter/PrinterDisplaySchema';

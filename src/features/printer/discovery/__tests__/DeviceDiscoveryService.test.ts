@@ -80,7 +80,7 @@ describe('DeviceDiscoveryService', () => {
 
     const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
 
-    expect(events[1]).toEqual({
+    expect(events[1]).toMatchObject({
       type: DeviceDiscoveryEventType.Error,
       error: { code: DeviceErrorCode.PERMISSION_DENIED, message: 'Chưa được cấp quyền Bluetooth' },
     });
@@ -112,7 +112,7 @@ describe('DeviceDiscoveryService', () => {
 
     const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
 
-    expect(events[1]).toEqual({
+    expect(events[1]).toMatchObject({
       type: DeviceDiscoveryEventType.Error,
       error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'bluetooth adapter off' },
     });

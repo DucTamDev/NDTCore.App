@@ -1,5 +1,4 @@
 import type { ErrorCode } from '../errors/ErrorCode';
-import { PrintErrorCode } from '../errors/PrintErrorCode';
 
 /** Nội dung một exception: mã lỗi thuộc bộ mã của lớp con, thông báo và lỗi gốc. */
 export interface ExceptionDetail<TCode extends ErrorCode> {
@@ -27,7 +26,3 @@ export abstract class PrinterFeatureException<TCode extends ErrorCode = ErrorCod
     this.cause = detail.cause;
   }
 }
-
-/** Lỗi không phải exception của feature (vd lỗi lập trình) coi là `UNKNOWN_ERROR`. */
-export const errorCodeOf = (error: unknown): ErrorCode =>
-  error instanceof PrinterFeatureException ? error.code : PrintErrorCode.UNKNOWN_ERROR;

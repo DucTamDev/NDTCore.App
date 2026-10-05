@@ -126,10 +126,9 @@ src/features/printer/
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
-├── errors/              DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã),
-│                        PrinterError (lỗi dạng dữ liệu)
-├── exceptions/          PrinterFeatureException (lớp nền + errorCodeOf), DeviceErrorException,
-│                        PrinterErrorException, PrintErrorException
+├── errors/              DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
+├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
+│                        (lớp nền), DeviceErrorException, PrinterErrorException, PrintErrorException
 │
 ├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
@@ -587,7 +586,7 @@ Native / adapter error (DeviceErrorException), encode error (PrintErrorException
     ↓
 PrinterPrintService (log print* failed)
     ↓
-PrintScheduler (job Failed + PrinterError)
+PrintScheduler (job Failed + PrinterFeatureException)
     ↓
 Logging / monitoring
 ```
@@ -724,8 +723,9 @@ Ba bộ mã lỗi ổn định, mỗi bộ một tầng:
 | `PrintErrorCode`   | một lệnh in (ảnh, encode, không có máy nhận) | `PrintErrorException`   |
 
 Ba exception kế thừa `PrinterFeatureException` nên nơi gọi bắt chung và đọc `code` (`ErrorCode`, hợp 3 bộ mã);
-`errorCodeOf` trả `UNKNOWN_ERROR` cho lỗi không phải exception của feature. `errors/PrinterError.ts` là lỗi dạng dữ
-liệu (lưu trong job in, trả cho UI). `toDeviceError` (`adapters/native/NativeAdapter.ts`) giữ nguyên mã native và
+`errorCodeOf` trả `UNKNOWN_ERROR` cho lỗi không phải exception của feature, `toPrinterFeatureException` bọc lỗi đó
+thành `PrintErrorException(UNKNOWN_ERROR)`. Job in, kết quả in và event lỗi (tìm thiết bị, dò ngôn ngữ) mang thẳng
+exception, không có bản sao dạng dữ liệu. `toDeviceError` (`adapters/native/NativeAdapter.ts`) giữ nguyên mã native và
 gắn thông báo tiếng Việt; lỗi native không mang mã thiết bị được ném nguyên.
 
 Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable

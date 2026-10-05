@@ -1,4 +1,4 @@
-import type { PrinterError } from '../../errors/PrinterError';
+import type { PrinterFeatureException } from '../../exceptions';
 import type { PrintKind } from '../printer/PrintKind';
 
 /** Trạng thái một lệnh in trong hàng đợi. */
@@ -30,7 +30,7 @@ export interface PrintJob {
 
   retryCount: number;
 
-  error?: PrinterError;
+  error?: PrinterFeatureException;
 
   /** ISO 8601 UTC. */
   createdAt: string;
@@ -58,5 +58,5 @@ export interface PrintResult {
 
   jobs: PrintJob[];
 
-  error?: PrinterError;
+  error?: PrinterFeatureException;
 }

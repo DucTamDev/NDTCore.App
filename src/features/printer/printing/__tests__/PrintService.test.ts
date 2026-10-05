@@ -7,6 +7,7 @@ import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/p
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
 import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorException } from '../../exceptions';
 
 const image = 'base64-png';
 
@@ -84,7 +85,7 @@ describe('PrintService.print', () => {
       status: PrintJobStatus.Failed,
       retryCount: 0,
       createdAt: 'now',
-      error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' },
+      error: new PrintErrorException({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' }),
     }));
     const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, image);

@@ -137,7 +137,7 @@ describe('LanguageDetectionService', () => {
 
     const events = await detectUntilDone(connectionService, lanDraft);
 
-    expect(events[events.length - 1]).toEqual({
+    expect(events[events.length - 1]).toMatchObject({
       stage: LanguageDetectionStage.Error,
       error: { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
     });

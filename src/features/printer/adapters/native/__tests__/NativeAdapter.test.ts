@@ -2,7 +2,7 @@ import { NativeAdapter, toDeviceError } from '../NativeAdapter';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../../models/printer/PrinterConnection';
 import { DeviceErrorCode } from '../../../errors/DeviceErrorCode';
-import { DeviceErrorException } from '../../../exceptions/DeviceErrorException';
+import { DeviceErrorException } from '../../../exceptions';
 
 type DisconnectListener = (event: { connectionId: string; reason: string }) => void;
 

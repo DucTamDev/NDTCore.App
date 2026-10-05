@@ -3,8 +3,7 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
 import { DeviceErrorCode } from '../errors/DeviceErrorCode';
-import { DeviceErrorException } from '../exceptions/DeviceErrorException';
-import { errorCodeOf } from '../exceptions/PrinterFeatureException';
+import { DeviceErrorException, toPrinterFeatureException } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
 import { createPrinterAdapter } from '../connection/PrinterAdapterFactory';
@@ -32,7 +31,10 @@ const logEvent = (connectionType: ConnectionType, event: DeviceDiscoveryEvent): 
       event.type === DeviceDiscoveryEventType.Found
         ? event.devices.map(({ device, connection }) => ({ deviceId: device.deviceId, name: device.name, connection }))
         : undefined,
-    error: event.type === DeviceDiscoveryEventType.Error ? event.error : undefined,
+    error:
+      event.type === DeviceDiscoveryEventType.Error
+        ? { code: event.error.code, message: event.error.message }
+        : undefined,
   });
 };
 
@@ -71,9 +73,9 @@ export class DeviceDiscoveryService {
         return;
       }
 
-      const errorCode = errorCodeOf(error);
-      emit({ type: DeviceDiscoveryEventType.Error, error: { code: errorCode, message } });
-      printerLogger.discoveryFailed({ connectionType, errorCode, durationMs: Date.now() - startedAt });
+      const failure = toPrinterFeatureException(error);
+      emit({ type: DeviceDiscoveryEventType.Error, error: failure });
+      printerLogger.discoveryFailed({ connectionType, errorCode: failure.code, durationMs: Date.now() - startedAt });
     };
 
     if (connectionType === ConnectionType.Lan) {

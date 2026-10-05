@@ -1,6 +1,4 @@
-import { PrinterFeatureException } from '../exceptions/PrinterFeatureException';
-import { PrintErrorCode } from '../errors/PrintErrorCode';
-import type { PrinterError } from '../errors/PrinterError';
+import { toPrinterFeatureException } from '../exceptions';
 import { printerPrintService, type PrinterPrintService } from './PrinterPrintService';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { printerConnectionLock, lockKeyOf, type ResourceLock } from '../connection/PrinterConnectionLock';
@@ -17,11 +15,6 @@ export interface PrintSchedulerDeps {
   /** Khoá dùng chung với nút "In thử". */
   lock: Pick<ResourceLock, 'runExclusive'>;
 }
-
-const toPrinterError = (error: unknown): PrinterError =>
-  error instanceof PrinterFeatureException
-    ? { code: error.code, message: error.message }
-    : { code: PrintErrorCode.UNKNOWN_ERROR, message: String(error) };
 
 /** Chạy job in theo thứ tự, mỗi máy vật lý một job tại một thời điểm. */
 export class PrintScheduler {
@@ -53,7 +46,7 @@ export class PrintScheduler {
       job.status = PrintJobStatus.Success;
     } catch (error) {
       job.status = PrintJobStatus.Failed;
-      job.error = toPrinterError(error);
+      job.error = toPrinterFeatureException(error);
     }
 
     job.completedAt = new Date().toISOString();
