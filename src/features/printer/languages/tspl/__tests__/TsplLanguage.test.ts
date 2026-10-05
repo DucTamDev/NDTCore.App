@@ -8,6 +8,14 @@ import { PaperSize } from '../../../models/paper/PaperSize';
 import { PaperType } from '../../../models/paper/PaperType';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 import { PrintErrorCode } from '../../../errors';
+import type { Printer } from '../../../models/printer/Printer';
+import type { PaperOptions } from '../../../models/paper/PaperOptions';
+import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
+
+jest.mock('../../../rendering/MonochromeBitmap', () => {
+  const actual = jest.requireActual('../../../rendering/MonochromeBitmap');
+  return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
+});
 
 const printer = makePrinter({ language: makeTsplLanguage() });
 
@@ -53,5 +61,75 @@ describe('TsplLanguage', () => {
     const receiptPrinter = { ...rasterLabelPrinter, kind: PrintKind.Receipt };
 
     expect(() => TsplLanguage.encode(receiptPrinter, squarePngBase64())).not.toThrow();
+  });
+});
+
+const CONTINUOUS: PaperOptions = {
+  type: PaperType.Continuous,
+  paperSize: PaperSize.Mm80,
+  cutterMode: CutterMode.PerJob,
+};
+
+const DIE_CUT: PaperOptions = {
+  type: PaperType.DieCut,
+  paperSize: PaperSize.Mm80,
+  itemWidthMm: 30,
+  itemHeightMm: 40,
+  columns: 3,
+  horizontalGapMm: 2,
+  verticalGapMm: 3,
+};
+
+/** PNG 4x4 trắng hợp lệ (base64, không tiền tố `data:`). */
+const TINY_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAEAQMAAACTPww9AAAAAXNSR0IB2cksfwAAAAZQTFRFAAAA/wAAG/+NIgAAAAJ0Uk5TAAB2k804' +
+  'AAAAC0lEQVR4nGNggAAAAAgAAbdYc5UAAAAASUVORK5CYII=';
+
+const printerWith = (paper: PaperOptions, kind: PrintKind = PrintKind.Receipt): Printer =>
+  makePrinter({ kind, language: makeTsplLanguage(), paper });
+
+/** Byte TSPL đọc như ASCII: phần lệnh luôn là ASCII, ảnh là byte thô không cần đọc. */
+const asAscii = (bytes: Uint8Array): string => Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+
+describe('TsplLanguage.encode', () => {
+  it('có ảnh → lệnh BITMAP và PRINT 1,1', () => {
+    const text = asAscii(TsplLanguage.encode(printerWith(CONTINUOUS), TINY_PNG));
+
+    expect(text).toContain('BITMAP');
+    expect(text).toContain('PRINT 1,1');
+  });
+
+  it('tem rời 3 cột → 3 lệnh BITMAP tại x = 0, pitch, 2 × pitch', () => {
+    // pitch = (30 + 2) × 8 = 256 dot
+    const text = asAscii(TsplLanguage.encode(printerWith(DIE_CUT), TINY_PNG));
+
+    expect((text.match(/BITMAP /g) ?? []).length).toBe(3);
+    expect(text).toContain('BITMAP 0,0,');
+    expect(text).toContain('BITMAP 256,0,');
+    expect(text).toContain('BITMAP 512,0,');
+    expect(text).toContain('PRINT 1,1');
+  });
+
+  it('tem rời → ảnh co theo bề rộng một con tem (itemWidthMm × 8)', () => {
+    (decodePngBase64ToMonochrome as jest.Mock).mockClear();
+
+    TsplLanguage.encode(printerWith(DIE_CUT), TINY_PNG);
+
+    expect(decodePngBase64ToMonochrome).toHaveBeenCalledWith(TINY_PNG, 240);
+  });
+
+  it('base64 không phải PNG → IMAGE_INVALID', () => {
+
+    expect(() => TsplLanguage.encode(printerWith(CONTINUOUS), 'bm90LWEtcG5n')).toThrow(
+      expect.objectContaining({ code: PrintErrorCode.INVALID_IMAGE }),
+    );
+  });
+
+  it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
+    const tinyLabel = printerWith({ ...DIE_CUT, itemHeightMm: 0.01 }, PrintKind.Label);
+
+    expect(() => TsplLanguage.encode(tinyLabel, TINY_PNG)).toThrow(
+      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
+    );
   });
 });

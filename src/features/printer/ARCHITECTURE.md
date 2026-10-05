@@ -105,8 +105,8 @@ src/features/printer/
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
 │   ├── IPrintLanguage.ts
-│   ├── escpos/          EscPosLanguage, EscPosRasterEncoder
-│   └── tspl/            TsplLanguage, TsplEncoder, TsplRasterEncoder
+│   ├── escpos/          EscPosLanguage (encode ảnh bằng GS v 0)
+│   └── tspl/            TsplLanguage (encode ảnh bằng BITMAP), TsplEncoder (dựng lệnh)
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
@@ -408,9 +408,9 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
 
 * `encode` kiểm tra rồi encode; ảnh hỏng (`INVALID_IMAGE`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
   `PrintErrorException`.
-* `EscPosLanguage`: `EscPosRasterEncoder`, cắt giấy theo `resolveEffectiveCutterMode`. Không có lệnh dò.
-* `TsplLanguage`: `encodeTsplRaster`; `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi
-  máy trả lời ít nhất 1 byte.
+* `EscPosLanguage`: lệnh `GS v 0`, cắt giấy theo `resolveEffectiveCutterMode`. Không có lệnh dò.
+* `TsplLanguage`: lệnh `BITMAP` dựng bằng `TsplEncoder`; `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò
+  `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 
