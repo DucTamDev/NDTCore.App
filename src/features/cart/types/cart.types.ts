@@ -113,3 +113,45 @@ export interface OrderDetail {
   ChangeAmount: number | null;
   Items: OrderDetailItem[];
 }
+
+/** Một dòng "nhãn ... giá trị" ở đầu bill (mã đơn, thời gian, hình thức). */
+export interface ReceiptRow {
+  label: string;
+
+  value: string;
+}
+
+/** Một món trên bill. */
+export interface ReceiptItem {
+  name: string;
+
+  quantity: number;
+
+  /** Đơn giá đã gồm option. */
+  unitPrice: number;
+
+  note: string | null;
+}
+
+/** Dữ liệu một bill cần in; `ReceiptView` tự tính tổng và bố cục. */
+export interface Receipt {
+  storeName: string | null;
+
+  storeAddress: string | null;
+
+  headerRows: ReceiptRow[];
+
+  items: ReceiptItem[];
+
+  discountAmount: number;
+
+  deliveryFee: number;
+
+  /** Mã phương thức thanh toán từ API (vd `Cash`); `null` thì bill không có phần thanh toán. */
+  paymentMethod: string | null;
+
+  /** Chỉ in khi trả tiền mặt và có cả `changeAmount`. */
+  amountReceived: number | null;
+
+  changeAmount: number | null;
+}

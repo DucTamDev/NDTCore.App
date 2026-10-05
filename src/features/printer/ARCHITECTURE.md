@@ -99,13 +99,13 @@ src/features/printer/
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions (+ resolveEffectiveCutterMode), paperSpec (thông số theo khổ giấy)
-│   └── printing/        PrintDocument, PrintDocuments, PrintOptions, PrintJob
+│   └── printing/        PrintOptions, PrintJob
 │
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
 │   ├── IPrintLanguage.ts
-│   ├── escpos/          EscPosLanguage, EscPosTextBuilder, EscPosRasterEncoder, EPToolkit
-│   └── tspl/            TsplLanguage, TsplEncoder, TsplCommandEncoder, TsplRasterEncoder
+│   ├── escpos/          EscPosLanguage, EscPosRasterEncoder
+│   └── tspl/            TsplLanguage, TsplEncoder, TsplRasterEncoder
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
@@ -127,11 +127,11 @@ src/features/printer/
 ├── logging/             PrinterLogger
 ├── errors/              PrinterError
 │
-├── components/
-├── hooks/
+├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
+├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
 ├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
 ├── store/
-├── utils/               printKindLabels (nhãn UI), sampleDocuments (nội dung in thử)
+├── utils/               printKindLabels (nhãn UI)
 │
 └── testing/             printerFixtures, printerServiceTestKit, encodeCases
 ```
@@ -162,7 +162,6 @@ Các trục độc lập, không map cứng `Receipt → ESC/POS`, `Label → TS
 PrintKind        Receipt | Label            loại nội dung một Printer record in
 PrintLanguage    EscPos | Tspl              ngôn ngữ lệnh của máy
 ConnectionType   Usb | Bluetooth | Lan      đường kết nối
-RenderMode       Command | Raster           cách biến nội dung thành lệnh
 ```
 
 Quy ước chung: const-object + type cùng tên (không dùng `enum`); mỗi model một file; summary tiếng Việt cho model và
@@ -253,16 +252,11 @@ Không lưu đường dẫn thiết bị USB (chỉ đúng trong một lần c�
 export interface PrinterLanguage {
   type: PrintLanguage;           // EscPos | Tspl
   selection: LanguageSelection;  // Auto (dò) | Manual (người dùng chọn) — chỉ để hiển thị
-  renderMode: RenderMode;        // Command | Raster (ảnh chụp bản xem trước)
 }
 ```
 
 Giá trị mặc định khi tạo máy mới nằm ở `management/PrinterDefaults.ts` (`createPrinterLanguage`,
-`createPrinterDraft`):
-
-| Field          | ESC/POS   | TSPL     |
-| -------------- | --------- | -------- |
-| `renderMode`   | `Command` | `Raster` |
+`createPrinterDraft`).
 
 ---
 
@@ -372,18 +366,10 @@ form; schema và repository gọi lại cùng hàm, không phân tán vào nhi�
 
 # 14. Rendering
 
-`RenderMode` dùng chung cho cả hai ngôn ngữ, nằm trong `PrinterLanguage`.
-
-## `Command`
-
-Ngôn ngữ tạo lệnh văn bản trực tiếp. ESC/POS qua `EscPosTextBuilder` + `EPToolkit` (cần đúng codepage); TSPL qua
-`encodeTsplCommand` (font máy, thường thiếu dấu tiếng Việt).
-
-## `Raster`
-
-Lớp trên chụp bản xem trước thành ảnh (PNG base64, `documents.image`). Ngôn ngữ decode ảnh thành monochrome 1-bit
-rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho TSPL). Chậm hơn `Command` nhưng đúng trên mọi máy bất
-kể codepage.
+Mọi lệnh in là ảnh. Nội dung in là React element (vd `ReceiptView` của cart, `SampleReceipt`/`SampleLabel` khi in
+thử) dựng từ `PrintLayout`; `usePrintImageCapture` render element đó ngoài màn hình theo bề rộng giấy rồi chụp thành
+PNG base64. Ngôn ngữ decode ảnh thành monochrome 1-bit rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho
+TSPL), nên in đúng tiếng Việt trên mọi máy bất kể codepage hay font của máy.
 
 ---
 
@@ -405,22 +391,20 @@ Việt.
 # 16. Print Languages
 
 ```ts
-/** Một ngôn ngữ lệnh máy in: chỉ biến nội dung thành byte, không biết kết nối. */
+/** Một ngôn ngữ lệnh máy in: chỉ biến ảnh thành byte, không biết kết nối. */
 interface IPrintLanguage {
-  encode(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Uint8Array;
+  encode(printer: Printer, image: string, options?: PrintOptions): Uint8Array;   // image: PNG base64
   identifyProbe?: IdentifyProbe;   // { command: Uint8Array; matches(response): boolean }
 }
 
 getPrintLanguage(type: PrintLanguage): IPrintLanguage
 ```
 
-* `encode` kiểm tra rồi encode; nội dung không in được (thiếu ảnh, ảnh quá cao, phần tử không hỗ trợ) ném
+* `encode` kiểm tra rồi encode; ảnh hỏng (`IMAGE_INVALID`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
   `PrinterErrorException`.
-* `EscPosLanguage`: `Command` → `EscPosTextBuilder` + `EPToolkit`, bỏ tiền tố khởi tạo mà `EPToolkit` luôn thêm, cắt
-  giấy theo `resolveEffectiveCutterMode`; `Raster` → `EscPosRasterEncoder` (`IMAGE_REQUIRED`, `IMAGE_INVALID`,
-  `IMAGE_TOO_LARGE`). Không có lệnh dò.
-* `TsplLanguage`: theo `renderMode` gọi `encodeTsplCommand` hoặc `encodeTsplRaster` (tự kiểm tra ảnh rồi encode);
-  `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
+* `EscPosLanguage`: `EscPosRasterEncoder`, cắt giấy theo `resolveEffectiveCutterMode`. Không có lệnh dò.
+* `TsplLanguage`: `encodeTsplRaster`; `rows` = `options.rows` (không hợp lệ thì 1). Lệnh dò `~!T\r\n`, khớp khi
+  máy trả lời ít nhất 1 byte.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 
@@ -540,7 +524,7 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ## `PrintService`
 
-Public entry point. `rasterPaperFor(kind)` cho nơi gọi biết có cần chụp ảnh không và chụp theo giấy nào; gọi routing và
+Public entry point. `paperFor(kind)` cho nơi gọi biết có máy nào nhận không và chụp ảnh theo giấy nào; gọi routing và
 scheduler, tổng hợp kết quả. Không chứa device discovery, connection lifecycle, encoding.
 
 ## `PrintRoutingService`
@@ -555,9 +539,9 @@ Queue, ordering, job lifecycle. Khoá theo `lockKeyOf(printer)` (máy không cò
 ## `PrinterPrintService`
 
 ```text
-print(printerId, documents, options?)
+print(printerId, image, options?)
   lấy Printer → chưa Connected thì connect → getPrintLanguage(type).encode → send
-testPrint(printer, documents, options?)
+testPrint(printer, image, options?)
   như trên, máy có thể chưa lưu; tự khoá theo máy vật lý
 ```
 
@@ -670,9 +654,9 @@ boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService
 
 # 29. Configuration Management
 
-* `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setRenderMode`, `setPaper`).
+* `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setPaper`).
 * `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
-  giá trị mặc định (giấy cuộn 80mm cắt cuối job, render mode và capabilities theo ngôn ngữ, `autoReconnect` bật).
+  giá trị mặc định (giấy cuộn 80mm cắt cuối job, capabilities theo ngôn ngữ, `autoReconnect` bật).
   Mọi nơi tạo máy in dùng hàm này.
 * `forms/addPrinter/printerRules.ts`: `canPrintKind`.
 
@@ -725,8 +709,8 @@ Không log binary payload, MAC/IP hay nội dung hoá đơn.
 # 33. Errors
 
 `errors/PrinterError.ts` — printer errors có stable error code (`PrinterErrorCode`), vd `PRINTER_NOT_CONNECTED`,
-`PRINTER_CONNECTION_FAILED`, `PRINTER_WRITE_FAILED`, `PRINTER_UNSUPPORTED_CONNECTION`, `IMAGE_REQUIRED`,
-`IMAGE_TOO_LARGE`, `TSPL_ELEMENT_UNSUPPORTED`. Native error được đổi sang `PrinterErrorException` ở
+`PRINTER_CONNECTION_FAILED`, `PRINTER_WRITE_FAILED`, `PRINTER_UNSUPPORTED_CONNECTION`, `IMAGE_INVALID`,
+`IMAGE_TOO_LARGE`. Native error được đổi sang `PrinterErrorException` ở
 `toPrinterError` (`adapters/native/NativeAdapter.ts`).
 
 Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable
@@ -747,7 +731,7 @@ if (connectionService.getStatus(printer.id) !== PrinterStatus.Connected) {
   await connectionService.connect(printer);
 }
 
-const bytes = getPrintLanguage(printer.language.type).encode(printer, documents, options);
+const bytes = getPrintLanguage(printer.language.type).encode(printer, image, options);
 await connectionService.send(printer.id, bytes);
 ```
 
@@ -765,7 +749,7 @@ Không nên:
 if (printer) {
   if (printer.enabled) {
     if (isConnected) {
-      await send(printer, documents);
+      await send(printer, image);
     }
   }
 }
@@ -786,7 +770,7 @@ if (!isConnected) {
   return;
 }
 
-await send(printer, documents);
+await send(printer, image);
 ```
 
 Mục tiêu:
@@ -1059,7 +1043,7 @@ await printReceipt(order);
 // Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi
 // nên hai lệnh in cùng một máy phải chạy lần lượt.
 await lock.runExclusive(lockKeyOf(printer), () =>
-  sendDocuments(printer, documents),
+  send(printer, image),
 );
 ```
 
@@ -1418,8 +1402,7 @@ PrintService → PrintRoutingService → PrintScheduler (khoá) → PrinterPrint
 
 ### Rendering
 
-* Hai render mode: `Command`, `Raster`; `Raster` luôn in ảnh chụp bản xem trước.
-* Mặc định ESC/POS `Command`, TSPL `Raster`.
+* Mọi lệnh in là ảnh chụp từ React element; không có chế độ in lệnh văn bản.
 
 ### Native
 

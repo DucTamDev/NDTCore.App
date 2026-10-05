@@ -1,14 +1,10 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { EscPosLanguage } from '../EscPosLanguage';
-import { RenderMode } from '../../../models/printer/PrinterLanguage';
-import type { PrintElement } from '../../../models/printing/PrintDocument';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makeEscPosLanguage, makePrinter } from '../../../testing/printerFixtures';
 
-const textDocument = { elements: [{ type: 'text' as const, content: 'In thử', x: 0, y: 0 }] };
-
-const rasterPrinter = makePrinter({ language: makeEscPosLanguage({ renderMode: RenderMode.Raster }) });
+const printer = makePrinter({ language: makeEscPosLanguage() });
 
 /** Ảnh 2x6 toàn đen: chuẩn hoá về bề rộng 576px thì cao 1728px, vượt trần an toàn 1600px của giấy 80mm. */
 const tallPngBase64 = (): string => {
@@ -22,37 +18,15 @@ const tallPngBase64 = (): string => {
 };
 
 describe('EscPosLanguage', () => {
-  it('lệnh văn bản không gửi chuỗi mở đầu ESC @ của bộ encode', () => {
-    const bytes = EscPosLanguage.encode(makePrinter(), { text: textDocument });
-
-    expect([bytes[0], bytes[1]]).not.toEqual([0x1b, 0x40]);
-  });
-
-  it('in ảnh mà thiếu ảnh → IMAGE_REQUIRED', () => {
-    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument })).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.IMAGE_REQUIRED }),
-    );
-  });
-
   it('ảnh không giải mã được → IMAGE_INVALID', () => {
-    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument, image: 'not-a-png' })).toThrow(
+    expect(() => EscPosLanguage.encode(printer, 'not-a-png')).toThrow(
       expect.objectContaining({ code: PrinterErrorCode.IMAGE_INVALID }),
     );
   });
 
   it('ảnh cao quá trần an toàn → IMAGE_TOO_LARGE', () => {
-    expect(() => EscPosLanguage.encode(rasterPrinter, { text: textDocument, image: tallPngBase64() })).toThrow(
+    expect(() => EscPosLanguage.encode(printer, tallPngBase64())).toThrow(
       expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
-    );
-  });
-
-  it.each<PrintElement>([
-    { type: 'barcode', content: '123', x: 0, y: 0 },
-    { type: 'qrCode', content: 'https://x', x: 0, y: 0 },
-    { type: 'image', data: 'AAAA', x: 0, y: 0 },
-  ])('phần tử $type không in được bằng lệnh văn bản → TSPL_ELEMENT_UNSUPPORTED', (element) => {
-    expect(() => EscPosLanguage.encode(makePrinter(), { text: { elements: [element] } })).toThrow(
-      expect.objectContaining({ code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }),
     );
   });
 

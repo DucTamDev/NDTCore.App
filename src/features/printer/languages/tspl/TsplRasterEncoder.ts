@@ -1,5 +1,4 @@
 import type { Printer } from '../../models/printer/Printer';
-import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PaperType, type PaperOptions, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
@@ -23,21 +22,10 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   }
 };
 
-/**
- * In nội dung dưới dạng ảnh (`documents.image`, PNG base64) bằng lệnh `BITMAP`. Thiếu ảnh, ảnh hỏng hay ảnh cao hơn
- * giấy đều báo lỗi, không tự chuyển sang in lệnh.
- */
-export const encodeTsplRaster = (printer: Printer, documents: PrintDocuments, rows: number): Uint8Array => {
+/** In ảnh (PNG base64) bằng lệnh `BITMAP`; ảnh hỏng hay cao hơn giấy đều báo lỗi. */
+export const encodeTsplRaster = (printer: Printer, image: string, rows: number): Uint8Array => {
   const { paper, kind } = printer;
-
-  if (!documents.image) {
-    throw new PrinterErrorException({
-      code: PrinterErrorCode.IMAGE_REQUIRED,
-      message: 'In ảnh cần ảnh bill đã render — chụp ảnh thất bại hoặc chưa chạy.',
-    });
-  }
-
-  const bitmap = decodeImage(documents.image, imageWidthDotsOf(paper));
+  const bitmap = decodeImage(image, imageWidthDotsOf(paper));
   const heightMm = resolveSizeHeightMm(paper, kind);
 
   if (bitmap.heightPx > heightMm * DOTS_PER_MM) {

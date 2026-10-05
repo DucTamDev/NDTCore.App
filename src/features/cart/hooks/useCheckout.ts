@@ -4,12 +4,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { CartService } from '../services/CartService';
-import { buildReceiptDocument, printReceipt, type CaptureBillImage, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
+import { buildReceipt, printReceipt, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
+import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import type { CreateOrderResponse } from '../types/cart.types';
 
-export const useCheckout = (captureBillImage: CaptureBillImage) => {
+export const useCheckout = (captureImage: CaptureImage) => {
   const dispatch = useDispatch<AppDispatch>();
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
   const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
@@ -43,8 +44,8 @@ export const useCheckout = (captureBillImage: CaptureBillImage) => {
       dispatch(cartCleared());
       // Không await: submit() phải trả về ngay khi đơn hàng được tạo thành
       // công, không chờ việc in ấn (fire-and-forget theo spec §5).
-      const document = buildReceiptDocument(response.Data, items, serviceType, currentStore);
-      printReceipt(document, captureBillImage).then((outcome) => {
+      const receipt = buildReceipt(response.Data, items, serviceType, currentStore);
+      printReceipt(receipt, captureImage).then((outcome) => {
         if (outcome !== 'ok') setReceiptPrintWarning(outcome);
       });
       return response.Data;
@@ -55,7 +56,7 @@ export const useCheckout = (captureBillImage: CaptureBillImage) => {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [dispatch, storeId, items, serviceType, note, currentStore, captureBillImage]);
+  }, [dispatch, storeId, items, serviceType, note, currentStore, captureImage]);
 
   const dismissError = useCallback(() => setError(null), []);
   const dismissReceiptPrintWarning = useCallback(() => setReceiptPrintWarning(null), []);

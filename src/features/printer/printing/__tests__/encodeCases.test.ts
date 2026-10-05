@@ -20,7 +20,7 @@ describe('byte in thử gửi tới máy in', () => {
   afterEach(() => jest.clearAllMocks());
 
   it.each(ENCODE_CASES.map((encodeCase) => [encodeCase.name, encodeCase] as const))('%s', async (_name, encodeCase) => {
-    await new PrinterPrintService().testPrint(encodeCase.printer, encodeCase.documents, encodeCase.options);
+    await new PrinterPrintService().testPrint(encodeCase.printer, encodeCase.image, encodeCase.options);
 
     expect(fingerprintOf(writtenBytes())).toBe(encodeCase.fingerprint);
   });

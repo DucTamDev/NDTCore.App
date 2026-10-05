@@ -1,6 +1,5 @@
 import type { PrinterError } from '../../errors/PrinterError';
 import type { PrintKind } from '../printer/PrintKind';
-import type { PrintDocuments } from './PrintDocuments';
 
 /** Trạng thái một lệnh in trong hàng đợi. */
 export const PrintJobStatus = {
@@ -24,8 +23,8 @@ export interface PrintJob {
 
   kind: PrintKind;
 
-  /** Gửi nguyên cả bản văn bản và bản ảnh; ngôn ngữ in tự chọn dùng bản nào. */
-  documents: PrintDocuments;
+  /** Ảnh PNG base64 (không tiền tố `data:`) cần in. */
+  image: string;
 
   status: PrintJobStatus;
 

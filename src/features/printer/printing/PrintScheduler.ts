@@ -47,7 +47,7 @@ export class PrintScheduler {
     job.startedAt = new Date().toISOString();
 
     try {
-      await this.deps.printing.print(job.printerId, job.documents);
+      await this.deps.printing.print(job.printerId, job.image);
       job.status = PrintJobStatus.Success;
     } catch (error) {
       job.status = PrintJobStatus.Failed;

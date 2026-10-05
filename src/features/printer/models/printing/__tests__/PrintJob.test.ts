@@ -1,9 +1,6 @@
-import type { PrintDocument } from '../PrintDocument';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../PrintJob';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { PrintKind } from '../../printer/PrintKind';
-
-const document: PrintDocument = { elements: [{ type: 'text', content: 'x', x: 0, y: 0 }] };
 
 describe('print job types', () => {
   it('accepts a pending PrintJob', () => {
@@ -12,26 +9,12 @@ describe('print job types', () => {
       requestId: 'req1',
       printerId: 'p1',
       kind: PrintKind.Receipt,
-      documents: { text: document },
+      image: 'base64-png',
       status: PrintJobStatus.Pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
     expect(job.status).toBe(PrintJobStatus.Pending);
-  });
-
-  it('PrintJob dùng field documents (không phải documentVariants)', () => {
-    const job: PrintJob = {
-      id: '1',
-      requestId: 'r',
-      printerId: 'p',
-      kind: PrintKind.Receipt,
-      documents: { text: { elements: [] } },
-      status: PrintJobStatus.Pending,
-      retryCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    expect(job.documents.text).toBeDefined();
   });
 
   it('accepts every PrintResult status', () => {

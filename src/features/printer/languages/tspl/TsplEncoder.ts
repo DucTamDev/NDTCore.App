@@ -74,21 +74,6 @@ export const columnOffsets = (media: PaperOptions): number[] => {
   return Array.from({ length: media.columns }, (_, i) => i * pitch);
 };
 
-/**
- * Số ký tự/dòng cho nội dung TEXT — để `line`/`row` không tràn qua cột kế bên.
- * die_cut ước lượng theo tỉ lệ `itemWidthMm` trên bề rộng in được; continuous
- * dùng cả khổ giấy.
- */
-export const contentWidthChars = (media: PaperOptions): number => {
-  const spec = PAPER_SIZE_SPECS[media.paperSize];
-  if (media.type !== PaperType.DieCut) {
-    return spec.charsPerLine;
-  }
-
-  const dieCutWidthRatio = media.itemWidthMm / spec.printableWidthMm;
-  return Math.max(1, Math.floor(spec.charsPerLine * dieCutWidthRatio));
-};
-
 export class TsplEncoder {
   /**
    * Byte thô (không phải `string[]` như trước) — bắt buộc từ khi có
@@ -131,40 +116,6 @@ export class TsplEncoder {
 
     this.pushLine('CODEPAGE UTF-8');
     this.pushLine('CLS');
-    return this;
-  }
-
-  /**
-   * Font built-in `"3"` là bitmap font cơ bản của TSPL — trên nhiều dòng máy
-   * chỉ có glyph ASCII, không có dấu tiếng Việt dù byte gửi lên đã đúng
-   * UTF-8. Việc chọn font Unicode thật (vd font resident `TSS24.BF2` hoặc
-   * tải font TrueType qua lệnh `DOWNLOAD`) phụ thuộc từng dòng máy TSPL cụ
-   * thể — chưa verify trên phần cứng thật nên chưa hardcode ở đây, ghi nhận
-   * là khoảng trống đã biết. `image()` (BITMAP) là đường vòng cho vấn đề này
-   * khi nội dung cần hiển thị chính xác bất kể font máy in có gì.
-   *
-   * Tham số `fontName` cho phép ghi đè font mặc định — hữu ích khi cần font
-   * custom (vd font resident khác trên máy in). Mặc định `'3'` để giữ lại
-   * hành vi hiện tại.
-   *
-   * Nội dung trong dấu `""` luôn encode UTF-8 (`encodeUtf8`, đi cùng lệnh
-   * `CODEPAGE UTF-8` ở `initialize()`). Phần cố định của lệnh luôn là ASCII.
-   */
-  text(x: number, y: number, content: string, fontName: string = '3'): this {
-    const escaped = content.replace(/"/g, '\\"');
-    this.pushLine(`TEXT ${x},${y},"${fontName}",0,1,1,"${escaped}"`);
-    return this;
-  }
-
-  barcode(x: number, y: number, content: string): this {
-    const escaped = content.replace(/"/g, '\\"');
-    this.pushLine(`BARCODE ${x},${y},"128",50,1,0,2,2,"${escaped}"`);
-    return this;
-  }
-
-  qrcode(x: number, y: number, content: string): this {
-    const escaped = content.replace(/"/g, '\\"');
-    this.pushLine(`QRCODE ${x},${y},H,4,A,0,"${escaped}"`);
     return this;
   }
 

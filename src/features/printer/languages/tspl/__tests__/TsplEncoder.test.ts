@@ -114,36 +114,6 @@ describe('TsplEncoder', () => {
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
 
-  it('text() emits a TEXT command with escaped quotes', () => {
-    const output = decode(new TsplEncoder().text(10, 20, 'Máy in "A"').encode());
-    expect(output).toContain('TEXT 10,20,"3",0,1,1,"Máy in \\"A\\""');
-  });
-
-  it('text() encodes Vietnamese tone-marked characters (outside U+00FF) as real UTF-8, not truncated bytes', () => {
-    const output = decode(new TsplEncoder().text(0, 0, 'Cà phê sữa đá, cơm gà xối mỡ').encode());
-    expect(output).toContain('TEXT 0,0,"3",0,1,1,"Cà phê sữa đá, cơm gà xối mỡ"');
-  });
-
-  it('barcode() emits a BARCODE command', () => {
-    const output = decode(new TsplEncoder().barcode(0, 0, '12345').encode());
-    expect(output).toContain('BARCODE 0,0,"128",50,1,0,2,2,"12345"');
-  });
-
-  it('barcode() escapes embedded double quotes so they cannot break the TSPL command syntax', () => {
-    const output = decode(new TsplEncoder().barcode(0, 0, 'A"B').encode());
-    expect(output).toContain('BARCODE 0,0,"128",50,1,0,2,2,"A\\"B"');
-  });
-
-  it('qrcode() emits a QRCODE command', () => {
-    const output = decode(new TsplEncoder().qrcode(0, 0, 'https://ndtcore.local').encode());
-    expect(output).toContain('QRCODE 0,0,H,4,A,0,"https://ndtcore.local"');
-  });
-
-  it('qrcode() escapes embedded double quotes (e.g. a URL query string) so they cannot break the TSPL command syntax', () => {
-    const output = decode(new TsplEncoder().qrcode(0, 0, 'https://ndtcore.local?q="x"').encode());
-    expect(output).toContain('QRCODE 0,0,H,4,A,0,"https://ndtcore.local?q=\\"x\\""');
-  });
-
   describe('image()', () => {
     const bitmap: MonochromeBitmap = { widthBytes: 2, heightPx: 3, bits: new Uint8Array([0xff, 0x00, 0x80, 0x7f, 0x01, 0xfe]) };
 
@@ -177,33 +147,12 @@ describe('TsplEncoder', () => {
 
   it('cut() emits PRINT rows,1 and chains fluently with the other builders', () => {
     const output = decode(
-      new TsplEncoder().initialize(CONT(58)).text(0, 0, 'A').cut(1, CutterMode.PerJob).encode(),
+      new TsplEncoder().initialize(CONT(58)).cut(1, CutterMode.PerJob).encode(),
     );
     expect(output.trim().endsWith('PRINT 1,1')).toBe(true);
   });
 
-  it('text() uses the given fontName instead of the built-in "3" when provided', () => {
-    const encoder = new TsplEncoder();
-    encoder.text(0, 0, 'Trà sữa', 'VIETFONT');
-    const bytes = encoder.encode();
-    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
-    expect(ascii).toContain('"VIETFONT"');
-  });
-
-  it('text() still defaults to font "3" when no fontName is given (unchanged behavior)', () => {
-    const encoder = new TsplEncoder();
-    encoder.text(0, 0, 'Trà sữa');
-    const bytes = encoder.encode();
-    const ascii = Array.from(bytes).map((b) => String.fromCharCode(b)).join('');
-    expect(ascii).toContain('"3"');
-  });
-
   it('initialize() emits CODEPAGE UTF-8 always (no other codepage supported)', () => {
     expect(decode(new TsplEncoder().initialize(CONT(58)).encode())).toContain('CODEPAGE UTF-8');
-  });
-
-  it('text() keeps UTF-8 multi-byte encoding for accented characters', () => {
-    const output = decode(new TsplEncoder().initialize(CONT(58)).text(0, 0, 'é').encode());
-    expect(output).toContain('"é"');
   });
 });

@@ -8,9 +8,6 @@ interface PaperSizeSpec {
   /** Bề rộng vùng in được (mm), hẹp hơn khổ giấy vì lề của đầu in. */
   printableWidthMm: number;
 
-  /** Số ký tự font chuẩn trên một dòng khi in lệnh văn bản. */
-  charsPerLine: number;
-
   /** Bề rộng ảnh khi in ảnh (px, 1 px = 1 dot). */
   imageWidthPx: number;
 }
@@ -20,10 +17,10 @@ interface PaperSizeSpec {
  * Số của khổ 100/104 chưa kiểm trên máy thật.
  */
 export const PAPER_SIZE_SPECS: Record<PaperSize, PaperSizeSpec> = {
-  58: { printableWidthMm: 50, charsPerLine: 32, imageWidthPx: 384 },
-  80: { printableWidthMm: 72, charsPerLine: 48, imageWidthPx: 576 },
-  100: { printableWidthMm: 96, charsPerLine: 64, imageWidthPx: 768 },
-  104: { printableWidthMm: 104, charsPerLine: 69, imageWidthPx: 832 },
+  58: { printableWidthMm: 50, imageWidthPx: 384 },
+  80: { printableWidthMm: 72, imageWidthPx: 576 },
+  100: { printableWidthMm: 96, imageWidthPx: 768 },
+  104: { printableWidthMm: 104, imageWidthPx: 832 },
 };
 
 /**

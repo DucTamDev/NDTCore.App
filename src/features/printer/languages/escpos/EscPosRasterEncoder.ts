@@ -2,7 +2,7 @@ import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { CutterMode } from '../../models/paper/PaperOptions';
 
 const INIT_PRINTER_BYTES = [0x1b, 0x40]; // ESC @
-const CUT_BYTES = [0x1b, 0x6d]; // khớp hành vi cắt ESC/POS text-mode hiện tại (EPToolkit.cut_bytes)
+const CUT_BYTES = [0x1b, 0x6d]; // ESC m — cắt một phần
 
 /**
  * Lệnh raster bit image chuẩn Epson `GS v 0` — width tính theo BYTE (little-
@@ -12,10 +12,7 @@ const CUT_BYTES = [0x1b, 0x6d]; // khớp hành vi cắt ESC/POS text-mode hiệ
  * riêng của lệnh `BITMAP` TSPL (đó là lỗi 1 dòng máy clone cụ thể, không áp
  * dụng cho `GS v 0`).
  *
- * Byte cắt `[0x1b, 0x6d]` copy từ hằng số `cut_bytes` trong `EPToolkit.ts`
- * (vendored, không export nên khai lại local ở đây) để giữ đúng hành vi cắt
- * vật lý người dùng đã quen với text-mode hiện tại — chưa xác nhận trên
- * phần cứng thật, cùng mức độ chưa-verify như TSPL truetype/internalfont.
+ * Lệnh cắt `ESC m` chưa kiểm trên máy thật.
  */
 export const buildEscPosRasterBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
   const header = [

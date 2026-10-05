@@ -4,12 +4,8 @@ import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrinterErrorCode } from '../errors/PrinterError';
 import type { PrintKind } from '../models/printer/PrintKind';
-import { RenderMode } from '../models/printer/PrinterLanguage';
 import type { PaperOptions } from '../models/paper/PaperOptions';
-import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
-
-export type { PrintDocuments };
 
 /** Phụ thuộc của service, tách ra để test thay được. */
 export interface PrintServiceDeps {
@@ -36,17 +32,14 @@ export class PrintService {
   constructor(private readonly deps: PrintServiceDeps) {}
 
   /**
-   * Giấy của máy in ảnh đầu tiên nhận `kind`, hoặc `null` nếu không máy nào in ảnh — nơi gọi chỉ chụp ảnh khi có giá
-   * trị, và chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
+   * Giấy của máy in đầu tiên nhận `kind`, hoặc `null` nếu chưa có máy nào — nơi gọi chỉ chụp ảnh khi có giá trị, và
+   * chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
    */
-  rasterPaperFor(kind: PrintKind): PaperOptions | null {
-    const target = this.deps.routing
-      .resolveTargets(kind)
-      .find((printer) => printer.language.renderMode === RenderMode.Raster);
-    return target ? target.paper : null;
+  paperFor(kind: PrintKind): PaperOptions | null {
+    return this.deps.routing.resolveTargets(kind)[0]?.paper ?? null;
   }
 
-  async print(kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> {
+  async print(kind: PrintKind, image: string): Promise<PrintResult> {
     const targets = this.deps.routing.resolveTargets(kind);
 
     if (targets.length === 0) {
@@ -65,7 +58,7 @@ export class PrintService {
           requestId,
           printerId: printer.id,
           kind,
-          documents,
+          image,
           status: PrintJobStatus.Pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),

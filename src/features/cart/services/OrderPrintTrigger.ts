@@ -1,204 +1,90 @@
-import { printService, type PrintDocuments } from '../../printer/printing/PrintService';
+import { createElement } from 'react';
+import { printService } from '../../printer/printing/PrintService';
 import { PrintResultStatus } from '../../printer/models/printing/PrintJob';
-import { LoggerService } from '../../../services/LoggerService';
-import { formatCurrency } from '../../../utils/formatCurrency';
-import { formatDateTime, PAYMENT_METHOD_LABEL } from '../utils/billFormat';
-import { SERVICE_TYPE_LABELS } from '../types/cart.types';
-import type { CartItem, CreateOrderResponse, OrderDetail, ServiceType } from '../types/cart.types';
-import type { StoreViewModel } from '../../store/types/store.types';
-import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
-import type { PaperOptions } from '../../printer/models/paper/PaperOptions';
-
-interface BillItem {
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  note: string | null;
-}
+import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
+import { LoggerService } from '../../../services/LoggerService';
+import { formatDateTime } from '../utils/billFormat';
+import { ReceiptView } from '../components/ReceiptView';
+import { SERVICE_TYPE_LABELS } from '../types/cart.types';
+import type { CartItem, CreateOrderResponse, OrderDetail, Receipt, ServiceType } from '../types/cart.types';
+import type { StoreViewModel } from '../../store/types/store.types';
 
 const isServiceType = (value: string): value is ServiceType => value in SERVICE_TYPE_LABELS;
 
-interface BillHeaderRow {
-  left: string;
-  right: string;
-}
-
-/**
- * `Omit<PrintElement, 'x' | 'y'>` không dùng được trực tiếp — `PrintElement`
- * là union, `Omit` chỉ giữ lại field CHUNG giữa mọi nhánh (chỉ `type`), làm
- * mất hết `content`/`left`/`right`/... riêng của từng loại. Distribute qua
- * từng nhánh (`T extends unknown ? ... : never`) để giữ đúng field riêng.
- */
-type PositionlessElement<T> = T extends unknown ? Omit<T, 'x' | 'y'> : never;
-
-/**
- * Dựng toàn bộ nội dung bill, dùng chung cho cả bill lúc thanh toán
- * (`buildReceiptDocument`) và bill in lại từ lịch sử (`buildReprintDocument`)
- * — 2 nguồn dữ liệu khác shape nhau (`CartItem[]` vs `OrderDetailItem[]`) nên
- * mỗi hàm public tự chuẩn hoá input thành `BillItem[]`/`BillHeaderRow[]`
- * trước khi gọi hàm này, tránh viết lặp logic tính dòng/tổng tiền ở 2 nơi.
- */
-const buildBillElements = (
-  store: StoreViewModel | null,
-  headerRows: BillHeaderRow[],
-  items: BillItem[],
-  discountAmount: number,
-  deliveryFee: number,
-  paymentMethod: string | null,
-  amountReceived: number | null,
-  changeAmount: number | null,
-): PrintElement[] => {
-  const elements: PrintElement[] = [];
-  let y = 0;
-  const push = (element: PositionlessElement<PrintElement>): void => {
-    elements.push({ ...element, x: 0, y } as PrintElement);
-    y += 20;
-  };
-
-  if (store?.name) push({ type: 'text', content: store.name });
-  if (store?.address) push({ type: 'text', content: store.address });
-
-  push({ type: 'line' });
-  for (const row of headerRows) push({ type: 'row', left: row.left, right: row.right });
-
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  const total = subtotal - discountAmount + deliveryFee;
-
-  push({ type: 'line' });
-  push({ type: 'text', content: 'SẢN PHẨM' });
-  for (const item of items) {
-    const label = item.quantity > 1 ? `${item.quantity}x ${item.name}` : item.name;
-    push({ type: 'row', left: label, right: formatCurrency(item.unitPrice * item.quantity) });
-    if (item.note) push({ type: 'text', content: `  Ghi chú: ${item.note}` });
-  }
-  push({ type: 'line' });
-
-  push({ type: 'row', left: 'Tổng số lượng', right: String(totalQuantity) });
-  push({ type: 'row', left: 'Tạm tính', right: formatCurrency(subtotal) });
-  if (discountAmount > 0) push({ type: 'row', left: 'Giảm giá', right: `-${formatCurrency(discountAmount)}` });
-  if (deliveryFee > 0) push({ type: 'row', left: 'Phí giao hàng', right: formatCurrency(deliveryFee) });
-  push({ type: 'line' });
-  push({ type: 'row', left: 'TỔNG THANH TOÁN', right: formatCurrency(total) });
-
-  if (paymentMethod) {
-    push({ type: 'row', left: 'Phương thức', right: PAYMENT_METHOD_LABEL[paymentMethod] ?? paymentMethod });
-    if (paymentMethod === 'Cash' && amountReceived !== null && changeAmount !== null) {
-      push({ type: 'row', left: 'Số tiền nhận', right: formatCurrency(amountReceived) });
-      push({ type: 'row', left: 'Tiền thừa', right: formatCurrency(changeAmount) });
-    }
-  }
-
-  push({ type: 'line' });
-  push({ type: 'text', content: 'Cảm ơn quý khách! Hẹn gặp lại lần sau' });
-
-  return elements;
-};
-
-export const buildReceiptDocument = (
+/** Bill lúc thanh toán. Giảm giá, phí giao hàng, phương thức thanh toán chưa có UI thu thập nên luôn trống. */
+export const buildReceipt = (
   orderResponse: CreateOrderResponse,
   items: CartItem[],
   serviceType: ServiceType,
   store: StoreViewModel | null,
-): PrintDocument => {
-  const headerRows: BillHeaderRow[] = [
-    { left: 'Mã đơn', right: `#${orderResponse.OrderNumber}` },
-    { left: 'Thời gian', right: formatDateTime(orderResponse.CreatedAt) },
-    { left: 'Hình thức', right: SERVICE_TYPE_LABELS[serviceType] },
-  ];
-  const billItems: BillItem[] = items.map((item) => ({
+): Receipt => ({
+  storeName: store?.name ?? null,
+  storeAddress: store?.address ?? null,
+  headerRows: [
+    { label: 'Mã đơn', value: `#${orderResponse.OrderNumber}` },
+    { label: 'Thời gian', value: formatDateTime(orderResponse.CreatedAt) },
+    { label: 'Hình thức', value: SERVICE_TYPE_LABELS[serviceType] },
+  ],
+  items: items.map((item) => ({
     name: item.productName,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     note: item.note.trim() || null,
-  }));
-  // Discount/phí giao hàng/phương thức thanh toán chưa có UI thu thập ở bước
-  // thanh toán hiện tại (CartService.toCreateOrderRequest luôn gửi 0/null) —
-  // bill lúc thanh toán vì vậy chưa có các dòng này, khác với bill in lại
-  // (buildReprintDocument) vốn đọc thẳng từ OrderDetail đã lưu ở BE.
-  return { elements: buildBillElements(store, headerRows, billItems, 0, 0, null, null, null) };
-};
+  })),
+  discountAmount: 0,
+  deliveryFee: 0,
+  paymentMethod: null,
+  amountReceived: null,
+  changeAmount: null,
+});
 
 /**
- * Dựng lại document in từ một đơn đã đặt trước đó (ví dụ: xem lịch sử đơn
- * hôm nay rồi bấm in lại) — cùng khuôn dạng với buildReceiptDocument, thêm
- * nhãn "(In lại)" để phân biệt với bill gốc lúc thanh toán.
- *
- * order.ServiceType đến thẳng từ API, không được validate — nếu gặp giá trị
- * lạ (dữ liệu cũ, kênh mới chưa có nhãn), in nguyên chuỗi gốc thay vì
- * "undefined" ra giấy thật.
+ * Bill in lại từ đơn đã đặt, thêm "(In lại)" để phân biệt với bill gốc. `ServiceType` từ API chưa được kiểm tra nên
+ * giá trị lạ in nguyên chuỗi gốc thay vì "undefined".
  */
-export const buildReprintDocument = (order: OrderDetail, store: StoreViewModel | null): PrintDocument => {
-  const serviceTypeLabel = isServiceType(order.ServiceType) ? SERVICE_TYPE_LABELS[order.ServiceType] : order.ServiceType;
-  const headerRows: BillHeaderRow[] = [
-    { left: 'Mã đơn', right: `#${order.OrderNumber} (In lại)` },
-    { left: 'Thời gian', right: formatDateTime(order.CreatedAt) },
-    { left: 'Hình thức', right: serviceTypeLabel },
-  ];
-  const billItems: BillItem[] = order.Items.map((item) => ({
+export const buildReprintReceipt = (order: OrderDetail, store: StoreViewModel | null): Receipt => ({
+  storeName: store?.name ?? null,
+  storeAddress: store?.address ?? null,
+  headerRows: [
+    { label: 'Mã đơn', value: `#${order.OrderNumber} (In lại)` },
+    { label: 'Thời gian', value: formatDateTime(order.CreatedAt) },
+    {
+      label: 'Hình thức',
+      value: isServiceType(order.ServiceType) ? SERVICE_TYPE_LABELS[order.ServiceType] : order.ServiceType,
+    },
+  ],
+  items: order.Items.map((item) => ({
     name: item.ProductName,
     quantity: item.Quantity,
     unitPrice: item.UnitPrice,
     note: item.Note,
-  }));
-  return {
-    elements: buildBillElements(
-      store,
-      headerRows,
-      billItems,
-      order.DiscountAmount,
-      order.DeliveryFee,
-      order.PaymentMethod,
-      order.AmountReceived,
-      order.ChangeAmount,
-    ),
-  };
-};
+  })),
+  discountAmount: order.DiscountAmount,
+  deliveryFee: order.DeliveryFee,
+  paymentMethod: order.PaymentMethod,
+  amountReceived: order.AmountReceived,
+  changeAmount: order.ChangeAmount,
+});
 
 export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
-/** Chụp `document` (đã render qua `BillImagePreview`) thành base64 PNG theo `media` cho trước — implement thật ở `useBillImageCapture` (cần React tree nên không thể sống ở tầng service). Trả `null` nếu capture thất bại. */
-export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) => Promise<string | null>;
-
 /**
- * Chỉ chụp ảnh khi thật sự có máy in ảnh nhận `kind` (`PrintService.rasterPaperFor`) — chụp ảnh tốn chi phí, không
- * làm nếu không máy nào cần tới.
- *
- * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
- * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở
- * `encodeTsplRaster()`/`EscPosLanguage.encode()` (`IMAGE_REQUIRED`)
- * thay vì âm thầm in sai — các target khác (Encoder mode) không cần ảnh nên
- * vẫn in bình thường.
+ * In bill kiểu "fire-and-forget": không bao giờ reject, mọi lỗi chỉ ghi log để `submit()` phía trên không bị ảnh
+ * hưởng. Chưa có máy in hoá đơn thì không chụp ảnh, vì chụp ảnh tốn chi phí.
  */
-const buildPrintDocumentVariants = async (
-  kind: PrintKind,
-  textDocument: PrintDocument,
-  captureBillImage: CaptureBillImage,
-): Promise<PrintDocuments> => {
-  const paper = printService.rasterPaperFor(kind);
-  if (!paper) return { text: textDocument };
-  const base64 = await captureBillImage(textDocument, paper);
-  if (!base64) return { text: textDocument };
-  return { text: textDocument, image: base64 };
-};
-
-/**
- * Kích hoạt in hoá đơn theo kiểu "fire-and-forget": gửi thẳng document cho
- * toàn bộ đơn tới PrintService. Không bao giờ reject — mọi lỗi đều bị nuốt
- * và ghi log cảnh báo, để submit() phía trên không bị ảnh hưởng.
- *
- * Triggers receipt printing "fire-and-forget": sends the order's documents
- * straight to PrintService. Never rejects — every error is swallowed and
- * logged as a warning, so the calling submit() is unaffected.
- */
-export const printReceipt = async (
-  textDocument: PrintDocument,
-  captureBillImage: CaptureBillImage,
-): Promise<PrintReceiptOutcome> => {
+export const printReceipt = async (receipt: Receipt, captureImage: CaptureImage): Promise<PrintReceiptOutcome> => {
   try {
-    const documents = await buildPrintDocumentVariants(PrintKind.Receipt, textDocument, captureBillImage);
-    const result = await printService.print(PrintKind.Receipt, documents);
+    const paper = printService.paperFor(PrintKind.Receipt);
+    if (!paper) return 'no-printer';
+
+    const image = await captureImage(createElement(ReceiptView, { receipt }), paper);
+    if (!image) {
+      LoggerService.warning('In hoá đơn thất bại: không chụp được ảnh bill');
+      return 'failed';
+    }
+
+    const result = await printService.print(PrintKind.Receipt, image);
     if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
     if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);

@@ -1,7 +1,5 @@
-import { RenderMode } from '../../models/printer/PrinterLanguage';
 import type { PrintOptions } from '../../models/printing/PrintOptions';
 import type { IPrintLanguage } from '../IPrintLanguage';
-import { encodeTsplCommand } from './TsplCommandEncoder';
 import { encodeTsplRaster } from './TsplRasterEncoder';
 
 /** Lệnh hỏi trạng thái TSPL: máy TSPL trả lời, máy dùng ngôn ngữ khác im lặng. */
@@ -15,13 +13,7 @@ const rowsOf = (options?: PrintOptions): number => {
 
 /** Ngôn ngữ TSPL (máy in tem, cũng in được hoá đơn trên giấy cuộn). */
 export const TsplLanguage: IPrintLanguage = {
-  encode: (printer, documents, options) => {
-    const rows = rowsOf(options);
-
-    return printer.language.renderMode === RenderMode.Raster
-      ? encodeTsplRaster(printer, documents, rows)
-      : encodeTsplCommand(printer, documents, rows);
-  },
+  encode: (printer, image, options) => encodeTsplRaster(printer, image, rowsOf(options)),
 
   identifyProbe: {
     command: Uint8Array.from(STATUS_QUERY, (character) => character.charCodeAt(0)),

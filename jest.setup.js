@@ -38,7 +38,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 // react-native-view-shot ships untransformed ESM (src/index.tsx) and pulls a
-// native module; useBillImageCapture.tsx imports `captureRef` at load time, so
+// native module; usePrintImageCapture.tsx imports `captureRef` at load time, so
 // any test transitively importing AddPrinterModal fails to parse without this.
 jest.mock('react-native-view-shot', () => ({
   __esModule: true,

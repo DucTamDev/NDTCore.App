@@ -9,12 +9,13 @@ import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
+import { stripedPngBase64 } from '../../testing/encodeCases';
 
 const tsplLanguage = makeTsplLanguage();
 
 const makeJob = (overrides: Partial<PrintJob> = {}): PrintJob => ({
   id: 'job1', requestId: 'req1', printerId: 'p1', kind: PrintKind.Receipt,
-  documents: { text: { elements: [] } }, status: PrintJobStatus.Pending, retryCount: 0, createdAt: new Date().toISOString(),
+  image: stripedPngBase64(), status: PrintJobStatus.Pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,
 });
 
@@ -150,7 +151,7 @@ describe('PrintScheduler', () => {
       scheduler.enqueue(makeJob({ id: 'order-job', printerId: printer.id })),
       (async () => {
         await new Promise((resolve) => setTimeout(resolve, 1));
-        await printerService.testPrint(printer, { text: { elements: [] } });
+        await printerService.testPrint(printer, stripedPngBase64());
       })(),
     ]);
 

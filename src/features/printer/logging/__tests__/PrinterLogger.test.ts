@@ -125,7 +125,7 @@ const CASES: [string, LogCase][] = [
     {
       printerId: 'p1',
       language: PrintLanguage.EscPos,
-      errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
+      errorCode: PrinterErrorCode.IMAGE_INVALID,
       durationMs: 80,
     },
     { level: 'error', event: 'printer.print.failed', operation: 'print', result: 'failure' },

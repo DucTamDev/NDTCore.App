@@ -1,4 +1,3 @@
-import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import type { PrintOptions } from '../models/printing/PrintOptions';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { Printer } from '../models/printer/Printer';
@@ -9,7 +8,7 @@ import { printerConnectionService, type PrinterConnectionService } from '../conn
 import { printerConnectionLock, lockKeyOf, type ResourceLock } from '../connection/PrinterConnectionLock';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
-/** In nội dung ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
+/** In ảnh ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
 export class PrinterPrintService {
   constructor(
     private readonly connectionService: Pick<PrinterConnectionService, 'connect' | 'getStatus' | 'send'> =
@@ -19,13 +18,13 @@ export class PrinterPrintService {
   ) {}
 
   /** Không tự khoá: `PrintScheduler` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */
-  async print(printerId: string, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
+  async print(printerId: string, image: string, options?: PrintOptions): Promise<void> {
     const printer = this.repository.findOrThrow(printerId);
     const language = printer.language.type;
     const startedAt = Date.now();
 
     try {
-      await this.sendDocuments(printer, documents, options);
+      await this.send(printer, image, options);
       printerLogger.printSucceeded({ printerId, language, durationMs: Date.now() - startedAt });
     } catch (error) {
       const errorCode = errorCodeOf(error);
@@ -35,14 +34,14 @@ export class PrinterPrintService {
   }
 
   /** Máy in có thể chưa lưu (đang thêm máy); tự khoá vì UI gọi thẳng, không qua hàng đợi. */
-  testPrint(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
+  testPrint(printer: Printer, image: string, options?: PrintOptions): Promise<void> {
     return this.lock.runExclusive(lockKeyOf(printer), async () => {
       const printerId = printer.id;
       const language = printer.language.type;
       const startedAt = Date.now();
 
       try {
-        await this.sendDocuments(printer, documents, options);
+        await this.send(printer, image, options);
         printerLogger.testPrintSucceeded({ printerId, language, durationMs: Date.now() - startedAt });
       } catch (error) {
         const errorCode = errorCodeOf(error);
@@ -52,12 +51,12 @@ export class PrinterPrintService {
     });
   }
 
-  private async sendDocuments(printer: Printer, documents: PrintDocuments, options?: PrintOptions): Promise<void> {
+  private async send(printer: Printer, image: string, options?: PrintOptions): Promise<void> {
     if (this.connectionService.getStatus(printer.id) !== PrinterStatus.Connected) {
       await this.connectionService.connect(printer);
     }
 
-    const bytes = getPrintLanguage(printer.language.type).encode(printer, documents, options);
+    const bytes = getPrintLanguage(printer.language.type).encode(printer, image, options);
     await this.connectionService.send(printer.id, bytes);
   }
 }

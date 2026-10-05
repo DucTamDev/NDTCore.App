@@ -1,22 +1,20 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { RenderMode } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
 import { PrintKind } from '../models/printer/PrintKind';
-import type { PrintDocument } from '../models/printing/PrintDocument';
-import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import type { PrintOptions } from '../models/printing/PrintOptions';
 import { makeEscPosLanguage, makePrinter, makeTsplLanguage } from './printerFixtures';
 
-/** Một trường hợp encode cố định: cấu hình máy in, nội dung, và dấu vân tay byte phải ra đúng. */
+/** Một trường hợp encode cố định: cấu hình máy in, ảnh, và dấu vân tay byte phải ra đúng. */
 export interface EncodeCase {
   name: string;
 
   printer: Printer;
 
-  documents: PrintDocuments;
+  /** PNG base64. */
+  image: string;
 
   options?: PrintOptions;
 
@@ -42,7 +40,7 @@ export const fingerprintOf = (bytes: Uint8Array): string => {
 };
 
 /** Ảnh 8x2 sọc đen trắng; `forbidPlte` tránh lỗi encoder `upng-js` với ảnh 2 màu cực nhỏ. */
-const stripedPngBase64 = (): string => {
+export const stripedPngBase64 = (): string => {
   const width = 8;
   const height = 2;
   const rgba = new Uint8Array(width * height * 4);
@@ -53,23 +51,6 @@ const stripedPngBase64 = (): string => {
   }
 
   return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], width, height, 0, [], true))).toString('base64');
-};
-
-const receiptDocument: PrintDocument = {
-  elements: [
-    { type: 'text', content: 'NDT Coffee', x: 0, y: 0 },
-    { type: 'line', x: 0, y: 20 },
-    { type: 'row', left: 'Mã đơn', right: '#001', x: 0, y: 40 },
-    { type: 'row', left: 'Cà phê sữa x2', right: '58.000', x: 0, y: 60 },
-    { type: 'text', content: 'Cảm ơn quý khách', x: 0, y: 80 },
-  ],
-};
-
-const labelDocument: PrintDocument = {
-  elements: [
-    { type: 'text', content: '#001', x: 0, y: 0 },
-    { type: 'text', content: 'Trà đào', x: 0, y: 20 },
-  ],
 };
 
 const usbConnection = { type: ConnectionType.Usb, vendorId: 1, productId: 2 } as const;
@@ -84,80 +65,39 @@ const dieCutPaper = {
   verticalGapMm: 2,
 } as const;
 
-/** Các trường hợp phủ cả hai ngôn ngữ, hai cách render, giấy cuộn và giấy tem, có và không cắt. */
+/** Các trường hợp phủ cả hai ngôn ngữ, giấy cuộn và giấy tem, có và không cắt. */
 export const ENCODE_CASES: EncodeCase[] = [
   {
-    name: 'ESC/POS lệnh văn bản, 80mm, cắt cuối job',
-    printer: makePrinter({
-      connection: usbConnection,
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
-    }),
-    documents: { text: receiptDocument },
-    fingerprint: '234:f64def3b',
-  },
-  {
-    name: 'ESC/POS lệnh văn bản, 58mm, không cắt',
-    printer: makePrinter({
-      connection: usbConnection,
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
-    }),
-    documents: { text: receiptDocument },
-    fingerprint: '184:89696237',
-  },
-  {
-    name: 'ESC/POS ảnh, 80mm, cắt cuối job',
-    printer: makePrinter({
-      connection: usbConnection,
-      language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
-    }),
-    documents: { text: receiptDocument, image: stripedPngBase64() },
+    name: 'ESC/POS, 80mm, cắt cuối job',
+    printer: makePrinter({ connection: usbConnection, language: makeEscPosLanguage() }),
+    image: stripedPngBase64(),
     fingerprint: '10380:a79412dd',
   },
   {
-    name: 'ESC/POS ảnh, 58mm, không cắt',
+    name: 'ESC/POS, 58mm, không cắt',
     printer: makePrinter({
       connection: usbConnection,
-      language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
+      language: makeEscPosLanguage(),
       paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.None },
     }),
-    documents: { text: receiptDocument, image: stripedPngBase64() },
+    image: stripedPngBase64(),
     fingerprint: '4618:ad6f37a5',
   },
   {
-    name: 'TSPL lệnh văn bản, hoá đơn giấy cuộn 80mm',
-    printer: makePrinter({
-      connection: usbConnection,
-      language: makeTsplLanguage({ renderMode: RenderMode.Command }),
-    }),
-    documents: { text: receiptDocument },
-    fingerprint: '383:4af9d05e',
-  },
-  {
-    name: 'TSPL ảnh, hoá đơn giấy cuộn 80mm',
+    name: 'TSPL, hoá đơn giấy cuộn 80mm',
     printer: makePrinter({ connection: usbConnection, language: makeTsplLanguage() }),
-    documents: { text: receiptDocument, image: stripedPngBase64() },
+    image: stripedPngBase64(),
     fingerprint: '10472:4d5f733a',
   },
   {
-    name: 'TSPL lệnh văn bản, tem 2 cột',
-    printer: makePrinter({
-      connection: usbConnection,
-      kind: PrintKind.Label,
-      language: makeTsplLanguage({ renderMode: RenderMode.Command }),
-      paper: { ...dieCutPaper },
-    }),
-    documents: { text: labelDocument },
-    fingerprint: '209:ca61e468',
-  },
-  {
-    name: 'TSPL ảnh, tem 2 cột, 2 hàng',
+    name: 'TSPL, tem 2 cột, 2 hàng',
     printer: makePrinter({
       connection: usbConnection,
       kind: PrintKind.Label,
       language: makeTsplLanguage(),
       paper: { ...dieCutPaper },
     }),
-    documents: { text: labelDocument, image: stripedPngBase64() },
+    image: stripedPngBase64(),
     options: { rows: 2 },
     fingerprint: '1727:c3df6e5b',
   },

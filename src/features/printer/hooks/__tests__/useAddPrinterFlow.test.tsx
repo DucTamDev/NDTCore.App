@@ -7,7 +7,7 @@ import { printerPrintService } from '../../printing/PrinterPrintService';
 import { printerConfigService } from '../../management/PrinterConfigService';
 import { languageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
@@ -46,7 +46,6 @@ jest.mock('../../printing/PrinterPrintService', () => ({
 
 jest.mock('../../management/PrinterConfigService', () => ({
   printerConfigService: {
-    setRenderMode: jest.fn(),
     setPaper: jest.fn(),
   },
 }));
@@ -58,9 +57,9 @@ jest.mock('../../detection/LanguageDetectionService', () => ({
   },
 }));
 
-const mockCaptureBillImage = jest.fn(() => Promise.resolve(null));
-jest.mock('../useBillImageCapture', () => ({
-  useBillImageCapture: () => ({ captureNode: null, captureBillImage: mockCaptureBillImage }),
+const mockCaptureImage = jest.fn((): Promise<string | null> => Promise.resolve('base64-png'));
+jest.mock('../usePrintImageCapture', () => ({
+  usePrintImageCapture: () => ({ captureNode: null, captureImage: mockCaptureImage }),
 }));
 
 jest.mock('../../discovery/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
@@ -72,7 +71,6 @@ const savedTspl: Printer = {
   language: {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
-    renderMode: RenderMode.Raster,
   },
   paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
   connection: { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 },
@@ -92,7 +90,6 @@ const savedEscpos: Printer = {
   language: {
     type: PrintLanguage.EscPos,
     selection: LanguageSelection.Auto,
-    renderMode: RenderMode.Command,
   },
   connection: { type: ConnectionType.Lan, host: '10.0.0.6', port: 9100 },
   deviceId: 'lan:10.0.0.6:9100',
@@ -128,7 +125,7 @@ const render = (props: FlowProps) => {
 describe('useAddPrinterFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCaptureBillImage.mockClear();
+    mockCaptureImage.mockClear();
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
     (languageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
@@ -157,7 +154,7 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.locked).toBe(true);
 
     act(() => get().connectionSection.onConnectPress());
-    const detectedLanguage = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto, renderMode: RenderMode.Raster };
+    const detectedLanguage = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto };
     act(() =>
       capturedDetectionHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedLanguage }),
     );
@@ -234,7 +231,6 @@ describe('useAddPrinterFlow', () => {
         language: {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
-    renderMode: RenderMode.Raster,
   },
       }),
     );
@@ -357,13 +353,6 @@ describe('useAddPrinterFlow', () => {
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });
 
-  it('onSelectRenderMode cập nhật language và persist qua printerConfigService.setRenderMode', () => {
-    const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
-    act(() => get().infoCard.onSelectRenderMode(RenderMode.Raster));
-    expect(printerConfigService.setRenderMode).toHaveBeenCalledWith('p2', RenderMode.Raster);
-    expect(get().infoCard.language?.renderMode).toBe(RenderMode.Raster);
-  });
-
   it('onChangePaper merge patch và persist qua printerConfigService.setPaper', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onChangePaper({ paperSize: PaperSize.Mm100 }));
@@ -385,7 +374,7 @@ describe('useAddPrinterFlow', () => {
     });
     expect(printerPrintService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1', kind: PrintKind.Label }),
-      expect.objectContaining({ text: expect.anything() }),
+      'base64-png',
       { rows: 3 },
     );
   });
@@ -406,20 +395,27 @@ describe('useAddPrinterFlow', () => {
     expect(printerConfigService.setPaper).not.toHaveBeenCalled();
   });
 
-  it('onTestPrint ở chế độ Bitmap gọi captureBillImage trước khi in; ở Encoder thì không', async () => {
-    const bitmapEscpos: Printer = { ...savedEscpos, language: { ...savedEscpos.language, renderMode: RenderMode.Raster } };
-    const { get: getBitmap } = render({ visible: true, initialValues: bitmapEscpos, onSaved: jest.fn(), kind: bitmapEscpos.kind });
+  it('onTestPrint chụp bản in mẫu theo giấy của máy rồi in đúng ảnh đó', async () => {
+    const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
     await act(async () => {
-      await getBitmap().infoCard.onTestPrint();
+      await get().infoCard.onTestPrint();
     });
-    expect(mockCaptureBillImage).toHaveBeenCalledWith(expect.anything(), bitmapEscpos.paper);
+    expect(mockCaptureImage).toHaveBeenCalledWith(expect.anything(), savedEscpos.paper);
+    expect(printerPrintService.testPrint).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p2' }),
+      'base64-png',
+      undefined,
+    );
+  });
 
-    mockCaptureBillImage.mockClear();
-    const { get: getEncoder } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
+  it('onTestPrint chụp thất bại → báo lỗi, không gửi lệnh in', async () => {
+    mockCaptureImage.mockResolvedValueOnce(null);
+    const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
     await act(async () => {
-      await getEncoder().infoCard.onTestPrint();
+      await get().infoCard.onTestPrint();
     });
-    expect(mockCaptureBillImage).not.toHaveBeenCalled();
+    expect(printerPrintService.testPrint).not.toHaveBeenCalled();
+    expect(get().testPrintErrorMessage).toBe('Không chụp được bản in thử');
   });
 
   it('onSave (edit) gọi printerRepository.updatePrinter với draft đầy đủ', async () => {

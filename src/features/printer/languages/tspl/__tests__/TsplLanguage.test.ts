@@ -1,16 +1,13 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { TsplLanguage } from '../TsplLanguage';
-import { fingerprintOf } from '../../../testing/encodeCases';
-import { RenderMode } from '../../../models/printer/PrinterLanguage';
+import { fingerprintOf, stripedPngBase64 } from '../../../testing/encodeCases';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
 import { PrinterErrorCode } from '../../../errors/PrinterError';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 
-const printer = makePrinter({ language: makeTsplLanguage({ renderMode: RenderMode.Command }) });
-
-const documents = { text: { elements: [{ type: 'text' as const, content: 'Trà đào', x: 0, y: 0 }] } };
+const printer = makePrinter({ language: makeTsplLanguage() });
 
 const paper58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob } as const;
 
@@ -37,14 +34,15 @@ describe('TsplLanguage', () => {
   });
 
   it('số hàng không hợp lệ coi như 1 hàng', () => {
-    const oneRow = fingerprintOf(TsplLanguage.encode(printer, documents));
+    const image = stripedPngBase64();
+    const oneRow = fingerprintOf(TsplLanguage.encode(printer, image));
 
-    expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: 0 }))).toBe(oneRow);
-    expect(fingerprintOf(TsplLanguage.encode(printer, documents, { rows: Number.NaN }))).toBe(oneRow);
+    expect(fingerprintOf(TsplLanguage.encode(printer, image, { rows: 0 }))).toBe(oneRow);
+    expect(fingerprintOf(TsplLanguage.encode(printer, image, { rows: Number.NaN }))).toBe(oneRow);
   });
 
   it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
-    expect(() => TsplLanguage.encode(rasterLabelPrinter, { ...documents, image: squarePngBase64() })).toThrow(
+    expect(() => TsplLanguage.encode(rasterLabelPrinter, squarePngBase64())).toThrow(
       expect.objectContaining({ code: PrinterErrorCode.IMAGE_TOO_LARGE }),
     );
   });
@@ -52,6 +50,6 @@ describe('TsplLanguage', () => {
   it('cùng ảnh đó in hoá đơn giấy cuộn thì vẫn in được', () => {
     const receiptPrinter = { ...rasterLabelPrinter, kind: PrintKind.Receipt };
 
-    expect(() => TsplLanguage.encode(receiptPrinter, { ...documents, image: squarePngBase64() })).not.toThrow();
+    expect(() => TsplLanguage.encode(receiptPrinter, squarePngBase64())).not.toThrow();
   });
 });

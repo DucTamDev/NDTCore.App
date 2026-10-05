@@ -1,5 +1,5 @@
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RenderMode } from '../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
@@ -12,14 +12,12 @@ export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSi
 export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
   type: PrintLanguage.EscPos,
   selection: LanguageSelection.Auto,
-  renderMode: RenderMode.Command,
   ...o,
 });
 
 export const makeTsplLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
   type: PrintLanguage.Tspl,
   selection: LanguageSelection.Auto,
-  renderMode: RenderMode.Raster,
   ...o,
 });
 

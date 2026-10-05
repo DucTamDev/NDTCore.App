@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { printerRepository } from '../storage/PrinterRepository';
 import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
-import { useBillImageCapture } from './useBillImageCapture';
+import { usePrintImageCapture } from './usePrintImageCapture';
 import { generateId } from '../../../utils/id';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
@@ -77,7 +77,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
   const [paper, setPaper] = useState<PaperDraft>(initialValues?.paper ?? { ...DEFAULT_PAPER });
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-  const { captureNode, captureBillImage } = useBillImageCapture();
+  const { captureNode, captureImage } = usePrintImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.Idle);
 
   const displayForm = useForm<PrinterDisplayValues>({
@@ -180,8 +180,14 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   };
 
   const paperError = dieCutMediaError(paper);
-  const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
-  const printSettings = usePrintSettings({ printerId, language, setLanguage, paper, setPaper });
+  const testPrint = useTestPrint({
+    language,
+    paperError,
+    displayForm,
+    buildDraftPrinter: buildFullDraftPrinter,
+    captureImage,
+  });
+  const printSettings = usePrintSettings({ printerId, paper, setPaper });
 
   const languageDetection = useLanguageDetection({
     initialValues,
@@ -325,7 +331,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       onAutoReconnectChange: setAutoReconnect,
       testPrintPending: testPrint.testPrintPending,
       onTestPrint: testPrint.onTestPrint,
-      onSelectRenderMode: printSettings.onSelectRenderMode,
       testPrintRowsText: testPrint.testPrintRowsText,
       onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       kind,

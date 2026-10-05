@@ -1,7 +1,6 @@
 import { PrinterConfigService } from '../PrinterConfigService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { printerStorage } from '../../storage/PrinterStorage';
-import { RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { type Printer } from '../../models/printer/Printer';
 import { basePrinter } from '../../testing/printerServiceTestKit';
@@ -11,25 +10,6 @@ jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug:
 describe('PrinterConfigService', () => {
   beforeEach(() => {
     printerStorage.savePrinters([]);
-  });
-
-  it('setRenderMode() persists renderMode vào printer.language cho printer đã lưu', () => {
-    const repository = new PrinterRepository();
-    const service = new PrinterConfigService(repository);
-    repository.addPrinter(basePrinter);
-
-    service.setRenderMode(basePrinter.id, RenderMode.Raster);
-
-    const saved = repository.getPrinters().find((p) => p.id === basePrinter.id)!;
-    expect(saved.language).toMatchObject({ renderMode: RenderMode.Raster });
-  });
-
-  it('setRenderMode() là no-op cho printer chưa lưu', () => {
-    const repository = new PrinterRepository();
-    const service = new PrinterConfigService(repository);
-
-    expect(() => service.setRenderMode('draft-not-saved', RenderMode.Raster)).not.toThrow();
-    expect(repository.getPrinters()).toEqual([]);
   });
 
   it('setPaper() ghi đè printer.paper cho printer đã lưu', () => {

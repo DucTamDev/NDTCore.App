@@ -13,12 +13,8 @@ export const PrinterErrorCode = {
   PRINTER_BUSY: 'PRINTER_BUSY',
   PRINTER_WRITE_FAILED: 'PRINTER_WRITE_FAILED',
 
-  /** Dùng chung mọi ngôn ngữ in ảnh — mô tả trạng thái `documents.image`, không phải lỗi riêng TSPL. */
-  IMAGE_REQUIRED: 'IMAGE_REQUIRED',
   IMAGE_INVALID: 'IMAGE_INVALID',
   IMAGE_TOO_LARGE: 'IMAGE_TOO_LARGE',
-  TSPL_RENDER_MODE_UNSUPPORTED: 'TSPL_RENDER_MODE_UNSUPPORTED',
-  TSPL_ELEMENT_UNSUPPORTED: 'TSPL_ELEMENT_UNSUPPORTED',
 } as const;
 
 export type PrinterErrorCode = (typeof PrinterErrorCode)[keyof typeof PrinterErrorCode];

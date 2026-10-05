@@ -4,14 +4,14 @@ import { ResourceLock } from '../../connection/PrinterConnectionLock';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
+import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
-import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PrinterErrorCode } from '../../errors/PrinterError';
 import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
+import { stripedPngBase64 } from '../../testing/encodeCases';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -26,15 +26,15 @@ jest.mock('../../logging/PrinterLogger', () => ({
   },
 }));
 
-const documents: PrintDocuments = { text: { elements: [{ type: 'text', content: 'Trà đào', x: 0, y: 0 }] } };
+const image = stripedPngBase64();
 
-/** In lệnh nên không cần ảnh, để so byte theo số hàng. */
+/** Máy tem để so byte theo số hàng. */
 const tsplLabelPrinter: Printer = {
   ...basePrinter,
   id: 'p2',
   deviceId: 'lan:192.168.1.11:9100',
   kind: PrintKind.Label,
-  language: { ...tsplLanguage, renderMode: RenderMode.Command },
+  language: tsplLanguage,
   connection: { type: ConnectionType.Lan, host: '192.168.1.11', port: 9100 },
 };
 
@@ -58,9 +58,9 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(basePrinter);
 
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, image);
 
-    expect(connectionService.send).toHaveBeenCalledWith(basePrinter.id, EscPosLanguage.encode(basePrinter, documents));
+    expect(connectionService.send).toHaveBeenCalledWith(basePrinter.id, EscPosLanguage.encode(basePrinter, image));
     expect(printerLogger.printSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, language: PrintLanguage.EscPos }),
     );
@@ -72,7 +72,7 @@ describe('PrinterPrintService', () => {
     });
     repository.addPrinter(basePrinter);
 
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, image);
 
     expect(connectionService.connect).toHaveBeenCalledWith(basePrinter);
     expect(connectionService.send).toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(basePrinter);
 
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, image);
 
     expect(connectionService.connect).not.toHaveBeenCalled();
   });
@@ -91,31 +91,22 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(tsplLabelPrinter);
 
-    await service.print(tsplLabelPrinter.id, documents, { rows: 3 });
+    await service.print(tsplLabelPrinter.id, image, { rows: 3 });
 
-    const expected = TsplLanguage.encode(tsplLabelPrinter, documents, { rows: 3 });
+    const expected = TsplLanguage.encode(tsplLabelPrinter, image, { rows: 3 });
     expect(connectionService.send).toHaveBeenCalledWith(tsplLabelPrinter.id, expected);
   });
 
-  it('in: nội dung không in được thì không gửi gì và ghi log thất bại', async () => {
+  it('in: ảnh hỏng thì không gửi gì và ghi log thất bại', async () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(basePrinter);
-    const unprintable: PrintDocuments = {
-      text: {
-        elements: [
-          { type: 'text', content: 'Trà sữa', x: 0, y: 0 },
-          { type: 'barcode', content: '123', x: 0, y: 10 },
-        ],
-      },
-    };
-
-    await expect(service.print(basePrinter.id, unprintable)).rejects.toMatchObject({
-      code: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
+    await expect(service.print(basePrinter.id, 'not-a-png')).rejects.toMatchObject({
+      code: PrinterErrorCode.IMAGE_INVALID,
     });
 
     expect(connectionService.send).not.toHaveBeenCalled();
     expect(printerLogger.printFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED }),
+      expect.objectContaining({ errorCode: PrinterErrorCode.IMAGE_INVALID }),
     );
   });
 
@@ -125,7 +116,7 @@ describe('PrinterPrintService', () => {
     const runExclusive = jest.spyOn(lock, 'runExclusive');
     repository.addPrinter(basePrinter);
 
-    await service.print(basePrinter.id, documents);
+    await service.print(basePrinter.id, image);
 
     expect(runExclusive).not.toHaveBeenCalled();
   });
@@ -134,7 +125,7 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository, lock } = setup();
     const runExclusive = jest.spyOn(lock, 'runExclusive');
 
-    await service.testPrint(basePrinter, documents);
+    await service.testPrint(basePrinter, image);
 
     expect(runExclusive).toHaveBeenCalledWith('lan:192.168.1.10:9100', expect.any(Function));
     expect(connectionService.send).toHaveBeenCalledWith(basePrinter.id, expect.any(Uint8Array));
@@ -150,7 +141,7 @@ describe('PrinterPrintService', () => {
       connect: jest.fn().mockRejectedValue(new Error('offline')),
     });
 
-    await expect(service.testPrint(basePrinter, documents)).rejects.toThrow('offline');
+    await expect(service.testPrint(basePrinter, image)).rejects.toThrow('offline');
 
     expect(printerLogger.testPrintFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, errorCode: PrinterErrorCode.UNKNOWN_ERROR }),

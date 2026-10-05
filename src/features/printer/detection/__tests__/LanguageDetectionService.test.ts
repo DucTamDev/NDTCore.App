@@ -4,7 +4,7 @@ import {
   type LanguageDetectionEvent,
 } from '../LanguageDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrintKind } from '../../models/printer/PrintKind';
 import type { Printer } from '../../models/printer/Printer';
 import { PrinterErrorCode } from '../../errors/PrinterError';
@@ -70,7 +70,6 @@ describe('LanguageDetectionService', () => {
       language: {
         type: PrintLanguage.Tspl,
         selection: LanguageSelection.Auto,
-        renderMode: RenderMode.Raster,
       },
     });
     expect(connectionService.connect).toHaveBeenCalledTimes(1);

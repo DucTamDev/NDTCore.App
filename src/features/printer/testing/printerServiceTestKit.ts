@@ -4,7 +4,6 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import {
   LanguageSelection,
   PrintLanguage,
-  RenderMode,
   type PrinterLanguage,
 } from '../models/printer/PrinterLanguage';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
@@ -56,13 +55,11 @@ export const makeMockConnectionService = (
 export const escposLanguage: PrinterLanguage = {
   type: PrintLanguage.EscPos,
   selection: LanguageSelection.Auto,
-  renderMode: RenderMode.Command,
 };
 
 export const tsplLanguage: PrinterLanguage = {
   type: PrintLanguage.Tspl,
   selection: LanguageSelection.Auto,
-  renderMode: RenderMode.Raster,
 };
 
 export const basePrinter: Printer = {

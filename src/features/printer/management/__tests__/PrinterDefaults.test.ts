@@ -1,22 +1,17 @@
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../PrinterDefaults';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { LanguageSelection, PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 
 const lan = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 } as const;
 
 describe('createPrinterLanguage', () => {
-  it('ESC/POS mặc định in lệnh văn bản', () => {
-    expect(createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto)).toEqual({
-      type: PrintLanguage.EscPos,
-      selection: LanguageSelection.Auto,
-      renderMode: RenderMode.Command,
+  it('giữ ngôn ngữ và cách xác định được truyền vào', () => {
+    expect(createPrinterLanguage(PrintLanguage.Tspl, LanguageSelection.Manual)).toEqual({
+      type: PrintLanguage.Tspl,
+      selection: LanguageSelection.Manual,
     });
-  });
-
-  it('TSPL mặc định in ảnh', () => {
-    expect(createPrinterLanguage(PrintLanguage.Tspl, LanguageSelection.Manual).renderMode).toBe(RenderMode.Raster);
   });
 });
 

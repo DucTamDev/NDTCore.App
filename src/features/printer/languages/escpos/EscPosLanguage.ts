@@ -1,30 +1,11 @@
-import { CutterMode, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
+import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import type { Printer } from '../../models/printer/Printer';
-import { RenderMode } from '../../models/printer/PrinterLanguage';
-import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PrinterErrorCode, PrinterErrorException } from '../../errors/PrinterError';
 import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import type { IPrintLanguage } from '../IPrintLanguage';
-import { exchange_text } from './EPToolkit';
 import { buildEscPosRasterBytes } from './EscPosRasterEncoder';
-import { buildEscPosText } from './EscPosTextBuilder';
-
-/** Luôn thêm dòng trống cuối cho dễ xé giấy, và in văn bản UTF-8. */
-const TEXT_OPTIONS = { tailingLine: true, encoding: 'UTF8' } as const;
-
-/** Chuỗi mở đầu cố định `exchange_text` luôn chèn (ESC @, chọn UTF-8, ESC 2); không gửi chuỗi này tới máy in. */
-const TEXT_PREAMBLE = [0x1b, 0x40, 0x1c, 0x26, 0x1c, 0x43, 0xff, 0x1b, 0x32];
-
-const withoutPreamble = (bytes: Uint8Array): Uint8Array =>
-  TEXT_PREAMBLE.every((byte, index) => bytes[index] === byte) ? bytes.subarray(TEXT_PREAMBLE.length) : bytes;
-
-const encodeCommand = (printer: Printer, documents: PrintDocuments): Uint8Array => {
-  const cut = resolveEffectiveCutterMode(printer.paper) !== CutterMode.None;
-  const text = buildEscPosText(printer.paper.paperSize, documents);
-  return withoutPreamble(new Uint8Array(exchange_text(text, { ...TEXT_OPTIONS, cut })));
-};
 
 const decodeImage = (image: string, widthPx: number): MonochromeBitmap => {
   try {
@@ -39,15 +20,8 @@ const decodeImage = (image: string, widthPx: number): MonochromeBitmap => {
 };
 
 /** Giấy ESC/POS luôn là giấy cuộn nên ảnh không chia cột; ảnh quá cao bị chặn để máy không đẩy giấy quá dài. */
-const encodeRaster = (printer: Printer, documents: PrintDocuments): Uint8Array => {
-  if (!documents.image) {
-    throw new PrinterErrorException({
-      code: PrinterErrorCode.IMAGE_REQUIRED,
-      message: 'In ảnh cần ảnh bill đã render — chụp ảnh thất bại hoặc chưa chạy.',
-    });
-  }
-
-  const bitmap = decodeImage(documents.image, PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx);
+const encodeImage = (printer: Printer, image: string): Uint8Array => {
+  const bitmap = decodeImage(image, PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx);
   const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
 
   if (bitmap.heightPx > maxHeightPx) {
@@ -64,8 +38,5 @@ const encodeRaster = (printer: Printer, documents: PrintDocuments): Uint8Array =
 
 /** Ngôn ngữ ESC/POS: máy hoá đơn không có lệnh dò nên không có `identifyProbe`. */
 export const EscPosLanguage: IPrintLanguage = {
-  encode: (printer, documents) =>
-    printer.language.renderMode === RenderMode.Raster
-      ? encodeRaster(printer, documents)
-      : encodeCommand(printer, documents),
+  encode: encodeImage,
 };
