@@ -9,8 +9,6 @@ import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
 import type { PaperOptions } from '../../printer/models/paper/PaperOptions';
-import { renderDocumentToBitmap } from '../../printer/rendering/DocumentImageRenderer';
-import { RasterSource } from '../../printer/models/printer/PrinterLanguage';
 
 interface BillItem {
   name: string;
@@ -164,13 +162,8 @@ export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 export type CaptureBillImage = (document: PrintDocument, media: PaperOptions) => Promise<string | null>;
 
 /**
- * Chỉ render + tạo ảnh khi thật sự có máy in bitmap-mode được gán cho
- * `kind` (`PrintService.imageDocumentTarget`) — tạo ảnh tốn chi phí,
- * không làm nếu không có máy nào cần tới. Chọn đúng hàm sinh ảnh theo
- * `rasterSource` của target đã resolve — `Ast` dùng `renderDocumentToBitmap`
- * (hàm thuần, không cần React tree), `Image` dùng `captureBillImage` (hook,
- * cần `captureNode` đã mount). Cả 2 gán vào CÙNG field `documents.image` —
- * ngôn ngữ in không biết/không cần biết nguồn nào tạo ra ảnh.
+ * Chỉ chụp ảnh khi thật sự có máy in ảnh nhận `kind` (`PrintService.rasterPaperFor`) — chụp ảnh tốn chi phí, không
+ * làm nếu không máy nào cần tới.
  *
  * Capture/render thất bại (trả `null`) → gửi `text`-only cho MỌI target;
  * target nào thật sự cần ảnh (TSPL/ESC/POS bitmap) sẽ tự thất bại rõ ràng ở
@@ -183,12 +176,9 @@ const buildPrintDocumentVariants = async (
   textDocument: PrintDocument,
   captureBillImage: CaptureBillImage,
 ): Promise<PrintDocuments> => {
-  const target = printService.imageDocumentTarget(kind);
-  if (!target) return { text: textDocument };
-  const base64 =
-    target.rasterSource === RasterSource.Ast
-      ? await renderDocumentToBitmap(textDocument, target.paper)
-      : await captureBillImage(textDocument, target.paper);
+  const paper = printService.rasterPaperFor(kind);
+  if (!paper) return { text: textDocument };
+  const base64 = await captureBillImage(textDocument, paper);
   if (!base64) return { text: textDocument };
   return { text: textDocument, image: base64 };
 };

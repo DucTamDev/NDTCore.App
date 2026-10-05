@@ -1,6 +1,6 @@
 import { printerSchema } from '../PrinterSchema';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
-import { RenderMode, RasterSource } from '../../../models/printer/PrinterLanguage';
+import { RenderMode } from '../../../models/printer/PrinterLanguage';
 import { PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../../testing/printerFixtures';
@@ -33,13 +33,6 @@ describe('printerSchema', () => {
   it('accepts TSPL with renderMode Command', () => {
     const printer = makePrinter({
       language: makeTsplLanguage({ renderMode: RenderMode.Command }),
-    });
-    expect(printerSchema.safeParse(printer).success).toBe(true);
-  });
-
-  it('accepts TSPL with rasterSource Ast when renderMode is Raster', () => {
-    const printer = makePrinter({
-      language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),
     });
     expect(printerSchema.safeParse(printer).success).toBe(true);
   });

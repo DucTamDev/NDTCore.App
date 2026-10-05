@@ -1,5 +1,5 @@
 import { PrintService, printService } from '../PrintService';
-import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
+import { RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
@@ -94,15 +94,15 @@ describe('PrintService.print', () => {
   });
 });
 
-describe('PrintService.imageDocumentTarget', () => {
+describe('PrintService.rasterPaperFor', () => {
   it('returns null when the only target uses escpos in encoder mode', () => {
     const deps = makeDeps([makePrinter({ id: 'p1' })], () => {
       throw new Error('unused');
     });
-    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toBeNull();
+    expect(new PrintService(deps).rasterPaperFor(PrintKind.Receipt)).toBeNull();
   });
 
-  it('returns the paper + Image rasterSource default when the target has no rasterSource set', () => {
+  it('returns the paper of the target printing raster', () => {
     const p1 = makePrinter({
       id: 'p1',
       language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
@@ -111,19 +111,7 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([p1], () => {
       throw new Error('unused');
     });
-    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Image });
-  });
-
-  it('returns the target language rasterSource when explicitly set to Ast', () => {
-    const p1 = makePrinter({
-      id: 'p1',
-      language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
-    });
-    const deps = makeDeps([p1], () => {
-      throw new Error('unused');
-    });
-    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p1.paper, rasterSource: RasterSource.Ast });
+    expect(new PrintService(deps).rasterPaperFor(PrintKind.Receipt)).toEqual(p1.paper);
   });
 
   it('returns the bitmap target when a mix of encoder and bitmap targets both resolve the same kind', () => {
@@ -132,10 +120,10 @@ describe('PrintService.imageDocumentTarget', () => {
     const deps = makeDeps([p1, p2], () => {
       throw new Error('unused');
     });
-    expect(new PrintService(deps).imageDocumentTarget(PrintKind.Receipt)).toEqual({ paper: p2.paper, rasterSource: RasterSource.Image });
+    expect(new PrintService(deps).rasterPaperFor(PrintKind.Receipt)).toEqual(p2.paper);
   });
 
   it('the real exported printService singleton has no configured printers by default, so it returns null', () => {
-    expect(printService.imageDocumentTarget(PrintKind.Receipt)).toBeNull();
+    expect(printService.rasterPaperFor(PrintKind.Receipt)).toBeNull();
   });
 });

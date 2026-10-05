@@ -1,5 +1,5 @@
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage, RenderMode } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
@@ -13,7 +13,6 @@ export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLan
   type: PrintLanguage.EscPos,
   selection: LanguageSelection.Auto,
   renderMode: RenderMode.Command,
-  rasterSource: RasterSource.Image,
   ...o,
 });
 
@@ -21,7 +20,6 @@ export const makeTsplLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLangu
   type: PrintLanguage.Tspl,
   selection: LanguageSelection.Auto,
   renderMode: RenderMode.Raster,
-  rasterSource: RasterSource.Image,
   ...o,
 });
 

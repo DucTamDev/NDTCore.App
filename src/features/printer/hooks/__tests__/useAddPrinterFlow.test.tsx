@@ -7,7 +7,7 @@ import { printerPrintService } from '../../printing/PrinterPrintService';
 import { printerConfigService } from '../../management/PrinterConfigService';
 import { languageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
@@ -73,7 +73,6 @@ const savedTspl: Printer = {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
     renderMode: RenderMode.Raster,
-    rasterSource: RasterSource.Image,
   },
   paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
   connection: { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 },
@@ -94,7 +93,6 @@ const savedEscpos: Printer = {
     type: PrintLanguage.EscPos,
     selection: LanguageSelection.Auto,
     renderMode: RenderMode.Command,
-    rasterSource: RasterSource.Image,
   },
   connection: { type: ConnectionType.Lan, host: '10.0.0.6', port: 9100 },
   deviceId: 'lan:10.0.0.6:9100',
@@ -237,7 +235,6 @@ describe('useAddPrinterFlow', () => {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
     renderMode: RenderMode.Raster,
-    rasterSource: RasterSource.Image,
   },
       }),
     );

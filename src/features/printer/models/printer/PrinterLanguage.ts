@@ -19,22 +19,11 @@ export const RenderMode = {
   /** Gửi lệnh văn bản của ngôn ngữ; nhanh, phụ thuộc font/codepage của máy. */
   Command: 'Command',
 
-  /** Gửi nội dung dưới dạng ảnh; chậm hơn, đúng trên mọi máy. */
+  /** Gửi ảnh chụp bản xem trước; chậm hơn, đúng trên mọi máy. */
   Raster: 'Raster',
 } as const;
 
 export type RenderMode = (typeof RenderMode)[keyof typeof RenderMode];
-
-/** Nguồn tạo ảnh khi in `Raster`. */
-export const RasterSource = {
-  /** Chụp màn hình bản xem trước. */
-  Image: 'Image',
-
-  /** Vẽ trực tiếp từ `PrintDocument` lên canvas, không cần màn hình. */
-  Ast: 'Ast',
-} as const;
-
-export type RasterSource = (typeof RasterSource)[keyof typeof RasterSource];
 
 /** Cấu hình ngôn ngữ in của một máy in. */
 export interface PrinterLanguage {
@@ -45,7 +34,4 @@ export interface PrinterLanguage {
   selection: LanguageSelection;
 
   renderMode: RenderMode;
-
-  /** Chỉ có tác dụng khi `renderMode` là `Raster`. */
-  rasterSource: RasterSource;
 }

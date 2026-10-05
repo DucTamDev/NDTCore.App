@@ -4,7 +4,7 @@ import type { ContinuousPaper } from '../models/paper/PaperOptions';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterCapabilities } from '../models/printer/PrinterCapabilities';
-import { PrintLanguage, RasterSource, RenderMode } from '../models/printer/PrinterLanguage';
+import { PrintLanguage, RenderMode } from '../models/printer/PrinterLanguage';
 import type { LanguageSelection, PrinterLanguage } from '../models/printer/PrinterLanguage';
 
 /** Giấy mặc định khi tạo máy in mới: cuộn 80mm, cắt cuối job. */
@@ -34,7 +34,6 @@ export const createPrinterLanguage = (type: PrintLanguage, selection: LanguageSe
   type,
   selection,
   renderMode: DEFAULT_RENDER_MODE[type],
-  rasterSource: RasterSource.Image,
 });
 
 /** Khả năng mặc định theo ngôn ngữ. */

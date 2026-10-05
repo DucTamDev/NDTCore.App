@@ -1,10 +1,10 @@
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import type { Printer } from '../models/printer/Printer';
-import { RenderMode, RasterSource } from '../models/printer/PrinterLanguage';
+import type { RenderMode } from '../models/printer/PrinterLanguage';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
 /**
- * Sửa cách render / nguồn ảnh / giấy của một máy in ĐÃ LƯU. Bản nháp chưa lưu thì không làm gì — modal Thêm máy in
+ * Sửa cách render / giấy của một máy in ĐÃ LƯU. Bản nháp chưa lưu thì không làm gì — modal Thêm máy in
  * mang các giá trị này vào lúc Lưu.
  */
 export class PrinterConfigService {
@@ -14,10 +14,6 @@ export class PrinterConfigService {
 
   setRenderMode(printerId: string, renderMode: RenderMode): void {
     this.update(printerId, (printer) => ({ ...printer, language: { ...printer.language, renderMode } }));
-  }
-
-  setRasterSource(printerId: string, rasterSource: RasterSource): void {
-    this.update(printerId, (printer) => ({ ...printer, language: { ...printer.language, rasterSource } }));
   }
 
   setPaper(printerId: string, paper: PaperOptions): void {

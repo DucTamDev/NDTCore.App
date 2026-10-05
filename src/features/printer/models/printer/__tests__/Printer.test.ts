@@ -1,5 +1,5 @@
 import { ConnectionType } from '../ConnectionType';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../PrinterLanguage';
+import { LanguageSelection, PrintLanguage, RenderMode, type PrinterLanguage } from '../PrinterLanguage';
 import { type Printer } from '../Printer';
 import { PrintKind } from '../PrintKind';
 import { CutterMode, PaperSize, PaperType } from '../../paper/PaperOptions';
@@ -10,7 +10,6 @@ describe('Printer domain type', () => {
       type: PrintLanguage.Tspl,
       selection: LanguageSelection.Auto,
       renderMode: RenderMode.Raster,
-      rasterSource: RasterSource.Image,
     };
     const printer: Printer = {
       id: 'p1',
@@ -39,7 +38,6 @@ describe('Printer domain type', () => {
         type: PrintLanguage.EscPos,
         selection: LanguageSelection.Manual,
         renderMode: RenderMode.Command,
-        rasterSource: RasterSource.Image,
       },
       connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
       paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },

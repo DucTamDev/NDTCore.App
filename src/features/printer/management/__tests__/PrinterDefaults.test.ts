@@ -1,7 +1,7 @@
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../PrinterDefaults';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, PrintLanguage, RenderMode } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 
 const lan = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 } as const;
@@ -12,7 +12,6 @@ describe('createPrinterLanguage', () => {
       type: PrintLanguage.EscPos,
       selection: LanguageSelection.Auto,
       renderMode: RenderMode.Command,
-      rasterSource: RasterSource.Image,
     });
   });
 

@@ -3,8 +3,16 @@ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import type { PrintElement } from '../../models/printing/PrintDocument';
 import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import { LINE_HEIGHT_DOTS, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../../rendering/printLayoutConstants';
 import { TsplEncoder, contentWidthChars, columnOffsets } from './TsplEncoder';
+
+/** Chiều cao một dòng font `"3"`; ước lượng, chưa đo trên máy thật. */
+const LINE_HEIGHT_DOTS = 24;
+
+/** `TsplEncoder.barcode()` cố định mã vạch cao 50 dot, cộng thêm khoảng cách với phần tử sau. */
+const BARCODE_HEIGHT_DOTS = 60;
+
+/** Ước lượng: QR thật to nhỏ theo độ dài nội dung, QR lớn hơn sẽ đè lên phần tử sau. */
+const QRCODE_HEIGHT_DOTS = 200;
 
 /** Điểm bắt đầu vẽ một phần tử trên tem (dot). */
 interface DrawPosition {

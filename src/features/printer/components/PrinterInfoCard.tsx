@@ -12,7 +12,7 @@ import { TestPrintPanel } from './TestPrintPanel';
 import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import { PrintKind } from '../models/printer/PrintKind';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import { LanguageSelection, RenderMode, type RasterSource, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+import { LanguageSelection, RenderMode, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { PrinterStatus } from '../models/printer/PrinterStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
@@ -45,8 +45,6 @@ export interface PrinterInfoCardProps {
   testPrintPending: boolean;
   onTestPrint: () => void;
   onSelectRenderMode: (mode: RenderMode) => void;
-  /** Chỉ có tác dụng khi in ảnh (`renderMode` là `Raster`). */
-  onSelectRasterSource: (source: RasterSource) => void;
   /** Số hàng die-cut cho "In thử" — giữ dạng text để nhập dở. */
   testPrintRowsText: string;
   onTestPrintRowsChange: (text: string) => void;
@@ -71,7 +69,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   testPrintPending,
   onTestPrint,
   onSelectRenderMode,
-  onSelectRasterSource,
   testPrintRowsText,
   onTestPrintRowsChange,
   kind,
@@ -118,7 +115,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
         <PaperSection languageType={language?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
         {language ? (
-          <RenderModeSection language={language} disabled={locked} onSelectRenderMode={onSelectRenderMode} onSelectRasterSource={onSelectRasterSource} />
+          <RenderModeSection language={language} disabled={locked} onSelectRenderMode={onSelectRenderMode} />
         ) : null}
         {kind === PrintKind.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />

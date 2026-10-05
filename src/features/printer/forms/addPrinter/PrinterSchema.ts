@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../../models/printer/PrinterLanguage';
+import { LanguageSelection, RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { dieCutRowOverflow } from './PaperDraft';
@@ -48,7 +48,6 @@ const printerLanguageSchema = z.object({
   type: z.enum([PrintLanguage.EscPos, PrintLanguage.Tspl]),
   selection: z.enum([LanguageSelection.Auto, LanguageSelection.Manual]),
   renderMode: z.enum([RenderMode.Command, RenderMode.Raster]),
-  rasterSource: z.enum([RasterSource.Image, RasterSource.Ast]),
 });
 
 const usbPrinterConnectionSchema = z.object({

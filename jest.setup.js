@@ -45,63 +45,6 @@ jest.mock('react-native-view-shot', () => ({
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
 
-// @shopify/react-native-skia touches native bindings at import time.
-// renderDocumentToBitmap.ts (and anything importing it, e.g. OrderPrintTrigger.ts)
-// needs this mocked globally, same reasoning as react-native-view-shot above.
-// The mock canvas RECORDS every draw call (`ops` array) instead of trying to
-// render real pixels — dedicated tests assert against `ops`, matching this
-// project's existing convention of testing "did we call the native API
-// correctly" rather than "is the native output visually correct" (see
-// renderDocumentToBitmap.test.ts for the fine-grained per-test override of
-// this same mock).
-jest.mock('@shopify/react-native-skia', () => {
-  const makeRecordingCanvas = () => {
-    const ops = [];
-    return {
-      ops,
-      clear: (...args) => ops.push({ op: 'clear', args }),
-      drawText: (...args) => ops.push({ op: 'drawText', args }),
-      drawLine: (...args) => ops.push({ op: 'drawLine', args }),
-      drawRect: (...args) => ops.push({ op: 'drawRect', args }),
-      drawImage: (...args) => ops.push({ op: 'drawImage', args }),
-    };
-  };
-
-  return {
-    __esModule: true,
-    Skia: {
-      Surface: {
-        MakeOffscreen: jest.fn((width, height) => {
-          const canvas = makeRecordingCanvas();
-          return {
-            width: () => width,
-            height: () => height,
-            getCanvas: () => canvas,
-            makeImageSnapshot: () => ({
-              encodeToBytes: jest.fn(() => new Uint8Array([1, 2, 3])),
-            }),
-          };
-        }),
-      },
-      Color: jest.fn((value) => value),
-      Paint: jest.fn(() => ({ setColor: jest.fn(), setStrokeWidth: jest.fn() })),
-      FontMgr: { System: jest.fn(() => ({ matchFamilyStyle: jest.fn(() => null) })) },
-      // Ghi lại `size` truyền vào thay vì hardcode — renderDocumentToBitmap.test.ts
-      // cần assert đúng cỡ chữ (24 = LINE_HEIGHT_DOTS) được truyền cho Skia.Font.
-      Font: jest.fn((_typeface, size) => ({ measureText: jest.fn(() => ({ width: 0 })), getSize: jest.fn(() => size ?? 24) })),
-    },
-    ImageFormat: { PNG: 'png' },
-  };
-});
-
-// qrcode does synchronous QR-matrix math with no native dependency — mocked
-// here only for deterministic, fast tests (drawQrCode.test.ts overrides
-// locally with a tiny real matrix when it needs to assert actual pixel
-// placement; other tests just need `create()` to not throw).
-jest.mock('qrcode', () => ({
-  create: jest.fn(() => ({ modules: { size: 1, data: new Uint8Array([1]) } })),
-}));
-
 // Lớp JS của native module DeviceModule (adapters/native/DeviceModule) gọi thẳng NativeModules.DeviceModule, nên
 // bất kỳ test nào transitively import NativeAdapter — kể cả không chạy — đều fail nếu không mock ở đây. Test cần
 // kiểm soát chi tiết override bằng jest.mock() cục bộ, ưu tiên hơn.

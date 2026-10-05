@@ -4,7 +4,6 @@ import { ConnectionType } from '../models/printer/ConnectionType';
 import {
   LanguageSelection,
   PrintLanguage,
-  RasterSource,
   RenderMode,
   type PrinterLanguage,
 } from '../models/printer/PrinterLanguage';
@@ -58,14 +57,12 @@ export const escposLanguage: PrinterLanguage = {
   type: PrintLanguage.EscPos,
   selection: LanguageSelection.Auto,
   renderMode: RenderMode.Command,
-  rasterSource: RasterSource.Image,
 };
 
 export const tsplLanguage: PrinterLanguage = {
   type: PrintLanguage.Tspl,
   selection: LanguageSelection.Auto,
   renderMode: RenderMode.Raster,
-  rasterSource: RasterSource.Image,
 };
 
 export const basePrinter: Printer = {

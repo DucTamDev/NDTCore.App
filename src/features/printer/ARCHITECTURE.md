@@ -123,8 +123,7 @@ src/features/printer/
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
-├── rendering/           DocumentImageRenderer (document → PNG), MonochromeBitmap (PNG → ảnh 1-bit), Code128,
-│                        printLayoutConstants
+├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
 ├── errors/              PrinterError
 │
@@ -254,8 +253,7 @@ Không lưu đường dẫn thiết bị USB (chỉ đúng trong một lần c�
 export interface PrinterLanguage {
   type: PrintLanguage;           // EscPos | Tspl
   selection: LanguageSelection;  // Auto (dò) | Manual (người dùng chọn) — chỉ để hiển thị
-  renderMode: RenderMode;        // Command | Raster
-  rasterSource: RasterSource;    // Image | Ast — chỉ có tác dụng khi Raster
+  renderMode: RenderMode;        // Command | Raster (ảnh chụp bản xem trước)
 }
 ```
 
@@ -265,7 +263,6 @@ Giá trị mặc định khi tạo máy mới nằm ở `management/PrinterDefau
 | Field          | ESC/POS   | TSPL     |
 | -------------- | --------- | -------- |
 | `renderMode`   | `Command` | `Raster` |
-| `rasterSource` | `Image`   | `Image`  |
 
 ---
 
@@ -384,9 +381,9 @@ Ngôn ngữ tạo lệnh văn bản trực tiếp. ESC/POS qua `EscPosTextBuilde
 
 ## `Raster`
 
-Nội dung đã render thành ảnh (PNG base64, `documents.image`) ở lớp trên — theo `rasterSource`: `Image` chụp bản xem
-trước, `Ast` vẽ thẳng từ `PrintDocument`. Ngôn ngữ decode ảnh thành monochrome 1-bit rồi gửi lệnh ảnh của mình
-(`GS v 0` cho ESC/POS, `BITMAP` cho TSPL). Chậm hơn `Command` nhưng đúng trên mọi máy bất kể codepage.
+Lớp trên chụp bản xem trước thành ảnh (PNG base64, `documents.image`). Ngôn ngữ decode ảnh thành monochrome 1-bit
+rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho TSPL). Chậm hơn `Command` nhưng đúng trên mọi máy bất
+kể codepage.
 
 ---
 
@@ -543,7 +540,7 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ## `PrintService`
 
-Public entry point. Dựng `PrintDocuments` (ảnh theo `renderMode`/`rasterSource` của từng máy), gọi routing và
+Public entry point. `rasterPaperFor(kind)` cho nơi gọi biết có cần chụp ảnh không và chụp theo giấy nào; gọi routing và
 scheduler, tổng hợp kết quả. Không chứa device discovery, connection lifecycle, encoding.
 
 ## `PrintRoutingService`
@@ -673,8 +670,7 @@ boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService
 
 # 29. Configuration Management
 
-* `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setRenderMode`, `setRasterSource`,
-  `setPaper`).
+* `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setRenderMode`, `setPaper`).
 * `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
   giá trị mặc định (giấy cuộn 80mm cắt cuối job, render mode và capabilities theo ngôn ngữ, `autoReconnect` bật).
   Mọi nơi tạo máy in dùng hàm này.
@@ -1422,7 +1418,7 @@ PrintService → PrintRoutingService → PrintScheduler (khoá) → PrinterPrint
 
 ### Rendering
 
-* Hai render mode: `Command`, `Raster`; `rasterSource` chỉ có tác dụng khi `Raster`.
+* Hai render mode: `Command`, `Raster`; `Raster` luôn in ảnh chụp bản xem trước.
 * Mặc định ESC/POS `Command`, TSPL `Raster`.
 
 ### Native

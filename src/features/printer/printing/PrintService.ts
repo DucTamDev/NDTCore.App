@@ -4,7 +4,7 @@ import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrinterErrorCode } from '../errors/PrinterError';
 import type { PrintKind } from '../models/printer/PrintKind';
-import { RenderMode, type RasterSource } from '../models/printer/PrinterLanguage';
+import { RenderMode } from '../models/printer/PrinterLanguage';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import type { PrintDocuments } from '../models/printing/PrintDocuments';
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
@@ -36,17 +36,14 @@ export class PrintService {
   constructor(private readonly deps: PrintServiceDeps) {}
 
   /**
-   * Target (paper + rasterSource) cần để render ảnh cho `kind` này, hoặc
-   * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
-   * `renderMode: 'Raster'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
-   * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
-   * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
+   * Giấy của máy in ảnh đầu tiên nhận `kind`, hoặc `null` nếu không máy nào in ảnh — nơi gọi chỉ chụp ảnh khi có giá
+   * trị, và chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
    */
-  imageDocumentTarget(kind: PrintKind): { paper: PaperOptions; rasterSource: RasterSource } | null {
+  rasterPaperFor(kind: PrintKind): PaperOptions | null {
     const target = this.deps.routing
       .resolveTargets(kind)
       .find((printer) => printer.language.renderMode === RenderMode.Raster);
-    return target ? { paper: target.paper, rasterSource: target.language.rasterSource } : null;
+    return target ? target.paper : null;
   }
 
   async print(kind: PrintKind, documents: PrintDocuments): Promise<PrintResult> {

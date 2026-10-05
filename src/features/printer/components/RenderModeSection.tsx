@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppSelect } from '../../../components/AppSelect';
-import { RenderMode, RasterSource, PrintLanguage } from '../models/printer/PrinterLanguage';
+import { RenderMode, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 
 const escPosRenderModeLabel: Record<RenderMode, string> = {
@@ -22,25 +22,14 @@ const renderModeOptionsFor = (languageType: PrintLanguage) => {
   return [RenderMode.Command, RenderMode.Raster].map((mode) => ({ label: labels[mode], value: mode }));
 };
 
-const rasterSourceLabel: Record<RasterSource, string> = {
-  Image: 'Chụp giao diện',
-  Ast: 'Vẽ trực tiếp',
-};
-
-const rasterSourceOptions = [RasterSource.Image, RasterSource.Ast].map((source) => ({
-  label: rasterSourceLabel[source],
-  value: source,
-}));
-
 interface RenderModeSectionProps {
   language: PrinterLanguage;
   disabled: boolean;
   onSelectRenderMode: (mode: RenderMode) => void;
-  onSelectRasterSource: (source: RasterSource) => void;
 }
 
-/** Cả ESC/POS và TSPL đều chọn được cách render; ô chọn nguồn ảnh chỉ hiện khi in ảnh. */
-export const RenderModeSection: React.FC<RenderModeSectionProps> = ({ language, disabled, onSelectRenderMode, onSelectRasterSource }) => (
+/** Cả ESC/POS và TSPL đều chọn được cách render. */
+export const RenderModeSection: React.FC<RenderModeSectionProps> = ({ language, disabled, onSelectRenderMode }) => (
   <View style={styles.renderModeBlock}>
     <AppSelect
       label="Chế độ in"
@@ -49,15 +38,6 @@ export const RenderModeSection: React.FC<RenderModeSectionProps> = ({ language, 
       options={renderModeOptionsFor(language.type)}
       disabled={disabled}
     />
-    {language.renderMode === RenderMode.Raster ? (
-      <AppSelect
-        label="Nguồn ảnh"
-        value={language.rasterSource}
-        onSelect={(value) => onSelectRasterSource(value as RasterSource)}
-        options={rasterSourceOptions}
-        disabled={disabled}
-      />
-    ) : null}
   </View>
 );
 

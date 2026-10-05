@@ -326,7 +326,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       testPrintPending: testPrint.testPrintPending,
       onTestPrint: testPrint.onTestPrint,
       onSelectRenderMode: printSettings.onSelectRenderMode,
-      onSelectRasterSource: printSettings.onSelectRasterSource,
       testPrintRowsText: testPrint.testPrintRowsText,
       onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       kind,
