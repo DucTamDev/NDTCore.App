@@ -1,16 +1,11 @@
 import { Buffer } from 'buffer';
 
-/**
- * Gom nhiều `Buffer` rời rồi nối 1 lần — copy từ
- * `@poriyaalar/react-native-thermal-receipt-printer/dist/utils/buffer-helper.js`
- * (đã bỏ `load()` cho stream Node — RN không dùng), giữ nguyên hành vi.
- *
- * Buffer accumulator that concatenates chunks once at the end — vendored
- * from the upstream library, with the Node stream `load()` helper removed.
- */
-export default class BufferHelper {
+/** Gom nhiều `Buffer` rời rồi nối một lần ở cuối, tránh copy lại toàn bộ sau mỗi lần thêm. */
+export class BufferHelper {
+  /** Các buffer đã thêm, theo thứ tự. */
   private buffers: Buffer[] = [];
 
+  /** Tổng số byte của `buffers`. */
   private size = 0;
 
   /** Độ dài tổng (byte) đã tích luỹ. / Total accumulated byte length. */

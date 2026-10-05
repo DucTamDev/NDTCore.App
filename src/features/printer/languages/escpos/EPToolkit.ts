@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import * as iconv from 'iconv-lite';
-import BufferHelper from './buffer-helper';
+import { BufferHelper } from './BufferHelper';
 
 /**
  * Encode chuỗi văn bản (có tag định dạng `<C>`, `<B>`...) thành byte ESC/POS —
