@@ -2,7 +2,7 @@ import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
 import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
-import { DeviceErrorCode } from '../errors/DeviceErrorCode';
+import { DeviceErrorCode } from '../errors';
 import { DeviceErrorException, toPrinterFeatureException } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';

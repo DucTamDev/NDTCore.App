@@ -10,7 +10,7 @@ import type { Printer } from '../../models/printer/Printer';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makePrinter } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
-import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
+import { DeviceErrorCode } from '../../errors';
 
 jest.mock('../../logging/PrinterLogger', () => ({
   printerLogger: {

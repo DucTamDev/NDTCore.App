@@ -9,7 +9,7 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testing/printerFixtures';
 import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
 
 const tsplLanguage = makeTsplLanguage();

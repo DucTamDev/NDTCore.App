@@ -7,7 +7,7 @@ import { PaperType } from '../../../models/paper/PaperType';
 import type { PaperOptions } from '../../../models/paper/PaperOptions';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
 import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
-import { PrintErrorCode } from '../../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../../errors';
 
 jest.mock('../../../rendering/MonochromeBitmap', () => {
   const actual = jest.requireActual('../../../rendering/MonochromeBitmap');

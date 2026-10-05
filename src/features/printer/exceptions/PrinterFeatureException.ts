@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../errors/ErrorCode';
+import type { ErrorCode } from '../errors';
 
 /** Nội dung một exception: mã lỗi thuộc bộ mã của lớp con, thông báo và lỗi gốc. */
 export interface ExceptionDetail<TCode extends ErrorCode> {

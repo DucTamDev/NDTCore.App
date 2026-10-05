@@ -1,4 +1,4 @@
-import type { PrintErrorCode } from '../errors/PrintErrorCode';
+import type { PrintErrorCode } from '../errors';
 import { PrinterFeatureException, type ExceptionDetail } from './PrinterFeatureException';
 
 /** Lỗi của một lệnh in (ảnh, encode, không có máy nhận). */

@@ -2,7 +2,7 @@ import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 import { EscPosLanguage } from '../EscPosLanguage';
 import { makeEscPosLanguage, makePrinter } from '../../../testing/printerFixtures';
-import { PrintErrorCode } from '../../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../../errors';
 
 const printer = makePrinter({ language: makeEscPosLanguage() });
 

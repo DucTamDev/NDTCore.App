@@ -2,7 +2,7 @@ import { printRoutingService, type PrintRoutingService } from './PrintRoutingSer
 import { printScheduler, type PrintScheduler } from './PrintScheduler';
 import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import { PrintErrorCode } from '../errors/PrintErrorCode';
+import { PrintErrorCode } from '../errors';
 import { PrintErrorException } from '../exceptions';
 import type { PrintKind } from '../models/printer/PrintKind';
 import type { PaperOptions } from '../models/paper/PaperOptions';

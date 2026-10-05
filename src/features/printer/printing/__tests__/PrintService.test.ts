@@ -6,7 +6,7 @@ import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
 
 const image = 'base64-png';

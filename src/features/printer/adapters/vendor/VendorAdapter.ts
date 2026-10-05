@@ -3,7 +3,7 @@ import type { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 import { PrinterErrorException } from '../../exceptions';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
+import { PrinterErrorCode } from '../../errors';
 
 /**
  * Khung `IPrinterAdapter` cho SDK do hãng máy in cung cấp, chưa tích hợp hãng nào: kết nối và ghi báo

@@ -1,6 +1,6 @@
 import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../PrintJob';
 import { PrintKind } from '../../printer/PrintKind';
-import { PrintErrorCode } from '../../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../../errors';
 import { PrintErrorException } from '../../../exceptions';
 
 describe('print job types', () => {

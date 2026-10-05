@@ -11,7 +11,7 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../errors';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },

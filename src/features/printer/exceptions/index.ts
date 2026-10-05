@@ -1,5 +1,4 @@
-import type { ErrorCode } from '../errors/ErrorCode';
-import { PrintErrorCode } from '../errors/PrintErrorCode';
+import { type ErrorCode, PrintErrorCode } from '../errors';
 import { PrinterFeatureException } from './PrinterFeatureException';
 import { PrintErrorException } from './PrintErrorException';
 

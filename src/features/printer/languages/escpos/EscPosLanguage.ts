@@ -1,6 +1,6 @@
 import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import type { Printer } from '../../models/printer/Printer';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
 import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';

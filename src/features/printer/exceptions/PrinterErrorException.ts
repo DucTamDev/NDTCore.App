@@ -1,4 +1,4 @@
-import type { PrinterErrorCode } from '../errors/PrinterErrorCode';
+import type { PrinterErrorCode } from '../errors';
 import { PrinterFeatureException, type ExceptionDetail } from './PrinterFeatureException';
 
 /** Lỗi cấu hình hoặc tìm máy in. */

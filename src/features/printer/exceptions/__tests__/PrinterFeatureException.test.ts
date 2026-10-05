@@ -3,9 +3,7 @@ import { PrintErrorException } from '../PrintErrorException';
 import { PrinterErrorException } from '../PrinterErrorException';
 import { PrinterFeatureException } from '../PrinterFeatureException';
 import { errorCodeOf, toPrinterFeatureException } from '..';
-import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
-import { PrinterErrorCode } from '../../errors/PrinterErrorCode';
+import { DeviceErrorCode, PrintErrorCode, PrinterErrorCode } from '../../errors';
 
 describe('exception của feature máy in', () => {
   it.each([

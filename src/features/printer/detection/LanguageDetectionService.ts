@@ -2,7 +2,7 @@ import type { Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
-import { DeviceErrorCode } from '../errors/DeviceErrorCode';
+import { DeviceErrorCode } from '../errors';
 import { DeviceErrorException, errorCodeOf, type PrinterFeatureException } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';

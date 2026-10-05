@@ -126,7 +126,7 @@ src/features/printer/
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
-├── errors/              DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
+├── errors/              index.ts (barrel), DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
 ├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
 │                        (lớp nền), DeviceErrorException, PrinterErrorException, PrintErrorException
 │

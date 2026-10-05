@@ -8,7 +8,7 @@ import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import type { Printer } from '../../models/printer/Printer';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { basePrinter, makeFakeAdapter } from '../../testing/printerServiceTestKit';
-import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
+import { DeviceErrorCode } from '../../errors';
 import { DeviceErrorException } from '../../exceptions';
 
 jest.mock('../../../../services/LoggerService', () => ({

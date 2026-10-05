@@ -2,8 +2,7 @@ import { LoggerService } from '../../../../services/LoggerService';
 import { printerLogger } from '../PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
-import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { DeviceErrorCode, PrintErrorCode } from '../../errors';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },

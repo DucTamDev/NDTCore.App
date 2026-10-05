@@ -4,8 +4,7 @@ import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../model
 import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
-import { DeviceErrorCode } from '../../errors/DeviceErrorCode';
-import { PrintErrorCode } from '../../errors/PrintErrorCode';
+import { DeviceErrorCode, PrintErrorCode } from '../../errors';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },

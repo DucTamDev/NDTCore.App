@@ -1,6 +1,6 @@
 import { VendorAdapter } from '../VendorAdapter';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
-import { PrinterErrorCode } from '../../../errors/PrinterErrorCode';
+import { PrinterErrorCode } from '../../../errors';
 
 describe('VendorAdapter (khung)', () => {
   it('source là "vendor" và không đọc được phản hồi', () => {

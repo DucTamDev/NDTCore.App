@@ -7,7 +7,7 @@ import { CutterMode } from '../../../models/paper/CutterMode';
 import { PaperSize } from '../../../models/paper/PaperSize';
 import { PaperType } from '../../../models/paper/PaperType';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
-import { PrintErrorCode } from '../../../errors/PrintErrorCode';
+import { PrintErrorCode } from '../../../errors';
 
 const printer = makePrinter({ language: makeTsplLanguage() });
 
