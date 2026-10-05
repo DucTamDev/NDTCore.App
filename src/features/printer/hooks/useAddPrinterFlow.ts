@@ -20,7 +20,7 @@ import { toPaperOptions, type PaperDraft, dieCutMediaError } from '../forms/addP
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
-import { useLanguageDetection } from './addPrinter/useLanguageDetection';
+import { usePrinterDetection } from './addPrinter/usePrinterDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import { usePrintSettings } from './addPrinter/usePrintSettings';
@@ -69,7 +69,7 @@ const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguag
  *
  * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`, `autoReconnect`,
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
- * `useConnectionSetup`, `useLanguageDetection`, `useTestPrint`, `usePrintSettings`.
+ * `useConnectionSetup`, `usePrinterDetection`, `useTestPrint`, `usePrintSettings`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
@@ -93,7 +93,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionState: initialValues ? 'connected' : 'idle',
     language: initialValues?.language,
   });
-  // Bridge để `useConnectionSetup` đọc state của `useLanguageDetection` tại thời
+  // Bridge để `useConnectionSetup` đọc state của `usePrinterDetection` tại thời
   // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
   const detectionRef = useRef<{
     connectionState: ConnectionState;
@@ -158,7 +158,10 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     };
   };
 
-  /** `useTestPrint`/`useLanguageDetection` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế khi đã có device/LAN hợp lệ. */
+  /**
+   * `useTestPrint`/`usePrinterDetection` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế
+   * khi đã có device/LAN hợp lệ.
+   */
   const buildFullDraftPrinter = (): Printer => {
     const draft = buildDraftPrinter();
     return { ...draft, deviceId: draft.deviceId ?? '' };
@@ -189,7 +192,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   });
   const printSettings = usePrintSettings({ printerId, paper, setPaper });
 
-  const languageDetection = useLanguageDetection({
+  const printerDetection = usePrinterDetection({
     initialValues,
     connectionType,
     lanForm,
@@ -200,11 +203,11 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     prefillDisplayName,
   });
   detectionRef.current = {
-    connectionState: languageDetection.connectionState,
-    languageState: languageDetection.languageState,
-    resetConnectionResult: languageDetection.resetConnectionResult,
+    connectionState: printerDetection.connectionState,
+    languageState: printerDetection.languageState,
+    resetConnectionResult: printerDetection.resetConnectionResult,
   };
-  const { connectionState, languageState, connectionDirty } = languageDetection;
+  const { connectionState, languageState, connectionDirty } = printerDetection;
 
   useEffect(() => {
     connectionRef.current = { connectionState, language };
@@ -306,17 +309,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       lanPortError: lanForm.formState.errors.lanPort?.message,
       connectLabel,
       connectDisabled,
-      onConnectPress: languageDetection.onConnectPress,
+      onConnectPress: printerDetection.onConnectPress,
       disabled: Boolean(language),
     },
     statusPanel: {
       connectionState,
       languageState,
-      languageType: languageDetection.languageType,
+      languageType: printerDetection.languageType,
       device: selectedDevice?.device,
-      errorMessage: languageDetection.connectionErrorMessage,
+      errorMessage: printerDetection.connectionErrorMessage,
       kind,
-      onChooseLanguage: languageDetection.onChooseLanguage,
+      onChooseLanguage: printerDetection.onChooseLanguage,
     },
     infoCard: {
       control: displayForm.control,

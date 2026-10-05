@@ -17,7 +17,7 @@ const IDENTIFY_TIMEOUT_MS = 1000;
 const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscPos];
 
 /** Giai đoạn của quá trình dò ngôn ngữ. */
-export const LanguageDetectionStage = {
+export const PrinterDetectionStage = {
   Connecting: 'Connecting',
   Identifying: 'Identifying',
   Detected: 'Detected',
@@ -25,18 +25,18 @@ export const LanguageDetectionStage = {
   Error: 'Error',
 } as const;
 
-export type LanguageDetectionStage = (typeof LanguageDetectionStage)[keyof typeof LanguageDetectionStage];
+export type PrinterDetectionStage = (typeof PrinterDetectionStage)[keyof typeof PrinterDetectionStage];
 
 /** Một cập nhật trong lúc dò ngôn ngữ của máy in. */
-export type LanguageDetectionEvent =
-  | { stage: typeof LanguageDetectionStage.Connecting }
-  | { stage: typeof LanguageDetectionStage.Identifying; language: PrintLanguage }
-  | { stage: typeof LanguageDetectionStage.Detected; language: PrinterLanguage }
-  | { stage: typeof LanguageDetectionStage.Unknown }
-  | { stage: typeof LanguageDetectionStage.Error; error: PrinterFeatureException };
+export type PrinterDetectionEvent =
+  | { stage: typeof PrinterDetectionStage.Connecting }
+  | { stage: typeof PrinterDetectionStage.Identifying; language: PrintLanguage }
+  | { stage: typeof PrinterDetectionStage.Detected; language: PrinterLanguage }
+  | { stage: typeof PrinterDetectionStage.Unknown }
+  | { stage: typeof PrinterDetectionStage.Error; error: PrinterFeatureException };
 
 /** Máy in cần dò ngôn ngữ. */
-export interface LanguageDetectionInput {
+export interface PrinterDetectionInput {
   /** Bản nháp đủ field; chỉ dùng `id`, `kind` và `connection`. */
   draftPrinter: Printer;
 }
@@ -49,7 +49,7 @@ interface DetectionContext {
 
   connectionService: DetectionConnectionService;
 
-  onEvent: (event: LanguageDetectionEvent) => void;
+  onEvent: (event: PrinterDetectionEvent) => void;
 
   isCancelled: () => boolean;
 }
@@ -87,7 +87,7 @@ const findLanguage = async (
       return undefined;
     }
 
-    context.onEvent({ stage: LanguageDetectionStage.Identifying, language: type });
+    context.onEvent({ stage: PrinterDetectionStage.Identifying, language: type });
 
     if (await confirmLanguage(context, type)) {
       return type;
@@ -101,14 +101,14 @@ const findLanguage = async (
 };
 
 /** Dò ngôn ngữ của máy in mới trên một lần kết nối duy nhất. */
-export class LanguageDetectionService {
+export class PrinterDetectionService {
   constructor(private readonly connectionService: DetectionConnectionService = printerConnectionService) {}
 
   /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
-  detect(input: LanguageDetectionInput, onEvent: (event: LanguageDetectionEvent) => void): Unsubscribe {
+  detect(input: PrinterDetectionInput, onEvent: (event: PrinterDetectionEvent) => void): Unsubscribe {
     let cancelled = false;
     const isCancelled = (): boolean => cancelled;
-    const guardedOnEvent = (event: LanguageDetectionEvent): void => {
+    const guardedOnEvent = (event: PrinterDetectionEvent): void => {
       if (!cancelled) {
         onEvent(event);
       }
@@ -134,7 +134,7 @@ export class LanguageDetectionService {
     const disconnectQuietly = (): Promise<void> => connectionService.disconnect(printer.id).catch(() => undefined);
 
     printerLogger.detectionStarted({ ...logFields, candidates });
-    onEvent({ stage: LanguageDetectionStage.Connecting });
+    onEvent({ stage: PrinterDetectionStage.Connecting });
 
     try {
       await connectionService.connect(printer);
@@ -145,7 +145,7 @@ export class LanguageDetectionService {
           message: 'Không thể kết nối tới máy in',
           cause: error,
         });
-        onEvent({ stage: LanguageDetectionStage.Error, error: failure });
+        onEvent({ stage: PrinterDetectionStage.Error, error: failure });
         const errorCode = errorCodeOf(error);
         printerLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });
       }
@@ -165,15 +165,15 @@ export class LanguageDetectionService {
 
     if (detected) {
       const language = createPrinterLanguage(detected, LanguageSelection.Auto);
-      onEvent({ stage: LanguageDetectionStage.Detected, language });
+      onEvent({ stage: PrinterDetectionStage.Detected, language });
       printerLogger.languageDetected({ ...logFields, language: detected, candidatesTried, durationMs });
       return;
     }
 
     await disconnectQuietly();
-    onEvent({ stage: LanguageDetectionStage.Unknown });
+    onEvent({ stage: PrinterDetectionStage.Unknown });
     printerLogger.languageUnknown({ ...logFields, candidatesTried, durationMs });
   }
 }
 
-export const languageDetectionService = new LanguageDetectionService();
+export const printerDetectionService = new PrinterDetectionService();

@@ -1,10 +1,10 @@
 import { useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import {
-  languageDetectionService,
-  LanguageDetectionStage,
-  type LanguageDetectionEvent,
-} from '../../detection/LanguageDetectionService';
+  printerDetectionService,
+  PrinterDetectionStage,
+  type PrinterDetectionEvent,
+} from '../../detection/PrinterDetectionService';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { createPrinterLanguage } from '../../management/PrinterDefaults';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
@@ -14,10 +14,10 @@ import type { Printer } from '../../models/printer/Printer';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
- * Input cho {@link useLanguageDetection}. `buildDraftPrinter`/`setLanguage`/`refreshUsbSerial`/`prefillDisplayName`
+ * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`refreshUsbSerial`/`prefillDisplayName`
  * do coordinator / {@link useConnectionSetup} sở hữu — hook này chỉ điều phối trạng thái kết nối và dò ngôn ngữ.
  */
-export interface UseLanguageDetectionInput {
+export interface UsePrinterDetectionInput {
   initialValues?: Printer;
 
   connectionType: ConnectionType;
@@ -37,10 +37,10 @@ export interface UseLanguageDetectionInput {
 }
 
 /**
- * Trạng thái kết nối + dò ngôn ngữ của luồng Thêm/Sửa máy in: bấm "Kết nối" → `LanguageDetectionService.detect`,
+ * Trạng thái kết nối + dò ngôn ngữ của luồng Thêm/Sửa máy in: bấm "Kết nối" → `PrinterDetectionService.detect`,
  * và nhánh chọn ngôn ngữ thủ công qua `PrinterConnectionService.connect`.
  */
-export const useLanguageDetection = ({
+export const usePrinterDetection = ({
   initialValues,
   connectionType,
   lanForm,
@@ -49,7 +49,7 @@ export const useLanguageDetection = ({
   setLanguage,
   refreshUsbSerial,
   prefillDisplayName,
-}: UseLanguageDetectionInput) => {
+}: UsePrinterDetectionInput) => {
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
   const [languageState, setLanguageState] = useState<LanguageState>(initialValues ? 'identified' : 'idle');
@@ -80,19 +80,19 @@ export const useLanguageDetection = ({
     prefillDisplayName();
   };
 
-  const onDetectionEvent = (event: LanguageDetectionEvent): void => {
+  const onDetectionEvent = (event: PrinterDetectionEvent): void => {
     switch (event.stage) {
-      case LanguageDetectionStage.Identifying:
+      case PrinterDetectionStage.Identifying:
         setLanguageState('detecting');
         break;
-      case LanguageDetectionStage.Detected:
+      case PrinterDetectionStage.Detected:
         applyLanguage(event.language);
         break;
-      case LanguageDetectionStage.Unknown:
+      case PrinterDetectionStage.Unknown:
         setConnectionState('idle');
         setLanguageState('unknown');
         break;
-      case LanguageDetectionStage.Error:
+      case PrinterDetectionStage.Error:
         setConnectionState('error');
         setLanguageState('idle');
         setConnectionErrorMessage(event.error.message);
@@ -105,7 +105,7 @@ export const useLanguageDetection = ({
   const startDetection = (): void => {
     resetDetectionFields('connecting');
     const draftPrinter = buildDraftPrinter();
-    detectionUnsubscribeRef.current = languageDetectionService.detect({ draftPrinter }, onDetectionEvent);
+    detectionUnsubscribeRef.current = printerDetectionService.detect({ draftPrinter }, onDetectionEvent);
   };
 
   const onConnectPress = (): void => {

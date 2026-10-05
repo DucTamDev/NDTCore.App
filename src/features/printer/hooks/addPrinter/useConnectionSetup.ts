@@ -14,7 +14,7 @@ import type { PrintKind } from '../../models/printer/PrintKind';
 
 /**
  * Input cho {@link useConnectionSetup}. `getConnectionState`/`getLanguageState`
- * đọc state của {@link useLanguageDetection} tại thời điểm handler chạy (không
+ * đọc state của {@link usePrinterDetection} tại thời điểm handler chạy (không
  * phải render) — coordinator cung cấp qua ref bridge để phá vòng phụ thuộc.
  */
 export interface UseConnectionSetupInput {

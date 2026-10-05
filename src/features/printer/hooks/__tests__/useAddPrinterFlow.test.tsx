@@ -5,7 +5,7 @@ import { printerRepository } from '../../storage/PrinterRepository';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { printerPrintService } from '../../printing/PrinterPrintService';
 import { printerConfigService } from '../../management/PrinterConfigService';
-import { languageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
+import { printerDetectionService, PrinterDetectionStage } from '../../detection/PrinterDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';
@@ -52,9 +52,9 @@ jest.mock('../../management/PrinterConfigService', () => ({
   },
 }));
 
-jest.mock('../../detection/LanguageDetectionService', () => ({
-  ...jest.requireActual('../../detection/LanguageDetectionService'),
-  languageDetectionService: {
+jest.mock('../../detection/PrinterDetectionService', () => ({
+  ...jest.requireActual('../../detection/PrinterDetectionService'),
+  printerDetectionService: {
     detect: jest.fn(() => () => undefined),
   },
 }));
@@ -130,7 +130,8 @@ describe('useAddPrinterFlow', () => {
     mockCaptureImage.mockClear();
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
-    (languageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
+    const detect = printerDetectionService.detect as jest.Mock;
+    detect.mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
       capturedDetectionHandler = handler;
       return () => undefined;
     });
@@ -158,7 +159,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onConnectPress());
     const detectedLanguage = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto };
     act(() =>
-      capturedDetectionHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedLanguage }),
+      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Detected, language: detectedLanguage }),
     );
 
     expect(get().statusPanel.connectionState).toBe('connected');
@@ -179,7 +180,7 @@ describe('useAddPrinterFlow', () => {
   it('không nhận ra ngôn ngữ → chọn tay, kết nối bản nháp và gán ngôn ngữ "manual"', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     expect(get().statusPanel.languageState).toBe('unknown');
 
     await act(async () => {
@@ -229,7 +230,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onConnectPress());
     act(() =>
       capturedDetectionHandler?.({
-        stage: LanguageDetectionStage.Detected,
+        stage: PrinterDetectionStage.Detected,
         language: {
     type: PrintLanguage.Tspl,
     selection: LanguageSelection.Auto,
@@ -274,7 +275,9 @@ describe('useAddPrinterFlow', () => {
   it('discovery "error" stage hiển thị lỗi và không có language', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
+    act(() =>
+      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }),
+    );
     expect(get().statusPanel.connectionState).toBe('error');
     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
     expect(get().infoCard.language).toBeUndefined();
@@ -284,7 +287,7 @@ describe('useAddPrinterFlow', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
@@ -325,7 +328,7 @@ describe('useAddPrinterFlow', () => {
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
     await act(async () => {
-      capturedDetectionHandler?.({ stage: LanguageDetectionStage.Detected, language: savedTspl.language });
+      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Detected, language: savedTspl.language });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
@@ -348,7 +351,7 @@ describe('useAddPrinterFlow', () => {
       (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1';
     });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: LanguageDetectionStage.Unknown }));
+    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });

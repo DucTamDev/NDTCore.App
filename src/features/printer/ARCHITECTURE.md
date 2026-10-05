@@ -58,7 +58,7 @@ Luồng thêm máy in:
 ```text
 DeviceDiscoveryService        tìm thiết bị → DiscoveredDevice
     ↓
-LanguageDetectionService      kết nối một lần, thử lệnh dò từng ngôn ngữ
+PrinterDetectionService      kết nối một lần, thử lệnh dò từng ngôn ngữ
     ↓
 createPrinterDraft            mặc định theo ngôn ngữ
     ↓
@@ -76,7 +76,7 @@ PrinterRepository             lưu
 | `PrinterConnectionLock`    | Khoá loại trừ theo máy vật lý                              |
 | `IPrinterAdapter`          | Một kết nối qua một cơ chế (native module, SDK hãng)       |
 | `DeviceDiscoveryService`   | Tìm thiết bị cho người dùng chọn                          |
-| `LanguageDetectionService` | Dò ngôn ngữ của máy in mới                                |
+| `PrinterDetectionService` | Dò ngôn ngữ của máy in mới                                |
 | `PrinterConfigService`     | Sửa cấu hình in của máy đã lưu                            |
 | `PrinterRepository`        | Persistence boundary                                      |
 | `PrinterStorage`           | MMKV implementation                                       |
@@ -119,7 +119,7 @@ src/features/printer/
 │   └── PrinterConnectionLock.ts
 │
 ├── discovery/           DeviceDiscoveryService, NetworkInfoService
-├── detection/           LanguageDetectionService
+├── detection/           PrinterDetectionService
 ├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterPrintService
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
@@ -610,7 +610,7 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 # 26. Language Detection
 
-`LanguageDetectionService.detect({ draftPrinter }, onEvent): Unsubscribe`
+`PrinterDetectionService.detect({ draftPrinter }, onEvent): Unsubscribe`
 
 ```text
 Connecting → (Identifying × mỗi ngôn ngữ thử) → Detected | Unknown | Error
@@ -636,7 +636,7 @@ Chọn thiết bị (DiscoveredDeviceList) / nhập IP + port
     ↓
 deviceIdOf(connection) → cảnh báo trùng (deviceId + kind)
     ↓
-Kết nối + dò ngôn ngữ (useLanguageDetection) — hoặc chọn ngôn ngữ tay
+Kết nối + dò ngôn ngữ (usePrinterDetection) — hoặc chọn ngôn ngữ tay
     ↓
 USB: quét lại theo DeviceInfo.deviceId để lấy serial (refreshUsbSerial)
     ↓
@@ -646,7 +646,7 @@ Lưu (createPrinterDraft + giá trị người dùng chỉnh)
 ```
 
 Identity check phải xảy ra trước khi lưu. Hook `useAddPrinterFlow` điều phối `useConnectionSetup`,
-`useLanguageDetection`, `useTestPrint`, `usePrintSettings`.
+`usePrinterDetection`, `useTestPrint`, `usePrintSettings`.
 
 ---
 
@@ -1314,7 +1314,7 @@ Test tập trung vào responsibility của component:
 ```text
 IPrintLanguage           → byte encode khớp fixture, lỗi nội dung
 PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiều máy song song
-LanguageDetectionService → kết nối một lần, lệnh dò, xác nhận yếu, huỷ
+PrinterDetectionService → kết nối một lần, lệnh dò, xác nhận yếu, huỷ
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoveredDevice
 PrintScheduler           → ordering, khoá theo máy vật lý
 PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print

@@ -1,8 +1,8 @@
 import {
-  LanguageDetectionService,
-  LanguageDetectionStage,
-  type LanguageDetectionEvent,
-} from '../LanguageDetectionService';
+  PrinterDetectionService,
+  PrinterDetectionStage,
+  type PrinterDetectionEvent,
+} from '../PrinterDetectionService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { PrintKind } from '../../models/printer/PrintKind';
@@ -28,19 +28,19 @@ const lanDraft: Printer = makePrinter({ name: 'Máy in mới' });
 
 const usbDraft: Printer = makePrinter({ connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 } });
 
-const isFinal = (event: LanguageDetectionEvent): boolean =>
-  event.stage === LanguageDetectionStage.Detected ||
-  event.stage === LanguageDetectionStage.Unknown ||
-  event.stage === LanguageDetectionStage.Error;
+const isFinal = (event: PrinterDetectionEvent): boolean =>
+  event.stage === PrinterDetectionStage.Detected ||
+  event.stage === PrinterDetectionStage.Unknown ||
+  event.stage === PrinterDetectionStage.Error;
 
 /** Dò và chờ tới sự kiện kết thúc. */
 const detectUntilDone = (
   connectionService: ReturnType<typeof makeMockConnectionService>,
   draftPrinter: Printer,
-): Promise<LanguageDetectionEvent[]> =>
+): Promise<PrinterDetectionEvent[]> =>
   new Promise((resolve) => {
-    const events: LanguageDetectionEvent[] = [];
-    new LanguageDetectionService(connectionService).detect({ draftPrinter }, (event) => {
+    const events: PrinterDetectionEvent[] = [];
+    new PrinterDetectionService(connectionService).detect({ draftPrinter }, (event) => {
       events.push(event);
 
       if (isFinal(event)) {
@@ -52,7 +52,7 @@ const detectUntilDone = (
 /** Chờ các promise đang treo chạy xong. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('LanguageDetectionService', () => {
+describe('PrinterDetectionService', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('TSPL trả lời lệnh dò → Detected TSPL, giữ kết nối, chỉ kết nối một lần', async () => {
@@ -61,12 +61,12 @@ describe('LanguageDetectionService', () => {
     const events = await detectUntilDone(connectionService, lanDraft);
 
     expect(events.map((event) => event.stage)).toEqual([
-      LanguageDetectionStage.Connecting,
-      LanguageDetectionStage.Identifying,
-      LanguageDetectionStage.Detected,
+      PrinterDetectionStage.Connecting,
+      PrinterDetectionStage.Identifying,
+      PrinterDetectionStage.Detected,
     ]);
     expect(events[2]).toEqual({
-      stage: LanguageDetectionStage.Detected,
+      stage: PrinterDetectionStage.Detected,
       language: {
         type: PrintLanguage.Tspl,
         selection: LanguageSelection.Auto,
@@ -87,7 +87,7 @@ describe('LanguageDetectionService', () => {
     const events = await detectUntilDone(connectionService, lanDraft);
 
     expect(events[events.length - 1]).toEqual(
-      { stage: LanguageDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
+      { stage: PrinterDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
     );
     expect(connectionService.connect).toHaveBeenCalledTimes(1);
     expect(printerLogger.detectionCandidateRejected).toHaveBeenCalledWith(
@@ -100,7 +100,7 @@ describe('LanguageDetectionService', () => {
 
     const events = await detectUntilDone(connectionService, usbDraft);
 
-    expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
+    expect(events[events.length - 1]).toEqual({ stage: PrinterDetectionStage.Unknown });
     expect(connectionService.disconnect).toHaveBeenCalledWith(usbDraft.id);
     expect(printerLogger.languageUnknown).toHaveBeenCalledWith(
       expect.objectContaining({ candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos] }),
@@ -112,10 +112,10 @@ describe('LanguageDetectionService', () => {
 
     const events = await detectUntilDone(connectionService, { ...lanDraft, kind: PrintKind.Label });
 
-    expect(events.filter((event) => event.stage === LanguageDetectionStage.Identifying)).toEqual([
-      { stage: LanguageDetectionStage.Identifying, language: PrintLanguage.Tspl },
+    expect(events.filter((event) => event.stage === PrinterDetectionStage.Identifying)).toEqual([
+      { stage: PrinterDetectionStage.Identifying, language: PrintLanguage.Tspl },
     ]);
-    expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
+    expect(events[events.length - 1]).toEqual({ stage: PrinterDetectionStage.Unknown });
     expect(printerLogger.detectionStarted).toHaveBeenCalledWith(
       expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
     );
@@ -128,7 +128,7 @@ describe('LanguageDetectionService', () => {
     const events = await detectUntilDone(connectionService, lanDraft);
 
     expect(events[events.length - 1]).toEqual(
-      { stage: LanguageDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
+      { stage: PrinterDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
     );
   });
 
@@ -138,7 +138,7 @@ describe('LanguageDetectionService', () => {
     const events = await detectUntilDone(connectionService, lanDraft);
 
     expect(events[events.length - 1]).toMatchObject({
-      stage: LanguageDetectionStage.Error,
+      stage: PrinterDetectionStage.Error,
       error: { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
     });
     expect(printerLogger.detectionFailed).toHaveBeenCalledWith(
@@ -151,16 +151,16 @@ describe('LanguageDetectionService', () => {
     const connectionService = makeMockConnectionService({
       connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => (finishConnect = resolve))),
     });
-    const events: LanguageDetectionEvent[] = [];
+    const events: PrinterDetectionEvent[] = [];
 
-    const unsubscribe = new LanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new PrinterDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
       events.push(event),
     );
     unsubscribe();
     finishConnect();
     await flush();
 
-    expect(events.map((event) => event.stage)).toEqual([LanguageDetectionStage.Connecting]);
+    expect(events.map((event) => event.stage)).toEqual([PrinterDetectionStage.Connecting]);
     expect(connectionService.send).not.toHaveBeenCalled();
     expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
   });
@@ -170,9 +170,9 @@ describe('LanguageDetectionService', () => {
     const connectionService = makeMockConnectionService({
       read: jest.fn().mockImplementation(() => new Promise((resolve) => (reply = resolve))),
     });
-    const events: LanguageDetectionEvent[] = [];
+    const events: PrinterDetectionEvent[] = [];
 
-    const unsubscribe = new LanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new PrinterDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
       events.push(event),
     );
     await flush();
@@ -181,8 +181,8 @@ describe('LanguageDetectionService', () => {
     await flush();
 
     expect(events.map((event) => event.stage)).toEqual([
-      LanguageDetectionStage.Connecting,
-      LanguageDetectionStage.Identifying,
+      PrinterDetectionStage.Connecting,
+      PrinterDetectionStage.Identifying,
     ]);
     expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
   });
