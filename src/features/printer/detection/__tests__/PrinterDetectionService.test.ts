@@ -40,7 +40,7 @@ const detectUntilDone = (
 ): Promise<PrinterDetectionEvent[]> =>
   new Promise((resolve) => {
     const events: PrinterDetectionEvent[] = [];
-    new PrinterDetectionService(connectionService).detect({ draftPrinter }, (event) => {
+    new PrinterDetectionService(connectionService).detect(draftPrinter, (event) => {
       events.push(event);
 
       if (isFinal(event)) {
@@ -153,7 +153,7 @@ describe('PrinterDetectionService', () => {
     });
     const events: PrinterDetectionEvent[] = [];
 
-    const unsubscribe = new PrinterDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new PrinterDetectionService(connectionService).detect(lanDraft, (event) =>
       events.push(event),
     );
     unsubscribe();
@@ -172,7 +172,7 @@ describe('PrinterDetectionService', () => {
     });
     const events: PrinterDetectionEvent[] = [];
 
-    const unsubscribe = new PrinterDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
+    const unsubscribe = new PrinterDetectionService(connectionService).detect(lanDraft, (event) =>
       events.push(event),
     );
     await flush();

@@ -104,8 +104,7 @@ export const usePrinterDetection = ({
 
   const startDetection = (): void => {
     resetDetectionFields('connecting');
-    const draftPrinter = buildDraftPrinter();
-    detectionUnsubscribeRef.current = printerDetectionService.detect({ draftPrinter }, onDetectionEvent);
+    detectionUnsubscribeRef.current = printerDetectionService.detect(buildDraftPrinter(), onDetectionEvent);
   };
 
   const onConnectPress = (): void => {

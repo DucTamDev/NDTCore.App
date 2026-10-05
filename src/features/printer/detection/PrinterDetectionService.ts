@@ -18,10 +18,19 @@ const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscP
 
 /** Giai đoạn của quá trình dò ngôn ngữ. */
 export const PrinterDetectionStage = {
+  /** Đang mở kết nối tới máy in. */
   Connecting: 'Connecting',
+
+  /** Đang thử một ngôn ngữ. */
   Identifying: 'Identifying',
+
+  /** Đã xác định được ngôn ngữ. */
   Detected: 'Detected',
+
+  /** Không ngôn ngữ nào khớp; người dùng phải chọn tay. */
   Unknown: 'Unknown',
+
+  /** Không kết nối được máy in. */
   Error: 'Error',
 } as const;
 
@@ -35,90 +44,40 @@ export type PrinterDetectionEvent =
   | { stage: typeof PrinterDetectionStage.Unknown }
   | { stage: typeof PrinterDetectionStage.Error; error: PrinterFeatureException };
 
-/** Máy in cần dò ngôn ngữ. */
-export interface PrinterDetectionInput {
-  /** Bản nháp đủ field; chỉ dùng `id`, `kind` và `connection`. */
-  draftPrinter: Printer;
-}
-
+/** Phần kết nối mà việc dò cần. */
 type DetectionConnectionService = Pick<PrinterConnectionService, 'connect' | 'disconnect' | 'send' | 'read'>;
 
-/** Những thứ một lần dò cần, gom lại để tách các bước ra hàm riêng. */
-interface DetectionContext {
+/** Trạng thái của một lần dò, truyền qua các bước. */
+interface DetectionRun {
+  /** Máy in đang dò; chỉ dùng `id`, `kind` và `connection`. */
   printer: Printer;
 
-  connectionService: DetectionConnectionService;
-
+  /** Đã bọc để không báo gì sau khi huỷ. */
   onEvent: (event: PrinterDetectionEvent) => void;
 
   isCancelled: () => boolean;
+
+  /** Thời điểm bắt đầu, để log thời lượng. */
+  startedAt: number;
 }
-
-/**
- * Ngôn ngữ có lệnh dò thì máy phải trả lời. ESC/POS không có lệnh dò nên kết nối được qua Bluetooth/LAN là đủ;
- * USB thì không, vì kết nối USB thành công với mọi máy.
- */
-const confirmLanguage = async (context: DetectionContext, type: PrintLanguage): Promise<boolean> => {
-  const { printer, connectionService } = context;
-  const probe = getPrintLanguage(type).identifyProbe;
-
-  if (!probe) {
-    return printer.connection.type !== ConnectionType.Usb;
-  }
-
-  try {
-    await connectionService.send(printer.id, probe.command);
-    const response = await connectionService.read(printer.id, IDENTIFY_TIMEOUT_MS);
-    return response !== null && probe.matches(response);
-  } catch {
-    return false;
-  }
-};
-
-/** Thử lần lượt trên kết nối đã mở; `undefined` khi không ngôn ngữ nào khớp hoặc đã huỷ. */
-const findLanguage = async (
-  context: DetectionContext,
-  candidates: PrintLanguage[],
-): Promise<PrintLanguage | undefined> => {
-  const { printer } = context;
-
-  for (const type of candidates) {
-    if (context.isCancelled()) {
-      return undefined;
-    }
-
-    context.onEvent({ stage: PrinterDetectionStage.Identifying, language: type });
-
-    if (await confirmLanguage(context, type)) {
-      return type;
-    }
-
-    const connectionType = printer.connection.type;
-    printerLogger.detectionCandidateRejected({ printerId: printer.id, language: type, connectionType });
-  }
-
-  return undefined;
-};
 
 /** Dò ngôn ngữ của máy in mới trên một lần kết nối duy nhất. */
 export class PrinterDetectionService {
   constructor(private readonly connectionService: DetectionConnectionService = printerConnectionService) {}
 
   /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
-  detect(input: PrinterDetectionInput, onEvent: (event: PrinterDetectionEvent) => void): Unsubscribe {
+  detect(printer: Printer, onEvent: (event: PrinterDetectionEvent) => void): Unsubscribe {
     let cancelled = false;
-    const isCancelled = (): boolean => cancelled;
-    const guardedOnEvent = (event: PrinterDetectionEvent): void => {
-      if (!cancelled) {
-        onEvent(event);
-      }
-    };
 
     this.run({
-      printer: input.draftPrinter,
-      connectionService: this.connectionService,
-      onEvent: guardedOnEvent,
-      isCancelled,
+      printer,
+      onEvent: (event) => {
+        if (!cancelled) {
+          onEvent(event);
+        }
+      },
+      isCancelled: () => cancelled,
+      startedAt: Date.now(),
     });
 
     return () => {
@@ -126,53 +85,124 @@ export class PrinterDetectionService {
     };
   }
 
-  private async run(context: DetectionContext): Promise<void> {
-    const { printer, onEvent, isCancelled, connectionService } = context;
-    const logFields = { printerId: printer.id, connectionType: printer.connection.type };
+  private async run(run: DetectionRun): Promise<void> {
+    const { printer } = run;
     const candidates = CANDIDATE_ORDER.filter((type) => canPrintKind(type, printer.kind));
-    const startedAt = Date.now();
-    const disconnectQuietly = (): Promise<void> => connectionService.disconnect(printer.id).catch(() => undefined);
 
-    printerLogger.detectionStarted({ ...logFields, candidates });
-    onEvent({ stage: PrinterDetectionStage.Connecting });
+    printerLogger.detectionStarted({ printerId: printer.id, connectionType: printer.connection.type, candidates });
+    run.onEvent({ stage: PrinterDetectionStage.Connecting });
+
+    if (!(await this.connect(run))) {
+      return;
+    }
+
+    const detected = await this.findLanguage(run, candidates);
+
+    if (run.isCancelled()) {
+      await this.disconnectQuietly(printer);
+      return;
+    }
+
+    await this.report(run, candidates, detected);
+  }
+
+  /** `false` khi không kết nối được; lỗi đã được báo (trừ khi đã huỷ). */
+  private async connect(run: DetectionRun): Promise<boolean> {
+    const { printer } = run;
 
     try {
-      await connectionService.connect(printer);
+      await this.connectionService.connect(printer);
+      return true;
     } catch (error) {
-      if (!isCancelled()) {
+      if (!run.isCancelled()) {
         const failure = new DeviceErrorException({
           code: DeviceErrorCode.CONNECTION_FAILED,
           message: 'Không thể kết nối tới máy in',
           cause: error,
         });
-        onEvent({ stage: PrinterDetectionStage.Error, error: failure });
-        const errorCode = errorCodeOf(error);
-        printerLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });
+        run.onEvent({ stage: PrinterDetectionStage.Error, error: failure });
+        printerLogger.detectionFailed({
+          printerId: printer.id,
+          connectionType: printer.connection.type,
+          errorCode: errorCodeOf(error),
+          durationMs: Date.now() - run.startedAt,
+        });
       }
 
-      return;
+      return false;
+    }
+  }
+
+  /** Thử lần lượt trên kết nối đã mở; `undefined` khi không ngôn ngữ nào khớp hoặc đã huỷ. */
+  private async findLanguage(run: DetectionRun, candidates: PrintLanguage[]): Promise<PrintLanguage | undefined> {
+    const { printer } = run;
+
+    for (const type of candidates) {
+      if (run.isCancelled()) {
+        return undefined;
+      }
+
+      run.onEvent({ stage: PrinterDetectionStage.Identifying, language: type });
+
+      if (await this.confirmLanguage(printer, type)) {
+        return type;
+      }
+
+      printerLogger.detectionCandidateRejected({
+        printerId: printer.id,
+        language: type,
+        connectionType: printer.connection.type,
+      });
     }
 
-    const detected = await findLanguage(context, candidates);
+    return undefined;
+  }
 
-    if (isCancelled()) {
-      await disconnectQuietly();
-      return;
+  /**
+   * Ngôn ngữ có lệnh dò thì máy phải trả lời. ESC/POS không có lệnh dò nên kết nối được qua Bluetooth/LAN là đủ;
+   * USB thì không, vì kết nối USB thành công với mọi máy.
+   */
+  private async confirmLanguage(printer: Printer, type: PrintLanguage): Promise<boolean> {
+    const probe = getPrintLanguage(type).identifyProbe;
+
+    if (!probe) {
+      return printer.connection.type !== ConnectionType.Usb;
     }
 
+    try {
+      await this.connectionService.send(printer.id, probe.command);
+      const response = await this.connectionService.read(printer.id, IDENTIFY_TIMEOUT_MS);
+      return response !== null && probe.matches(response);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Dò được thì giữ kết nối để người dùng in thử và lưu máy ngay, không phải kết nối lại. */
+  private async report(run: DetectionRun, candidates: PrintLanguage[], detected?: PrintLanguage): Promise<void> {
+    const { printer } = run;
     const candidatesTried = detected ? candidates.slice(0, candidates.indexOf(detected) + 1) : candidates;
-    const durationMs = Date.now() - startedAt;
+    const logFields = {
+      printerId: printer.id,
+      connectionType: printer.connection.type,
+      candidatesTried,
+      durationMs: Date.now() - run.startedAt,
+    };
 
     if (detected) {
       const language = createPrinterLanguage(detected, LanguageSelection.Auto);
-      onEvent({ stage: PrinterDetectionStage.Detected, language });
-      printerLogger.languageDetected({ ...logFields, language: detected, candidatesTried, durationMs });
+      run.onEvent({ stage: PrinterDetectionStage.Detected, language });
+      printerLogger.languageDetected({ ...logFields, language: detected });
       return;
     }
 
-    await disconnectQuietly();
-    onEvent({ stage: PrinterDetectionStage.Unknown });
-    printerLogger.languageUnknown({ ...logFields, candidatesTried, durationMs });
+    await this.disconnectQuietly(printer);
+    run.onEvent({ stage: PrinterDetectionStage.Unknown });
+    printerLogger.languageUnknown(logFields);
+  }
+
+  private disconnectQuietly(printer: Printer): Promise<void> {
+    return this.connectionService.disconnect(printer.id).catch(() => undefined);
   }
 }
 

@@ -610,7 +610,7 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 # 26. Language Detection
 
-`PrinterDetectionService.detect({ draftPrinter }, onEvent): Unsubscribe`
+`PrinterDetectionService.detect(printer, onEvent): Unsubscribe`
 
 ```text
 Connecting → (Identifying × mỗi ngôn ngữ thử) → Detected | Unknown | Error
