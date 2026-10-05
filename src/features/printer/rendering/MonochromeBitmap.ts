@@ -87,7 +87,7 @@ const downscaleRgba = (
 
 /**
  * Decode 1 ảnh PNG (base64, không có tiền tố `data:image/png;base64,`) sang
- * bitmap 1-bit — dùng cho `TsplEncoder.image()`. `upng-js` là decoder PNG
+ * bitmap 1-bit — dùng cho lệnh `BITMAP` của `TsplLanguage`. `upng-js` là decoder PNG
  * thuần JS (không cần Canvas/native module), phù hợp môi trường RN vốn
  * không có `HTMLCanvasElement`. `UPNG.toRGBA8()` chỉ trả `ArrayBuffer[]`
  * (nhiều frame cho APNG) — bill chỉ có 1 frame tĩnh nên luôn lấy `[0]`.

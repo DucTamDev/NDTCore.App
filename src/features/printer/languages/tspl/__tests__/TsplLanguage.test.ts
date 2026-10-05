@@ -10,7 +10,7 @@ import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures'
 import { PrintErrorCode } from '../../../errors';
 import type { Printer } from '../../../models/printer/Printer';
 import type { PaperOptions } from '../../../models/paper/PaperOptions';
-import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
+import { decodePngBase64ToMonochrome, type MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 
 jest.mock('../../../rendering/MonochromeBitmap', () => {
   const actual = jest.requireActual('../../../rendering/MonochromeBitmap');
@@ -131,5 +131,95 @@ describe('TsplLanguage.encode', () => {
     expect(() => TsplLanguage.encode(tinyLabel, TINY_PNG)).toThrow(
       expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
+  });
+});
+
+/** Encode với ảnh giải mã ra đúng `bitmap`, để kiểm tra lệnh mà không cần PNG thật. */
+const encodeBitmap = (target: Printer, bitmap: MonochromeBitmap = ONE_DOT, rows?: number): Uint8Array => {
+  (decodePngBase64ToMonochrome as jest.Mock).mockReturnValueOnce(bitmap);
+  return TsplLanguage.encode(target, 'png', rows === undefined ? undefined : { rows });
+};
+
+const ONE_DOT: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0x00]) };
+
+const continuous = (paperSize: PaperSize, cutterMode: CutterMode = CutterMode.PerJob): PaperOptions => ({
+  type: PaperType.Continuous,
+  paperSize,
+  cutterMode,
+});
+
+const DIE_CUT_100: PaperOptions = {
+  type: PaperType.DieCut,
+  paperSize: PaperSize.Mm100,
+  itemWidthMm: 30,
+  itemHeightMm: 20,
+  columns: 3,
+  horizontalGapMm: 2,
+  verticalGapMm: 3,
+};
+
+describe('TsplLanguage.encode — lệnh TSPL', () => {
+  it('hoá đơn giấy cuộn: SIZE theo vùng in và trần an toàn, không dò khe', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58))));
+
+    expect(text).toContain('SIZE 50 mm, 200 mm');
+    expect(text).toContain('GAP 0 mm, 0 mm');
+    expect(text).toContain('CODEPAGE UTF-8');
+    expect(text).toContain('CLS');
+  });
+
+  it('tem trên giấy cuộn: chiều cao mặc định 30mm, không dò khe', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58), PrintKind.Label)));
+
+    expect(text).toContain('SIZE 50 mm, 30 mm');
+    expect(text).toContain('GAP 0 mm, 0 mm');
+  });
+
+  it('giấy tem rời: SIZE bằng cả hàng tem, GAP bằng khe dọc', () => {
+    const text = asAscii(encodeBitmap(printerWith(DIE_CUT_100, PrintKind.Label)));
+
+    expect(text).toContain('SIZE 94 mm, 20 mm'); // 3 × 30 + 2 × 2
+    expect(text).toContain('GAP 3 mm, 0 mm');
+  });
+
+  it.each([
+    [PaperSize.Mm100, 'SIZE 96 mm, 200 mm'],
+    [PaperSize.Mm104, 'SIZE 104 mm, 200 mm'],
+  ])('khổ %s → %s', (paperSize, size) => {
+    expect(asAscii(encodeBitmap(printerWith(continuous(paperSize))))).toContain(size);
+  });
+
+  it('cắt cuối job: SET CUTTER bằng số hàng rồi PRINT', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, 3));
+
+    expect(text).toContain('SET CUTTER 3');
+    expect(text.trim().endsWith('PRINT 3,1')).toBe(true);
+  });
+
+  it('cắt mỗi hàng: SET CUTTER 1', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80, CutterMode.PerRow)), ONE_DOT, 2));
+
+    expect(text).toContain('SET CUTTER 1');
+    expect(text).toContain('PRINT 2,1');
+  });
+
+  it('không cắt: gửi SET CUTTER OFF vì thiết lập dao cắt giữ qua các job', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80, CutterMode.None))));
+
+    expect(text).toContain('SET CUTTER OFF');
+    expect(text.trim().endsWith('PRINT 1,1')).toBe(true);
+  });
+
+  it('BITMAP: header theo byte, ảnh đảo bit, kết thúc CRLF', () => {
+    const bits = new Uint8Array([0xff, 0x00, 0x80, 0x7f, 1, 0xfe]);
+    const bitmap: MonochromeBitmap = { widthBytes: 2, heightPx: 3, bits };
+    const bytes = encodeBitmap(printerWith(continuous(PaperSize.Mm80)), bitmap);
+    const header = 'BITMAP 0,0,2,3,0,';
+    const start = asAscii(bytes).indexOf(header) + header.length;
+
+    expect(start).toBeGreaterThan(header.length - 1);
+    // eslint-disable-next-line no-bitwise -- giống phép đảo bit đang kiểm tra
+    expect(Array.from(bytes.slice(start, start + 6))).toEqual(Array.from(bitmap.bits, (byte) => byte ^ 0xff));
+    expect(Array.from(bytes.slice(start + 6, start + 8))).toEqual([0x0d, 0x0a]);
   });
 });
