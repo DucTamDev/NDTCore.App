@@ -1,4 +1,4 @@
-import { renderDocumentToBitmap } from '../renderDocumentToBitmap';
+import { renderDocumentToBitmap } from '../DocumentImageRenderer';
 import { Skia } from '@shopify/react-native-skia';
 import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { encodeCode128 } from '../code128';

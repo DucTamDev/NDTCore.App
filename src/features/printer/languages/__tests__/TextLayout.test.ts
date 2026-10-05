@@ -1,4 +1,4 @@
-import { formatRow } from '../formatRow';
+import { formatRow } from '../TextLayout';
 
 describe('formatRow', () => {
   it('pads the gap so right lands at the exact character width', () => {

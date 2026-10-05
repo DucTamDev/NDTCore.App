@@ -3,8 +3,8 @@ import type { PrintDocuments } from '../../models/printing/PrintDocuments';
 import { PaperType, type PaperOptions, resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
 import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
-import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
-import { decodePngBase64ToMonochrome } from '../../utils/pngToMonochrome';
+import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
+import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 import { TsplEncoder, DOTS_PER_MM, resolveSizeHeightMm, columnOffsets } from './TsplEncoder';
 
 /** Ảnh tem rời co theo bề rộng một con tem; giấy cuộn theo bề rộng vùng in của khổ giấy. */

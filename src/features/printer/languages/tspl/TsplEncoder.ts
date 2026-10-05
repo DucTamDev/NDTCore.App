@@ -1,7 +1,7 @@
 import type { DieCutPaper, PaperOptions } from '../../models/paper/PaperOptions';
 import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
 import { PrintKind } from '../../models/printer/PrintKind';
-import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
+import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { DOTS_PER_MM, PAPER_SIZE_SPECS, CONTINUOUS_HEIGHT_MM } from '../../models/paper/paperSpec';
 
 /**
@@ -176,7 +176,7 @@ export class TsplEncoder {
    * không cần OR/XOR với nội dung cũ vì mỗi bill là 1 lượt in mới.
    *
    * Đảo bit (`^ 0xff`) trước khi gửi: `MonochromeBitmap.bits` theo đúng chuẩn
-   * TSPL2 (bit 1 = đen/in ra, xem `monochromeBitmap.ts`), nhưng firmware TSPL
+   * TSPL2 (bit 1 = đen/in ra, xem `rendering/MonochromeBitmap.ts`), nhưng firmware TSPL
    * clone trên phần cứng thực tế đã kiểm chứng (Xprinter XP-420B) lại đọc bit
    * này ngược — bit 1 = không in, khiến nền (bit=0) bị in đen và chữ (bit=1)
    * lại thành khoảng trắng. Đảo ở đây, ngay sát lúc build lệnh `BITMAP`, để

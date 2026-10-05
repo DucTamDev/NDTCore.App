@@ -1,6 +1,6 @@
 import { buildEscPosRasterBytes } from '../EscPosRasterEncoder';
 import { CutterMode } from '../../../models/paper/PaperOptions';
-import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
+import type { MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 
 describe('buildEscPosRasterBytes', () => {
   it('phát đúng header ESC @ + GS v 0 (m=0) với width/height little-endian, theo sau bởi đúng data bits', () => {

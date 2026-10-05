@@ -104,6 +104,7 @@ src/features/printer/
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
 │   ├── IPrintLanguage.ts
+│   ├── TextLayout.ts    formatRow — canh dòng trái/phải cho in lệnh (ESC/POS, TSPL)
 │   ├── escpos/          EscPosLanguage, EscPosTextBuilder, EscPosRasterEncoder, EPToolkit
 │   └── tspl/            TsplLanguage, TsplEncoder, TsplCommandEncoder, TsplRasterEncoder
 │
@@ -123,7 +124,8 @@ src/features/printer/
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
-├── rendering/           render document → ảnh (Raster)
+├── rendering/           DocumentImageRenderer (document → PNG), MonochromeBitmap (PNG → ảnh 1-bit), Code128,
+│                        printLayoutConstants
 ├── logging/             PrinterLogger
 ├── errors/              PrinterError
 │
@@ -131,7 +133,7 @@ src/features/printer/
 ├── hooks/
 ├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
 ├── store/
-├── utils/
+├── utils/               printKindLabels (nhãn UI), sampleDocuments (nội dung in thử)
 │
 └── testing/             printerFixtures, printerServiceTestKit, encodeCases
 ```

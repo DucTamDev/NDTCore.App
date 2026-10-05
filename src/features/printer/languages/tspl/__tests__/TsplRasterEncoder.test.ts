@@ -6,10 +6,10 @@ import type { Printer } from '../../../models/printer/Printer';
 import { CutterMode, PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
 import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
 import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
-import { decodePngBase64ToMonochrome } from '../../../utils/pngToMonochrome';
+import { decodePngBase64ToMonochrome } from '../../../rendering/MonochromeBitmap';
 
-jest.mock('../../../utils/pngToMonochrome', () => {
-  const actual = jest.requireActual('../../../utils/pngToMonochrome');
+jest.mock('../../../rendering/MonochromeBitmap', () => {
+  const actual = jest.requireActual('../../../rendering/MonochromeBitmap');
   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
 });
 

@@ -1,4 +1,4 @@
-import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
+import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { CutterMode } from '../../models/paper/PaperOptions';
 
 const INIT_PRINTER_BYTES = [0x1b, 0x40]; // ESC @

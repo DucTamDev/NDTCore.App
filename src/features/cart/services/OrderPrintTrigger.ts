@@ -9,7 +9,7 @@ import type { StoreViewModel } from '../../store/types/store.types';
 import type { PrintDocument, PrintElement } from '../../printer/models/printing/PrintDocument';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
 import type { PaperOptions } from '../../printer/models/paper/PaperOptions';
-import { renderDocumentToBitmap } from '../../printer/rendering/renderDocumentToBitmap';
+import { renderDocumentToBitmap } from '../../printer/rendering/DocumentImageRenderer';
 import { RasterSource } from '../../printer/models/printer/PrinterLanguage';
 
 interface BillItem {

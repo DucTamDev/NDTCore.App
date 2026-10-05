@@ -31,10 +31,10 @@ export interface UseBillImageCapture {
  * capture ngay ở lần đầu (đang chờ) kèm resize theo số đo tạm đó ra ảnh
  * trắng trơn hoặc lẫn nội dung/kích thước của lần chụp trước. Hệ quả: ảnh
  * xuất ra theo pixel vật lý thật của máy (dp × devicePixelRatio), gấp 2-3
- * lần kích thước `PAPER_SIZE_SPECS[...].imageWidthPx` mà `TsplEncoder`/`monochromeBitmap`
+ * lần kích thước `PAPER_SIZE_SPECS[...].imageWidthPx` mà `TsplEncoder`/`MonochromeBitmap`
  * giả định — bù lại bằng cách resize RGBA đã decode xuống đúng
  * `PAPER_SIZE_SPECS[...].imageWidthPx` trong `decodePngBase64ToMonochrome()`
- * (`pngToMonochrome.ts`), không phụ thuộc timing của layout.
+ * (`rendering/MonochromeBitmap.ts`), không phụ thuộc timing của layout.
  */
 export const useBillImageCapture = (): UseBillImageCapture => {
   const viewRef = useRef<View>(null);

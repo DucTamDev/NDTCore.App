@@ -2,7 +2,7 @@ import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from
 import { PrintKind } from '../../../models/printer/PrintKind';
 import { PaperType, CutterMode } from '../../../models/paper/PaperOptions';
 import type { DieCutPaper, PaperOptions } from '../../../models/paper/PaperOptions';
-import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
+import type { MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 
 const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({
   type: PaperType.Continuous,
