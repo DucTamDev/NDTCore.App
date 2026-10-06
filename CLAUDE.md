@@ -80,7 +80,7 @@ flow (tìm thiết bị, dò ngôn ngữ, in thật, in thử), `deviceId` và k
 Ngôn ngữ in chỉ encode; kết nối là một tầng chung. UI **không bao giờ** gọi thẳng native module — luôn qua service:
 
 ```text
-In:        PrintService → PrintScheduler (khoá theo máy) → PrinterService
+In:        PrintService (khoá theo máy) → PrinterService
                → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter → DeviceModule
 Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinterDraft → PrinterRepository
 ```

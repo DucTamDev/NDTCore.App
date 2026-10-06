@@ -42,7 +42,7 @@ ConfigData
 PaperOptions
 PrinterConnection
 PrinterCapabilities
-PrintScheduler
+PrinterRepository
 PrinterConnectionLock
 ```
 

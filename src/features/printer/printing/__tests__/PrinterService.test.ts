@@ -110,7 +110,7 @@ describe('PrinterService', () => {
     );
   });
 
-  /** `PrintScheduler` gọi `print` bên trong khoá của chính máy đó; khoá không reentrant nên tự khoá sẽ treo. */
+  /** `PrintService` gọi `print` bên trong khoá của chính máy đó; khoá không reentrant nên tự khoá sẽ treo. */
   it('in: không tự lấy khoá', async () => {
     const { service, repository, lock } = setup();
     const runExclusive = jest.spyOn(lock, 'runExclusive');

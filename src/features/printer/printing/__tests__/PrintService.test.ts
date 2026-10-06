@@ -1,117 +1,84 @@
 import { PrintService, printService } from '../PrintService';
+import { PrinterService } from '../PrinterService';
+import { ResourceLock } from '../../connection/PrinterConnectionLock';
+import type { PrinterRepository } from '../../storage/PrinterRepository';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
+import { ConnectionType } from '../../models/printer/ConnectionType';
 import { type Printer } from '../../models/printer/Printer';
+import { PrintKind } from '../../models/printer/PrintKind';
 import { PrintTaskStatus } from '../../models/printing/PrintTaskStatus';
 import { PrintStatus } from '../../models/printing/PrintStatus';
-import type { PrintTask } from '../../models/printing/PrintTask';
-import { PrintKind } from '../../models/printer/PrintKind';
-import { ConnectionType } from '../../models/printer/ConnectionType';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
+import { makeMockConnectionService, mockOf } from '../../testing/printerServiceTestKit';
+import { stripedPngBase64 } from '../../testing/encodeCases';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
-import { mockOf } from '../../testing/printerServiceTestKit';
-import type { PrintScheduler } from '../PrintScheduler';
-import type { PrinterRepository } from '../../storage/PrinterRepository';
 
 const image = 'base64-png';
 
-const makeMocks = (printers: Printer[], scheduleResult: (printerId: string) => PrintTask) => ({
-  repository: mockOf<PrinterRepository>({ getPrinters: () => printers }),
-  scheduler: mockOf<jest.Mocked<PrintScheduler>>({
-    enqueue: jest.fn().mockImplementation((task: PrintTask) => Promise.resolve(scheduleResult(task.printerId))),
-  }),
-});
+const lanPrinter = (id: string, host: string, overrides: Partial<Printer> = {}): Printer =>
+  makePrinter({
+    id,
+    connection: { type: ConnectionType.Lan, host, port: 9100 },
+    deviceId: `lan:${host}:9100`,
+    ...overrides,
+  });
+
+/** `print` giả: máy trong `failingIds` lỗi, máy khác in xong ngay. */
+const makePrinterService = (failingIds: string[] = []): jest.Mocked<PrinterService> =>
+  mockOf<jest.Mocked<PrinterService>>({
+    print: jest.fn().mockImplementation(async (printerId: string) => {
+      if (failingIds.includes(printerId)) {
+        throw new PrintErrorException({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
+      }
+    }),
+  });
+
+const makeService = (printers: Printer[], printing: PrinterService = makePrinterService()): PrintService =>
+  new PrintService(mockOf<PrinterRepository>({ getPrinters: () => printers }), printing, new ResourceLock());
 
 describe('PrintService.print', () => {
   it('returns no-available-printer with no tasks when no printer prints this kind', async () => {
-    const mocks = makeMocks([], () => {
-      throw new Error('should not be called');
-    });
-    const service = new PrintService(mocks.repository, mocks.scheduler);
-    const result = await service.print(PrintKind.Receipt, image);
+    const printing = makePrinterService();
+    const result = await makeService([], printing).print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.NoAvailablePrinter);
+    expect(result.tasks).toEqual([]);
     expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
-    expect(mocks.scheduler.enqueue).not.toHaveBeenCalled();
+    expect(printing.print).not.toHaveBeenCalled();
   });
 
-  it('enqueues one task per resolved target, carrying the image through untouched', async () => {
-    const p1 = makePrinter({ id: 'p1' });
-    const mocks = makeMocks([p1], (printerId) => ({
-      id: 'job1',
-      printerId,
-      printerName: 'Máy in',
-      deviceId: `lan:${printerId}`,
+  it('tạo lệnh in mang thông tin máy và ảnh nguyên vẹn, in xong thì Success', async () => {
+    const p1 = lanPrinter('p1', '1.1.1.1');
+    const printing = makePrinterService();
+    const result = await makeService([p1], printing).print(PrintKind.Receipt, image);
+    expect(printing.print).toHaveBeenCalledWith('p1', image);
+    expect(result.status).toBe(PrintStatus.Success);
+    expect(result.tasks[0]).toMatchObject({
+      printerId: 'p1',
+      printerName: p1.name,
+      deviceId: p1.deviceId,
       connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       data: image,
       status: PrintTaskStatus.Success,
       retryCount: 0,
-      createdAt: 'now',
-    }));
-    const service = new PrintService(mocks.repository, mocks.scheduler);
-    await service.print(PrintKind.Receipt, image);
-    expect(mocks.scheduler.enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        printerId: 'p1',
-        printerName: p1.name,
-        deviceId: p1.deviceId,
-        connectionType: p1.connection.type,
-        data: image,
-      }),
-    );
+    });
+    expect(result.tasks[0].startedAt).toBeDefined();
+    expect(result.tasks[0].completedAt).toBeDefined();
   });
 
-  it('reports success when all tasks succeed', async () => {
-    const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
-      id: 'task',
-      printerId,
-      printerName: 'Máy in',
-      deviceId: `lan:${printerId}`,
-      connectionType: ConnectionType.Lan,
-      kind: PrintKind.Receipt,
-      data: image,
-      status: PrintTaskStatus.Success,
-      retryCount: 0,
-      createdAt: 'now',
-    }));
-    const service = new PrintService(mocks.repository, mocks.scheduler);
-    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.Success);
-  });
-
-  it('reports partial-failure on mixed results', async () => {
-    const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
-      id: 'task',
-      printerId,
-      printerName: 'Máy in',
-      deviceId: `lan:${printerId}`,
-      connectionType: ConnectionType.Lan,
-      kind: PrintKind.Receipt,
-      data: image,
-      status: printerId === 'p1' ? PrintTaskStatus.Success : PrintTaskStatus.Failed,
-      retryCount: 0,
-      createdAt: 'now',
-    }));
-    const service = new PrintService(mocks.repository, mocks.scheduler);
-    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.PartialFailure);
+  it('máy lỗi thì lệnh Failed kèm exception, các máy khác vẫn in: PartialFailure', async () => {
+    const printers = [lanPrinter('p1', '1.1.1.1'), lanPrinter('p2', '1.1.1.2')];
+    const result = await makeService(printers, makePrinterService(['p2'])).print(PrintKind.Receipt, image);
+    expect(result.status).toBe(PrintStatus.PartialFailure);
+    expect(result.tasks.map((task) => task.status)).toEqual([PrintTaskStatus.Success, PrintTaskStatus.Failed]);
+    expect(result.tasks[1].error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('reports failed with no top-level error when every task fails', async () => {
-    const mocks = makeMocks([makePrinter({ id: 'p1' })], (printerId) => ({
-      id: 'task',
-      printerId,
-      printerName: 'Máy in',
-      deviceId: `lan:${printerId}`,
-      connectionType: ConnectionType.Lan,
-      kind: PrintKind.Receipt,
-      data: image,
-      status: PrintTaskStatus.Failed,
-      retryCount: 0,
-      createdAt: 'now',
-      error: new PrintErrorException({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' }),
-    }));
-    const service = new PrintService(mocks.repository, mocks.scheduler);
+    const service = makeService([lanPrinter('p1', '1.1.1.1')], makePrinterService(['p1']));
     const result = await service.print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.Failed);
     expect(result.error).toBeUndefined();
@@ -119,51 +86,92 @@ describe('PrintService.print', () => {
 });
 
 describe('PrintService target selection', () => {
-  const successFor = (printerId: string): PrintTask => ({
-    id: 'task',
-    printerId,
-    printerName: 'Máy in',
-    deviceId: `lan:${printerId}`,
-    connectionType: ConnectionType.Lan,
-    kind: PrintKind.Receipt,
-    data: image,
-    status: PrintTaskStatus.Success,
-    retryCount: 0,
-    createdAt: 'now',
-  });
-
-  const enqueuedPrinterIds = async (printers: Printer[], kind: PrintKind): Promise<string[]> => {
-    const mocks = makeMocks(printers, successFor);
-    await new PrintService(mocks.repository, mocks.scheduler).print(kind, image);
-    return mocks.scheduler.enqueue.mock.calls.map(([task]) => task.printerId);
+  const printedIds = async (printers: Printer[], kind: PrintKind): Promise<string[]> => {
+    const printing = makePrinterService();
+    await makeService(printers, printing).print(kind, image);
+    return printing.print.mock.calls.map(([printerId]) => printerId);
   };
 
   it('bỏ qua máy in đang tắt', async () => {
-    const printers = [makePrinter({ id: 'p1', enabled: false }), makePrinter({ id: 'p2' })];
-    expect(await enqueuedPrinterIds(printers, PrintKind.Receipt)).toEqual(['p2']);
+    const printers = [lanPrinter('p1', '1.1.1.1', { enabled: false }), lanPrinter('p2', '1.1.1.2')];
+    expect(await printedIds(printers, PrintKind.Receipt)).toEqual(['p2']);
   });
 
   it('chỉ chọn máy in nhận đúng loại nội dung', async () => {
     const printers = [
-      makePrinter({ id: 'receipt-1' }),
-      makePrinter({ id: 'label-1', kind: PrintKind.Label, language: makeTsplLanguage() }),
+      lanPrinter('receipt-1', '1.1.1.1'),
+      lanPrinter('label-1', '1.1.1.2', { kind: PrintKind.Label, language: makeTsplLanguage() }),
     ];
-    expect(await enqueuedPrinterIds(printers, PrintKind.Label)).toEqual(['label-1']);
-    expect(await enqueuedPrinterIds(printers, PrintKind.Receipt)).toEqual(['receipt-1']);
+    expect(await printedIds(printers, PrintKind.Label)).toEqual(['label-1']);
+    expect(await printedIds(printers, PrintKind.Receipt)).toEqual(['receipt-1']);
   });
 
   it('gửi tới mọi máy in nhận loại nội dung đó', async () => {
-    const printers = [makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })];
-    expect(await enqueuedPrinterIds(printers, PrintKind.Receipt)).toEqual(['p1', 'p2']);
+    const printers = [lanPrinter('p1', '1.1.1.1'), lanPrinter('p2', '1.1.1.2')];
+    expect(await printedIds(printers, PrintKind.Receipt)).toEqual(['p1', 'p2']);
+  });
+});
+
+describe('PrintService khoá theo máy vật lý', () => {
+  /** Số lệnh `print` chạy cùng lúc nhiều nhất khi in tới `printers`. */
+  const maxConcurrentPrints = async (printers: Printer[]): Promise<number> => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const printing = mockOf<PrinterService>({
+      print: jest.fn().mockImplementation(async () => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+      }),
+    });
+    await makeService(printers, printing).print(PrintKind.Receipt, image);
+    return maxInFlight;
+  };
+
+  it('hai máy in đã lưu trỏ cùng một máy vật lý thì in lần lượt', async () => {
+    const printers = [lanPrinter('receipt-1', '1.1.1.1'), lanPrinter('receipt-2', '1.1.1.1')];
+    expect(await maxConcurrentPrints(printers)).toBe(1);
+  });
+
+  it('máy vật lý khác nhau thì in song song', async () => {
+    const printers = [lanPrinter('receipt-1', '1.1.1.1'), lanPrinter('receipt-2', '1.1.1.2')];
+    expect(await maxConcurrentPrints(printers)).toBe(2);
+  });
+
+  it('lệnh in và nút "In thử" cùng máy dùng chung khoá nên chạy lần lượt', async () => {
+    const order: string[] = [];
+    let sendCount = 0;
+    const connectionService = makeMockConnectionService({
+      send: jest.fn().mockImplementation(async () => {
+        sendCount += 1;
+        const call = sendCount;
+        order.push(`send-${call}-start`);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        order.push(`send-${call}-end`);
+      }),
+    });
+    const lock = new ResourceLock();
+    const printer = makePrinter({ id: 'receipt-1', language: makeEscPosLanguage() });
+    const repository = mockOf<PrinterRepository>({ getPrinters: () => [printer], findOrThrow: () => printer });
+    const printing = new PrinterService(connectionService, repository, lock);
+    const service = new PrintService(repository, printing, lock);
+
+    await Promise.all([
+      service.print(PrintKind.Receipt, stripedPngBase64()),
+      (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        await printing.testPrint(printer, stripedPngBase64());
+      })(),
+    ]);
+
+    expect(order).toEqual(['send-1-start', 'send-1-end', 'send-2-start', 'send-2-end']);
   });
 });
 
 describe('PrintService.paperFor', () => {
   it('returns null when no printer prints this kind', () => {
-    const mocks = makeMocks([], () => {
-      throw new Error('unused');
-    });
-    expect(new PrintService(mocks.repository, mocks.scheduler).paperFor(PrintKind.Receipt)).toBeNull();
+    expect(makeService([]).paperFor(PrintKind.Receipt)).toBeNull();
   });
 
   it('returns the paper of the first target', () => {
@@ -173,10 +181,7 @@ describe('PrintService.paperFor', () => {
       paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
     });
     const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage() });
-    const mocks = makeMocks([p1, p2], () => {
-      throw new Error('unused');
-    });
-    expect(new PrintService(mocks.repository, mocks.scheduler).paperFor(PrintKind.Receipt)).toEqual(p1.paper);
+    expect(makeService([p1, p2]).paperFor(PrintKind.Receipt)).toEqual(p1.paper);
   });
 
   it('the real exported printService singleton has no configured printers by default, so it returns null', () => {

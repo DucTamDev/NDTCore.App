@@ -17,7 +17,7 @@ export class PrinterService {
     private readonly lock: ResourceLock = printerConnectionLock,
   ) {}
 
-  /** Không tự khoá: `PrintScheduler` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */
+  /** Không tự khoá: `PrintService` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */
   async print(printerId: string, image: string, options?: PrintOptions): Promise<void> {
     const printer = this.repository.findOrThrow(printerId);
     const language = printer.language.type;
