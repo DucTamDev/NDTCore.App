@@ -23,7 +23,7 @@ export interface PrintTask {
   /** Loại nội dung (hoá đơn, tem) của yêu cầu in. */
   kind: PrintKind;
 
-  /** Nội dung in: ảnh PNG base64 (không tiền tố `data:`), encode theo ngôn ngữ của máy lúc gửi. */
+  /** Ảnh cần in, dạng PNG base64 không có tiền tố `data:`. */
   data: string;
 
   /** Trạng thái hiện tại trong hàng đợi. */
