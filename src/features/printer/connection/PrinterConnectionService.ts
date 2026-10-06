@@ -9,7 +9,7 @@ import { ensureBluetoothPermission } from '../permissions/PrinterPermissionServi
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { LoggerService } from '../../../services/LoggerService';
 import { createPrinterAdapter } from './PrinterAdapterFactory';
-import { printerConnectionLock, lockKeyOf, ResourceLock } from './PrinterConnectionLock';
+import { printerConnectionLock, lockKeyOf, PrinterConnectionLock } from './PrinterConnectionLock';
 
 /** Nơi nhận trạng thái mới của một máy in. */
 type StatusListener = (status: PrinterConnectionStatus) => void;
@@ -69,7 +69,7 @@ export class PrinterConnectionService {
    * Mở/gắn và gỡ/đóng cùng một máy vật lý chạy lần lượt, để một lần mở gửi trước lệnh đóng không nhận phải kết nối
    * sắp đóng. Riêng với khoá in vì `connect` chạy bên trong khoá in.
    */
-  private readonly deviceQueue = new ResourceLock();
+  private readonly deviceQueue = new PrinterConnectionLock();
 
   constructor(
     /** Tạo adapter mới cho mỗi máy vật lý được mở. */
@@ -82,7 +82,7 @@ export class PrinterConnectionService {
     private readonly repository: PrinterRepository = printerRepository,
 
     /** Khoá dùng chung với tầng in. */
-    private readonly lock: ResourceLock = printerConnectionLock,
+    private readonly lock: PrinterConnectionLock = printerConnectionLock,
   ) {}
 
   /**

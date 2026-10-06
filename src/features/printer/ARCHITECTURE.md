@@ -532,7 +532,7 @@ Không chịu trách nhiệm `print`, `route`, `render`, `encode`, `save`.
 
 ```ts
 lockKeyOf(printer)       = deviceIdOf(printer.connection)
-class ResourceLock       → runExclusive(key, task)
+class PrinterConnectionLock → runExclusive(key, task)
 printerConnectionLock    instance dùng chung
 ```
 
@@ -551,7 +551,7 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 Public entry point. `paperFor(kind)` cho nơi gọi biết có máy nào nhận không và chụp ảnh theo giấy nào. `print` chọn
 máy nhận từ repository theo `printer.kind` và `enabled`, tạo một `PrintTask` cho mỗi máy, chạy trong khoá theo
 `task.deviceId` (bằng `lockKeyOf` của máy in đã lưu) rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
-lệnh cùng máy do `ResourceLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
+lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
 
 ## `PrinterService`
 

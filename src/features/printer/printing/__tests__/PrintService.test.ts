@@ -1,6 +1,6 @@
 import { PrintService, printService } from '../PrintService';
 import { PrinterService } from '../PrinterService';
-import { ResourceLock } from '../../connection/PrinterConnectionLock';
+import { PrinterConnectionLock } from '../../connection/PrinterConnectionLock';
 import type { PrinterRepository } from '../../storage/PrinterRepository';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';
@@ -37,7 +37,7 @@ const makePrinterService = (failingIds: string[] = []): jest.Mocked<PrinterServi
   });
 
 const makeService = (printers: Printer[], printing: PrinterService = makePrinterService()): PrintService =>
-  new PrintService(mockOf<PrinterRepository>({ getPrinters: () => printers }), printing, new ResourceLock());
+  new PrintService(mockOf<PrinterRepository>({ getPrinters: () => printers }), printing, new PrinterConnectionLock());
 
 describe('PrintService.print', () => {
   it('returns no-available-printer with no tasks when no printer prints this kind', async () => {
@@ -151,7 +151,7 @@ describe('PrintService khoá theo máy vật lý', () => {
         order.push(`send-${call}-end`);
       }),
     });
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     const printer = makePrinter({ id: 'receipt-1', language: makeEscPosLanguage() });
     const repository = mockOf<PrinterRepository>({ getPrinters: () => [printer], findOrThrow: () => printer });
     const printing = new PrinterService(connectionService, repository, lock);

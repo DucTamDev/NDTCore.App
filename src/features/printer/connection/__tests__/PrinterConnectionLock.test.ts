@@ -1,4 +1,4 @@
-import { ResourceLock, lockKeyOf } from '../PrinterConnectionLock';
+import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
 import { makePrinter, makeTsplLanguage } from '../../testing/printerFixtures';
@@ -31,9 +31,9 @@ describe('lockKeyOf', () => {
   });
 });
 
-describe('ResourceLock', () => {
+describe('PrinterConnectionLock', () => {
   it('runs two tasks under the same key sequentially, never overlapping', async () => {
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     let inFlight = 0;
     let maxInFlight = 0;
     const task = () =>
@@ -48,7 +48,7 @@ describe('ResourceLock', () => {
   });
 
   it('runs tasks under different keys concurrently', async () => {
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     let inFlight = 0;
     let maxInFlight = 0;
     const task = (key: string) =>
@@ -64,7 +64,7 @@ describe('ResourceLock', () => {
 
   it('runs queued tasks in the order they were submitted', async () => {
     const order: string[] = [];
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     await Promise.all([
       lock.runExclusive('k', async () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -78,7 +78,7 @@ describe('ResourceLock', () => {
   });
 
   it('resolves with the task result and does not swallow the task error', async () => {
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     await expect(lock.runExclusive('k', async () => undefined)).resolves.toBeUndefined();
     await expect(
       lock.runExclusive('k', async () => {
@@ -88,7 +88,7 @@ describe('ResourceLock', () => {
   });
 
   it('a rejecting task does not block the next queued task for the same key', async () => {
-    const lock = new ResourceLock();
+    const lock = new PrinterConnectionLock();
     const order: string[] = [];
     const first = lock
       .runExclusive('k', async () => {

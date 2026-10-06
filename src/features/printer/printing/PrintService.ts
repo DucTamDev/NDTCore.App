@@ -1,5 +1,5 @@
 import { printerService, type PrinterService } from './PrinterService';
-import { printerConnectionLock, type ResourceLock } from '../connection/PrinterConnectionLock';
+import { printerConnectionLock, type PrinterConnectionLock } from '../connection/PrinterConnectionLock';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
@@ -36,7 +36,7 @@ export class PrintService {
     private readonly printing: PrinterService = printerService,
 
     /** Khoá theo máy vật lý, dùng chung với nút "In thử". */
-    private readonly lock: ResourceLock = printerConnectionLock,
+    private readonly lock: PrinterConnectionLock = printerConnectionLock,
   ) {}
 
   /**

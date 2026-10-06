@@ -1,6 +1,6 @@
 import { PrinterService } from '../PrinterService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
-import { ResourceLock } from '../../connection/PrinterConnectionLock';
+import { PrinterConnectionLock } from '../../connection/PrinterConnectionLock';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
@@ -42,7 +42,7 @@ const tsplLabelPrinter: Printer = {
 const setup = (connectionOverrides: Parameters<typeof makeMockConnectionService>[0] = {}) => {
   const connectionService = makeMockConnectionService(connectionOverrides);
   const repository = new PrinterRepository();
-  const lock = new ResourceLock();
+  const lock = new PrinterConnectionLock();
   const service = new PrinterService(connectionService, repository, lock);
 
   return { service, connectionService, repository, lock };

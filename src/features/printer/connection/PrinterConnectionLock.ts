@@ -12,10 +12,10 @@ type Task = () => Promise<void>;
 export const lockKeyOf = (printer: Printer): string => deviceIdOf(printer.connection);
 
 /**
- * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Hàng đợi in và
- * nút "In thử" dùng chung một khoá để không bao giờ chạm cùng một máy cùng lúc.
+ * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Lệnh in và nút
+ * "In thử" dùng chung một khoá để không bao giờ chạm cùng một máy cùng lúc.
  */
-export class ResourceLock {
+export class PrinterConnectionLock {
   /** Việc đang chờ theo key; việc đầu hàng là việc đang chạy. */
   private readonly queues = new Map<string, Task[]>();
 
@@ -59,4 +59,4 @@ export class ResourceLock {
   }
 }
 
-export const printerConnectionLock = new ResourceLock();
+export const printerConnectionLock = new PrinterConnectionLock();

@@ -5,7 +5,7 @@ import { errorCodeOf } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
-import { printerConnectionLock, lockKeyOf, type ResourceLock } from '../connection/PrinterConnectionLock';
+import { printerConnectionLock, lockKeyOf, type PrinterConnectionLock } from '../connection/PrinterConnectionLock';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
 /** In ảnh ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
@@ -14,7 +14,7 @@ export class PrinterService {
     private readonly connectionService: PrinterConnectionService =
       printerConnectionService,
     private readonly repository: PrinterRepository = printerRepository,
-    private readonly lock: ResourceLock = printerConnectionLock,
+    private readonly lock: PrinterConnectionLock = printerConnectionLock,
   ) {}
 
   /** Không tự khoá: `PrintService` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */

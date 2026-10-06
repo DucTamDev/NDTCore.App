@@ -1,5 +1,5 @@
 import { PrinterConnectionService } from '../PrinterConnectionService';
-import { ResourceLock, lockKeyOf } from '../PrinterConnectionLock';
+import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
@@ -52,7 +52,7 @@ const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
     return next;
   });
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
-  const lock = new ResourceLock();
+  const lock = new PrinterConnectionLock();
   const service = new PrinterConnectionService(createAdapter, ensureBluetoothPermission, repository, lock);
 
   return { service, repository, lock, createAdapter, ensureBluetoothPermission };
