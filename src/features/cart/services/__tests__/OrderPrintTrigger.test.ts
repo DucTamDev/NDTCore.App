@@ -1,7 +1,7 @@
 import { buildReceipt, buildReprintReceipt, printReceipt } from '../OrderPrintTrigger';
 import { ReceiptView } from '../../components/ReceiptView';
 import { printService } from '../../../printer/printing/PrintService';
-import { PrintResultStatus } from '../../../printer/models/printing/PrintJob';
+import { PrintResultStatus } from '../../../printer/models/printing/PrintResultStatus';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
@@ -113,7 +113,7 @@ describe('printReceipt', () => {
 
   it('chụp bill theo giấy của máy in rồi in ảnh đó', async () => {
     const capture = jest.fn().mockResolvedValue('base64-png-data');
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
+    (printService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, tasks: [] });
 
     await expect(printReceipt(receipt, capture)).resolves.toBe('ok');
     expect(capture).toHaveBeenCalledWith(expect.objectContaining({ type: ReceiptView, props: { receipt } }), paper);
@@ -129,7 +129,7 @@ describe('printReceipt', () => {
   });
 
   it('máy in báo lỗi → "failed" và ghi log', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Failed, jobs: [] });
+    (printService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Failed, tasks: [] });
 
     await expect(printReceipt(receipt, jest.fn().mockResolvedValue('png'))).resolves.toBe('failed');
     expect(LoggerService.warning).toHaveBeenCalled();

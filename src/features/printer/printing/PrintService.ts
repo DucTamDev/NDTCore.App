@@ -6,7 +6,10 @@ import { PrintErrorCode } from '../errors';
 import { PrintErrorException } from '../exceptions';
 import type { PrintKind } from '../models/printer/PrintKind';
 import type { PaperOptions } from '../models/paper/PaperOptions';
-import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
+import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
+import { PrintResultStatus } from '../models/printing/PrintResultStatus';
+import type { PrintTask } from '../models/printing/PrintTask';
+import type { PrintResult } from '../models/printing/PrintResult';
 
 /** Phụ thuộc của service, tách ra để test thay được. */
 export interface PrintServiceDeps {
@@ -46,7 +49,7 @@ export class PrintService {
     if (targets.length === 0) {
       return {
         status: PrintResultStatus.NoAvailablePrinter,
-        jobs: [],
+        tasks: [],
         error: new PrintErrorException({
           code: PrintErrorCode.NO_AVAILABLE_PRINTER,
           message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}`,
@@ -55,7 +58,7 @@ export class PrintService {
     }
 
     const requestId = generateId();
-    const jobs: PrintJob[] = await Promise.all(
+    const tasks: PrintTask[] = await Promise.all(
       targets.map((printer) =>
         this.deps.scheduler.enqueue({
           id: generateId(),
@@ -63,15 +66,15 @@ export class PrintService {
           printerId: printer.id,
           kind,
           image,
-          status: PrintJobStatus.Pending,
+          status: PrintTaskStatus.Pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),
         }),
       ),
     );
-    const successCount = jobs.filter((job) => job.status === PrintJobStatus.Success).length;
-    const status = resolveResultStatus(successCount, jobs.length);
-    return { status, jobs };
+    const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
+    const status = resolveResultStatus(successCount, tasks.length);
+    return { status, tasks };
   }
 }
 

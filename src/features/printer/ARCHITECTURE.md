@@ -101,7 +101,7 @@ src/features/printer/
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterConnectionStatus — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
-│   └── printing/        PrintOptions, PrintJob
+│   └── printing/        PrintOptions, PrintTask
 │
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage

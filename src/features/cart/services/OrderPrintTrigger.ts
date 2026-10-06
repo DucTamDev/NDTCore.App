@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { printService } from '../../printer/printing/PrintService';
-import { PrintResultStatus } from '../../printer/models/printing/PrintJob';
+import { PrintResultStatus } from '../../printer/models/printing/PrintResultStatus';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
 import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import { LoggerService } from '../../../services/LoggerService';
