@@ -49,9 +49,9 @@ export class PrintService {
 
   /** Mỗi máy nhận một lệnh in; máy khác nhau in song song, cùng máy vật lý in lần lượt. Không throw. */
   async print(kind: PrintKind, image: string): Promise<PrintResult> {
-    const targets = this.findEnabledPrintersByKind(kind);
+    const printers = this.findEnabledPrintersByKind(kind);
 
-    if (targets.length === 0) {
+    if (printers.length === 0) {
       return {
         status: PrintStatus.NoAvailablePrinter,
         tasks: [],
@@ -62,7 +62,9 @@ export class PrintService {
       };
     }
 
-    const tasks = await Promise.all(targets.map((printer) => this.run(this.createTask(printer, kind, image))));
+    const tasks = printers.map((printer) => this.createTask(printer, kind, image));
+    await Promise.all(tasks.map((task) => this.run(task)));
+
     const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
     const status = resolvePrintStatus(successCount, tasks.length);
     return { status, tasks };
@@ -89,7 +91,7 @@ export class PrintService {
   }
 
   /** Khoá theo `task.deviceId`, trùng `lockKeyOf` của máy in đã lưu nên cùng khoá với nút "In thử". */
-  private run(task: PrintTask): Promise<PrintTask> {
+  private run(task: PrintTask): Promise<void> {
     return this.lock.runExclusive(task.deviceId, async () => {
       task.status = PrintTaskStatus.Printing;
       task.startedAt = new Date().toISOString();
@@ -103,7 +105,6 @@ export class PrintService {
       }
 
       task.completedAt = new Date().toISOString();
-      return task;
     });
   }
 }
