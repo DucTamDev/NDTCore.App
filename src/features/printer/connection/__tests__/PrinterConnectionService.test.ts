@@ -3,8 +3,8 @@ import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
-import { ConnectionType } from '../../models/printer/ConnectionType';
-import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
+import { ConnectionType } from '../../models/connections/ConnectionType';
+import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 import type { Printer } from '../../models/printer/Printer';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
 import { basePrinter, makeFakeAdapter } from '../../testing/printerServiceTestKit';
@@ -59,8 +59,8 @@ const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
 };
 
 /** Ghi lại mọi trạng thái của một máy in kể từ lúc gọi. */
-const recordStatuses = (service: ReturnType<typeof setup>['service'], printerId: string): PrinterConnectionStatus[] => {
-  const statuses: PrinterConnectionStatus[] = [];
+const recordStatuses = (service: ReturnType<typeof setup>['service'], printerId: string): ConnectionStatus[] => {
+  const statuses: ConnectionStatus[] = [];
   service.onStatusChange(printerId, (status) => statuses.push(status));
   return statuses;
 };
@@ -74,7 +74,7 @@ describe('PrinterConnectionService', () => {
   it('máy chưa từng kết nối ở trạng thái Idle', () => {
     const { service } = setup([]);
 
-    expect(service.getStatus('never')).toBe(PrinterConnectionStatus.Idle);
+    expect(service.getStatus('never')).toBe(ConnectionStatus.Idle);
   });
 
   it('kết nối mở adapter bằng đúng kết nối của máy và chuyển Connecting → Connected', async () => {
@@ -85,7 +85,7 @@ describe('PrinterConnectionService', () => {
     await service.connect(basePrinter);
 
     expect(adapter.connect).toHaveBeenCalledWith(basePrinter.connection);
-    expect(statuses).toEqual([PrinterConnectionStatus.Connecting, PrinterConnectionStatus.Connected]);
+    expect(statuses).toEqual([ConnectionStatus.Connecting, ConnectionStatus.Connected]);
     expect(printerLogger.connectSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, connectionType: ConnectionType.Lan }),
     );
@@ -109,7 +109,7 @@ describe('PrinterConnectionService', () => {
     });
 
     expect(createAdapter).not.toHaveBeenCalled();
-    expect(service.getStatus(bluetoothPrinter.id)).toBe(PrinterConnectionStatus.Error);
+    expect(service.getStatus(bluetoothPrinter.id)).toBe(ConnectionStatus.Error);
   });
 
   it('kết nối thất bại → trạng thái Error, ghi log và ném lại lỗi', async () => {
@@ -120,7 +120,7 @@ describe('PrinterConnectionService', () => {
 
     await expect(service.connect(basePrinter)).rejects.toBe(failure);
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Error);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
     expect(printerLogger.connectFailed).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, errorCode: DeviceErrorCode.CONNECTION_FAILED }),
     );
@@ -152,8 +152,8 @@ describe('PrinterConnectionService', () => {
     expect(createAdapter).toHaveBeenCalledTimes(1);
     expect(shared.disconnect).not.toHaveBeenCalled();
     expect(shared.write).toHaveBeenCalledWith(new Uint8Array([3]));
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
-    expect(service.getStatus(label.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Connected);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
       code: DeviceErrorCode.NOT_CONNECTED,
     });
@@ -181,8 +181,8 @@ describe('PrinterConnectionService', () => {
 
     shared.lose();
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
-    expect(service.getStatus(label.id)).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Disconnected);
     expect(shared.adapter.disconnect).toHaveBeenCalledTimes(1);
   });
 
@@ -212,7 +212,7 @@ describe('PrinterConnectionService', () => {
 
     expect(first.disconnect).toHaveBeenCalledTimes(1);
     expect(second.write).toHaveBeenCalledWith(new Uint8Array([4]));
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
     expect(printerLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: basePrinter.id }));
   });
 
@@ -224,8 +224,8 @@ describe('PrinterConnectionService', () => {
     await service.connect(basePrinter);
     await service.connect(secondLanPrinter);
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
-    expect(service.getStatus(secondLanPrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(service.getStatus(secondLanPrinter.id)).toBe(ConnectionStatus.Connected);
     expect(first.disconnect).not.toHaveBeenCalled();
   });
 
@@ -238,7 +238,7 @@ describe('PrinterConnectionService', () => {
     await service.disconnect(basePrinter.id);
 
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
-    expect(statuses).toEqual([PrinterConnectionStatus.Disconnecting, PrinterConnectionStatus.Disconnected]);
+    expect(statuses).toEqual([ConnectionStatus.Disconnecting, ConnectionStatus.Disconnected]);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
       code: DeviceErrorCode.NOT_CONNECTED,
     });
@@ -286,7 +286,7 @@ describe('PrinterConnectionService', () => {
 
     expect(first.disconnect).not.toHaveBeenCalled();
     expect(first.write).toHaveBeenCalledWith(new Uint8Array([7]));
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
   });
 
   it('kết nối không bị khoá in giữ chặn (print kết nối bên trong khoá)', async () => {
@@ -295,7 +295,7 @@ describe('PrinterConnectionService', () => {
 
     await lock.runExclusive(lockKeyOf(basePrinter), () => service.connect(basePrinter));
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
   });
 
   it('ngắt máy chưa kết nối chỉ đặt Disconnected', async () => {
@@ -303,7 +303,7 @@ describe('PrinterConnectionService', () => {
 
     await service.disconnect('never');
 
-    expect(service.getStatus('never')).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus('never')).toBe(ConnectionStatus.Disconnected);
   });
 
   it('ngắt thất bại → trạng thái Error và ném lại lỗi', async () => {
@@ -314,7 +314,7 @@ describe('PrinterConnectionService', () => {
 
     await expect(service.disconnect(basePrinter.id)).rejects.toThrow('close failed');
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Error);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
   });
 
   it('gửi khi chưa kết nối → NOT_CONNECTED', async () => {
@@ -342,7 +342,7 @@ describe('PrinterConnectionService', () => {
 
     lose();
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
       code: DeviceErrorCode.NOT_CONNECTED,
@@ -358,7 +358,7 @@ describe('PrinterConnectionService', () => {
     await service.disconnect(basePrinter.id);
 
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
   });
 
   it('lượt kết nối cũ thất bại thì không ghi đè trạng thái của lượt mới', async () => {
@@ -378,7 +378,7 @@ describe('PrinterConnectionService', () => {
 
     await expect(first).rejects.toThrow('timeout');
     await second;
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).resolves.toBeUndefined();
     expect(fast.adapter.write).toHaveBeenCalled();
   });
@@ -400,7 +400,7 @@ describe('PrinterConnectionService', () => {
     await Promise.all([first, second]);
     await service.send(basePrinter.id, new Uint8Array([5]));
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
     expect([slow.adapter, fast.adapter].filter((adapter) => adapter.write.mock.calls.length > 0)).toHaveLength(1);
   });
 
@@ -419,7 +419,7 @@ describe('PrinterConnectionService', () => {
     finishConnect();
     await connecting;
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
       code: DeviceErrorCode.NOT_CONNECTED,
@@ -437,8 +437,8 @@ describe('PrinterConnectionService', () => {
 
     await expect(service.connect(basePrinter)).resolves.toBeUndefined();
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
-    expect(after).toHaveBeenCalledWith(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(after).toHaveBeenCalledWith(ConnectionStatus.Connected);
   });
 
   it('kết nối cũ (đã chuyển sang máy khác) báo mất thì không đổi trạng thái', async () => {
@@ -450,7 +450,7 @@ describe('PrinterConnectionService', () => {
 
     first.lose();
 
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
   });
 
   it('huỷ đăng ký trạng thái thì không nhận nữa', async () => {
@@ -476,7 +476,7 @@ describe('PrinterConnectionService', () => {
 
     expect(first.disconnect).toHaveBeenCalledTimes(1);
     expect(second.connect).toHaveBeenCalledWith(basePrinter.connection);
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
   });
 
   it('reconnect máy in đã bị xoá thì chỉ ngắt, không mở lại', async () => {
@@ -488,7 +488,7 @@ describe('PrinterConnectionService', () => {
 
     expect(first.disconnect).toHaveBeenCalledTimes(1);
     expect(createAdapter).toHaveBeenCalledTimes(1);
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
   });
 
   it('tự kết nối lại chỉ các máy đang bật và bật tự kết nối', async () => {
@@ -501,8 +501,8 @@ describe('PrinterConnectionService', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(createAdapter).toHaveBeenCalledTimes(1);
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
-    expect(service.getStatus(secondLanPrinter.id)).toBe(PrinterConnectionStatus.Idle);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(service.getStatus(secondLanPrinter.id)).toBe(ConnectionStatus.Idle);
   });
 
   it('tự kết nối lại nuốt lỗi của từng máy', async () => {
@@ -513,6 +513,6 @@ describe('PrinterConnectionService', () => {
 
     expect(() => service.reconnectAutoPrinters()).not.toThrow();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Error);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
   });
 });

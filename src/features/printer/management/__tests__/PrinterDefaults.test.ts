@@ -1,5 +1,5 @@
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../PrinterDefaults';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';

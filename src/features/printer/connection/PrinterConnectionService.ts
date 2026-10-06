@@ -1,7 +1,7 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import type { Printer } from '../models/printer/Printer';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import { DeviceErrorCode } from '../errors';
 import { DeviceErrorException, errorCodeOf } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
@@ -12,7 +12,7 @@ import { createPrinterAdapter } from './PrinterAdapterFactory';
 import { printerConnectionLock, lockKeyOf, PrinterConnectionLock } from './PrinterConnectionLock';
 
 /** Nơi nhận trạng thái mới của một máy in. */
-type StatusListener = (status: PrinterConnectionStatus) => void;
+type StatusListener = (status: ConnectionStatus) => void;
 
 /** Kết nối đang mở tới một máy vật lý, dùng chung cho mọi máy in (đã lưu hoặc bản nháp) trỏ tới máy đó. */
 interface DeviceConnection {
@@ -51,7 +51,7 @@ export class PrinterConnectionService {
   private readonly sessions = new Map<string, string>();
 
   /** Trạng thái theo `printerId`; máy chưa từng kết nối không có mục nào (coi là `Idle`). */
-  private readonly statuses = new Map<string, PrinterConnectionStatus>();
+  private readonly statuses = new Map<string, ConnectionStatus>();
 
   /** Nơi nghe đổi trạng thái theo `printerId`. */
   private readonly listeners = new Map<string, Set<StatusListener>>();
@@ -95,7 +95,7 @@ export class PrinterConnectionService {
     const startedAt = Date.now();
     const attempt = this.beginAttempt(printerId);
     const lockKey = lockKeyOf(printer);
-    this.setStatus(printerId, PrinterConnectionStatus.Connecting);
+    this.setStatus(printerId, ConnectionStatus.Connecting);
 
     try {
       await this.ensurePermission(connectionType);
@@ -110,11 +110,11 @@ export class PrinterConnectionService {
         return;
       }
 
-      this.setStatus(printerId, PrinterConnectionStatus.Connected);
+      this.setStatus(printerId, ConnectionStatus.Connected);
       printerLogger.connectSucceeded({ printerId, connectionType, durationMs: Date.now() - startedAt });
     } catch (error) {
       if (this.isCurrentAttempt(printerId, attempt)) {
-        this.setStatus(printerId, PrinterConnectionStatus.Error);
+        this.setStatus(printerId, ConnectionStatus.Error);
       }
 
       printerLogger.connectFailed({
@@ -136,7 +136,7 @@ export class PrinterConnectionService {
     const lockKey = this.sessions.get(printerId);
 
     if (!lockKey) {
-      this.setStatus(printerId, PrinterConnectionStatus.Disconnected);
+      this.setStatus(printerId, ConnectionStatus.Disconnected);
       return;
     }
 
@@ -156,8 +156,8 @@ export class PrinterConnectionService {
   }
 
   /** Máy chưa từng kết nối là `Idle`. */
-  getStatus(printerId: string): PrinterConnectionStatus {
-    return this.statuses.get(printerId) ?? PrinterConnectionStatus.Idle;
+  getStatus(printerId: string): ConnectionStatus {
+    return this.statuses.get(printerId) ?? ConnectionStatus.Idle;
   }
 
   /** Chỉ nhận các lần đổi trạng thái sau khi đăng ký, không nhận trạng thái hiện tại. */
@@ -209,7 +209,7 @@ export class PrinterConnectionService {
   }
 
   /** Một listener lỗi không được làm hỏng việc kết nối đang chạy hay chặn các listener khác. */
-  private setStatus(printerId: string, status: PrinterConnectionStatus): void {
+  private setStatus(printerId: string, status: ConnectionStatus): void {
     this.statuses.set(printerId, status);
     this.listeners.get(printerId)?.forEach((listener) => {
       try {
@@ -285,7 +285,7 @@ export class PrinterConnectionService {
       return;
     }
 
-    this.setStatus(printerId, PrinterConnectionStatus.Disconnecting);
+    this.setStatus(printerId, ConnectionStatus.Disconnecting);
     device.users.delete(printerId);
     this.sessions.delete(printerId);
 
@@ -296,13 +296,13 @@ export class PrinterConnectionService {
       try {
         await device.adapter.disconnect();
       } catch (error) {
-        this.setStatus(printerId, PrinterConnectionStatus.Error);
+        this.setStatus(printerId, ConnectionStatus.Error);
         printerLogger.disconnectFailed({ printerId, errorCode: errorCodeOf(error) });
         throw error;
       }
     }
 
-    this.setStatus(printerId, PrinterConnectionStatus.Disconnected);
+    this.setStatus(printerId, ConnectionStatus.Disconnected);
     printerLogger.disconnectSucceeded({ printerId });
   }
 
@@ -362,7 +362,7 @@ export class PrinterConnectionService {
         this.sessions.delete(printerId);
       }
 
-      this.setStatus(printerId, PrinterConnectionStatus.Disconnected);
+      this.setStatus(printerId, ConnectionStatus.Disconnected);
     }
 
     this.closeQuietly(users[0] ?? lockKey, lockKey, device);

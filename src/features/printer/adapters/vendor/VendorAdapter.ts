@@ -1,5 +1,5 @@
 import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
-import type { ConnectionType } from '../../models/printer/ConnectionType';
+import type { ConnectionType } from '../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import { PrinterErrorException } from '../../exceptions';

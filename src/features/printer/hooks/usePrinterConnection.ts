@@ -3,9 +3,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { printerStatusChanged, selectPrinterStatus } from '../store/printerSlice';
-import type { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import type { ConnectionStatus } from '../models/connections/ConnectionStatus';
 
-export const usePrinterConnection = (printerId: string): PrinterConnectionStatus => {
+export const usePrinterConnection = (printerId: string): ConnectionStatus => {
   const dispatch = useDispatch<AppDispatch>();
   const status = useSelector((state: RootState) => selectPrinterStatus(state, printerId));
 

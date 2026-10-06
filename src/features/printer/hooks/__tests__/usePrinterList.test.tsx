@@ -7,7 +7,7 @@ import printerReducer from '../../store/printerSlice';
 import { printerRepository } from '../../storage/PrinterRepository';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import type { Printer } from '../../models/printer/Printer';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { makePrinter } from '../../testing/printerFixtures';
 
 jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));

@@ -1,6 +1,6 @@
 import { LoggerService } from '../../../services/LoggerService';
 import type { ErrorCode } from '../errors';
-import type { ConnectionType } from '../models/printer/ConnectionType';
+import type { ConnectionType } from '../models/connections/ConnectionType';
 import type { PrintLanguage } from '../models/printer/PrinterLanguage';
 
 /**

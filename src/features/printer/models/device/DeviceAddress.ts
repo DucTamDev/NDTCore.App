@@ -1,4 +1,4 @@
-import { ConnectionType } from '../printer/ConnectionType';
+import { ConnectionType } from '../connections/ConnectionType';
 
 /** Địa chỉ thiết bị USB. */
 export interface UsbDeviceAddress {

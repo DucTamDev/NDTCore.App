@@ -1,5 +1,5 @@
 import { printerSchema } from '../PrinterSchema';
-import { ConnectionType } from '../../../models/printer/ConnectionType';
+import { ConnectionType } from '../../../models/connections/ConnectionType';
 import { PaperSize } from '../../../models/paper/PaperSize';
 import { PaperType } from '../../../models/paper/PaperType';
 import type { PaperOptions } from '../../../models/paper/PaperOptions';

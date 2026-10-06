@@ -7,20 +7,20 @@ import { printerService } from '../../printing/PrinterService';
 import { printerConfigService } from '../../management/PrinterConfigService';
 import { printerDetectionService } from '../../detection/PrinterDetectionService';
 import type { PrinterDetection } from '../../detection/PrinterDetection';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperType } from '../../models/paper/PaperType';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 import { deviceIdOf } from '../../models/device/DeviceAddress';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
 
 // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
 // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
-const mockIdleStatus = PrinterConnectionStatus.Idle;
+const mockIdleStatus = ConnectionStatus.Idle;
 
 jest.mock('../../storage/PrinterRepository', () => ({
   printerRepository: {
@@ -143,7 +143,7 @@ describe('useAddPrinterFlow', () => {
     jest.clearAllMocks();
     mockCaptureImage.mockClear();
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
-    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterConnectionStatus.Idle);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Idle);
     (printerDetectionService.detect as jest.Mock).mockReturnValue(undefined);
   });
 
@@ -258,7 +258,7 @@ describe('useAddPrinterFlow', () => {
   });
 
   it('onSave khi language đang connected → reconnect (không connect) để context lấy paper đã lưu', async () => {
-    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterConnectionStatus.Connected);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Connected);
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     await act(async () => {
       await get().infoCard.onSave();

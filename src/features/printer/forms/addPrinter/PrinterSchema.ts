@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';

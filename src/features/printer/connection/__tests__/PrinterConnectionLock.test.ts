@@ -1,5 +1,5 @@
 import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import { makePrinter, makeTsplLanguage } from '../../testing/printerFixtures';
 

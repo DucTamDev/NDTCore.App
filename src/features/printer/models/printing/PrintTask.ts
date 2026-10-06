@@ -1,5 +1,5 @@
 import type { PrinterFeatureException } from '../../exceptions';
-import type { ConnectionType } from '../printer/ConnectionType';
+import type { ConnectionType } from '../connections/ConnectionType';
 import type { PrintKind } from '../printer/PrintKind';
 import type { PrintTaskStatus } from './PrintTaskStatus';
 

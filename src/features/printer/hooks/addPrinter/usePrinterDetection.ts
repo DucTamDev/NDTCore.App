@@ -6,7 +6,7 @@ import { printerConnectionService } from '../../connection/PrinterConnectionServ
 import { createPrinterLanguage } from '../../management/PrinterDefaults';
 import { canPrintKind } from '../../forms/addPrinter/printerRules';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';

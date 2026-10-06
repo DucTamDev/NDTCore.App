@@ -1,5 +1,5 @@
 import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { DiscoveryStatus } from '../../models/discovery/DiscoveryStatus';
 import type { DiscoveryEvent } from '../../models/discovery/DiscoveryEvent';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';

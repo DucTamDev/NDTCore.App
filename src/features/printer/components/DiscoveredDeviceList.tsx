@@ -6,7 +6,7 @@ import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
-import type { ConnectionType } from '../models/printer/ConnectionType';
+import type { ConnectionType } from '../models/connections/ConnectionType';
 import { deviceIdOf } from '../models/device/DeviceAddress';
 
 export interface DiscoveredDeviceListProps {

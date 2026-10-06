@@ -5,7 +5,7 @@ import type { PrinterRepository } from '../../storage/PrinterRepository';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrintTaskStatus } from '../../models/printing/PrintTaskStatus';

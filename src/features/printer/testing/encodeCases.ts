@@ -1,6 +1,6 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import type { Printer } from '../models/printer/Printer';
 import { CutterMode } from '../models/paper/CutterMode';
 import { PaperSize } from '../models/paper/PaperSize';

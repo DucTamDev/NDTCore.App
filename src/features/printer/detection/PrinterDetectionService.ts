@@ -1,4 +1,4 @@
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import { printerLogger } from '../logging/PrinterLogger';
 import type { PrinterDetection, PrinterIdentifiers } from './PrinterDetection';

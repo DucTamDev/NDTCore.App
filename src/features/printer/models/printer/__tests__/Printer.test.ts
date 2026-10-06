@@ -1,4 +1,4 @@
-import { ConnectionType } from '../ConnectionType';
+import { ConnectionType } from '../../connections/ConnectionType';
 import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../PrinterLanguage';
 import { type Printer } from '../Printer';
 import { PrintKind } from '../PrintKind';

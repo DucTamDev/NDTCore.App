@@ -1,5 +1,5 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
 import type { DiscoveryEvent } from '../models/discovery/DiscoveryEvent';

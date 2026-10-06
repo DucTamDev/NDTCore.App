@@ -1,5 +1,5 @@
 import { NativeAdapter, toDeviceError } from '../NativeAdapter';
-import { ConnectionType } from '../../../models/printer/ConnectionType';
+import { ConnectionType } from '../../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../../models/device/DeviceAddress';
 import { DeviceErrorCode } from '../../../errors';
 import { DeviceErrorException } from '../../../exceptions';

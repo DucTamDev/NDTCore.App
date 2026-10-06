@@ -2,7 +2,7 @@ import { PrinterDetectionService } from '../PrinterDetectionService';
 import type { PrinterDetection } from '../PrinterDetection';
 import { PRINTER_DETECTION_TABLE } from '../PrinterDetectionTable';
 import { printerLogger } from '../../logging/PrinterLogger';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
 

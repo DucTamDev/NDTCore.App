@@ -7,7 +7,7 @@ import { deviceIdOf } from '../../models/device/DeviceAddress';
 import { createPrinterAdapter } from '../../connection/PrinterAdapterFactory';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import type { PrintKind } from '../../models/printer/PrintKind';

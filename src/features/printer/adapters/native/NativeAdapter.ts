@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import { DeviceErrorException } from '../../exceptions';

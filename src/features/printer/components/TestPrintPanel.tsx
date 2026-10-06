@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { type PrintKind } from '../models/printer/PrintKind';
 
 export interface TestPrintPanelProps {
-  status: PrinterConnectionStatus;
+  status: ConnectionStatus;
   kind: PrintKind;
   testPrintPending: boolean;
   onTestPrint: () => void;
@@ -18,7 +18,7 @@ export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({ status, kind, te
       label={`In thử ${PRINT_KIND_LABELS[kind]}`}
       mode="outlined"
       style={styles.testPrintButton}
-      disabled={status !== PrinterConnectionStatus.Connected || testPrintPending}
+      disabled={status !== ConnectionStatus.Connected || testPrintPending}
       loading={testPrintPending}
       onPress={onTestPrint}
     />

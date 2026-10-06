@@ -1,4 +1,4 @@
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
 import type { DeviceAddress } from '../models/device/DeviceAddress';

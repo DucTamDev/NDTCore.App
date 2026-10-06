@@ -1,5 +1,5 @@
 /** Trạng thái kết nối của một máy in trong phiên chạy hiện tại; không lưu. */
-export const PrinterConnectionStatus = {
+export const ConnectionStatus = {
   /** Chưa từng kết nối trong phiên này. */
   Idle: 'Idle',
 
@@ -22,4 +22,4 @@ export const PrinterConnectionStatus = {
   Error: 'Error',
 } as const;
 
-export type PrinterConnectionStatus = (typeof PrinterConnectionStatus)[keyof typeof PrinterConnectionStatus];
+export type ConnectionStatus = (typeof ConnectionStatus)[keyof typeof ConnectionStatus];

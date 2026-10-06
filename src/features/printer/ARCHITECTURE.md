@@ -91,8 +91,8 @@ src/features/printer/
 ├── models/
 │   ├── device/          DeviceInfo (thiết bị tìm thấy, không lưu), DeviceAddress (+ deviceIdOf)
 │   ├── discovery/       DiscoveryStatus, DiscoveryEvent — tiến trình tìm thiết bị
-│   ├── printer/         Printer, PrintKind, ConnectionType,
-│   │                    PrinterLanguage, PrinterCapabilities, PrinterConnectionStatus — lưu xuống bộ nhớ
+│   ├── connections/     ConnectionType, ConnectionStatus (trạng thái trong phiên, không lưu)
+│   ├── printer/         Printer, PrintKind, PrinterLanguage, PrinterCapabilities — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
 │   └── printing/        PrintOptions, PrintTask
@@ -751,7 +751,7 @@ if (!printer) {
   throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message });
 }
 
-if (connectionService.getStatus(printer.id) !== PrinterConnectionStatus.Connected) {
+if (connectionService.getStatus(printer.id) !== ConnectionStatus.Connected) {
   await connectionService.connect(printer);
 }
 

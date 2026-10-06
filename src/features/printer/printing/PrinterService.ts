@@ -1,5 +1,5 @@
 import type { PrintOptions } from '../models/printing/PrintOptions';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { Printer } from '../models/printer/Printer';
 import { errorCodeOf, PrinterErrorException } from '../exceptions';
 import { PrinterErrorCode } from '../errors';
@@ -61,7 +61,7 @@ export class PrinterService {
   }
 
   private async send(printer: Printer, image: string, options?: PrintOptions): Promise<void> {
-    if (this.connectionService.getStatus(printer.id) !== PrinterConnectionStatus.Connected) {
+    if (this.connectionService.getStatus(printer.id) !== ConnectionStatus.Connected) {
       await this.connectionService.connect(printer);
     }
 

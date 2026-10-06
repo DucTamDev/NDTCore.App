@@ -3,7 +3,7 @@ import type { PrintTask } from '../PrintTask';
 import { PrintStatus } from '../PrintStatus';
 import type { PrintResult } from '../PrintResult';
 import { PrintKind } from '../../printer/PrintKind';
-import { ConnectionType } from '../../printer/ConnectionType';
+import { ConnectionType } from '../../connections/ConnectionType';
 import { PrintErrorCode } from '../../../errors';
 import { PrintErrorException } from '../../../exceptions';
 

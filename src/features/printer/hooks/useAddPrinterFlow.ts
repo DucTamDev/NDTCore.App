@@ -10,10 +10,10 @@ import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPri
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
 import type { StatusPanelProps, ConnectionState, LanguageState } from '../components/StatusPanel';
 import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/PrinterDefaults';
 import {
@@ -85,7 +85,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureImage } = usePrintImageCapture();
-  const [liveStatus, setLiveStatus] = useState<PrinterConnectionStatus>(PrinterConnectionStatus.Idle);
+  const [liveStatus, setLiveStatus] = useState<ConnectionStatus>(ConnectionStatus.Idle);
 
   const displayForm = useForm<PrinterDisplayValues>({
     resolver: zodResolver(printerDisplaySchema),
@@ -231,7 +231,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   useEffect(() => {
     if (!language) {
-      setLiveStatus(PrinterConnectionStatus.Idle);
+      setLiveStatus(ConnectionStatus.Idle);
       return undefined;
     }
 
@@ -283,7 +283,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       return;
     }
     savedRef.current = true;
-    if (liveStatus === PrinterConnectionStatus.Connected) {
+    if (liveStatus === ConnectionStatus.Connected) {
       printerConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
       const saved = printerRepository.findById(printer.id);

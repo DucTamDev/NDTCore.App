@@ -5,7 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { usePrinterConnection } from '../usePrinterConnection';
 import printerReducer from '../../store/printerSlice';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
-import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 
 jest.mock('../../connection/PrinterConnectionService', () => ({
   printerConnectionService: {
@@ -16,7 +16,7 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
 
 const makeStore = () => configureStore({ reducer: { printer: printerReducer } });
 
-const Harness: React.FC<{ printerId: string; onStatus: (status: PrinterConnectionStatus) => void }> = ({
+const Harness: React.FC<{ printerId: string; onStatus: (status: ConnectionStatus) => void }> = ({
   printerId,
   onStatus,
 }) => {
@@ -29,10 +29,10 @@ describe('usePrinterConnection', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('dispatches printerConnectionService.getStatus() into the store on mount', () => {
-    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterConnectionStatus.Connected);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Connected);
     (printerConnectionService.onStatusChange as jest.Mock).mockReturnValue(() => undefined);
     const store = makeStore();
-    const statuses: PrinterConnectionStatus[] = [];
+    const statuses: ConnectionStatus[] = [];
 
     act(() => {
       TestRenderer.create(
@@ -42,21 +42,21 @@ describe('usePrinterConnection', () => {
       );
     });
 
-    expect(statuses[statuses.length - 1]).toBe(PrinterConnectionStatus.Connected);
+    expect(statuses[statuses.length - 1]).toBe(ConnectionStatus.Connected);
     expect(printerConnectionService.getStatus).toHaveBeenCalledWith('p1');
   });
 
   it('updates when printerConnectionService.onStatusChange pushes a new status', () => {
-    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterConnectionStatus.Idle);
-    let pushStatus: ((status: PrinterConnectionStatus) => void) | undefined;
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Idle);
+    let pushStatus: ((status: ConnectionStatus) => void) | undefined;
     (printerConnectionService.onStatusChange as jest.Mock).mockImplementation(
-      (_id: string, callback: (status: PrinterConnectionStatus) => void) => {
+      (_id: string, callback: (status: ConnectionStatus) => void) => {
         pushStatus = callback;
         return () => undefined;
       },
     );
     const store = makeStore();
-    const statuses: PrinterConnectionStatus[] = [];
+    const statuses: ConnectionStatus[] = [];
 
     act(() => {
       TestRenderer.create(
@@ -66,14 +66,14 @@ describe('usePrinterConnection', () => {
       );
     });
     act(() => {
-      pushStatus?.(PrinterConnectionStatus.Connected);
+      pushStatus?.(ConnectionStatus.Connected);
     });
 
-    expect(statuses[statuses.length - 1]).toBe(PrinterConnectionStatus.Connected);
+    expect(statuses[statuses.length - 1]).toBe(ConnectionStatus.Connected);
   });
 
   it('unsubscribes from printerConnectionService.onStatusChange on unmount', () => {
-    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterConnectionStatus.Idle);
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Idle);
     const unsubscribe = jest.fn();
     (printerConnectionService.onStatusChange as jest.Mock).mockReturnValue(unsubscribe);
     const store = makeStore();

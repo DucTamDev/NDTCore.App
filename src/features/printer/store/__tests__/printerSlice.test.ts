@@ -7,7 +7,7 @@ import printerReducer, {
   selectPrinters,
   selectPrinterStatus,
 } from '../printerSlice';
-import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 import { makePrinter } from '../../testing/printerFixtures';
 
 const printer = makePrinter({
@@ -37,10 +37,10 @@ describe('printerSlice', () => {
   });
 
   it('printerStatusChanged updates statusById for that printer only', () => {
-    const changed = printerStatusChanged({ printerId: 'p1', status: PrinterConnectionStatus.Connected });
+    const changed = printerStatusChanged({ printerId: 'p1', status: ConnectionStatus.Connected });
     const state = printerReducer(undefined, changed);
-    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe(PrinterConnectionStatus.Connected);
-    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe(PrinterConnectionStatus.Idle);
+    expect(selectPrinterStatus({ printer: state }, 'p1')).toBe(ConnectionStatus.Connected);
+    expect(selectPrinterStatus({ printer: state }, 'p2')).toBe(ConnectionStatus.Idle);
   });
 
   it('printerEnabledChanged updates enabled for that printer only', () => {

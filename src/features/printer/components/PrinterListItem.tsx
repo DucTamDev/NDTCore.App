@@ -6,8 +6,8 @@ import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
-import { ConnectionType } from '../models/printer/ConnectionType';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../models/printer/Printer';
 
@@ -39,7 +39,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const subtitle = [connectionLabel[printer.connection.type], languageLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
   const requestDelete = (): void => {
-    if (status === PrinterConnectionStatus.Connected) {
+    if (status === ConnectionStatus.Connected) {
       setConfirmDeleteVisible(true);
       return;
     }

@@ -1,12 +1,12 @@
 import type { IPrinterAdapter } from '../adapters/IPrinterAdapter';
 import type { PrinterConnectionService } from '../connection/PrinterConnectionService';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import {
   LanguageSelection,
   PrintLanguage,
   type PrinterLanguage,
 } from '../models/printer/PrinterLanguage';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import { CutterMode } from '../models/paper/CutterMode';
 import { PaperSize } from '../models/paper/PaperSize';
 import { PaperType } from '../models/paper/PaperType';
@@ -51,7 +51,7 @@ export const makeMockConnectionService = (
     disconnect: jest.fn().mockResolvedValue(undefined),
     send: jest.fn().mockResolvedValue(undefined),
     read: jest.fn().mockResolvedValue(null),
-    getStatus: jest.fn().mockReturnValue(PrinterConnectionStatus.Connected),
+    getStatus: jest.fn().mockReturnValue(ConnectionStatus.Connected),
     onStatusChange: jest.fn().mockReturnValue(() => undefined),
     reconnect: jest.fn().mockResolvedValue(undefined),
     reconnectAutoPrinters: jest.fn(),

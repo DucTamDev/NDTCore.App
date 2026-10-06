@@ -4,7 +4,7 @@ import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DiscoveredDeviceList } from './DiscoveredDeviceList';
-import { ConnectionType } from '../models/printer/ConnectionType';
+import { ConnectionType } from '../models/connections/ConnectionType';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 
 export interface ConnectionSectionProps {

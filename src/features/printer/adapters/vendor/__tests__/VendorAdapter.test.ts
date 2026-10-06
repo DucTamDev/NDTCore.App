@@ -1,5 +1,5 @@
 import { VendorAdapter } from '../VendorAdapter';
-import { ConnectionType } from '../../../models/printer/ConnectionType';
+import { ConnectionType } from '../../../models/connections/ConnectionType';
 import { PrinterErrorCode } from '../../../errors';
 
 describe('VendorAdapter (khung)', () => {

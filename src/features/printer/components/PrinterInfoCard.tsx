@@ -12,8 +12,8 @@ import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySch
 import { PrintKind } from '../models/printer/PrintKind';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { LanguageSelection, type PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { ConnectionType } from '../models/printer/ConnectionType';
-import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { PaperForm } from '../forms/addPrinter/PaperFormSchema';
 
@@ -38,7 +38,7 @@ export interface PrinterInfoCardProps {
   paperForm: PaperForm;
   /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
   device?: DeviceInfo;
-  status: PrinterConnectionStatus;
+  status: ConnectionStatus;
   autoReconnect: boolean;
   onAutoReconnectChange: (value: boolean) => void;
   testPrintPending: boolean;

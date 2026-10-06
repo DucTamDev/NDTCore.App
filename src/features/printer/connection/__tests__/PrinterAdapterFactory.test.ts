@@ -1,7 +1,7 @@
 import { createPrinterAdapter } from '../PrinterAdapterFactory';
 import { createPrinterAdapter as createWebPrinterAdapter } from '../PrinterAdapterFactory.web';
 import { NativeAdapter } from '../../adapters/native/NativeAdapter';
-import { ConnectionType } from '../../models/printer/ConnectionType';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import { PrinterErrorCode } from '../../errors';
 
 describe('createPrinterAdapter', () => {
