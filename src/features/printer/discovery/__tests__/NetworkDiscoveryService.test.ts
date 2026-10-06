@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import { getCurrentWifiIp } from '../NetworkInfoService';
+import { getCurrentWifiIp } from '../NetworkDiscoveryService';
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(),

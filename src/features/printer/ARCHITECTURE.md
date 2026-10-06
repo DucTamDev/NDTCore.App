@@ -116,7 +116,7 @@ src/features/printer/
 │   ├── PrinterConnectionService.ts
 │   └── PrinterConnectionLock.ts
 │
-├── discovery/           DeviceDiscoveryService, NetworkInfoService
+├── discovery/           DeviceDiscoveryService, NetworkDiscoveryService
 ├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
 ├── printing/            PrintService, PrintScheduler, PrinterService
 ├── management/          PrinterConfigService, createPrinterDraft
@@ -615,7 +615,7 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 `DeviceDiscoveryService.discover(connectionType, onEvent): Unsubscribe`
 
-* LAN → `Empty` ngay (người dùng nhập IP; `NetworkInfoService` gợi ý IP WiFi hiện tại).
+* LAN → `Empty` ngay (người dùng nhập IP; `NetworkDiscoveryService` gợi ý IP WiFi hiện tại).
 * Bluetooth → xin quyền rồi `adapter.listDevices` (chỉ máy đã ghép đôi).
 * USB → `adapter.listDevices`; quét không mở hộp thoại xin quyền (`hasPermission` cho biết đã có quyền chưa).
 * Native báo "No Device Found" bằng lỗi thì coi là rỗng.

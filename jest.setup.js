@@ -25,10 +25,10 @@ jest.mock('react-native-mmkv', () => {
 
 // @react-native-community/netinfo touches the RNCNetInfo native module at
 // import time (nativeInterface.ts), so any test that transitively imports
-// NetworkInfoService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to
+// NetworkDiscoveryService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to
 // load without a mock. `NetInfo.fetch()` is the ONLY member app code uses
-// (NetworkInfoService.getCurrentWifiIp reads type/isConnected/details.ipAddress
-// off its result). Tests needing finer control (NetworkInfoService.test.ts)
+// (NetworkDiscoveryService.getCurrentWifiIp reads type/isConnected/details.ipAddress
+// off its result). Tests needing finer control (NetworkDiscoveryService.test.ts)
 // override locally.
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,

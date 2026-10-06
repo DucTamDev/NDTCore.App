@@ -64,7 +64,7 @@ jest.mock('../usePrintImageCapture', () => ({
   usePrintImageCapture: () => ({ captureNode: null, captureImage: mockCaptureImage }),
 }));
 
-jest.mock('../../discovery/NetworkInfoService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
+jest.mock('../../discovery/NetworkDiscoveryService', () => ({ getCurrentWifiIp: jest.fn(() => Promise.resolve(null)) }));
 
 const savedTspl: Printer = {
   id: 'p1',
