@@ -36,14 +36,6 @@ const squarePngBase64 = (): string => {
 };
 
 describe('TsplLanguage', () => {
-  it('lệnh dò là ~!T và chỉ khớp khi máy có trả lời', () => {
-    const probe = TsplLanguage.identifyProbe;
-
-    expect(probe && Array.from(probe.command)).toEqual([0x7e, 0x21, 0x54, 0x0d, 0x0a]);
-    expect(probe?.matches(new Uint8Array([]))).toBe(false);
-    expect(probe?.matches(new Uint8Array([0x00]))).toBe(true);
-  });
-
   it('số bản không hợp lệ coi như 1 bản', () => {
     const image = stripedPngBase64();
     const oneRow = fingerprintOf(TsplLanguage.encode(printer, image));

@@ -39,10 +39,6 @@ describe('EscPosLanguage', () => {
       expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
   });
-
-  it('không có lệnh dò', () => {
-    expect(EscPosLanguage.identifyProbe).toBeUndefined();
-  });
 });
 
 /** Encode với ảnh giải mã ra đúng `bitmap` trên giấy cuộn 80mm có `cutterMode` cho trước. */

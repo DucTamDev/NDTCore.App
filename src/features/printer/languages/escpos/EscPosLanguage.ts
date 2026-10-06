@@ -95,7 +95,7 @@ const encodeImage = (printer: Printer, image: string, options?: PrintOptions): U
   return toBytes(bitmap, cutterModeOf(printer.paper, options), options);
 };
 
-/** Ngôn ngữ ESC/POS: máy hoá đơn không có lệnh dò nên không có `identifyProbe`. */
+/** Ngôn ngữ ESC/POS (máy in hoá đơn). */
 export const EscPosLanguage: IPrintLanguage = {
   encode: encodeImage,
 };

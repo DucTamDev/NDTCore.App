@@ -5,7 +5,8 @@ import { printerRepository } from '../../storage/PrinterRepository';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { printerPrintService } from '../../printing/PrinterPrintService';
 import { printerConfigService } from '../../management/PrinterConfigService';
-import { printerDetectionService, PrinterDetectionStage } from '../../detection/PrinterDetectionService';
+import { printerDetectionService } from '../../detection/PrinterDetectionService';
+import type { PrinterDefinition } from '../../detection/PrinterDefinition';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';
@@ -53,9 +54,8 @@ jest.mock('../../management/PrinterConfigService', () => ({
 }));
 
 jest.mock('../../detection/PrinterDetectionService', () => ({
-  ...jest.requireActual('../../detection/PrinterDetectionService'),
   printerDetectionService: {
-    detect: jest.fn(() => () => undefined),
+    detect: jest.fn(() => undefined),
   },
 }));
 
@@ -97,7 +97,19 @@ const savedEscpos: Printer = {
   deviceId: 'lan:10.0.0.6:9100',
 };
 
-let capturedDetectionHandler: ((event: unknown) => void) | undefined;
+/** Model có trong bảng máy in, khớp `usbDevice`. */
+const xprinterDefinition: PrinterDefinition = {
+  vendor: 'Xprinter',
+  model: 'XP-420B',
+  identifiers: { vendorId: 11575, productId: 33751 },
+  language: { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto },
+  capabilities: { cutter: true, cashDrawer: false, color: false, image: true },
+};
+
+/** Lần tra bảng tới trả về `xprinterDefinition`. */
+const detectXprinter = (): void => {
+  (printerDetectionService.detect as jest.Mock).mockReturnValueOnce(xprinterDefinition);
+};
 
 /** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
 const usbDevice: DiscoverResult = {
@@ -130,11 +142,7 @@ describe('useAddPrinterFlow', () => {
     mockCaptureImage.mockClear();
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
     (printerConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
-    const detect = printerDetectionService.detect as jest.Mock;
-    detect.mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
-      capturedDetectionHandler = handler;
-      return () => undefined;
-    });
+    (printerDetectionService.detect as jest.Mock).mockReturnValue(undefined);
   });
 
   it('title reflects add vs edit', () => {
@@ -151,20 +159,21 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.locked).toBe(false);
   });
 
-  it('connect → identify → save đi hết luồng với đúng 1 language', async () => {
+  it('chọn thiết bị → tra bảng → kết nối → lưu, lấy ngôn ngữ, khả năng, hãng và model từ bảng', async () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, onSaved, kind: PrintKind.Label });
     expect(get().infoCard.locked).toBe(true);
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
 
-    act(() => get().connectionSection.onConnectPress());
-    const detectedLanguage = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto };
-    act(() =>
-      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Detected, language: detectedLanguage }),
-    );
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
 
+    expect(printerDetectionService.detect).toHaveBeenCalledWith(usbDevice);
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().statusPanel.languageState).toBe('identified');
-    expect(get().infoCard.language).toEqual(detectedLanguage);
+    expect(get().infoCard.language).toEqual(xprinterDefinition.language);
     expect(get().infoCard.locked).toBe(false);
 
     await act(async () => {
@@ -172,7 +181,13 @@ describe('useAddPrinterFlow', () => {
     });
 
     expect(printerRepository.addPrinter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: PrintKind.Label, language: detectedLanguage }),
+      expect.objectContaining({
+        kind: PrintKind.Label,
+        language: xprinterDefinition.language,
+        capabilities: xprinterDefinition.capabilities,
+        vendor: 'Xprinter',
+        model: 'XP-420B',
+      }),
     );
     expect(onSaved).toHaveBeenCalled();
   });
@@ -180,7 +195,6 @@ describe('useAddPrinterFlow', () => {
   it('không nhận ra ngôn ngữ → chọn tay, kết nối bản nháp và gán ngôn ngữ "manual"', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     expect(get().statusPanel.languageState).toBe('unknown');
 
     await act(async () => {
@@ -227,16 +241,13 @@ describe('useAddPrinterFlow', () => {
   it('onSave khi language KHÔNG đang connected (autoReconnect bật) → connect (không reconnect)', async () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, onSaved, kind: PrintKind.Label });
-    act(() => get().connectionSection.onConnectPress());
-    act(() =>
-      capturedDetectionHandler?.({
-        stage: PrinterDetectionStage.Detected,
-        language: {
-    type: PrintLanguage.Tspl,
-    selection: LanguageSelection.Auto,
-  },
-      }),
-    );
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
+    (printerConnectionService.connect as jest.Mock).mockClear();
+
     await act(async () => {
       await get().infoCard.onSave();
     });
@@ -272,22 +283,57 @@ describe('useAddPrinterFlow', () => {
     expect(get().identityErrorMessage).toBeUndefined();
   });
 
-  it('discovery "error" stage hiển thị lỗi và không có language', () => {
+  it('kết nối máy tra được trong bảng thất bại → hiển thị lỗi và không có language', async () => {
+    (printerConnectionService.connect as jest.Mock).mockRejectedValueOnce({ message: 'mất kết nối' });
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
-    act(() => get().connectionSection.onConnectPress());
-    act(() =>
-      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }),
-    );
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
+
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
+
     expect(get().statusPanel.connectionState).toBe('error');
     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
     expect(get().infoCard.language).toBeUndefined();
+  });
+
+  it('model trong bảng dùng ESC/POS mà đang thêm máy tem → để người dùng chọn ngôn ngữ', async () => {
+    (printerDetectionService.detect as jest.Mock).mockReturnValueOnce({
+      ...xprinterDefinition,
+      language: { type: PrintLanguage.EscPos, selection: LanguageSelection.Auto },
+    });
+    const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
+
+    expect(get().statusPanel.languageState).toBe('unknown');
+    expect(printerConnectionService.connect).not.toHaveBeenCalled();
+  });
+
+  it('LAN không có thiết bị quét nên luôn để người dùng chọn ngôn ngữ', async () => {
+    const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+    act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
+    act(() => get().connectionSection.onLanIpChange('10.0.0.9'));
+    act(() => get().connectionSection.onLanPortChange('9100'));
+
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(printerDetectionService.detect).not.toHaveBeenCalled();
+    expect(get().statusPanel.languageState).toBe('unknown');
+    expect(printerConnectionService.connect).not.toHaveBeenCalled();
   });
 
   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });
@@ -326,9 +372,9 @@ describe('useAddPrinterFlow', () => {
     ]);
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
-    act(() => get().connectionSection.onConnectPress());
+    detectXprinter();
     await act(async () => {
-      capturedDetectionHandler?.({ stage: PrinterDetectionStage.Detected, language: savedTspl.language });
+      get().connectionSection.onConnectPress();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
@@ -351,7 +397,6 @@ describe('useAddPrinterFlow', () => {
       (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1';
     });
     act(() => get().connectionSection.onConnectPress());
-    act(() => capturedDetectionHandler?.({ stage: PrinterDetectionStage.Unknown }));
     await act(async () => {
       get().statusPanel.onChooseLanguage(PrintLanguage.EscPos);
     });

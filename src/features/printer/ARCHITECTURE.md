@@ -58,7 +58,7 @@ Luồng thêm máy in:
 ```text
 DeviceDiscoveryService        tìm thiết bị → DiscoverResult
     ↓
-PrinterDetectionService      kết nối một lần, thử lệnh dò từng ngôn ngữ
+PrinterDetectionService      tra PRINTER_TABLE theo thiết bị quét được
     ↓
 createPrinterDraft            mặc định theo ngôn ngữ
     ↓
@@ -76,7 +76,7 @@ PrinterRepository             lưu
 | `PrinterConnectionLock`    | Khoá loại trừ theo máy vật lý                              |
 | `IPrinterAdapter`          | Một kết nối qua một cơ chế (native module, SDK hãng)       |
 | `DeviceDiscoveryService`   | Tìm thiết bị cho người dùng chọn                          |
-| `PrinterDetectionService` | Dò ngôn ngữ của máy in mới                                |
+| `PrinterDetectionService` | Tra bảng model: ngôn ngữ, khả năng của máy in mới         |
 | `PrinterConfigService`     | Sửa cấu hình in của máy đã lưu                            |
 | `PrinterRepository`        | Persistence boundary                                      |
 | `PrinterStorage`           | MMKV implementation                                       |
@@ -120,7 +120,7 @@ src/features/printer/
 │   └── PrinterConnectionLock.ts
 │
 ├── discovery/           DeviceDiscoveryService, NetworkInfoService
-├── detection/           PrinterDetectionService
+├── detection/           PrinterDetectionService, PrinterDefinition, PrinterTable (PRINTER_TABLE)
 ├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterPrintService
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
@@ -147,7 +147,7 @@ src/features/printer/
 * `languages/` chỉ encode; không biết kết nối.
 * `adapters/` chứa integration với native module / SDK hãng; không chứa business rule.
 * `connection/` quản lý phiên kết nối và khoá; không biết ngôn ngữ in.
-* `discovery/` tìm thiết bị; `detection/` dò ngôn ngữ.
+* `discovery/` tìm thiết bị; `detection/` tra bảng model máy in.
 * `printing/` ghép ngôn ngữ với kết nối để in.
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
@@ -173,7 +173,7 @@ field cần giải thích.
 
 Ràng buộc duy nhất giữa ngôn ngữ và loại nội dung là `canPrintKind(language, kind)`
 (`forms/addPrinter/printerRules.ts`): ESC/POS chỉ in `Receipt`; TSPL in cả hai.
-Schema, dò ngôn ngữ và UI chọn ngôn ngữ tay cùng dùng hàm này.
+Schema, bước tra bảng model khi thêm máy và UI chọn ngôn ngữ tay cùng dùng hàm này.
 
 ---
 
@@ -408,7 +408,6 @@ Việt.
 /** Một ngôn ngữ lệnh máy in: chỉ biến ảnh thành byte, không biết kết nối. */
 interface IPrintLanguage {
   encode(printer: Printer, image: string, options?: PrintOptions): Uint8Array;   // image: PNG base64
-  identifyProbe?: IdentifyProbe;   // { command: Uint8Array; matches(response): boolean }
 }
 
 getPrintLanguage(type: PrintLanguage): IPrintLanguage
@@ -419,9 +418,9 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
 * `PrintOptions` (`utils/printOptionsUtils.ts` chuẩn hoá): `copies` (mặc định 1), `cut` (`false` thì không cắt;
   giấy tem không bao giờ cắt), `feedMm` (đẩy thêm giấy), `cashDrawer` (mở ngăn kéo).
 * `EscPosLanguage`: lệnh `GS v 0`; nhiều bản thì lặp lại ảnh, mỗi bản `ESC J` (đẩy giấy) rồi `ESC m` (cắt);
-  `cashDrawer` gửi `ESC p 0 25 250` sau cùng. Không có lệnh dò.
+  `cashDrawer` gửi `ESC p 0 25 250` sau cùng.
 * `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`, `PRINT copies,1`, rồi `FEED` nếu có
-  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
+  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo).
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 
@@ -630,22 +629,20 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 ---
 
-# 26. Language Detection
+# 26. Printer Detection
 
-`PrinterDetectionService.detect(printer, onEvent): Unsubscribe`
+`PrinterDetectionService.detect(device: DiscoverResult): PrinterDefinition | undefined`
 
-```text
-Connecting → (Identifying × mỗi ngôn ngữ thử) → Detected | Unknown | Error
-```
-
-* Kết nối bản nháp **một lần** qua `PrinterConnectionService.connect`.
-* Thứ tự thử: TSPL, rồi ESC/POS — lọc bằng `canPrintKind(language, draftPrinter.kind)`.
-* Ngôn ngữ có `identifyProbe` → `send` lệnh dò, `read` trong 1 giây; `matches` → `Detected`. Gửi lỗi coi như không khớp.
-* ESC/POS không có lệnh dò → `Detected` khi đã kết nối và đường truyền không phải USB ("xác nhận yếu"). USB không bao
-  giờ tự xác nhận ESC/POS vì kết nối USB thành công với mọi máy.
-* `Detected` trả `PrinterLanguage` dựng bằng `createPrinterLanguage(type, Auto)`; kết nối được giữ lại cho in thử.
-* Không ngôn ngữ nào khớp → ngắt kết nối, `Unknown` (UI cho chọn tay). Kết nối thất bại → `Error`.
-* Huỷ giữa chừng → ngắt kết nối, không báo thêm sự kiện.
+* Chỉ tra `PRINTER_TABLE` (`detection/PrinterTable.ts`) theo thiết bị quét được để biết hãng, model, ngôn ngữ
+  (`PrinterLanguage`) và khả năng (`PrinterCapabilities`). Không kết nối, không gửi/đọc gì từ máy in, không lưu.
+* Một định nghĩa khớp khi khai báo ít nhất một trường trong `PrinterIdentifiers` và mọi trường đã khai báo đều khớp:
+  `vendorId`/`productId` so với kết nối USB; `manufacturer`/`product` so với tên hãng/sản phẩm thiết bị báo (không phân
+  biệt hoa thường, bỏ khoảng trắng thừa; thiết bị không có tên sản phẩm thì so bằng tên thiết bị). Nhiều định nghĩa
+  khớp thì lấy cái đầu tiên.
+* Không có trong bảng (LAN luôn vậy vì không quét), hoặc ngôn ngữ của model không in được loại nội dung đang thêm
+  (`canPrintKind`) → người dùng chọn ngôn ngữ tay. Khả năng khi đó lấy mặc định theo
+  ngôn ngữ (`defaultCapabilitiesOf`).
+* Kết nối sau khi biết ngôn ngữ do `usePrinterDetection` gọi `PrinterConnectionService.connect`.
 
 ---
 
@@ -658,7 +655,7 @@ Chọn thiết bị (DiscoveredDeviceList) / nhập IP + port
     ↓
 deviceIdOf(connection) → cảnh báo trùng (deviceId + kind)
     ↓
-Kết nối + dò ngôn ngữ (usePrinterDetection) — hoặc chọn ngôn ngữ tay
+Tra bảng model (usePrinterDetection) → kết nối; không có trong bảng (luôn vậy với LAN) → chọn ngôn ngữ tay rồi kết nối
     ↓
 USB: quét lại theo DeviceInfo.deviceId để lấy serial (refreshUsbSerial)
     ↓
@@ -726,8 +723,7 @@ connectionType, errorCode, durationMs) và kèm `operation` / `result`.
 | ------------ | ------ |
 | `discovery`  | `discoveryStarted`, `discoveryCompleted`, `discoveryFailed`, `permissionDenied` |
 | `connect` / `disconnect` | `connectSucceeded`, `connectFailed`, `disconnectSucceeded`, `disconnectFailed` |
-| `detection`  | `detectionStarted`, `detectionCandidateRejected`, `detectionFailed`, |
-|              | `languageDetected`, `languageUnknown` |
+| `detection`  | `printerDetected`, `printerNotDetected` |
 | `print` / `test-print` | `printSucceeded`, `printFailed`, `testPrintSucceeded`, `testPrintFailed` |
 
 Không log binary payload, MAC/IP hay nội dung hoá đơn.
@@ -746,7 +742,7 @@ Ba bộ mã lỗi ổn định, mỗi bộ một tầng:
 
 Ba exception kế thừa `PrinterFeatureException` nên nơi gọi bắt chung và đọc `code` (`ErrorCode`, hợp 3 bộ mã);
 `errorCodeOf` trả `UNKNOWN_ERROR` cho lỗi không phải exception của feature, `toPrinterFeatureException` bọc lỗi đó
-thành `PrintErrorException(UNKNOWN_ERROR)`. Job in, kết quả in và event lỗi (tìm thiết bị, dò ngôn ngữ) mang thẳng
+thành `PrintErrorException(UNKNOWN_ERROR)`. Job in, kết quả in và event lỗi tìm thiết bị mang thẳng
 exception, không có bản sao dạng dữ liệu. `toDeviceError` (`adapters/native/NativeAdapter.ts`) giữ nguyên mã native và
 gắn thông báo tiếng Việt; lỗi native không mang mã thiết bị được ném nguyên.
 
@@ -1336,7 +1332,7 @@ Test tập trung vào responsibility của component:
 ```text
 IPrintLanguage           → byte encode khớp fixture, lỗi nội dung
 PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiều máy song song
-PrinterDetectionService → kết nối một lần, lệnh dò, xác nhận yếu, huỷ
+PrinterDetectionService  → khớp trường nhận diện, không phân biệt hoa thường, định nghĩa đầu tiên thắng
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoverResult
 PrintScheduler           → ordering, khoá theo máy vật lý
 PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print

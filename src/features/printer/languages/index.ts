@@ -3,7 +3,7 @@ import type { IPrintLanguage } from './IPrintLanguage';
 import { EscPosLanguage } from './escpos/EscPosLanguage';
 import { TsplLanguage } from './tspl/TsplLanguage';
 
-export type { IPrintLanguage, IdentifyProbe } from './IPrintLanguage';
+export type { IPrintLanguage } from './IPrintLanguage';
 export { EscPosLanguage, TsplLanguage };
 
 /** Ngôn ngữ in theo cấu hình của máy in. */

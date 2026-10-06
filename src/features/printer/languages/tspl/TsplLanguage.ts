@@ -12,9 +12,6 @@ import { PrintErrorCode } from '../../errors';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 
-/** Lệnh hỏi trạng thái TSPL: máy TSPL trả lời, máy dùng ngôn ngữ khác im lặng. */
-const STATUS_QUERY = '~!T\r\n';
-
 /**
  * Chiều cao khai báo trong `SIZE` khi in tem trên giấy cuộn (không có kích thước tem). Nội dung cao hơn bị chặn
  * trước khi encode; nới `SIZE` không làm máy in thêm giấy.
@@ -140,9 +137,4 @@ const encodeImage = (printer: Printer, image: string, options?: PrintOptions): U
 /** Ngôn ngữ TSPL (máy in tem, cũng in được hoá đơn trên giấy cuộn). */
 export const TsplLanguage: IPrintLanguage = {
   encode: encodeImage,
-
-  identifyProbe: {
-    command: Uint8Array.from(STATUS_QUERY, (character) => character.charCodeAt(0)),
-    matches: (response) => response.length > 0,
-  },
 };

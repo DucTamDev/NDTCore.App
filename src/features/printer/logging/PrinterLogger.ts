@@ -71,46 +71,14 @@ export class PrinterLogger {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
   }
 
-  detectionStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrintLanguage[] }): void {
-    LoggerService.debug('printer.detection.started', withStdFields('detection', undefined, params));
+  /** Tra được model trong bảng máy in. */
+  printerDetected(params: { connectionType: ConnectionType; language: PrintLanguage }): void {
+    LoggerService.info('printer.detection.detected', withStdFields('detection', 'success', params));
   }
 
-  /** Loại một ngôn ngữ là bình thường trong lúc thử, chỉ log `debug` để không nhiễu ngoài lúc dev. */
-  detectionCandidateRejected(params: {
-    printerId: string;
-    language: PrintLanguage;
-    connectionType: ConnectionType;
-  }): void {
-    LoggerService.debug('printer.detection.candidate-rejected', withStdFields('detection', 'failure', params));
-  }
-
-  /** Không kết nối được tới máy in — khác `languageUnknown` (kết nối được nhưng không ngôn ngữ nào khớp). */
-  detectionFailed(params: {
-    printerId: string;
-    connectionType: ConnectionType;
-    errorCode: ErrorCode;
-    durationMs: number;
-  }): void {
-    LoggerService.warning('printer.detection.failed', withStdFields('detection', 'failure', params));
-  }
-
-  languageDetected(params: {
-    printerId: string;
-    language: PrintLanguage;
-    connectionType: ConnectionType;
-    candidatesTried: PrintLanguage[];
-    durationMs: number;
-  }): void {
-    LoggerService.info('printer.language.detected', withStdFields('detection', 'success', params));
-  }
-
-  languageUnknown(params: {
-    printerId: string;
-    connectionType: ConnectionType;
-    candidatesTried: PrintLanguage[];
-    durationMs: number;
-  }): void {
-    LoggerService.warning('printer.language.unknown', withStdFields('detection', 'failure', params));
+  /** Thiết bị không có trong bảng máy in; người dùng tự chọn ngôn ngữ. */
+  printerNotDetected(params: { connectionType: ConnectionType }): void {
+    LoggerService.info('printer.detection.not-detected', withStdFields('detection', 'failure', params));
   }
 
   testPrintSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {

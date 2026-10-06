@@ -1,35 +1,40 @@
-import { useState, type MutableRefObject } from 'react';
+import { useRef, useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import {
-  printerDetectionService,
-  PrinterDetectionStage,
-  type PrinterDetectionEvent,
-} from '../../detection/PrinterDetectionService';
+import { printerDetectionService } from '../../detection/PrinterDetectionService';
+import type { PrinterDefinition } from '../../detection/PrinterDefinition';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { createPrinterLanguage } from '../../management/PrinterDefaults';
+import { canPrintKind } from '../../forms/addPrinter/printerRules';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
- * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`refreshUsbSerial`/`prefillDisplayName`
- * do coordinator / {@link useConnectionSetup} sở hữu — hook này chỉ điều phối trạng thái kết nối và dò ngôn ngữ.
+ * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDefinition`/`refreshUsbSerial`/
+ * `prefillDisplayName` do coordinator / {@link useConnectionSetup} sở hữu.
  */
 export interface UsePrinterDetectionInput {
   initialValues?: Printer;
 
   connectionType: ConnectionType;
 
+  /** Thiết bị đang chọn trong danh sách quét; LAN không có. */
+  selectedDevice?: DiscoverResult;
+
   lanForm: UseFormReturn<LanConnectionValues>;
 
-  /** Huỷ lần dò đang chạy; coordinator gọi khi đóng modal. */
-  detectionUnsubscribeRef: MutableRefObject<(() => void) | null>;
+  /** Bỏ kết quả của lần kết nối đang chạy; coordinator gọi khi đóng modal. */
+  cancelConnectRef: MutableRefObject<(() => void) | null>;
 
   buildDraftPrinter: () => Printer;
 
   setLanguage: (language: PrinterLanguage) => void;
+
+  /** Model tra được trong bảng máy in; `undefined` khi không có trong bảng. */
+  setDefinition: (definition: PrinterDefinition | undefined) => void;
 
   refreshUsbSerial: () => Promise<void>;
 
@@ -37,16 +42,18 @@ export interface UsePrinterDetectionInput {
 }
 
 /**
- * Trạng thái kết nối + dò ngôn ngữ của luồng Thêm/Sửa máy in: bấm "Kết nối" → `PrinterDetectionService.detect`,
- * và nhánh chọn ngôn ngữ thủ công qua `PrinterConnectionService.connect`.
+ * Bấm "Kết nối": tra bảng máy in theo thiết bị đã chọn. Có trong bảng thì kết nối bằng ngôn ngữ của model; không có
+ * (luôn vậy với LAN) thì để người dùng chọn ngôn ngữ, rồi mới kết nối qua `PrinterConnectionService`.
  */
 export const usePrinterDetection = ({
   initialValues,
   connectionType,
+  selectedDevice,
   lanForm,
-  detectionUnsubscribeRef,
+  cancelConnectRef,
   buildDraftPrinter,
   setLanguage,
+  setDefinition,
   refreshUsbSerial,
   prefillDisplayName,
 }: UsePrinterDetectionInput) => {
@@ -56,6 +63,13 @@ export const usePrinterDetection = ({
   const [languageType, setLanguageType] = useState<PrintLanguage | undefined>(initialValues?.language.type);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
 
+  /** Mỗi lần kết nối một mã; kết quả của lần đã bị bỏ (reset, đóng modal, kết nối lần khác) không được áp vào. */
+  const connectRunRef = useRef(0);
+
+  const cancelConnect = (): void => {
+    connectRunRef.current += 1;
+  };
+
   const resetDetectionFields = (nextConnectionState: ConnectionState): void => {
     setConnectionState(nextConnectionState);
     setLanguageState('idle');
@@ -64,12 +78,11 @@ export const usePrinterDetection = ({
   };
 
   const resetConnectionResult = (): void => {
-    detectionUnsubscribeRef.current?.();
-    detectionUnsubscribeRef.current = null;
+    cancelConnect();
     resetDetectionFields('idle');
   };
 
-  /** Đã kết nối và biết ngôn ngữ (tự dò hoặc người dùng chọn). */
+  /** Đã kết nối và biết ngôn ngữ (tra bảng hoặc người dùng chọn). */
   const applyLanguage = (language: PrinterLanguage): void => {
     setConnectionState('connected');
     setLanguageState('identified');
@@ -80,53 +93,54 @@ export const usePrinterDetection = ({
     prefillDisplayName();
   };
 
-  const onDetectionEvent = (event: PrinterDetectionEvent): void => {
-    switch (event.stage) {
-      case PrinterDetectionStage.Identifying:
-        setLanguageState('detecting');
-        break;
-      case PrinterDetectionStage.Detected:
-        applyLanguage(event.language);
-        break;
-      case PrinterDetectionStage.Unknown:
-        setConnectionState('idle');
-        setLanguageState('unknown');
-        break;
-      case PrinterDetectionStage.Error:
-        setConnectionState('error');
-        setLanguageState('idle');
-        setConnectionErrorMessage(event.error.message);
-        break;
-      default:
-        break;
-    }
+  const connectWith = (language: PrinterLanguage): void => {
+    cancelConnect();
+    const run = connectRunRef.current;
+    cancelConnectRef.current = cancelConnect;
+    resetDetectionFields('connecting');
+    setLanguageState('detecting');
+
+    printerConnectionService
+      .connect({ ...buildDraftPrinter(), language })
+      .then(() => {
+        if (run === connectRunRef.current) {
+          applyLanguage(language);
+        }
+      })
+      .catch((error: { message: string }) => {
+        if (run === connectRunRef.current) {
+          setConnectionState('error');
+          setLanguageState('idle');
+          setConnectionErrorMessage(error.message);
+        }
+      });
   };
 
-  const startDetection = (): void => {
-    resetDetectionFields('connecting');
-    detectionUnsubscribeRef.current = printerDetectionService.detect(buildDraftPrinter(), onDetectionEvent);
+  /** Model có ngôn ngữ không in được loại nội dung đang thêm (vd ESC/POS cho tem) thì coi như không tra được. */
+  const detectAndConnect = (): void => {
+    const found = selectedDevice ? printerDetectionService.detect(selectedDevice) : undefined;
+    const definition = found && canPrintKind(found.language.type, buildDraftPrinter().kind) ? found : undefined;
+    setDefinition(definition);
+
+    if (!definition) {
+      resetDetectionFields('idle');
+      setLanguageState('unknown');
+      return;
+    }
+
+    connectWith({ ...definition.language, selection: LanguageSelection.Auto });
   };
 
   const onConnectPress = (): void => {
     if (connectionType === ConnectionType.Lan) {
-      lanForm.handleSubmit(() => startDetection())();
+      lanForm.handleSubmit(() => detectAndConnect())();
     } else {
-      startDetection();
+      detectAndConnect();
     }
   };
 
   const onChooseLanguage = (chosenLanguage: PrintLanguage): void => {
-    setConnectionState('connecting');
-    setLanguageState('detecting');
-    const language = createPrinterLanguage(chosenLanguage, LanguageSelection.Manual);
-
-    printerConnectionService.connect({ ...buildDraftPrinter(), language })
-      .then(() => applyLanguage(language))
-      .catch((error: { message: string }) => {
-        setConnectionState('error');
-        setLanguageState('idle');
-        setConnectionErrorMessage(error.message);
-      });
+    connectWith(createPrinterLanguage(chosenLanguage, LanguageSelection.Manual));
   };
 
   return {

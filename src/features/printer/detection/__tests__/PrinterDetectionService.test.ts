@@ -1,189 +1,87 @@
-import {
-  PrinterDetectionService,
-  PrinterDetectionStage,
-  type PrinterDetectionEvent,
-} from '../PrinterDetectionService';
+import { PrinterDetectionService } from '../PrinterDetectionService';
+import type { PrinterDefinition } from '../PrinterDefinition';
+import { PRINTER_TABLE } from '../PrinterTable';
+import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
-import { PrintKind } from '../../models/printer/PrintKind';
-import type { Printer } from '../../models/printer/Printer';
-import { printerLogger } from '../../logging/PrinterLogger';
-import { makePrinter } from '../../testing/printerFixtures';
-import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
-import { DeviceErrorCode } from '../../errors';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 
 jest.mock('../../logging/PrinterLogger', () => ({
-  printerLogger: {
-    detectionStarted: jest.fn(),
-    detectionCandidateRejected: jest.fn(),
-    detectionFailed: jest.fn(),
-    languageDetected: jest.fn(),
-    languageUnknown: jest.fn(),
-  },
+  printerLogger: { printerDetected: jest.fn(), printerNotDetected: jest.fn() },
 }));
 
-const TSPL_REPLY = new Uint8Array([0x54, 0x53, 0x43]);
+const capabilities = { cutter: false, cashDrawer: false, color: false, image: true };
 
-const lanDraft: Printer = makePrinter({ name: 'Máy in mới' });
+const tsplUsb: PrinterDefinition = {
+  vendor: 'Xprinter',
+  model: 'XP-420B',
+  identifiers: { vendorId: 11575, productId: 33751 },
+  language: { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto },
+  capabilities,
+};
 
-const usbDraft: Printer = makePrinter({ connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 } });
+const escPosByName: PrinterDefinition = {
+  vendor: 'Epson',
+  model: 'TM-T82',
+  identifiers: { manufacturer: 'EPSON', product: 'TM-T82' },
+  language: { type: PrintLanguage.EscPos, selection: LanguageSelection.Auto },
+  capabilities: { ...capabilities, cutter: true, cashDrawer: true },
+};
 
-const isFinal = (event: PrinterDetectionEvent): boolean =>
-  event.stage === PrinterDetectionStage.Detected ||
-  event.stage === PrinterDetectionStage.Unknown ||
-  event.stage === PrinterDetectionStage.Error;
+const usbDevice = (vendorId: number, productId: number, names: { manufacturer?: string; model?: string } = {}) =>
+  ({
+    device: { deviceId: 'usb:/dev/bus/usb/001/004', name: 'X', hasPermission: true, ...names },
+    connection: { type: ConnectionType.Usb, vendorId, productId },
+  }) satisfies DiscoverResult;
 
-/** Dò và chờ tới sự kiện kết thúc. */
-const detectUntilDone = (
-  connectionService: ReturnType<typeof makeMockConnectionService>,
-  draftPrinter: Printer,
-): Promise<PrinterDetectionEvent[]> =>
-  new Promise((resolve) => {
-    const events: PrinterDetectionEvent[] = [];
-    new PrinterDetectionService(connectionService).detect(draftPrinter, (event) => {
-      events.push(event);
-
-      if (isFinal(event)) {
-        resolve(events);
-      }
-    });
-  });
-
-/** Chờ các promise đang treo chạy xong. */
-const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+const bluetoothDevice = (name: string): DiscoverResult => ({
+  device: { deviceId: 'bluetooth:AA:BB', name, hasPermission: true },
+  connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
+});
 
 describe('PrinterDetectionService', () => {
-  afterEach(() => jest.clearAllMocks());
+  const service = new PrinterDetectionService([tsplUsb, escPosByName]);
 
-  it('TSPL trả lời lệnh dò → Detected TSPL, giữ kết nối, chỉ kết nối một lần', async () => {
-    const connectionService = makeMockConnectionService({ read: jest.fn().mockResolvedValue(TSPL_REPLY) });
+  beforeEach(() => jest.clearAllMocks());
 
-    const events = await detectUntilDone(connectionService, lanDraft);
-
-    expect(events.map((event) => event.stage)).toEqual([
-      PrinterDetectionStage.Connecting,
-      PrinterDetectionStage.Identifying,
-      PrinterDetectionStage.Detected,
-    ]);
-    expect(events[2]).toEqual({
-      stage: PrinterDetectionStage.Detected,
-      language: {
-        type: PrintLanguage.Tspl,
-        selection: LanguageSelection.Auto,
-      },
+  it('USB khớp vendorId và productId → trả định nghĩa của model', () => {
+    expect(service.detect(usbDevice(11575, 33751))).toBe(tsplUsb);
+    expect(printerLogger.printerDetected).toHaveBeenCalledWith({
+      connectionType: ConnectionType.Usb,
+      language: PrintLanguage.Tspl,
     });
-    expect(connectionService.connect).toHaveBeenCalledTimes(1);
-    expect(connectionService.connect).toHaveBeenCalledWith(lanDraft);
-    expect(connectionService.send).toHaveBeenCalledWith(lanDraft.id, new Uint8Array([0x7e, 0x21, 0x54, 0x0d, 0x0a]));
-    expect(connectionService.disconnect).not.toHaveBeenCalled();
-    expect(printerLogger.languageDetected).toHaveBeenCalledWith(
-      expect.objectContaining({ language: PrintLanguage.Tspl, candidatesTried: [PrintLanguage.Tspl] }),
-    );
   });
 
-  it('TSPL không trả lời, qua LAN thì xác nhận yếu ESC/POS trên cùng kết nối', async () => {
-    const connectionService = makeMockConnectionService();
-
-    const events = await detectUntilDone(connectionService, lanDraft);
-
-    expect(events[events.length - 1]).toEqual(
-      { stage: PrinterDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
-    );
-    expect(connectionService.connect).toHaveBeenCalledTimes(1);
-    expect(printerLogger.detectionCandidateRejected).toHaveBeenCalledWith(
-      expect.objectContaining({ language: PrintLanguage.Tspl, connectionType: ConnectionType.Lan }),
-    );
+  it('chỉ khớp một phần các trường đã khai báo thì không nhận', () => {
+    expect(service.detect(usbDevice(11575, 1))).toBeUndefined();
+    expect(printerLogger.printerNotDetected).toHaveBeenCalledWith({ connectionType: ConnectionType.Usb });
   });
 
-  it('USB không bao giờ tự xác nhận ESC/POS → Unknown và ngắt kết nối', async () => {
-    const connectionService = makeMockConnectionService();
-
-    const events = await detectUntilDone(connectionService, usbDraft);
-
-    expect(events[events.length - 1]).toEqual({ stage: PrinterDetectionStage.Unknown });
-    expect(connectionService.disconnect).toHaveBeenCalledWith(usbDraft.id);
-    expect(printerLogger.languageUnknown).toHaveBeenCalledWith(
-      expect.objectContaining({ candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos] }),
-    );
+  it('so tên hãng và sản phẩm không phân biệt hoa thường, bỏ khoảng trắng thừa', () => {
+    expect(service.detect(usbDevice(1, 2, { manufacturer: ' Epson ', model: 'tm-t82' }))).toBe(escPosByName);
   });
 
-  it('in tem chỉ thử TSPL vì ESC/POS không in được tem', async () => {
-    const connectionService = makeMockConnectionService();
+  it('Bluetooth không có tên sản phẩm riêng thì so bằng tên thiết bị', () => {
+    const byName = new PrinterDetectionService([{ ...escPosByName, identifiers: { product: 'TM-T82' } }]);
 
-    const events = await detectUntilDone(connectionService, { ...lanDraft, kind: PrintKind.Label });
-
-    expect(events.filter((event) => event.stage === PrinterDetectionStage.Identifying)).toEqual([
-      { stage: PrinterDetectionStage.Identifying, language: PrintLanguage.Tspl },
-    ]);
-    expect(events[events.length - 1]).toEqual({ stage: PrinterDetectionStage.Unknown });
-    expect(printerLogger.detectionStarted).toHaveBeenCalledWith(
-      expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
-    );
+    expect(byName.detect(bluetoothDevice('TM-T82'))?.model).toBe('TM-T82');
   });
 
-  it('gửi lệnh dò lỗi thì coi như không khớp, thử ngôn ngữ tiếp theo', async () => {
-    const send = jest.fn().mockRejectedValue(new Error('write failed'));
-    const connectionService = makeMockConnectionService({ send });
+  it('định nghĩa không khai báo trường nhận diện nào thì không khớp thiết bị nào', () => {
+    const empty = new PrinterDetectionService([{ ...tsplUsb, identifiers: {} }]);
 
-    const events = await detectUntilDone(connectionService, lanDraft);
-
-    expect(events[events.length - 1]).toEqual(
-      { stage: PrinterDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
-    );
+    expect(empty.detect(usbDevice(11575, 33751))).toBeUndefined();
   });
 
-  it('không kết nối được → Error, ghi log detectionFailed', async () => {
-    const connectionService = makeMockConnectionService({ connect: jest.fn().mockRejectedValue(new Error('down')) });
+  it('nhiều định nghĩa khớp thì lấy cái đầu tiên trong bảng', () => {
+    const both = new PrinterDetectionService([tsplUsb, { ...escPosByName, identifiers: { vendorId: 11575 } }]);
 
-    const events = await detectUntilDone(connectionService, lanDraft);
-
-    expect(events[events.length - 1]).toMatchObject({
-      stage: PrinterDetectionStage.Error,
-      error: { code: DeviceErrorCode.CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
-    });
-    expect(printerLogger.detectionFailed).toHaveBeenCalledWith(
-      expect.objectContaining({ printerId: lanDraft.id, connectionType: ConnectionType.Lan }),
-    );
+    expect(both.detect(usbDevice(11575, 33751))).toBe(tsplUsb);
   });
 
-  it('huỷ trong lúc kết nối: kết nối xong thì ngắt, không báo thêm sự kiện', async () => {
-    let finishConnect: () => void = () => undefined;
-    const connectionService = makeMockConnectionService({
-      connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => (finishConnect = resolve))),
-    });
-    const events: PrinterDetectionEvent[] = [];
-
-    const unsubscribe = new PrinterDetectionService(connectionService).detect(lanDraft, (event) =>
-      events.push(event),
+  it('mặc định tra PRINTER_TABLE', () => {
+    expect(new PrinterDetectionService().detect(usbDevice(0, 0))).toBe(
+      PRINTER_TABLE.find((definition) => definition.identifiers.vendorId === 0),
     );
-    unsubscribe();
-    finishConnect();
-    await flush();
-
-    expect(events.map((event) => event.stage)).toEqual([PrinterDetectionStage.Connecting]);
-    expect(connectionService.send).not.toHaveBeenCalled();
-    expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
-  });
-
-  it('huỷ trong lúc chờ phản hồi lệnh dò: ngắt kết nối, không báo Detected', async () => {
-    let reply: (response: Uint8Array | null) => void = () => undefined;
-    const connectionService = makeMockConnectionService({
-      read: jest.fn().mockImplementation(() => new Promise((resolve) => (reply = resolve))),
-    });
-    const events: PrinterDetectionEvent[] = [];
-
-    const unsubscribe = new PrinterDetectionService(connectionService).detect(lanDraft, (event) =>
-      events.push(event),
-    );
-    await flush();
-    unsubscribe();
-    reply(TSPL_REPLY);
-    await flush();
-
-    expect(events.map((event) => event.stage)).toEqual([
-      PrinterDetectionStage.Connecting,
-      PrinterDetectionStage.Identifying,
-    ]);
-    expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
   });
 });

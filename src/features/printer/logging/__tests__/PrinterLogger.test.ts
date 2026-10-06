@@ -75,35 +75,14 @@ const CASES: [string, LogCase][] = [
     { level: 'warning', event: 'printer.disconnect.failed', operation: 'disconnect', result: 'failure' },
   ),
   logCase(
-    (l, p) => l.detectionStarted(p),
-    { printerId: 'p1', connectionType: lan, candidates: [PrintLanguage.Tspl] },
-    { level: 'debug', event: 'printer.detection.started', operation: 'detection' },
+    (l, p) => l.printerDetected(p),
+    { connectionType: lan, language: PrintLanguage.Tspl },
+    { level: 'info', event: 'printer.detection.detected', operation: 'detection', result: 'success' },
   ),
   logCase(
-    (l, p) => l.detectionCandidateRejected(p),
-    { printerId: 'p1', language: PrintLanguage.Tspl, connectionType: lan },
-    { level: 'debug', event: 'printer.detection.candidate-rejected', operation: 'detection', result: 'failure' },
-  ),
-  logCase(
-    (l, p) => l.detectionFailed(p),
-    { printerId: 'p1', connectionType: lan, errorCode: failed, durationMs: 40 },
-    { level: 'warning', event: 'printer.detection.failed', operation: 'detection', result: 'failure' },
-  ),
-  logCase(
-    (l, p) => l.languageDetected(p),
-    {
-      printerId: 'p1',
-      language: PrintLanguage.EscPos,
-      connectionType: lan,
-      candidatesTried: [PrintLanguage.Tspl],
-      durationMs: 70,
-    },
-    { level: 'info', event: 'printer.language.detected', operation: 'detection', result: 'success' },
-  ),
-  logCase(
-    (l, p) => l.languageUnknown(p),
-    { printerId: 'p1', connectionType: lan, candidatesTried: [], durationMs: 60 },
-    { level: 'warning', event: 'printer.language.unknown', operation: 'detection', result: 'failure' },
+    (l, p) => l.printerNotDetected(p),
+    { connectionType: lan },
+    { level: 'info', event: 'printer.detection.not-detected', operation: 'detection', result: 'failure' },
   ),
   logCase(
     (l, p) => l.testPrintSucceeded(p),
