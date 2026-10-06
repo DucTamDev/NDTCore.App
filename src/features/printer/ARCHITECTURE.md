@@ -58,7 +58,7 @@ Luồng thêm máy in:
 ```text
 DeviceDiscoveryService        tìm thiết bị → DiscoverResult
     ↓
-PrinterDetectionService      tra PRINTER_TABLE theo thiết bị quét được
+PrinterDetectionService      tra PRINTER_DETECTION_TABLE theo thiết bị quét được
     ↓
 createPrinterDraft            mặc định theo ngôn ngữ
     ↓
@@ -120,7 +120,7 @@ src/features/printer/
 │   └── PrinterConnectionLock.ts
 │
 ├── discovery/           DeviceDiscoveryService, NetworkInfoService
-├── detection/           PrinterDetectionService, PrinterDefinition, PrinterTable (PRINTER_TABLE)
+├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
 ├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterPrintService
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
@@ -438,7 +438,7 @@ interface IPrinterAdapter {
   listDevices(connectionType): Promise<DiscoverResult[]>;
   connect(connection: PrinterConnection): Promise<void>;   // mở được rồi mới trả kết nối cũ
   write(bytes: Uint8Array): Promise<void>;
-  read(timeoutMs): Promise<Uint8Array | null>;            // null khi hết hạn
+  read(): Promise<Uint8Array | null>;                     // null khi quá hạn của native module
   onLost(callback): Unsubscribe;                           // kết nối của chính instance này mất
   disconnect(): Promise<void>;
 }
@@ -446,7 +446,8 @@ interface IPrinterAdapter {
 
 * Mỗi instance giữ tối đa một kết nối.
 * `NativeAdapter` dùng cho USB, Bluetooth và LAN qua native module `DeviceModule`: chỉ chuyển lời gọi xuống native
-  và đổi lỗi, giữ `connectionId` của kết nối đang mở. `onLost` nghe `DeviceDisconnected` và so `connectionId` đó.
+  và đổi lỗi, giữ `connectionId` của kết nối đang mở. Hạn ghi (theo cỡ dữ liệu) và hạn đọc (cố định) nằm trong
+  `DeviceModule.ts`, không lộ ra adapter. `onLost` nghe `DeviceDisconnected` và so `connectionId` đó.
   Dùng chung kết nối giữa nhiều `Printer` là việc của `PrinterConnectionService`.
 * `VendorAdapter` là khung cho SDK hãng, chưa tích hợp.
 * `createPrinterAdapter` (`connection/PrinterAdapterFactory.ts`) trả `NativeAdapter`; bản `.web.ts` trả adapter báo
@@ -507,7 +508,7 @@ máy đã lưu lẫn bản nháp đang thêm. Nhiều `Printer` trỏ cùng mộ
 | `connect(printer)` | Mở kết nối bằng adapter mới, `Connecting` → `Connected` / `Error` (chi tiết dưới bảng) |
 | `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; huỷ cả lượt `connect` đang chạy |
 | `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `NOT_CONNECTED` |
-| `read(printerId, timeoutMs)` | Đọc phản hồi; `null` khi hết hạn |
+| `read(printerId)` | Đọc phản hồi; `null` khi quá hạn |
 | `getStatus` / `onStatusChange` | Theo phiên trong bộ nhớ; chưa từng kết nối là `Idle` |
 | `reconnect(printerId)`, `reconnectAutoPrinters()` | Đọc máy in đã lưu từ `PrinterRepository` |
 
@@ -631,10 +632,11 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 # 26. Printer Detection
 
-`PrinterDetectionService.detect(device: DiscoverResult): PrinterDefinition | undefined`
+`PrinterDetectionService.detect(device: DiscoverResult): PrinterDetection | undefined`
 
-* Chỉ tra `PRINTER_TABLE` (`detection/PrinterTable.ts`) theo thiết bị quét được để biết hãng, model, ngôn ngữ
-  (`PrinterLanguage`) và khả năng (`PrinterCapabilities`). Không kết nối, không gửi/đọc gì từ máy in, không lưu.
+* Chỉ tra `PRINTER_DETECTION_TABLE` (`detection/PrinterDetectionTable.ts`) theo thiết bị quét được để biết hãng,
+  model, ngôn ngữ (`PrinterLanguage`) và khả năng (`PrinterCapabilities`). Không kết nối, không gửi/đọc gì từ máy in,
+  không lưu.
 * Một định nghĩa khớp khi khai báo ít nhất một trường trong `PrinterIdentifiers` và mọi trường đã khai báo đều khớp:
   `vendorId`/`productId` so với kết nối USB; `manufacturer`/`product` so với tên hãng/sản phẩm thiết bị báo (không phân
   biệt hoa thường, bỏ khoảng trắng thừa; thiết bị không có tên sản phẩm thì so bằng tên thiết bị). Nhiều định nghĩa

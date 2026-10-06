@@ -21,7 +21,7 @@ import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { usePrinterDetection } from './addPrinter/usePrinterDetection';
-import type { PrinterDefinition } from '../detection/PrinterDefinition';
+import type { PrinterDetection } from '../detection/PrinterDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 import { usePrintSettings } from './addPrinter/usePrintSettings';
@@ -89,7 +89,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   });
 
   const cancelConnectRef = useRef<(() => void) | null>(null);
-  const [definition, setDefinition] = useState<PrinterDefinition | undefined>(undefined);
+  const [detection, setDetection] = useState<PrinterDetection | undefined>(undefined);
   const savedRef = useRef(false);
   const connectionRef = useRef<{ connectionState: ConnectionState; language?: PrinterLanguage }>({
     connectionState: initialValues ? 'connected' : 'idle',
@@ -148,10 +148,10 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     return {
       ...draft,
       name: displayForm.getValues('name') || draft.name,
-      vendor: initialValues?.vendor ?? definition?.vendor ?? selectedDevice?.device.manufacturer,
-      model: initialValues?.model ?? definition?.model ?? selectedDevice?.device.model,
+      vendor: initialValues?.vendor ?? detection?.vendor ?? selectedDevice?.device.manufacturer,
+      model: initialValues?.model ?? detection?.model ?? selectedDevice?.device.model,
       deviceId: currentIdentityKey() ?? undefined,
-      capabilities: initialValues?.capabilities ?? definition?.capabilities ?? draft.capabilities,
+      capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
       paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
       autoReconnect,
@@ -202,7 +202,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     cancelConnectRef,
     buildDraftPrinter: buildFullDraftPrinter,
     setLanguage,
-    setDefinition,
+    setDetection,
     refreshUsbSerial: connectionSetup.refreshUsbSerial,
     prefillDisplayName,
   });

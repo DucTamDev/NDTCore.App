@@ -23,8 +23,8 @@ export interface IPrinterAdapter {
 
   write(bytes: Uint8Array): Promise<void>;
 
-  /** Phản hồi nhận được trong `timeoutMs`; `null` khi hết hạn mà máy in chưa trả lời. */
-  read(timeoutMs: number): Promise<Uint8Array | null>;
+  /** Phản hồi của máy in; `null` khi quá hạn mà máy in chưa trả lời. */
+  read(): Promise<Uint8Array | null>;
 
   /** Báo khi kết nối hiện tại của instance này mất ngoài ý muốn (rút cáp, tắt máy, mất sóng). */
   onLost(callback: () => void): Unsubscribe;

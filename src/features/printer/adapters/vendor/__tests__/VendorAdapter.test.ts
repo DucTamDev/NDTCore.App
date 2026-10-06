@@ -25,7 +25,7 @@ describe('VendorAdapter (khung)', () => {
 
   it('read trả null, onLost trả hàm huỷ rỗng, disconnect không ném', async () => {
     const adapter = new VendorAdapter();
-    await expect(adapter.read(100)).resolves.toBeNull();
+    await expect(adapter.read()).resolves.toBeNull();
     expect(() => adapter.onLost(jest.fn())()).not.toThrow();
     await expect(adapter.disconnect()).resolves.toBeUndefined();
   });

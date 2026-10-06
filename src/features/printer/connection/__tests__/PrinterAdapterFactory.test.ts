@@ -21,7 +21,7 @@ describe('createPrinterAdapter', () => {
       unsupported,
     );
     await expect(adapter.write(new Uint8Array([1]))).rejects.toMatchObject(unsupported);
-    await expect(adapter.read(100)).resolves.toBeNull();
+    await expect(adapter.read()).resolves.toBeNull();
     await expect(adapter.disconnect()).resolves.toBeUndefined();
   });
 });

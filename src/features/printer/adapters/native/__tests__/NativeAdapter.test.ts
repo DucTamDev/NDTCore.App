@@ -135,11 +135,11 @@ describe('NativeAdapter', () => {
     expect(deviceModule().connect).toHaveBeenCalledWith(expect.objectContaining({ serialNumber: null }));
   });
 
-  it('write gửi base64 kèm hạn ghi theo connectionId', async () => {
+  it('write gửi base64 theo connectionId', async () => {
     const adapter = new NativeAdapter();
     await adapter.connect(lanConnection);
     await adapter.write(new Uint8Array([0x41, 0x42]));
-    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', 'QUI=', expect.any(Number));
+    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', 'QUI=');
   });
 
   it('read trả byte giải mã từ base64, null khi native trả null', async () => {
@@ -147,8 +147,8 @@ describe('NativeAdapter', () => {
     await adapter.connect(lanConnection);
 
     deviceModule().read.mockResolvedValueOnce('QUI=');
-    await expect(adapter.read(1000)).resolves.toEqual(new Uint8Array([0x41, 0x42]));
-    await expect(adapter.read(1000)).resolves.toBeNull();
+    await expect(adapter.read()).resolves.toEqual(new Uint8Array([0x41, 0x42]));
+    await expect(adapter.read()).resolves.toBeNull();
   });
 
   it('connect lần hai tới kết nối khác thì đóng kết nối cũ đúng một lần và ghi qua kết nối mới', async () => {
@@ -163,7 +163,7 @@ describe('NativeAdapter', () => {
 
     expect(deviceModule().disconnect).toHaveBeenCalledTimes(1);
     expect(deviceModule().disconnect).toHaveBeenCalledWith('first');
-    expect(deviceModule().write).toHaveBeenCalledWith('second', expect.any(String), expect.any(Number));
+    expect(deviceModule().write).toHaveBeenCalledWith('second', expect.any(String));
   });
 
   it('connect lần hai native trả lại đúng kết nối đang giữ thì không đóng nó', async () => {
@@ -184,7 +184,7 @@ describe('NativeAdapter', () => {
 
     expect(deviceModule().disconnect).not.toHaveBeenCalled();
     await adapter.write(new Uint8Array([1]));
-    expect(deviceModule().write).toHaveBeenCalledWith('first', expect.any(String), expect.any(Number));
+    expect(deviceModule().write).toHaveBeenCalledWith('first', expect.any(String));
   });
 
   it('onLost báo khi native mất đúng kết nối đang giữ', async () => {
@@ -211,20 +211,6 @@ describe('NativeAdapter', () => {
     emitDisconnected('mock-connection');
 
     expect(callback).not.toHaveBeenCalled();
-  });
-
-  it('timeout ghi = 30 000 ms + ceil(byte / 2) cho payload nhỏ', async () => {
-    const adapter = new NativeAdapter();
-    await adapter.connect(lanConnection);
-    await adapter.write(new Uint8Array(1_001));
-    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', expect.any(String), 30_000 + 501);
-  });
-
-  it('timeout ghi chặn trên ở 600 000 ms cho payload rất lớn', async () => {
-    const adapter = new NativeAdapter();
-    await adapter.connect(lanConnection);
-    await adapter.write(new Uint8Array(2_000_000));
-    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', expect.any(String), 600_000);
   });
 
   it('write trước connect -> NOT_CONNECTED', async () => {

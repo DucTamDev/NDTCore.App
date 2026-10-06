@@ -331,8 +331,8 @@ describe('PrinterConnectionService', () => {
     const { service } = setup([adapter]);
     await service.connect(basePrinter);
 
-    await expect(service.read(basePrinter.id, 500)).resolves.toEqual(new Uint8Array([0x41]));
-    expect(adapter.read).toHaveBeenCalledWith(500);
+    await expect(service.read(basePrinter.id)).resolves.toEqual(new Uint8Array([0x41]));
+    expect(adapter.read).toHaveBeenCalledTimes(1);
   });
 
   it('adapter báo mất kết nối → Disconnected, bỏ phiên và trả adapter', async () => {

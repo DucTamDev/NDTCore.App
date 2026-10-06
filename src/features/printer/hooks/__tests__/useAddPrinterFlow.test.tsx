@@ -6,7 +6,7 @@ import { printerConnectionService } from '../../connection/PrinterConnectionServ
 import { printerPrintService } from '../../printing/PrinterPrintService';
 import { printerConfigService } from '../../management/PrinterConfigService';
 import { printerDetectionService } from '../../detection/PrinterDetectionService';
-import type { PrinterDefinition } from '../../detection/PrinterDefinition';
+import type { PrinterDetection } from '../../detection/PrinterDetection';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { CutterMode } from '../../models/paper/CutterMode';
@@ -98,7 +98,7 @@ const savedEscpos: Printer = {
 };
 
 /** Model có trong bảng máy in, khớp `usbDevice`. */
-const xprinterDefinition: PrinterDefinition = {
+const xprinterDetection: PrinterDetection = {
   vendor: 'Xprinter',
   model: 'XP-420B',
   identifiers: { vendorId: 11575, productId: 33751 },
@@ -106,9 +106,9 @@ const xprinterDefinition: PrinterDefinition = {
   capabilities: { cutter: true, cashDrawer: false, color: false, image: true },
 };
 
-/** Lần tra bảng tới trả về `xprinterDefinition`. */
+/** Lần tra bảng tới trả về `xprinterDetection`. */
 const detectXprinter = (): void => {
-  (printerDetectionService.detect as jest.Mock).mockReturnValueOnce(xprinterDefinition);
+  (printerDetectionService.detect as jest.Mock).mockReturnValueOnce(xprinterDetection);
 };
 
 /** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
@@ -173,7 +173,7 @@ describe('useAddPrinterFlow', () => {
     expect(printerDetectionService.detect).toHaveBeenCalledWith(usbDevice);
     expect(get().statusPanel.connectionState).toBe('connected');
     expect(get().statusPanel.languageState).toBe('identified');
-    expect(get().infoCard.language).toEqual(xprinterDefinition.language);
+    expect(get().infoCard.language).toEqual(xprinterDetection.language);
     expect(get().infoCard.locked).toBe(false);
 
     await act(async () => {
@@ -183,8 +183,8 @@ describe('useAddPrinterFlow', () => {
     expect(printerRepository.addPrinter).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: PrintKind.Label,
-        language: xprinterDefinition.language,
-        capabilities: xprinterDefinition.capabilities,
+        language: xprinterDetection.language,
+        capabilities: xprinterDetection.capabilities,
         vendor: 'Xprinter',
         model: 'XP-420B',
       }),
@@ -300,7 +300,7 @@ describe('useAddPrinterFlow', () => {
 
   it('model trong bảng dùng ESC/POS mà đang thêm máy tem → để người dùng chọn ngôn ngữ', async () => {
     (printerDetectionService.detect as jest.Mock).mockReturnValueOnce({
-      ...xprinterDefinition,
+      ...xprinterDetection,
       language: { type: PrintLanguage.EscPos, selection: LanguageSelection.Auto },
     });
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });

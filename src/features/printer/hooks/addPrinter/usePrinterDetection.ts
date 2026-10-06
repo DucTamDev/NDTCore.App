@@ -1,7 +1,7 @@
 import { useRef, useState, type MutableRefObject } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { printerDetectionService } from '../../detection/PrinterDetectionService';
-import type { PrinterDefinition } from '../../detection/PrinterDefinition';
+import type { PrinterDetection } from '../../detection/PrinterDetection';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { createPrinterLanguage } from '../../management/PrinterDefaults';
 import { canPrintKind } from '../../forms/addPrinter/printerRules';
@@ -13,7 +13,7 @@ import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
- * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDefinition`/`refreshUsbSerial`/
+ * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDetection`/`refreshUsbSerial`/
  * `prefillDisplayName` do coordinator / {@link useConnectionSetup} sở hữu.
  */
 export interface UsePrinterDetectionInput {
@@ -34,7 +34,7 @@ export interface UsePrinterDetectionInput {
   setLanguage: (language: PrinterLanguage) => void;
 
   /** Model tra được trong bảng máy in; `undefined` khi không có trong bảng. */
-  setDefinition: (definition: PrinterDefinition | undefined) => void;
+  setDetection: (detection: PrinterDetection | undefined) => void;
 
   refreshUsbSerial: () => Promise<void>;
 
@@ -53,7 +53,7 @@ export const usePrinterDetection = ({
   cancelConnectRef,
   buildDraftPrinter,
   setLanguage,
-  setDefinition,
+  setDetection,
   refreshUsbSerial,
   prefillDisplayName,
 }: UsePrinterDetectionInput) => {
@@ -119,16 +119,16 @@ export const usePrinterDetection = ({
   /** Model có ngôn ngữ không in được loại nội dung đang thêm (vd ESC/POS cho tem) thì coi như không tra được. */
   const detectAndConnect = (): void => {
     const found = selectedDevice ? printerDetectionService.detect(selectedDevice) : undefined;
-    const definition = found && canPrintKind(found.language.type, buildDraftPrinter().kind) ? found : undefined;
-    setDefinition(definition);
+    const detection = found && canPrintKind(found.language.type, buildDraftPrinter().kind) ? found : undefined;
+    setDetection(detection);
 
-    if (!definition) {
+    if (!detection) {
       resetDetectionFields('idle');
       setLanguageState('unknown');
       return;
     }
 
-    connectWith({ ...definition.language, selection: LanguageSelection.Auto });
+    connectWith({ ...detection.language, selection: LanguageSelection.Auto });
   };
 
   const onConnectPress = (): void => {

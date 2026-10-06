@@ -2,7 +2,7 @@ import type { PrinterCapabilities } from '../models/printer/PrinterCapabilities'
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 
 /** Định nghĩa model máy in được hệ thống hỗ trợ. */
-export interface PrinterDefinition {
+export interface PrinterDetection {
   /** Hãng máy in. */
   vendor: string;
 

@@ -29,7 +29,7 @@ class WebUnsupportedAdapter implements IPrinterAdapter {
     throw unsupported();
   }
 
-  async read(_timeoutMs: number): Promise<Uint8Array | null> {
+  async read(): Promise<Uint8Array | null> {
     return null;
   }
 

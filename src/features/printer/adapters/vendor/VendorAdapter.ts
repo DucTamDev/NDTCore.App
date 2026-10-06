@@ -26,7 +26,7 @@ export class VendorAdapter implements IPrinterAdapter {
     this.notIntegrated();
   }
 
-  async read(_timeoutMs: number): Promise<Uint8Array | null> {
+  async read(): Promise<Uint8Array | null> {
     return null;
   }
 

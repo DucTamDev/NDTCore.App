@@ -153,9 +153,9 @@ export class PrinterConnectionService {
     return this.requireAdapter(printerId).write(bytes);
   }
 
-  /** `null` khi hết `timeoutMs` mà máy in chưa trả lời. */
-  async read(printerId: string, timeoutMs: number): Promise<Uint8Array | null> {
-    return this.requireAdapter(printerId).read(timeoutMs);
+  /** `null` khi quá hạn mà máy in chưa trả lời. */
+  async read(printerId: string): Promise<Uint8Array | null> {
+    return this.requireAdapter(printerId).read();
   }
 
   /** Máy chưa từng kết nối là `Idle`. */

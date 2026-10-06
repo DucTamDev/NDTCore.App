@@ -12,23 +12,8 @@ import {
   type NativeDeviceInfo,
 } from './DeviceModule';
 
-/** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
-const WRITE_BASE_TIMEOUT_MS = 30_000;
-
-/** Tốc độ ghi chậm nhất chấp nhận được (~2 KB/s, Bluetooth SPP kém); payload lớn được cộng thêm hạn theo tốc độ này. */
-const WRITE_MIN_BYTES_PER_MS = 2;
-
-/** Hạn tối đa native chấp nhận cho một lần ghi. */
-const WRITE_MAX_TIMEOUT_MS = 600_000;
-
-/** Phản hồi lệnh dò của máy in (vd TSPL `~!T`) chỉ vài chục byte. */
+/** Phản hồi trạng thái của máy in chỉ vài chục byte. */
 const READ_MAX_BYTES = 1_024;
-
-/** Hạn ghi tăng theo cỡ payload để ảnh bill lớn qua Bluetooth chậm không bị cắt giữa chừng. */
-const writeTimeoutMs = (base64: string): number => {
-  const payloadBytes = Buffer.from(base64, 'base64').length;
-  return Math.min(WRITE_MAX_TIMEOUT_MS, WRITE_BASE_TIMEOUT_MS + Math.ceil(payloadBytes / WRITE_MIN_BYTES_PER_MS));
-};
 
 const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'bluetooth' =>
   connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
@@ -156,13 +141,13 @@ export class NativeAdapter implements IPrinterAdapter {
   async write(bytes: Uint8Array): Promise<void> {
     const connectionId = this.requireConnectionId();
     const base64 = Buffer.from(bytes).toString('base64');
-    await callNative(() => DeviceModule.write(connectionId, base64, writeTimeoutMs(base64)));
+    await callNative(() => DeviceModule.write(connectionId, base64));
   }
 
-  /** Trả byte nhận được ngay khi có, hoặc `null` khi hết `timeoutMs` mà máy in chưa trả lời. */
-  async read(timeoutMs: number): Promise<Uint8Array | null> {
+  /** Trả byte nhận được ngay khi có, hoặc `null` khi máy in chưa trả lời trong hạn của native module. */
+  async read(): Promise<Uint8Array | null> {
     const connectionId = this.requireConnectionId();
-    const base64 = await callNative(() => DeviceModule.read(connectionId, READ_MAX_BYTES, timeoutMs));
+    const base64 = await callNative(() => DeviceModule.read(connectionId, READ_MAX_BYTES));
     return base64 === null ? null : new Uint8Array(Buffer.from(base64, 'base64'));
   }
 

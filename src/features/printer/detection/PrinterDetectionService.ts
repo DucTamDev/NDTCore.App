@@ -1,8 +1,8 @@
 import { ConnectionType } from '../models/printer/ConnectionType';
 import type { DiscoverResult } from '../models/discovery/DiscoverResult';
 import { printerLogger } from '../logging/PrinterLogger';
-import type { PrinterDefinition, PrinterIdentifiers } from './PrinterDefinition';
-import { PRINTER_TABLE } from './PrinterTable';
+import type { PrinterDetection, PrinterIdentifiers } from './PrinterDetection';
+import { PRINTER_DETECTION_TABLE } from './PrinterDetectionTable';
 
 /** Tên hãng/sản phẩm do thiết bị báo có thể khác hoa thường và thừa khoảng trắng giữa các lô máy. */
 const sameText = (expected: string, actual?: string): boolean =>
@@ -26,24 +26,24 @@ const matches = (identifiers: PrinterIdentifiers, { device, connection }: Discov
 };
 
 /**
- * Nhận thiết bị tìm thấy khi quét và tra `PRINTER_TABLE` để biết model, ngôn ngữ và khả năng của máy in. Không kết
- * nối, không gửi lệnh tới máy in.
+ * Nhận thiết bị tìm thấy khi quét và tra `PRINTER_DETECTION_TABLE` để biết model, ngôn ngữ và khả năng của máy in.
+ * Không kết nối, không gửi lệnh tới máy in.
  */
 export class PrinterDetectionService {
-  constructor(private readonly table: readonly PrinterDefinition[] = PRINTER_TABLE) {}
+  constructor(private readonly table: readonly PrinterDetection[] = PRINTER_DETECTION_TABLE) {}
 
   /** Định nghĩa đầu tiên khớp thiết bị; `undefined` khi thiết bị không có trong bảng. */
-  detect(device: DiscoverResult): PrinterDefinition | undefined {
-    const definition = this.table.find((candidate) => matches(candidate.identifiers, device));
+  detect(device: DiscoverResult): PrinterDetection | undefined {
+    const detection = this.table.find((candidate) => matches(candidate.identifiers, device));
     const connectionType = device.connection.type;
 
-    if (definition) {
-      printerLogger.printerDetected({ connectionType, language: definition.language.type });
+    if (detection) {
+      printerLogger.printerDetected({ connectionType, language: detection.language.type });
     } else {
       printerLogger.printerNotDetected({ connectionType });
     }
 
-    return definition;
+    return detection;
   }
 }
 

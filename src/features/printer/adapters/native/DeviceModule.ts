@@ -1,7 +1,26 @@
+import { Buffer } from 'buffer';
 import { DeviceEventEmitter, NativeModules } from 'react-native';
 
 /** Tên sự kiện native phát khi một kết nối mất ngoài ý muốn. */
 const DEVICE_DISCONNECTED_EVENT = 'DeviceDisconnected';
+
+/** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
+const WRITE_BASE_TIMEOUT_MS = 30_000;
+
+/** Tốc độ ghi chậm nhất chấp nhận được (~2 KB/s, Bluetooth SPP kém); payload lớn được cộng thêm hạn theo tốc độ này. */
+const WRITE_MIN_BYTES_PER_MS = 2;
+
+/** Hạn tối đa native chấp nhận cho một lần ghi. */
+const WRITE_MAX_TIMEOUT_MS = 600_000;
+
+/** Máy in trả lời trong vài trăm mili giây; quá hạn coi như không có phản hồi. */
+const READ_TIMEOUT_MS = 1_000;
+
+/** Hạn ghi tăng theo cỡ payload để ảnh bill lớn qua Bluetooth chậm không bị cắt giữa chừng. */
+const writeTimeoutMs = (base64: string): number => {
+  const payloadBytes = Buffer.from(base64, 'base64').length;
+  return Math.min(WRITE_MAX_TIMEOUT_MS, WRITE_BASE_TIMEOUT_MS + Math.ceil(payloadBytes / WRITE_MIN_BYTES_PER_MS));
+};
 
 /** Loại thiết bị quét được; LAN không quét (người dùng nhập IP). */
 export type NativeDiscoverableType = 'usb' | 'bluetooth';
@@ -97,11 +116,11 @@ export interface DeviceModuleApi {
 
   connect(address: NativeDeviceAddress): Promise<NativeConnectedDevice>;
 
-  /** Ghi đủ toàn bộ byte trong `timeoutMs`, không thì reject. */
-  write(connectionId: string, base64Data: string, timeoutMs: number): Promise<void>;
+  /** Ghi đủ toàn bộ byte trong hạn tính theo cỡ dữ liệu, không thì reject (`WRITE_TIMEOUT`). */
+  write(connectionId: string, base64Data: string): Promise<void>;
 
-  /** Trả ngay khi có ít nhất 1 byte (base64, tối đa `maxBytes`); hết `timeoutMs` mà chưa có byte → `null`. */
-  read(connectionId: string, maxBytes: number, timeoutMs: number): Promise<string | null>;
+  /** Trả ngay khi có ít nhất 1 byte (base64, tối đa `maxBytes`); quá hạn mà chưa có byte → `null`. */
+  read(connectionId: string, maxBytes: number): Promise<string | null>;
 
   disconnect(connectionId: string): Promise<void>;
 }
@@ -112,8 +131,9 @@ export type Unsubscribe = () => void;
 export const DeviceModule: DeviceModuleApi = {
   discover: (type) => NativeModules.DeviceModule.discover(type),
   connect: (address) => NativeModules.DeviceModule.connect(address),
-  write: (connectionId, base64Data, timeoutMs) => NativeModules.DeviceModule.write(connectionId, base64Data, timeoutMs),
-  read: (connectionId, maxBytes, timeoutMs) => NativeModules.DeviceModule.read(connectionId, maxBytes, timeoutMs),
+  write: (connectionId, base64Data) =>
+    NativeModules.DeviceModule.write(connectionId, base64Data, writeTimeoutMs(base64Data)),
+  read: (connectionId, maxBytes) => NativeModules.DeviceModule.read(connectionId, maxBytes, READ_TIMEOUT_MS),
   disconnect: (connectionId) => NativeModules.DeviceModule.disconnect(connectionId),
 };
 

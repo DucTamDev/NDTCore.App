@@ -1,6 +1,6 @@
 import { PrinterDetectionService } from '../PrinterDetectionService';
-import type { PrinterDefinition } from '../PrinterDefinition';
-import { PRINTER_TABLE } from '../PrinterTable';
+import type { PrinterDetection } from '../PrinterDetection';
+import { PRINTER_DETECTION_TABLE } from '../PrinterDetectionTable';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
@@ -12,7 +12,7 @@ jest.mock('../../logging/PrinterLogger', () => ({
 
 const capabilities = { cutter: false, cashDrawer: false, color: false, image: true };
 
-const tsplUsb: PrinterDefinition = {
+const tsplUsb: PrinterDetection = {
   vendor: 'Xprinter',
   model: 'XP-420B',
   identifiers: { vendorId: 11575, productId: 33751 },
@@ -20,7 +20,7 @@ const tsplUsb: PrinterDefinition = {
   capabilities,
 };
 
-const escPosByName: PrinterDefinition = {
+const escPosByName: PrinterDetection = {
   vendor: 'Epson',
   model: 'TM-T82',
   identifiers: { manufacturer: 'EPSON', product: 'TM-T82' },
@@ -79,9 +79,9 @@ describe('PrinterDetectionService', () => {
     expect(both.detect(usbDevice(11575, 33751))).toBe(tsplUsb);
   });
 
-  it('mặc định tra PRINTER_TABLE', () => {
+  it('mặc định tra PRINTER_DETECTION_TABLE', () => {
     expect(new PrinterDetectionService().detect(usbDevice(0, 0))).toBe(
-      PRINTER_TABLE.find((definition) => definition.identifiers.vendorId === 0),
+      PRINTER_DETECTION_TABLE.find((detection) => detection.identifiers.vendorId === 0),
     );
   });
 });
