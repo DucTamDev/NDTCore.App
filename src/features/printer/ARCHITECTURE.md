@@ -38,9 +38,7 @@ thái và gửi byte nằm ở **một tầng kết nối chung**, không phân 
 Luồng in:
 
 ```text
-PrintService
-    ↓
-PrintRoutingService           chọn máy theo kind
+PrintService                  chọn máy theo kind
     ↓
 PrintScheduler                khoá theo máy vật lý
     ↓
@@ -67,8 +65,7 @@ PrinterRepository             lưu
 
 | Component                  | Responsibility                                            |
 | -------------------------- | --------------------------------------------------------- |
-| `PrintService`             | Public API cho print operation                            |
-| `PrintRoutingService`      | Xác định printer nào nhận document theo `kind`            |
+| `PrintService`             | Public API cho print operation; chọn máy nhận theo `kind` |
 | `PrintScheduler`           | Queue, ordering, khoá theo máy vật lý                      |
 | `PrinterService`           | In / in thử một printer: encode rồi gửi                   |
 | `IPrintLanguage`           | Encode nội dung thành byte theo một ngôn ngữ lệnh          |
@@ -121,7 +118,7 @@ src/features/printer/
 │
 ├── discovery/           DeviceDiscoveryService, NetworkInfoService
 ├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
-├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterService
+├── printing/            PrintService, PrintScheduler, PrinterService
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
@@ -554,12 +551,9 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ## `PrintService`
 
-Public entry point. `paperFor(kind)` cho nơi gọi biết có máy nào nhận không và chụp ảnh theo giấy nào; gọi routing và
-scheduler, tổng hợp kết quả. Không chứa device discovery, connection lifecycle, encoding.
-
-## `PrintRoutingService`
-
-Chọn máy nhận theo `printer.kind` và `enabled`.
+Public entry point. `paperFor(kind)` cho nơi gọi biết có máy nào nhận không và chụp ảnh theo giấy nào. Chọn máy nhận
+từ repository theo `printer.kind` và `enabled`, gửi vào scheduler, tổng hợp kết quả. Không chứa device discovery,
+connection lifecycle, encoding.
 
 ## `PrintScheduler`
 
@@ -582,9 +576,7 @@ testPrint(printer, image, options?)
 # 23. Complete Print Flow
 
 ```text
-PrintService
-    ↓
-PrintRoutingService → target printers (mỗi target một job)
+PrintService → target printers (mỗi target một job)
     ↓
 PrintScheduler → PrinterConnectionLock(task.deviceId)
     ↓
@@ -1426,7 +1418,7 @@ Chỉ lưu serializable configuration: `Printer`, `PrinterConnection`, `PrinterL
 ### Printing
 
 ```text
-PrintService → PrintRoutingService → PrintScheduler (khoá) → PrinterService
+PrintService → PrintScheduler (khoá) → PrinterService
     → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter
 ```
 

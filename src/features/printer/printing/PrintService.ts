@@ -1,10 +1,11 @@
-import { printRoutingService, type PrintRoutingService } from './PrintRoutingService';
 import { printScheduler, type PrintScheduler } from './PrintScheduler';
+import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { generateId } from '../../../utils/id';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { PrintErrorCode } from '../errors';
 import { PrintErrorException } from '../exceptions';
 import type { PrintKind } from '../models/printer/PrintKind';
+import type { Printer } from '../models/printer/Printer';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
 import { PrintStatus } from '../models/printing/PrintStatus';
@@ -27,8 +28,8 @@ const resolvePrintStatus = (successCount: number, total: number): PrintStatus =>
 /** Điểm vào công khai: in một loại nội dung ra mọi máy in đang nhận loại đó. */
 export class PrintService {
   constructor(
-    /** Chọn máy in nhận từng loại nội dung. */
-    private readonly routing: PrintRoutingService = printRoutingService,
+    /** Nguồn máy in đã lưu để chọn máy nhận lệnh. */
+    private readonly repository: PrinterRepository = printerRepository,
 
     /** Hàng đợi chạy lệnh in theo từng máy vật lý. */
     private readonly scheduler: PrintScheduler = printScheduler,
@@ -39,11 +40,11 @@ export class PrintService {
    * chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
    */
   paperFor(kind: PrintKind): PaperOptions | null {
-    return this.routing.resolveTargets(kind)[0]?.paper ?? null;
+    return this.targetsOf(kind)[0]?.paper ?? null;
   }
 
   async print(kind: PrintKind, image: string): Promise<PrintResult> {
-    const targets = this.routing.resolveTargets(kind);
+    const targets = this.targetsOf(kind);
 
     if (targets.length === 0) {
       return {
@@ -75,6 +76,11 @@ export class PrintService {
     const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
     const status = resolvePrintStatus(successCount, tasks.length);
     return { status, tasks };
+  }
+
+  /** Máy in đang bật và nhận loại nội dung `kind`. */
+  private targetsOf(kind: PrintKind): Printer[] {
+    return this.repository.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);
   }
 }
 
