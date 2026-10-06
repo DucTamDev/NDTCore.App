@@ -11,7 +11,7 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { EscPosLanguage, TsplLanguage } from '../../languages';
 import { basePrinter, makeMockConnectionService, tsplLanguage } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
-import { PrintErrorCode } from '../../errors';
+import { PrintErrorCode, PrinterErrorCode } from '../../errors';
 
 jest.mock('../../../../services/LoggerService', () => ({
   LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
@@ -64,6 +64,14 @@ describe('PrinterService', () => {
     expect(printerLogger.printSucceeded).toHaveBeenCalledWith(
       expect.objectContaining({ printerId: basePrinter.id, language: PrintLanguage.EscPos }),
     );
+  });
+
+  it('in: máy in không còn trong danh sách → PRINTER_NOT_FOUND, không kết nối, không gửi', async () => {
+    const { service, connectionService } = setup();
+
+    await expect(service.print('deleted', image)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_FOUND });
+    expect(connectionService.connect).not.toHaveBeenCalled();
+    expect(connectionService.send).not.toHaveBeenCalled();
   });
 
   it('in: chưa kết nối thì kết nối trước', async () => {

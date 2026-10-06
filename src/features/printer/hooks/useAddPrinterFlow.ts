@@ -274,7 +274,11 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     if (liveStatus === PrinterConnectionStatus.Connected) {
       printerConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
-      printerConnectionService.connect(printerRepository.findOrThrow(printer.id)).catch(() => undefined);
+      const saved = printerRepository.findById(printer.id);
+
+      if (saved) {
+        printerConnectionService.connect(saved).catch(() => undefined);
+      }
     }
     onSaved();
   });

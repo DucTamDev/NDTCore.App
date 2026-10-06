@@ -479,6 +479,18 @@ describe('PrinterConnectionService', () => {
     expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Connected);
   });
 
+  it('reconnect máy in đã bị xoá thì chỉ ngắt, không mở lại', async () => {
+    const first = makeFakeAdapter().adapter;
+    const { service, createAdapter } = setup([first]);
+    await service.connect(basePrinter);
+
+    await service.reconnect(basePrinter.id);
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterConnectionStatus.Disconnected);
+  });
+
   it('tự kết nối lại chỉ các máy đang bật và bật tự kết nối', async () => {
     const { adapter } = makeFakeAdapter();
     const { service, repository, createAdapter } = setup([adapter]);

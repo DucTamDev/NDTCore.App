@@ -153,7 +153,7 @@ describe('PrintService khoá theo máy vật lý', () => {
     });
     const lock = new PrinterConnectionLock();
     const printer = makePrinter({ id: 'receipt-1', language: makeEscPosLanguage() });
-    const repository = mockOf<PrinterRepository>({ getPrinters: () => [printer], findOrThrow: () => printer });
+    const repository = mockOf<PrinterRepository>({ getPrinters: () => [printer], findById: () => printer });
     const printing = new PrinterService(connectionService, repository, lock);
     const service = new PrintService(repository, printing, lock);
 

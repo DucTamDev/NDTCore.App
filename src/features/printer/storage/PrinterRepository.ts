@@ -21,17 +21,9 @@ export class PrinterRepository {
     this.storage.savePrinters(printers);
   }
 
-  findOrThrow(printerId: string): Printer {
-    const found = this.getPrinters().find((printer) => printer.id === printerId);
-
-    if (!found) {
-      throw new PrinterErrorException({
-        code: PrinterErrorCode.PRINTER_NOT_FOUND,
-        message: `Không tìm thấy máy in với id ${printerId}`,
-      });
-    }
-
-    return found;
+  /** `undefined` khi không có máy in `printerId` (vd đã bị xoá); nơi gọi tự quyết định xử lý. */
+  findById(printerId: string): Printer | undefined {
+    return this.getPrinters().find((printer) => printer.id === printerId);
   }
 
   addPrinter(printer: PrinterWriteInput): void {

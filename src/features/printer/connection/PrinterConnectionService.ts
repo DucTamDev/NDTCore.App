@@ -177,11 +177,15 @@ export class PrinterConnectionService {
 
   /**
    * Ngắt (bỏ qua lỗi ngắt) rồi kết nối lại bằng cấu hình đã lưu. Còn máy in khác dùng chung máy vật lý thì kết nối
-   * không đóng nên cũng không được mở lại.
+   * không đóng nên cũng không được mở lại. Máy in đã bị xoá thì chỉ ngắt.
    */
   async reconnect(printerId: string): Promise<void> {
     await this.disconnect(printerId).catch(() => undefined);
-    await this.connect(this.repository.findOrThrow(printerId));
+    const printer = this.repository.findById(printerId);
+
+    if (printer) {
+      await this.connect(printer);
+    }
   }
 
   /** Gọi khi app khởi động: kết nối mọi máy đang bật và cho phép tự kết nối lại; lỗi từng máy bỏ qua. */

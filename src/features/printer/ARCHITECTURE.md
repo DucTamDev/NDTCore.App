@@ -745,7 +745,11 @@ identifier.
 Ưu tiên:
 
 ```ts
-const printer = repository.findOrThrow(printerId);
+const printer = repository.findById(printerId);
+
+if (!printer) {
+  throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message });
+}
 
 if (connectionService.getStatus(printer.id) !== PrinterConnectionStatus.Connected) {
   await connectionService.connect(printer);

@@ -27,7 +27,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
     getPrinters: jest.fn(() => []),
     addPrinter: jest.fn(),
     updatePrinter: jest.fn(),
-    findOrThrow: jest.fn((printerId: string) => ({ id: printerId })),
+    findById: jest.fn((printerId: string) => ({ id: printerId })),
   },
 }));
 

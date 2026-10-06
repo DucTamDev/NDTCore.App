@@ -1,7 +1,8 @@
 import type { PrintOptions } from '../models/printing/PrintOptions';
 import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { Printer } from '../models/printer/Printer';
-import { errorCodeOf } from '../exceptions';
+import { errorCodeOf, PrinterErrorException } from '../exceptions';
+import { PrinterErrorCode } from '../errors';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
@@ -19,7 +20,15 @@ export class PrinterService {
 
   /** Không tự khoá: `PrintService` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */
   async print(printerId: string, image: string, options?: PrintOptions): Promise<void> {
-    const printer = this.repository.findOrThrow(printerId);
+    const printer = this.repository.findById(printerId);
+
+    if (!printer) {
+      throw new PrinterErrorException({
+        code: PrinterErrorCode.PRINTER_NOT_FOUND,
+        message: `Không tìm thấy máy in với id ${printerId}`,
+      });
+    }
+
     const language = printer.language.type;
     const startedAt = Date.now();
 
