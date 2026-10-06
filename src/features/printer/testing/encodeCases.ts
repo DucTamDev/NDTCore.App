@@ -89,7 +89,7 @@ export const ENCODE_CASES: EncodeCase[] = [
     name: 'TSPL, hoá đơn giấy cuộn 80mm',
     printer: makePrinter({ connection: usbConnection, language: makeTsplLanguage() }),
     image: stripedPngBase64(),
-    fingerprint: '10472:4d5f733a',
+    fingerprint: '10471:d65df331',
   },
   {
     name: 'TSPL, tem 2 cột, 2 hàng',

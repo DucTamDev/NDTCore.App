@@ -1,7 +1,6 @@
 import type { PrintOptions } from '../../models/printing/PrintOptions';
 import type { IPrintLanguage } from '../IPrintLanguage';
 import type { Printer } from '../../models/printer/Printer';
-import { PrintKind } from '../../models/printer/PrintKind';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperType } from '../../models/paper/PaperType';
 import type { PaperOptions } from '../../models/paper/PaperOptions';
@@ -11,12 +10,6 @@ import { PrintErrorException } from '../../exceptions';
 import { PrintErrorCode } from '../../errors';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
-
-/**
- * Chiều cao khai báo trong `SIZE` khi in tem trên giấy cuộn (không có kích thước tem). Nội dung cao hơn bị chặn
- * trước khi encode; nới `SIZE` không làm máy in thêm giấy.
- */
-const DEFAULT_LABEL_HEIGHT_MM = 30;
 
 const CRLF = [0x0d, 0x0a];
 
@@ -39,14 +32,13 @@ const concatBytes = (parts: readonly Uint8Array[]): Uint8Array => {
 
 const mmToDots = (mm: number): number => Math.round(mm * DOTS_PER_MM);
 
-/** Chiều cao cho `SIZE`: giấy tem theo con tem; tem trên giấy cuộn theo mặc định; hoá đơn theo trần an toàn. */
-const sizeHeightMmOf = (paper: PaperOptions, kind: PrintKind): number => {
-  if (paper.type === PaperType.DieCut) {
-    return paper.itemHeightMm;
-  }
+/** Chiều cao cho `SIZE`: giấy tem theo con tem; giấy cuộn đúng bằng nội dung để máy chỉ đẩy phần đã in. */
+const sizeHeightMmOf = (paper: PaperOptions, bitmap: MonochromeBitmap): number =>
+  paper.type === PaperType.DieCut ? paper.itemHeightMm : Math.max(1, Math.ceil(bitmap.heightPx / DOTS_PER_MM));
 
-  return kind === PrintKind.Label ? DEFAULT_LABEL_HEIGHT_MM : CONTINUOUS_HEIGHT_MM;
-};
+/** Giấy tem không chứa được ảnh cao hơn con tem; giấy cuộn chặn ở trần an toàn để ảnh lỗi không đẩy giấy quá dài. */
+const maxHeightMmOf = (paper: PaperOptions): number =>
+  paper.type === PaperType.DieCut ? paper.itemHeightMm : CONTINUOUS_HEIGHT_MM;
 
 /** Ảnh tem rời co theo bề rộng một con tem; giấy cuộn theo bề rộng vùng in của khổ giấy. */
 const imageWidthDotsOf = (paper: PaperOptions): number =>
@@ -122,9 +114,8 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   }
 };
 
-/** Ảnh cao hơn chiều cao giấy đang khai báo sẽ tràn sang tem hoặc tờ kế tiếp. */
-const assertFitsHeight = (bitmap: MonochromeBitmap, heightMm: number): void => {
-  if (bitmap.heightPx <= heightMm * DOTS_PER_MM) {
+const assertFitsHeight = (bitmap: MonochromeBitmap, maxHeightMm: number): void => {
+  if (bitmap.heightPx <= maxHeightMm * DOTS_PER_MM) {
     return;
   }
 
@@ -132,7 +123,7 @@ const assertFitsHeight = (bitmap: MonochromeBitmap, heightMm: number): void => {
   throw new PrintErrorException({
     code: PrintErrorCode.IMAGE_TOO_LARGE,
     message:
-      `Nội dung cao khoảng ${contentHeightMm}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — ` +
+      `Nội dung cao khoảng ${contentHeightMm}mm, vượt chiều cao tối đa của giấy (${maxHeightMm}mm) — ` +
       'dùng giấy dài hơn hoặc rút gọn nội dung.',
   });
 };
@@ -142,10 +133,10 @@ const assertFitsHeight = (bitmap: MonochromeBitmap, heightMm: number): void => {
  * tiền nên bỏ qua `cashDrawer`. Dao cắt chạy ngay trong `PRINT` nên `FEED` chỉ đẩy được sau khi in xong.
  */
 const encodeImage = (printer: Printer, image: string, options?: PrintOptions): Uint8Array => {
-  const { paper, kind } = printer;
+  const { paper } = printer;
   const bitmap = decodeImage(image, imageWidthDotsOf(paper));
-  const heightMm = sizeHeightMmOf(paper, kind);
-  assertFitsHeight(bitmap, heightMm);
+  assertFitsHeight(bitmap, maxHeightMmOf(paper));
+  const heightMm = sizeHeightMmOf(paper, bitmap);
 
   const copies = copiesOf(options);
   const feedDots = feedDotsOf(options);

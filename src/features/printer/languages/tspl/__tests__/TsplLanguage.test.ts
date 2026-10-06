@@ -1,5 +1,3 @@
-import UPNG from 'upng-js';
-import { Buffer } from 'buffer';
 import { TsplLanguage } from '../TsplLanguage';
 import { fingerprintOf, stripedPngBase64 } from '../../../testing/encodeCases';
 import { PrintKind } from '../../../models/printer/PrintKind';
@@ -24,17 +22,6 @@ const paper58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterM
 
 const rasterLabelPrinter = makePrinter({ kind: PrintKind.Label, language: makeTsplLanguage(), paper: paper58 });
 
-/** Ảnh vuông toàn đen: chuẩn hoá về bề rộng 384px của giấy 58mm thì cao 384px, vượt chiều cao tem 30mm (240px). */
-const squarePngBase64 = (): string => {
-  const rgba = new Uint8Array(2 * 2 * 4);
-
-  for (let alpha = 3; alpha < rgba.length; alpha += 4) {
-    rgba[alpha] = 255;
-  }
-
-  return Buffer.from(new Uint8Array(UPNG.encode([rgba.buffer], 2, 2, 0, [], true))).toString('base64');
-};
-
 describe('TsplLanguage', () => {
   it('số bản không hợp lệ coi như 1 bản', () => {
     const image = stripedPngBase64();
@@ -44,16 +31,19 @@ describe('TsplLanguage', () => {
     expect(fingerprintOf(TsplLanguage.encode(printer, image, { copies: Number.NaN }))).toBe(oneRow);
   });
 
-  it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
-    expect(() => TsplLanguage.encode(rasterLabelPrinter, squarePngBase64())).toThrow(
+  it('giấy cuộn: ảnh cao quá trần an toàn 200mm → IMAGE_TOO_LARGE', () => {
+    const tall: MonochromeBitmap = { widthBytes: 1, heightPx: 200 * 8 + 1, bits: new Uint8Array(200 * 8 + 1) };
+
+    expect(() => encodeBitmap(printerWith(continuous(PaperSize.Mm80)), tall)).toThrow(
       expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
     );
   });
 
-  it('cùng ảnh đó in hoá đơn giấy cuộn thì vẫn in được', () => {
-    const receiptPrinter = { ...rasterLabelPrinter, kind: PrintKind.Receipt };
+  it('loại nội dung không đổi SIZE: tem và hoá đơn trên cùng giấy cuộn khai như nhau', () => {
+    const receipt = encodeBitmap({ ...rasterLabelPrinter, kind: PrintKind.Receipt }, TEN_MM);
+    const label = encodeBitmap(rasterLabelPrinter, TEN_MM);
 
-    expect(() => TsplLanguage.encode(receiptPrinter, squarePngBase64())).not.toThrow();
+    expect(label).toEqual(receipt);
   });
 });
 
@@ -135,6 +125,9 @@ const encodeBitmap = (target: Printer, bitmap: MonochromeBitmap = ONE_DOT, optio
 
 const ONE_DOT: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0x00]) };
 
+/** Ảnh cao đúng 10mm (80 dot). */
+const TEN_MM: MonochromeBitmap = { widthBytes: 1, heightPx: 80, bits: new Uint8Array(80) };
+
 const continuous = (paperSize: PaperSize, cutterMode: CutterMode = CutterMode.PerJob): PaperOptions => ({
   type: PaperType.Continuous,
   paperSize,
@@ -152,34 +145,34 @@ const DIE_CUT_100: PaperOptions = {
 };
 
 describe('TsplLanguage.encode — lệnh TSPL', () => {
-  it('hoá đơn giấy cuộn: SIZE theo vùng in và trần an toàn, không dò khe', () => {
-    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58))));
+  it('giấy cuộn: SIZE rộng theo vùng in, cao đúng bằng nội dung, không dò khe', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58)), TEN_MM));
 
-    expect(text).toContain('SIZE 50 mm, 200 mm');
+    expect(text).toContain('SIZE 50 mm, 10 mm');
     expect(text).toContain('GAP 0 mm, 0 mm');
     expect(text).toContain('CODEPAGE UTF-8');
     expect(text).toContain('CLS');
   });
 
-  it('tem trên giấy cuộn: chiều cao mặc định 30mm, không dò khe', () => {
-    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58), PrintKind.Label)));
+  it('giấy cuộn: chiều cao nội dung làm tròn lên mm, tối thiểu 1mm', () => {
+    const almostTwo: MonochromeBitmap = { widthBytes: 1, heightPx: 9, bits: new Uint8Array(9) };
 
-    expect(text).toContain('SIZE 50 mm, 30 mm');
-    expect(text).toContain('GAP 0 mm, 0 mm');
+    expect(asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58)), almostTwo))).toContain('SIZE 50 mm, 2 mm');
+    expect(asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm58)), ONE_DOT))).toContain('SIZE 50 mm, 1 mm');
   });
 
-  it('giấy tem rời: SIZE bằng cả hàng tem, GAP bằng khe dọc', () => {
-    const text = asAscii(encodeBitmap(printerWith(DIE_CUT_100, PrintKind.Label)));
+  it('giấy tem rời: SIZE bằng cả hàng tem theo cấu hình (không theo nội dung), GAP bằng khe dọc', () => {
+    const text = asAscii(encodeBitmap(printerWith(DIE_CUT_100, PrintKind.Label), TEN_MM));
 
     expect(text).toContain('SIZE 94 mm, 20 mm'); // 3 × 30 + 2 × 2
     expect(text).toContain('GAP 3 mm, 0 mm');
   });
 
   it.each([
-    [PaperSize.Mm100, 'SIZE 96 mm, 200 mm'],
-    [PaperSize.Mm104, 'SIZE 104 mm, 200 mm'],
+    [PaperSize.Mm100, 'SIZE 96 mm, 10 mm'],
+    [PaperSize.Mm104, 'SIZE 104 mm, 10 mm'],
   ])('khổ %s → %s', (paperSize, size) => {
-    expect(asAscii(encodeBitmap(printerWith(continuous(paperSize))))).toContain(size);
+    expect(asAscii(encodeBitmap(printerWith(continuous(paperSize)), TEN_MM))).toContain(size);
   });
 
   it('cắt cuối job: SET CUTTER bằng số hàng rồi PRINT', () => {

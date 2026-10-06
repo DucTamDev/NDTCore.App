@@ -420,7 +420,9 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
 * `EscPosLanguage`: lệnh `GS v 0`; nhiều bản thì lặp lại ảnh, mỗi bản `ESC J` (đẩy giấy) rồi `ESC m` (cắt);
   `cashDrawer` gửi `ESC p 0 25 250` sau cùng.
 * `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`, `PRINT copies,1`, rồi `FEED` nếu có
-  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo).
+  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo). Chiều cao `SIZE` theo cấu hình giấy của máy in, không
+  theo loại nội dung: giấy tem theo `itemHeightMm`; giấy cuộn đúng bằng nội dung (làm tròn lên mm, trần
+  `CONTINUOUS_HEIGHT_MM`) để máy chỉ đẩy phần đã in.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 
