@@ -68,7 +68,7 @@ export class PrintService {
           deviceId: printer.deviceId,
           connectionType: printer.connection.type,
           kind,
-          image,
+          data: image,
           status: PrintTaskStatus.Pending,
           retryCount: 0,
           createdAt: new Date().toISOString(),

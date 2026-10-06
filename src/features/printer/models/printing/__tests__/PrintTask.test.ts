@@ -17,7 +17,7 @@ describe('print task types', () => {
       deviceId: 'lan:10.0.0.5:9100',
       connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
-      image: 'base64-png',
+      data: 'base64-png',
       status: PrintTaskStatus.Pending,
       retryCount: 0,
       createdAt: new Date().toISOString(),
