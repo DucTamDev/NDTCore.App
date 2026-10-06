@@ -1,5 +1,5 @@
 /** Kết quả tổng của một yêu cầu in. */
-export const PrintResultStatus = {
+export const PrintStatus = {
   /** Mọi máy in đều in xong. */
   Success: 'Success',
 
@@ -13,4 +13,4 @@ export const PrintResultStatus = {
   NoAvailablePrinter: 'NoAvailablePrinter',
 } as const;
 
-export type PrintResultStatus = (typeof PrintResultStatus)[keyof typeof PrintResultStatus];
+export type PrintStatus = (typeof PrintStatus)[keyof typeof PrintStatus];

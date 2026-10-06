@@ -4,9 +4,10 @@ import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintTaskStatus } from '../../models/printing/PrintTaskStatus';
-import { PrintResultStatus } from '../../models/printing/PrintResultStatus';
+import { PrintStatus } from '../../models/printing/PrintStatus';
 import type { PrintTask } from '../../models/printing/PrintTask';
 import { PrintKind } from '../../models/printer/PrintKind';
+import { ConnectionType } from '../../models/printer/ConnectionType';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
@@ -30,7 +31,7 @@ describe('PrintService.print', () => {
     });
     const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, image);
-    expect(result.status).toBe(PrintResultStatus.NoAvailablePrinter);
+    expect(result.status).toBe(PrintStatus.NoAvailablePrinter);
     expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
     expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
   });
@@ -41,6 +42,9 @@ describe('PrintService.print', () => {
       id: 'job1',
       requestId: 'req1',
       printerId,
+      printerName: 'Máy in',
+      deviceId: `lan:${printerId}`,
+      connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       image,
       status: PrintTaskStatus.Success,
@@ -49,7 +53,15 @@ describe('PrintService.print', () => {
     }));
     const service = new PrintService(deps);
     await service.print(PrintKind.Receipt, image);
-    expect(deps.scheduler.enqueue).toHaveBeenCalledWith(expect.objectContaining({ printerId: 'p1', image }));
+    expect(deps.scheduler.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        printerId: 'p1',
+        printerName: p1.name,
+        deviceId: p1.deviceId,
+        connectionType: p1.connection.type,
+        image,
+      }),
+    );
   });
 
   it('reports success when all tasks succeed', async () => {
@@ -57,6 +69,9 @@ describe('PrintService.print', () => {
       id: 'task',
       requestId: 'req',
       printerId,
+      printerName: 'Máy in',
+      deviceId: `lan:${printerId}`,
+      connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       image,
       status: PrintTaskStatus.Success,
@@ -64,7 +79,7 @@ describe('PrintService.print', () => {
       createdAt: 'now',
     }));
     const service = new PrintService(deps);
-    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintResultStatus.Success);
+    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.Success);
   });
 
   it('reports partial-failure on mixed results', async () => {
@@ -72,6 +87,9 @@ describe('PrintService.print', () => {
       id: 'task',
       requestId: 'req',
       printerId,
+      printerName: 'Máy in',
+      deviceId: `lan:${printerId}`,
+      connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       image,
       status: printerId === 'p1' ? PrintTaskStatus.Success : PrintTaskStatus.Failed,
@@ -79,7 +97,7 @@ describe('PrintService.print', () => {
       createdAt: 'now',
     }));
     const service = new PrintService(deps);
-    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintResultStatus.PartialFailure);
+    expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.PartialFailure);
   });
 
   it('reports failed with no top-level error when every task fails', async () => {
@@ -87,6 +105,9 @@ describe('PrintService.print', () => {
       id: 'task',
       requestId: 'req',
       printerId,
+      printerName: 'Máy in',
+      deviceId: `lan:${printerId}`,
+      connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       image,
       status: PrintTaskStatus.Failed,
@@ -96,7 +117,7 @@ describe('PrintService.print', () => {
     }));
     const service = new PrintService(deps);
     const result = await service.print(PrintKind.Receipt, image);
-    expect(result.status).toBe(PrintResultStatus.Failed);
+    expect(result.status).toBe(PrintStatus.Failed);
     expect(result.error).toBeUndefined();
   });
 });

@@ -7,7 +7,7 @@ import { PrintErrorException } from '../exceptions';
 import type { PrintKind } from '../models/printer/PrintKind';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
-import { PrintResultStatus } from '../models/printing/PrintResultStatus';
+import { PrintStatus } from '../models/printing/PrintStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
 import type { PrintResult } from '../models/printing/PrintResult';
 
@@ -19,16 +19,16 @@ export interface PrintServiceDeps {
 }
 
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
-const resolveResultStatus = (successCount: number, total: number): PrintResultStatus => {
+const resolvePrintStatus = (successCount: number, total: number): PrintStatus => {
   if (successCount === total) {
-    return PrintResultStatus.Success;
+    return PrintStatus.Success;
   }
 
   if (successCount === 0) {
-    return PrintResultStatus.Failed;
+    return PrintStatus.Failed;
   }
 
-  return PrintResultStatus.PartialFailure;
+  return PrintStatus.PartialFailure;
 };
 
 /** Điểm vào công khai: in một loại nội dung ra mọi máy in đang nhận loại đó. */
@@ -48,7 +48,7 @@ export class PrintService {
 
     if (targets.length === 0) {
       return {
-        status: PrintResultStatus.NoAvailablePrinter,
+        status: PrintStatus.NoAvailablePrinter,
         tasks: [],
         error: new PrintErrorException({
           code: PrintErrorCode.NO_AVAILABLE_PRINTER,
@@ -64,6 +64,9 @@ export class PrintService {
           id: generateId(),
           requestId,
           printerId: printer.id,
+          printerName: printer.name,
+          deviceId: printer.deviceId,
+          connectionType: printer.connection.type,
           kind,
           image,
           status: PrintTaskStatus.Pending,
@@ -73,7 +76,7 @@ export class PrintService {
       ),
     );
     const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
-    const status = resolveResultStatus(successCount, tasks.length);
+    const status = resolvePrintStatus(successCount, tasks.length);
     return { status, tasks };
   }
 }

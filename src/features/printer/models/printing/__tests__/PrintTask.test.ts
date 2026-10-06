@@ -1,8 +1,9 @@
 import { PrintTaskStatus } from '../PrintTaskStatus';
 import type { PrintTask } from '../PrintTask';
-import { PrintResultStatus } from '../PrintResultStatus';
+import { PrintStatus } from '../PrintStatus';
 import type { PrintResult } from '../PrintResult';
 import { PrintKind } from '../../printer/PrintKind';
+import { ConnectionType } from '../../printer/ConnectionType';
 import { PrintErrorCode } from '../../../errors';
 import { PrintErrorException } from '../../../exceptions';
 
@@ -12,6 +13,9 @@ describe('print task types', () => {
       id: 'job1',
       requestId: 'req1',
       printerId: 'p1',
+      printerName: 'Máy in quầy',
+      deviceId: 'lan:10.0.0.5:9100',
+      connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       image: 'base64-png',
       status: PrintTaskStatus.Pending,
@@ -23,11 +27,11 @@ describe('print task types', () => {
 
   it('accepts every PrintResult status', () => {
     const results: PrintResult[] = [
-      { status: PrintResultStatus.Success, tasks: [] },
-      { status: PrintResultStatus.PartialFailure, tasks: [] },
-      { status: PrintResultStatus.Failed, tasks: [] },
+      { status: PrintStatus.Success, tasks: [] },
+      { status: PrintStatus.PartialFailure, tasks: [] },
+      { status: PrintStatus.Failed, tasks: [] },
       {
-        status: PrintResultStatus.NoAvailablePrinter,
+        status: PrintStatus.NoAvailablePrinter,
         tasks: [],
         error: new PrintErrorException({ code: PrintErrorCode.NO_AVAILABLE_PRINTER, message: 'x' }),
       },

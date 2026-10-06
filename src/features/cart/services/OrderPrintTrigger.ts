@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { printService } from '../../printer/printing/PrintService';
-import { PrintResultStatus } from '../../printer/models/printing/PrintResultStatus';
+import { PrintStatus } from '../../printer/models/printing/PrintStatus';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
 import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import { LoggerService } from '../../../services/LoggerService';
@@ -85,8 +85,8 @@ export const printReceipt = async (receipt: Receipt, captureImage: CaptureImage)
     }
 
     const result = await printService.print(PrintKind.Receipt, image);
-    if (result.status === PrintResultStatus.NoAvailablePrinter) return 'no-printer';
-    if (result.status === PrintResultStatus.Failed || result.status === PrintResultStatus.PartialFailure) {
+    if (result.status === PrintStatus.NoAvailablePrinter) return 'no-printer';
+    if (result.status === PrintStatus.Failed || result.status === PrintStatus.PartialFailure) {
       LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);
       return 'failed';
     }
