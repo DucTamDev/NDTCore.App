@@ -9,7 +9,7 @@ import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPr
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
-import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import type { PrintKind } from '../../models/printer/PrintKind';
 
 /**
@@ -30,7 +30,7 @@ export interface UseConnectionSetupInput {
 }
 
 /** Máy đang sửa chưa quét lại: dựng từ kết nối đã lưu để Lưu giữ nguyên kết nối. */
-const savedDeviceOf = (printer: Printer): DiscoveredDevice | undefined => {
+const savedDeviceOf = (printer: Printer): DiscoverResult | undefined => {
   if (printer.connection.type === ConnectionType.Lan) {
     return undefined;
   }
@@ -62,7 +62,7 @@ export const useConnectionSetup = ({
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.Usb);
-  const [selectedDevice, setSelectedDevice] = useState<DiscoveredDevice | undefined>(
+  const [selectedDevice, setSelectedDevice] = useState<DiscoverResult | undefined>(
     initialValues ? savedDeviceOf(initialValues) : undefined,
   );
   const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
@@ -144,7 +144,7 @@ export const useConnectionSetup = ({
     resetIfDirty();
   };
 
-  const onSelectDevice = (device: DiscoveredDevice): void => {
+  const onSelectDevice = (device: DiscoverResult): void => {
     if (hasLanguage) {
       return;
     }

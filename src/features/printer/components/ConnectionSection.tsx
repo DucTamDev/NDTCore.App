@@ -5,7 +5,7 @@ import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DiscoveredDeviceList } from './DiscoveredDeviceList';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
+import type { DiscoverResult } from '../models/discovery/DiscoverResult';
 
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;
@@ -16,7 +16,7 @@ export interface ConnectionSectionProps {
   /** Mã quét native của thiết bị đang chọn; còn đúng sau khi kết nối đổi serial. */
   selectedScanId?: string;
 
-  onSelectDevice: (device: DiscoveredDevice) => void;
+  onSelectDevice: (device: DiscoverResult) => void;
   lanIp: string;
   lanPort: string;
   onLanIpChange: (value: string) => void;

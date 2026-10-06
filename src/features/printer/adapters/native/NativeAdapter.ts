@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import { DeviceErrorException } from '../../exceptions';
 import { DeviceErrorCode } from '../../errors';
 import {
@@ -35,7 +35,7 @@ const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'blue
   connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
 
 /** Bluetooth không có tên thì hiển thị MAC; native USB đã thay tên trống bằng đường dẫn thiết bị. */
-const toDiscoveredDevice = (device: NativeDeviceInfo): DiscoveredDevice => {
+const toDiscoverResult = (device: NativeDeviceInfo): DiscoverResult => {
   if (device.type === 'bluetooth') {
     const { mac } = device.address;
     return {
@@ -133,13 +133,13 @@ export class NativeAdapter implements IPrinterAdapter {
 
   private lease?: NativeConnectionLease;
 
-  async listDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+  async listDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
     if (connectionType === ConnectionType.Lan) {
       return [];
     }
 
     const devices = await callNative(() => DeviceModule.discover(toNativeDiscoverableType(connectionType)));
-    return devices.map(toDiscoveredDevice);
+    return devices.map(toDiscoverResult);
   }
 
   async connect(connection: PrinterConnection): Promise<void> {

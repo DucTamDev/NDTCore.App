@@ -15,7 +15,7 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterStatus } from '../../models/printer/PrinterStatus';
 import { deviceIdOf } from '../../models/printer/PrinterConnection';
 import type { Printer } from '../../models/printer/Printer';
-import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 
 // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
 // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
@@ -100,7 +100,7 @@ const savedEscpos: Printer = {
 let capturedDetectionHandler: ((event: unknown) => void) | undefined;
 
 /** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
-const usbDevice: DiscoveredDevice = {
+const usbDevice: DiscoverResult = {
   device: { deviceId: 'usb:/dev/bus/usb/001/009', name: 'XP-420B', hasPermission: true },
   connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751 },
 };

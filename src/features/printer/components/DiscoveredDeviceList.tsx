@@ -4,8 +4,8 @@ import { List, IconButton, Text } from 'react-native-paper';
 import { deviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import { DeviceDiscoveryEventType } from '../models/device/DeviceDiscoveryEvent';
-import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
+import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
+import type { DiscoverResult } from '../models/discovery/DiscoverResult';
 import type { ConnectionType } from '../models/printer/ConnectionType';
 import { deviceIdOf } from '../models/printer/PrinterConnection';
 
@@ -18,7 +18,7 @@ export interface DiscoveredDeviceListProps {
   /** Mã quét native của thiết bị đang chọn. */
   selectedScanId?: string;
 
-  onSelect: (device: DiscoveredDevice) => void;
+  onSelect: (device: DiscoverResult) => void;
 }
 
 /** Quét lâu hơn mức này thì dừng chờ và hiển thị những gì đã có. */
@@ -32,7 +32,7 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
   onSelect,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
+  const [devices, setDevices] = useState<DiscoverResult[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [discoveryTrigger, setDiscoveryTrigger] = useState(0);
 
@@ -48,17 +48,17 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
     };
 
     const unsubscribe = deviceDiscoveryService.discover(connectionType, (event) => {
-      if (settled || event.type === DeviceDiscoveryEventType.Loading) {
+      if (settled || event.status === DiscoveryStatus.Loading) {
         return;
       }
 
       settle();
 
-      if (event.type === DeviceDiscoveryEventType.Found) {
+      if (event.status === DiscoveryStatus.Found) {
         setDevices(event.devices);
       }
 
-      if (event.type === DeviceDiscoveryEventType.Error) {
+      if (event.status === DiscoveryStatus.Error) {
         setErrorMessage(event.error.message);
       }
     });

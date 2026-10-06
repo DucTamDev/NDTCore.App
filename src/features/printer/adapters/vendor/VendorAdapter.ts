@@ -1,7 +1,7 @@
 import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import type { ConnectionType } from '../../models/printer/ConnectionType';
 import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import { PrinterErrorException } from '../../exceptions';
 import { PrinterErrorCode } from '../../errors';
 
@@ -14,7 +14,7 @@ export class VendorAdapter implements IPrinterAdapter {
 
   readonly canRead = false;
 
-  async listDevices(_connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+  async listDevices(_connectionType: ConnectionType): Promise<DiscoverResult[]> {
     return [];
   }
 

@@ -1,7 +1,8 @@
 import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../models/device/DeviceDiscoveryEvent';
-import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+import { DiscoveryStatus } from '../../models/discovery/DiscoveryStatus';
+import type { DiscoveryEvent } from '../../models/discovery/DiscoveryEvent';
+import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
 import { DeviceErrorCode, PrintErrorCode } from '../../errors';
@@ -14,7 +15,7 @@ jest.mock('../../logging/PrinterLogger', () => ({
   printerLogger: { discoveryStarted: jest.fn(), discoveryCompleted: jest.fn(), discoveryFailed: jest.fn() },
 }));
 
-const bluetoothPrinter: DiscoveredDevice = {
+const bluetoothPrinter: DiscoverResult = {
   device: { deviceId: 'bluetooth:AA:BB', name: 'XP-P323B', hasPermission: true },
   connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
 };
@@ -32,13 +33,13 @@ const setup = (bluetoothGranted = true) => {
 const discoverUntilSettled = (
   service: ReturnType<typeof setup>['service'],
   connectionType: ConnectionType,
-): Promise<DeviceDiscoveryEvent[]> =>
+): Promise<DiscoveryEvent[]> =>
   new Promise((resolve) => {
-    const events: DeviceDiscoveryEvent[] = [];
+    const events: DiscoveryEvent[] = [];
     service.discover(connectionType, (event) => {
       events.push(event);
 
-      if (event.type !== DeviceDiscoveryEventType.Loading) {
+      if (event.status !== DiscoveryStatus.Loading) {
         resolve(events);
       }
     });
@@ -49,11 +50,11 @@ describe('DeviceDiscoveryService', () => {
 
   it('LAN báo rỗng ngay, không gọi adapter', () => {
     const { service, adapter } = setup();
-    const events: DeviceDiscoveryEvent[] = [];
+    const events: DiscoveryEvent[] = [];
 
     service.discover(ConnectionType.Lan, (event) => events.push(event));
 
-    expect(events).toEqual([{ type: DeviceDiscoveryEventType.Empty }]);
+    expect(events).toEqual([{ status: DiscoveryStatus.Empty }]);
     expect(adapter.listDevices).not.toHaveBeenCalled();
   });
 
@@ -66,8 +67,8 @@ describe('DeviceDiscoveryService', () => {
     expect(ensureBluetoothPermission).toHaveBeenCalled();
     expect(adapter.listDevices).toHaveBeenCalledWith(ConnectionType.Bluetooth);
     expect(events).toEqual([
-      { type: DeviceDiscoveryEventType.Loading },
-      { type: DeviceDiscoveryEventType.Found, devices: [bluetoothPrinter] },
+      { status: DiscoveryStatus.Loading },
+      { status: DiscoveryStatus.Found, devices: [bluetoothPrinter] },
     ]);
     expect(printerLogger.discoveryCompleted).toHaveBeenCalledWith(
       expect.objectContaining({ connectionType: ConnectionType.Bluetooth, deviceCount: 1 }),
@@ -80,7 +81,7 @@ describe('DeviceDiscoveryService', () => {
     const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
 
     expect(events[1]).toMatchObject({
-      type: DeviceDiscoveryEventType.Error,
+      status: DiscoveryStatus.Error,
       error: { code: DeviceErrorCode.PERMISSION_DENIED, message: 'Chưa được cấp quyền Bluetooth' },
     });
     expect(adapter.listDevices).not.toHaveBeenCalled();
@@ -93,7 +94,7 @@ describe('DeviceDiscoveryService', () => {
 
     expect(ensureBluetoothPermission).not.toHaveBeenCalled();
     expect(adapter.listDevices).toHaveBeenCalledWith(ConnectionType.Usb);
-    expect(events[1]).toEqual({ type: DeviceDiscoveryEventType.Empty });
+    expect(events[1]).toEqual({ status: DiscoveryStatus.Empty });
   });
 
   it('native báo "No Device Found" thì coi là rỗng', async () => {
@@ -102,7 +103,7 @@ describe('DeviceDiscoveryService', () => {
 
     const events = await discoverUntilSettled(service, ConnectionType.Usb);
 
-    expect(events[1]).toEqual({ type: DeviceDiscoveryEventType.Empty });
+    expect(events[1]).toEqual({ status: DiscoveryStatus.Empty });
   });
 
   it('lỗi quét thật thì báo Error và ghi log discoveryFailed', async () => {
@@ -112,7 +113,7 @@ describe('DeviceDiscoveryService', () => {
     const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
 
     expect(events[1]).toMatchObject({
-      type: DeviceDiscoveryEventType.Error,
+      status: DiscoveryStatus.Error,
       error: { code: PrintErrorCode.UNKNOWN_ERROR, message: 'bluetooth adapter off' },
     });
     expect(printerLogger.discoveryFailed).toHaveBeenCalledWith(
@@ -122,9 +123,9 @@ describe('DeviceDiscoveryService', () => {
 
   it('huỷ trước khi quét xong thì không báo thêm sự kiện', async () => {
     const { service, adapter } = setup();
-    let finish: (devices: DiscoveredDevice[]) => void = () => undefined;
+    let finish: (devices: DiscoverResult[]) => void = () => undefined;
     adapter.listDevices.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
-    const events: DeviceDiscoveryEvent[] = [];
+    const events: DiscoveryEvent[] = [];
 
     const unsubscribe = service.discover(ConnectionType.Usb, (event) => events.push(event));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -132,6 +133,6 @@ describe('DeviceDiscoveryService', () => {
     finish([bluetoothPrinter]);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(events).toEqual([{ type: DeviceDiscoveryEventType.Loading }]);
+    expect(events).toEqual([{ status: DiscoveryStatus.Loading }]);
   });
 });

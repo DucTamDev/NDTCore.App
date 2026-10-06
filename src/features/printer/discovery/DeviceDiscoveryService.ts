@@ -1,7 +1,8 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
-import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
+import type { DiscoverResult } from '../models/discovery/DiscoverResult';
+import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
+import type { DiscoveryEvent } from '../models/discovery/DiscoveryEvent';
 import { DeviceErrorCode } from '../errors';
 import { DeviceErrorException, toPrinterFeatureException } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
@@ -23,16 +24,16 @@ const NO_DEVICE_MESSAGE = /no device found/i;
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /** Log `debug` đủ chi tiết thiết bị để soi khi danh sách hiển thị sai; không đi qua `PrinterLogger` vì có MAC. */
-const logEvent = (connectionType: ConnectionType, event: DeviceDiscoveryEvent): void => {
+const logEvent = (connectionType: ConnectionType, event: DiscoveryEvent): void => {
   LoggerService.debug('printer.discovery.event', {
     connectionType,
-    type: event.type,
+    status: event.status,
     devices:
-      event.type === DeviceDiscoveryEventType.Found
+      event.status === DiscoveryStatus.Found
         ? event.devices.map(({ device, connection }) => ({ deviceId: device.deviceId, name: device.name, connection }))
         : undefined,
     error:
-      event.type === DeviceDiscoveryEventType.Error
+      event.status === DiscoveryStatus.Error
         ? { code: event.error.code, message: event.error.message }
         : undefined,
   });
@@ -47,21 +48,21 @@ export class DeviceDiscoveryService {
     },
   ) {}
 
-  discover(connectionType: ConnectionType, onEvent: (event: DeviceDiscoveryEvent) => void): Unsubscribe {
+  discover(connectionType: ConnectionType, onEvent: (event: DiscoveryEvent) => void): Unsubscribe {
     let cancelled = false;
     const startedAt = Date.now();
 
-    const emit = (event: DeviceDiscoveryEvent): void => {
+    const emit = (event: DiscoveryEvent): void => {
       if (!cancelled) {
         logEvent(connectionType, event);
         onEvent(event);
       }
     };
 
-    const complete = (devices: DiscoveredDevice[]): void => {
+    const complete = (devices: DiscoverResult[]): void => {
       const deviceCount = devices.length;
-      const found: DeviceDiscoveryEvent = { type: DeviceDiscoveryEventType.Found, devices };
-      emit(deviceCount > 0 ? found : { type: DeviceDiscoveryEventType.Empty });
+      const found: DiscoveryEvent = { status: DiscoveryStatus.Found, devices };
+      emit(deviceCount > 0 ? found : { status: DiscoveryStatus.Empty });
       printerLogger.discoveryCompleted({ connectionType, deviceCount, durationMs: Date.now() - startedAt });
     };
 
@@ -74,17 +75,17 @@ export class DeviceDiscoveryService {
       }
 
       const failure = toPrinterFeatureException(error);
-      emit({ type: DeviceDiscoveryEventType.Error, error: failure });
+      emit({ status: DiscoveryStatus.Error, error: failure });
       printerLogger.discoveryFailed({ connectionType, errorCode: failure.code, durationMs: Date.now() - startedAt });
     };
 
     if (connectionType === ConnectionType.Lan) {
-      emit({ type: DeviceDiscoveryEventType.Empty });
+      emit({ status: DiscoveryStatus.Empty });
       return () => undefined;
     }
 
     printerLogger.discoveryStarted({ connectionType });
-    emit({ type: DeviceDiscoveryEventType.Loading });
+    emit({ status: DiscoveryStatus.Loading });
     this.findDevices(connectionType).then(complete, fail);
 
     return () => {
@@ -92,7 +93,7 @@ export class DeviceDiscoveryService {
     };
   }
 
-  private async findDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+  private async findDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
     if (connectionType === ConnectionType.Bluetooth && !(await this.deps.ensureBluetoothPermission())) {
       throw new DeviceErrorException({
         code: DeviceErrorCode.PERMISSION_DENIED,

@@ -56,7 +56,7 @@ IPrintLanguage   PrinterConnectionService
 Luồng thêm máy in:
 
 ```text
-DeviceDiscoveryService        tìm thiết bị → DiscoveredDevice
+DeviceDiscoveryService        tìm thiết bị → DiscoverResult
     ↓
 PrinterDetectionService      kết nối một lần, thử lệnh dò từng ngôn ngữ
     ↓
@@ -95,7 +95,8 @@ src/features/printer/
 ├── CODING_STYLE.md
 │
 ├── models/
-│   ├── device/          DeviceInfo, DiscoveredDevice, DeviceDiscoveryEvent — dùng lúc tìm thiết bị, không lưu
+│   ├── device/          DeviceInfo — thông tin thiết bị tìm thấy, không lưu
+│   ├── discovery/       DiscoverResult, DiscoveryStatus, DiscoveryEvent — kết quả và tiến trình tìm thiết bị
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
@@ -288,7 +289,7 @@ PrinterCapabilities  → Máy thực tế có khả năng gì?
 
 # 10. Device Models
 
-`models/device/` dùng lúc tìm thiết bị, không lưu.
+`models/device/` (`DeviceInfo`) và `models/discovery/` dùng lúc tìm thiết bị, không lưu.
 
 ```ts
 /** Thông tin cơ bản của một thiết bị tìm thấy khi quét. */
@@ -301,12 +302,17 @@ interface DeviceInfo {
 }
 
 /** Một kết quả quét: thiết bị và cách kết nối tới nó. */
-interface DiscoveredDevice {
+interface DiscoverResult {
   device: DeviceInfo;
   connection: PrinterConnection;  // chọn máy thì gán thẳng vào Printer.connection
 }
 
-type DeviceDiscoveryEvent = Loading | Found { devices } | Empty | Error { error };
+/** Trạng thái một lần tìm thiết bị. */
+const DiscoveryStatus = { Loading, Found, Empty, Error };
+
+type DiscoveryEvent =                       // field `status` phân loại
+  | { status: Loading } | { status: Found; devices: DiscoverResult[] }
+  | { status: Empty } | { status: Error; error: PrinterFeatureException };
 ```
 
 `DeviceInfo.deviceId` của USB chứa đường dẫn thiết bị nên đổi khi rút ra cắm lại; luồng thêm máy dùng nó để quét lại và
@@ -430,7 +436,7 @@ Thêm ngôn ngữ mới: thêm giá trị `PrintLanguage`, một `IPrintLanguage
 interface IPrinterAdapter {
   readonly source: 'native' | 'vendor';
   readonly canRead: boolean;
-  listDevices(connectionType): Promise<DiscoveredDevice[]>;
+  listDevices(connectionType): Promise<DiscoverResult[]>;
   connect(connection: PrinterConnection): Promise<void>;   // mở được rồi mới trả kết nối cũ
   write(bytes: Uint8Array): Promise<void>;
   read(timeoutMs): Promise<Uint8Array | null>;            // null khi hết hạn
@@ -1325,7 +1331,7 @@ Test tập trung vào responsibility của component:
 IPrintLanguage           → byte encode khớp fixture, lỗi nội dung
 PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiều máy song song
 PrinterDetectionService → kết nối một lần, lệnh dò, xác nhận yếu, huỷ
-DeviceDiscoveryService   → quyền, ánh xạ native → DiscoveredDevice
+DeviceDiscoveryService   → quyền, ánh xạ native → DiscoverResult
 PrintScheduler           → ordering, khoá theo máy vật lý
 PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print
 PaperDraft               → paper rule tests
