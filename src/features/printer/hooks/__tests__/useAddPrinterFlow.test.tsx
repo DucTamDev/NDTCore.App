@@ -3,7 +3,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow';
 import { printerRepository } from '../../storage/PrinterRepository';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
-import { printerPrintService } from '../../printing/PrinterPrintService';
+import { printerService } from '../../printing/PrinterService';
 import { printerConfigService } from '../../management/PrinterConfigService';
 import { printerDetectionService } from '../../detection/PrinterDetectionService';
 import type { PrinterDetection } from '../../detection/PrinterDetection';
@@ -41,8 +41,8 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
   },
 }));
 
-jest.mock('../../printing/PrinterPrintService', () => ({
-  printerPrintService: {
+jest.mock('../../printing/PrinterService', () => ({
+  printerService: {
     testPrint: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -416,13 +416,13 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.paper).toMatchObject({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
   });
 
-  it('onTestPrint gọi printerPrintService.testPrint với printer.type cố định (Label → copies)', async () => {
+  it('onTestPrint gọi printerService.testPrint với printer.type cố định (Label → copies)', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onTestPrintRowsChange('3'));
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
-    expect(printerPrintService.testPrint).toHaveBeenCalledWith(
+    expect(printerService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1', kind: PrintKind.Label }),
       'base64-png',
       { copies: 3 },
@@ -435,7 +435,7 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
-    expect(printerPrintService.testPrint).not.toHaveBeenCalled();
+    expect(printerService.testPrint).not.toHaveBeenCalled();
     expect(get().testPrintErrorMessage).toContain('itemWidthMm');
   });
 
@@ -451,7 +451,7 @@ describe('useAddPrinterFlow', () => {
       await get().infoCard.onTestPrint();
     });
     expect(mockCaptureImage).toHaveBeenCalledWith(expect.anything(), savedEscpos.paper);
-    expect(printerPrintService.testPrint).toHaveBeenCalledWith(
+    expect(printerService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p2' }),
       'base64-png',
       undefined,
@@ -464,7 +464,7 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
-    expect(printerPrintService.testPrint).not.toHaveBeenCalled();
+    expect(printerService.testPrint).not.toHaveBeenCalled();
     expect(get().testPrintErrorMessage).toBe('Không chụp được bản in thử');
   });
 

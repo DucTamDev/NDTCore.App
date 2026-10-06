@@ -9,7 +9,7 @@ import { printerConnectionLock, lockKeyOf, type ResourceLock } from '../connecti
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
 /** In ảnh ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
-export class PrinterPrintService {
+export class PrinterService {
   constructor(
     private readonly connectionService: PrinterConnectionService =
       printerConnectionService,
@@ -61,4 +61,4 @@ export class PrinterPrintService {
   }
 }
 
-export const printerPrintService = new PrinterPrintService();
+export const printerService = new PrinterService();

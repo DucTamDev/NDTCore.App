@@ -1,4 +1,4 @@
-import { PrinterPrintService } from '../PrinterPrintService';
+import { PrinterService } from '../PrinterService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { ResourceLock } from '../../connection/PrinterConnectionLock';
 import { printerStorage } from '../../storage/PrinterStorage';
@@ -43,12 +43,12 @@ const setup = (connectionOverrides: Parameters<typeof makeMockConnectionService>
   const connectionService = makeMockConnectionService(connectionOverrides);
   const repository = new PrinterRepository();
   const lock = new ResourceLock();
-  const service = new PrinterPrintService(connectionService, repository, lock);
+  const service = new PrinterService(connectionService, repository, lock);
 
   return { service, connectionService, repository, lock };
 };
 
-describe('PrinterPrintService', () => {
+describe('PrinterService', () => {
   beforeEach(() => {
     printerStorage.savePrinters([]);
     jest.clearAllMocks();

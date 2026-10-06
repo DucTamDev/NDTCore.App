@@ -44,7 +44,7 @@ PrintRoutingService           chọn máy theo kind
     ↓
 PrintScheduler                khoá theo máy vật lý
     ↓
-PrinterPrintService           encode theo ngôn ngữ + gửi qua kết nối
+PrinterService                encode theo ngôn ngữ + gửi qua kết nối
     ↓                ↓
 IPrintLanguage   PrinterConnectionService
                      ↓
@@ -70,7 +70,7 @@ PrinterRepository             lưu
 | `PrintService`             | Public API cho print operation                            |
 | `PrintRoutingService`      | Xác định printer nào nhận document theo `kind`            |
 | `PrintScheduler`           | Queue, ordering, khoá theo máy vật lý                      |
-| `PrinterPrintService`      | In / in thử một printer: encode rồi gửi                   |
+| `PrinterService`           | In / in thử một printer: encode rồi gửi                   |
 | `IPrintLanguage`           | Encode nội dung thành byte theo một ngôn ngữ lệnh          |
 | `PrinterConnectionService` | Phiên kết nối theo `printerId`: mở, đóng, gửi, đọc, trạng thái |
 | `PrinterConnectionLock`    | Khoá loại trừ theo máy vật lý                              |
@@ -121,7 +121,7 @@ src/features/printer/
 │
 ├── discovery/           DeviceDiscoveryService, NetworkInfoService
 ├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
-├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterPrintService
+├── printing/            PrintService, PrintRoutingService, PrintScheduler, PrinterService
 ├── management/          PrinterConfigService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
@@ -528,7 +528,7 @@ máy đã lưu lẫn bản nháp đang thêm. Nhiều `Printer` trỏ cùng mộ
 * `reconnect` không mở lại kết nối nếu còn `Printer` khác đang dùng chung máy vật lý.
 * Không giới hạn số máy cùng loại kết nối kết nối cùng lúc.
 * Không biết ngôn ngữ in; log kết nối không mang ngôn ngữ.
-* **Không tự khoá**: `PrinterPrintService.print` kết nối bên trong khoá của scheduler, khoá lại sẽ treo.
+* **Không tự khoá**: `PrinterService.print` kết nối bên trong khoá của scheduler, khoá lại sẽ treo.
 
 Không chịu trách nhiệm `print`, `route`, `schedule`, `render`, `encode`, `save`.
 
@@ -543,7 +543,7 @@ printerConnectionLock    instance dùng chung
 ```
 
 Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn cả lệnh in, nên hai lệnh
-in cùng một máy phải chạy lần lượt. Hàng đợi in (`PrintScheduler`) và nút "In thử" (`PrinterPrintService.testPrint`)
+in cùng một máy phải chạy lần lượt. Hàng đợi in (`PrintScheduler`) và nút "In thử" (`PrinterService.testPrint`)
 dùng chung một khoá. Khoá không reentrant.
 
 Không log key: key là `deviceId`, nhúng IP/MAC.
@@ -566,7 +566,7 @@ Chọn máy nhận theo `printer.kind` và `enabled`.
 Queue, ordering, job lifecycle. Khoá theo `task.deviceId` (bằng `lockKeyOf` của máy in đã lưu), không tra
 repository. Không biết lệnh ESC/POS hay TSPL.
 
-## `PrinterPrintService`
+## `PrinterService`
 
 ```text
 print(printerId, image, options?)
@@ -588,7 +588,7 @@ PrintRoutingService → target printers (mỗi target một job)
     ↓
 PrintScheduler → PrinterConnectionLock(task.deviceId)
     ↓
-PrinterPrintService
+PrinterService
     ├── PrinterConnectionService.connect (nếu chưa Connected)
     ├── IPrintLanguage.encode
     └── PrinterConnectionService.send → NativeAdapter → DeviceModule
@@ -608,7 +608,7 @@ layers vẫn trả structured error:
 ```text
 Native / adapter error (DeviceErrorException), encode error (PrintErrorException)
     ↓
-PrinterPrintService (log print* failed)
+PrinterService (log print* failed)
     ↓
 PrintScheduler (job Failed + PrinterFeatureException)
     ↓
@@ -1339,7 +1339,7 @@ PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiề
 PrinterDetectionService  → khớp trường nhận diện, không phân biệt hoa thường, định nghĩa đầu tiên thắng
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoverResult
 PrintScheduler           → ordering, khoá theo máy vật lý
-PrinterPrintService      → encode + gửi, kết nối khi cần, không tự khoá khi print
+PrinterService           → encode + gửi, kết nối khi cần, không tự khoá khi print
 PaperDraft               → paper rule tests
 ```
 
@@ -1426,7 +1426,7 @@ Chỉ lưu serializable configuration: `Printer`, `PrinterConnection`, `PrinterL
 ### Printing
 
 ```text
-PrintService → PrintRoutingService → PrintScheduler (khoá) → PrinterPrintService
+PrintService → PrintRoutingService → PrintScheduler (khoá) → PrinterService
     → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter
 ```
 

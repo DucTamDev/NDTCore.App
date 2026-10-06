@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import { PrinterPrintService } from '../PrinterPrintService';
+import { PrinterService } from '../PrinterService';
 import { ENCODE_CASES, fingerprintOf } from '../../testing/encodeCases';
 
 jest.mock('../../logging/PrinterLogger', () => ({
@@ -20,7 +20,7 @@ describe('byte in thử gửi tới máy in', () => {
   afterEach(() => jest.clearAllMocks());
 
   it.each(ENCODE_CASES.map((encodeCase) => [encodeCase.name, encodeCase] as const))('%s', async (_name, encodeCase) => {
-    await new PrinterPrintService().testPrint(encodeCase.printer, encodeCase.image, encodeCase.options);
+    await new PrinterService().testPrint(encodeCase.printer, encodeCase.image, encodeCase.options);
 
     expect(fingerprintOf(writtenBytes())).toBe(encodeCase.fingerprint);
   });

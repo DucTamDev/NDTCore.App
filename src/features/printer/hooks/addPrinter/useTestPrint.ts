@@ -1,6 +1,6 @@
 import { createElement, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { printerPrintService } from '../../printing/PrinterPrintService';
+import { printerService } from '../../printing/PrinterService';
 import { SampleLabel, SampleReceipt } from '../../components/SamplePrint';
 import { PrinterFeatureException } from '../../exceptions';
 import { PrintKind } from '../../models/printer/PrintKind';
@@ -21,7 +21,7 @@ export interface UseTestPrintInput {
   captureImage: CaptureImage;
 }
 
-/** In thử trong luồng Thêm/Sửa máy in: chụp bản in mẫu theo `kind` rồi gọi `PrinterPrintService.testPrint`. */
+/** In thử trong luồng Thêm/Sửa máy in: chụp bản in mẫu theo `kind` rồi gọi `PrinterService.testPrint`. */
 export const useTestPrint = (input: UseTestPrintInput) => {
   const { language, paperError, displayForm, buildDraftPrinter, captureImage } = input;
   const [testPrintPending, setTestPrintPending] = useState(false);
@@ -57,7 +57,7 @@ export const useTestPrint = (input: UseTestPrintInput) => {
       }
 
       const options = isLabel ? { copies: Number(testPrintRowsText) } : undefined;
-      await printerPrintService.testPrint(printer, image, options);
+      await printerService.testPrint(printer, image, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterFeatureException ? error.message : 'In thử thất bại');
     } finally {

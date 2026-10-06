@@ -1,5 +1,5 @@
 import { PrintScheduler } from '../PrintScheduler';
-import { PrinterPrintService } from '../PrinterPrintService';
+import { PrinterService } from '../PrinterService';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { ResourceLock } from '../../connection/PrinterConnectionLock';
 import { ConnectionType } from '../../models/printer/ConnectionType';
@@ -26,11 +26,11 @@ const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
     ...overrides,
   });
 
-const makeScheduler = (printing: Partial<PrinterPrintService>): PrintScheduler =>
-  new PrintScheduler(mockOf<PrinterPrintService>(printing), new ResourceLock());
+const makeScheduler = (printing: Partial<PrinterService>): PrintScheduler =>
+  new PrintScheduler(mockOf<PrinterService>(printing), new ResourceLock());
 
 describe('PrintScheduler', () => {
-  it('enqueue() resolves with status success when printerPrintService.print resolves', async () => {
+  it('enqueue() resolves with status success when printerService.print resolves', async () => {
     const printerService = { print: jest.fn().mockResolvedValue(undefined) };
     const scheduler = makeScheduler(printerService);
     const result = await scheduler.enqueue(makeTask());
@@ -38,7 +38,7 @@ describe('PrintScheduler', () => {
     expect(result.completedAt).toBeDefined();
   });
 
-  it('enqueue() resolves with status failed and the exception when printerPrintService.print rejects', async () => {
+  it('enqueue() resolves with status failed and the exception when printerService.print rejects', async () => {
     const printerService = {
       print: jest
         .fn()
@@ -121,7 +121,7 @@ describe('PrintScheduler', () => {
     });
     const lock = new ResourceLock();
     const repository = new PrinterRepository();
-    const printerService = new PrinterPrintService(connectionService, repository, lock);
+    const printerService = new PrinterService(connectionService, repository, lock);
     const printer: Printer = makePrinter({ id: 'receipt-1' });
     repository.addPrinter(printer);
     const scheduler = new PrintScheduler(printerService, lock);

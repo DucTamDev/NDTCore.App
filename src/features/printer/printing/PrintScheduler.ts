@@ -1,5 +1,5 @@
 import { toPrinterFeatureException } from '../exceptions';
-import { printerPrintService, type PrinterPrintService } from './PrinterPrintService';
+import { printerService, type PrinterService } from './PrinterService';
 import { printerConnectionLock, type ResourceLock } from '../connection/PrinterConnectionLock';
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
@@ -8,7 +8,7 @@ import type { PrintTask } from '../models/printing/PrintTask';
 export class PrintScheduler {
   constructor(
     /** In một lệnh in trên máy của nó. */
-    private readonly printing: PrinterPrintService = printerPrintService,
+    private readonly printing: PrinterService = printerService,
 
     /** Khoá dùng chung với nút "In thử". */
     private readonly lock: ResourceLock = printerConnectionLock,
