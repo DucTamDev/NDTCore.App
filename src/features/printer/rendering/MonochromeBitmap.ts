@@ -1,49 +1,98 @@
 import UPNG from 'upng-js';
 import { Buffer } from 'buffer';
 
-/** Bitmap 1-bit đã đóng gói theo hàng (row-packed), MSB trước — đúng format lệnh `BITMAP` của TSPL. */
+/** Độ sáng (0–255) dưới ngưỡng này là chấm đen. */
+const DEFAULT_THRESHOLD = 128;
+
+/** Ảnh 1-bit đóng gói theo hàng, bit cao nhất của mỗi byte là pixel bên trái; bit `1` là chấm in (đen). */
 export interface MonochromeBitmap {
-  /** Số byte/hàng — TSPL cần width tính theo BYTE, không phải pixel (`Math.ceil(widthPx / 8)`). */
+  /** Số byte mỗi hàng, `ceil(rộng px / 8)`; lệnh in raster nhận chiều rộng theo byte. */
   widthBytes: number;
+
+  /** Số hàng pixel. */
   heightPx: number;
-  /** `bits.length === widthBytes * heightPx`. Bit `1` = đen (in ra), `0` = trắng. */
+
+  /** `widthBytes * heightPx` byte, hàng trên trước. */
   bits: Uint8Array;
 }
 
+/** Ảnh RGBA đã decode. */
+interface RgbaImage {
+  /** Pixel theo hàng, mỗi pixel 4 byte R, G, B, A. */
+  data: Uint8Array;
+
+  /** Chiều rộng (px). */
+  width: number;
+
+  /** Chiều cao (px). */
+  height: number;
+}
+
+/** Pixel trong suốt là nền nên luôn trắng, bất kể màu RGB bên dưới. */
+const luminanceAt = (rgba: Uint8Array, offset: number): number => {
+  if (rgba[offset + 3] === 0) {
+    return 255;
+  }
+
+  return (rgba[offset] * 299 + rgba[offset + 1] * 587 + rgba[offset + 2] * 114) / 1000;
+};
+
+const setDot = (bits: Uint8Array, widthBytes: number, x: number, y: number): void => {
+  // eslint-disable-next-line no-bitwise -- mỗi byte chứa 8 pixel, pixel trái nhất ở bit cao nhất
+  bits[y * widthBytes + Math.floor(x / 8)] |= 0x80 >> x % 8;
+};
+
+const copyPixel = (src: Uint8Array, srcOffset: number, dst: Uint8Array, dstOffset: number): void => {
+  dst[dstOffset] = src[srcOffset];
+  dst[dstOffset + 1] = src[srcOffset + 1];
+  dst[dstOffset + 2] = src[srcOffset + 2];
+  dst[dstOffset + 3] = src[srcOffset + 3];
+};
+
+/** `upng-js` decode thuần JS vì RN không có Canvas; ảnh chụp chỉ có một frame nên lấy frame đầu. */
+const decodePng = (base64Png: string): RgbaImage => {
+  const decoded = UPNG.decode(Buffer.from(base64Png, 'base64'));
+  const [rgba] = UPNG.toRGBA8(decoded);
+  return { data: new Uint8Array(rgba), width: decoded.width, height: decoded.height };
+};
+
 /**
- * Convert RGBA (4 byte/pixel, thứ tự R,G,B,A) sang bitmap 1-bit theo ngưỡng
- * độ sáng (luminance) — cần thiết vì lệnh `BITMAP` của TSPL chỉ nhận ảnh đen
- * trắng thuần, không có khái niệm màu/xám. Pixel trong suốt (alpha=0) luôn
- * tính là trắng (nền), không phụ thuộc màu RGB bên dưới.
+ * Thu nhỏ nearest-neighbor về `width`, giữ tỉ lệ. Ảnh chụp theo pixel vật lý (dp × pixel ratio) nên rộng hơn khổ giấy
+ * 2–3 lần; thu nhỏ ở đây thay vì truyền kích thước cho `captureRef` vì kích thước đó phải đọc từ `onLayout`, sự kiện
+ * có thể bắn với số đo tạm trước khi nội dung đo xong.
  */
+const resizeToWidth = (image: RgbaImage, width: number): RgbaImage => {
+  const scale = image.width / width;
+  const height = Math.max(1, Math.round(image.height / scale));
+  const data = new Uint8Array(width * height * 4);
+
+  for (let y = 0; y < height; y += 1) {
+    const srcY = Math.min(image.height - 1, Math.floor(y * scale));
+
+    for (let x = 0; x < width; x += 1) {
+      const srcX = Math.min(image.width - 1, Math.floor(x * scale));
+      copyPixel(image.data, (srcY * image.width + srcX) * 4, data, (y * width + x) * 4);
+    }
+  }
+
+  return { data, width, height };
+};
+
+/** Lấy ngưỡng độ sáng để ra ảnh đen trắng thuần, vì lệnh in raster không có màu hay mức xám. */
 export const rgbaToMonochromeBitmap = (
   rgba: Uint8Array,
   widthPx: number,
   heightPx: number,
-  threshold = 128,
+  threshold = DEFAULT_THRESHOLD,
 ): MonochromeBitmap => {
   const widthBytes = Math.ceil(widthPx / 8);
   const bits = new Uint8Array(widthBytes * heightPx);
 
   for (let y = 0; y < heightPx; y += 1) {
     for (let x = 0; x < widthPx; x += 1) {
-      const pixelOffset = (y * widthPx + x) * 4;
-      const r = rgba[pixelOffset];
-      const g = rgba[pixelOffset + 1];
-      const b = rgba[pixelOffset + 2];
-      const a = rgba[pixelOffset + 3];
-      const luminance = a === 0 ? 255 : (r * 299 + g * 587 + b * 114) / 1000;
-
-      if (luminance >= threshold) {
-        continue;
+      if (luminanceAt(rgba, (y * widthPx + x) * 4) < threshold) {
+        setDot(bits, widthBytes, x, y);
       }
-
-      // eslint-disable-next-line no-bitwise -- intentional bit packing, MSB-first per pixel row (TSPL BITMAP format)
-      const byteIndex = y * widthBytes + (x >> 3);
-      // eslint-disable-next-line no-bitwise -- intentional bit packing, MSB-first per pixel row (TSPL BITMAP format)
-      const bitMask = 1 << (7 - (x % 8));
-      // eslint-disable-next-line no-bitwise -- intentional bit packing, MSB-first per pixel row (TSPL BITMAP format)
-      bits[byteIndex] |= bitMask;
     }
   }
 
@@ -51,65 +100,12 @@ export const rgbaToMonochromeBitmap = (
 };
 
 /**
- * Thu nhỏ RGBA (nearest-neighbor) về đúng `targetWidthPx`, giữ tỉ lệ —
- * `react-native-view-shot` chụp theo pixel vật lý thật của máy (dp ×
- * devicePixelRatio), không phải dp, nên ảnh decode được thường lớn hơn
- * `targetWidthPx` (khớp `PAPER_SIZE_SPECS[...].imageWidthPx`) 2-3 lần trên máy pixelRatio
- * cao. Làm ở đây (thuần JS, dựa trên kích thước ảnh đã decode) thay vì nhờ
- * `captureRef({width, height})` vì option đó cần đọc `onLayout` — 1 sự kiện
- * có thể bắn nhiều lần với kích thước tạm trước khi `Text` con đo xong,
- * từng gây ảnh trắng trơn/lẫn nội dung lần chụp trước.
+ * PNG base64 (không tiền tố `data:`) → bitmap 1-bit. Có `targetWidthPx` khác bề rộng ảnh thì thu về đúng bề rộng đó
+ * trước khi lấy ngưỡng.
  */
-const downscaleRgba = (
-  src: Uint8Array,
-  srcWidth: number,
-  srcHeight: number,
-  targetWidth: number,
-): { data: Uint8Array; width: number; height: number } => {
-  const scale = srcWidth / targetWidth;
-  const targetHeight = Math.max(1, Math.round(srcHeight / scale));
-  const data = new Uint8Array(targetWidth * targetHeight * 4);
-
-  for (let y = 0; y < targetHeight; y += 1) {
-    const srcY = Math.min(srcHeight - 1, Math.floor(y * scale));
-    for (let x = 0; x < targetWidth; x += 1) {
-      const srcX = Math.min(srcWidth - 1, Math.floor(x * scale));
-      const srcOffset = (srcY * srcWidth + srcX) * 4;
-      const dstOffset = (y * targetWidth + x) * 4;
-      data[dstOffset] = src[srcOffset];
-      data[dstOffset + 1] = src[srcOffset + 1];
-      data[dstOffset + 2] = src[srcOffset + 2];
-      data[dstOffset + 3] = src[srcOffset + 3];
-    }
-  }
-  return { data, width: targetWidth, height: targetHeight };
-};
-
-/**
- * Decode 1 ảnh PNG (base64, không có tiền tố `data:image/png;base64,`) sang
- * bitmap 1-bit — dùng cho lệnh `BITMAP` của `TsplLanguage`. `upng-js` là decoder PNG
- * thuần JS (không cần Canvas/native module), phù hợp môi trường RN vốn
- * không có `HTMLCanvasElement`. `UPNG.toRGBA8()` chỉ trả `ArrayBuffer[]`
- * (nhiều frame cho APNG) — bill chỉ có 1 frame tĩnh nên luôn lấy `[0]`.
- *
- * `targetWidthPx` — nếu truyền và khác `decoded.width` (xem `downscaleRgba`
- * ở trên), resize RGBA về đúng chiều rộng này trước khi threshold. Bỏ trống
- * khi không cần chuẩn hoá kích thước (vd test tự build PNG đúng sẵn kích thước).
- */
-export const decodePngBase64ToMonochrome = (
-  base64Png: string,
-  targetWidthPx?: number,
-  threshold = 128,
-): MonochromeBitmap => {
-  const pngBytes = Buffer.from(base64Png, 'base64');
-  const decoded = UPNG.decode(pngBytes);
-  const [rgbaBuffer] = UPNG.toRGBA8(decoded);
-  const rgba = new Uint8Array(rgbaBuffer);
-
-  if (targetWidthPx && decoded.width !== targetWidthPx) {
-    const resized = downscaleRgba(rgba, decoded.width, decoded.height, targetWidthPx);
-    return rgbaToMonochromeBitmap(resized.data, resized.width, resized.height, threshold);
-  }
-
-  return rgbaToMonochromeBitmap(rgba, decoded.width, decoded.height, threshold);
+export const decodePngBase64ToMonochrome = (base64Png: string, targetWidthPx?: number): MonochromeBitmap => {
+  const decoded = decodePng(base64Png);
+  const needsResize = targetWidthPx !== undefined && decoded.width !== targetWidthPx;
+  const image = needsResize ? resizeToWidth(decoded, targetWidthPx) : decoded;
+  return rgbaToMonochromeBitmap(image.data, image.width, image.height);
 };
