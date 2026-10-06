@@ -1,6 +1,6 @@
 import { NativeAdapter, toDeviceError } from '../NativeAdapter';
 import { ConnectionType } from '../../../models/printer/ConnectionType';
-import type { PrinterConnection } from '../../../models/printer/PrinterConnection';
+import type { DeviceAddress } from '../../../models/device/DeviceAddress';
 import { DeviceErrorCode } from '../../../errors';
 import { DeviceErrorException } from '../../../exceptions';
 
@@ -21,9 +21,9 @@ const emitDisconnected = (connectionId: string): void => {
   listener({ connectionId, reason: 'usb_detached' });
 };
 
-const lanConnection: PrinterConnection = { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 };
+const lanConnection: DeviceAddress = { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 };
 
-const bluetoothConnection: PrinterConnection = { type: ConnectionType.Bluetooth, mac: 'AA:BB' };
+const bluetoothConnection: DeviceAddress = { type: ConnectionType.Bluetooth, mac: 'AA:BB' };
 
 describe('NativeAdapter', () => {
   afterEach(() => jest.clearAllMocks());
@@ -47,8 +47,10 @@ describe('NativeAdapter', () => {
     expect(deviceModule().discover).toHaveBeenCalledWith('bluetooth');
     expect(devices).toEqual([
       {
-        device: { deviceId: 'bluetooth:AA:BB', name: 'BT', hasPermission: true },
-        connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
+        deviceId: 'bluetooth:AA:BB',
+        name: 'BT',
+        hasPermission: true,
+        address: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
       },
     ]);
   });
@@ -74,8 +76,11 @@ describe('NativeAdapter', () => {
     const devices = await new NativeAdapter().listDevices(ConnectionType.Usb);
     expect(devices).toEqual([
       {
-        device: { deviceId: 'usb:/dev/bus/usb/001/004', name: 'X', model: 'X', hasPermission: false },
-        connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
+        deviceId: 'usb:/dev/bus/usb/001/004',
+        name: 'X',
+        model: 'X',
+        hasPermission: false,
+        address: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
       },
     ]);
   });
@@ -96,15 +101,13 @@ describe('NativeAdapter', () => {
 
     const [bluetooth, usb] = await new NativeAdapter().listDevices(ConnectionType.Usb);
 
-    expect(bluetooth.device.name).toBe('AA:BB');
+    expect(bluetooth.name).toBe('AA:BB');
     expect(usb).toEqual({
-      device: {
-        deviceId: 'usb:/dev/bus/usb/001/005',
-        name: '/dev/bus/usb/001/005',
-        manufacturer: 'Xprinter',
-        hasPermission: true,
-      },
-      connection: { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN9' },
+      deviceId: 'usb:/dev/bus/usb/001/005',
+      name: '/dev/bus/usb/001/005',
+      manufacturer: 'Xprinter',
+      hasPermission: true,
+      address: { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN9' },
     });
   });
 

@@ -1,13 +1,13 @@
 import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import type { PrinterConnection } from '../../models/printer/PrinterConnection';
+import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import { makePrinter, makeTsplLanguage } from '../../testing/printerFixtures';
 
-const bluetoothConnection = (mac: string): PrinterConnection => ({ type: ConnectionType.Bluetooth, mac });
+const bluetoothConnection = (mac: string): DeviceAddress => ({ type: ConnectionType.Bluetooth, mac });
 
-const lanConnection: PrinterConnection = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 };
+const lanConnection: DeviceAddress = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 };
 
-const usbConnection: PrinterConnection = { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 };
+const usbConnection: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 };
 
 describe('lockKeyOf', () => {
   it('cùng máy vật lý thì cùng khoá, dù khác máy in đã lưu và khác ngôn ngữ', () => {

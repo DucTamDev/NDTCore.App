@@ -1,6 +1,6 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import type { DiscoverResult } from '../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
 import type { DiscoveryEvent } from '../models/discovery/DiscoveryEvent';
 import { DeviceErrorCode } from '../errors';
@@ -22,7 +22,7 @@ const logEvent = (connectionType: ConnectionType, event: DiscoveryEvent): void =
     status: event.status,
     devices:
       event.status === DiscoveryStatus.Found
-        ? event.devices.map(({ device }) => ({ deviceId: device.deviceId, name: device.name }))
+        ? event.devices.map(({ deviceId, name }) => ({ deviceId, name }))
         : undefined,
     error:
       event.status === DiscoveryStatus.Error
@@ -52,7 +52,7 @@ export class DeviceDiscoveryService {
       }
     };
 
-    const complete = (devices: DiscoverResult[]): void => {
+    const complete = (devices: DeviceInfo[]): void => {
       const deviceCount = devices.length;
       const found: DiscoveryEvent = { status: DiscoveryStatus.Found, devices };
       emit(deviceCount > 0 ? found : { status: DiscoveryStatus.Empty });
@@ -86,7 +86,7 @@ export class DeviceDiscoveryService {
     };
   }
 
-  private async findDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
+  private async findDevices(connectionType: ConnectionType): Promise<DeviceInfo[]> {
     if (connectionType === ConnectionType.Bluetooth && !(await this.requestBluetoothPermission())) {
       throw new DeviceErrorException({
         code: DeviceErrorCode.PERMISSION_DENIED,

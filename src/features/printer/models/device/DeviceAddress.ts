@@ -1,7 +1,7 @@
-import { ConnectionType } from './ConnectionType';
+import { ConnectionType } from '../printer/ConnectionType';
 
-/** Cách kết nối tới máy in qua USB. */
-export interface UsbPrinterConnection {
+/** Địa chỉ thiết bị USB. */
+export interface UsbDeviceAddress {
   type: typeof ConnectionType.Usb;
 
   vendorId: number;
@@ -12,16 +12,16 @@ export interface UsbPrinterConnection {
   serialNumber?: string;
 }
 
-/** Cách kết nối tới máy in qua Bluetooth cổ điển (đã ghép đôi). */
-export interface BluetoothPrinterConnection {
+/** Địa chỉ thiết bị Bluetooth cổ điển (đã ghép đôi). */
+export interface BluetoothDeviceAddress {
   type: typeof ConnectionType.Bluetooth;
 
   /** Địa chỉ MAC viết hoa. */
   mac: string;
 }
 
-/** Cách kết nối tới máy in qua mạng TCP. */
-export interface LanPrinterConnection {
+/** Địa chỉ thiết bị trên mạng TCP. */
+export interface LanDeviceAddress {
   type: typeof ConnectionType.Lan;
 
   host: string;
@@ -29,14 +29,14 @@ export interface LanPrinterConnection {
   port: number;
 }
 
-/** Cách kết nối tới một máy in; đủ để kết nối lại mà không cần quét. */
-export type PrinterConnection = UsbPrinterConnection | BluetoothPrinterConnection | LanPrinterConnection;
+/** Địa chỉ để `connect` tới một thiết bị; đủ để kết nối lại mà không cần quét. */
+export type DeviceAddress = UsbDeviceAddress | BluetoothDeviceAddress | LanDeviceAddress;
 
 /**
  * Định danh máy in vật lý, chỉ phụ thuộc cách kết nối. USB gắn thêm serial (có sau khi được cấp quyền) để rút ra
  * cắm lại vẫn nhận đúng máy; không có serial thì không phân biệt được hai máy cùng model.
  */
-export const deviceIdOf = (connection: PrinterConnection): string => {
+export const deviceIdOf = (connection: DeviceAddress): string => {
   if (connection.type === ConnectionType.Lan) {
     return `lan:${connection.host}:${connection.port}`;
   }

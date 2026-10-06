@@ -15,7 +15,7 @@ Mỗi class/interface/type chỉ có **một responsibility rõ ràng**.
 ```text
 Printer
 PrinterLanguage
-PrinterConnection
+DeviceAddress
 PaperOptions
 PrinterCapabilities
 ```
@@ -40,7 +40,7 @@ ConfigData
 
 // Ưu tiên
 PaperOptions
-PrinterConnection
+DeviceAddress
 PrinterCapabilities
 PrinterRepository
 PrinterConnectionLock

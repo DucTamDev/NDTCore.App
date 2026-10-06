@@ -5,9 +5,9 @@ import { deviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
-import type { DiscoverResult } from '../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { ConnectionType } from '../models/printer/ConnectionType';
-import { deviceIdOf } from '../models/printer/PrinterConnection';
+import { deviceIdOf } from '../models/device/DeviceAddress';
 
 export interface DiscoveredDeviceListProps {
   connectionType: ConnectionType;
@@ -18,7 +18,7 @@ export interface DiscoveredDeviceListProps {
   /** Mã quét native của thiết bị đang chọn. */
   selectedScanId?: string;
 
-  onSelect: (device: DiscoverResult) => void;
+  onSelect: (device: DeviceInfo) => void;
 }
 
 /** Quét lâu hơn mức này thì dừng chờ và hiển thị những gì đã có. */
@@ -32,7 +32,7 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
   onSelect,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [devices, setDevices] = useState<DiscoverResult[]>([]);
+  const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [discoveryTrigger, setDiscoveryTrigger] = useState(0);
 
@@ -88,13 +88,13 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
       {!loading &&
         !errorMessage &&
         devices.map((discovered) => {
-          const isSameScan = discovered.device.deviceId === selectedScanId;
-          const isSelected = isSameScan || deviceIdOf(discovered.connection) === selectedConnectionKey;
+          const isSameScan = discovered.deviceId === selectedScanId;
+          const isSelected = isSameScan || deviceIdOf(discovered.address) === selectedConnectionKey;
 
           return (
             <List.Item
-              key={discovered.device.deviceId}
-              title={discovered.device.name}
+              key={discovered.deviceId}
+              title={discovered.name}
               onPress={() => onSelect(discovered)}
               // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
               right={() => (isSelected ? <List.Icon icon="check" /> : null)}

@@ -1,5 +1,5 @@
-import { deviceIdOf } from '../PrinterConnection';
-import { ConnectionType } from '../ConnectionType';
+import { deviceIdOf } from '../DeviceAddress';
+import { ConnectionType } from '../../printer/ConnectionType';
 
 describe('deviceIdOf', () => {
   it('LAN { host, port } → "lan:host:port"', () => {

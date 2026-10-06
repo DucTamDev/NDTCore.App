@@ -1,7 +1,7 @@
 import type { PaperOptions } from '../paper/PaperOptions';
 import type { PrintKind } from './PrintKind';
 import type { PrinterCapabilities } from './PrinterCapabilities';
-import type { PrinterConnection } from './PrinterConnection';
+import type { DeviceAddress } from '../device/DeviceAddress';
 import type { PrinterLanguage } from './PrinterLanguage';
 
 /** Một máy in đã lưu: đúng một kết nối, một ngôn ngữ, một loại nội dung và một cấu hình giấy. */
@@ -25,7 +25,7 @@ export interface Printer {
   model?: string;
 
   /** Cách kết nối tới máy (LAN, USB, Bluetooth). */
-  connection: PrinterConnection;
+  connection: DeviceAddress;
 
   /** Ngôn ngữ lệnh (ESC/POS, TSPL) dùng để mã hoá ảnh in. */
   language: PrinterLanguage;

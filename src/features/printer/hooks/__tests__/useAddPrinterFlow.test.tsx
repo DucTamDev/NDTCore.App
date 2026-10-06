@@ -14,9 +14,9 @@ import { PaperType } from '../../models/paper/PaperType';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
-import { deviceIdOf } from '../../models/printer/PrinterConnection';
+import { deviceIdOf } from '../../models/device/DeviceAddress';
 import type { Printer } from '../../models/printer/Printer';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 
 // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
 // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
@@ -112,9 +112,11 @@ const detectXprinter = (): void => {
 };
 
 /** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
-const usbDevice: DiscoverResult = {
-  device: { deviceId: 'usb:/dev/bus/usb/001/009', name: 'XP-420B', hasPermission: true },
-  connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751 },
+const usbDevice: DeviceInfo = {
+  deviceId: 'usb:/dev/bus/usb/001/009',
+  name: 'XP-420B',
+  hasPermission: true,
+  address: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751 },
 };
 
 type FlowProps = Parameters<typeof useAddPrinterFlow>[0];
@@ -529,7 +531,7 @@ describe('useAddPrinterFlow', () => {
   it('sau onSelectDevice quét được thiết bị → selectedConnectionKey bằng deviceIdOf thiết bị đó', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
-    expect(get().connectionSection.selectedConnectionKey).toBe(deviceIdOf(usbDevice.connection));
-    expect(get().connectionSection.selectedScanId).toBe(usbDevice.device.deviceId);
+    expect(get().connectionSection.selectedConnectionKey).toBe(deviceIdOf(usbDevice.address));
+    expect(get().connectionSection.selectedScanId).toBe(usbDevice.deviceId);
   });
 });

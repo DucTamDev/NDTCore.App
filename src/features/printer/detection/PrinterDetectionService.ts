@@ -1,5 +1,5 @@
 import { ConnectionType } from '../models/printer/ConnectionType';
-import type { DiscoverResult } from '../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 import { printerLogger } from '../logging/PrinterLogger';
 import type { PrinterDetection, PrinterIdentifiers } from './PrinterDetection';
 import { PRINTER_DETECTION_TABLE } from './PrinterDetectionTable';
@@ -12,8 +12,8 @@ const sameText = (expected: string, actual?: string): boolean =>
  * Mọi trường định nghĩa có khai báo đều phải khớp, và phải khai báo ít nhất một trường. Thiết bị không có tên sản
  * phẩm riêng (Bluetooth) thì so bằng tên thiết bị.
  */
-const matches = (identifiers: PrinterIdentifiers, { device, connection }: DiscoverResult): boolean => {
-  const usb = connection.type === ConnectionType.Usb ? connection : undefined;
+const matches = (identifiers: PrinterIdentifiers, device: DeviceInfo): boolean => {
+  const usb = device.address.type === ConnectionType.Usb ? device.address : undefined;
   const checks = [
     identifiers.vendorId === undefined || identifiers.vendorId === usb?.vendorId,
     identifiers.productId === undefined || identifiers.productId === usb?.productId,
@@ -33,9 +33,9 @@ export class PrinterDetectionService {
   constructor(private readonly table: readonly PrinterDetection[] = PRINTER_DETECTION_TABLE) {}
 
   /** Định nghĩa đầu tiên khớp thiết bị; `undefined` khi thiết bị không có trong bảng. */
-  detect(device: DiscoverResult): PrinterDetection | undefined {
+  detect(device: DeviceInfo): PrinterDetection | undefined {
     const detection = this.table.find((candidate) => matches(candidate.identifiers, device));
-    const connectionType = device.connection.type;
+    const connectionType = device.address.type;
 
     if (detection) {
       printerLogger.printerDetected({ connectionType, language: detection.language.type });

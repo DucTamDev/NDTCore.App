@@ -3,13 +3,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { printerRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../discovery/NetworkDiscoveryService';
-import { deviceIdOf } from '../../models/printer/PrinterConnection';
+import { deviceIdOf } from '../../models/device/DeviceAddress';
 import { createPrinterAdapter } from '../../connection/PrinterAdapterFactory';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import type { PrintKind } from '../../models/printer/PrintKind';
 
 /**
@@ -30,20 +30,18 @@ export interface UseConnectionSetupInput {
 }
 
 /** Máy đang sửa chưa quét lại: dựng từ kết nối đã lưu để Lưu giữ nguyên kết nối. */
-const savedDeviceOf = (printer: Printer): DiscoverResult | undefined => {
+const savedDeviceOf = (printer: Printer): DeviceInfo | undefined => {
   if (printer.connection.type === ConnectionType.Lan) {
     return undefined;
   }
 
   return {
-    device: {
-      deviceId: printer.deviceId,
-      name: '',
-      manufacturer: printer.vendor,
-      model: printer.model,
-      hasPermission: true,
-    },
-    connection: printer.connection,
+    deviceId: printer.deviceId,
+    name: '',
+    manufacturer: printer.vendor,
+    model: printer.model,
+    hasPermission: true,
+    address: printer.connection,
   };
 };
 
@@ -62,7 +60,7 @@ export const useConnectionSetup = ({
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.Usb);
-  const [selectedDevice, setSelectedDevice] = useState<DiscoverResult | undefined>(
+  const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | undefined>(
     initialValues ? savedDeviceOf(initialValues) : undefined,
   );
   const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
@@ -82,7 +80,7 @@ export const useConnectionSetup = ({
   /** `null` khi chưa đủ thông tin kết nối (chưa chọn thiết bị, địa chỉ LAN chưa hợp lệ). */
   const currentIdentityKey = (): string | null => {
     if (connectionType !== ConnectionType.Lan) {
-      return selectedDevice ? deviceIdOf(selectedDevice.connection) : null;
+      return selectedDevice ? deviceIdOf(selectedDevice.address) : null;
     }
 
     const values = lanForm.getValues();
@@ -116,14 +114,14 @@ export const useConnectionSetup = ({
   const refreshUsbSerial = async (): Promise<void> => {
     const selected = selectedDevice;
 
-    if (selected?.connection.type !== ConnectionType.Usb || selected.connection.serialNumber) {
+    if (selected?.address.type !== ConnectionType.Usb || selected.address.serialNumber) {
       return;
     }
 
     const devices = await createPrinterAdapter().listDevices(ConnectionType.Usb).catch(() => []);
-    const match = devices.find((candidate) => candidate.device.deviceId === selected.device.deviceId);
+    const match = devices.find((candidate) => candidate.deviceId === selected.deviceId);
 
-    if (match?.connection.type === ConnectionType.Usb && match.connection.serialNumber) {
+    if (match?.address.type === ConnectionType.Usb && match.address.serialNumber) {
       setSelectedDevice(match);
     }
   };
@@ -144,7 +142,7 @@ export const useConnectionSetup = ({
     resetIfDirty();
   };
 
-  const onSelectDevice = (device: DiscoverResult): void => {
+  const onSelectDevice = (device: DeviceInfo): void => {
     if (hasLanguage) {
       return;
     }

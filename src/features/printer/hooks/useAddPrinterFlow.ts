@@ -25,12 +25,12 @@ import {
 } from '../forms/addPrinter/PaperFormSchema';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import type { Printer } from '../models/printer/Printer';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
+import type { DeviceAddress } from '../models/device/DeviceAddress';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { usePrinterDetection } from './addPrinter/usePrinterDetection';
 import type { PrinterDetection } from '../detection/PrinterDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
-import { deviceIdOf } from '../models/printer/PrinterConnection';
+import { deviceIdOf } from '../models/device/DeviceAddress';
 import { usePrintSettings } from './addPrinter/usePrintSettings';
 
 export interface UseAddPrinterFlowInput {
@@ -131,14 +131,14 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   });
   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
 
-  const buildConnection = (): PrinterConnection => {
+  const buildConnection = (): DeviceAddress => {
     if (connectionType === ConnectionType.Lan) {
       const { ip, port } = buildLan(lanForm.getValues());
       return { type: ConnectionType.Lan, host: ip, port };
     }
 
     if (selectedDevice) {
-      return selectedDevice.connection;
+      return selectedDevice.address;
     }
 
     return connectionType === ConnectionType.Usb
@@ -161,8 +161,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     return {
       ...draft,
       name: displayForm.getValues('name') || draft.name,
-      vendor: initialValues?.vendor ?? detection?.vendor ?? selectedDevice?.device.manufacturer,
-      model: initialValues?.model ?? detection?.model ?? selectedDevice?.device.model,
+      vendor: initialValues?.vendor ?? detection?.vendor ?? selectedDevice?.manufacturer,
+      model: initialValues?.model ?? detection?.model ?? selectedDevice?.model,
       deviceId: currentIdentityKey() ?? undefined,
       capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
@@ -193,7 +193,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     const lanIp = connectionType === ConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
     displayForm.setValue(
       'name',
-      selectedDevice?.device.name || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
+      selectedDevice?.name || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
     );
   };
 
@@ -314,8 +314,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionSection: {
       connectionType,
       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
-      selectedConnectionKey: selectedDevice ? deviceIdOf(selectedDevice.connection) : undefined,
-      selectedScanId: selectedDevice?.device.deviceId,
+      selectedConnectionKey: selectedDevice ? deviceIdOf(selectedDevice.address) : undefined,
+      selectedScanId: selectedDevice?.deviceId,
       onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
       lanPort: lanForm.watch('lanPort'),
@@ -336,7 +336,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       connectionState,
       languageState,
       languageType: printerDetection.languageType,
-      device: selectedDevice?.device,
+      device: selectedDevice,
       errorMessage: printerDetection.connectionErrorMessage,
       kind,
       onChooseLanguage: printerDetection.onChooseLanguage,
@@ -347,7 +347,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       connectionType,
       language,
       paperForm,
-      device: selectedDevice?.device,
+      device: selectedDevice,
       status: liveStatus,
       autoReconnect,
       onAutoReconnectChange: setAutoReconnect,

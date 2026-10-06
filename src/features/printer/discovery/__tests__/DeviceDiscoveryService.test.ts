@@ -2,7 +2,7 @@ import { DeviceDiscoveryService } from '../DeviceDiscoveryService';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { DiscoveryStatus } from '../../models/discovery/DiscoveryStatus';
 import type { DiscoveryEvent } from '../../models/discovery/DiscoveryEvent';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
 import { DeviceErrorCode, PrintErrorCode } from '../../errors';
@@ -15,9 +15,11 @@ jest.mock('../../logging/PrinterLogger', () => ({
   printerLogger: { discoveryStarted: jest.fn(), discoveryCompleted: jest.fn(), discoveryFailed: jest.fn() },
 }));
 
-const bluetoothPrinter: DiscoverResult = {
-  device: { deviceId: 'bluetooth:AA:BB', name: 'XP-P323B', hasPermission: true },
-  connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
+const bluetoothPrinter: DeviceInfo = {
+  deviceId: 'bluetooth:AA:BB',
+  name: 'XP-P323B',
+  hasPermission: true,
+  address: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
 };
 
 /** Service với một adapter giả và quyền Bluetooth tuỳ chọn. */
@@ -123,7 +125,7 @@ describe('DeviceDiscoveryService', () => {
 
   it('huỷ trước khi quét xong thì không báo thêm sự kiện', async () => {
     const { service, adapter } = setup();
-    let finish: (devices: DiscoverResult[]) => void = () => undefined;
+    let finish: (devices: DeviceInfo[]) => void = () => undefined;
     adapter.listDevices.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
     const events: DiscoveryEvent[] = [];
 

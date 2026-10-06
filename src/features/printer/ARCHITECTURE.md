@@ -52,7 +52,7 @@ IPrintLanguage   PrinterConnectionService
 Luồng thêm máy in:
 
 ```text
-DeviceDiscoveryService        tìm thiết bị → DiscoverResult
+DeviceDiscoveryService        tìm thiết bị → DeviceInfo
     ↓
 PrinterDetectionService      tra PRINTER_DETECTION_TABLE theo thiết bị quét được
     ↓
@@ -89,9 +89,9 @@ src/features/printer/
 ├── CODING_STYLE.md
 │
 ├── models/
-│   ├── device/          DeviceInfo — thông tin thiết bị tìm thấy, không lưu
-│   ├── discovery/       DiscoverResult, DiscoveryStatus, DiscoveryEvent — kết quả và tiến trình tìm thiết bị
-│   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
+│   ├── device/          DeviceInfo (thiết bị tìm thấy, không lưu), DeviceAddress (+ deviceIdOf)
+│   ├── discovery/       DiscoveryStatus, DiscoveryEvent — tiến trình tìm thiết bị
+│   ├── printer/         Printer, PrintKind, ConnectionType,
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterConnectionStatus — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
@@ -183,7 +183,7 @@ export interface Printer {
   name: string;
   vendor?: string;
   model?: string;
-  connection: PrinterConnection;
+  connection: DeviceAddress;
   language: PrinterLanguage;
   paper: PaperOptions;
   capabilities: PrinterCapabilities;
@@ -208,7 +208,7 @@ export interface Printer {
 # 6. `deviceId` và khoá in
 
 ```ts
-deviceIdOf(connection: PrinterConnection): string
+deviceIdOf(connection: DeviceAddress): string
 ```
 
 | Kết nối   | `deviceId`                                    |
@@ -283,29 +283,27 @@ PrinterCapabilities  → Máy thực tế có khả năng gì?
 
 # 10. Device Models
 
-`models/device/` (`DeviceInfo`) và `models/discovery/` dùng lúc tìm thiết bị, không lưu.
+`models/device/` chứa `DeviceInfo` (thiết bị tìm thấy, không lưu) và `DeviceAddress` (địa chỉ để `connect`, cũng là
+kiểu của `Printer.connection`); `models/discovery/` là tiến trình tìm thiết bị.
 
 ```ts
-/** Thông tin cơ bản của một thiết bị tìm thấy khi quét. */
+/** Một thiết bị tìm thấy khi quét, khớp `DeviceInfo` native trả về. */
 interface DeviceInfo {
   deviceId: string;        // mã quét của native trong lần discovery hiện tại; key danh sách
   name: string;            // native không có thì dùng MAC hoặc đường dẫn thiết bị
   manufacturer?: string;   // chỉ USB
   model?: string;          // chỉ USB
   hasPermission: boolean;  // quét không mở hộp thoại xin quyền
+  address: DeviceAddress;  // để connect; chọn máy thì gán vào Printer.connection
 }
 
-/** Một kết quả quét: thiết bị và cách kết nối tới nó. */
-interface DiscoverResult {
-  device: DeviceInfo;
-  connection: PrinterConnection;  // chọn máy thì gán thẳng vào Printer.connection
-}
+type DeviceAddress = UsbDeviceAddress | BluetoothDeviceAddress | LanDeviceAddress;
 
 /** Trạng thái một lần tìm thiết bị. */
 const DiscoveryStatus = { Loading, Found, Empty, Error };
 
 type DiscoveryEvent =                       // field `status` phân loại
-  | { status: Loading } | { status: Found; devices: DiscoverResult[] }
+  | { status: Loading } | { status: Found; devices: DeviceInfo[] }
   | { status: Empty } | { status: Error; error: PrinterFeatureException };
 ```
 
@@ -433,8 +431,8 @@ Thêm ngôn ngữ mới: thêm giá trị `PrintLanguage`, một `IPrintLanguage
 interface IPrinterAdapter {
   readonly source: 'native' | 'vendor';
   readonly canRead: boolean;
-  listDevices(connectionType): Promise<DiscoverResult[]>;
-  connect(connection: PrinterConnection): Promise<void>;   // mở được rồi mới trả kết nối cũ
+  listDevices(connectionType): Promise<DeviceInfo[]>;
+  connect(connection: DeviceAddress): Promise<void>;   // mở được rồi mới trả kết nối cũ
   write(bytes: Uint8Array): Promise<void>;
   read(): Promise<Uint8Array | null>;                     // null khi quá hạn của native module
   onLost(callback): Unsubscribe;                           // kết nối của chính instance này mất
@@ -619,7 +617,7 @@ Không swallow error ở mọi layer. Chỉ public operation quyết định err
 
 # 26. Printer Detection
 
-`PrinterDetectionService.detect(device: DiscoverResult): PrinterDetection | undefined`
+`PrinterDetectionService.detect(device: DeviceInfo): PrinterDetection | undefined`
 
 * Chỉ tra `PRINTER_DETECTION_TABLE` (`detection/PrinterDetectionTable.ts`) theo thiết bị quét được để biết hãng,
   model, ngôn ngữ (`PrinterLanguage`) và khả năng (`PrinterCapabilities`). Không kết nối, không gửi/đọc gì từ máy in,
@@ -1324,7 +1322,7 @@ Test tập trung vào responsibility của component:
 IPrintLanguage           → byte encode khớp fixture, lỗi nội dung
 PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiều máy song song
 PrinterDetectionService  → khớp trường nhận diện, không phân biệt hoa thường, định nghĩa đầu tiên thắng
-DeviceDiscoveryService   → quyền, ánh xạ native → DiscoverResult
+DeviceDiscoveryService   → quyền, ánh xạ native → DeviceInfo
 PrinterService           → encode + gửi, kết nối khi cần, không tự khoá khi print
 PaperFormSchema          → ô trống/sai, tràn khổ, đổi qua lại PaperOptions
 ```
@@ -1381,7 +1379,7 @@ Comment Android API chỉ thêm khi có behavior không hiển nhiên.
 Không persist hoặc Redux-store runtime object (`UsbDevice`, `UsbDeviceConnection`, `BluetoothSocket`, socket, SDK
 instance, adapter instance).
 
-Chỉ lưu serializable configuration: `Printer`, `PrinterConnection`, `PrinterLanguage`, `PrinterCapabilities`,
+Chỉ lưu serializable configuration: `Printer`, `DeviceAddress`, `PrinterLanguage`, `PrinterCapabilities`,
 `PaperOptions`.
 
 ---

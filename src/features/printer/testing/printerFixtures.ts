@@ -1,7 +1,7 @@
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
+import type { DeviceAddress } from '../models/device/DeviceAddress';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { CutterMode } from '../models/paper/CutterMode';
 import { PaperSize } from '../models/paper/PaperSize';
@@ -23,7 +23,7 @@ export const makeTsplLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLangu
   ...o,
 });
 
-const DEFAULT_CONNECTION: PrinterConnection = { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 };
+const DEFAULT_CONNECTION: DeviceAddress = { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 };
 
 export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   id: 'p1',

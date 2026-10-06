@@ -85,8 +85,9 @@ In:        PrintService (khoá theo máy) → PrinterService
 Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinterDraft → PrinterRepository
 ```
 
-- **`models/`** — `printer/` (`Printer`, `PrinterConnection`, `deviceIdOf`, `PrinterLanguage`, `PrinterCapabilities`),
-  `device/` (`DeviceInfo`, `DiscoveredDevice` — chỉ lúc tìm thiết bị), `paper/` (`PaperOptions`, `paperSpec`, `cutter`),
+- **`models/`** — `printer/` (`Printer`, `PrinterLanguage`, `PrinterCapabilities`),
+  `device/` (`DeviceInfo` — chỉ lúc tìm thiết bị, `DeviceAddress` + `deviceIdOf`),
+  `paper/` (`PaperOptions`, `paperSpec`, `cutter`),
   `printing/`. Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
 - **`languages/`** — `IPrintLanguage` (`encode`, `identifyProbe?`), `EscPosLanguage`, `TsplLanguage`,
   `getPrintLanguage`. Byte encode ghim bằng fixture `testing/encodeCases.ts`.

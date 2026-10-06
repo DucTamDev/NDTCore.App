@@ -1,8 +1,8 @@
 import { Buffer } from 'buffer';
 import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import { ConnectionType } from '../../models/printer/ConnectionType';
-import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceAddress } from '../../models/device/DeviceAddress';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import { DeviceErrorException } from '../../exceptions';
 import { DeviceErrorCode } from '../../errors';
 import {
@@ -19,32 +19,32 @@ const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'blue
   connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
 
 /** Bluetooth không có tên thì hiển thị MAC; native USB đã thay tên trống bằng đường dẫn thiết bị. */
-const toDiscoverResult = (device: NativeDeviceInfo): DiscoverResult => {
+const toDeviceInfo = (device: NativeDeviceInfo): DeviceInfo => {
   if (device.type === 'bluetooth') {
     const { mac } = device.address;
     return {
-      device: { deviceId: device.deviceId, name: device.name ?? mac, hasPermission: true },
-      connection: { type: ConnectionType.Bluetooth, mac },
+      deviceId: device.deviceId,
+      name: device.name ?? mac,
+      hasPermission: true,
+      address: { type: ConnectionType.Bluetooth, mac },
     };
   }
 
   const { vendorId, productId, serialNumber, devicePath } = device.address;
   return {
-    device: {
-      deviceId: device.deviceId,
-      name: device.name ?? devicePath ?? '',
-      ...(device.manufacturerName ? { manufacturer: device.manufacturerName } : {}),
-      ...(device.productName ? { model: device.productName } : {}),
-      hasPermission: device.hasPermission,
-    },
-    connection: { type: ConnectionType.Usb, vendorId, productId, ...(serialNumber ? { serialNumber } : {}) },
+    deviceId: device.deviceId,
+    name: device.name ?? devicePath ?? '',
+    ...(device.manufacturerName ? { manufacturer: device.manufacturerName } : {}),
+    ...(device.productName ? { model: device.productName } : {}),
+    hasPermission: device.hasPermission,
+    address: { type: ConnectionType.Usb, vendorId, productId, ...(serialNumber ? { serialNumber } : {}) },
   };
 };
 
 const notConnected = (): DeviceErrorException =>
   new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'Adapter chưa connect' });
 
-const toNativeAddress = (connection: PrinterConnection): NativeDeviceAddress => {
+const toNativeAddress = (connection: DeviceAddress): NativeDeviceAddress => {
   if (connection.type === ConnectionType.Usb) {
     const { vendorId, productId, serialNumber } = connection;
     return { type: 'usb', vendorId, productId, serialNumber: serialNumber ?? null, devicePath: null };
@@ -118,17 +118,17 @@ export class NativeAdapter implements IPrinterAdapter {
   /** Kết nối native đang giữ; `undefined` khi chưa kết nối. */
   private connectionId?: string;
 
-  async listDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
+  async listDevices(connectionType: ConnectionType): Promise<DeviceInfo[]> {
     if (connectionType === ConnectionType.Lan) {
       return [];
     }
 
     const devices = await callNative(() => DeviceModule.discover(toNativeDiscoverableType(connectionType)));
-    return devices.map(toDiscoverResult);
+    return devices.map(toDeviceInfo);
   }
 
   /** Native trả lại đúng kết nối đang mở nếu cùng thiết bị, nên chỉ đóng kết nối cũ khi id khác. */
-  async connect(connection: PrinterConnection): Promise<void> {
+  async connect(connection: DeviceAddress): Promise<void> {
     const connected = await callNative(() => DeviceModule.connect(toNativeAddress(connection)));
     const previous = this.connectionId;
     this.connectionId = connected.connectionId;

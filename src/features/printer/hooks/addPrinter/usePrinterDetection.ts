@@ -9,7 +9,7 @@ import type { ConnectionState, LanguageState } from '../../components/StatusPane
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
@@ -22,7 +22,7 @@ export interface UsePrinterDetectionInput {
   connectionType: ConnectionType;
 
   /** Thiết bị đang chọn trong danh sách quét; LAN không có. */
-  selectedDevice?: DiscoverResult;
+  selectedDevice?: DeviceInfo;
 
   lanForm: UseFormReturn<LanConnectionValues>;
 

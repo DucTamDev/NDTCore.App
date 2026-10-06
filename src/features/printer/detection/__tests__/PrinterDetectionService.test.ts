@@ -4,7 +4,7 @@ import { PRINTER_DETECTION_TABLE } from '../PrinterDetectionTable';
 import { printerLogger } from '../../logging/PrinterLogger';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../../models/printer/PrinterLanguage';
-import type { DiscoverResult } from '../../models/discovery/DiscoverResult';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 
 jest.mock('../../logging/PrinterLogger', () => ({
   printerLogger: { printerDetected: jest.fn(), printerNotDetected: jest.fn() },
@@ -30,13 +30,18 @@ const escPosByName: PrinterDetection = {
 
 const usbDevice = (vendorId: number, productId: number, names: { manufacturer?: string; model?: string } = {}) =>
   ({
-    device: { deviceId: 'usb:/dev/bus/usb/001/004', name: 'X', hasPermission: true, ...names },
-    connection: { type: ConnectionType.Usb, vendorId, productId },
-  }) satisfies DiscoverResult;
+    deviceId: 'usb:/dev/bus/usb/001/004',
+    name: 'X',
+    hasPermission: true,
+    ...names,
+    address: { type: ConnectionType.Usb, vendorId, productId },
+  }) satisfies DeviceInfo;
 
-const bluetoothDevice = (name: string): DiscoverResult => ({
-  device: { deviceId: 'bluetooth:AA:BB', name, hasPermission: true },
-  connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
+const bluetoothDevice = (name: string): DeviceInfo => ({
+  deviceId: 'bluetooth:AA:BB',
+  name,
+  hasPermission: true,
+  address: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
 });
 
 describe('PrinterDetectionService', () => {
