@@ -1,9 +1,7 @@
-import type { PrinterFeatureException } from '../../exceptions';
 import type { ConnectionType } from '../connections/ConnectionType';
 import type { PrintKind } from '../printer/PrintKind';
-import type { PrintTaskStatus } from './PrintTaskStatus';
 
-/** Một lệnh in gửi tới một máy in; một yêu cầu in tới nhiều máy sinh nhiều lệnh. Chỉ sống trong bộ nhớ, không lưu. */
+/** Dữ liệu một lệnh in gửi tới một máy in; một yêu cầu in tới nhiều máy sinh nhiều lệnh. Không lưu. */
 export interface PrintTask {
   /** Định danh riêng của lệnh in. */
   id: string;
@@ -26,21 +24,6 @@ export interface PrintTask {
   /** Ảnh cần in, dạng PNG base64 không có tiền tố `data:`. */
   data: string;
 
-  /** Trạng thái hiện tại trong hàng đợi. */
-  status: PrintTaskStatus;
-
-  /** Số lần đã in lại sau khi lỗi; lần in đầu là 0. */
-  retryCount: number;
-
-  /** Lỗi của lần in gần nhất; chỉ có khi `status` là `Failed`. */
-  error?: PrinterFeatureException;
-
   /** Thời điểm tạo lệnh (ISO 8601 UTC). */
   createdAt: string;
-
-  /** Thời điểm bắt đầu gửi tới máy in (ISO 8601 UTC); chưa tới lượt thì chưa có. */
-  startedAt?: string;
-
-  /** Thời điểm in xong hoặc lỗi (ISO 8601 UTC). */
-  completedAt?: string;
 }

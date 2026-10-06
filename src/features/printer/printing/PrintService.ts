@@ -11,6 +11,7 @@ import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
 import { PrintStatus } from '../models/printing/PrintStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
+import type { PrintTaskResult } from '../models/printing/PrintTaskResult';
 import type { PrintResult } from '../models/printing/PrintResult';
 
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
@@ -54,7 +55,7 @@ export class PrintService {
     if (printers.length === 0) {
       return {
         status: PrintStatus.NoAvailablePrinter,
-        tasks: [],
+        results: [],
         error: new PrintErrorException({
           code: PrintErrorCode.NO_AVAILABLE_PRINTER,
           message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}`,
@@ -63,11 +64,11 @@ export class PrintService {
     }
 
     const tasks = printers.map((printer) => this.createTask(printer, image));
-    await Promise.all(tasks.map((task) => this.run(task)));
+    const results = await Promise.all(tasks.map((task) => this.run(task)));
 
-    const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
-    const status = resolvePrintStatus(successCount, tasks.length);
-    return { status, tasks };
+    const successCount = results.filter((result) => result.status === PrintTaskStatus.Success).length;
+    const status = resolvePrintStatus(successCount, results.length);
+    return { status, results };
   }
 
   /** Máy in đang bật và nhận loại nội dung `kind`. */
@@ -84,27 +85,27 @@ export class PrintService {
       connectionType: printer.connection.type,
       kind: printer.kind,
       data,
-      status: PrintTaskStatus.Pending,
-      retryCount: 0,
       createdAt: new Date().toISOString(),
     };
   }
 
   /** Khoá theo `task.deviceId`, trùng `lockKeyOf` của máy in đã lưu nên cùng khoá với nút "In thử". */
-  private run(task: PrintTask): Promise<void> {
+  private run(task: PrintTask): Promise<PrintTaskResult> {
     return this.lock.runExclusive(task.deviceId, async () => {
-      task.status = PrintTaskStatus.Printing;
-      task.startedAt = new Date().toISOString();
+      const startedAt = new Date().toISOString();
 
       try {
         await this.printing.print(task.printerId, task.data);
-        task.status = PrintTaskStatus.Success;
+        return { task, status: PrintTaskStatus.Success, startedAt, completedAt: new Date().toISOString() };
       } catch (error) {
-        task.status = PrintTaskStatus.Failed;
-        task.error = toPrinterFeatureException(error);
+        return {
+          task,
+          status: PrintTaskStatus.Failed,
+          error: toPrinterFeatureException(error),
+          startedAt,
+          completedAt: new Date().toISOString(),
+        };
       }
-
-      task.completedAt = new Date().toISOString();
     });
   }
 }

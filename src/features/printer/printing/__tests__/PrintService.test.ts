@@ -44,7 +44,7 @@ describe('PrintService.print', () => {
     const printing = makePrinterService();
     const result = await makeService([], printing).print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.NoAvailablePrinter);
-    expect(result.tasks).toEqual([]);
+    expect(result.results).toEqual([]);
     expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
     expect(printing.print).not.toHaveBeenCalled();
   });
@@ -55,26 +55,27 @@ describe('PrintService.print', () => {
     const result = await makeService([p1], printing).print(PrintKind.Receipt, image);
     expect(printing.print).toHaveBeenCalledWith('p1', image);
     expect(result.status).toBe(PrintStatus.Success);
-    expect(result.tasks[0]).toMatchObject({
-      printerId: 'p1',
-      printerName: p1.name,
-      deviceId: p1.deviceId,
-      connectionType: ConnectionType.Lan,
-      kind: PrintKind.Receipt,
-      data: image,
+    expect(result.results[0]).toMatchObject({
+      task: {
+        printerId: 'p1',
+        printerName: p1.name,
+        deviceId: p1.deviceId,
+        connectionType: ConnectionType.Lan,
+        kind: PrintKind.Receipt,
+        data: image,
+      },
       status: PrintTaskStatus.Success,
-      retryCount: 0,
     });
-    expect(result.tasks[0].startedAt).toBeDefined();
-    expect(result.tasks[0].completedAt).toBeDefined();
+    expect(result.results[0].startedAt).toBeDefined();
+    expect(result.results[0].completedAt).toBeDefined();
   });
 
   it('máy lỗi thì lệnh Failed kèm exception, các máy khác vẫn in: PartialFailure', async () => {
     const printers = [lanPrinter('p1', '1.1.1.1'), lanPrinter('p2', '1.1.1.2')];
     const result = await makeService(printers, makePrinterService(['p2'])).print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.PartialFailure);
-    expect(result.tasks.map((task) => task.status)).toEqual([PrintTaskStatus.Success, PrintTaskStatus.Failed]);
-    expect(result.tasks[1].error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
+    expect(result.results.map((entry) => entry.status)).toEqual([PrintTaskStatus.Success, PrintTaskStatus.Failed]);
+    expect(result.results[1].error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
   });
 
   it('reports failed with no top-level error when every task fails', async () => {
