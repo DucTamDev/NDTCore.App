@@ -15,7 +15,7 @@ import { LanguageSelection, type PrinterLanguage } from '../models/printer/Print
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
-import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
+import type { PaperForm } from '../forms/addPrinter/PaperFormSchema';
 
 const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
@@ -34,8 +34,8 @@ export interface PrinterInfoCardProps {
   connectionType: ConnectionType;
   /** `undefined` trước khi discovery xác nhận. */
   language?: PrinterLanguage;
-  paper: PaperDraft;
-  onChangePaper: (patch: Partial<PaperDraft>) => void;
+  /** Form giấy; với máy in đã lưu, đổi giấy hợp lệ được ghi ngay. */
+  paperForm: PaperForm;
   /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
   device?: DeviceInfo;
   status: PrinterConnectionStatus;
@@ -58,8 +58,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   errors,
   connectionType,
   language,
-  paper,
-  onChangePaper,
+  paperForm,
   device,
   status,
   autoReconnect,
@@ -110,7 +109,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         style={styles.advancedAccordion}
       >
         <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
-        <PaperSection languageType={language?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
+        <PaperSection languageType={language?.type} form={paperForm} disabled={locked} />
         {kind === PrintKind.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />
         ) : null}

@@ -403,17 +403,26 @@ describe('useAddPrinterFlow', () => {
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });
 
-  it('onChangePaper merge patch và persist qua printerConfigService.setPaper', () => {
+  it('đổi giấy hợp lệ thì ghi ngay vào máy in đã lưu qua printerConfigService.setPaper', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.onChangePaper({ paperSize: PaperSize.Mm100 }));
-    expect(get().infoCard.paper.paperSize).toBe(PaperSize.Mm100);
+    act(() => get().infoCard.paperForm.setValue('paperSize', PaperSize.Mm100));
+    expect(get().infoCard.paperForm.getValues('paperSize')).toBe(PaperSize.Mm100);
     expect(printerConfigService.setPaper).toHaveBeenCalledWith('p1', expect.objectContaining({ paperSize: PaperSize.Mm100 }));
   });
 
-  it('onChangePaper type=DieCut điền sẵn 5 field default', () => {
+  it('chuyển sang giấy tem thì các ô kích thước có sẵn giá trị mặc định', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut }));
-    expect(get().infoCard.paper).toMatchObject({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
+    act(() => get().infoCard.paperForm.setValue('type', PaperType.DieCut));
+    expect(get().infoCard.paperForm.getValues()).toMatchObject({
+      type: PaperType.DieCut,
+      itemWidthMm: '30',
+      columns: '2',
+      verticalGapMm: '3',
+    });
+    expect(printerConfigService.setPaper).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2 }),
+    );
   });
 
   it('onTestPrint gọi printerService.testPrint với printer.type cố định (Label → copies)', async () => {
@@ -431,17 +440,20 @@ describe('useAddPrinterFlow', () => {
 
   it('onTestPrint khi giấy tem thiếu kích thước → báo lỗi giấy, không gửi lệnh in', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
+    act(() => get().infoCard.paperForm.setValue('type', PaperType.DieCut));
+    act(() => get().infoCard.paperForm.setValue('itemWidthMm', ''));
     await act(async () => {
       await get().infoCard.onTestPrint();
     });
     expect(printerService.testPrint).not.toHaveBeenCalled();
-    expect(get().testPrintErrorMessage).toContain('itemWidthMm');
+    expect(get().testPrintErrorMessage).toBe('Rộng tem phải là số lớn hơn 0');
   });
 
-  it('onChangePaper giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
+  it('giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
+    act(() => get().infoCard.paperForm.setValue('type', PaperType.DieCut));
+    jest.mocked(printerConfigService.setPaper).mockClear();
+    act(() => get().infoCard.paperForm.setValue('itemWidthMm', ''));
     expect(printerConfigService.setPaper).not.toHaveBeenCalled();
   });
 
@@ -487,9 +499,10 @@ describe('useAddPrinterFlow', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it('saveDisabled true khi paper die-cut thiếu field (hasDieCutMediaError)', () => {
+  it('saveDisabled true khi giấy tem thiếu kích thước (hasDieCutMediaError)', () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
+    act(() => get().infoCard.paperForm.setValue('type', PaperType.DieCut));
+    act(() => get().infoCard.paperForm.setValue('itemWidthMm', ''));
     expect(get().hasDieCutMediaError).toBe(true);
     expect(get().infoCard.saveDisabled).toBe(true);
   });

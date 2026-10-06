@@ -16,7 +16,14 @@ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/PrinterDefaults';
-import { toPaperOptions, type PaperDraft, dieCutMediaError } from '../forms/addPrinter/PaperDraft';
+import {
+  paperFormErrorOf,
+  paperFormSchema,
+  toPaperFormValues,
+  toPaperOptions,
+  type PaperFormValues,
+} from '../forms/addPrinter/PaperFormSchema';
+import type { PaperOptions } from '../models/paper/PaperOptions';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { useConnectionSetup } from './addPrinter/useConnectionSetup';
@@ -76,7 +83,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
-  const [paper, setPaper] = useState<PaperDraft>(initialValues?.paper ?? { ...DEFAULT_PAPER });
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureImage } = usePrintImageCapture();
   const [liveStatus, setLiveStatus] = useState<PrinterConnectionStatus>(PrinterConnectionStatus.Idle);
@@ -87,6 +93,13 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       name: initialValues?.name ?? '',
     },
   });
+
+  const paperForm = useForm<PaperFormValues, unknown, PaperOptions>({
+    resolver: zodResolver(paperFormSchema),
+    mode: 'onChange',
+    defaultValues: toPaperFormValues(initialValues?.paper ?? DEFAULT_PAPER),
+  });
+  const paperError = paperFormErrorOf(paperForm.watch());
 
   const cancelConnectRef = useRef<(() => void) | null>(null);
   const [detection, setDetection] = useState<PrinterDetection | undefined>(undefined);
@@ -153,7 +166,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       deviceId: currentIdentityKey() ?? undefined,
       capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
-      paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
+      paper: toPaperOptions(paperForm.getValues()) ?? DEFAULT_PAPER,
       autoReconnect,
       enabled: initialValues?.enabled ?? true,
       createdAt: initialValues?.createdAt ?? draft.createdAt,
@@ -184,7 +197,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     );
   };
 
-  const paperError = dieCutMediaError(paper);
   const testPrint = useTestPrint({
     language,
     paperError,
@@ -192,7 +204,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     buildDraftPrinter: buildFullDraftPrinter,
     captureImage,
   });
-  const printSettings = usePrintSettings({ printerId, paper, setPaper });
+  usePrintSettings({ printerId, paperForm });
 
   const printerDetection = usePrinterDetection({
     initialValues,
@@ -334,8 +346,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       errors: displayForm.formState.errors,
       connectionType,
       language,
-      paper,
-      onChangePaper: printSettings.onChangePaper,
+      paperForm,
       device: selectedDevice?.device,
       status: liveStatus,
       autoReconnect,

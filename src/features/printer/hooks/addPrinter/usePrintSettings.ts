@@ -1,30 +1,28 @@
-import { PaperType } from '../../models/paper/PaperType';
-import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
+import { useEffect } from 'react';
 import { printerConfigService } from '../../management/PrinterConfigService';
+import { toPaperOptions, type PaperForm } from '../../forms/addPrinter/PaperFormSchema';
 
 export interface UsePrintSettingsInput {
   printerId: string;
-  paper: PaperDraft;
-  setPaper: (paper: PaperDraft) => void;
+
+  /** Form giấy của luồng Thêm/Sửa máy in. */
+  paperForm: PaperForm;
 }
 
 /**
- * Chỉnh cấu hình in sau khi đã xác định ngôn ngữ: khổ và loại giấy.
- * Máy in đã lưu thì ghi ngay qua `PrinterConfigService`; bản nháp chưa lưu thì để lúc bấm Lưu.
+ * Máy in đã lưu thì ghi giấy ngay mỗi khi form giấy đổi và hợp lệ; bản nháp chưa lưu thì `PrinterConfigService` bỏ
+ * qua, giấy được lưu lúc bấm Lưu.
  */
-export const usePrintSettings = ({ printerId, paper, setPaper }: UsePrintSettingsInput) => {
-  /** Giấy tem còn thiếu kích thước thì chỉ cập nhật form, chưa ghi vào máy in đã lưu. */
-  const onChangePaper = (patch: Partial<PaperDraft>): void => {
-    const merged: PaperDraft = { ...paper, ...patch };
-    const next = merged.type === PaperType.DieCut ? { ...DIE_CUT_DRAFT_DEFAULTS, ...merged } : merged;
-    const options = toPaperOptions(next);
+export const usePrintSettings = ({ printerId, paperForm }: UsePrintSettingsInput): void => {
+  useEffect(() => {
+    const subscription = paperForm.watch(() => {
+      const paper = toPaperOptions(paperForm.getValues());
 
-    setPaper(next);
+      if (paper) {
+        printerConfigService.setPaper(printerId, paper);
+      }
+    });
 
-    if (options) {
-      printerConfigService.setPaper(printerId, options);
-    }
-  };
-
-  return { onChangePaper };
+    return () => subscription.unsubscribe();
+  }, [paperForm, printerId]);
 };

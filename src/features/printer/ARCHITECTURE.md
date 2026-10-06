@@ -127,7 +127,7 @@ src/features/printer/
 │
 ├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
-├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
+├── forms/               schema (máy in, form giấy, LAN, tên), printerRules (canPrintKind)
 ├── store/
 ├── utils/               printKindLabels (nhãn UI), paperUtils, printOptionsUtils
 │
@@ -324,8 +324,8 @@ DieCutPaper      { type: DieCut; paperSize; itemWidthMm; itemHeightMm; columns; 
 ```
 
 Union theo `type` để trạng thái vô nghĩa không biểu diễn được (giấy cuộn không có kích thước tem; tem không có dao cắt).
-Form dùng `PaperDraft` (`forms/addPrinter/PaperDraft.ts`) — các field tem có thể còn trống; `toPaperOptions` chỉ trả
-`PaperOptions` khi đủ và hợp lệ.
+Form giấy là react-hook-form + zod (`forms/addPrinter/PaperFormSchema.ts`), giống form LAN: ô kích thước tem giữ
+dạng chữ nên được trống khi đang gõ; schema kiểm từng ô, hợp lệ thì `transform` ra `PaperOptions`.
 
 `PaperOptions` dùng cho layout, paper calculation, die-cut positioning, cutter behavior. Không dùng để biểu diễn
 capability phần cứng.
@@ -344,8 +344,8 @@ rowWidth = columns × itemWidthMm + (columns - 1) × horizontalGapMm
 rowWidth > printableWidth → cấu hình không hợp lệ
 ```
 
-Rule nằm ở `forms/addPrinter/PaperDraft.ts` (`dieCutMediaError`, `dieCutRowOverflow`); schema gắn `superRefine` lên
-union.
+`dieCutRowOverflow` nằm ở `utils/paperUtils.ts`, nhận `PaperOptions` hợp lệ; schema lưu (`PrinterSchema`) và form
+giấy (`PaperFormSchema`) cùng gọi trong `superRefine`.
 
 ---
 
@@ -360,15 +360,17 @@ models/paper/
 └── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh
 
 utils/
-└── paperUtils.ts       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
+└── paperUtils.ts       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode),
+                        dieCutRowOverflow (hàng tem tràn khổ)
 
 forms/addPrinter/
-└── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions,
-                        dieCutMediaError / dieCutRowOverflow (thiếu kích thước tem, hàng tem tràn khổ)
+└── PaperFormSchema.ts  PaperFormValues (ô tem dạng chữ), paperFormSchema, toPaperFormValues,
+                        toPaperOptions, paperFormErrorOf
 ```
 
 `models/paper/` chỉ chứa kiểu và dữ liệu của giấy (`paperSpec`); hàm tính trên giấy nằm ở `utils/paperUtils.ts`.
-Validation nhận bản nháp nên nằm cạnh form; schema và repository gọi lại cùng hàm, không phân tán vào nhiều layer.
+Kiểm tra ô nhập (trống, không phải số) thuộc form; quy tắc trên giấy hợp lệ (tràn khổ) dùng chung cho form và
+schema lưu.
 
 ---
 
@@ -989,13 +991,11 @@ Nếu invariant đơn giản, có thể comment ngay tại field.
 Ví dụ:
 
 ```ts
-interface PaperDraft {
+interface PaperFormValues {
   type: PaperType;
 
-  /**
-   * Required when type is DieCut.
-   */
-  columns?: number;
+  /** Chỉ kiểm khi type là DieCut. */
+  columns: string;
 }
 ```
 
@@ -1014,7 +1014,7 @@ không nên nhét toàn bộ rule vào comments.
 Rule phải nằm trong:
 
 ```text
-forms/addPrinter/PaperDraft.ts
+forms/addPrinter/PaperFormSchema.ts
 ```
 
 ---
@@ -1326,7 +1326,7 @@ PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiề
 PrinterDetectionService  → khớp trường nhận diện, không phân biệt hoa thường, định nghĩa đầu tiên thắng
 DeviceDiscoveryService   → quyền, ánh xạ native → DiscoverResult
 PrinterService           → encode + gửi, kết nối khi cần, không tự khoá khi print
-PaperDraft               → paper rule tests
+PaperFormSchema          → ô trống/sai, tràn khổ, đổi qua lại PaperOptions
 ```
 
 `printing/__tests__/encodeCases.test.ts` chạy trọn đường in thử (service thật + `DeviceModule` mock) và so dấu vân tay

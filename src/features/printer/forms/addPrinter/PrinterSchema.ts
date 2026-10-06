@@ -5,7 +5,7 @@ import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
 import { PrintKind } from '../../models/printer/PrintKind';
-import { dieCutRowOverflow } from './PaperDraft';
+import { dieCutRowOverflow } from '../../utils/paperUtils';
 import { canPrintKind } from './printerRules';
 
 const paperSizeSchema = z.union([
