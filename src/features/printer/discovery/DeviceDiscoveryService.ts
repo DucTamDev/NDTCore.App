@@ -22,7 +22,7 @@ const logEvent = (connectionType: ConnectionType, event: DiscoveryEvent): void =
     status: event.status,
     devices:
       event.status === DiscoveryStatus.Found
-        ? event.devices.map(({ device, connection }) => ({ deviceId: device.deviceId, name: device.name, connection }))
+        ? event.devices.map(({ device }) => ({ deviceId: device.deviceId, name: device.name }))
         : undefined,
     error:
       event.status === DiscoveryStatus.Error
