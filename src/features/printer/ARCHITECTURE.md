@@ -98,7 +98,7 @@ src/features/printer/
 │   ├── device/          DeviceInfo, DiscoveredDevice, DeviceDiscoveryEvent — dùng lúc tìm thiết bị, không lưu
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
 │   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
-│   ├── paper/           PaperOptions (+ resolveEffectiveCutterMode), PaperSize, PaperType, CutterMode,
+│   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
 │   └── printing/        PrintOptions, PrintJob
 │
@@ -134,7 +134,7 @@ src/features/printer/
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
 ├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
 ├── store/
-├── utils/               printKindLabels (nhãn UI)
+├── utils/               printKindLabels (nhãn UI), paperUtils (resolveEffectiveCutterMode)
 │
 └── testing/             printerFixtures, printerServiceTestKit, encodeCases
 ```
@@ -353,20 +353,22 @@ union.
 
 ```text
 models/paper/
-├── PaperOptions.ts     ContinuousPaper | DieCutPaper,
-│                       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
+├── PaperOptions.ts     ContinuousPaper | DieCutPaper
 ├── PaperSize.ts        58 | 80 | 100 | 104 (mm)
 ├── PaperType.ts        Continuous | DieCut
 ├── CutterMode.ts       None | PerJob | PerRow
 └── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh, trần chiều cao giấy cuộn
+
+utils/
+└── paperUtils.ts       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
 
 forms/addPrinter/
 └── PaperDraft.ts       bản nháp form (field tem có thể trống), toPaperOptions,
                         dieCutMediaError / dieCutRowOverflow (thiếu kích thước tem, hàng tem tràn khổ)
 ```
 
-`paperSpec` và cách cắt là dữ liệu và hàm thuần của giấy nên nằm trong model. Validation nhận bản nháp nên nằm cạnh
-form; schema và repository gọi lại cùng hàm, không phân tán vào nhiều layer.
+`models/paper/` chỉ chứa kiểu và dữ liệu của giấy (`paperSpec`); hàm tính trên giấy nằm ở `utils/paperUtils.ts`.
+Validation nhận bản nháp nên nằm cạnh form; schema và repository gọi lại cùng hàm, không phân tán vào nhiều layer.
 
 ---
 

@@ -1,5 +1,5 @@
 import { CutterMode } from '../../models/paper/CutterMode';
-import { resolveEffectiveCutterMode } from '../../models/paper/PaperOptions';
+import { resolveEffectiveCutterMode } from '../../utils/paperUtils';
 import type { Printer } from '../../models/printer/Printer';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
