@@ -44,12 +44,12 @@ export class PrintService {
    * chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
    */
   paperFor(kind: PrintKind): PaperOptions | null {
-    return this.targetsOf(kind)[0]?.paper ?? null;
+    return this.findEnabledPrintersByKind(kind)[0]?.paper ?? null;
   }
 
   /** Mỗi máy nhận một lệnh in; máy khác nhau in song song, cùng máy vật lý in lần lượt. Không throw. */
   async print(kind: PrintKind, image: string): Promise<PrintResult> {
-    const targets = this.targetsOf(kind);
+    const targets = this.findEnabledPrintersByKind(kind);
 
     if (targets.length === 0) {
       return {
@@ -69,7 +69,7 @@ export class PrintService {
   }
 
   /** Máy in đang bật và nhận loại nội dung `kind`. */
-  private targetsOf(kind: PrintKind): Printer[] {
+  private findEnabledPrintersByKind(kind: PrintKind): Printer[] {
     return this.repository.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);
   }
 
