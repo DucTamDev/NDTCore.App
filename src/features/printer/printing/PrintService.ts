@@ -62,7 +62,7 @@ export class PrintService {
       };
     }
 
-    const tasks = printers.map((printer) => this.createTask(printer, kind, image));
+    const tasks = printers.map((printer) => this.createTask(printer, image));
     await Promise.all(tasks.map((task) => this.run(task)));
 
     const successCount = tasks.filter((task) => task.status === PrintTaskStatus.Success).length;
@@ -75,14 +75,14 @@ export class PrintService {
     return this.repository.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);
   }
 
-  private createTask(printer: Printer, kind: PrintKind, data: string): PrintTask {
+  private createTask(printer: Printer, data: string): PrintTask {
     return {
       id: generateId(),
       printerId: printer.id,
       printerName: printer.name,
       deviceId: printer.deviceId,
       connectionType: printer.connection.type,
-      kind,
+      kind: printer.kind,
       data,
       status: PrintTaskStatus.Pending,
       retryCount: 0,
