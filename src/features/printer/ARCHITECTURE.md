@@ -98,7 +98,7 @@ src/features/printer/
 │   ├── device/          DeviceInfo — thông tin thiết bị tìm thấy, không lưu
 │   ├── discovery/       DiscoverResult, DiscoveryStatus, DiscoveryEvent — kết quả và tiến trình tìm thiết bị
 │   ├── printer/         Printer, PrintKind, ConnectionType, PrinterConnection (+ deviceIdOf),
-│   │                    PrinterLanguage, PrinterCapabilities, PrinterStatus — lưu xuống bộ nhớ
+│   │                    PrinterLanguage, PrinterCapabilities, PrinterConnectionStatus — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
 │   └── printing/        PrintOptions, PrintJob
@@ -764,7 +764,7 @@ identifier.
 ```ts
 const printer = repository.findOrThrow(printerId);
 
-if (connectionService.getStatus(printer.id) !== PrinterStatus.Connected) {
+if (connectionService.getStatus(printer.id) !== PrinterConnectionStatus.Connected) {
   await connectionService.connect(printer);
 }
 

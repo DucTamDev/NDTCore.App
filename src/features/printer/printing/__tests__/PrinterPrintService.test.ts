@@ -3,7 +3,7 @@ import { PrinterRepository } from '../../storage/PrinterRepository';
 import { ResourceLock } from '../../connection/PrinterConnectionLock';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
-import { PrinterStatus } from '../../models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../../models/printer/PrinterConnectionStatus';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/printer/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
@@ -68,7 +68,7 @@ describe('PrinterPrintService', () => {
 
   it('in: chưa kết nối thì kết nối trước', async () => {
     const { service, connectionService, repository } = setup({
-      getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle),
+      getStatus: jest.fn().mockReturnValue(PrinterConnectionStatus.Idle),
     });
     repository.addPrinter(basePrinter);
 
@@ -137,7 +137,7 @@ describe('PrinterPrintService', () => {
 
   it('in thử: kết nối thất bại thì ghi log thất bại và ném lại lỗi', async () => {
     const { service } = setup({
-      getStatus: jest.fn().mockReturnValue(PrinterStatus.Idle),
+      getStatus: jest.fn().mockReturnValue(PrinterConnectionStatus.Idle),
       connect: jest.fn().mockRejectedValue(new Error('offline')),
     });
 

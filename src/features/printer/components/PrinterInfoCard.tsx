@@ -13,7 +13,7 @@ import { PrintKind } from '../models/printer/PrintKind';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import { LanguageSelection, type PrinterLanguage } from '../models/printer/PrinterLanguage';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
 
@@ -38,7 +38,7 @@ export interface PrinterInfoCardProps {
   onChangePaper: (patch: Partial<PaperDraft>) => void;
   /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
   device?: DeviceInfo;
-  status: PrinterStatus;
+  status: PrinterConnectionStatus;
   autoReconnect: boolean;
   onAutoReconnectChange: (value: boolean) => void;
   testPrintPending: boolean;

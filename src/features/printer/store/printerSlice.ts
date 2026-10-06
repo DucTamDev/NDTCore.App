@@ -1,10 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { Printer } from '../models/printer/Printer';
 
 interface PrinterState {
   printers: Printer[];
-  statusById: Record<string, PrinterStatus>;
+  statusById: Record<string, PrinterConnectionStatus>;
 }
 
 const initialState: PrinterState = {
@@ -31,7 +31,7 @@ const printerSlice = createSlice({
     printerRemoved(state, action: PayloadAction<string>) {
       state.printers = state.printers.filter((p) => p.id !== action.payload);
     },
-    printerStatusChanged(state, action: PayloadAction<{ printerId: string; status: PrinterStatus }>) {
+    printerStatusChanged(state, action: PayloadAction<{ printerId: string; status: PrinterConnectionStatus }>) {
       state.statusById[action.payload.printerId] = action.payload.status;
     },
     printerEnabledChanged(state, action: PayloadAction<{ printerId: string; enabled: boolean }>) {
@@ -57,7 +57,7 @@ interface StateWithPrinter {
 }
 
 export const selectPrinters = (state: StateWithPrinter): Printer[] => state.printer.printers;
-export const selectPrinterStatus = (state: StateWithPrinter, printerId: string): PrinterStatus =>
-  state.printer.statusById[printerId] ?? PrinterStatus.Idle;
+export const selectPrinterStatus = (state: StateWithPrinter, printerId: string): PrinterConnectionStatus =>
+  state.printer.statusById[printerId] ?? PrinterConnectionStatus.Idle;
 
 export default printerSlice.reducer;

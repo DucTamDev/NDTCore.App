@@ -13,7 +13,7 @@ import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
 import { ConnectionType } from '../models/printer/ConnectionType';
 import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { PrintKind } from '../models/printer/PrintKind';
 import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/PrinterDefaults';
 import { toPaperOptions, type PaperDraft, dieCutMediaError } from '../forms/addPrinter/PaperDraft';
@@ -79,7 +79,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const [paper, setPaper] = useState<PaperDraft>(initialValues?.paper ?? { ...DEFAULT_PAPER });
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureImage } = usePrintImageCapture();
-  const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.Idle);
+  const [liveStatus, setLiveStatus] = useState<PrinterConnectionStatus>(PrinterConnectionStatus.Idle);
 
   const displayForm = useForm<PrinterDisplayValues>({
     resolver: zodResolver(printerDisplaySchema),
@@ -219,7 +219,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   useEffect(() => {
     if (!language) {
-      setLiveStatus(PrinterStatus.Idle);
+      setLiveStatus(PrinterConnectionStatus.Idle);
       return undefined;
     }
 
@@ -271,7 +271,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       return;
     }
     savedRef.current = true;
-    if (liveStatus === PrinterStatus.Connected) {
+    if (liveStatus === PrinterConnectionStatus.Connected) {
       printerConnectionService.reconnect(printer.id).catch(() => undefined);
     } else if (printer.autoReconnect) {
       printerConnectionService.connect(printerRepository.findOrThrow(printer.id)).catch(() => undefined);

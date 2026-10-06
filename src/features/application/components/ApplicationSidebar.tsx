@@ -6,7 +6,7 @@ import type { AppDispatch } from '../../../store';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { usePrinterList } from '../../printer/hooks/usePrinterList';
 import { printerConnectionService } from '../../printer/connection/PrinterConnectionService';
-import { PrinterStatus } from '../../printer/models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../../printer/models/printer/PrinterConnectionStatus';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { StoreService } from '../../store/services/StoreService';
 import { storeCleared } from '../../store/store/storeSlice';
@@ -27,7 +27,9 @@ export const ApplicationSidebar: React.FC<ApplicationSidebarProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { printers } = usePrinterList();
-  const hasConnectedPrinter = printers.some((p) => printerConnectionService.getStatus(p.id) === PrinterStatus.Connected);
+  const hasConnectedPrinter = printers.some(
+    (p) => printerConnectionService.getStatus(p.id) === PrinterConnectionStatus.Connected,
+  );
   const { logout } = useAuth();
   const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
   const [confirmChangeStoreVisible, setConfirmChangeStoreVisible] = useState(false);

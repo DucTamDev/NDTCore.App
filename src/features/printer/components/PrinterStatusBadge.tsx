@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import type { PrinterStatus } from '../models/printer/PrinterStatus';
+import type { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 
-const labelByStatus: Record<PrinterStatus, string> = {
+const labelByStatus: Record<PrinterConnectionStatus, string> = {
   Idle: 'Chưa kết nối',
   Connecting: 'Đang kết nối',
   Connected: 'Đã kết nối',
@@ -13,7 +13,7 @@ const labelByStatus: Record<PrinterStatus, string> = {
   Error: 'Lỗi',
 };
 
-const colorByStatus: Record<PrinterStatus, { bg: string; fg: string }> = {
+const colorByStatus: Record<PrinterConnectionStatus, { bg: string; fg: string }> = {
   Idle: { bg: '#F3F4F6', fg: '#6B7280' },
   Connecting: { bg: '#FEF3C7', fg: '#B45309' },
   Connected: { bg: '#DCFCE7', fg: '#15803D' },
@@ -24,7 +24,7 @@ const colorByStatus: Record<PrinterStatus, { bg: string; fg: string }> = {
 };
 
 export interface PrinterStatusBadgeProps {
-  status: PrinterStatus;
+  status: PrinterConnectionStatus;
 }
 
 export const PrinterStatusBadge: React.FC<PrinterStatusBadgeProps> = ({ status }) => {

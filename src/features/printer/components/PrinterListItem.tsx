@@ -7,7 +7,7 @@ import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
 import { ConnectionType } from '../models/printer/ConnectionType';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrinterConnectionStatus } from '../models/printer/PrinterConnectionStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../models/printer/Printer';
 
@@ -39,7 +39,7 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
   const subtitle = [connectionLabel[printer.connection.type], languageLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
   const requestDelete = (): void => {
-    if (status === PrinterStatus.Connected) {
+    if (status === PrinterConnectionStatus.Connected) {
       setConfirmDeleteVisible(true);
       return;
     }
