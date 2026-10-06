@@ -563,8 +563,8 @@ Chọn máy nhận theo `printer.kind` và `enabled`.
 
 ## `PrintScheduler`
 
-Queue, ordering, job lifecycle. Khoá theo `lockKeyOf(printer)` (máy không còn trong danh sách thì khoá theo
-`printerId`). Không biết lệnh ESC/POS hay TSPL.
+Queue, ordering, job lifecycle. Khoá theo `task.deviceId` (bằng `lockKeyOf` của máy in đã lưu), không tra
+repository. Không biết lệnh ESC/POS hay TSPL.
 
 ## `PrinterPrintService`
 
@@ -586,7 +586,7 @@ PrintService
     ↓
 PrintRoutingService → target printers (mỗi target một job)
     ↓
-PrintScheduler → PrinterConnectionLock(lockKeyOf(printer))
+PrintScheduler → PrinterConnectionLock(task.deviceId)
     ↓
 PrinterPrintService
     ├── PrinterConnectionService.connect (nếu chưa Connected)

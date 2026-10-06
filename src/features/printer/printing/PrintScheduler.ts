@@ -1,7 +1,6 @@
 import { toPrinterFeatureException } from '../exceptions';
 import { printerPrintService, type PrinterPrintService } from './PrinterPrintService';
-import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
-import { printerConnectionLock, lockKeyOf, type ResourceLock } from '../connection/PrinterConnectionLock';
+import { printerConnectionLock, type ResourceLock } from '../connection/PrinterConnectionLock';
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
 
@@ -9,9 +8,6 @@ import type { PrintTask } from '../models/printing/PrintTask';
 export interface PrintSchedulerDeps {
   /** In một lệnh in trên máy của nó. */
   printing: PrinterPrintService;
-
-  /** Danh sách máy in để tìm khoá theo máy vật lý của lệnh in. */
-  repository: PrinterRepository;
 
   /** Khoá dùng chung với nút "In thử". */
   lock: ResourceLock;
@@ -21,8 +17,9 @@ export interface PrintSchedulerDeps {
 export class PrintScheduler {
   constructor(private readonly deps: PrintSchedulerDeps) {}
 
+  /** Khoá theo `task.deviceId`, trùng `lockKeyOf` của máy in đã lưu nên cùng khoá với nút "In thử". */
   enqueue(task: PrintTask): Promise<PrintTask> {
-    return this.deps.lock.runExclusive(this.lockKeyFor(task), () => this.run(task)).then(() => task);
+    return this.deps.lock.runExclusive(task.deviceId, () => this.run(task)).then(() => task);
   }
 
   retry(task: PrintTask): Promise<PrintTask> {
@@ -30,12 +27,6 @@ export class PrintScheduler {
     task.status = PrintTaskStatus.Pending;
     task.error = undefined;
     return this.enqueue(task);
-  }
-
-  /** Máy in không còn trong danh sách thì khoá theo `printerId` để các lệnh in của nó vẫn chạy lần lượt. */
-  private lockKeyFor(task: PrintTask): string {
-    const printer = this.deps.repository.getPrinters().find((candidate) => candidate.id === task.printerId);
-    return printer ? lockKeyOf(printer) : task.printerId;
   }
 
   private async run(task: PrintTask): Promise<void> {
@@ -56,6 +47,5 @@ export class PrintScheduler {
 
 export const printScheduler = new PrintScheduler({
   printing: printerPrintService,
-  repository: printerRepository,
   lock: printerConnectionLock,
 });
