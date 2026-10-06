@@ -8,7 +8,7 @@ import { printerRepository, type PrinterRepository } from '../storage/PrinterRep
  */
 export class PrinterConfigService {
   constructor(
-    private readonly repository: Pick<PrinterRepository, 'getPrinters' | 'savePrinters'> = printerRepository,
+    private readonly repository: PrinterRepository = printerRepository,
   ) {}
 
   setPaper(printerId: string, paper: PaperOptions): void {

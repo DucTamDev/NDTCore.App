@@ -8,12 +8,17 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../testing/printerFixtures';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
+import { mockOf } from '../../testing/printerServiceTestKit';
+import type { PrintRoutingService } from '../PrintRoutingService';
+import type { PrintScheduler } from '../PrintScheduler';
 
 const image = 'base64-png';
 
 const makeDeps = (targets: Printer[], scheduleResult: (printerId: string) => PrintJob) => ({
-  routing: { resolveTargets: jest.fn().mockReturnValue(targets) },
-  scheduler: { enqueue: jest.fn().mockImplementation((job: PrintJob) => Promise.resolve(scheduleResult(job.printerId))) },
+  routing: mockOf<jest.Mocked<PrintRoutingService>>({ resolveTargets: jest.fn().mockReturnValue(targets) }),
+  scheduler: mockOf<jest.Mocked<PrintScheduler>>({
+    enqueue: jest.fn().mockImplementation((job: PrintJob) => Promise.resolve(scheduleResult(job.printerId))),
+  }),
 });
 
 describe('PrintService.print', () => {

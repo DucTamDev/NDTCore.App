@@ -11,10 +11,10 @@ import { printerRepository, type PrinterRepository } from '../storage/PrinterRep
 /** In ảnh ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
 export class PrinterPrintService {
   constructor(
-    private readonly connectionService: Pick<PrinterConnectionService, 'connect' | 'getStatus' | 'send'> =
+    private readonly connectionService: PrinterConnectionService =
       printerConnectionService,
-    private readonly repository: Pick<PrinterRepository, 'findOrThrow'> = printerRepository,
-    private readonly lock: Pick<ResourceLock, 'runExclusive'> = printerConnectionLock,
+    private readonly repository: PrinterRepository = printerRepository,
+    private readonly lock: ResourceLock = printerConnectionLock,
   ) {}
 
   /** Không tự khoá: `PrintScheduler` gọi hàm này bên trong khoá của chính máy đó, khoá lại sẽ treo. */

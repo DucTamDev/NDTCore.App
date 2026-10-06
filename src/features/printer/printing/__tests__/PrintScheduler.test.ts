@@ -7,7 +7,7 @@ import { type Printer } from '../../models/printer/Printer';
 import { PrintJobStatus, type PrintJob } from '../../models/printing/PrintJob';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { makePrinter as makePrinterFixture, makeTsplLanguage } from '../../testing/printerFixtures';
-import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
+import { makeMockConnectionService, mockOf } from '../../testing/printerServiceTestKit';
 import { stripedPngBase64 } from '../../testing/encodeCases';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
@@ -30,7 +30,11 @@ const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
 type FakePrinterService = { print: jest.Mock; getPrinters: jest.Mock };
 
 const makeScheduler = (printerService: FakePrinterService): PrintScheduler =>
-  new PrintScheduler({ printing: printerService, repository: printerService, lock: new ResourceLock() });
+  new PrintScheduler({
+    printing: mockOf<PrinterPrintService>(printerService),
+    repository: mockOf<PrinterRepository>(printerService),
+    lock: new ResourceLock(),
+  });
 
 describe('PrintScheduler', () => {
   it('enqueue() resolves with status success when printerPrintService.print resolves', async () => {

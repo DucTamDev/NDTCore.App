@@ -7,13 +7,13 @@ import { PrintJobStatus, type PrintJob } from '../models/printing/PrintJob';
 /** Phụ thuộc của hàng đợi in, tách ra để test thay được. */
 export interface PrintSchedulerDeps {
   /** In một job trên máy của nó. */
-  printing: Pick<PrinterPrintService, 'print'>;
+  printing: PrinterPrintService;
 
   /** Danh sách máy in để tìm khoá theo máy vật lý của job. */
-  repository: Pick<PrinterRepository, 'getPrinters'>;
+  repository: PrinterRepository;
 
   /** Khoá dùng chung với nút "In thử". */
-  lock: Pick<ResourceLock, 'runExclusive'>;
+  lock: ResourceLock;
 }
 
 /** Chạy job in theo thứ tự, mỗi máy vật lý một job tại một thời điểm. */

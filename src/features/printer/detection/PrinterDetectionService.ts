@@ -44,9 +44,6 @@ export type PrinterDetectionEvent =
   | { stage: typeof PrinterDetectionStage.Unknown }
   | { stage: typeof PrinterDetectionStage.Error; error: PrinterFeatureException };
 
-/** Phần kết nối mà việc dò cần. */
-type DetectionConnectionService = Pick<PrinterConnectionService, 'connect' | 'disconnect' | 'send' | 'read'>;
-
 /** Trạng thái của một lần dò, truyền qua các bước. */
 interface DetectionRun {
   /** Máy in đang dò; chỉ dùng `id`, `kind` và `connection`. */
@@ -63,7 +60,7 @@ interface DetectionRun {
 
 /** Dò ngôn ngữ của máy in mới trên một lần kết nối duy nhất. */
 export class PrinterDetectionService {
-  constructor(private readonly connectionService: DetectionConnectionService = printerConnectionService) {}
+  constructor(private readonly connectionService: PrinterConnectionService = printerConnectionService) {}
 
   /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
   detect(printer: Printer, onEvent: (event: PrinterDetectionEvent) => void): Unsubscribe {

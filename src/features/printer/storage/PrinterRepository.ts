@@ -11,7 +11,7 @@ import type { PrinterWriteInput } from './PrinterWriteInput';
  * (`deviceId` tính lại + chống trùng). Không phụ thuộc kết nối hay khoá in.
  */
 export class PrinterRepository {
-  constructor(private readonly storage: Pick<PrinterStorage, 'getPrinters' | 'savePrinters'> = printerStorage) {}
+  constructor(private readonly storage: PrinterStorage = printerStorage) {}
 
   getPrinters(): Printer[] {
     return this.storage.getPrinters();

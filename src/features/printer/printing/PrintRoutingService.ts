@@ -4,7 +4,7 @@ import { printerRepository, type PrinterRepository } from '../storage/PrinterRep
 
 /** CHỈ biết "loại nội dung nào → máy in nào": mỗi `Printer` in đúng một `kind`. */
 export class PrintRoutingService {
-  constructor(private readonly repository: Pick<PrinterRepository, 'getPrinters'> = printerRepository) {}
+  constructor(private readonly repository: PrinterRepository = printerRepository) {}
 
   resolveTargets(kind: PrintKind): Printer[] {
     return this.repository.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);

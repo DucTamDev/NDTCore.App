@@ -10,9 +10,9 @@ import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } fr
 
 /** Phụ thuộc của service, tách ra để test thay được. */
 export interface PrintServiceDeps {
-  routing: Pick<PrintRoutingService, 'resolveTargets'>;
+  routing: PrintRoutingService;
 
-  scheduler: Pick<PrintScheduler, 'enqueue'>;
+  scheduler: PrintScheduler;
 }
 
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */

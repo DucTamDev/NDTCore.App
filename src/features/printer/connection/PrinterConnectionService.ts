@@ -23,10 +23,10 @@ export interface PrinterConnectionServiceDeps {
   ensureBluetoothPermission: () => Promise<boolean>;
 
   /** Nguồn máy in đã lưu cho `reconnect` và tự kết nối lại. */
-  repository: Pick<PrinterRepository, 'findOrThrow' | 'getPrinters'>;
+  repository: PrinterRepository;
 
   /** Khoá dùng chung với tầng in. */
-  lock: Pick<ResourceLock, 'runExclusive'>;
+  lock: ResourceLock;
 }
 
 /** Kết nối đang mở của một máy in. */

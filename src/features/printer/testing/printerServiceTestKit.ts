@@ -36,23 +36,27 @@ export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose
   return { adapter, lose: () => lostCallbacks.forEach((callback) => callback()) };
 };
 
-/** Chỉ phần công khai: object giả không thể có field private của class. */
-type ConnectionServiceApi = Pick<PrinterConnectionService, keyof PrinterConnectionService>;
+/**
+ * Ép object giả (chỉ có các method test cần) sang kiểu class: service nhận nguyên class làm phụ thuộc, mà class có
+ * field private nên object viết tay không bao giờ khớp kiểu.
+ */
+export const mockOf = <T>(members: Partial<T>): T => members as T;
 
 /** Connection service giả: mặc định máy đã kết nối, gửi và ngắt đều thành công. */
 export const makeMockConnectionService = (
-  overrides: Partial<jest.Mocked<ConnectionServiceApi>> = {},
-): jest.Mocked<ConnectionServiceApi> => ({
-  connect: jest.fn().mockResolvedValue(undefined),
-  disconnect: jest.fn().mockResolvedValue(undefined),
-  send: jest.fn().mockResolvedValue(undefined),
-  read: jest.fn().mockResolvedValue(null),
-  getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
-  onStatusChange: jest.fn().mockReturnValue(() => undefined),
-  reconnect: jest.fn().mockResolvedValue(undefined),
-  reconnectAutoPrinters: jest.fn(),
-  ...overrides,
-});
+  overrides: Partial<jest.Mocked<PrinterConnectionService>> = {},
+): jest.Mocked<PrinterConnectionService> =>
+  mockOf<jest.Mocked<PrinterConnectionService>>({
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    send: jest.fn().mockResolvedValue(undefined),
+    read: jest.fn().mockResolvedValue(null),
+    getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected),
+    onStatusChange: jest.fn().mockReturnValue(() => undefined),
+    reconnect: jest.fn().mockResolvedValue(undefined),
+    reconnectAutoPrinters: jest.fn(),
+    ...overrides,
+  });
 
 export const escposLanguage: PrinterLanguage = {
   type: PrintLanguage.EscPos,

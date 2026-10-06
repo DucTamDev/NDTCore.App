@@ -138,9 +138,7 @@ test thay được. Class đặt PascalCase, instance dùng chung đặt camelCa
 
 ```ts
 export class PrinterConfigService {
-  constructor(
-    private readonly repository: Pick<PrinterRepository, 'getPrinters' | 'savePrinters'> = printerRepository,
-  ) {}
+  constructor(private readonly repository: PrinterRepository = printerRepository) {}
 
   setPaper(printerId: string, paper: PaperOptions): void { /* ... */ }
 }
@@ -148,10 +146,12 @@ export class PrinterConfigService {
 export const printerConfigService = new PrinterConfigService();
 ```
 
-Kiểu phụ thuộc dùng `Pick<Class, ...>` (chỉ phần công khai cần dùng), không
-dùng `ReturnType<typeof ...>`. Truyền **instance** làm phụ thuộc, không truyền
-method rời (`{ getPrinters: printerRepository.getPrinters }`) — method rời
-mất `this`. Hàm thuần không có state (`createPrinterDraft`,
+Kiểu phụ thuộc là **nguyên class** (`PrinterRepository`), không dùng
+`Pick<Class, ...>` hay `ReturnType<typeof ...>`. Truyền **instance** làm phụ
+thuộc, không truyền method rời (`{ getPrinters: printerRepository.getPrinters }`)
+— method rời mất `this`. Test cần object giả thì dùng `mockOf<Class>({ ... })`
+(`testing/printerServiceTestKit.ts`), vì class có field private nên object viết
+tay không khớp kiểu class. Hàm thuần không có state (`createPrinterDraft`,
 `createPrinterAdapter`) vẫn là function.
 
 ---
