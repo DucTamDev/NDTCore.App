@@ -18,8 +18,26 @@ import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
  */
 const DEFAULT_LABEL_HEIGHT_MM = 30;
 
+const CRLF = [0x0d, 0x0a];
+
 /** Mọi lệnh TSPL ở đây đều là ASCII nên mỗi ký tự là một byte. */
-const commandBytes = (line: string): number[] => Array.from(`${line}\r\n`, (character) => character.charCodeAt(0));
+const asciiBytes = (text: string): Uint8Array => Uint8Array.from(text, (character) => character.charCodeAt(0));
+
+const commandBytes = (command: string): Uint8Array => asciiBytes(`${command}\r\n`);
+
+const concatBytes = (parts: readonly Uint8Array[]): Uint8Array => {
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+  let offset = 0;
+
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+
+  return result;
+};
+
+const mmToDots = (mm: number): number => Math.round(mm * DOTS_PER_MM);
 
 /** Chiều cao cho `SIZE`: giấy tem theo con tem; tem trên giấy cuộn theo mặc định; hoá đơn theo trần an toàn. */
 const sizeHeightMmOf = (paper: PaperOptions, kind: PrintKind): number => {
@@ -30,59 +48,66 @@ const sizeHeightMmOf = (paper: PaperOptions, kind: PrintKind): number => {
   return kind === PrintKind.Label ? DEFAULT_LABEL_HEIGHT_MM : CONTINUOUS_HEIGHT_MM;
 };
 
+/** Ảnh tem rời co theo bề rộng một con tem; giấy cuộn theo bề rộng vùng in của khổ giấy. */
+const imageWidthDotsOf = (paper: PaperOptions): number =>
+  paper.type === PaperType.DieCut ? mmToDots(paper.itemWidthMm) : PAPER_SIZE_SPECS[paper.paperSize].imageWidthPx;
+
 /** Toạ độ x (dot) của từng cột: giấy tem một phần tử mỗi cột, cách nhau một con tem cộng khe; giấy cuộn chỉ `[0]`. */
 const columnOffsetsOf = (paper: PaperOptions): number[] => {
   if (paper.type !== PaperType.DieCut) {
     return [0];
   }
 
-  const pitch = (paper.itemWidthMm + paper.horizontalGapMm) * DOTS_PER_MM;
-  return Array.from({ length: paper.columns }, (_, column) => column * pitch);
+  const pitchMm = paper.itemWidthMm + paper.horizontalGapMm;
+  return Array.from({ length: paper.columns }, (_, column) => mmToDots(column * pitchMm));
 };
 
-/** Ảnh tem rời co theo bề rộng một con tem; giấy cuộn theo bề rộng vùng in của khổ giấy. */
-const imageWidthDotsOf = (paper: PaperOptions): number =>
-  paper.type === PaperType.DieCut ? paper.itemWidthMm * DOTS_PER_MM : PAPER_SIZE_SPECS[paper.paperSize].imageWidthPx;
-
-/**
- * Giấy tem có khe thật giữa các hàng: `SIZE` khai báo bề rộng cả hàng (mọi cột + khe ngang), `GAP` bằng khe dọc để
- * cảm biến dò khe. Giấy cuộn không có khe nên `GAP 0`.
- */
-const setupCommands = (paper: PaperOptions, heightMm: number): string[] => {
+/** Giấy tem khai báo bề rộng cả hàng (mọi cột + khe ngang). */
+const sizeCommandOf = (paper: PaperOptions, heightMm: number): string => {
   if (paper.type === PaperType.DieCut) {
     const { columns } = paper;
     const rowWidthMm = columns * paper.itemWidthMm + (columns - 1) * paper.horizontalGapMm;
-    return [`SIZE ${rowWidthMm} mm, ${heightMm} mm`, `GAP ${paper.verticalGapMm} mm, 0 mm`, 'CODEPAGE UTF-8', 'CLS'];
+    return `SIZE ${rowWidthMm} mm, ${heightMm} mm`;
   }
 
-  const widthMm = PAPER_SIZE_SPECS[paper.paperSize].printableWidthMm;
-  return [`SIZE ${widthMm} mm, ${heightMm} mm`, 'GAP 0 mm, 0 mm', 'CODEPAGE UTF-8', 'CLS'];
+  return `SIZE ${PAPER_SIZE_SPECS[paper.paperSize].printableWidthMm} mm, ${heightMm} mm`;
 };
 
-/**
- * `BITMAP x,y,width(byte),height,mode` rồi đúng `widthBytes * heightPx` byte ảnh thô. Đảo bit vì firmware TSPL clone
- * (đã kiểm trên Xprinter XP-420B) đọc bit 1 là không in, ngược chuẩn TSPL2 mà `MonochromeBitmap` theo.
- */
-const appendBitmap = (bytes: number[], x: number, bitmap: MonochromeBitmap): void => {
-  for (const character of `BITMAP ${x},0,${bitmap.widthBytes},${bitmap.heightPx},0,`) {
-    bytes.push(character.charCodeAt(0));
-  }
-
-  // Vòng lặp thay cho `push(...bits)`: ảnh hoá đơn có hàng chục nghìn byte, vượt giới hạn số argument của Hermes.
-  for (let i = 0; i < bitmap.bits.length; i += 1) {
-    bytes.push(bitmap.bits[i] ^ 0xff); // eslint-disable-line no-bitwise
-  }
-
-  bytes.push(0x0d, 0x0a);
-};
+/** Giấy tem có khe thật giữa các hàng nên cảm biến dò khe dọc; giấy cuộn không có khe nên tắt dò. */
+const gapCommandOf = (paper: PaperOptions): string =>
+  paper.type === PaperType.DieCut ? `GAP ${paper.verticalGapMm} mm, 0 mm` : 'GAP 0 mm, 0 mm';
 
 /**
  * `SET CUTTER` là thiết lập bền của máy TSPL, giữ cho các job sau; nên không cắt thì phải gửi `SET CUTTER OFF`, không
  * được chỉ bỏ qua lệnh.
  */
-const cutCommands = (copies: number, mode: CutterMode): string[] => {
-  const cutter = { [CutterMode.None]: 'OFF', [CutterMode.PerRow]: '1', [CutterMode.PerJob]: String(copies) }[mode];
-  return [`SET CUTTER ${cutter}`, `PRINT ${copies},1`];
+const cutterCommandOf = (copies: number, mode: CutterMode): string => {
+  switch (mode) {
+    case CutterMode.None:
+      return 'SET CUTTER OFF';
+    case CutterMode.PerRow:
+      return 'SET CUTTER 1';
+    case CutterMode.PerJob:
+      return `SET CUTTER ${copies}`;
+  }
+};
+
+/**
+ * `BITMAP x,y,width(byte),height,mode,` rồi đúng `widthBytes * heightPx` byte ảnh thô, CRLF chỉ đứng sau ảnh. Đảo bit
+ * vì firmware TSPL clone (đã kiểm trên Xprinter XP-420B) đọc bit 1 là không in, ngược chuẩn TSPL2 mà
+ * `MonochromeBitmap` theo.
+ */
+const bitmapBytesOf = (x: number, bitmap: MonochromeBitmap): Uint8Array => {
+  const header = asciiBytes(`BITMAP ${x},0,${bitmap.widthBytes},${bitmap.heightPx},0,`);
+  const bytes = new Uint8Array(header.length + bitmap.bits.length + CRLF.length);
+  bytes.set(header);
+
+  for (let i = 0; i < bitmap.bits.length; i += 1) {
+    bytes[header.length + i] = bitmap.bits[i] ^ 0xff; // eslint-disable-line no-bitwise
+  }
+
+  bytes.set(CRLF, header.length + bitmap.bits.length);
+  return bytes;
 };
 
 const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
@@ -97,41 +122,45 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   }
 };
 
+/** Ảnh cao hơn chiều cao giấy đang khai báo sẽ tràn sang tem hoặc tờ kế tiếp. */
+const assertFitsHeight = (bitmap: MonochromeBitmap, heightMm: number): void => {
+  if (bitmap.heightPx <= heightMm * DOTS_PER_MM) {
+    return;
+  }
+
+  const contentHeightMm = Math.ceil(bitmap.heightPx / DOTS_PER_MM);
+  throw new PrintErrorException({
+    code: PrintErrorCode.IMAGE_TOO_LARGE,
+    message:
+      `Nội dung cao khoảng ${contentHeightMm}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — ` +
+      'dùng giấy dài hơn hoặc rút gọn nội dung.',
+  });
+};
+
 /**
- * In ảnh (PNG base64) bằng lệnh `BITMAP`, mỗi cột tem một lệnh; ảnh hỏng hay cao hơn giấy đều báo lỗi. Mỗi bản là
- * một hàng tem; máy tem không có ngăn kéo tiền nên bỏ qua `cashDrawer`.
+ * In ảnh (PNG base64) bằng lệnh `BITMAP`, mỗi cột tem một lệnh. Mỗi bản là một hàng tem; máy tem không có ngăn kéo
+ * tiền nên bỏ qua `cashDrawer`. Dao cắt chạy ngay trong `PRINT` nên `FEED` chỉ đẩy được sau khi in xong.
  */
 const encodeImage = (printer: Printer, image: string, options?: PrintOptions): Uint8Array => {
   const { paper, kind } = printer;
   const bitmap = decodeImage(image, imageWidthDotsOf(paper));
   const heightMm = sizeHeightMmOf(paper, kind);
+  assertFitsHeight(bitmap, heightMm);
 
-  if (bitmap.heightPx > heightMm * DOTS_PER_MM) {
-    const contentHeightMm = Math.ceil(bitmap.heightPx / DOTS_PER_MM);
-    throw new PrintErrorException({
-      code: PrintErrorCode.IMAGE_TOO_LARGE,
-      message:
-        `Nội dung cao khoảng ${contentHeightMm}mm, vượt khổ giấy đang khai báo (${heightMm}mm) — ` +
-        'dùng giấy dài hơn hoặc rút gọn nội dung.',
-    });
-  }
-
-  const bytes: number[] = setupCommands(paper, heightMm).flatMap(commandBytes);
-
-  for (const x of columnOffsetsOf(paper)) {
-    appendBitmap(bytes, x, bitmap);
-  }
-
-  bytes.push(...cutCommands(copiesOf(options), cutterModeOf(paper, options)).flatMap(commandBytes));
-
-  // Dao cắt chạy ngay trong `PRINT` nên `FEED` chỉ đẩy được sau khi in xong.
+  const copies = copiesOf(options);
   const feedDots = feedDotsOf(options);
+  const commands = [sizeCommandOf(paper, heightMm), gapCommandOf(paper), 'CODEPAGE UTF-8', 'CLS'];
+  const trailer = [cutterCommandOf(copies, cutterModeOf(paper, options)), `PRINT ${copies},1`];
 
   if (feedDots > 0) {
-    bytes.push(...commandBytes(`FEED ${feedDots}`));
+    trailer.push(`FEED ${feedDots}`);
   }
 
-  return new Uint8Array(bytes);
+  return concatBytes([
+    ...commands.map(commandBytes),
+    ...columnOffsetsOf(paper).map((x) => bitmapBytesOf(x, bitmap)),
+    ...trailer.map(commandBytes),
+  ]);
 };
 
 /** Ngôn ngữ TSPL (máy in tem, cũng in được hoá đơn trên giấy cuộn). */
