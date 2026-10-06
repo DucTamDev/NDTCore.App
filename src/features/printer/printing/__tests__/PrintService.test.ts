@@ -17,7 +17,7 @@ import type { PrintScheduler } from '../PrintScheduler';
 
 const image = 'base64-png';
 
-const makeDeps = (targets: Printer[], scheduleResult: (printerId: string) => PrintTask) => ({
+const makeMocks = (targets: Printer[], scheduleResult: (printerId: string) => PrintTask) => ({
   routing: mockOf<jest.Mocked<PrintRoutingService>>({ resolveTargets: jest.fn().mockReturnValue(targets) }),
   scheduler: mockOf<jest.Mocked<PrintScheduler>>({
     enqueue: jest.fn().mockImplementation((task: PrintTask) => Promise.resolve(scheduleResult(task.printerId))),
@@ -26,19 +26,19 @@ const makeDeps = (targets: Printer[], scheduleResult: (printerId: string) => Pri
 
 describe('PrintService.print', () => {
   it('returns no-available-printer with no tasks when routing finds nothing', async () => {
-    const deps = makeDeps([], () => {
+    const mocks = makeMocks([], () => {
       throw new Error('should not be called');
     });
-    const service = new PrintService(deps);
+    const service = new PrintService(mocks.routing, mocks.scheduler);
     const result = await service.print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.NoAvailablePrinter);
     expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
-    expect(deps.scheduler.enqueue).not.toHaveBeenCalled();
+    expect(mocks.scheduler.enqueue).not.toHaveBeenCalled();
   });
 
   it('enqueues one task per resolved target, carrying the image through untouched', async () => {
     const p1 = makePrinter({ id: 'p1' });
-    const deps = makeDeps([p1], (printerId) => ({
+    const mocks = makeMocks([p1], (printerId) => ({
       id: 'job1',
       requestId: 'req1',
       printerId,
@@ -51,9 +51,9 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = new PrintService(deps);
+    const service = new PrintService(mocks.routing, mocks.scheduler);
     await service.print(PrintKind.Receipt, image);
-    expect(deps.scheduler.enqueue).toHaveBeenCalledWith(
+    expect(mocks.scheduler.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         printerId: 'p1',
         printerName: p1.name,
@@ -65,7 +65,7 @@ describe('PrintService.print', () => {
   });
 
   it('reports success when all tasks succeed', async () => {
-    const deps = makeDeps([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
+    const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
       id: 'task',
       requestId: 'req',
       printerId,
@@ -78,12 +78,12 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = new PrintService(deps);
+    const service = new PrintService(mocks.routing, mocks.scheduler);
     expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.Success);
   });
 
   it('reports partial-failure on mixed results', async () => {
-    const deps = makeDeps([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
+    const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
       id: 'task',
       requestId: 'req',
       printerId,
@@ -96,12 +96,12 @@ describe('PrintService.print', () => {
       retryCount: 0,
       createdAt: 'now',
     }));
-    const service = new PrintService(deps);
+    const service = new PrintService(mocks.routing, mocks.scheduler);
     expect((await service.print(PrintKind.Receipt, image)).status).toBe(PrintStatus.PartialFailure);
   });
 
   it('reports failed with no top-level error when every task fails', async () => {
-    const deps = makeDeps([makePrinter({ id: 'p1' })], (printerId) => ({
+    const mocks = makeMocks([makePrinter({ id: 'p1' })], (printerId) => ({
       id: 'task',
       requestId: 'req',
       printerId,
@@ -115,7 +115,7 @@ describe('PrintService.print', () => {
       createdAt: 'now',
       error: new PrintErrorException({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'x' }),
     }));
-    const service = new PrintService(deps);
+    const service = new PrintService(mocks.routing, mocks.scheduler);
     const result = await service.print(PrintKind.Receipt, image);
     expect(result.status).toBe(PrintStatus.Failed);
     expect(result.error).toBeUndefined();
@@ -124,10 +124,10 @@ describe('PrintService.print', () => {
 
 describe('PrintService.paperFor', () => {
   it('returns null when no printer prints this kind', () => {
-    const deps = makeDeps([], () => {
+    const mocks = makeMocks([], () => {
       throw new Error('unused');
     });
-    expect(new PrintService(deps).paperFor(PrintKind.Receipt)).toBeNull();
+    expect(new PrintService(mocks.routing, mocks.scheduler).paperFor(PrintKind.Receipt)).toBeNull();
   });
 
   it('returns the paper of the first target', () => {
@@ -137,10 +137,10 @@ describe('PrintService.paperFor', () => {
       paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
     });
     const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage() });
-    const deps = makeDeps([p1, p2], () => {
+    const mocks = makeMocks([p1, p2], () => {
       throw new Error('unused');
     });
-    expect(new PrintService(deps).paperFor(PrintKind.Receipt)).toEqual(p1.paper);
+    expect(new PrintService(mocks.routing, mocks.scheduler).paperFor(PrintKind.Receipt)).toEqual(p1.paper);
   });
 
   it('the real exported printService singleton has no configured printers by default, so it returns null', () => {

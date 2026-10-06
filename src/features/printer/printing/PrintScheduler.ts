@@ -4,22 +4,19 @@ import { printerConnectionLock, type ResourceLock } from '../connection/PrinterC
 import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
 
-/** Phụ thuộc của hàng đợi in, tách ra để test thay được. */
-export interface PrintSchedulerDeps {
-  /** In một lệnh in trên máy của nó. */
-  printing: PrinterPrintService;
-
-  /** Khoá dùng chung với nút "In thử". */
-  lock: ResourceLock;
-}
-
 /** Chạy lệnh in theo thứ tự, mỗi máy vật lý một lệnh tại một thời điểm. */
 export class PrintScheduler {
-  constructor(private readonly deps: PrintSchedulerDeps) {}
+  constructor(
+    /** In một lệnh in trên máy của nó. */
+    private readonly printing: PrinterPrintService = printerPrintService,
+
+    /** Khoá dùng chung với nút "In thử". */
+    private readonly lock: ResourceLock = printerConnectionLock,
+  ) {}
 
   /** Khoá theo `task.deviceId`, trùng `lockKeyOf` của máy in đã lưu nên cùng khoá với nút "In thử". */
   enqueue(task: PrintTask): Promise<PrintTask> {
-    return this.deps.lock.runExclusive(task.deviceId, () => this.run(task)).then(() => task);
+    return this.lock.runExclusive(task.deviceId, () => this.run(task)).then(() => task);
   }
 
   retry(task: PrintTask): Promise<PrintTask> {
@@ -34,7 +31,7 @@ export class PrintScheduler {
     task.startedAt = new Date().toISOString();
 
     try {
-      await this.deps.printing.print(task.printerId, task.data);
+      await this.printing.print(task.printerId, task.data);
       task.status = PrintTaskStatus.Success;
     } catch (error) {
       task.status = PrintTaskStatus.Failed;
@@ -45,7 +42,4 @@ export class PrintScheduler {
   }
 }
 
-export const printScheduler = new PrintScheduler({
-  printing: printerPrintService,
-  lock: printerConnectionLock,
-});
+export const printScheduler = new PrintScheduler();

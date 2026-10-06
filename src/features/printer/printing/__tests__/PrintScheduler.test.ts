@@ -27,7 +27,7 @@ const makePrinter = (overrides: Partial<Printer> = {}): Printer =>
   });
 
 const makeScheduler = (printing: Partial<PrinterPrintService>): PrintScheduler =>
-  new PrintScheduler({ printing: mockOf<PrinterPrintService>(printing), lock: new ResourceLock() });
+  new PrintScheduler(mockOf<PrinterPrintService>(printing), new ResourceLock());
 
 describe('PrintScheduler', () => {
   it('enqueue() resolves with status success when printerPrintService.print resolves', async () => {
@@ -124,7 +124,7 @@ describe('PrintScheduler', () => {
     const printerService = new PrinterPrintService(connectionService, repository, lock);
     const printer: Printer = makePrinter({ id: 'receipt-1' });
     repository.addPrinter(printer);
-    const scheduler = new PrintScheduler({ printing: printerService, lock });
+    const scheduler = new PrintScheduler(printerService, lock);
 
     await Promise.all([
       scheduler.enqueue(makeTask({ id: 'order-task', printerId: printer.id, deviceId: printer.deviceId })),

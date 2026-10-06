@@ -24,7 +24,7 @@ const bluetoothPrinter: DiscoverResult = {
 const setup = (bluetoothGranted = true) => {
   const { adapter } = makeFakeAdapter();
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
-  const service = new DeviceDiscoveryService({ createAdapter: () => adapter, ensureBluetoothPermission });
+  const service = new DeviceDiscoveryService(() => adapter, ensureBluetoothPermission);
 
   return { service, adapter, ensureBluetoothPermission };
 };

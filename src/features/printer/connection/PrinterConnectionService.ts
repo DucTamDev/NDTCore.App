@@ -14,21 +14,6 @@ import { printerConnectionLock, lockKeyOf, ResourceLock } from './PrinterConnect
 /** Nơi nhận trạng thái mới của một máy in. */
 type StatusListener = (status: PrinterConnectionStatus) => void;
 
-/** Phụ thuộc của service, tách ra để test thay được. */
-export interface PrinterConnectionServiceDeps {
-  /** Tạo adapter mới cho mỗi máy vật lý được mở. */
-  createAdapter: () => IPrinterAdapter;
-
-  /** `true` khi app đã có quyền Bluetooth. */
-  ensureBluetoothPermission: () => Promise<boolean>;
-
-  /** Nguồn máy in đã lưu cho `reconnect` và tự kết nối lại. */
-  repository: PrinterRepository;
-
-  /** Khoá dùng chung với tầng in. */
-  lock: ResourceLock;
-}
-
 /** Kết nối đang mở tới một máy vật lý, dùng chung cho mọi máy in (đã lưu hoặc bản nháp) trỏ tới máy đó. */
 interface DeviceConnection {
   /** Adapter giữ kết nối này. */
@@ -86,7 +71,19 @@ export class PrinterConnectionService {
    */
   private readonly deviceQueue = new ResourceLock();
 
-  constructor(private readonly deps: PrinterConnectionServiceDeps) {}
+  constructor(
+    /** Tạo adapter mới cho mỗi máy vật lý được mở. */
+    private readonly createAdapter: () => IPrinterAdapter = createPrinterAdapter,
+
+    /** Xin quyền Bluetooth; `true` khi app đã có quyền. */
+    private readonly requestBluetoothPermission: () => Promise<boolean> = ensureBluetoothPermission,
+
+    /** Nguồn máy in đã lưu cho `reconnect` và tự kết nối lại. */
+    private readonly repository: PrinterRepository = printerRepository,
+
+    /** Khoá dùng chung với tầng in. */
+    private readonly lock: ResourceLock = printerConnectionLock,
+  ) {}
 
   /**
    * Máy vật lý đã mở thì chỉ gắn thêm máy in, không mở lại. Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên.
@@ -105,7 +102,7 @@ export class PrinterConnectionService {
       const previous = await this.deviceQueue.runExclusive(lockKey, () => this.attach(printer, lockKey, attempt));
 
       if (previous) {
-        await this.deps.lock.runExclusive(previous.lockKey, () => this.detachQuietly(printerId, previous));
+        await this.lock.runExclusive(previous.lockKey, () => this.detachQuietly(printerId, previous));
       }
 
       if (!this.isCurrentAttempt(printerId, attempt)) {
@@ -143,7 +140,7 @@ export class PrinterConnectionService {
       return;
     }
 
-    await this.deps.lock.runExclusive(lockKey, () =>
+    await this.lock.runExclusive(lockKey, () =>
       this.deviceQueue.runExclusive(lockKey, () => this.disconnectNow(printerId, lockKey, attempt)),
     );
   }
@@ -184,12 +181,12 @@ export class PrinterConnectionService {
    */
   async reconnect(printerId: string): Promise<void> {
     await this.disconnect(printerId).catch(() => undefined);
-    await this.connect(this.deps.repository.findOrThrow(printerId));
+    await this.connect(this.repository.findOrThrow(printerId));
   }
 
   /** Gọi khi app khởi động: kết nối mọi máy đang bật và cho phép tự kết nối lại; lỗi từng máy bỏ qua. */
   reconnectAutoPrinters(): void {
-    this.deps.repository
+    this.repository
       .getPrinters()
       .filter((printer) => printer.enabled && printer.autoReconnect)
       .forEach((printer) => {
@@ -227,7 +224,7 @@ export class PrinterConnectionService {
       return;
     }
 
-    if (!(await this.deps.ensureBluetoothPermission())) {
+    if (!(await this.requestBluetoothPermission())) {
       throw bluetoothDenied();
     }
   }
@@ -261,7 +258,7 @@ export class PrinterConnectionService {
   }
 
   private async open(printer: Printer, lockKey: string): Promise<DeviceConnection> {
-    const adapter = this.deps.createAdapter();
+    const adapter = this.createAdapter();
     await adapter.connect(printer.connection);
 
     const device: DeviceConnection = {
@@ -379,9 +376,4 @@ export class PrinterConnectionService {
   }
 }
 
-export const printerConnectionService = new PrinterConnectionService({
-  createAdapter: createPrinterAdapter,
-  ensureBluetoothPermission,
-  repository: printerRepository,
-  lock: printerConnectionLock,
-});
+export const printerConnectionService = new PrinterConnectionService();

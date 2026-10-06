@@ -11,13 +11,6 @@ import { PrintStatus } from '../models/printing/PrintStatus';
 import type { PrintTask } from '../models/printing/PrintTask';
 import type { PrintResult } from '../models/printing/PrintResult';
 
-/** Phụ thuộc của service, tách ra để test thay được. */
-export interface PrintServiceDeps {
-  routing: PrintRoutingService;
-
-  scheduler: PrintScheduler;
-}
-
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
 const resolvePrintStatus = (successCount: number, total: number): PrintStatus => {
   if (successCount === total) {
@@ -33,18 +26,24 @@ const resolvePrintStatus = (successCount: number, total: number): PrintStatus =>
 
 /** Điểm vào công khai: in một loại nội dung ra mọi máy in đang nhận loại đó. */
 export class PrintService {
-  constructor(private readonly deps: PrintServiceDeps) {}
+  constructor(
+    /** Chọn máy in nhận từng loại nội dung. */
+    private readonly routing: PrintRoutingService = printRoutingService,
+
+    /** Hàng đợi chạy lệnh in theo từng máy vật lý. */
+    private readonly scheduler: PrintScheduler = printScheduler,
+  ) {}
 
   /**
    * Giấy của máy in đầu tiên nhận `kind`, hoặc `null` nếu chưa có máy nào — nơi gọi chỉ chụp ảnh khi có giá trị, và
    * chụp theo giấy này để máy tem chụp đúng bề rộng tem thay vì cả cuộn.
    */
   paperFor(kind: PrintKind): PaperOptions | null {
-    return this.deps.routing.resolveTargets(kind)[0]?.paper ?? null;
+    return this.routing.resolveTargets(kind)[0]?.paper ?? null;
   }
 
   async print(kind: PrintKind, image: string): Promise<PrintResult> {
-    const targets = this.deps.routing.resolveTargets(kind);
+    const targets = this.routing.resolveTargets(kind);
 
     if (targets.length === 0) {
       return {
@@ -60,7 +59,7 @@ export class PrintService {
     const requestId = generateId();
     const tasks: PrintTask[] = await Promise.all(
       targets.map((printer) =>
-        this.deps.scheduler.enqueue({
+        this.scheduler.enqueue({
           id: generateId(),
           requestId,
           printerId: printer.id,
@@ -81,4 +80,4 @@ export class PrintService {
   }
 }
 
-export const printService = new PrintService({ routing: printRoutingService, scheduler: printScheduler });
+export const printService = new PrintService();

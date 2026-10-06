@@ -10,14 +10,6 @@ import { ensureBluetoothPermission } from '../permissions/PrinterPermissionServi
 import { createPrinterAdapter } from '../connection/PrinterAdapterFactory';
 import { LoggerService } from '../../../services/LoggerService';
 
-/** Phụ thuộc của service, tách ra để test thay được. */
-export interface DeviceDiscoveryServiceDeps {
-  createAdapter: () => IPrinterAdapter;
-
-  /** `true` khi app đã có quyền Bluetooth. */
-  ensureBluetoothPermission: () => Promise<boolean>;
-}
-
 /** Một số native báo "không có thiết bị" bằng lỗi thay vì danh sách rỗng. */
 const NO_DEVICE_MESSAGE = /no device found/i;
 
@@ -42,10 +34,11 @@ const logEvent = (connectionType: ConnectionType, event: DiscoveryEvent): void =
 /** Tìm máy in để người dùng chọn khi thêm máy; LAN không quét được nên người dùng tự nhập địa chỉ. */
 export class DeviceDiscoveryService {
   constructor(
-    private readonly deps: DeviceDiscoveryServiceDeps = {
-      createAdapter: createPrinterAdapter,
-      ensureBluetoothPermission,
-    },
+    /** Tạo adapter để liệt kê thiết bị. */
+    private readonly createAdapter: () => IPrinterAdapter = createPrinterAdapter,
+
+    /** Xin quyền Bluetooth; `true` khi app đã có quyền. */
+    private readonly requestBluetoothPermission: () => Promise<boolean> = ensureBluetoothPermission,
   ) {}
 
   discover(connectionType: ConnectionType, onEvent: (event: DiscoveryEvent) => void): Unsubscribe {
@@ -94,14 +87,14 @@ export class DeviceDiscoveryService {
   }
 
   private async findDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
-    if (connectionType === ConnectionType.Bluetooth && !(await this.deps.ensureBluetoothPermission())) {
+    if (connectionType === ConnectionType.Bluetooth && !(await this.requestBluetoothPermission())) {
       throw new DeviceErrorException({
         code: DeviceErrorCode.PERMISSION_DENIED,
         message: 'Chưa được cấp quyền Bluetooth',
       });
     }
 
-    return this.deps.createAdapter().listDevices(connectionType);
+    return this.createAdapter().listDevices(connectionType);
   }
 }
 

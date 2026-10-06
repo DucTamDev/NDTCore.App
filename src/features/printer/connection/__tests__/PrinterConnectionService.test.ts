@@ -53,7 +53,7 @@ const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
   });
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
   const lock = new ResourceLock();
-  const service = new PrinterConnectionService({ createAdapter, ensureBluetoothPermission, repository, lock });
+  const service = new PrinterConnectionService(createAdapter, ensureBluetoothPermission, repository, lock);
 
   return { service, repository, lock, createAdapter, ensureBluetoothPermission };
 };
