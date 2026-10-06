@@ -151,7 +151,7 @@ describe('NativeAdapter', () => {
     await expect(adapter.read(1000)).resolves.toBeNull();
   });
 
-  it('connect lần hai trả lease của lần đầu đúng một lần và ghi qua lease mới', async () => {
+  it('connect lần hai tới kết nối khác thì đóng kết nối cũ đúng một lần và ghi qua kết nối mới', async () => {
     const adapter = new NativeAdapter();
     deviceModule()
       .connect.mockResolvedValueOnce({ connectionId: 'first', serialNumber: null })
@@ -166,7 +166,15 @@ describe('NativeAdapter', () => {
     expect(deviceModule().write).toHaveBeenCalledWith('second', expect.any(String), expect.any(Number));
   });
 
-  it('connect lần hai thất bại giữ nguyên lease của lần đầu', async () => {
+  it('connect lần hai native trả lại đúng kết nối đang giữ thì không đóng nó', async () => {
+    const adapter = new NativeAdapter();
+    await adapter.connect(lanConnection);
+    await adapter.connect(lanConnection);
+
+    expect(deviceModule().disconnect).not.toHaveBeenCalled();
+  });
+
+  it('connect lần hai thất bại giữ nguyên kết nối của lần đầu', async () => {
     const adapter = new NativeAdapter();
     deviceModule().connect.mockResolvedValueOnce({ connectionId: 'first', serialNumber: null });
     await adapter.connect(lanConnection);
@@ -234,7 +242,7 @@ describe('NativeAdapter', () => {
     await expect(write).rejects.toMatchObject({ code: DeviceErrorCode.WRITE_TIMEOUT });
   });
 
-  it('disconnect trả lease (native disconnect) và lần thứ hai không làm gì', async () => {
+  it('disconnect gọi native disconnect và lần thứ hai không làm gì', async () => {
     const adapter = new NativeAdapter();
     await adapter.connect(lanConnection);
     await adapter.disconnect();

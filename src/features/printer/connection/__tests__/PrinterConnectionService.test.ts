@@ -126,44 +126,92 @@ describe('PrinterConnectionService', () => {
     );
   });
 
-  it('kết nối lại cùng máy: trả adapter cũ đúng một lần và gửi qua adapter mới', async () => {
+  it('kết nối lại cùng máy dùng lại kết nối đang mở, không mở adapter mới', async () => {
     const first = makeFakeAdapter().adapter;
-    const second = makeFakeAdapter().adapter;
-    const { service } = setup([first, second]);
+    const { service, createAdapter } = setup([first]);
 
     await service.connect(basePrinter);
     await service.connect(basePrinter);
     await service.send(basePrinter.id, new Uint8Array([1]));
 
-    expect(first.disconnect).toHaveBeenCalledTimes(1);
-    expect(second.disconnect).not.toHaveBeenCalled();
-    expect(second.write).toHaveBeenCalledWith(new Uint8Array([1]));
-    expect(first.write).not.toHaveBeenCalled();
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([1]));
   });
 
-  it('kết nối lại thất bại thì giữ phiên cũ', async () => {
+  it('hai máy in trỏ cùng một máy vật lý dùng chung một kết nối; ngắt máy này máy kia vẫn in được', async () => {
+    const shared = makeFakeAdapter().adapter;
+    const { service, createAdapter } = setup([shared]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+
+    await service.connect(basePrinter);
+    await service.connect(label);
+    await service.disconnect(basePrinter.id);
+    await service.send(label.id, new Uint8Array([3]));
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(shared.disconnect).not.toHaveBeenCalled();
+    expect(shared.write).toHaveBeenCalledWith(new Uint8Array([3]));
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(PrinterStatus.Connected);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('máy in cuối cùng ngắt thì mới đóng kết nối dùng chung', async () => {
+    const shared = makeFakeAdapter().adapter;
+    const { service } = setup([shared]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+
+    await service.disconnect(basePrinter.id);
+    await service.disconnect(label.id);
+
+    expect(shared.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('mất kết nối dùng chung thì mọi máy in trên máy đó chuyển Disconnected', async () => {
+    const shared = makeFakeAdapter();
+    const { service } = setup([shared.adapter]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+
+    shared.lose();
+
+    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(PrinterStatus.Disconnected);
+    expect(shared.adapter.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('chuyển sang máy vật lý khác mà mở thất bại thì giữ kết nối cũ', async () => {
     const first = makeFakeAdapter().adapter;
     const second = makeFakeAdapter().adapter;
     second.connect.mockRejectedValueOnce(new Error('down'));
     const { service } = setup([first, second]);
 
     await service.connect(basePrinter);
-    await expect(service.connect(basePrinter)).rejects.toThrow('down');
+    await expect(service.connect({ ...basePrinter, connection: secondLanPrinter.connection })).rejects.toThrow('down');
     await service.send(basePrinter.id, new Uint8Array([2]));
 
     expect(first.disconnect).not.toHaveBeenCalled();
     expect(first.write).toHaveBeenCalledWith(new Uint8Array([2]));
   });
 
-  it('lỗi khi trả adapter cũ chỉ ghi log, kết nối mới vẫn thành công', async () => {
+  it('chuyển sang máy vật lý khác: đóng kết nối cũ, lỗi khi đóng chỉ ghi log', async () => {
     const first = makeFakeAdapter().adapter;
     first.disconnect.mockRejectedValueOnce(new Error('close failed'));
     const second = makeFakeAdapter().adapter;
     const { service } = setup([first, second]);
 
     await service.connect(basePrinter);
-    await service.connect(basePrinter);
+    await service.connect({ ...basePrinter, connection: secondLanPrinter.connection });
+    await service.send(basePrinter.id, new Uint8Array([4]));
 
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([4]));
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
     expect(printerLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: basePrinter.id }));
   });
@@ -219,10 +267,9 @@ describe('PrinterConnectionService', () => {
     expect(adapter.disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('lệnh ngắt đang chờ khoá không xoá phiên của lần kết nối mới hơn', async () => {
+  it('lệnh ngắt đang chờ khoá hết hiệu lực khi máy in được kết nối lại', async () => {
     const first = makeFakeAdapter().adapter;
-    const second = makeFakeAdapter().adapter;
-    const { service, lock } = setup([first, second]);
+    const { service, lock } = setup([first]);
     await service.connect(basePrinter);
     let release: () => void = () => undefined;
     const held = lock.runExclusive(
@@ -237,21 +284,17 @@ describe('PrinterConnectionService', () => {
     await disconnecting;
     await service.send(basePrinter.id, new Uint8Array([7]));
 
-    expect(first.disconnect).toHaveBeenCalledTimes(1);
-    expect(second.disconnect).not.toHaveBeenCalled();
-    expect(second.write).toHaveBeenCalledWith(new Uint8Array([7]));
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([7]));
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
   });
 
-  it('kết nối không bị khoá giữ chặn (print kết nối bên trong khoá)', async () => {
-    const first = makeFakeAdapter().adapter;
-    const second = makeFakeAdapter().adapter;
-    const { service, lock } = setup([first, second]);
-    await service.connect(basePrinter);
+  it('kết nối không bị khoá in giữ chặn (print kết nối bên trong khoá)', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, lock } = setup([adapter]);
 
     await lock.runExclusive(lockKeyOf(basePrinter), () => service.connect(basePrinter));
 
-    expect(first.disconnect).toHaveBeenCalledTimes(1);
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
   });
 
@@ -318,7 +361,7 @@ describe('PrinterConnectionService', () => {
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Disconnected);
   });
 
-  it('lượt kết nối cũ thất bại sau khi lượt mới đã kết nối thì không ghi đè trạng thái', async () => {
+  it('lượt kết nối cũ thất bại thì không ghi đè trạng thái của lượt mới', async () => {
     const slow = makeFakeAdapter();
     let failSlow: (error: Error) => void = () => undefined;
     slow.adapter.connect.mockReturnValueOnce(
@@ -330,16 +373,17 @@ describe('PrinterConnectionService', () => {
     const { service } = setup([slow.adapter, fast.adapter]);
 
     const first = service.connect(basePrinter);
-    await service.connect(basePrinter);
+    const second = service.connect(basePrinter);
     failSlow(new Error('timeout'));
 
     await expect(first).rejects.toThrow('timeout');
+    await second;
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
     await expect(service.send(basePrinter.id, new Uint8Array([1]))).resolves.toBeUndefined();
     expect(fast.adapter.write).toHaveBeenCalled();
   });
 
-  it('lượt kết nối cũ xong sau lượt mới thì trả adapter của nó, giữ phiên mới', async () => {
+  it('hai lượt kết nối cùng lúc: chỉ lượt mới nhất giữ máy in, trạng thái Connected', async () => {
     const slow = makeFakeAdapter();
     let finishSlow: () => void = () => undefined;
     slow.adapter.connect.mockReturnValueOnce(
@@ -351,13 +395,13 @@ describe('PrinterConnectionService', () => {
     const { service } = setup([slow.adapter, fast.adapter]);
 
     const first = service.connect(basePrinter);
-    await service.connect(basePrinter);
+    const second = service.connect(basePrinter);
     finishSlow();
-    await first;
+    await Promise.all([first, second]);
+    await service.send(basePrinter.id, new Uint8Array([5]));
 
-    expect(slow.adapter.disconnect).toHaveBeenCalledTimes(1);
-    expect(fast.adapter.disconnect).not.toHaveBeenCalled();
     expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
+    expect([slow.adapter, fast.adapter].filter((adapter) => adapter.write.mock.calls.length > 0)).toHaveLength(1);
   });
 
   it('ngắt trong lúc đang kết nối thì kết nối xong bị trả lại, trạng thái giữ Disconnected', async () => {
@@ -397,12 +441,12 @@ describe('PrinterConnectionService', () => {
     expect(after).toHaveBeenCalledWith(PrinterStatus.Connected);
   });
 
-  it('adapter đã bị thay báo mất kết nối thì không đổi trạng thái', async () => {
+  it('kết nối cũ (đã chuyển sang máy khác) báo mất thì không đổi trạng thái', async () => {
     const first = makeFakeAdapter();
     const second = makeFakeAdapter();
     const { service } = setup([first.adapter, second.adapter]);
     await service.connect(basePrinter);
-    await service.connect(basePrinter);
+    await service.connect({ ...basePrinter, connection: secondLanPrinter.connection });
 
     first.lose();
 

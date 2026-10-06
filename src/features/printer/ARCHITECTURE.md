@@ -111,7 +111,7 @@ src/features/printer/
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
-│   ├── native/          NativeAdapter (+ toDeviceError), DeviceModule, NativeConnectionPool
+│   ├── native/          NativeAdapter (+ toDeviceError), DeviceModule
 │   └── vendor/          VendorAdapter (khung)
 │
 ├── connection/
@@ -446,9 +446,9 @@ interface IPrinterAdapter {
 ```
 
 * Mỗi instance giữ tối đa một kết nối.
-* `NativeAdapter` dùng cho USB, Bluetooth và LAN qua native module `DeviceModule`. Kết nối dùng chung qua
-  `NativeConnectionPool`: hai `Printer` cùng một thiết bị chỉ mở một kết nối native, đóng khi printer cuối cùng ngắt.
-  `onLost` nghe `DeviceDisconnected` và so `connectionId` của kết nối đang giữ.
+* `NativeAdapter` dùng cho USB, Bluetooth và LAN qua native module `DeviceModule`: chỉ chuyển lời gọi xuống native
+  và đổi lỗi, giữ `connectionId` của kết nối đang mở. `onLost` nghe `DeviceDisconnected` và so `connectionId` đó.
+  Dùng chung kết nối giữa nhiều `Printer` là việc của `PrinterConnectionService`.
 * `VendorAdapter` là khung cho SDK hãng, chưa tích hợp.
 * `createPrinterAdapter` (`connection/PrinterAdapterFactory.ts`) trả `NativeAdapter`; bản `.web.ts` trả adapter báo
   `PRINTER_UNSUPPORTED_CONNECTION`.
@@ -499,7 +499,9 @@ Comment cần giải thích:
 
 # 20. Connection Service
 
-`PrinterConnectionService` giữ phiên kết nối theo `printerId` — dùng cho cả máy đã lưu lẫn bản nháp đang thêm.
+`PrinterConnectionService` giữ kết nối theo máy vật lý (`lockKeyOf`) và trạng thái theo `printerId` — dùng cho cả
+máy đã lưu lẫn bản nháp đang thêm. Nhiều `Printer` trỏ cùng một máy (vd hoá đơn và tem) dùng chung một adapter;
+`Printer` cuối cùng ngắt thì mới đóng.
 
 | Hàm | Làm gì |
 | --- | --- |
@@ -518,6 +520,10 @@ Comment cần giải thích:
 * Adapter báo `onLost` → bỏ phiên, trả adapter, `Disconnected`; `send`/`read` sau đó báo `NOT_CONNECTED` (adapter
   đã bị thay thì bỏ qua).
 * Listener trạng thái ném lỗi chỉ bị ghi log, không làm hỏng việc kết nối hay chặn listener khác.
+* Mở/gắn và gỡ/đóng cùng một máy vật lý chạy lần lượt (hàng đợi riêng của service, khác khoá in), để một lần mở
+  gửi trước lệnh đóng không nhận phải kết nối sắp đóng.
+* Máy in chuyển sang máy vật lý khác thì gỡ khỏi máy cũ trong khoá in của máy cũ.
+* `reconnect` không mở lại kết nối nếu còn `Printer` khác đang dùng chung máy vật lý.
 * Không giới hạn số máy cùng loại kết nối kết nối cùng lúc.
 * Không biết ngôn ngữ in; log kết nối không mang ngôn ngữ.
 * **Không tự khoá**: `PrinterPrintService.print` kết nối bên trong khoá của scheduler, khoá lại sẽ treo.

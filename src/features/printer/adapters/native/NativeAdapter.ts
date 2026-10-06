@@ -11,7 +11,6 @@ import {
   type NativeDeviceAddress,
   type NativeDeviceInfo,
 } from './DeviceModule';
-import { nativeConnectionPool, type NativeConnectionLease } from './NativeConnectionPool';
 
 /** Hạn tối thiểu cho một lần ghi, đủ cho kết nối và payload nhỏ. */
 const WRITE_BASE_TIMEOUT_MS = 30_000;
@@ -123,15 +122,16 @@ const callNative = async <T>(call: () => Promise<T>): Promise<T> => {
 };
 
 /**
- * `IPrinterAdapter` chạy qua native module `DeviceModule` (Android) cho cả USB, Bluetooth và LAN. Kết nối dùng chung
- * qua `nativeConnectionPool`: hai máy in đã lưu cùng một thiết bị chỉ mở một kết nối, đóng khi máy cuối cùng ngắt.
+ * `IPrinterAdapter` chạy qua native module `DeviceModule` (Android) cho cả USB, Bluetooth và LAN: chỉ chuyển lời gọi
+ * xuống native và đổi lỗi. Dùng chung một kết nối cho nhiều máy in là việc của `PrinterConnectionService`.
  */
 export class NativeAdapter implements IPrinterAdapter {
   readonly source = 'native' as const;
 
   readonly canRead = true;
 
-  private lease?: NativeConnectionLease;
+  /** Kết nối native đang giữ; `undefined` khi chưa kết nối. */
+  private connectionId?: string;
 
   async listDevices(connectionType: ConnectionType): Promise<DiscoverResult[]> {
     if (connectionType === ConnectionType.Lan) {
@@ -142,14 +142,14 @@ export class NativeAdapter implements IPrinterAdapter {
     return devices.map(toDiscoverResult);
   }
 
+  /** Native trả lại đúng kết nối đang mở nếu cùng thiết bị, nên chỉ đóng kết nối cũ khi id khác. */
   async connect(connection: PrinterConnection): Promise<void> {
-    const lease = await callNative(() => nativeConnectionPool.acquire(toNativeAddress(connection)));
-    const previousLease = this.lease;
+    const connected = await callNative(() => DeviceModule.connect(toNativeAddress(connection)));
+    const previous = this.connectionId;
+    this.connectionId = connected.connectionId;
 
-    this.lease = lease;
-
-    if (previousLease) {
-      await callNative(() => previousLease.release());
+    if (previous && previous !== connected.connectionId) {
+      await callNative(() => DeviceModule.disconnect(previous));
     }
   }
 
@@ -169,26 +169,26 @@ export class NativeAdapter implements IPrinterAdapter {
   /** So với kết nối đang giữ lúc sự kiện tới, nên sự kiện của kết nối đã thay thế không làm phiền nơi nghe. */
   onLost(callback: () => void): Unsubscribe {
     return subscribeDeviceDisconnected((event) => {
-      if (this.lease && event.connectionId === this.lease.connectionId) {
+      if (this.connectionId !== undefined && event.connectionId === this.connectionId) {
         callback();
       }
     });
   }
 
   async disconnect(): Promise<void> {
-    const lease = this.lease;
-    this.lease = undefined;
+    const connectionId = this.connectionId;
+    this.connectionId = undefined;
 
-    if (lease) {
-      await callNative(() => lease.release());
+    if (connectionId) {
+      await callNative(() => DeviceModule.disconnect(connectionId));
     }
   }
 
   private requireConnectionId(): string {
-    if (!this.lease) {
+    if (!this.connectionId) {
       throw notConnected();
     }
 
-    return this.lease.connectionId;
+    return this.connectionId;
   }
 }

@@ -59,18 +59,6 @@ jest.mock('./src/features/printer/adapters/native/DeviceModule', () => ({
   subscribeDeviceDisconnected: jest.fn().mockReturnValue(() => undefined),
 }));
 
-// Pool dùng chung là singleton: bộ đếm của test này sẽ lọt sang test sau. Mặc định thay bằng bản đi thẳng — mỗi
-// acquire gọi native connect, mỗi release gọi native disconnect. NativeConnectionPool.test.ts dùng bản thật.
-jest.mock('./src/features/printer/adapters/native/NativeConnectionPool', () => ({
-  nativeConnectionPool: {
-    acquire: async (address) => {
-      const { DeviceModule } = jest.requireMock('./src/features/printer/adapters/native/DeviceModule');
-      const connected = await DeviceModule.connect(address);
-      return { ...connected, release: () => DeviceModule.disconnect(connected.connectionId) };
-    },
-  },
-}));
-
 // DeviceModule.test.ts dùng requireActual để test bản THẬT — cần NativeModules.DeviceModule tồn tại vì RN jest preset
 // không có.
 {
