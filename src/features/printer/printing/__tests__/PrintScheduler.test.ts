@@ -14,7 +14,7 @@ import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
 
 const makeTask = (overrides: Partial<PrintTask> = {}): PrintTask => ({
-  id: 'job1', requestId: 'req1', printerId: 'p1', printerName: 'Máy in', deviceId: 'lan:1.1.1.1:9100',
+  id: 'job1', printerId: 'p1', printerName: 'Máy in', deviceId: 'lan:1.1.1.1:9100',
   connectionType: ConnectionType.Lan, kind: PrintKind.Receipt,
   data: stripedPngBase64(), status: PrintTaskStatus.Pending, retryCount: 0, createdAt: new Date().toISOString(),
   ...overrides,

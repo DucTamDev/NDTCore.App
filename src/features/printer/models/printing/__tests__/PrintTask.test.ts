@@ -11,7 +11,6 @@ describe('print task types', () => {
   it('accepts a pending PrintTask', () => {
     const task: PrintTask = {
       id: 'job1',
-      requestId: 'req1',
       printerId: 'p1',
       printerName: 'Máy in quầy',
       deviceId: 'lan:10.0.0.5:9100',

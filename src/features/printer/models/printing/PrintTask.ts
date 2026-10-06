@@ -8,9 +8,6 @@ export interface PrintTask {
   /** Định danh riêng của lệnh in. */
   id: string;
 
-  /** Các lệnh in sinh từ cùng một yêu cầu in (một yêu cầu có thể gửi tới nhiều máy) có chung `requestId`. */
-  requestId: string;
-
   /** Máy in (đã lưu) nhận lệnh. */
   printerId: string;
 

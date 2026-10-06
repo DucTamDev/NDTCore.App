@@ -56,12 +56,10 @@ export class PrintService {
       };
     }
 
-    const requestId = generateId();
     const tasks: PrintTask[] = await Promise.all(
       targets.map((printer) =>
         this.scheduler.enqueue({
           id: generateId(),
-          requestId,
           printerId: printer.id,
           printerName: printer.name,
           deviceId: printer.deviceId,

@@ -40,7 +40,6 @@ describe('PrintService.print', () => {
     const p1 = makePrinter({ id: 'p1' });
     const mocks = makeMocks([p1], (printerId) => ({
       id: 'job1',
-      requestId: 'req1',
       printerId,
       printerName: 'Máy in',
       deviceId: `lan:${printerId}`,
@@ -67,7 +66,6 @@ describe('PrintService.print', () => {
   it('reports success when all tasks succeed', async () => {
     const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
       id: 'task',
-      requestId: 'req',
       printerId,
       printerName: 'Máy in',
       deviceId: `lan:${printerId}`,
@@ -85,7 +83,6 @@ describe('PrintService.print', () => {
   it('reports partial-failure on mixed results', async () => {
     const mocks = makeMocks([makePrinter({ id: 'p1' }), makePrinter({ id: 'p2' })], (printerId) => ({
       id: 'task',
-      requestId: 'req',
       printerId,
       printerName: 'Máy in',
       deviceId: `lan:${printerId}`,
@@ -103,7 +100,6 @@ describe('PrintService.print', () => {
   it('reports failed with no top-level error when every task fails', async () => {
     const mocks = makeMocks([makePrinter({ id: 'p1' })], (printerId) => ({
       id: 'task',
-      requestId: 'req',
       printerId,
       printerName: 'Máy in',
       deviceId: `lan:${printerId}`,
