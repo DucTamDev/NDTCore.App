@@ -4,13 +4,16 @@ import type { PrintOptions } from '../../models/printing/PrintOptions';
 import type { Printer } from '../../models/printer/Printer';
 import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
-import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
+import { PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import type { IPrintLanguage } from '../IPrintLanguage';
 
-const INIT_PRINTER_BYTES = [0x1b, 0x40]; // ESC @
-const CUT_BYTES = [0x1b, 0x6d]; // ESC m — cắt một phần; chưa kiểm trên máy thật
+/** `ESC @`: đưa máy về trạng thái mặc định trước khi in, để thiết lập của job trước không ảnh hưởng. */
+const INIT_PRINTER_BYTES = [0x1b, 0x40];
+
+/** `ESC m`: cắt một phần (còn dính một mẩu để giấy không rơi); chưa kiểm trên máy thật. */
+const CUT_BYTES = [0x1b, 0x6d];
 
 /** `ESC J n` đẩy tối đa 255 dot mỗi lệnh. */
 const MAX_FEED_DOTS_PER_COMMAND = 255;
@@ -29,6 +32,7 @@ const feedBytes = (dots: number): number[] => {
 /** `ESC p 0 25 250`: xung chân 2 của cổng ngăn kéo, bật 50ms tắt 500ms; chưa kiểm trên máy thật. */
 const CASH_DRAWER_BYTES = [0x1b, 0x70, 0x00, 0x19, 0xfa];
 
+/** Giải mã PNG base64 thành ảnh 1-bit rộng `widthPx`; PNG hỏng báo `INVALID_IMAGE` thay vì lỗi thô của bộ giải mã. */
 const decodeImage = (image: string, widthPx: number): MonochromeBitmap => {
   try {
     return decodePngBase64ToMonochrome(image, widthPx);
@@ -78,20 +82,9 @@ const toBytes = (bitmap: MonochromeBitmap, cutterMode: CutterMode, options?: Pri
   return new Uint8Array(bytes);
 };
 
-/** Giấy ESC/POS luôn là giấy cuộn nên ảnh không chia cột; ảnh quá cao bị chặn để máy không đẩy giấy quá dài. */
+/** Giấy ESC/POS luôn là giấy cuộn nên ảnh không chia cột và dài bao nhiêu cũng in được. */
 const encodeImage = (printer: Printer, image: string, options?: PrintOptions): Uint8Array => {
   const bitmap = decodeImage(image, PAPER_SIZE_SPECS[printer.paper.paperSize].imageWidthPx);
-  const maxHeightPx = CONTINUOUS_HEIGHT_MM * DOTS_PER_MM;
-
-  if (bitmap.heightPx > maxHeightPx) {
-    const heightMm = Math.ceil(bitmap.heightPx / DOTS_PER_MM);
-
-    throw new PrintErrorException({
-      code: PrintErrorCode.IMAGE_TOO_LARGE,
-      message: `Nội dung cao khoảng ${heightMm}mm, vượt ngưỡng an toàn ${CONTINUOUS_HEIGHT_MM}mm.`,
-    });
-  }
-
   return toBytes(bitmap, cutterModeOf(printer.paper, options), options);
 };
 

@@ -31,12 +31,10 @@ describe('TsplLanguage', () => {
     expect(fingerprintOf(TsplLanguage.encode(printer, image, { copies: Number.NaN }))).toBe(oneRow);
   });
 
-  it('giấy cuộn: ảnh cao quá trần an toàn 200mm → IMAGE_TOO_LARGE', () => {
-    const tall: MonochromeBitmap = { widthBytes: 1, heightPx: 200 * 8 + 1, bits: new Uint8Array(200 * 8 + 1) };
+  it('giấy cuộn không giới hạn chiều cao: ảnh 201mm vẫn in, SIZE cao đúng 201mm', () => {
+    const tall: MonochromeBitmap = { widthBytes: 1, heightPx: 201 * 8, bits: new Uint8Array(201 * 8) };
 
-    expect(() => encodeBitmap(printerWith(continuous(PaperSize.Mm80)), tall)).toThrow(
-      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
-    );
+    expect(asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), tall))).toContain('SIZE 72 mm, 201 mm');
   });
 
   it('loại nội dung không đổi SIZE: tem và hoá đơn trên cùng giấy cuộn khai như nhau', () => {

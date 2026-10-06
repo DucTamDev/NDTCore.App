@@ -240,8 +240,8 @@ columns?: number;
 // TODO: fix
 
 // Ưu tiên
-// TODO: bỏ ngưỡng CONTINUOUS_HEIGHT_MM tạm sau khi verify phần cứng thật
-// cho phép chiều cao lớn hơn (xem spec 2026-09-09 §9).
+// TODO: đổi SET CUTTER <copies> sang SET CUTTER BATCH sau khi verify
+// firmware TSPL clone hỗ trợ lệnh này trên máy thật.
 ```
 
 ---

@@ -16,7 +16,7 @@ import type { PrintOptions } from '../../../models/printing/PrintOptions';
 
 const printer = makePrinter({ language: makeEscPosLanguage() });
 
-/** Ảnh 2x6 toàn đen: chuẩn hoá về bề rộng 576px thì cao 1728px, vượt trần an toàn 1600px của giấy 80mm. */
+/** Ảnh 2x6 toàn đen: chuẩn hoá về bề rộng 576px thì cao 1728px (216mm). */
 const tallPngBase64 = (): string => {
   const rgba = new Uint8Array(2 * 6 * 4);
 
@@ -34,10 +34,8 @@ describe('EscPosLanguage', () => {
     );
   });
 
-  it('ảnh cao quá trần an toàn → IMAGE_TOO_LARGE', () => {
-    expect(() => EscPosLanguage.encode(printer, tallPngBase64())).toThrow(
-      expect.objectContaining({ code: PrintErrorCode.IMAGE_TOO_LARGE }),
-    );
+  it('giấy cuộn không giới hạn chiều cao: ảnh dài hơn 200mm vẫn encode được', () => {
+    expect(() => EscPosLanguage.encode(printer, tallPngBase64())).not.toThrow();
   });
 });
 

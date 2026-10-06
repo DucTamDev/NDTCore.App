@@ -5,19 +5,22 @@ import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperType } from '../../models/paper/PaperType';
 import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { copiesOf, cutterModeOf, feedDotsOf } from '../../utils/printOptionsUtils';
-import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
+import { DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { PrintErrorException } from '../../exceptions';
 import { PrintErrorCode } from '../../errors';
 import type { MonochromeBitmap } from '../../rendering/MonochromeBitmap';
 import { decodePngBase64ToMonochrome } from '../../rendering/MonochromeBitmap';
 
+/** TSPL kết thúc mỗi lệnh bằng `\r\n`; với `BITMAP` thì đứng sau dữ liệu ảnh, không sau header. */
 const CRLF = [0x0d, 0x0a];
 
 /** Mọi lệnh TSPL ở đây đều là ASCII nên mỗi ký tự là một byte. */
 const asciiBytes = (text: string): Uint8Array => Uint8Array.from(text, (character) => character.charCodeAt(0));
 
+/** Một dòng lệnh TSPL hoàn chỉnh, kèm `\r\n` kết thúc. */
 const commandBytes = (command: string): Uint8Array => asciiBytes(`${command}\r\n`);
 
+/** Cấp một buffer đúng tổng độ dài rồi chép từng phần vào, tránh tạo mảng trung gian lớn với ảnh hoá đơn dài. */
 const concatBytes = (parts: readonly Uint8Array[]): Uint8Array => {
   const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
   let offset = 0;
@@ -30,15 +33,12 @@ const concatBytes = (parts: readonly Uint8Array[]): Uint8Array => {
   return result;
 };
 
+/** Toạ độ và kích thước TSPL tính bằng dot nguyên; kích thước tem có số lẻ thì làm tròn. */
 const mmToDots = (mm: number): number => Math.round(mm * DOTS_PER_MM);
 
 /** Chiều cao cho `SIZE`: giấy tem theo con tem; giấy cuộn đúng bằng nội dung để máy chỉ đẩy phần đã in. */
 const sizeHeightMmOf = (paper: PaperOptions, bitmap: MonochromeBitmap): number =>
   paper.type === PaperType.DieCut ? paper.itemHeightMm : Math.max(1, Math.ceil(bitmap.heightPx / DOTS_PER_MM));
-
-/** Giấy tem không chứa được ảnh cao hơn con tem; giấy cuộn chặn ở trần an toàn để ảnh lỗi không đẩy giấy quá dài. */
-const maxHeightMmOf = (paper: PaperOptions): number =>
-  paper.type === PaperType.DieCut ? paper.itemHeightMm : CONTINUOUS_HEIGHT_MM;
 
 /** Ảnh tem rời co theo bề rộng một con tem; giấy cuộn theo bề rộng vùng in của khổ giấy. */
 const imageWidthDotsOf = (paper: PaperOptions): number =>
@@ -102,6 +102,7 @@ const bitmapBytesOf = (x: number, bitmap: MonochromeBitmap): Uint8Array => {
   return bytes;
 };
 
+/** Giải mã PNG base64 thành ảnh 1-bit rộng `widthDots`; PNG hỏng báo `INVALID_IMAGE` thay vì lỗi thô của bộ giải mã. */
 const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   try {
     return decodePngBase64ToMonochrome(image, widthDots);
@@ -114,8 +115,9 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   }
 };
 
-const assertFitsHeight = (bitmap: MonochromeBitmap, maxHeightMm: number): void => {
-  if (bitmap.heightPx <= maxHeightMm * DOTS_PER_MM) {
+/** Ảnh cao hơn con tem sẽ tràn sang tem kế tiếp; giấy cuộn dài bao nhiêu cũng in được nên không giới hạn. */
+const assertFitsLabel = (paper: PaperOptions, bitmap: MonochromeBitmap): void => {
+  if (paper.type !== PaperType.DieCut || bitmap.heightPx <= paper.itemHeightMm * DOTS_PER_MM) {
     return;
   }
 
@@ -123,8 +125,8 @@ const assertFitsHeight = (bitmap: MonochromeBitmap, maxHeightMm: number): void =
   throw new PrintErrorException({
     code: PrintErrorCode.IMAGE_TOO_LARGE,
     message:
-      `Nội dung cao khoảng ${contentHeightMm}mm, vượt chiều cao tối đa của giấy (${maxHeightMm}mm) — ` +
-      'dùng giấy dài hơn hoặc rút gọn nội dung.',
+      `Nội dung cao khoảng ${contentHeightMm}mm, vượt chiều cao tem (${paper.itemHeightMm}mm) — ` +
+      'dùng tem dài hơn hoặc rút gọn nội dung.',
   });
 };
 
@@ -135,7 +137,7 @@ const assertFitsHeight = (bitmap: MonochromeBitmap, maxHeightMm: number): void =
 const encodeImage = (printer: Printer, image: string, options?: PrintOptions): Uint8Array => {
   const { paper } = printer;
   const bitmap = decodeImage(image, imageWidthDotsOf(paper));
-  assertFitsHeight(bitmap, maxHeightMmOf(paper));
+  assertFitsLabel(paper, bitmap);
   const heightMm = sizeHeightMmOf(paper, bitmap);
 
   const copies = copiesOf(options);

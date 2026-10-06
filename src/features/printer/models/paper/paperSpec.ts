@@ -22,9 +22,3 @@ export const PAPER_SIZE_SPECS: Record<PaperSize, PaperSizeSpec> = {
   100: { printableWidthMm: 96, imageWidthPx: 768 },
   104: { printableWidthMm: 104, imageWidthPx: 832 },
 };
-
-/**
- * Trần chiều cao (mm) của nội dung in ảnh trên giấy cuộn: không phải giới hạn phần cứng, chỉ chặn một document lỗi
- * sinh ra ảnh khổng lồ.
- */
-export const CONTINUOUS_HEIGHT_MM = 200;

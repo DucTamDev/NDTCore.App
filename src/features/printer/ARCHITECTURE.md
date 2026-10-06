@@ -363,7 +363,7 @@ models/paper/
 ├── PaperSize.ts        58 | 80 | 100 | 104 (mm)
 ├── PaperType.ts        Continuous | DieCut
 ├── CutterMode.ts       None | PerJob | PerRow
-└── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh, trần chiều cao giấy cuộn
+└── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh
 
 utils/
 └── paperUtils.ts       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode)
@@ -421,8 +421,8 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
   `cashDrawer` gửi `ESC p 0 25 250` sau cùng.
 * `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`, `PRINT copies,1`, rồi `FEED` nếu có
   `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo). Chiều cao `SIZE` theo cấu hình giấy của máy in, không
-  theo loại nội dung: giấy tem theo `itemHeightMm`; giấy cuộn đúng bằng nội dung (làm tròn lên mm, trần
-  `CONTINUOUS_HEIGHT_MM`) để máy chỉ đẩy phần đã in.
+  theo loại nội dung: giấy tem theo `itemHeightMm` (ảnh cao hơn con tem → `IMAGE_TOO_LARGE`); giấy cuộn đúng bằng
+  nội dung (làm tròn lên mm), không giới hạn, để máy chỉ đẩy phần đã in.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 
