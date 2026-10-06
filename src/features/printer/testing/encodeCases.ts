@@ -100,7 +100,7 @@ export const ENCODE_CASES: EncodeCase[] = [
       paper: { ...dieCutPaper },
     }),
     image: stripedPngBase64(),
-    options: { rows: 2 },
+    options: { copies: 2 },
     fingerprint: '1727:c3df6e5b',
   },
 ];

@@ -371,7 +371,7 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.paper).toMatchObject({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2, verticalGapMm: 3 });
   });
 
-  it('onTestPrint gọi printerPrintService.testPrint với printer.type cố định (Label → rows)', async () => {
+  it('onTestPrint gọi printerPrintService.testPrint với printer.type cố định (Label → copies)', async () => {
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.onTestPrintRowsChange('3'));
     await act(async () => {
@@ -380,7 +380,7 @@ describe('useAddPrinterFlow', () => {
     expect(printerPrintService.testPrint).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'p1', kind: PrintKind.Label }),
       'base64-png',
-      { rows: 3 },
+      { copies: 3 },
     );
   });
 

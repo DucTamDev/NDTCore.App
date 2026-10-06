@@ -91,9 +91,9 @@ describe('PrinterPrintService', () => {
     const { service, connectionService, repository } = setup();
     repository.addPrinter(tsplLabelPrinter);
 
-    await service.print(tsplLabelPrinter.id, image, { rows: 3 });
+    await service.print(tsplLabelPrinter.id, image, { copies: 3 });
 
-    const expected = TsplLanguage.encode(tsplLabelPrinter, image, { rows: 3 });
+    const expected = TsplLanguage.encode(tsplLabelPrinter, image, { copies: 3 });
     expect(connectionService.send).toHaveBeenCalledWith(tsplLabelPrinter.id, expected);
   });
 

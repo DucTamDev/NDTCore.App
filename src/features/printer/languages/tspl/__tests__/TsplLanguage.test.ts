@@ -10,6 +10,7 @@ import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures'
 import { PrintErrorCode } from '../../../errors';
 import type { Printer } from '../../../models/printer/Printer';
 import type { PaperOptions } from '../../../models/paper/PaperOptions';
+import type { PrintOptions } from '../../../models/printing/PrintOptions';
 import { decodePngBase64ToMonochrome, type MonochromeBitmap } from '../../../rendering/MonochromeBitmap';
 
 jest.mock('../../../rendering/MonochromeBitmap', () => {
@@ -43,12 +44,12 @@ describe('TsplLanguage', () => {
     expect(probe?.matches(new Uint8Array([0x00]))).toBe(true);
   });
 
-  it('số hàng không hợp lệ coi như 1 hàng', () => {
+  it('số bản không hợp lệ coi như 1 bản', () => {
     const image = stripedPngBase64();
     const oneRow = fingerprintOf(TsplLanguage.encode(printer, image));
 
-    expect(fingerprintOf(TsplLanguage.encode(printer, image, { rows: 0 }))).toBe(oneRow);
-    expect(fingerprintOf(TsplLanguage.encode(printer, image, { rows: Number.NaN }))).toBe(oneRow);
+    expect(fingerprintOf(TsplLanguage.encode(printer, image, { copies: 0 }))).toBe(oneRow);
+    expect(fingerprintOf(TsplLanguage.encode(printer, image, { copies: Number.NaN }))).toBe(oneRow);
   });
 
   it('ảnh cao hơn tem → IMAGE_TOO_LARGE', () => {
@@ -135,9 +136,9 @@ describe('TsplLanguage.encode', () => {
 });
 
 /** Encode với ảnh giải mã ra đúng `bitmap`, để kiểm tra lệnh mà không cần PNG thật. */
-const encodeBitmap = (target: Printer, bitmap: MonochromeBitmap = ONE_DOT, rows?: number): Uint8Array => {
+const encodeBitmap = (target: Printer, bitmap: MonochromeBitmap = ONE_DOT, options?: PrintOptions): Uint8Array => {
   (decodePngBase64ToMonochrome as jest.Mock).mockReturnValueOnce(bitmap);
-  return TsplLanguage.encode(target, 'png', rows === undefined ? undefined : { rows });
+  return TsplLanguage.encode(target, 'png', options);
 };
 
 const ONE_DOT: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0x00]) };
@@ -190,14 +191,15 @@ describe('TsplLanguage.encode — lệnh TSPL', () => {
   });
 
   it('cắt cuối job: SET CUTTER bằng số hàng rồi PRINT', () => {
-    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, 3));
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, { copies: 3 }));
 
     expect(text).toContain('SET CUTTER 3');
     expect(text.trim().endsWith('PRINT 3,1')).toBe(true);
   });
 
   it('cắt mỗi hàng: SET CUTTER 1', () => {
-    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80, CutterMode.PerRow)), ONE_DOT, 2));
+    const target = printerWith(continuous(PaperSize.Mm80, CutterMode.PerRow));
+    const text = asAscii(encodeBitmap(target, ONE_DOT, { copies: 2 }));
 
     expect(text).toContain('SET CUTTER 1');
     expect(text).toContain('PRINT 2,1');
@@ -221,5 +223,31 @@ describe('TsplLanguage.encode — lệnh TSPL', () => {
     // eslint-disable-next-line no-bitwise -- giống phép đảo bit đang kiểm tra
     expect(Array.from(bytes.slice(start, start + 6))).toEqual(Array.from(bitmap.bits, (byte) => byte ^ 0xff));
     expect(Array.from(bytes.slice(start + 6, start + 8))).toEqual([0x0d, 0x0a]);
+  });
+});
+
+describe('TsplLanguage.encode — tùy chọn in', () => {
+  it('copies: in đúng số bản', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, { copies: 4 }));
+
+    expect(text).toContain('PRINT 4,1');
+  });
+
+  it('cut: false → SET CUTTER OFF dù giấy cấu hình cắt', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, { cut: false }));
+
+    expect(text).toContain('SET CUTTER OFF');
+  });
+
+  it('feedMm: FEED theo dot sau PRINT', () => {
+    const text = asAscii(encodeBitmap(printerWith(continuous(PaperSize.Mm80)), ONE_DOT, { feedMm: 5 }));
+
+    expect(text.trim().endsWith('PRINT 1,1\r\nFEED 40')).toBe(true);
+  });
+
+  it('cashDrawer: máy tem không có ngăn kéo nên không đổi byte', () => {
+    const target = printerWith(continuous(PaperSize.Mm80));
+
+    expect(encodeBitmap(target, ONE_DOT, { cashDrawer: true })).toEqual(encodeBitmap(target, ONE_DOT));
   });
 });

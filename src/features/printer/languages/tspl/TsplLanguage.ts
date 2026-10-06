@@ -5,7 +5,7 @@ import { PrintKind } from '../../models/printer/PrintKind';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperType } from '../../models/paper/PaperType';
 import type { PaperOptions } from '../../models/paper/PaperOptions';
-import { resolveEffectiveCutterMode } from '../../utils/paperUtils';
+import { copiesOf, cutterModeOf, feedDotsOf } from '../../utils/printOptionsUtils';
 import { CONTINUOUS_HEIGHT_MM, DOTS_PER_MM, PAPER_SIZE_SPECS } from '../../models/paper/paperSpec';
 import { PrintErrorException } from '../../exceptions';
 import { PrintErrorCode } from '../../errors';
@@ -20,12 +20,6 @@ const STATUS_QUERY = '~!T\r\n';
  * trước khi encode; nới `SIZE` không làm máy in thêm giấy.
  */
 const DEFAULT_LABEL_HEIGHT_MM = 30;
-
-/** Số hàng tem cần in, tối thiểu 1; giá trị không hợp lệ coi như 1. */
-const rowsOf = (options?: PrintOptions): number => {
-  const rows = Math.floor(options?.rows ?? 1);
-  return Number.isFinite(rows) ? Math.max(1, rows) : 1;
-};
 
 /** Mọi lệnh TSPL ở đây đều là ASCII nên mỗi ký tự là một byte. */
 const commandBytes = (line: string): number[] => Array.from(`${line}\r\n`, (character) => character.charCodeAt(0));
@@ -89,9 +83,9 @@ const appendBitmap = (bytes: number[], x: number, bitmap: MonochromeBitmap): voi
  * `SET CUTTER` là thiết lập bền của máy TSPL, giữ cho các job sau; nên không cắt thì phải gửi `SET CUTTER OFF`, không
  * được chỉ bỏ qua lệnh.
  */
-const cutCommands = (rows: number, mode: CutterMode): string[] => {
-  const cutter = { [CutterMode.None]: 'OFF', [CutterMode.PerRow]: '1', [CutterMode.PerJob]: String(rows) }[mode];
-  return [`SET CUTTER ${cutter}`, `PRINT ${rows},1`];
+const cutCommands = (copies: number, mode: CutterMode): string[] => {
+  const cutter = { [CutterMode.None]: 'OFF', [CutterMode.PerRow]: '1', [CutterMode.PerJob]: String(copies) }[mode];
+  return [`SET CUTTER ${cutter}`, `PRINT ${copies},1`];
 };
 
 const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
@@ -106,8 +100,11 @@ const decodeImage = (image: string, widthDots: number): MonochromeBitmap => {
   }
 };
 
-/** In ảnh (PNG base64) bằng lệnh `BITMAP`, mỗi cột tem một lệnh; ảnh hỏng hay cao hơn giấy đều báo lỗi. */
-const encodeImage = (printer: Printer, image: string, rows: number): Uint8Array => {
+/**
+ * In ảnh (PNG base64) bằng lệnh `BITMAP`, mỗi cột tem một lệnh; ảnh hỏng hay cao hơn giấy đều báo lỗi. Mỗi bản là
+ * một hàng tem; máy tem không có ngăn kéo tiền nên bỏ qua `cashDrawer`.
+ */
+const encodeImage = (printer: Printer, image: string, options?: PrintOptions): Uint8Array => {
   const { paper, kind } = printer;
   const bitmap = decodeImage(image, imageWidthDotsOf(paper));
   const heightMm = sizeHeightMmOf(paper, kind);
@@ -128,13 +125,21 @@ const encodeImage = (printer: Printer, image: string, rows: number): Uint8Array 
     appendBitmap(bytes, x, bitmap);
   }
 
-  bytes.push(...cutCommands(rows, resolveEffectiveCutterMode(paper)).flatMap(commandBytes));
+  bytes.push(...cutCommands(copiesOf(options), cutterModeOf(paper, options)).flatMap(commandBytes));
+
+  // Dao cắt chạy ngay trong `PRINT` nên `FEED` chỉ đẩy được sau khi in xong.
+  const feedDots = feedDotsOf(options);
+
+  if (feedDots > 0) {
+    bytes.push(...commandBytes(`FEED ${feedDots}`));
+  }
+
   return new Uint8Array(bytes);
 };
 
 /** Ngôn ngữ TSPL (máy in tem, cũng in được hoá đơn trên giấy cuộn). */
 export const TsplLanguage: IPrintLanguage = {
-  encode: (printer, image, options) => encodeImage(printer, image, rowsOf(options)),
+  encode: encodeImage,
 
   identifyProbe: {
     command: Uint8Array.from(STATUS_QUERY, (character) => character.charCodeAt(0)),

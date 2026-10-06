@@ -134,7 +134,7 @@ src/features/printer/
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
 ├── forms/               schema, PaperDraft (+ validation giấy), printerRules (canPrintKind)
 ├── store/
-├── utils/               printKindLabels (nhãn UI), paperUtils (resolveEffectiveCutterMode)
+├── utils/               printKindLabels (nhãn UI), paperUtils, printOptionsUtils
 │
 └── testing/             printerFixtures, printerServiceTestKit, encodeCases
 ```
@@ -410,9 +410,12 @@ getPrintLanguage(type: PrintLanguage): IPrintLanguage
 
 * `encode` kiểm tra rồi encode; ảnh hỏng (`INVALID_IMAGE`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
   `PrintErrorException`.
-* `EscPosLanguage`: lệnh `GS v 0`, cắt giấy theo `resolveEffectiveCutterMode`. Không có lệnh dò.
-* `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`; `rows` = `options.rows` (không hợp lệ
-  thì 1). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
+* `PrintOptions` (`utils/printOptionsUtils.ts` chuẩn hoá): `copies` (mặc định 1), `cut` (`false` thì không cắt;
+  giấy tem không bao giờ cắt), `feedMm` (đẩy thêm giấy), `cashDrawer` (mở ngăn kéo).
+* `EscPosLanguage`: lệnh `GS v 0`; nhiều bản thì lặp lại ảnh, mỗi bản `ESC J` (đẩy giấy) rồi `ESC m` (cắt);
+  `cashDrawer` gửi `ESC p 0 25 250` sau cùng. Không có lệnh dò.
+* `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`, `PRINT copies,1`, rồi `FEED` nếu có
+  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo). Lệnh dò `~!T\r\n`, khớp khi máy trả lời ít nhất 1 byte.
 * Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
   cập nhật fixture có chủ đích.
 

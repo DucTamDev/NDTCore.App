@@ -56,7 +56,7 @@ export const useTestPrint = (input: UseTestPrintInput) => {
         return;
       }
 
-      const options = isLabel ? { rows: Number(testPrintRowsText) } : undefined;
+      const options = isLabel ? { copies: Number(testPrintRowsText) } : undefined;
       await printerPrintService.testPrint(printer, image, options);
     } catch (error) {
       setTestPrintErrorMessage(error instanceof PrinterFeatureException ? error.message : 'In thử thất bại');

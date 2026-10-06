@@ -12,6 +12,7 @@ jest.mock('../../../rendering/MonochromeBitmap', () => {
   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
 });
 import { PrintErrorCode } from '../../../errors';
+import type { PrintOptions } from '../../../models/printing/PrintOptions';
 
 const printer = makePrinter({ language: makeEscPosLanguage() });
 
@@ -45,11 +46,11 @@ describe('EscPosLanguage', () => {
 });
 
 /** Encode với ảnh giải mã ra đúng `bitmap` trên giấy cuộn 80mm có `cutterMode` cho trước. */
-const encodeBitmap = (bitmap: MonochromeBitmap, cutterMode: CutterMode): Uint8Array => {
+const encodeBitmap = (bitmap: MonochromeBitmap, cutterMode: CutterMode, options?: PrintOptions): Uint8Array => {
   (decodePngBase64ToMonochrome as jest.Mock).mockReturnValueOnce(bitmap);
   const paper = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode } as const;
 
-  return EscPosLanguage.encode(makePrinter({ language: makeEscPosLanguage(), paper }), 'png');
+  return EscPosLanguage.encode(makePrinter({ language: makeEscPosLanguage(), paper }), 'png', options);
 };
 
 describe('EscPosLanguage.encode — byte GS v 0', () => {
@@ -109,5 +110,35 @@ describe('EscPosLanguage.encode — byte GS v 0', () => {
     const bytes = encodeBitmap(bitmap, CutterMode.None);
 
     expect(Array.from(bytes.slice(10, 13))).toEqual(Array.from(bits));
+  });
+});
+
+describe('EscPosLanguage.encode — tùy chọn in', () => {
+  const dot: MonochromeBitmap = { widthBytes: 1, heightPx: 1, bits: new Uint8Array([0xff]) };
+  const page = [0x1d, 0x76, 0x30, 0x00, 1, 0, 1, 0, 0xff];
+
+  it('copies: lặp lại ảnh, mỗi bản cắt riêng', () => {
+    const bytes = encodeBitmap(dot, CutterMode.PerJob, { copies: 2 });
+
+    expect(Array.from(bytes)).toEqual([0x1b, 0x40, ...page, 0x1b, 0x6d, ...page, 0x1b, 0x6d]);
+  });
+
+  it('cut: false thì không gửi lệnh cắt dù giấy cấu hình cắt', () => {
+    const bytes = encodeBitmap(dot, CutterMode.PerJob, { cut: false });
+
+    expect(Array.from(bytes)).toEqual([0x1b, 0x40, ...page]);
+  });
+
+  it('feedMm: ESC J trước lệnh cắt, quá 255 dot thì tách nhiều lệnh', () => {
+    const bytes = encodeBitmap(dot, CutterMode.PerJob, { feedMm: 40 }); // 320 dot
+
+    expect(Array.from(bytes.slice(-8))).toEqual([0x1b, 0x4a, 255, 0x1b, 0x4a, 65, 0x1b, 0x6d]);
+  });
+
+  it('cashDrawer: mở ngăn kéo sau khi in xong', () => {
+    const bytes = encodeBitmap(dot, CutterMode.None, { copies: 2, cashDrawer: true });
+
+    expect(Array.from(bytes.slice(-5))).toEqual([0x1b, 0x70, 0x00, 0x19, 0xfa]);
+    expect(Array.from(bytes).filter((byte) => byte === 0x70)).toHaveLength(1);
   });
 });
