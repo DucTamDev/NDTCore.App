@@ -547,8 +547,9 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ## `PrintService`
 
-Public entry point. `paperFor(kind)` cho nơi gọi biết có máy nào nhận không và chụp ảnh theo giấy nào. `print` chọn
-máy nhận từ repository theo `printer.kind` và `enabled`, tạo một `PrintTask` cho mỗi máy, chạy trong khoá theo
+Public entry point. `print(kind, render)` chọn máy nhận từ repository theo `printer.kind` và `enabled` (không có máy
+thì không chụp), gọi `render(paper)` một lần cho mỗi cấu hình giấy khác nhau (lần lượt, vì chỉ có một khung chụp;
+chụp hỏng thì cả yêu cầu `Failed`), tạo một `PrintTask` cho mỗi máy với ảnh đúng giấy của nó, chạy trong khoá theo
 `task.deviceId` (bằng `lockKeyOf` của máy in đã lưu) rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
 lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
 

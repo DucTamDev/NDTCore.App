@@ -99,33 +99,35 @@ describe('printReceipt', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (printService.paperFor as jest.Mock).mockReturnValue(paper);
   });
 
-  it('chưa có máy in hoá đơn → "no-printer", không chụp ảnh', async () => {
-    (printService.paperFor as jest.Mock).mockReturnValue(null);
-    const capture = jest.fn();
+  it('chưa có máy in hoá đơn → "no-printer"', async () => {
+    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.NoAvailablePrinter, results: [] });
 
-    await expect(printReceipt(receipt, capture)).resolves.toBe('no-printer');
-    expect(capture).not.toHaveBeenCalled();
-    expect(printService.print).not.toHaveBeenCalled();
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('no-printer');
   });
 
-  it('chụp bill theo giấy của máy in rồi in ảnh đó', async () => {
+  it('PrintService chụp bill theo giấy của từng máy qua hàm chụp được truyền vào', async () => {
     const capture = jest.fn().mockResolvedValue('base64-png-data');
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.Success, results: [] });
+    (printService.print as jest.Mock).mockImplementation(async (_kind, render) => {
+      await render(paper);
+      return { status: PrintStatus.Success, results: [] };
+    });
 
     await expect(printReceipt(receipt, capture)).resolves.toBe('ok');
+    expect(printService.print).toHaveBeenCalledWith(PrintKind.Receipt, expect.any(Function));
     expect(capture).toHaveBeenCalledWith(expect.objectContaining({ type: ReceiptView, props: { receipt } }), paper);
-    expect(printService.print).toHaveBeenCalledWith(PrintKind.Receipt, 'base64-png-data');
   });
 
-  it('chụp thất bại → "failed", ghi log, không in', async () => {
-    const capture = jest.fn().mockResolvedValue(null);
+  it('chụp thất bại → "failed", ghi log kèm lý do', async () => {
+    (printService.print as jest.Mock).mockResolvedValue({
+      status: PrintStatus.Failed,
+      results: [],
+      error: { message: 'Không chụp được nội dung Hoá đơn để in' },
+    });
 
-    await expect(printReceipt(receipt, capture)).resolves.toBe('failed');
-    expect(printService.print).not.toHaveBeenCalled();
-    expect(LoggerService.warning).toHaveBeenCalled();
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('failed');
+    expect(LoggerService.warning).toHaveBeenCalledWith(expect.stringContaining('Không chụp được'));
   });
 
   it('máy in báo lỗi → "failed" và ghi log', async () => {

@@ -71,23 +71,16 @@ export type PrintReceiptOutcome = 'ok' | 'no-printer' | 'failed';
 
 /**
  * In bill kiểu "fire-and-forget": không bao giờ reject, mọi lỗi chỉ ghi log để `submit()` phía trên không bị ảnh
- * hưởng. Chưa có máy in hoá đơn thì không chụp ảnh, vì chụp ảnh tốn chi phí.
+ * hưởng. `PrintService` chỉ chụp bill khi có máy in hoá đơn, mỗi khổ giấy một lần.
  */
 export const printReceipt = async (receipt: Receipt, captureImage: CaptureImage): Promise<PrintReceiptOutcome> => {
   try {
-    const paper = printService.paperFor(PrintKind.Receipt);
-    if (!paper) return 'no-printer';
-
-    const image = await captureImage(createElement(ReceiptView, { receipt }), paper);
-    if (!image) {
-      LoggerService.warning('In hoá đơn thất bại: không chụp được ảnh bill');
-      return 'failed';
-    }
-
-    const result = await printService.print(PrintKind.Receipt, image);
+    const content = createElement(ReceiptView, { receipt });
+    const result = await printService.print(PrintKind.Receipt, (paper) => captureImage(content, paper));
     if (result.status === PrintStatus.NoAvailablePrinter) return 'no-printer';
     if (result.status === PrintStatus.Failed || result.status === PrintStatus.PartialFailure) {
-      LoggerService.warning(`In hoá đơn không thành công: ${result.status}`);
+      const reason = result.error ? ` (${result.error.message})` : '';
+      LoggerService.warning(`In hoá đơn không thành công: ${result.status}${reason}`);
       return 'failed';
     }
     return 'ok';

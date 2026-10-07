@@ -5,6 +5,7 @@ import type { PrinterRepository } from '../../storage/PrinterRepository';
 import { CutterMode } from '../../models/paper/CutterMode';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PaperType } from '../../models/paper/PaperType';
+import type { PaperOptions } from '../../models/paper/PaperOptions';
 import { ConnectionType } from '../../models/connections/ConnectionType';
 import { type Printer } from '../../models/printer/Printer';
 import { PrintKind } from '../../models/printer/PrintKind';
@@ -17,6 +18,9 @@ import { PrintErrorCode } from '../../errors';
 import { PrintErrorException } from '../../exceptions';
 
 const image = 'base64-png';
+
+/** Hàm chụp giả: khổ giấy nào cũng ra cùng một ảnh. */
+const render = (): Promise<string> => Promise.resolve(image);
 
 const lanPrinter = (id: string, host: string, overrides: Partial<Printer> = {}): Printer =>
   makePrinter({
@@ -42,7 +46,7 @@ const makeService = (printers: Printer[], printing: PrinterService = makePrinter
 describe('PrintService.print', () => {
   it('returns no-available-printer with no tasks when no printer prints this kind', async () => {
     const printing = makePrinterService();
-    const result = await makeService([], printing).print(PrintKind.Receipt, image);
+    const result = await makeService([], printing).print(PrintKind.Receipt, render);
     expect(result.status).toBe(PrintStatus.NoAvailablePrinter);
     expect(result.results).toEqual([]);
     expect(result.error?.code).toBe(PrintErrorCode.NO_AVAILABLE_PRINTER);
@@ -52,7 +56,7 @@ describe('PrintService.print', () => {
   it('tạo lệnh in mang thông tin máy và ảnh nguyên vẹn, in xong thì Success', async () => {
     const p1 = lanPrinter('p1', '1.1.1.1');
     const printing = makePrinterService();
-    const result = await makeService([p1], printing).print(PrintKind.Receipt, image);
+    const result = await makeService([p1], printing).print(PrintKind.Receipt, render);
     expect(printing.print).toHaveBeenCalledWith('p1', image);
     expect(result.status).toBe(PrintStatus.Success);
     expect(result.results[0]).toMatchObject({
@@ -72,7 +76,7 @@ describe('PrintService.print', () => {
 
   it('máy lỗi thì lệnh Failed kèm exception, các máy khác vẫn in: PartialFailure', async () => {
     const printers = [lanPrinter('p1', '1.1.1.1'), lanPrinter('p2', '1.1.1.2')];
-    const result = await makeService(printers, makePrinterService(['p2'])).print(PrintKind.Receipt, image);
+    const result = await makeService(printers, makePrinterService(['p2'])).print(PrintKind.Receipt, render);
     expect(result.status).toBe(PrintStatus.PartialFailure);
     expect(result.results.map((entry) => entry.status)).toEqual([PrintTaskStatus.Success, PrintTaskStatus.Failed]);
     expect(result.results[1].error).toMatchObject({ code: PrintErrorCode.UNKNOWN_ERROR, message: 'hết giấy' });
@@ -80,7 +84,7 @@ describe('PrintService.print', () => {
 
   it('reports failed with no top-level error when every task fails', async () => {
     const service = makeService([lanPrinter('p1', '1.1.1.1')], makePrinterService(['p1']));
-    const result = await service.print(PrintKind.Receipt, image);
+    const result = await service.print(PrintKind.Receipt, render);
     expect(result.status).toBe(PrintStatus.Failed);
     expect(result.error).toBeUndefined();
   });
@@ -89,7 +93,7 @@ describe('PrintService.print', () => {
 describe('PrintService target selection', () => {
   const printedIds = async (printers: Printer[], kind: PrintKind): Promise<string[]> => {
     const printing = makePrinterService();
-    await makeService(printers, printing).print(kind, image);
+    await makeService(printers, printing).print(kind, render);
     return printing.print.mock.calls.map(([printerId]) => printerId);
   };
 
@@ -126,7 +130,7 @@ describe('PrintService khoá theo máy vật lý', () => {
         inFlight -= 1;
       }),
     });
-    await makeService(printers, printing).print(PrintKind.Receipt, image);
+    await makeService(printers, printing).print(PrintKind.Receipt, render);
     return maxInFlight;
   };
 
@@ -159,7 +163,7 @@ describe('PrintService khoá theo máy vật lý', () => {
     const service = new PrintService(repository, printing, lock);
 
     await Promise.all([
-      service.print(PrintKind.Receipt, stripedPngBase64()),
+      service.print(PrintKind.Receipt, () => Promise.resolve(stripedPngBase64())),
       (async () => {
         await new Promise((resolve) => setTimeout(resolve, 1));
         await printing.testPrint(printer, stripedPngBase64());
@@ -170,22 +174,56 @@ describe('PrintService khoá theo máy vật lý', () => {
   });
 });
 
-describe('PrintService.paperFor', () => {
-  it('returns null when no printer prints this kind', () => {
-    expect(makeService([]).paperFor(PrintKind.Receipt)).toBeNull();
+describe('PrintService chụp theo khổ giấy', () => {
+  const mm58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob } as const;
+  const mm80 = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob } as const;
+
+  /** Hàm chụp giả: ảnh mang khổ giấy để biết máy nào nhận ảnh nào. */
+  const renderByPaper = jest.fn((paper: PaperOptions) => Promise.resolve(`png-${paper.paperSize}`));
+
+  beforeEach(() => renderByPaper.mockClear());
+
+  it('không có máy nào nhận loại nội dung → không chụp', async () => {
+    await makeService([]).print(PrintKind.Receipt, renderByPaper);
+    expect(renderByPaper).not.toHaveBeenCalled();
   });
 
-  it('returns the paper of the first target', () => {
-    const p1 = makePrinter({
-      id: 'p1',
-      language: makeEscPosLanguage(),
-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
-    });
-    const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage() });
-    expect(makeService([p1, p2]).paperFor(PrintKind.Receipt)).toEqual(p1.paper);
+  it('máy cùng giấy chụp một lần, khác giấy chụp riêng; mỗi máy nhận ảnh đúng giấy của nó', async () => {
+    const printers = [
+      lanPrinter('a', '1.1.1.1', { paper: mm58 }),
+      lanPrinter('b', '1.1.1.2', { paper: mm80 }),
+      lanPrinter('c', '1.1.1.3', { paper: mm58 }),
+    ];
+    const printing = makePrinterService();
+
+    await makeService(printers, printing).print(PrintKind.Receipt, renderByPaper);
+
+    expect(renderByPaper.mock.calls.map(([paper]) => paper.paperSize)).toEqual([PaperSize.Mm58, PaperSize.Mm80]);
+    expect(printing.print.mock.calls).toEqual([
+      ['a', 'png-58'],
+      ['b', 'png-80'],
+      ['c', 'png-58'],
+    ]);
   });
 
-  it('the real exported printService singleton has no configured printers by default, so it returns null', () => {
-    expect(printService.paperFor(PrintKind.Receipt)).toBeNull();
+  it('chụp hỏng → Failed với INVALID_IMAGE, không gửi gì', async () => {
+    const printing = makePrinterService();
+    const result = await makeService([lanPrinter('a', '1.1.1.1')], printing).print(PrintKind.Receipt, () =>
+      Promise.resolve(null),
+    );
+    expect(result.status).toBe(PrintStatus.Failed);
+    expect(result.error?.code).toBe(PrintErrorCode.INVALID_IMAGE);
+    expect(printing.print).not.toHaveBeenCalled();
+  });
+
+  it('hàm chụp ném lỗi → Failed, print không reject', async () => {
+    const result = await makeService([lanPrinter('a', '1.1.1.1')]).print(PrintKind.Receipt, () =>
+      Promise.reject(new Error('view chưa mount')),
+    );
+    expect(result.status).toBe(PrintStatus.Failed);
+  });
+
+  it('singleton printService mặc định chưa có máy in nào → NoAvailablePrinter', async () => {
+    expect((await printService.print(PrintKind.Receipt, renderByPaper)).status).toBe(PrintStatus.NoAvailablePrinter);
   });
 });
