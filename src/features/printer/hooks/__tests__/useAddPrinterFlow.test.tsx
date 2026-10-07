@@ -200,36 +200,116 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.language).toEqual(expect.objectContaining({ type: PrintLanguage.EscPos, selection: LanguageSelection.Manual }));
   });
 
-  it('cleanup: đóng modal trong lúc đang connected mà chưa Save → disconnect language', () => {
-    const { update } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
+  it('sửa máy in rồi đóng mà không kết nối gì → không đụng tới máy đang chạy', () => {
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Connected);
+    const props = { visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind };
+    const { update, unmount } = render(props);
+    update({ ...props, visible: false });
+    unmount();
+    expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
+    expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
   });
 
-  it('KHÔNG disconnect khi đóng modal ngay sau khi vừa Save', async () => {
-    const { get, update } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
+  it('thêm máy: đã kết nối bản nháp rồi đóng chưa lưu → ngắt bản nháp', async () => {
+    const { get, update } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
+    const draftId = (printerConnectionService.connect as jest.Mock).mock.calls[0][0].id;
+
+    update({ visible: false, onSaved: jest.fn(), kind: PrintKind.Label });
+
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith(draftId);
+  });
+
+  it('thêm máy: unmount (phone backToList) chưa lưu sau khi kết nối → ngắt bản nháp', async () => {
+    const { get, unmount } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
+    const draftId = (printerConnectionService.connect as jest.Mock).mock.calls[0][0].id;
+
+    unmount();
+
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith(draftId);
+  });
+
+  it('lưu xong rồi đóng / unmount → không ngắt', async () => {
+    const { get, update, unmount } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
+    act(() => get().connectionSection.onSelectDevice(usbDevice));
+    detectXprinter();
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+    });
     await act(async () => {
       await get().infoCard.onSave();
     });
-    (printerConnectionService.disconnect as jest.Mock).mockClear();
-    update({ visible: false, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
+
+    update({ visible: false, onSaved: jest.fn(), kind: PrintKind.Label });
+    unmount();
+
     expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
-  it('unmount (phone backToList) trong lúc đang connected mà chưa Save → disconnect', () => {
-    const { unmount } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    unmount();
-    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
+  it('Đổi kết nối: bỏ ngôn ngữ, mở khoá phần kết nối, chưa lưu được', () => {
+    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
+    expect(get().connectionSection.disabled).toBe(true);
+
+    act(() => get().connectionSection.onChangeConnection());
+
+    expect(get().connectionSection.disabled).toBe(false);
+    expect(get().infoCard.language).toBeUndefined();
+    expect(get().infoCard.saveDisabled).toBe(true);
   });
 
-  it('unmount sau khi Save thành công KHÔNG disconnect', async () => {
-    const { get, unmount } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    await act(async () => {
-      await get().infoCard.onSave();
+  it('sửa máy đang kết nối, đổi kết nối rồi huỷ → kết nối lại bằng cấu hình đã lưu', async () => {
+    (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Connected);
+    const { get, unmount } = render({
+      visible: true,
+      initialValues: savedTspl,
+      onSaved: jest.fn(),
+      kind: savedTspl.kind,
     });
-    (printerConnectionService.disconnect as jest.Mock).mockClear();
+    act(() => get().connectionSection.onChangeConnection());
+    act(() => get().connectionSection.onLanIpChange('10.0.0.9'));
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      get().statusPanel.onChooseLanguage(PrintLanguage.Tspl);
+    });
+
     unmount();
+
+    expect(printerConnectionService.reconnect).toHaveBeenCalledWith('p1');
     expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('sửa máy chưa kết nối, kết nối thử trong form rồi huỷ → ngắt', async () => {
+    const { get, unmount } = render({
+      visible: true,
+      initialValues: savedTspl,
+      onSaved: jest.fn(),
+      kind: savedTspl.kind,
+    });
+    act(() => get().connectionSection.onChangeConnection());
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      get().statusPanel.onChooseLanguage(PrintLanguage.Tspl);
+    });
+
+    unmount();
+
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
+    expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
   });
 
   it('onSave khi máy in KHÔNG đang kết nối → không kết nối (mở app mới kết nối)', async () => {
@@ -249,13 +329,14 @@ describe('useAddPrinterFlow', () => {
     expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
   });
 
-  it('onSave khi language đang connected → reconnect (không connect) để context lấy paper đã lưu', async () => {
+  it('onSave khi máy đang kết nối → giữ nguyên kết nối, không ngắt hay kết nối lại', async () => {
     (printerConnectionService.getStatus as jest.Mock).mockReturnValue(ConnectionStatus.Connected);
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     await act(async () => {
       await get().infoCard.onSave();
     });
-    expect(printerConnectionService.reconnect).toHaveBeenCalledWith('p1');
+    expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
+    expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
     expect(printerConnectionService.connect).not.toHaveBeenCalled();
   });
 

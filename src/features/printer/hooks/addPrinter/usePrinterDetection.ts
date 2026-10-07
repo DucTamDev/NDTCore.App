@@ -14,7 +14,7 @@ import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSc
 
 /**
  * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDetection`/`refreshUsbSerial`/
- * `prefillDisplayName` do coordinator / {@link useConnectionSetup} sở hữu.
+ * `prefillDisplayName`/`onConnectStart` do coordinator / {@link useConnectionSetup} sở hữu.
  */
 export interface UsePrinterDetectionInput {
   initialValues?: Printer;
@@ -39,6 +39,9 @@ export interface UsePrinterDetectionInput {
   refreshUsbSerial: () => Promise<void>;
 
   prefillDisplayName: () => void;
+
+  /** Báo coordinator form vừa tự mở kết nối, để lúc đóng mà chưa lưu biết phải trả máy in về như cũ. */
+  onConnectStart: () => void;
 }
 
 /**
@@ -56,6 +59,7 @@ export const usePrinterDetection = ({
   setDetection,
   refreshUsbSerial,
   prefillDisplayName,
+  onConnectStart,
 }: UsePrinterDetectionInput) => {
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
@@ -99,6 +103,7 @@ export const usePrinterDetection = ({
     cancelConnectRef.current = cancelConnect;
     resetDetectionFields('connecting');
     setLanguageState('detecting');
+    onConnectStart();
 
     printerConnectionService
       .connect({ ...buildDraftPrinter(), language })

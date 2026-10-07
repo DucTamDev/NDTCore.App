@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { printerManagementService } from '../management/PrinterManagementService';
@@ -102,10 +102,14 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const cancelConnectRef = useRef<(() => void) | null>(null);
   const [detection, setDetection] = useState<PrinterDetection | undefined>(undefined);
   const savedRef = useRef(false);
-  const connectionRef = useRef<{ connectionState: ConnectionState; language?: PrinterLanguage }>({
-    connectionState: initialValues ? 'connected' : 'idle',
-    language: initialValues?.language,
-  });
+
+  /** Form đã tự mở kết nối (bấm Kết nối / chọn ngôn ngữ); chỉ khi đó đóng form mới phải trả máy in về như cũ. */
+  const connectionTouchedRef = useRef(false);
+
+  /** Máy đang sửa có đang kết nối lúc mở form không; Huỷ thì kết nối lại bằng cấu hình đã lưu thay vì ngắt. */
+  const [restoreOnCancel] = useState(
+    () => Boolean(initialValues) && printerConnectionService.getStatus(printerId) === ConnectionStatus.Connected,
+  );
   // Bridge để `useConnectionSetup` đọc state của `usePrinterDetection` tại thời
   // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
   const detectionRef = useRef<{
@@ -213,6 +217,9 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     setDetection,
     refreshUsbSerial: connectionSetup.refreshUsbSerial,
     prefillDisplayName,
+    onConnectStart: () => {
+      connectionTouchedRef.current = true;
+    },
   });
   detectionRef.current = {
     connectionState: printerDetection.connectionState,
@@ -220,10 +227,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     resetConnectionResult: printerDetection.resetConnectionResult,
   };
   const { connectionState, languageState, connectionDirty } = printerDetection;
-
-  useEffect(() => {
-    connectionRef.current = { connectionState, language };
-  }, [connectionState, language]);
 
   useEffect(() => {
     if (!language) {
@@ -235,31 +238,43 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     return printerConnectionService.onStatusChange(printerId, setLiveStatus);
   }, [language, printerId]);
 
+  /**
+   * Đóng form mà chưa lưu: chỉ khi form đã tự kết nối mới trả máy in về như trước khi mở. Ngắt cũng huỷ lượt kết nối
+   * đang chạy dở; máy đang sửa vốn đang kết nối thì kết nối lại bằng cấu hình đã lưu.
+   */
+  const releaseConnection = useCallback((): void => {
+    if (savedRef.current || !connectionTouchedRef.current) {
+      return;
+    }
+
+    connectionTouchedRef.current = false;
+    const restore = restoreOnCancel
+      ? printerConnectionService.reconnect(printerId)
+      : printerConnectionService.disconnect(printerId);
+    restore.catch(() => undefined);
+  }, [printerId, restoreOnCancel]);
+
   useEffect(() => {
     if (!visible) {
       cancelConnectRef.current?.();
       cancelConnectRef.current = null;
-      const current = connectionRef.current;
-      if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        printerConnectionService.disconnect(printerId).catch(() => undefined);
-      }
+      releaseConnection();
     }
     return () => {
       cancelConnectRef.current?.();
     };
-  }, [visible, printerId]);
+  }, [visible, releaseConnection]);
 
   // Trên phone, `PrinterManagementPanel` unmount `AddPrinterForm` khi backToList
   // với `visible` vẫn `true` → nhánh `!visible` ở trên không chạy.
-  useEffect(
-    () => () => {
-      const current = connectionRef.current;
-      if (current.connectionState === 'connected' && current.language && !savedRef.current) {
-        printerConnectionService.disconnect(printerId).catch(() => undefined);
-      }
-    },
-    [printerId],
-  );
+  useEffect(() => releaseConnection, [releaseConnection]);
+
+  /** Mở khoá phần kết nối để chọn máy hoặc địa chỉ khác; phải kết nối và xác định ngôn ngữ lại mới lưu được. */
+  const onChangeConnection = (): void => {
+    setLanguage(undefined);
+    setDetection(undefined);
+    printerDetection.resetConnectionResult();
+  };
 
   const onSave = displayForm.handleSubmit(() => {
     if (!language) {
@@ -275,9 +290,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       return;
     }
     savedRef.current = true;
-    if (liveStatus === ConnectionStatus.Connected) {
-      printerConnectionService.reconnect(printer.id).catch(() => undefined);
-    }
     onSaved();
   });
 
@@ -316,6 +328,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       connectLabel,
       connectDisabled,
       onConnectPress: printerDetection.onConnectPress,
+      onChangeConnection,
       disabled: Boolean(language),
     },
     statusPanel: {

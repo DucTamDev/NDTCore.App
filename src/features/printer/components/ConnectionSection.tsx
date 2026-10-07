@@ -30,6 +30,10 @@ export interface ConnectionSectionProps {
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
+
+  /** Bỏ ngôn ngữ đã xác định để mở khoá phần kết nối; nút chỉ hiện khi phần kết nối đang bị khoá. */
+  onChangeConnection: () => void;
+
   /** Điểm kết nối vật lý cố định sau khi đã xác nhận ngôn ngữ. */
   disabled: boolean;
 }
@@ -53,6 +57,7 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectLabel,
   connectDisabled,
   onConnectPress,
+  onChangeConnection,
   disabled,
 }) => (
   <View style={styles.container}>
@@ -91,6 +96,7 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
       />
     )}
     <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
+    {disabled ? <AppButton label="Đổi kết nối" mode="outlined" onPress={onChangeConnection} /> : null}
   </View>
 );
 

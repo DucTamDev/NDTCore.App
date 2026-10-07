@@ -647,10 +647,13 @@ USB: quét lại theo DeviceInfo.deviceId để lấy serial (refreshUsbSerial)
     ↓
 Chỉnh giấy (form giấy, lưu cùng lúc bấm Lưu) → In thử
     ↓
-Lưu (createPrinterDraft + giá trị người dùng chỉnh)
+Lưu (createPrinterDraft + giá trị người dùng chỉnh); không ngắt hay kết nối lại
 ```
 
-Identity check phải xảy ra trước khi lưu. Hook `useAddPrinterFlow` điều phối `useConnectionSetup`,
+Identity check phải xảy ra trước khi lưu. Ngôn ngữ chỉ có sau khi kết nối thành công nên máy mới phải kết nối được
+mới lưu được. Lúc sửa, phần kết nối khoá cho tới khi bấm "Đổi kết nối" (bỏ ngôn ngữ, phải kết nối lại). Đóng form
+mà chưa lưu: chỉ khi form đã tự kết nối mới trả máy về như cũ (máy đang sửa vốn đang kết nối thì kết nối lại bằng
+cấu hình đã lưu, còn lại thì ngắt). Hook `useAddPrinterFlow` điều phối `useConnectionSetup`,
 `usePrinterDetection`, `useTestPrint`.
 
 ---
