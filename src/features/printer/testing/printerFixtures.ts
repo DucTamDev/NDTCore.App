@@ -34,7 +34,6 @@ export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   connection: DEFAULT_CONNECTION,
   paper: { ...DEFAULT_PAPER },
   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
-  autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

@@ -30,7 +30,6 @@ describe('createPrinterDraft', () => {
       language,
       paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
       capabilities: { cutter: false, cashDrawer: false, color: false, image: true },
-      autoReconnect: true,
       enabled: true,
     });
   });

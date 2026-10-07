@@ -3,7 +3,6 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Chip, List } from 'react-native-paper';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
 import { AppInput } from '../../../components/AppInput';
-import { AppSwitch } from '../../../components/AppSwitch';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
 import { PaperSection } from './PaperSection';
@@ -39,8 +38,6 @@ export interface PrinterInfoCardProps {
   /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
   device?: DeviceInfo;
   status: ConnectionStatus;
-  autoReconnect: boolean;
-  onAutoReconnectChange: (value: boolean) => void;
   testPrintPending: boolean;
   onTestPrint: () => void;
   /** Số hàng die-cut cho "In thử" — giữ dạng text để nhập dở. */
@@ -61,8 +58,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   paperForm,
   device,
   status,
-  autoReconnect,
-  onAutoReconnectChange,
   testPrintPending,
   onTestPrint,
   testPrintRowsText,
@@ -108,7 +103,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         onPress={() => setAdvancedExpanded((v) => !v)}
         style={styles.advancedAccordion}
       >
-        <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
         <PaperSection languageType={language?.type} form={paperForm} disabled={locked} />
         {kind === PrintKind.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />

@@ -75,13 +75,12 @@ const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguag
  * Toàn bộ orchestration của luồng Thêm/Sửa máy in — tìm thiết bị, dò ngôn ngữ, dựng draft,
  * in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ còn render + wiring.
  *
- * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`, `autoReconnect`,
+ * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`,
  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
  * `useConnectionSetup`, `usePrinterDetection`, `useTestPrint`, `usePrintSettings`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
-  const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureImage } = usePrintImageCapture();
@@ -167,7 +166,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
       paper: toPaperOptions(paperForm.getValues()) ?? DEFAULT_PAPER,
-      autoReconnect,
       enabled: initialValues?.enabled ?? true,
       createdAt: initialValues?.createdAt ?? draft.createdAt,
     };
@@ -285,12 +283,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     savedRef.current = true;
     if (liveStatus === ConnectionStatus.Connected) {
       printerConnectionService.reconnect(printer.id).catch(() => undefined);
-    } else if (printer.autoReconnect) {
-      const saved = printerRepository.findById(printer.id);
-
-      if (saved) {
-        printerConnectionService.connect(saved).catch(() => undefined);
-      }
     }
     onSaved();
   });
@@ -349,8 +341,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       paperForm,
       device: selectedDevice,
       status: liveStatus,
-      autoReconnect,
-      onAutoReconnectChange: setAutoReconnect,
       testPrintPending: testPrint.testPrintPending,
       onTestPrint: testPrint.onTestPrint,
       testPrintRowsText: testPrint.testPrintRowsText,

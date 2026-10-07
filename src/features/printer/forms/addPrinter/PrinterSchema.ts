@@ -88,7 +88,6 @@ export const printerSchema = z
     paper: paperOptionsSchema,
     deviceId: z.string().min(1),
     capabilities: printerCapabilitiesSchema,
-    autoReconnect: z.boolean(),
     enabled: z.boolean(),
     createdAt: z.string(),
     updatedAt: z.string(),

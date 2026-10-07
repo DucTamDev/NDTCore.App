@@ -78,7 +78,6 @@ const savedTspl: Printer = {
   connection: { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 },
   deviceId: 'lan:10.0.0.5:9100',
   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
-  autoReconnect: true,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
@@ -240,7 +239,7 @@ describe('useAddPrinterFlow', () => {
     expect(printerConnectionService.disconnect).not.toHaveBeenCalled();
   });
 
-  it('onSave khi language KHÔNG đang connected (autoReconnect bật) → connect (không reconnect)', async () => {
+  it('onSave khi máy in KHÔNG đang kết nối → không kết nối (mở app mới kết nối)', async () => {
     const onSaved = jest.fn();
     const { get } = render({ visible: true, onSaved, kind: PrintKind.Label });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
@@ -253,7 +252,7 @@ describe('useAddPrinterFlow', () => {
     await act(async () => {
       await get().infoCard.onSave();
     });
-    expect(printerConnectionService.connect).toHaveBeenCalled();
+    expect(printerConnectionService.connect).not.toHaveBeenCalled();
     expect(printerConnectionService.reconnect).not.toHaveBeenCalled();
   });
 
@@ -519,7 +518,6 @@ describe('useAddPrinterFlow', () => {
       connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
       deviceId: 'usb:11575:33751:SN1',
       capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
-      autoReconnect: true,
       enabled: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',

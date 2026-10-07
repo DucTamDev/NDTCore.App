@@ -36,9 +36,6 @@ export interface Printer {
   /** Khả năng phần cứng (dao cắt, ngăn kéo tiền...). */
   capabilities: PrinterCapabilities;
 
-  /** Tự kết nối lại khi mở app và khi mất kết nối lúc in. */
-  autoReconnect: boolean;
-
   /** Tắt thì không nhận lệnh in nhưng vẫn giữ cấu hình. */
   enabled: boolean;
 

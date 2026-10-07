@@ -12,11 +12,9 @@ import { printerConnectionService } from './src/features/printer/connection/Prin
 const queryClient = new QueryClient();
 
 function App(): React.JSX.Element {
-  // Trạng thái kết nối máy in chỉ sống trong bộ nhớ JS của driver, không
-  // persist — mỗi lần app khởi động lại, mọi máy in đều mất kết nối cho tới
-  // khi có bước này (xem PrinterConnectionService.reconnectAutoPrinters).
+  // Trạng thái kết nối máy in chỉ sống trong bộ nhớ, mở app là mất hết; kết nối lại để trạng thái khớp thực tế.
   useEffect(() => {
-    printerConnectionService.reconnectAutoPrinters();
+    printerConnectionService.connectEnabledPrinters();
   }, []);
 
   return (

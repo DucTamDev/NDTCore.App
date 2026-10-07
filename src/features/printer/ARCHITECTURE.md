@@ -187,7 +187,6 @@ export interface Printer {
   language: PrinterLanguage;
   paper: PaperOptions;
   capabilities: PrinterCapabilities;
-  autoReconnect: boolean;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -506,7 +505,7 @@ máy đã lưu lẫn bản nháp đang thêm. Nhiều `Printer` trỏ cùng mộ
 | `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `NOT_CONNECTED` |
 | `read(printerId)` | Đọc phản hồi; `null` khi quá hạn |
 | `getStatus` / `onStatusChange` | Theo phiên trong bộ nhớ; chưa từng kết nối là `Idle` |
-| `reconnect(printerId)`, `reconnectAutoPrinters()` | Đọc máy in đã lưu từ `PrinterRepository` |
+| `reconnect(printerId)`, `connectEnabledPrinters()` | Đọc máy in đã lưu; mở app kết nối máy đang bật |
 
 * `connect`: Bluetooth thì xin quyền trước. Thành công mới thay phiên cũ rồi trả adapter cũ (lỗi khi trả chỉ ghi
   log); thất bại thì phiên cũ giữ nguyên.
@@ -668,7 +667,7 @@ boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService
 
 * `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setPaper`).
 * `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
-  giá trị mặc định (giấy cuộn 80mm cắt cuối job, capabilities theo ngôn ngữ, `autoReconnect` bật).
+  giá trị mặc định (giấy cuộn 80mm cắt cuối job, capabilities theo ngôn ngữ).
   Mọi nơi tạo máy in dùng hàm này.
 * `forms/addPrinter/printerRules.ts`: `canPrintKind`.
 

@@ -78,7 +78,7 @@ export class PrinterConnectionService {
     /** Xin quyền Bluetooth; `true` khi app đã có quyền. */
     private readonly requestBluetoothPermission: () => Promise<boolean> = ensureBluetoothPermission,
 
-    /** Nguồn máy in đã lưu cho `reconnect` và tự kết nối lại. */
+    /** Nguồn máy in đã lưu cho `reconnect` và kết nối khi mở app. */
     private readonly repository: PrinterRepository = printerRepository,
 
     /** Khoá dùng chung với tầng in. */
@@ -188,11 +188,14 @@ export class PrinterConnectionService {
     }
   }
 
-  /** Gọi khi app khởi động: kết nối mọi máy đang bật và cho phép tự kết nối lại; lỗi từng máy bỏ qua. */
-  reconnectAutoPrinters(): void {
+  /**
+   * Gọi khi app khởi động: trạng thái kết nối chỉ sống trong bộ nhớ nên kết nối lại mọi máy đang bật để trạng thái
+   * khớp thực tế. Lỗi từng máy bỏ qua; máy đó hiện `Error`.
+   */
+  connectEnabledPrinters(): void {
     this.repository
       .getPrinters()
-      .filter((printer) => printer.enabled && printer.autoReconnect)
+      .filter((printer) => printer.enabled)
       .forEach((printer) => {
         this.connect(printer).catch(() => undefined);
       });

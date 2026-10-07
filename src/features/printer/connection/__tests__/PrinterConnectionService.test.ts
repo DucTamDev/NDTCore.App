@@ -491,13 +491,13 @@ describe('PrinterConnectionService', () => {
     expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
   });
 
-  it('tự kết nối lại chỉ các máy đang bật và bật tự kết nối', async () => {
+  it('mở app kết nối mọi máy đang bật, bỏ qua máy đã tắt', async () => {
     const { adapter } = makeFakeAdapter();
     const { service, repository, createAdapter } = setup([adapter]);
-    repository.addPrinter({ ...basePrinter, autoReconnect: true, enabled: true });
-    repository.addPrinter({ ...secondLanPrinter, autoReconnect: false, enabled: true });
+    repository.addPrinter({ ...basePrinter, enabled: true });
+    repository.addPrinter({ ...secondLanPrinter, enabled: false });
 
-    service.reconnectAutoPrinters();
+    service.connectEnabledPrinters();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(createAdapter).toHaveBeenCalledTimes(1);
@@ -505,13 +505,13 @@ describe('PrinterConnectionService', () => {
     expect(service.getStatus(secondLanPrinter.id)).toBe(ConnectionStatus.Idle);
   });
 
-  it('tự kết nối lại nuốt lỗi của từng máy', async () => {
+  it('mở app kết nối: lỗi của từng máy bị nuốt, máy đó ở trạng thái Error', async () => {
     const { adapter } = makeFakeAdapter();
     adapter.connect.mockRejectedValueOnce(new Error('offline'));
     const { service, repository } = setup([adapter]);
-    repository.addPrinter({ ...basePrinter, autoReconnect: true, enabled: true });
+    repository.addPrinter({ ...basePrinter, enabled: true });
 
-    expect(() => service.reconnectAutoPrinters()).not.toThrow();
+    expect(() => service.connectEnabledPrinters()).not.toThrow();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
   });

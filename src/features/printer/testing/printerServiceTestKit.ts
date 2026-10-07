@@ -54,7 +54,7 @@ export const makeMockConnectionService = (
     getStatus: jest.fn().mockReturnValue(ConnectionStatus.Connected),
     onStatusChange: jest.fn().mockReturnValue(() => undefined),
     reconnect: jest.fn().mockResolvedValue(undefined),
-    reconnectAutoPrinters: jest.fn(),
+    connectEnabledPrinters: jest.fn(),
     ...overrides,
   });
 
@@ -77,7 +77,6 @@ export const basePrinter: Printer = {
   connection: { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 },
   paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
-  autoReconnect: false,
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

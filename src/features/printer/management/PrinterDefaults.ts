@@ -52,7 +52,6 @@ export const createPrinterDraft = ({
     language,
     paper: { ...DEFAULT_PAPER },
     capabilities: defaultCapabilitiesOf(language.type),
-    autoReconnect: true,
     enabled: true,
     createdAt: now,
     updatedAt: now,
