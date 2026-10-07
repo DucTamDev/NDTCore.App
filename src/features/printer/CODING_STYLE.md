@@ -137,13 +137,13 @@ thuộc truyền qua constructor, có giá trị mặc định là instance dùn
 test thay được. Class đặt PascalCase, instance dùng chung đặt camelCase:
 
 ```ts
-export class PrinterConfigService {
+export class PrinterManagementService {
   constructor(private readonly repository: PrinterRepository = printerRepository) {}
 
-  setPaper(printerId: string, paper: PaperOptions): void { /* ... */ }
+  setEnabled(printerId: string, enabled: boolean): void { /* ... */ }
 }
 
-export const printerConfigService = new PrinterConfigService();
+export const printerManagementService = new PrinterManagementService();
 ```
 
 Kiểu phụ thuộc là **nguyên class** (`PrinterRepository`), không dùng
@@ -292,5 +292,5 @@ Pure/tính toán:            calculate, resolve, derive, validate, format, encod
 ```
 
 `resolveEffectiveCutterMode(media)` (pure) không được âm thầm ghi log/side
-effect; `PrinterConfigService.setPaper()` (side effect) phải có tên
-động từ rõ ràng, không đặt tên như `getPaper`.
+effect; `PrinterManagementService.setEnabled()` (side effect) phải có tên
+động từ rõ ràng, không đặt tên như `getEnabled`.

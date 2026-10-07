@@ -4,7 +4,6 @@ import { useAddPrinterFlow, type UseAddPrinterFlow } from '../useAddPrinterFlow'
 import { printerRepository } from '../../storage/PrinterRepository';
 import { printerConnectionService } from '../../connection/PrinterConnectionService';
 import { printerService } from '../../printing/PrinterService';
-import { printerConfigService } from '../../management/PrinterConfigService';
 import { printerDetectionService } from '../../detection/PrinterDetectionService';
 import type { PrinterDetection } from '../../detection/PrinterDetection';
 import { ConnectionType } from '../../models/connections/ConnectionType';
@@ -27,7 +26,7 @@ jest.mock('../../storage/PrinterRepository', () => ({
     getPrinters: jest.fn(() => []),
     addPrinter: jest.fn(),
     updatePrinter: jest.fn(),
-    findById: jest.fn((printerId: string) => ({ id: printerId })),
+    findById: jest.fn(() => undefined),
   },
 }));
 
@@ -44,12 +43,6 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
 jest.mock('../../printing/PrinterService', () => ({
   printerService: {
     testPrint: jest.fn(() => Promise.resolve()),
-  },
-}));
-
-jest.mock('../../management/PrinterConfigService', () => ({
-  printerConfigService: {
-    setPaper: jest.fn(),
   },
 }));
 
@@ -404,11 +397,19 @@ describe('useAddPrinterFlow', () => {
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('Máy quầy 1');
   });
 
-  it('đổi giấy hợp lệ thì ghi ngay vào máy in đã lưu qua printerConfigService.setPaper', () => {
+  it('đổi giấy chưa ghi vào máy in đã lưu, bấm Lưu mới ghi', async () => {
+    jest.mocked(printerRepository.findById).mockReturnValueOnce(savedTspl);
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
     act(() => get().infoCard.paperForm.setValue('paperSize', PaperSize.Mm100));
-    expect(get().infoCard.paperForm.getValues('paperSize')).toBe(PaperSize.Mm100);
-    expect(printerConfigService.setPaper).toHaveBeenCalledWith('p1', expect.objectContaining({ paperSize: PaperSize.Mm100 }));
+    expect(printerRepository.updatePrinter).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await get().infoCard.onSave();
+    });
+
+    expect(printerRepository.updatePrinter).toHaveBeenCalledWith(
+      expect.objectContaining({ paper: expect.objectContaining({ paperSize: PaperSize.Mm100 }) }),
+    );
   });
 
   it('chuyển sang giấy tem thì các ô kích thước có sẵn giá trị mặc định', () => {
@@ -420,10 +421,6 @@ describe('useAddPrinterFlow', () => {
       columns: '2',
       verticalGapMm: '3',
     });
-    expect(printerConfigService.setPaper).toHaveBeenCalledWith(
-      'p1',
-      expect.objectContaining({ type: PaperType.DieCut, itemWidthMm: 30, columns: 2 }),
-    );
   });
 
   it('onTestPrint gọi printerService.testPrint với printer.type cố định (Label → copies)', async () => {
@@ -450,14 +447,6 @@ describe('useAddPrinterFlow', () => {
     expect(get().testPrintErrorMessage).toBe('Rộng tem phải là số lớn hơn 0');
   });
 
-  it('giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
-    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
-    act(() => get().infoCard.paperForm.setValue('type', PaperType.DieCut));
-    jest.mocked(printerConfigService.setPaper).mockClear();
-    act(() => get().infoCard.paperForm.setValue('itemWidthMm', ''));
-    expect(printerConfigService.setPaper).not.toHaveBeenCalled();
-  });
-
   it('onTestPrint chụp bản in mẫu theo giấy của máy rồi in đúng ảnh đó', async () => {
     const { get } = render({ visible: true, initialValues: savedEscpos, onSaved: jest.fn(), kind: savedEscpos.kind });
     await act(async () => {
@@ -482,6 +471,7 @@ describe('useAddPrinterFlow', () => {
   });
 
   it('onSave (edit) gọi printerRepository.updatePrinter với draft đầy đủ', async () => {
+    jest.mocked(printerRepository.findById).mockReturnValueOnce(savedTspl);
     const onSaved = jest.fn();
     const { get } = render({ visible: true, initialValues: savedTspl, onSaved, kind: savedTspl.kind });
     await act(async () => {

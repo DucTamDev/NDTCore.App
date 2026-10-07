@@ -85,10 +85,13 @@ describe('usePrinterList', () => {
     expect(get().printers.find((p) => p.id === 'p1')?.enabled).toBe(false);
   });
 
-  it('remove() writes through printerRepository and drops it from the store', () => {
+  it('remove() ngắt kết nối, xoá khỏi storage rồi bỏ khỏi store', async () => {
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
     const { get } = render();
-    act(() => get().remove('p1'));
+    await act(async () => {
+      await get().remove('p1');
+    });
+    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
     expect(printerRepository.removePrinter).toHaveBeenCalledWith('p1');
     expect(get().printers.map((p) => p.id)).toEqual(['p2']);
   });

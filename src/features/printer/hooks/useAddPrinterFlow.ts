@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { printerRepository } from '../storage/PrinterRepository';
+import { printerManagementService } from '../management/PrinterManagementService';
 import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { usePrintImageCapture } from './usePrintImageCapture';
@@ -31,7 +31,6 @@ import { usePrinterDetection } from './addPrinter/usePrinterDetection';
 import type { PrinterDetection } from '../detection/PrinterDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
 import { deviceIdOf } from '../models/device/DeviceAddress';
-import { usePrintSettings } from './addPrinter/usePrintSettings';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -76,8 +75,8 @@ const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguag
  * in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ còn render + wiring.
  *
  * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`,
- * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
- * `useConnectionSetup`, `usePrinterDetection`, `useTestPrint`, `usePrintSettings`.
+ * `buildDraftPrinter`, vòng đời kết nối) và ghép 3 hook con dưới `addPrinter/`:
+ * `useConnectionSetup`, `usePrinterDetection`, `useTestPrint`.
  */
 export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
@@ -202,7 +201,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     buildDraftPrinter: buildFullDraftPrinter,
     captureImage,
   });
-  usePrintSettings({ printerId, paperForm });
 
   const printerDetection = usePrinterDetection({
     initialValues,
@@ -271,11 +269,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     const printer = buildDraftPrinter();
 
     try {
-      if (initialValues) {
-        printerRepository.updatePrinter(printer);
-      } else {
-        printerRepository.addPrinter(printer);
-      }
+      printerManagementService.save(printer);
     } catch (error) {
       setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
       return;

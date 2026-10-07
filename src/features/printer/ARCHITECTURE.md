@@ -71,7 +71,7 @@ PrinterRepository             lưu
 | `IPrinterAdapter`          | Một kết nối qua một cơ chế (native module, SDK hãng)       |
 | `DeviceDiscoveryService`   | Tìm thiết bị cho người dùng chọn                          |
 | `PrinterDetectionService` | Tra bảng model: ngôn ngữ, khả năng của máy in mới         |
-| `PrinterConfigService`     | Sửa cấu hình in của máy đã lưu                            |
+| `PrinterManagementService` | Lưu, xoá (ngắt kết nối trước), bật/tắt máy in đã lưu      |
 | `PrinterRepository`        | Persistence boundary                                      |
 | `PrinterStorage`           | MMKV implementation                                       |
 | `PrinterPermissionService` | Platform permission                                       |
@@ -116,7 +116,7 @@ src/features/printer/
 ├── discovery/           DeviceDiscoveryService, NetworkDiscoveryService
 ├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
 ├── printing/            PrintService, PrinterService
-├── management/          PrinterConfigService, createPrinterDraft
+├── management/          PrinterManagementService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
@@ -145,7 +145,7 @@ src/features/printer/
 * `printing/` ghép ngôn ngữ với kết nối để in.
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
-* `management/` chứa cấu hình máy in và giá trị mặc định khi tạo máy mới.
+* `management/` chứa thao tác quản lý máy in đã lưu (`PrinterManagementService`) và giá trị mặc định khi tạo máy mới.
 * `logging/` chứa structured logging; `errors/` chứa lỗi dạng dữ liệu và mã lỗi; `exceptions/` chứa exception ném ra.
 
 Không tạo thêm folder chỉ vì muốn "đủ layer".
@@ -645,13 +645,13 @@ Tra bảng model (usePrinterDetection) → kết nối; không có trong bảng 
     ↓
 USB: quét lại theo DeviceInfo.deviceId để lấy serial (refreshUsbSerial)
     ↓
-Chỉnh giấy, cách render (usePrintSettings) → In thử
+Chỉnh giấy (form giấy, lưu cùng lúc bấm Lưu) → In thử
     ↓
 Lưu (createPrinterDraft + giá trị người dùng chỉnh)
 ```
 
 Identity check phải xảy ra trước khi lưu. Hook `useAddPrinterFlow` điều phối `useConnectionSetup`,
-`usePrinterDetection`, `useTestPrint`, `usePrintSettings`.
+`usePrinterDetection`, `useTestPrint`.
 
 ---
 
@@ -665,7 +665,8 @@ boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService
 
 # 29. Configuration Management
 
-* `management/PrinterConfigService.ts`: sửa cấu hình in của máy đã lưu (`setPaper`).
+* `management/PrinterManagementService.ts`: `save` (thêm hoặc sửa theo `id`), `remove` (ngắt kết nối rồi xoá),
+  `setEnabled`. Hook quản lý gọi service rồi cập nhật store.
 * `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
   giá trị mặc định (giấy cuộn 80mm cắt cuối job, capabilities theo ngôn ngữ).
   Mọi nơi tạo máy in dùng hàm này.

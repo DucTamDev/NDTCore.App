@@ -43,12 +43,11 @@ export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actio
       setConfirmDeleteVisible(true);
       return;
     }
-    actions.remove(printer.id);
+    actions.remove(printer.id).catch(() => undefined);
   };
 
   const confirmDelete = async (): Promise<void> => {
-    await actions.disconnect(printer.id);
-    actions.remove(printer.id);
+    await actions.remove(printer.id);
     setConfirmDeleteVisible(false);
   };
 

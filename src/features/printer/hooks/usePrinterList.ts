@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { LoggerService } from '../../../services/LoggerService';
 import { printerRepository } from '../storage/PrinterRepository';
+import { printerManagementService } from '../management/PrinterManagementService';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
 import type { Printer } from '../models/printer/Printer';
@@ -10,7 +11,8 @@ import type { Printer } from '../models/printer/Printer';
 /** Thao tác trên 1 máy in đã lưu — bó vào 1 object để không phải khoan 5 callback qua từng lớp component. */
 export interface PrinterListActions {
   setEnabled: (printerId: string, enabled: boolean) => void;
-  remove: (printerId: string) => void;
+  /** Ngắt kết nối (kể cả đang kết nối dở) rồi xoá. */
+  remove: (printerId: string) => Promise<void>;
   connect: (printerId: string) => void;
   disconnect: (printerId: string) => Promise<void>;
   reconnect: (printerId: string) => void;
@@ -48,15 +50,15 @@ export const usePrinterList = (): UsePrinterList => {
 
   const setEnabled = useCallback(
     (printerId: string, enabled: boolean) => {
-      printerRepository.setEnabled(printerId, enabled);
+      printerManagementService.setEnabled(printerId, enabled);
       dispatch(printerEnabledChanged({ printerId, enabled }));
     },
     [dispatch],
   );
 
   const remove = useCallback(
-    (printerId: string) => {
-      printerRepository.removePrinter(printerId);
+    async (printerId: string) => {
+      await printerManagementService.remove(printerId);
       dispatch(printerRemoved(printerId));
     },
     [dispatch],
