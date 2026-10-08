@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, Menu, Switch } from 'react-native-paper';
-import { usePrinterConnection } from '../hooks/usePrinterConnection';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { PrinterListActions } from '../hooks/usePrinterList';
 import type { Printer } from '../models/printer/Printer';
 
@@ -17,38 +17,37 @@ export interface PrinterListItemProps {
   onEdit: (printer: Printer) => void;
 }
 
-const connectionLabel: Record<PrinterConnectionType, string> = {
+const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
   Bluetooth: 'Bluetooth',
   Lan: 'LAN',
 };
 
-const protocolLabel: Record<PrinterDriverType, string> = {
+const languageLabel: Record<PrintLanguage, string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
 
 export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actions, onEdit }) => {
-  const status = usePrinterConnection(printer.id);
+  const status = useConnectionStatus(printer.id);
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const closeMenu = (): void => setMenuVisible(false);
   const enabled = printer.enabled ?? true;
   const model = [printer.vendor, printer.model].filter(Boolean).join(' ');
-  const subtitle = [connectionLabel[printer.connection.type], protocolLabel[printer.driver.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
+  const subtitle = [connectionLabel[printer.connection.type], languageLabel[printer.language.type], `Khổ ${printer.paper.paperSize}mm`, model].filter(Boolean).join(' · ');
 
   const requestDelete = (): void => {
-    if (status === PrinterStatus.Connected) {
+    if (status === ConnectionStatus.Connected) {
       setConfirmDeleteVisible(true);
       return;
     }
-    actions.remove(printer.id);
+    actions.remove(printer.id).catch(() => undefined);
   };
 
   const confirmDelete = async (): Promise<void> => {
-    await actions.disconnect(printer.id);
-    actions.remove(printer.id);
+    await actions.remove(printer.id);
     setConfirmDeleteVisible(false);
   };
 

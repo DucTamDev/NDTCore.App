@@ -4,8 +4,7 @@
 đóng — vd XPrinter `PrinterSDK`, `libPrinterSDK.a`).
 
 `VendorAdapter` hiện là **skeleton** — mọi I/O ném `PRINTER_UNSUPPORTED_CONNECTION`.
-Khi tích hợp SDK: implement từng method + thêm nhánh `VendorAdapter` vào
-[`../resolvePrinterAdapter.ts`](../resolvePrinterAdapter.ts) cho model tương ứng.
+Khi tích hợp SDK: implement từng method rồi trả `VendorAdapter` từ
+[`../../connection/createPrinterAdapter.ts`](../../connection/createPrinterAdapter.ts) cho model tương ứng.
 
-Xem [`../native/`](../native/) cho native module tự viết,
-[`../library/`](../library/) cho thư viện npm.
+Xem [`../native/`](../native/) cho native module của app.

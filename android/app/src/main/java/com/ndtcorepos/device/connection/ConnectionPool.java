@@ -230,7 +230,7 @@ public final class ConnectionPool {
             ITransport transport = transportFactory.create(address);
             String connectionId = address.type().wireValue() + ":" + transport.hardwareAddress();
             Connection connection = acquireConnection(connectionId, transport);
-            result.complete(new ConnectedDevice(connectionId, connection.serialNumber()));
+            result.complete(connection.describe());
         } catch (DeviceException | RuntimeException exception) {
             result.completeExceptionally(isClosed() ? serviceClosed() : exception);
         }

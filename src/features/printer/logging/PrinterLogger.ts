@@ -1,32 +1,23 @@
 import { LoggerService } from '../../../services/LoggerService';
-import type { PrinterErrorCode } from '../errors/PrinterError';
-import type { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import type { PrinterDriverType } from '../models/printer/PrinterDriver';
+import type { ErrorCode } from '../errors';
+import type { ConnectionType } from '../models/connections/ConnectionType';
+import type { PrintLanguage } from '../models/printer/PrinterLanguage';
 
 /**
  * Điểm log chuẩn hoá duy nhất cho printer module — mỗi hàm ứng với đúng 1
  * event name cố định và chỉ nhận field an toàn để log (printerId nội bộ,
- * protocol, connectionType, errorCode, durationMs). Không có tham số nào cho
- * phép truyền MAC/IP/rawDevice/nội dung hoá đơn, để log không bao giờ chứa
- * dữ liệu nhạy cảm dù được ghi ra console hay (sau này) gửi lên server.
+ * ngôn ngữ in, connectionType, errorCode, durationMs). Không có tham số nào cho
+ * phép truyền MAC/IP/thông tin thiết bị/nội dung hoá đơn, để log không bao giờ
+ * chứa dữ liệu nhạy cảm dù được ghi ra console hay (sau này) gửi lên server.
  *
- * `resourceKey` KHÔNG được log ở đây: với TSPL LAN nó là `tspl:lan:<ip>:<port>`
- * — nhúng IP LAN, vi phạm §106. `connectionType` + `protocol` đã đủ để debug
- * concurrency mà không lộ IP (spec §12.6).
+ * Khoá in KHÔNG được log: key là `deviceId`, nhúng IP/MAC của máy in.
  *
- * Mọi payload đều kèm field chuẩn (§9.2 / §105):
- * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `print`).
- * - `result`: `success` / `failure` — OPTIONAL. Event mốc-bắt-đầu lifecycle
- *   (`discoveryStarted`) KHÔNG phát `result`: `operation: 'discovery'` + tên
- *   event `.started` đã mang phase, chưa có kết quả để phân loại.
+ * Mọi payload đều kèm field chuẩn:
+ * - `operation`: thao tác nghiệp vụ nào (`discovery`, `connect`, ... `print`).
+ * - `result`: `success` / `failure` — OPTIONAL. Event mốc bắt đầu (`*.started`)
+ *   KHÔNG phát `result` vì chưa có kết quả để phân loại.
  */
-type PrinterLogOperation =
-  | 'scan'
-  | 'connect'
-  | 'disconnect'
-  | 'discovery'
-  | 'test-print'
-  | 'print';
+type PrinterLogOperation = 'discovery' | 'connect' | 'disconnect' | 'detection' | 'test-print' | 'print';
 
 type PrinterLogResult = 'success' | 'failure';
 
@@ -40,113 +31,81 @@ const withStdFields = <T extends Record<string, unknown>>(
   ...(result ? { result } : {}),
 });
 
-export const PrinterLogger = {
-  scanCompleted(params: { connectionType: PrinterConnectionType; deviceCount: number; durationMs: number }): void {
-    LoggerService.info('printer.scan.completed', withStdFields('scan', 'success', params));
-  },
+/** Ghi log nghiệp vụ máy in với tên sự kiện cố định và field chuẩn. */
+export class PrinterLogger {
+  discoveryStarted(params: { connectionType: ConnectionType }): void {
+    LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
+  }
 
-  scanFailed(params: { connectionType: PrinterConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
-    LoggerService.warning('printer.scan.failed', withStdFields('scan', 'failure', params));
-  },
+  discoveryCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void {
+    LoggerService.info('printer.discovery.completed', withStdFields('discovery', 'success', params));
+  }
 
-  connectSucceeded(params: {
-    printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
-    durationMs: number;
-  }): void {
+  discoveryFailed(params: { connectionType: ConnectionType; errorCode: ErrorCode; durationMs: number }): void {
+    LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
+  }
+
+  /** Quyền là cửa chặn của việc tìm thiết bị Bluetooth nên tính như tìm thiết bị thất bại. */
+  permissionDenied(params: { connectionType: ConnectionType }): void {
+    LoggerService.warning('printer.permission.denied', withStdFields('discovery', 'failure', params));
+  }
+
+  connectSucceeded(params: { printerId: string; connectionType: ConnectionType; durationMs: number }): void {
     LoggerService.info('printer.connect.succeeded', withStdFields('connect', 'success', params));
-  },
+  }
 
   connectFailed(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
-    errorCode: PrinterErrorCode;
+    connectionType: ConnectionType;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.warning('printer.connect.failed', withStdFields('connect', 'failure', params));
-  },
+  }
 
-  disconnectSucceeded(params: { printerId: string; protocol: PrinterDriverType }): void {
+  disconnectSucceeded(params: { printerId: string }): void {
     LoggerService.info('printer.disconnect.succeeded', withStdFields('disconnect', 'success', params));
-  },
+  }
 
-  disconnectFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode }): void {
+  disconnectFailed(params: { printerId: string; errorCode: ErrorCode }): void {
     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
-  },
+  }
 
-  testPrintSucceeded(params: { printerId: string; protocol: PrinterDriverType; durationMs: number }): void {
+  /** Tra được model trong bảng máy in. */
+  printerDetected(params: { connectionType: ConnectionType; language: PrintLanguage }): void {
+    LoggerService.info('printer.detection.detected', withStdFields('detection', 'success', params));
+  }
+
+  /** Thiết bị không có trong bảng máy in; người dùng tự chọn ngôn ngữ. */
+  printerNotDetected(params: { connectionType: ConnectionType }): void {
+    LoggerService.info('printer.detection.not-detected', withStdFields('detection', 'failure', params));
+  }
+
+  testPrintSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.test-print.succeeded', withStdFields('test-print', 'success', params));
-  },
+  }
 
   testPrintFailed(params: {
     printerId: string;
-    protocol: PrinterDriverType;
-    errorCode: PrinterErrorCode;
+    language: PrintLanguage;
+    errorCode: ErrorCode;
     durationMs: number;
   }): void {
     LoggerService.error('printer.test-print.failed', withStdFields('test-print', 'failure', params));
-  },
+  }
 
-  /** Permission là cửa chặn của scan (Bluetooth/USB) — coi như `scan` fail. */
-  permissionDenied(params: { connectionType: PrinterConnectionType }): void {
-    LoggerService.warning('printer.permission.denied', withStdFields('scan', 'failure', params));
-  },
-
-  discoveryStarted(params: { printerId: string; connectionType: PrinterConnectionType; candidates: PrinterDriverType[] }): void {
-    LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
-  },
-
-  /**
-   * 1 candidate bị loại trong lúc dò — bình thường trong quá trình thử, không
-   * phải sự cố (sự cố thật chỉ tính khi TOÀN BỘ candidate đều loại, xem
-   * `discoveryFailed`/`protocolUnknown`) — log ở mức `debug` để không nhiễu
-   * ngoài lúc dev.
-   */
-  discoveryCandidateRejected(params: {
-    printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
-    reason: 'connect_failed' | 'not_confirmed';
-  }): void {
-    LoggerService.debug('printer.discovery.candidate-rejected', withStdFields('discovery', 'failure', params));
-  },
-
-  /** Toàn bộ candidate đều KHÔNG connect được — khác `protocolUnknown` (connect được nhưng không xác nhận được protocol). */
-  discoveryFailed(params: {
-    printerId: string;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
-    durationMs: number;
-  }): void {
-    LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
-  },
-
-  protocolDetected(params: {
-    printerId: string;
-    protocol: PrinterDriverType;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
-    durationMs: number;
-  }): void {
-    LoggerService.info('printer.protocol.detected', withStdFields('discovery', 'success', params));
-  },
-
-  protocolUnknown(params: {
-    printerId: string;
-    connectionType: PrinterConnectionType;
-    candidatesTried: PrinterDriverType[];
-    durationMs: number;
-  }): void {
-    LoggerService.warning('printer.protocol.unknown', withStdFields('discovery', 'failure', params));
-  },
-
-  printSucceeded(params: { printerId: string; protocol: PrinterDriverType; durationMs: number }): void {
+  printSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
     LoggerService.info('printer.print.succeeded', withStdFields('print', 'success', params));
-  },
+  }
 
-  printFailed(params: { printerId: string; protocol: PrinterDriverType; errorCode: PrinterErrorCode; durationMs: number }): void {
+  printFailed(params: {
+    printerId: string;
+    language: PrintLanguage;
+    errorCode: ErrorCode;
+    durationMs: number;
+  }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
-  },
-};
+  }
+}
+
+export const printerLogger = new PrinterLogger();

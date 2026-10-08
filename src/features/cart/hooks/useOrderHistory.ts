@@ -4,7 +4,8 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
 import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { orderApi } from '../api/orderApi';
-import { buildReprintDocument, printReceipt, type CaptureBillImage, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
+import { buildReprintReceipt, printReceipt, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
+import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import type { OrderHistoryItem } from '../types/cart.types';
 
 export const getTodayRange = (now: Date): { fromDate: string; toDate: string } => {
@@ -25,7 +26,7 @@ export const finishReprint = (ids: ReadonlySet<number>, orderId: number): Set<nu
   return next;
 };
 
-export const useOrderHistory = (captureBillImage: CaptureBillImage) => {
+export const useOrderHistory = (captureImage: CaptureImage) => {
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
   const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
@@ -72,15 +73,15 @@ export const useOrderHistory = (captureBillImage: CaptureBillImage) => {
       if (!response.IsSuccess || !response.Data) {
         throw new Error(response.Error?.Message ?? 'Không thể tải chi tiết đơn hàng');
       }
-      const document = buildReprintDocument(response.Data, currentStore);
-      const outcome = await printReceipt(document, captureBillImage);
+      const receipt = buildReprintReceipt(response.Data, currentStore);
+      const outcome = await printReceipt(receipt, captureImage);
       if (outcome !== 'ok') setReceiptPrintWarning(outcome);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'In lại thất bại');
     } finally {
       setReprintingIds((prev) => finishReprint(prev, orderId));
     }
-  }, [currentStore, captureBillImage]);
+  }, [currentStore, captureImage]);
 
   const dismissError = useCallback(() => setError(null), []);
   const dismissReceiptPrintWarning = useCallback(() => setReceiptPrintWarning(null), []);

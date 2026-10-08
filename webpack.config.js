@@ -11,12 +11,10 @@ module.exports = {
   resolve: {
     alias: {
       'react-native$': 'react-native-web',
-      // Các module native-thuần cho máy in — DriverRegistry.web.ts (Task 2)
+      // Các module native-thuần cho máy in — createPrinterAdapter.web.ts
       // không import chúng, nhưng alias sang `false` để Webpack không bao giờ
       // cố resolve chúng nếu có đường import gián tiếp nào khác chạm tới.
-      'react-native-bluetooth-classic': false,
       '@poriyaalar/react-native-thermal-receipt-printer': false,
-      'react-native-tcp-socket': false,
       'react-native-nitro-modules': false,
       // react-native-paper và @react-native-vector-icons/common thử require()
       // các thư viện icon thay thế (Expo/react-native-vector-icons) bên trong

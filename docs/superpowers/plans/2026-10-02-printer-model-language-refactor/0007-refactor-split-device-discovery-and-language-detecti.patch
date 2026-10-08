@@ -1,0 +1,4057 @@
+From 8a706111972452f466b12120210042947f32c848 Mon Sep 17 00:00:00 2001
+From: Tam Nguyen <tam.nguyen@mercatus.com>
+Date: Sat, 3 Oct 2026 22:14:23 +0700
+Subject: [PATCH 7/9] refactor: split device discovery and language detection
+ out of printer drivers
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ jest.setup.js                                 |  27 --
+ package-lock.json                             |  61 ---
+ package.json                                  |   2 -
+ .../printer/adapters/IPrinterAdapter.ts       |   4 +-
+ .../printer/adapters/native/NativeAdapter.ts  |  34 +-
+ .../native/__tests__/NativeAdapter.test.ts    |  51 ++-
+ .../printer/adapters/vendor/VendorAdapter.ts  |   4 +-
+ .../printer/components/ConnectionSection.tsx  |  12 +-
+ .../printer/components/DeviceScanList.tsx     |  86 -----
+ .../components/DiscoveredDeviceList.tsx       | 100 +++++
+ .../printer/components/PrinterInfoCard.tsx    |  13 +-
+ .../printer/components/StatusPanel.tsx        |  11 +-
+ .../connection/createPrinterAdapter.web.ts    |   4 +-
+ .../detection/LanguageDetectionService.ts     | 170 +++++++++
+ .../LanguageDetectionService.test.ts          | 191 ++++++++++
+ .../discovery/DeviceDiscoveryService.ts       | 100 +++++
+ .../printer/discovery/DeviceScanService.ts    |  61 ---
+ .../discovery/PrinterDiscoveryService.ts      | 137 -------
+ .../printer/discovery/PrinterResolver.ts      |  46 ---
+ .../__tests__/DeviceDiscoveryService.test.ts  | 137 +++++++
+ .../__tests__/DeviceScanService.test.ts       |  53 ---
+ .../__tests__/PrinterDiscoveryService.test.ts | 210 -----------
+ .../__tests__/PrinterResolver.test.ts         |  86 -----
+ .../printer/drivers/DriverRegistry.ts         |   9 -
+ .../printer/drivers/DriverRegistry.web.ts     |  20 -
+ .../printer/drivers/IPrinterDriver.ts         |  14 -
+ .../__tests__/DriverRegistry.web.test.ts      |  23 --
+ .../printer/drivers/escpos/EscPosDriver.ts    |  88 -----
+ .../escpos/__tests__/EscPosDriver.test.ts     | 122 ------
+ .../printer/drivers/tspl/TsplDriver.ts        |  96 -----
+ .../drivers/tspl/__tests__/TsplDriver.test.ts | 102 ------
+ .../__tests__/useAddPrinterFlow.test.tsx      |  71 +++-
+ .../hooks/addPrinter/useConnectionSetup.ts    |  83 ++---
+ .../hooks/addPrinter/useLanguageDetection.ts  | 143 ++++++++
+ .../hooks/addPrinter/useProtocolDiscovery.ts  | 147 --------
+ .../printer/hooks/useAddPrinterFlow.ts        |  69 ++--
+ src/features/printer/logging/PrinterLogger.ts |  97 +++--
+ .../logging/__tests__/PrinterLogger.test.ts   | 346 +++++++-----------
+ .../models/device/DeviceDiscoveryEvent.ts     |  13 +
+ .../printer/models/device/DeviceInfo.ts       |  17 +
+ .../printer/models/device/DiscoveredDevice.ts |  10 +
+ .../printer/models/printer/PrinterDevice.ts   |  42 ---
+ .../printer/testing/printerServiceTestKit.ts  |  11 +-
+ src/features/printer/utils/sampleDocuments.ts |   4 +-
+ webpack.config.js                             |   4 +-
+ 45 files changed, 1275 insertions(+), 1856 deletions(-)
+ delete mode 100644 src/features/printer/components/DeviceScanList.tsx
+ create mode 100644 src/features/printer/components/DiscoveredDeviceList.tsx
+ create mode 100644 src/features/printer/detection/LanguageDetectionService.ts
+ create mode 100644 src/features/printer/detection/__tests__/LanguageDetectionService.test.ts
+ create mode 100644 src/features/printer/discovery/DeviceDiscoveryService.ts
+ delete mode 100644 src/features/printer/discovery/DeviceScanService.ts
+ delete mode 100644 src/features/printer/discovery/PrinterDiscoveryService.ts
+ delete mode 100644 src/features/printer/discovery/PrinterResolver.ts
+ create mode 100644 src/features/printer/discovery/__tests__/DeviceDiscoveryService.test.ts
+ delete mode 100644 src/features/printer/discovery/__tests__/DeviceScanService.test.ts
+ delete mode 100644 src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
+ delete mode 100644 src/features/printer/discovery/__tests__/PrinterResolver.test.ts
+ delete mode 100644 src/features/printer/drivers/DriverRegistry.ts
+ delete mode 100644 src/features/printer/drivers/DriverRegistry.web.ts
+ delete mode 100644 src/features/printer/drivers/IPrinterDriver.ts
+ delete mode 100644 src/features/printer/drivers/__tests__/DriverRegistry.web.test.ts
+ delete mode 100644 src/features/printer/drivers/escpos/EscPosDriver.ts
+ delete mode 100644 src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+ delete mode 100644 src/features/printer/drivers/tspl/TsplDriver.ts
+ delete mode 100644 src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+ create mode 100644 src/features/printer/hooks/addPrinter/useLanguageDetection.ts
+ delete mode 100644 src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
+ create mode 100644 src/features/printer/models/device/DeviceDiscoveryEvent.ts
+ create mode 100644 src/features/printer/models/device/DeviceInfo.ts
+ create mode 100644 src/features/printer/models/device/DiscoveredDevice.ts
+ delete mode 100644 src/features/printer/models/printer/PrinterDevice.ts
+
+diff --git a/jest.setup.js b/jest.setup.js
+index 89cc9b7..bcb0dd3 100644
+--- a/jest.setup.js
++++ b/jest.setup.js
+@@ -23,33 +23,6 @@ jest.mock('react-native-mmkv', () => {
+   };
+ });
+ 
+-jest.mock('react-native-bluetooth-classic', () => ({
+-  __esModule: true,
+-  default: {
+-    startDiscovery: jest.fn().mockResolvedValue([]),
+-    cancelDiscovery: jest.fn().mockResolvedValue(true),
+-    connectToDevice: jest.fn(),
+-  },
+-}));
+-
+-// react-native-tcp-socket, like react-native-bluetooth-classic above, needs a
+-// global mock for the same reason: LanTransport.ts (used by TsplDriver) pulls
+-// it in at import time, and any test that transitively imports TsplDriver.ts
+-// (e.g. via DriverRegistry) would otherwise fail to parse it.
+-jest.mock('react-native-tcp-socket', () => ({
+-  __esModule: true,
+-  default: {
+-    createConnection: jest.fn().mockImplementation((_options, callback) => {
+-      if (callback) callback();
+-      return {
+-        on: jest.fn(),
+-        write: jest.fn(),
+-        destroy: jest.fn(),
+-      };
+-    }),
+-  },
+-}));
+-
+ // @react-native-community/netinfo touches the RNCNetInfo native module at
+ // import time (nativeInterface.ts), so any test that transitively imports
+ // NetworkInfoService.ts (App.tsx → RootNavigator → …AddPrinterModal) fails to
+diff --git a/package-lock.json b/package-lock.json
+index 6816d48..083d9ee 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -28,7 +28,6 @@
+         "react": "19.2.3",
+         "react-hook-form": "^7.83.0",
+         "react-native": "0.86.2",
+-        "react-native-bluetooth-classic": "^1.73.0-rc.17",
+         "react-native-config": "^1.6.1",
+         "react-native-fs": "^2.20.0",
+         "react-native-mmkv": "^4.3.2",
+@@ -37,7 +36,6 @@
+         "react-native-reanimated": "^4.5.3",
+         "react-native-safe-area-context": "^5.8.0",
+         "react-native-screens": "^4.26.2",
+-        "react-native-tcp-socket": "^6.4.2",
+         "react-native-view-shot": "^5.1.1",
+         "react-native-worklets": "^0.11.3",
+         "react-redux": "^9.3.0",
+@@ -15638,42 +15636,6 @@
+         }
+       }
+     },
+-    "node_modules/react-native-bluetooth-classic": {
+-      "version": "1.73.0-rc.17",
+-      "resolved": "https://registry.npmjs.org/react-native-bluetooth-classic/-/react-native-bluetooth-classic-1.73.0-rc.17.tgz",
+-      "integrity": "sha512-/6jlnDZj3CbMZuCwc6YHTxk6gXiocxGkEDT01wFUGOuBxaNDSUq5rSYh8jm988l2QXGuEhr7WScRBce8t+IJFg==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "buffer": "^6.0.3"
+-      },
+-      "peerDependencies": {
+-        "react-native": ">=0.73.1"
+-      }
+-    },
+-    "node_modules/react-native-bluetooth-classic/node_modules/buffer": {
+-      "version": "6.0.3",
+-      "resolved": "https://registry.npmjs.org/buffer/-/buffer-6.0.3.tgz",
+-      "integrity": "sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==",
+-      "funding": [
+-        {
+-          "type": "github",
+-          "url": "https://github.com/sponsors/feross"
+-        },
+-        {
+-          "type": "patreon",
+-          "url": "https://www.patreon.com/feross"
+-        },
+-        {
+-          "type": "consulting",
+-          "url": "https://feross.org/support"
+-        }
+-      ],
+-      "license": "MIT",
+-      "dependencies": {
+-        "base64-js": "^1.3.1",
+-        "ieee754": "^1.2.1"
+-      }
+-    },
+     "node_modules/react-native-config": {
+       "version": "1.6.1",
+       "resolved": "https://registry.npmjs.org/react-native-config/-/react-native-config-1.6.1.tgz",
+@@ -15860,29 +15822,6 @@
+       "integrity": "sha512-W06tUa+O3TJTYg5G+Lly/pwxE+2zKsmwJ/23yeR+25zSu7VmfdSz3VqFN3BM0jEioN4ASMm/0cMECocV7vxbMQ==",
+       "license": "MIT"
+     },
+-    "node_modules/react-native-tcp-socket": {
+-      "version": "6.4.2",
+-      "resolved": "https://registry.npmjs.org/react-native-tcp-socket/-/react-native-tcp-socket-6.4.2.tgz",
+-      "integrity": "sha512-x3piN60BLaVA7or3n6HKhsa15QDpb1hu+X7Mh99ldV+ZXUGDVKymsLLyu7vzEybTzF3sC17ubpCEgjik5aXfcA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "buffer": "^5.4.3",
+-        "eventemitter3": "^4.0.7"
+-      },
+-      "funding": {
+-        "type": "individual",
+-        "url": "https://github.com/sponsors/Rapsssito"
+-      },
+-      "peerDependencies": {
+-        "react-native": ">=0.60.0"
+-      }
+-    },
+-    "node_modules/react-native-tcp-socket/node_modules/eventemitter3": {
+-      "version": "4.0.7",
+-      "resolved": "https://registry.npmjs.org/eventemitter3/-/eventemitter3-4.0.7.tgz",
+-      "integrity": "sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==",
+-      "license": "MIT"
+-    },
+     "node_modules/react-native-view-shot": {
+       "version": "5.1.1",
+       "resolved": "https://registry.npmjs.org/react-native-view-shot/-/react-native-view-shot-5.1.1.tgz",
+diff --git a/package.json b/package.json
+index 136e196..2b73698 100644
+--- a/package.json
++++ b/package.json
+@@ -33,7 +33,6 @@
+     "react": "19.2.3",
+     "react-hook-form": "^7.83.0",
+     "react-native": "0.86.2",
+-    "react-native-bluetooth-classic": "^1.73.0-rc.17",
+     "react-native-config": "^1.6.1",
+     "react-native-fs": "^2.20.0",
+     "react-native-mmkv": "^4.3.2",
+@@ -42,7 +41,6 @@
+     "react-native-reanimated": "^4.5.3",
+     "react-native-safe-area-context": "^5.8.0",
+     "react-native-screens": "^4.26.2",
+-    "react-native-tcp-socket": "^6.4.2",
+     "react-native-view-shot": "^5.1.1",
+     "react-native-worklets": "^0.11.3",
+     "react-redux": "^9.3.0",
+diff --git a/src/features/printer/adapters/IPrinterAdapter.ts b/src/features/printer/adapters/IPrinterAdapter.ts
+index 36d3c52..746c18e 100644
+--- a/src/features/printer/adapters/IPrinterAdapter.ts
++++ b/src/features/printer/adapters/IPrinterAdapter.ts
+@@ -1,6 +1,6 @@
+ import type { ConnectionType } from '../models/printer/ConnectionType';
+ import type { PrinterConnection } from '../models/printer/PrinterConnection';
+-import type { PrinterDevice } from '../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
+ 
+ /** Huỷ một đăng ký lắng nghe. */
+ export type Unsubscribe = () => void;
+@@ -16,7 +16,7 @@ export interface IPrinterAdapter {
+   readonly canRead: boolean;
+ 
+   /** Thiết bị tìm thấy cho một loại kết nối; `[]` nếu adapter không quét loại đó. */
+-  listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]>;
++  listDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]>;
+ 
+   /** Mở kết nối; mở được rồi mới trả kết nối cũ của chính instance này. */
+   connect(connection: PrinterConnection): Promise<void>;
+diff --git a/src/features/printer/adapters/native/NativeAdapter.ts b/src/features/printer/adapters/native/NativeAdapter.ts
+index f4959a7..3591b01 100644
+--- a/src/features/printer/adapters/native/NativeAdapter.ts
++++ b/src/features/printer/adapters/native/NativeAdapter.ts
+@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
+ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import type { PrinterConnection } from '../../models/printer/PrinterConnection';
+-import type { PrinterDevice } from '../../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
+ import {
+   DeviceModule,
+@@ -34,24 +34,26 @@ const writeTimeoutMs = (base64: string): number => {
+ const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'bluetooth' =>
+   connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
+ 
+-/** USB giữ `deviceId` dạng `vendorId:productId` như dữ liệu đã lưu; Bluetooth dùng MAC làm `deviceId`. */
+-const toPrinterDevice = (device: NativeDeviceInfo): PrinterDevice => {
++/** Bluetooth không có tên thì hiển thị MAC; native USB đã thay tên trống bằng đường dẫn thiết bị. */
++const toDiscoveredDevice = (device: NativeDeviceInfo): DiscoveredDevice => {
+   if (device.type === 'bluetooth') {
+-    return { deviceId: device.address.mac, displayName: device.name ?? '', rawDevice: { ...device.address } };
++    const { mac } = device.address;
++    return {
++      device: { deviceId: device.deviceId, name: device.name ?? mac, hasPermission: true },
++      connection: { type: ConnectionType.Bluetooth, mac },
++    };
+   }
+ 
+-  const { address } = device;
++  const { vendorId, productId, serialNumber, devicePath } = device.address;
+   return {
+-    deviceId: `${address.vendorId}:${address.productId}`,
+-    displayName: device.name ?? '',
+-    rawDevice: {
+-      vendorId: address.vendorId,
+-      productId: address.productId,
+-      serialNumber: address.serialNumber,
+-      devicePath: address.devicePath,
+-      manufacturerName: device.manufacturerName,
+-      productName: device.productName,
++    device: {
++      deviceId: device.deviceId,
++      name: device.name ?? devicePath ?? '',
++      ...(device.manufacturerName ? { manufacturer: device.manufacturerName } : {}),
++      ...(device.productName ? { model: device.productName } : {}),
++      hasPermission: device.hasPermission,
+     },
++    connection: { type: ConnectionType.Usb, vendorId, productId, ...(serialNumber ? { serialNumber } : {}) },
+   };
+ };
+ 
+@@ -91,13 +93,13 @@ export class NativeAdapter implements IPrinterAdapter {
+ 
+   private lease?: NativeConnectionLease;
+ 
+-  async listDevices(connectionType: ConnectionType): Promise<PrinterDevice[]> {
++  async listDevices(connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+     if (connectionType === ConnectionType.Lan) {
+       return [];
+     }
+ 
+     const devices = await callNative(() => DeviceModule.discover(toNativeDiscoverableType(connectionType)));
+-    return devices.map(toPrinterDevice);
++    return devices.map(toDiscoveredDevice);
+   }
+ 
+   async connect(connection: PrinterConnection): Promise<void> {
+diff --git a/src/features/printer/adapters/native/__tests__/NativeAdapter.test.ts b/src/features/printer/adapters/native/__tests__/NativeAdapter.test.ts
+index 8f42b44..e5ad586 100644
+--- a/src/features/printer/adapters/native/__tests__/NativeAdapter.test.ts
++++ b/src/features/printer/adapters/native/__tests__/NativeAdapter.test.ts
+@@ -38,16 +38,21 @@ describe('NativeAdapter', () => {
+     expect(deviceModule().discover).not.toHaveBeenCalled();
+   });
+ 
+-  it('listDevices(bluetooth) dùng MAC làm deviceId', async () => {
++  it('listDevices(bluetooth) trả mã quét của native và kết nối theo MAC', async () => {
+     deviceModule().discover.mockResolvedValueOnce([
+       { type: 'bluetooth', deviceId: 'bluetooth:AA:BB', name: 'BT', address: { type: 'bluetooth', mac: 'AA:BB' } },
+     ]);
+     const devices = await new NativeAdapter().listDevices(ConnectionType.Bluetooth);
+     expect(deviceModule().discover).toHaveBeenCalledWith('bluetooth');
+-    expect(devices).toEqual([{ deviceId: 'AA:BB', displayName: 'BT', rawDevice: { type: 'bluetooth', mac: 'AA:BB' } }]);
++    expect(devices).toEqual([
++      {
++        device: { deviceId: 'bluetooth:AA:BB', name: 'BT', hasPermission: true },
++        connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
++      },
++    ]);
+   });
+ 
+-  it('listDevices(usb) giữ deviceId vendorId:productId và đưa serial/devicePath vào rawDevice', async () => {
++  it('listDevices(usb) trả thông tin thiết bị và kết nối USB, không giữ đường dẫn thiết bị', async () => {
+     deviceModule().discover.mockResolvedValueOnce([
+       {
+         type: 'usb',
+@@ -68,18 +73,38 @@ describe('NativeAdapter', () => {
+     const devices = await new NativeAdapter().listDevices(ConnectionType.Usb);
+     expect(devices).toEqual([
+       {
+-        deviceId: '1155:22222',
+-        displayName: 'X',
+-        rawDevice: {
+-          vendorId: 1155,
+-          productId: 22222,
+-          serialNumber: null,
+-          devicePath: '/dev/bus/usb/001/004',
+-          manufacturerName: null,
+-          productName: 'X',
+-        },
++        device: { deviceId: 'usb:/dev/bus/usb/001/004', name: 'X', model: 'X', hasPermission: false },
++        connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
++      },
++    ]);
++  });
++
++  it('listDevices: thiếu tên thì dùng MAC hoặc đường dẫn; USB có serial thì đưa vào kết nối', async () => {
++    deviceModule().discover.mockResolvedValueOnce([
++      { type: 'bluetooth', deviceId: 'bluetooth:AA:BB', name: null, address: { type: 'bluetooth', mac: 'AA:BB' } },
++      {
++        type: 'usb',
++        deviceId: 'usb:/dev/bus/usb/001/005',
++        name: null,
++        address: { type: 'usb', vendorId: 1, productId: 2, serialNumber: 'SN9', devicePath: '/dev/bus/usb/001/005' },
++        manufacturerName: 'Xprinter',
++        productName: null,
++        hasPermission: true,
+       },
+     ]);
++
++    const [bluetooth, usb] = await new NativeAdapter().listDevices(ConnectionType.Usb);
++
++    expect(bluetooth.device.name).toBe('AA:BB');
++    expect(usb).toEqual({
++      device: {
++        deviceId: 'usb:/dev/bus/usb/001/005',
++        name: '/dev/bus/usb/001/005',
++        manufacturer: 'Xprinter',
++        hasPermission: true,
++      },
++      connection: { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN9' },
++    });
+   });
+ 
+   it('connect gửi địa chỉ native theo từng loại kết nối', async () => {
+diff --git a/src/features/printer/adapters/vendor/VendorAdapter.ts b/src/features/printer/adapters/vendor/VendorAdapter.ts
+index 1e0ff0d..dc1cac4 100644
+--- a/src/features/printer/adapters/vendor/VendorAdapter.ts
++++ b/src/features/printer/adapters/vendor/VendorAdapter.ts
+@@ -1,7 +1,7 @@
+ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
+ import type { ConnectionType } from '../../models/printer/ConnectionType';
+ import type { PrinterConnection } from '../../models/printer/PrinterConnection';
+-import type { PrinterDevice } from '../../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+ import { PrinterErrorException, PrinterErrorCode } from '../../errors/PrinterError';
+ 
+ /**
+@@ -13,7 +13,7 @@ export class VendorAdapter implements IPrinterAdapter {
+ 
+   readonly canRead = false;
+ 
+-  async listDevices(_connectionType: ConnectionType): Promise<PrinterDevice[]> {
++  async listDevices(_connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+     return [];
+   }
+ 
+diff --git a/src/features/printer/components/ConnectionSection.tsx b/src/features/printer/components/ConnectionSection.tsx
+index ddec07a..3bd3c1e 100644
+--- a/src/features/printer/components/ConnectionSection.tsx
++++ b/src/features/printer/components/ConnectionSection.tsx
+@@ -3,15 +3,15 @@ import { View, StyleSheet } from 'react-native';
+ import { SegmentedButtons, HelperText } from 'react-native-paper';
+ import { AppInput } from '../../../components/AppInput';
+ import { AppButton } from '../../../components/AppButton';
+-import { DeviceScanList } from './DeviceScanList';
++import { DiscoveredDeviceList } from './DiscoveredDeviceList';
+ import { ConnectionType } from '../models/printer/ConnectionType';
+-import type { PrinterDevice } from '../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
+ 
+ export interface ConnectionSectionProps {
+   connectionType: ConnectionType;
+   onConnectionTypeChange: (value: ConnectionType) => void;
+   selectedDeviceId?: string;
+-  onSelectDevice: (device: PrinterDevice) => void;
++  onSelectDevice: (device: DiscoveredDevice) => void;
+   lanIp: string;
+   lanPort: string;
+   onLanIpChange: (value: string) => void;
+@@ -77,7 +77,11 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
+         />
+       </>
+     ) : (
+-      <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={disabled ? () => undefined : onSelectDevice} />
++      <DiscoveredDeviceList
++        connectionType={connectionType}
++        selectedDeviceId={selectedDeviceId}
++        onSelect={disabled ? () => undefined : onSelectDevice}
++      />
+     )}
+     <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
+   </View>
+diff --git a/src/features/printer/components/DeviceScanList.tsx b/src/features/printer/components/DeviceScanList.tsx
+deleted file mode 100644
+index dd0db5f..0000000
+--- a/src/features/printer/components/DeviceScanList.tsx
++++ /dev/null
+@@ -1,86 +0,0 @@
+-import React, { useEffect, useState } from 'react';
+-import { View, StyleSheet } from 'react-native';
+-import { List, IconButton, Text } from 'react-native-paper';
+-import { DeviceScanService } from '../discovery/DeviceScanService';
+-import { EmptyState } from '../../../components/EmptyState';
+-import { LoadingOverlay } from '../../../components/LoadingOverlay';
+-import { DeviceScanEventType } from '../models/printer/PrinterDevice';
+-import type { PrinterDevice } from '../models/printer/PrinterDevice';
+-import type { ConnectionType } from '../models/printer/ConnectionType';
+-
+-export interface DeviceScanListProps {
+-  connectionType: ConnectionType;
+-  selectedDeviceId?: string;
+-  onSelect: (device: PrinterDevice) => void;
+-}
+-
+-const SCAN_TIMEOUT_MS = 30000;
+-
+-export const DeviceScanList: React.FC<DeviceScanListProps> = ({
+-  connectionType,
+-  selectedDeviceId,
+-  onSelect,
+-}) => {
+-  const [loading, setLoading] = useState(true);
+-  const [devices, setDevices] = useState<PrinterDevice[]>([]);
+-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+-  const [scanTrigger, setScanTrigger] = useState(0);
+-
+-  useEffect(() => {
+-    setLoading(true);
+-    setErrorMessage(null);
+-    setDevices([]);
+-    let settled = false;
+-    const unsubscribe = DeviceScanService.scanForConnectionType(connectionType, (event) => {
+-      if (settled) return;
+-      if (event.type === DeviceScanEventType.Loading) setLoading(true);
+-      if (event.type === DeviceScanEventType.Found || event.type === DeviceScanEventType.Empty) {
+-        settled = true;
+-        setLoading(false);
+-        setDevices(event.devices ?? []);
+-      }
+-      if (event.type === DeviceScanEventType.Error) {
+-        settled = true;
+-        setLoading(false);
+-        setErrorMessage(event.error?.message ?? 'Không thể quét thiết bị');
+-      }
+-    });
+-    const timer = setTimeout(() => {
+-      if (settled) return;
+-      settled = true;
+-      unsubscribe();
+-      setLoading(false);
+-    }, SCAN_TIMEOUT_MS);
+-    return () => {
+-      clearTimeout(timer);
+-      unsubscribe();
+-    };
+-  }, [connectionType, scanTrigger]);
+-
+-  return (
+-    <View>
+-      <View style={styles.header}>
+-        <Text variant="labelMedium">Thiết bị tìm thấy</Text>
+-        <IconButton icon="refresh" size={16} onPress={() => setScanTrigger((n) => n + 1)} />
+-      </View>
+-      {loading && <LoadingOverlay />}
+-      {!loading && errorMessage && <EmptyState message={errorMessage} />}
+-      {!loading && !errorMessage && devices.length === 0 && <EmptyState message="Không tìm thấy thiết bị nào" />}
+-      {!loading &&
+-        !errorMessage &&
+-        devices.map((device) => (
+-          <List.Item
+-            key={device.deviceId}
+-            title={device.displayName}
+-            onPress={() => onSelect(device)}
+-            // eslint-disable-next-line react/no-unstable-nested-components -- render-prop for List.Item's `right` slot, not a real component definition
+-            right={() => (selectedDeviceId === device.deviceId ? <List.Icon icon="check" /> : null)}
+-          />
+-        ))}
+-    </View>
+-  );
+-};
+-
+-const styles = StyleSheet.create({
+-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+-});
+diff --git a/src/features/printer/components/DiscoveredDeviceList.tsx b/src/features/printer/components/DiscoveredDeviceList.tsx
+new file mode 100644
+index 0000000..d49be52
+--- /dev/null
++++ b/src/features/printer/components/DiscoveredDeviceList.tsx
+@@ -0,0 +1,100 @@
++import React, { useEffect, useState } from 'react';
++import { View, StyleSheet } from 'react-native';
++import { List, IconButton, Text } from 'react-native-paper';
++import { DeviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
++import { EmptyState } from '../../../components/EmptyState';
++import { LoadingOverlay } from '../../../components/LoadingOverlay';
++import { DeviceDiscoveryEventType } from '../models/device/DeviceDiscoveryEvent';
++import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
++import type { ConnectionType } from '../models/printer/ConnectionType';
++
++export interface DiscoveredDeviceListProps {
++  connectionType: ConnectionType;
++
++  /** `DeviceInfo.deviceId` của thiết bị đang chọn. */
++  selectedDeviceId?: string;
++
++  onSelect: (device: DiscoveredDevice) => void;
++}
++
++/** Quét lâu hơn mức này thì dừng chờ và hiển thị những gì đã có. */
++const DISCOVERY_TIMEOUT_MS = 30000;
++
++/** Danh sách thiết bị tìm thấy cho một loại kết nối; tự quét khi mở và khi bấm làm mới. */
++export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
++  connectionType,
++  selectedDeviceId,
++  onSelect,
++}) => {
++  const [loading, setLoading] = useState(true);
++  const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
++  const [errorMessage, setErrorMessage] = useState<string | null>(null);
++  const [discoveryTrigger, setDiscoveryTrigger] = useState(0);
++
++  useEffect(() => {
++    setLoading(true);
++    setErrorMessage(null);
++    setDevices([]);
++    let settled = false;
++
++    const settle = (): void => {
++      settled = true;
++      setLoading(false);
++    };
++
++    const unsubscribe = DeviceDiscoveryService.discover(connectionType, (event) => {
++      if (settled || event.type === DeviceDiscoveryEventType.Loading) {
++        return;
++      }
++
++      settle();
++
++      if (event.type === DeviceDiscoveryEventType.Found) {
++        setDevices(event.devices);
++      }
++
++      if (event.type === DeviceDiscoveryEventType.Error) {
++        setErrorMessage(event.error.message);
++      }
++    });
++
++    const timer = setTimeout(() => {
++      if (!settled) {
++        settle();
++        unsubscribe();
++      }
++    }, DISCOVERY_TIMEOUT_MS);
++
++    return () => {
++      clearTimeout(timer);
++      unsubscribe();
++    };
++  }, [connectionType, discoveryTrigger]);
++
++  return (
++    <View>
++      <View style={styles.header}>
++        <Text variant="labelMedium">Thiết bị tìm thấy</Text>
++        <IconButton icon="refresh" size={16} onPress={() => setDiscoveryTrigger((count) => count + 1)} />
++      </View>
++      {loading && <LoadingOverlay />}
++      {!loading && errorMessage && <EmptyState message={errorMessage} />}
++      {!loading && !errorMessage && devices.length === 0 && <EmptyState message="Không tìm thấy thiết bị nào" />}
++      {!loading &&
++        !errorMessage &&
++        devices.map((discovered) => (
++          <List.Item
++            key={discovered.device.deviceId}
++            title={discovered.device.name}
++            onPress={() => onSelect(discovered)}
++            // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
++            right={() => (selectedDeviceId === discovered.device.deviceId ? <List.Icon icon="check" /> : null)}
++          />
++        ))}
++    </View>
++  );
++};
++
++const styles = StyleSheet.create({
++  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
++});
+diff --git a/src/features/printer/components/PrinterInfoCard.tsx b/src/features/printer/components/PrinterInfoCard.tsx
+index 6e8dfd9..0d2c6d8 100644
+--- a/src/features/printer/components/PrinterInfoCard.tsx
++++ b/src/features/printer/components/PrinterInfoCard.tsx
+@@ -15,7 +15,7 @@ import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
+ import { LanguageSelection, RenderMode, type RasterSource, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+ import { ConnectionType } from '../models/printer/ConnectionType';
+ import { PrinterStatus } from '../models/printer/PrinterStatus';
+-import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
++import type { DeviceInfo } from '../models/device/DeviceInfo';
+ import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
+ 
+ const connectionLabel: Record<ConnectionType, string> = {
+@@ -37,7 +37,8 @@ export interface PrinterInfoCardProps {
+   language?: PrinterLanguage;
+   paper: PaperDraft;
+   onChangePaper: (patch: Partial<PaperDraft>) => void;
+-  deviceInfo?: PrinterDeviceInfo;
++  /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
++  device?: DeviceInfo;
+   status: PrinterStatus;
+   autoReconnect: boolean;
+   onAutoReconnectChange: (value: boolean) => void;
+@@ -63,7 +64,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
+   language,
+   paper,
+   onChangePaper,
+-  deviceInfo,
++  device,
+   status,
+   autoReconnect,
+   onAutoReconnectChange,
+@@ -90,9 +91,9 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
+         )}
+       />
+ 
+-      {deviceInfo?.deviceName ? <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text> : null}
+-      {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
+-      {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
++      {device?.name ? <Text variant="bodySmall">Tên thiết bị: {device.name}</Text> : null}
++      {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
++      {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
+       <View style={styles.row}>
+         <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
+         <PrinterStatusBadge status={status} />
+diff --git a/src/features/printer/components/StatusPanel.tsx b/src/features/printer/components/StatusPanel.tsx
+index a27dc72..f829cec 100644
+--- a/src/features/printer/components/StatusPanel.tsx
++++ b/src/features/printer/components/StatusPanel.tsx
+@@ -5,7 +5,7 @@ import { LoadingOverlay } from '../../../components/LoadingOverlay';
+ import { AppButton } from '../../../components/AppButton';
+ import { PrintLanguage } from '../models/printer/PrinterLanguage';
+ import { canPrintKind } from '../forms/addPrinter/printerRules';
+-import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
++import type { DeviceInfo } from '../models/device/DeviceInfo';
+ import type { PrintKind } from '../models/printer/PrintKind';
+ 
+ export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
+@@ -15,7 +15,8 @@ export interface StatusPanelProps {
+   connectionState: ConnectionState;
+   protocolState: ProtocolState;
+   protocol?: PrintLanguage;
+-  deviceInfo?: PrinterDeviceInfo;
++  /** Thiết bị đang chọn, để hiển thị hãng và model nếu đọc được. */
++  device?: DeviceInfo;
+   errorMessage?: string;
+   /** Lọc danh sách protocol cho phép chọn tay — ESC/POS không hỗ trợ Label. */
+   kind: PrintKind;
+@@ -33,7 +34,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
+   connectionState,
+   protocolState,
+   protocol,
+-  deviceInfo,
++  device,
+   errorMessage,
+   kind,
+   onChooseProtocol,
+@@ -82,8 +83,8 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
+     return (
+       <View style={styles.container}>
+         <Text variant="bodyMedium" style={styles.successText}>✓ Đã kết nối</Text>
+-        {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
+-        {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
++        {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
++        {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
+         {protocol ? <Text variant="bodySmall">Giao thức: {protocolLabel[protocol]}</Text> : null}
+       </View>
+     );
+diff --git a/src/features/printer/connection/createPrinterAdapter.web.ts b/src/features/printer/connection/createPrinterAdapter.web.ts
+index 685a561..94330d7 100644
+--- a/src/features/printer/connection/createPrinterAdapter.web.ts
++++ b/src/features/printer/connection/createPrinterAdapter.web.ts
+@@ -1,7 +1,7 @@
+ import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
+ import type { ConnectionType } from '../models/printer/ConnectionType';
+ import type { PrinterConnection } from '../models/printer/PrinterConnection';
+-import type { PrinterDevice } from '../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
+ import { PrinterErrorException, PrinterErrorCode } from '../errors/PrinterError';
+ 
+ const unsupported = (): PrinterErrorException =>
+@@ -16,7 +16,7 @@ class WebUnsupportedAdapter implements IPrinterAdapter {
+ 
+   readonly canRead = false;
+ 
+-  async listDevices(_connectionType: ConnectionType): Promise<PrinterDevice[]> {
++  async listDevices(_connectionType: ConnectionType): Promise<DiscoveredDevice[]> {
+     throw unsupported();
+   }
+ 
+diff --git a/src/features/printer/detection/LanguageDetectionService.ts b/src/features/printer/detection/LanguageDetectionService.ts
+new file mode 100644
+index 0000000..a3b97e2
+--- /dev/null
++++ b/src/features/printer/detection/LanguageDetectionService.ts
+@@ -0,0 +1,170 @@
++import type { Unsubscribe } from '../adapters/IPrinterAdapter';
++import { ConnectionType } from '../models/printer/ConnectionType';
++import { LanguageSelection, PrintLanguage, type PrinterLanguage } from '../models/printer/PrinterLanguage';
++import type { Printer } from '../models/printer/Printer';
++import { PrinterErrorCode, errorCodeOf, type PrinterError } from '../errors/PrinterError';
++import { PrinterLogger } from '../logging/PrinterLogger';
++import { getPrintLanguage } from '../languages/getPrintLanguage';
++import { PrinterConnectionService } from '../connection/PrinterConnectionService';
++import { canPrintKind } from '../forms/addPrinter/printerRules';
++import { createPrinterLanguage } from '../management/createPrinterDraft';
++
++/** Máy TSPL trả lời lệnh dò trong vài trăm mili giây; quá hạn coi như không phải ngôn ngữ đó. */
++const IDENTIFY_TIMEOUT_MS = 1000;
++
++/** TSPL có lệnh dò là phép thử thật nên chạy trước; ESC/POS chỉ xác nhận yếu nên để cuối. */
++const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscPos];
++
++export const LanguageDetectionStage = {
++  Connecting: 'Connecting',
++  Identifying: 'Identifying',
++  Detected: 'Detected',
++  Unknown: 'Unknown',
++  Error: 'Error',
++} as const;
++
++export type LanguageDetectionStage = (typeof LanguageDetectionStage)[keyof typeof LanguageDetectionStage];
++
++/** Một cập nhật trong lúc dò ngôn ngữ của máy in. */
++export type LanguageDetectionEvent =
++  | { stage: typeof LanguageDetectionStage.Connecting }
++  | { stage: typeof LanguageDetectionStage.Identifying; language: PrintLanguage }
++  | { stage: typeof LanguageDetectionStage.Detected; language: PrinterLanguage }
++  | { stage: typeof LanguageDetectionStage.Unknown }
++  | { stage: typeof LanguageDetectionStage.Error; error: PrinterError };
++
++/** Máy in cần dò ngôn ngữ. */
++export interface LanguageDetectionInput {
++  /** Bản nháp đủ field; chỉ dùng `id`, `kind` và `connection`. */
++  draftPrinter: Printer;
++}
++
++type DetectionConnectionService = Pick<typeof PrinterConnectionService, 'connect' | 'disconnect' | 'send' | 'read'>;
++
++/** Những thứ một lần dò cần, gom lại để tách các bước ra hàm riêng. */
++interface DetectionContext {
++  printer: Printer;
++
++  connectionService: DetectionConnectionService;
++
++  onEvent: (event: LanguageDetectionEvent) => void;
++
++  isCancelled: () => boolean;
++}
++
++/**
++ * Ngôn ngữ có lệnh dò thì máy phải trả lời. ESC/POS không có lệnh dò nên kết nối được qua Bluetooth/LAN là đủ;
++ * USB thì không, vì kết nối USB thành công với mọi máy.
++ */
++const confirmLanguage = async (context: DetectionContext, type: PrintLanguage): Promise<boolean> => {
++  const { printer, connectionService } = context;
++  const probe = getPrintLanguage(type).identifyProbe;
++
++  if (!probe) {
++    return printer.connection.type !== ConnectionType.Usb;
++  }
++
++  try {
++    await connectionService.send(printer.id, probe.command);
++    const response = await connectionService.read(printer.id, IDENTIFY_TIMEOUT_MS);
++    return response !== null && probe.matches(response);
++  } catch {
++    return false;
++  }
++};
++
++/** Thử lần lượt trên kết nối đã mở; `undefined` khi không ngôn ngữ nào khớp hoặc đã huỷ. */
++const findLanguage = async (
++  context: DetectionContext,
++  candidates: PrintLanguage[],
++): Promise<PrintLanguage | undefined> => {
++  const { printer } = context;
++
++  for (const type of candidates) {
++    if (context.isCancelled()) {
++      return undefined;
++    }
++
++    context.onEvent({ stage: LanguageDetectionStage.Identifying, language: type });
++
++    if (await confirmLanguage(context, type)) {
++      return type;
++    }
++
++    const connectionType = printer.connection.type;
++    PrinterLogger.detectionCandidateRejected({ printerId: printer.id, language: type, connectionType });
++  }
++
++  return undefined;
++};
++
++/** Dò ngôn ngữ của máy in mới trên một lần kết nối duy nhất. */
++export const createLanguageDetectionService = (
++  connectionService: DetectionConnectionService = PrinterConnectionService,
++) => {
++  const run = async (context: DetectionContext): Promise<void> => {
++    const { printer, onEvent, isCancelled } = context;
++    const logFields = { printerId: printer.id, connectionType: printer.connection.type };
++    const candidates = CANDIDATE_ORDER.filter((type) => canPrintKind(type, printer.kind));
++    const startedAt = Date.now();
++    const disconnectQuietly = (): Promise<void> => connectionService.disconnect(printer.id).catch(() => undefined);
++
++    PrinterLogger.detectionStarted({ ...logFields, candidates });
++    onEvent({ stage: LanguageDetectionStage.Connecting });
++
++    try {
++      await connectionService.connect(printer);
++    } catch (error) {
++      if (!isCancelled()) {
++        const failure = { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' };
++        onEvent({ stage: LanguageDetectionStage.Error, error: failure });
++        const errorCode = errorCodeOf(error);
++        PrinterLogger.detectionFailed({ ...logFields, errorCode, durationMs: Date.now() - startedAt });
++      }
++
++      return;
++    }
++
++    const detected = await findLanguage(context, candidates);
++
++    if (isCancelled()) {
++      await disconnectQuietly();
++      return;
++    }
++
++    const candidatesTried = detected ? candidates.slice(0, candidates.indexOf(detected) + 1) : candidates;
++    const durationMs = Date.now() - startedAt;
++
++    if (detected) {
++      const language = createPrinterLanguage(detected, LanguageSelection.Auto);
++      onEvent({ stage: LanguageDetectionStage.Detected, language });
++      PrinterLogger.languageDetected({ ...logFields, language: detected, candidatesTried, durationMs });
++      return;
++    }
++
++    await disconnectQuietly();
++    onEvent({ stage: LanguageDetectionStage.Unknown });
++    PrinterLogger.languageUnknown({ ...logFields, candidatesTried, durationMs });
++  };
++
++  /** Huỷ giữa chừng thì ngắt kết nối và không báo thêm sự kiện nào. */
++  const detect = (input: LanguageDetectionInput, onEvent: (event: LanguageDetectionEvent) => void): Unsubscribe => {
++    let cancelled = false;
++    const isCancelled = (): boolean => cancelled;
++    const guardedOnEvent = (event: LanguageDetectionEvent): void => {
++      if (!cancelled) {
++        onEvent(event);
++      }
++    };
++
++    run({ printer: input.draftPrinter, connectionService, onEvent: guardedOnEvent, isCancelled });
++
++    return () => {
++      cancelled = true;
++    };
++  };
++
++  return { detect };
++};
++
++export const LanguageDetectionService = createLanguageDetectionService();
+diff --git a/src/features/printer/detection/__tests__/LanguageDetectionService.test.ts b/src/features/printer/detection/__tests__/LanguageDetectionService.test.ts
+new file mode 100644
+index 0000000..6851c57
+--- /dev/null
++++ b/src/features/printer/detection/__tests__/LanguageDetectionService.test.ts
+@@ -0,0 +1,191 @@
++import {
++  createLanguageDetectionService,
++  LanguageDetectionStage,
++  type LanguageDetectionEvent,
++} from '../LanguageDetectionService';
++import { ConnectionType } from '../../models/printer/ConnectionType';
++import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
++import { PrintKind } from '../../models/printer/PrintKind';
++import type { Printer } from '../../models/printer/Printer';
++import { PrinterErrorCode } from '../../errors/PrinterError';
++import { PrinterLogger } from '../../logging/PrinterLogger';
++import { makePrinter } from '../../testing/printerFixtures';
++import { makeMockConnectionService } from '../../testing/printerServiceTestKit';
++
++jest.mock('../../logging/PrinterLogger', () => ({
++  PrinterLogger: {
++    detectionStarted: jest.fn(),
++    detectionCandidateRejected: jest.fn(),
++    detectionFailed: jest.fn(),
++    languageDetected: jest.fn(),
++    languageUnknown: jest.fn(),
++  },
++}));
++
++const TSPL_REPLY = new Uint8Array([0x54, 0x53, 0x43]);
++
++const lanDraft: Printer = makePrinter({ name: 'Máy in mới' });
++
++const usbDraft: Printer = makePrinter({ connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 } });
++
++const isFinal = (event: LanguageDetectionEvent): boolean =>
++  event.stage === LanguageDetectionStage.Detected ||
++  event.stage === LanguageDetectionStage.Unknown ||
++  event.stage === LanguageDetectionStage.Error;
++
++/** Dò và chờ tới sự kiện kết thúc. */
++const detectUntilDone = (
++  connectionService: ReturnType<typeof makeMockConnectionService>,
++  draftPrinter: Printer,
++): Promise<LanguageDetectionEvent[]> =>
++  new Promise((resolve) => {
++    const events: LanguageDetectionEvent[] = [];
++    createLanguageDetectionService(connectionService).detect({ draftPrinter }, (event) => {
++      events.push(event);
++
++      if (isFinal(event)) {
++        resolve(events);
++      }
++    });
++  });
++
++/** Chờ các promise đang treo chạy xong. */
++const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
++
++describe('LanguageDetectionService', () => {
++  afterEach(() => jest.clearAllMocks());
++
++  it('TSPL trả lời lệnh dò → Detected TSPL, giữ kết nối, chỉ kết nối một lần', async () => {
++    const connectionService = makeMockConnectionService({ read: jest.fn().mockResolvedValue(TSPL_REPLY) });
++
++    const events = await detectUntilDone(connectionService, lanDraft);
++
++    expect(events.map((event) => event.stage)).toEqual([
++      LanguageDetectionStage.Connecting,
++      LanguageDetectionStage.Identifying,
++      LanguageDetectionStage.Detected,
++    ]);
++    expect(events[2]).toEqual({
++      stage: LanguageDetectionStage.Detected,
++      language: {
++        type: PrintLanguage.Tspl,
++        selection: LanguageSelection.Auto,
++        renderMode: RenderMode.Raster,
++        rasterSource: RasterSource.Image,
++      },
++    });
++    expect(connectionService.connect).toHaveBeenCalledTimes(1);
++    expect(connectionService.connect).toHaveBeenCalledWith(lanDraft);
++    expect(connectionService.send).toHaveBeenCalledWith(lanDraft.id, new Uint8Array([0x7e, 0x21, 0x54, 0x0d, 0x0a]));
++    expect(connectionService.disconnect).not.toHaveBeenCalled();
++    expect(PrinterLogger.languageDetected).toHaveBeenCalledWith(
++      expect.objectContaining({ language: PrintLanguage.Tspl, candidatesTried: [PrintLanguage.Tspl] }),
++    );
++  });
++
++  it('TSPL không trả lời, qua LAN thì xác nhận yếu ESC/POS trên cùng kết nối', async () => {
++    const connectionService = makeMockConnectionService();
++
++    const events = await detectUntilDone(connectionService, lanDraft);
++
++    expect(events[events.length - 1]).toEqual(
++      { stage: LanguageDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
++    );
++    expect(connectionService.connect).toHaveBeenCalledTimes(1);
++    expect(PrinterLogger.detectionCandidateRejected).toHaveBeenCalledWith(
++      expect.objectContaining({ language: PrintLanguage.Tspl, connectionType: ConnectionType.Lan }),
++    );
++  });
++
++  it('USB không bao giờ tự xác nhận ESC/POS → Unknown và ngắt kết nối', async () => {
++    const connectionService = makeMockConnectionService();
++
++    const events = await detectUntilDone(connectionService, usbDraft);
++
++    expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
++    expect(connectionService.disconnect).toHaveBeenCalledWith(usbDraft.id);
++    expect(PrinterLogger.languageUnknown).toHaveBeenCalledWith(
++      expect.objectContaining({ candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos] }),
++    );
++  });
++
++  it('in tem chỉ thử TSPL vì ESC/POS không in được tem', async () => {
++    const connectionService = makeMockConnectionService();
++
++    const events = await detectUntilDone(connectionService, { ...lanDraft, kind: PrintKind.Label });
++
++    expect(events.filter((event) => event.stage === LanguageDetectionStage.Identifying)).toEqual([
++      { stage: LanguageDetectionStage.Identifying, language: PrintLanguage.Tspl },
++    ]);
++    expect(events[events.length - 1]).toEqual({ stage: LanguageDetectionStage.Unknown });
++    expect(PrinterLogger.detectionStarted).toHaveBeenCalledWith(
++      expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
++    );
++  });
++
++  it('gửi lệnh dò lỗi thì coi như không khớp, thử ngôn ngữ tiếp theo', async () => {
++    const send = jest.fn().mockRejectedValue(new Error('write failed'));
++    const connectionService = makeMockConnectionService({ send });
++
++    const events = await detectUntilDone(connectionService, lanDraft);
++
++    expect(events[events.length - 1]).toEqual(
++      { stage: LanguageDetectionStage.Detected, language: expect.objectContaining({ type: PrintLanguage.EscPos }) },
++    );
++  });
++
++  it('không kết nối được → Error, ghi log detectionFailed', async () => {
++    const connectionService = makeMockConnectionService({ connect: jest.fn().mockRejectedValue(new Error('down')) });
++
++    const events = await detectUntilDone(connectionService, lanDraft);
++
++    expect(events[events.length - 1]).toEqual({
++      stage: LanguageDetectionStage.Error,
++      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' },
++    });
++    expect(PrinterLogger.detectionFailed).toHaveBeenCalledWith(
++      expect.objectContaining({ printerId: lanDraft.id, connectionType: ConnectionType.Lan }),
++    );
++  });
++
++  it('huỷ trong lúc kết nối: kết nối xong thì ngắt, không báo thêm sự kiện', async () => {
++    let finishConnect: () => void = () => undefined;
++    const connectionService = makeMockConnectionService({
++      connect: jest.fn().mockImplementation(() => new Promise<void>((resolve) => (finishConnect = resolve))),
++    });
++    const events: LanguageDetectionEvent[] = [];
++
++    const unsubscribe = createLanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
++      events.push(event),
++    );
++    unsubscribe();
++    finishConnect();
++    await flush();
++
++    expect(events.map((event) => event.stage)).toEqual([LanguageDetectionStage.Connecting]);
++    expect(connectionService.send).not.toHaveBeenCalled();
++    expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
++  });
++
++  it('huỷ trong lúc chờ phản hồi lệnh dò: ngắt kết nối, không báo Detected', async () => {
++    let reply: (response: Uint8Array | null) => void = () => undefined;
++    const connectionService = makeMockConnectionService({
++      read: jest.fn().mockImplementation(() => new Promise((resolve) => (reply = resolve))),
++    });
++    const events: LanguageDetectionEvent[] = [];
++
++    const unsubscribe = createLanguageDetectionService(connectionService).detect({ draftPrinter: lanDraft }, (event) =>
++      events.push(event),
++    );
++    await flush();
++    unsubscribe();
++    reply(TSPL_REPLY);
++    await flush();
++
++    expect(events.map((event) => event.stage)).toEqual([
++      LanguageDetectionStage.Connecting,
++      LanguageDetectionStage.Identifying,
++    ]);
++    expect(connectionService.disconnect).toHaveBeenCalledWith(lanDraft.id);
++  });
++});
+diff --git a/src/features/printer/discovery/DeviceDiscoveryService.ts b/src/features/printer/discovery/DeviceDiscoveryService.ts
+new file mode 100644
+index 0000000..4daccf6
+--- /dev/null
++++ b/src/features/printer/discovery/DeviceDiscoveryService.ts
+@@ -0,0 +1,100 @@
++import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
++import { ConnectionType } from '../models/printer/ConnectionType';
++import type { DiscoveredDevice } from '../models/device/DiscoveredDevice';
++import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../models/device/DeviceDiscoveryEvent';
++import { PrinterErrorCode, PrinterErrorException } from '../errors/PrinterError';
++import { PrinterLogger } from '../logging/PrinterLogger';
++import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
++import { createPrinterAdapter } from '../connection/createPrinterAdapter';
++import { LoggerService } from '../../../services/LoggerService';
++
++/** Phụ thuộc của service, tách ra để test thay được. */
++export interface DeviceDiscoveryServiceDeps {
++  createAdapter: () => IPrinterAdapter;
++
++  /** `true` khi app đã có quyền Bluetooth. */
++  ensureBluetoothPermission: () => Promise<boolean>;
++}
++
++/** Một số native báo "không có thiết bị" bằng lỗi thay vì danh sách rỗng. */
++const NO_DEVICE_MESSAGE = /no device found/i;
++
++const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
++
++/** Log `debug` đủ chi tiết thiết bị để soi khi danh sách hiển thị sai; không đi qua `PrinterLogger` vì có MAC. */
++const logEvent = (connectionType: ConnectionType, event: DeviceDiscoveryEvent): void => {
++  LoggerService.debug('printer.discovery.event', {
++    connectionType,
++    type: event.type,
++    devices:
++      event.type === DeviceDiscoveryEventType.Found
++        ? event.devices.map(({ device, connection }) => ({ deviceId: device.deviceId, name: device.name, connection }))
++        : undefined,
++    error: event.type === DeviceDiscoveryEventType.Error ? event.error : undefined,
++  });
++};
++
++/** Tìm máy in để người dùng chọn khi thêm máy; LAN không quét được nên người dùng tự nhập địa chỉ. */
++export const createDeviceDiscoveryService = (
++  deps: DeviceDiscoveryServiceDeps = { createAdapter: createPrinterAdapter, ensureBluetoothPermission },
++) => {
++  const findDevices = async (connectionType: ConnectionType): Promise<DiscoveredDevice[]> => {
++    if (connectionType === ConnectionType.Bluetooth && !(await deps.ensureBluetoothPermission())) {
++      throw new PrinterErrorException({
++        code: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
++        message: 'Chưa được cấp quyền Bluetooth',
++      });
++    }
++
++    return deps.createAdapter().listDevices(connectionType);
++  };
++
++  const discover = (connectionType: ConnectionType, onEvent: (event: DeviceDiscoveryEvent) => void): Unsubscribe => {
++    let cancelled = false;
++    const startedAt = Date.now();
++
++    const emit = (event: DeviceDiscoveryEvent): void => {
++      if (!cancelled) {
++        logEvent(connectionType, event);
++        onEvent(event);
++      }
++    };
++
++    const complete = (devices: DiscoveredDevice[]): void => {
++      const deviceCount = devices.length;
++      const found: DeviceDiscoveryEvent = { type: DeviceDiscoveryEventType.Found, devices };
++      emit(deviceCount > 0 ? found : { type: DeviceDiscoveryEventType.Empty });
++      PrinterLogger.discoveryCompleted({ connectionType, deviceCount, durationMs: Date.now() - startedAt });
++    };
++
++    const fail = (error: unknown): void => {
++      const message = messageOf(error);
++
++      if (NO_DEVICE_MESSAGE.test(message)) {
++        complete([]);
++        return;
++      }
++
++      const errorCode = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
++      emit({ type: DeviceDiscoveryEventType.Error, error: { code: errorCode, message } });
++      PrinterLogger.discoveryFailed({ connectionType, errorCode, durationMs: Date.now() - startedAt });
++    };
++
++    if (connectionType === ConnectionType.Lan) {
++      emit({ type: DeviceDiscoveryEventType.Empty });
++      return () => undefined;
++    }
++
++    PrinterLogger.discoveryStarted({ connectionType });
++    emit({ type: DeviceDiscoveryEventType.Loading });
++    findDevices(connectionType).then(complete, fail);
++
++    return () => {
++      cancelled = true;
++    };
++  };
++
++  return { discover };
++};
++
++export const DeviceDiscoveryService = createDeviceDiscoveryService();
+diff --git a/src/features/printer/discovery/DeviceScanService.ts b/src/features/printer/discovery/DeviceScanService.ts
+deleted file mode 100644
+index 4b4835a..0000000
+--- a/src/features/printer/discovery/DeviceScanService.ts
++++ /dev/null
+@@ -1,61 +0,0 @@
+-import type { IPrinterDriver, Unsubscribe } from '../drivers/IPrinterDriver';
+-import { ConnectionType } from '../models/printer/ConnectionType';
+-import { PrintLanguage } from '../models/printer/PrinterLanguage';
+-import type { DeviceScanEvent } from '../models/printer/PrinterDevice';
+-import { LoggerService } from '../../../services/LoggerService';
+-import { createDiscoverDriver, type DiscoveryEvent, type DiscoverPrinterInput } from './PrinterDiscoveryService';
+-import { DriverRegistry } from '../drivers/DriverRegistry';
+-
+-/**
+- * Quét thiết bị + dò driver — chỉ cần `registry`, không đụng storage/lock.
+- *
+- * Device scan + driver discovery — needs only `registry`, no storage/lock.
+- */
+-export const createDeviceScanService = (
+-  registry: Record<PrintLanguage, IPrinterDriver> = DriverRegistry,
+-) => {
+-  const getDriver = (type: PrintLanguage): IPrinterDriver => registry[type];
+-  const discoverDriverFn = createDiscoverDriver(registry);
+-
+-  /**
+-   * Chèn log `debug` (chỉ chạy trong `__DEV__`) cho MỌI `DeviceScanEvent` —
+-   * gồm cả `rawDevice` gốc từ native (vendor_id/product_id cho USB, mac cho BT)
+-   * để soi lúc UI hiển thị sai thiết bị. Không đi qua `PrinterLogger` vì tầng đó
+-   * cố ý không nhận `rawDevice`/MAC; đây là log dev thuần.
+-   */
+-  const withScanLogging =
+-    (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void) =>
+-    (event: DeviceScanEvent): void => {
+-      LoggerService.debug('printer.scan.event', {
+-        connectionType,
+-        type: event.type,
+-        deviceCount: event.devices?.length ?? 0,
+-        devices: event.devices?.map((d) => ({ deviceId: d.deviceId, displayName: d.displayName, rawDevice: d.rawDevice })),
+-        error: event.error ? { code: event.error.code, message: event.error.message } : undefined,
+-      });
+-      onEvent(event);
+-    };
+-
+-  const scanDevices = (type: PrintLanguage, connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe =>
+-    getDriver(type).scan(connectionType, withScanLogging(connectionType, onEvent));
+-
+-  const scanForConnectionType = (connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe => {
+-    const tapped = withScanLogging(connectionType, onEvent);
+-
+-    if (connectionType === ConnectionType.Usb) {
+-      return getDriver(PrintLanguage.EscPos).scan(ConnectionType.Usb, tapped);
+-    }
+-
+-    if (connectionType === ConnectionType.Bluetooth) {
+-      return getDriver(PrintLanguage.Tspl).scan(ConnectionType.Bluetooth, tapped);
+-    }
+-
+-    return getDriver(PrintLanguage.Tspl).scan(ConnectionType.Lan, tapped);
+-  };
+-
+-  const discoverDriver = (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => discoverDriverFn(input, onEvent);
+-
+-  return { scanDevices, scanForConnectionType, discoverDriver };
+-};
+-
+-export const DeviceScanService = createDeviceScanService(DriverRegistry);
+diff --git a/src/features/printer/discovery/PrinterDiscoveryService.ts b/src/features/printer/discovery/PrinterDiscoveryService.ts
+deleted file mode 100644
+index 4756e1f..0000000
+--- a/src/features/printer/discovery/PrinterDiscoveryService.ts
++++ /dev/null
+@@ -1,137 +0,0 @@
+-import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+-import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
+-import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+-import type { Printer } from '../models/printer/Printer';
+-import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+-import { PrinterErrorCode, type PrinterError } from '../errors/PrinterError';
+-import { PrinterLogger } from '../logging/PrinterLogger';
+-import { canPrintKind } from '../forms/addPrinter/printerRules';
+-import { createPrinterLanguage } from '../management/createPrinterDraft';
+-import { PrinterConnectionService } from '../connection/PrinterConnectionService';
+-
+-/**
+- * Thử `Tspl` trước `EscPos`: `TsplDriver.identify()` là 1 discriminator thật
+- * (gửi lệnh dò `~!T`), trong khi ESC/POS's `identify()` chỉ chứng minh "đã
+- * connect thành công". Qua USB cả 2 driver luôn trả `null` — cố ý.
+- */
+-const CANDIDATE_ORDER: PrintLanguage[] = [PrintLanguage.Tspl, PrintLanguage.EscPos];
+-
+-export const DiscoveryStage = {
+-  Connecting: 'Connecting',
+-  Identifying: 'Identifying',
+-  Identified: 'Identified',
+-  UnknownProtocol: 'UnknownProtocol',
+-  Error: 'Error',
+-} as const;
+-
+-export type DiscoveryStage = (typeof DiscoveryStage)[keyof typeof DiscoveryStage];
+-
+-export interface DiscoveryEvent {
+-  stage: DiscoveryStage;
+-  protocol?: PrintLanguage;
+-  /** Ngôn ngữ đã xác nhận, chỉ có khi `stage === 'Identified'`; nơi gọi gán thẳng vào `printer.language`. */
+-  language?: PrinterLanguage;
+-  deviceInfo?: PrinterDeviceInfo;
+-  error?: PrinterError;
+-}
+-
+-export interface DiscoverPrinterInput {
+-  /**
+-   * Draft `Printer` ĐẦY ĐỦ (id, connection, type, paper, driver placeholder,
+-   * v.v.) do caller (`useProtocolDiscovery`) tự dựng — service này KHÔNG tự
+-   * tổng hợp draft. `draftPrinter.language` là placeholder, bị GHI ĐÈ theo từng
+-   * candidate lúc thử — chỉ `draftPrinter.type`/`.connection`/`.paper` được
+-   * dùng nguyên vẹn. Chỉ thử ngôn ngữ in được `draftPrinter.kind` (`canPrintKind`), vd không thử ESC/POS khi in tem.
+-   */
+-  draftPrinter: Printer;
+-}
+-
+-export type Unsubscribe = () => void;
+-
+-type DiscoveryConnectionService = Pick<typeof PrinterConnectionService, 'connect' | 'disconnect'>;
+-
+-export const createDiscoverDriver =
+-  (
+-    registry: Record<PrintLanguage, IPrinterDriver>,
+-    connectionService: DiscoveryConnectionService = PrinterConnectionService,
+-  ) =>
+-  (input: DiscoverPrinterInput, onEvent: (event: DiscoveryEvent) => void): Unsubscribe => {
+-    let cancelled = false;
+-
+-    const run = async (): Promise<void> => {
+-      const startedAt = Date.now();
+-      const { draftPrinter } = input;
+-      const printerId = draftPrinter.id;
+-      const connectionType = draftPrinter.connection.type;
+-      const candidates = CANDIDATE_ORDER.filter(
+-        (type) => Boolean(registry[type]) && canPrintKind(type, draftPrinter.kind),
+-      );
+-      const candidatesTried: PrintLanguage[] = [];
+-      let connectFailures = 0;
+-
+-      PrinterLogger.discoveryStarted({ printerId, connectionType, candidates });
+-
+-      for (const type of candidates) {
+-        if (cancelled) {
+-          return;
+-        }
+-
+-        candidatesTried.push(type);
+-        const driver = registry[type];
+-        const attemptLanguage: PrinterLanguage = createPrinterLanguage(type, LanguageSelection.Auto);
+-        const attemptPrinter: Printer = { ...draftPrinter, language: attemptLanguage };
+-        const disconnectQuietly = (): Promise<void> =>
+-          connectionService.disconnect(printerId).catch(() => undefined);
+-        onEvent({ stage: DiscoveryStage.Connecting, protocol: type });
+-
+-        try {
+-          await connectionService.connect(attemptPrinter);
+-        } catch {
+-          connectFailures += 1;
+-          PrinterLogger.discoveryCandidateRejected({ printerId, protocol: type, connectionType, reason: 'connect_failed' });
+-          continue;
+-        }
+-
+-        if (cancelled) {
+-          await disconnectQuietly();
+-          return;
+-        }
+-
+-        onEvent({ stage: DiscoveryStage.Identifying, protocol: type });
+-        const deviceInfo = await driver.identify(attemptPrinter).catch(() => null);
+-
+-        if (cancelled) {
+-          await disconnectQuietly();
+-          return;
+-        }
+-
+-        if (deviceInfo) {
+-          onEvent({ stage: DiscoveryStage.Identified, protocol: type, language: attemptLanguage, deviceInfo });
+-          PrinterLogger.protocolDetected({ printerId, protocol: type, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
+-          return;
+-        }
+-
+-        PrinterLogger.discoveryCandidateRejected({ printerId, protocol: type, connectionType, reason: 'not_confirmed' });
+-        await disconnectQuietly();
+-      }
+-
+-      if (cancelled) {
+-        return;
+-      }
+-
+-      if (candidates.length === 0 || connectFailures === candidates.length) {
+-        onEvent({ stage: DiscoveryStage.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Không thể kết nối tới máy in' } });
+-        PrinterLogger.discoveryFailed({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
+-        return;
+-      }
+-
+-      onEvent({ stage: DiscoveryStage.UnknownProtocol });
+-      PrinterLogger.protocolUnknown({ printerId, connectionType, candidatesTried, durationMs: Date.now() - startedAt });
+-    };
+-
+-    run();
+-
+-    return () => {
+-      cancelled = true;
+-    };
+-  };
+diff --git a/src/features/printer/discovery/PrinterResolver.ts b/src/features/printer/discovery/PrinterResolver.ts
+deleted file mode 100644
+index b2933c2..0000000
+--- a/src/features/printer/discovery/PrinterResolver.ts
++++ /dev/null
+@@ -1,46 +0,0 @@
+-import type { PrinterDevice, UsbRawDevice } from '../models/printer/PrinterDevice';
+-import { ConnectionType } from '../models/printer/ConnectionType';
+-import type { BluetoothPrinterConnection, LanPrinterConnection, PrinterConnection, UsbPrinterConnection } from '../models/printer/PrinterConnection';
+-
+-/**
+- * Dựng `UsbPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan — đọc
+- * `vendorId`/`productId`/`serialNumber` từ `rawDevice` MỘT LẦN ở đây, thay vì
+- * để mọi nơi dùng (`toConnectTarget`, resource key, identity key) tự đọc lại
+- * `rawDevice` (kiểu `Record<string, unknown>` không an toàn).
+- */
+-export const buildUsbConnection = (device: PrinterDevice): UsbPrinterConnection => {
+-  const raw = device.rawDevice as unknown as UsbRawDevice;
+-  const connection: UsbPrinterConnection = { type: ConnectionType.Usb, vendorId: Number(raw.vendorId), productId: Number(raw.productId) };
+-  return raw.serialNumber ? { ...connection, serialNumber: raw.serialNumber } : connection;
+-};
+-
+-/** Dựng `BluetoothPrinterConnection` từ 1 `PrinterDevice` đã chọn lúc scan. */
+-export const buildBluetoothConnection = (device: PrinterDevice): BluetoothPrinterConnection => {
+-  const connection: BluetoothPrinterConnection = { type: ConnectionType.Bluetooth, mac: device.deviceId };
+-  return connection;
+-};
+-
+-/** Dựng `LanPrinterConnection` từ IP/port đã nhập (form Add Printer). */
+-export const buildLanConnection = (host: string, port: number): LanPrinterConnection => ({ type: ConnectionType.Lan, host, port });
+-
+-/**
+- * Chiều ngược lại `buildUsbConnection`/`buildBluetoothConnection` — dựng lại
+- * `PrinterDevice`-shape để seed `selectedDevice` state lúc SỬA 1 printer đã
+- * lưu (connection không đổi trong lúc sửa, chỉ cần feed lại đúng
+- * `vendorId`/`productId`/`serialNumber`/`deviceId` khi `buildDraftPrinter()`
+- * dựng lại connection lúc Save). Không phải dữ liệu scan thật nên
+- * `displayName` để rỗng khi không có `name` (Bluetooth) — không dùng để hiển
+- * thị, chỉ để round-trip lại đúng connection.
+- */
+-export const deviceFromConnection = (connection: PrinterConnection): PrinterDevice | undefined => {
+-  if (connection.type === ConnectionType.Usb) {
+-    const rawDevice: UsbRawDevice = { vendorId: connection.vendorId, productId: connection.productId, serialNumber: connection.serialNumber };
+-    return { deviceId: `${connection.vendorId}:${connection.productId}`, displayName: '', rawDevice: rawDevice as unknown as Record<string, unknown> };
+-  }
+-
+-  if (connection.type === ConnectionType.Bluetooth) {
+-    return { deviceId: connection.mac, displayName: '', rawDevice: {} };
+-  }
+-
+-  return undefined;
+-};
+diff --git a/src/features/printer/discovery/__tests__/DeviceDiscoveryService.test.ts b/src/features/printer/discovery/__tests__/DeviceDiscoveryService.test.ts
+new file mode 100644
+index 0000000..06c5475
+--- /dev/null
++++ b/src/features/printer/discovery/__tests__/DeviceDiscoveryService.test.ts
+@@ -0,0 +1,137 @@
++import { createDeviceDiscoveryService } from '../DeviceDiscoveryService';
++import { ConnectionType } from '../../models/printer/ConnectionType';
++import { DeviceDiscoveryEventType, type DeviceDiscoveryEvent } from '../../models/device/DeviceDiscoveryEvent';
++import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
++import { PrinterErrorCode } from '../../errors/PrinterError';
++import { PrinterLogger } from '../../logging/PrinterLogger';
++import { makeFakeAdapter } from '../../testing/printerServiceTestKit';
++
++jest.mock('../../../../services/LoggerService', () => ({
++  LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
++}));
++
++jest.mock('../../logging/PrinterLogger', () => ({
++  PrinterLogger: { discoveryStarted: jest.fn(), discoveryCompleted: jest.fn(), discoveryFailed: jest.fn() },
++}));
++
++const bluetoothPrinter: DiscoveredDevice = {
++  device: { deviceId: 'bluetooth:AA:BB', name: 'XP-P323B', hasPermission: true },
++  connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB' },
++};
++
++/** Service với một adapter giả và quyền Bluetooth tuỳ chọn. */
++const setup = (bluetoothGranted = true) => {
++  const { adapter } = makeFakeAdapter();
++  const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
++  const service = createDeviceDiscoveryService({ createAdapter: () => adapter, ensureBluetoothPermission });
++
++  return { service, adapter, ensureBluetoothPermission };
++};
++
++/** Quét và chờ tới sự kiện kết thúc đầu tiên. */
++const discoverUntilSettled = (
++  service: ReturnType<typeof setup>['service'],
++  connectionType: ConnectionType,
++): Promise<DeviceDiscoveryEvent[]> =>
++  new Promise((resolve) => {
++    const events: DeviceDiscoveryEvent[] = [];
++    service.discover(connectionType, (event) => {
++      events.push(event);
++
++      if (event.type !== DeviceDiscoveryEventType.Loading) {
++        resolve(events);
++      }
++    });
++  });
++
++describe('DeviceDiscoveryService', () => {
++  afterEach(() => jest.clearAllMocks());
++
++  it('LAN báo rỗng ngay, không gọi adapter', () => {
++    const { service, adapter } = setup();
++    const events: DeviceDiscoveryEvent[] = [];
++
++    service.discover(ConnectionType.Lan, (event) => events.push(event));
++
++    expect(events).toEqual([{ type: DeviceDiscoveryEventType.Empty }]);
++    expect(adapter.listDevices).not.toHaveBeenCalled();
++  });
++
++  it('Bluetooth xin quyền rồi trả nguyên kết quả của adapter', async () => {
++    const { service, adapter, ensureBluetoothPermission } = setup();
++    adapter.listDevices.mockResolvedValueOnce([bluetoothPrinter]);
++
++    const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
++
++    expect(ensureBluetoothPermission).toHaveBeenCalled();
++    expect(adapter.listDevices).toHaveBeenCalledWith(ConnectionType.Bluetooth);
++    expect(events).toEqual([
++      { type: DeviceDiscoveryEventType.Loading },
++      { type: DeviceDiscoveryEventType.Found, devices: [bluetoothPrinter] },
++    ]);
++    expect(PrinterLogger.discoveryCompleted).toHaveBeenCalledWith(
++      expect.objectContaining({ connectionType: ConnectionType.Bluetooth, deviceCount: 1 }),
++    );
++  });
++
++  it('không có quyền Bluetooth thì báo Error và không quét', async () => {
++    const { service, adapter } = setup(false);
++
++    const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
++
++    expect(events[1]).toEqual({
++      type: DeviceDiscoveryEventType.Error,
++      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' },
++    });
++    expect(adapter.listDevices).not.toHaveBeenCalled();
++  });
++
++  it('USB quét thẳng, không xin quyền Bluetooth', async () => {
++    const { service, adapter, ensureBluetoothPermission } = setup();
++
++    const events = await discoverUntilSettled(service, ConnectionType.Usb);
++
++    expect(ensureBluetoothPermission).not.toHaveBeenCalled();
++    expect(adapter.listDevices).toHaveBeenCalledWith(ConnectionType.Usb);
++    expect(events[1]).toEqual({ type: DeviceDiscoveryEventType.Empty });
++  });
++
++  it('native báo "No Device Found" thì coi là rỗng', async () => {
++    const { service, adapter } = setup();
++    adapter.listDevices.mockRejectedValueOnce('No Device Found');
++
++    const events = await discoverUntilSettled(service, ConnectionType.Usb);
++
++    expect(events[1]).toEqual({ type: DeviceDiscoveryEventType.Empty });
++  });
++
++  it('lỗi quét thật thì báo Error và ghi log discoveryFailed', async () => {
++    const { service, adapter } = setup();
++    adapter.listDevices.mockRejectedValueOnce(new Error('bluetooth adapter off'));
++
++    const events = await discoverUntilSettled(service, ConnectionType.Bluetooth);
++
++    expect(events[1]).toEqual({
++      type: DeviceDiscoveryEventType.Error,
++      error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'bluetooth adapter off' },
++    });
++    expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
++      expect.objectContaining({ connectionType: ConnectionType.Bluetooth }),
++    );
++  });
++
++  it('huỷ trước khi quét xong thì không báo thêm sự kiện', async () => {
++    const { service, adapter } = setup();
++    let finish: (devices: DiscoveredDevice[]) => void = () => undefined;
++    adapter.listDevices.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
++    const events: DeviceDiscoveryEvent[] = [];
++
++    const unsubscribe = service.discover(ConnectionType.Usb, (event) => events.push(event));
++    await new Promise((resolve) => setTimeout(resolve, 0));
++    unsubscribe();
++    finish([bluetoothPrinter]);
++    await new Promise((resolve) => setTimeout(resolve, 0));
++
++    expect(events).toEqual([{ type: DeviceDiscoveryEventType.Loading }]);
++  });
++});
+diff --git a/src/features/printer/discovery/__tests__/DeviceScanService.test.ts b/src/features/printer/discovery/__tests__/DeviceScanService.test.ts
+deleted file mode 100644
+index a78cbcb..0000000
+--- a/src/features/printer/discovery/__tests__/DeviceScanService.test.ts
++++ /dev/null
+@@ -1,53 +0,0 @@
+-import { createDeviceScanService } from '../DeviceScanService';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+-import { DiscoveryStage } from '../PrinterDiscoveryService';
+-import { makeMockDriver, basePrinter } from '../../testing/printerServiceTestKit';
+-
+-jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+-
+-describe('DeviceScanService', () => {
+-  it('scanForConnectionType(usb) forwards to the EscPos driver scan', () => {
+-    const escposDriver = makeMockDriver();
+-    const service = createDeviceScanService({ EscPos: escposDriver, Tspl: makeMockDriver() });
+-    const onEvent = jest.fn();
+-    service.scanForConnectionType(ConnectionType.Usb, onEvent);
+-    expect(escposDriver.scan).toHaveBeenCalledWith(ConnectionType.Usb, expect.any(Function));
+-  });
+-
+-  it('scanForConnectionType(bluetooth) forwards to the Tspl driver scan', () => {
+-    const tsplDriver = makeMockDriver();
+-    const service = createDeviceScanService({ EscPos: makeMockDriver(), Tspl: tsplDriver });
+-    const onEvent = jest.fn();
+-    service.scanForConnectionType(ConnectionType.Bluetooth, onEvent);
+-    expect(tsplDriver.scan).toHaveBeenCalledWith(ConnectionType.Bluetooth, expect.any(Function));
+-  });
+-
+-  it('scan events pass through the logging tap to the caller unchanged', () => {
+-    const escposDriver = makeMockDriver();
+-    (escposDriver.scan as jest.Mock).mockImplementation((_ct, onEvent: (e: unknown) => void) => {
+-      onEvent({ type: DeviceScanEventType.Found, devices: [{ deviceId: '11575:33751', displayName: '/dev/bus/usb/001/009', rawDevice: { vendor_id: '11575', product_id: '33751', device_name: '/dev/bus/usb/001/009' } }] });
+-      return () => undefined;
+-    });
+-    const service = createDeviceScanService({ EscPos: escposDriver, Tspl: makeMockDriver() });
+-    const onEvent = jest.fn();
+-    service.scanForConnectionType(ConnectionType.Usb, onEvent);
+-    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({
+-      type: DeviceScanEventType.Found,
+-      devices: [expect.objectContaining({ deviceId: '11575:33751' })],
+-    }));
+-  });
+-
+-  it('discoverDriver() forwards to createDiscoverDriver wired with the registry', async () => {
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+-    const service = createDeviceScanService({ EscPos: makeMockDriver(), Tspl: tsplDriver });
+-    const events: string[] = [];
+-    await new Promise<void>((resolve) => {
+-      service.discoverDriver({ draftPrinter: basePrinter }, (event) => {
+-        events.push(event.stage);
+-        if (event.stage === DiscoveryStage.Identified) resolve();
+-      });
+-    });
+-    expect(events).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
+-  });
+-});
+diff --git a/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts b/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
+deleted file mode 100644
+index a643101..0000000
+--- a/src/features/printer/discovery/__tests__/PrinterDiscoveryService.test.ts
++++ /dev/null
+@@ -1,210 +0,0 @@
+-import { createDiscoverDriver, DiscoveryStage, type DiscoveryEvent } from '../PrinterDiscoveryService';
+-import type { IPrinterDriver } from '../../drivers/IPrinterDriver';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
+-import { PrinterLogger } from '../../logging/PrinterLogger';
+-import { PrinterErrorCode } from '../../errors/PrinterError';
+-import { makePrinter } from '../../testing/printerFixtures';
+-import { makeMockConnectionService, makeMockDriver } from '../../testing/printerServiceTestKit';
+-import { PrintKind } from '../../models/printer/PrintKind';
+-
+-jest.mock('../../logging/PrinterLogger', () => ({
+-  PrinterLogger: {
+-    discoveryStarted: jest.fn(), discoveryCandidateRejected: jest.fn(), discoveryFailed: jest.fn(),
+-    protocolDetected: jest.fn(), protocolUnknown: jest.fn(),
+-  },
+-}));
+-
+-let connectionService = makeMockConnectionService();
+-
+-const collectEvents = (
+-  registry: Record<PrintLanguage, IPrinterDriver>,
+-  input: Parameters<ReturnType<typeof createDiscoverDriver>>[0],
+-): Promise<DiscoveryEvent[]> =>
+-  new Promise((resolve) => {
+-    const events: DiscoveryEvent[] = [];
+-    createDiscoverDriver(registry, connectionService)(input, (event) => {
+-      events.push(event);
+-      if (event.stage === DiscoveryStage.Identified || event.stage === DiscoveryStage.UnknownProtocol || event.stage === DiscoveryStage.Error) resolve(events);
+-    });
+-  });
+-
+-describe('PrinterDiscoveryService', () => {
+-  // Draft `Printer` ĐẦY ĐỦ — `DiscoverPrinterInput.draftPrinter` là 1 Printer thật
+-  // (do caller tự dựng), gồm `type`/`paper`/`driver` placeholder theo shape mới.
+-  const baseDraftPrinter = makePrinter({ name: 'Máy in mới' });
+-  const baseInput = { draftPrinter: baseDraftPrinter };
+-
+-  beforeEach(() => {
+-    connectionService = makeMockConnectionService();
+-  });
+-
+-  afterEach(() => jest.clearAllMocks());
+-
+-  it('emits identified when the first candidate connects and identifies successfully', async () => {
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
+-    const escposDriver = makeMockDriver();
+-    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
+-    expect(events[2].protocol).toBe(PrintLanguage.Tspl);
+-    expect(events[2].language).toEqual({
+-      type: PrintLanguage.Tspl,
+-      selection: LanguageSelection.Auto,
+-      renderMode: RenderMode.Raster,
+-      rasterSource: RasterSource.Image,
+-    });
+-    expect(events[2].deviceInfo).toEqual({ deviceName: 'TSC TE244' });
+-    expect(connectionService.disconnect).not.toHaveBeenCalled();
+-    expect(connectionService.connect).toHaveBeenCalledTimes(1);
+-    expect(escposDriver.identify).not.toHaveBeenCalled();
+-  });
+-
+-  it('excludes EscPos from the candidate list when draftPrinter.type is Label (capability filter)', async () => {
+-    const labelDraftPrinter = makePrinter({ kind: PrintKind.Label });
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
+-    const escposDriver = makeMockDriver();
+-    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, { draftPrinter: labelDraftPrinter });
+-    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying, DiscoveryStage.Identified]);
+-    expect(events[2].protocol).toBe(PrintLanguage.Tspl);
+-    expect(connectionService.connect).toHaveBeenCalledTimes(1);
+-    expect(escposDriver.identify).not.toHaveBeenCalled();
+-    expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith(
+-      expect.objectContaining({ candidates: [PrintLanguage.Tspl] }),
+-    );
+-  });
+-
+-  it('hands the candidate driver the default language config for that language', async () => {
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TSC TE244' }) });
+-    const escposDriver = makeMockDriver();
+-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    const [attemptPrinter] = connectionService.connect.mock.calls[0];
+-    expect(attemptPrinter.language.renderMode).toBe(RenderMode.Raster);
+-  });
+-
+-  it('falls through to the next candidate when the first identify() returns null', async () => {
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({}) });
+-    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    const identified = events.find((e) => e.stage === DiscoveryStage.Identified);
+-    expect(identified?.protocol).toBe(PrintLanguage.EscPos);
+-    expect(identified?.language?.type).toBe(PrintLanguage.EscPos);
+-    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
+-  });
+-
+-  it('emits unknown_protocol when every remaining candidate connects but none identifies', async () => {
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    expect(events[events.length - 1].stage).toBe(DiscoveryStage.UnknownProtocol);
+-  });
+-
+-  it('emits error when every remaining candidate fails to even connect', async () => {
+-    connectionService.connect.mockRejectedValue(new Error('down'));
+-    const escposDriver = makeMockDriver();
+-    const tsplDriver = makeMockDriver();
+-    const events = await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    const last = events[events.length - 1];
+-    expect(last.stage).toBe(DiscoveryStage.Error);
+-    expect(last.error?.code).toBe(PrinterErrorCode.PRINTER_CONNECTION_FAILED);
+-    expect(PrinterLogger.discoveryFailed).toHaveBeenCalledWith(
+-      expect.objectContaining({ printerId: 'p1', connectionType: ConnectionType.Lan, candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos] }),
+-    );
+-  });
+-
+-  // --- Ported from services/__tests__/discoverProtocol.test.ts (pre-existing cases) ---
+-
+-  it('logs discoveryStarted and discoveryCandidateRejected for the full trace of a multi-candidate attempt', async () => {
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'X' }) });
+-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-
+-    expect(PrinterLogger.discoveryStarted).toHaveBeenCalledWith({
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Lan,
+-      candidates: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-    });
+-    expect(PrinterLogger.discoveryCandidateRejected).toHaveBeenCalledWith({
+-      printerId: 'p1',
+-      protocol: PrintLanguage.Tspl,
+-      connectionType: ConnectionType.Lan,
+-      reason: 'not_confirmed',
+-    });
+-  });
+-
+-  it('unsubscribing before completion stops further events from being emitted', async () => {
+-    let resolveConnect: () => void = () => undefined;
+-    connectionService.connect.mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; }));
+-    const tsplDriver = makeMockDriver();
+-    const escposDriver = makeMockDriver();
+-    const events: DiscoveryEvent[] = [];
+-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
+-      events.push(event);
+-    });
+-    unsubscribe();
+-    resolveConnect();
+-    await Promise.resolve();
+-    await Promise.resolve();
+-    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting]);
+-  });
+-
+-  it('disconnects when cancelled right after connect() succeeds (wizard closed mid-connect)', async () => {
+-    let resolveConnect: () => void = () => undefined;
+-    connectionService.connect.mockImplementation(() => new Promise<void>((resolve) => { resolveConnect = resolve; }));
+-    const tsplDriver = makeMockDriver();
+-    const escposDriver = makeMockDriver();
+-    const events: DiscoveryEvent[] = [];
+-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
+-      events.push(event);
+-    });
+-
+-    unsubscribe();
+-    resolveConnect();
+-    await Promise.resolve();
+-    await Promise.resolve();
+-    await Promise.resolve();
+-
+-    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
+-    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting]);
+-  });
+-
+-  it('disconnects when cancelled right after identify() resolves (wizard closed mid-identify)', async () => {
+-    let resolveIdentify: (value: null) => void = () => undefined;
+-    const tsplDriver = makeMockDriver({
+-      identify: jest.fn().mockImplementation(() => new Promise((resolve) => { resolveIdentify = resolve; })),
+-    });
+-    const escposDriver = makeMockDriver();
+-    const events: DiscoveryEvent[] = [];
+-    const unsubscribe = createDiscoverDriver({ EscPos: escposDriver, Tspl: tsplDriver }, connectionService)(baseInput, (event) => {
+-      events.push(event);
+-    });
+-
+-    await Promise.resolve();
+-    await Promise.resolve();
+-    unsubscribe();
+-    resolveIdentify(null);
+-    await Promise.resolve();
+-    await Promise.resolve();
+-    await Promise.resolve();
+-
+-    expect(connectionService.disconnect).toHaveBeenCalledWith('p1');
+-    expect(events.map((e) => e.stage)).toEqual([DiscoveryStage.Connecting, DiscoveryStage.Identifying]);
+-  });
+-
+-  it('logs protocolDetected when identify() succeeds', async () => {
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue({ deviceName: 'TM-T82' }) });
+-    const tsplDriver = makeMockDriver();
+-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    expect(PrinterLogger.protocolDetected).toHaveBeenCalledWith(
+-      expect.objectContaining({ printerId: 'p1', protocol: PrintLanguage.EscPos, connectionType: ConnectionType.Lan }),
+-    );
+-  });
+-
+-  it('logs protocolUnknown when every candidate connects but none identifies', async () => {
+-    const escposDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    const tsplDriver = makeMockDriver({ identify: jest.fn().mockResolvedValue(null) });
+-    await collectEvents({ EscPos: escposDriver, Tspl: tsplDriver }, baseInput);
+-    expect(PrinterLogger.protocolUnknown).toHaveBeenCalledWith(
+-      expect.objectContaining({ printerId: 'p1', connectionType: ConnectionType.Lan }),
+-    );
+-  });
+-});
+diff --git a/src/features/printer/discovery/__tests__/PrinterResolver.test.ts b/src/features/printer/discovery/__tests__/PrinterResolver.test.ts
+deleted file mode 100644
+index b38d190..0000000
+--- a/src/features/printer/discovery/__tests__/PrinterResolver.test.ts
++++ /dev/null
+@@ -1,86 +0,0 @@
+-import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection } from '../PrinterResolver';
+-import { deviceIdOf } from '../../models/printer/deviceIdOf';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import type { PrinterDevice } from '../../models/printer/PrinterDevice';
+-
+-const usbDevice: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: { vendorId: 1155, productId: 22222 } };
+-const btDevice: PrinterDevice = { deviceId: '00:11:22:33:44:55', displayName: 'Máy in BT', rawDevice: {} };
+-
+-describe('deviceIdOf', () => {
+-  it('builds a lan:<host>:<port> key for LAN', () => {
+-    expect(deviceIdOf(buildLanConnection('192.168.1.50', 9100))).toBe('lan:192.168.1.50:9100');
+-  });
+-
+-  it('builds a bluetooth:mac:<deviceId> key for Bluetooth', () => {
+-    expect(deviceIdOf(buildBluetoothConnection(btDevice))).toBe('bluetooth:mac:00:11:22:33:44:55');
+-  });
+-
+-  it('viết hoa MAC trong key Bluetooth để cùng thiết bị luôn ra cùng key', () => {
+-    const lowercaseDevice: PrinterDevice = { deviceId: 'aa:bb:cc:dd:ee:ff', displayName: 'Máy in BT', rawDevice: {} };
+-    expect(deviceIdOf(buildBluetoothConnection(lowercaseDevice))).toBe('bluetooth:mac:AA:BB:CC:DD:EE:FF');
+-  });
+-
+-  it('builds a usb:<vendorId>:<productId> key for USB when no serial is available', () => {
+-    expect(deviceIdOf(buildUsbConnection(usbDevice))).toBe('usb:1155:22222');
+-  });
+-
+-  it('pins the serial into the key when the USB descriptor carries one', () => {
+-    const withSerial: PrinterDevice = { ...usbDevice, rawDevice: { vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' } };
+-    expect(deviceIdOf(buildUsbConnection(withSerial))).toBe('usb:1155:22222:XPR-000123');
+-  });
+-
+-  it('two same-model USB printers with distinct serials get distinct identityKeys', () => {
+-    const a: PrinterDevice = { ...usbDevice, rawDevice: { vendorId: 1155, productId: 22222, serialNumber: 'AAA' } };
+-    const b: PrinterDevice = { ...usbDevice, rawDevice: { vendorId: 1155, productId: 22222, serialNumber: 'BBB' } };
+-    expect(deviceIdOf(buildUsbConnection(a))).not.toBe(deviceIdOf(buildUsbConnection(b)));
+-  });
+-
+-  it('two different physical printers of the same model over USB collide on deviceId — a documented limitation, not a bug', () => {
+-    const cloneA: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: { vendorId: 1155, productId: 22222 } };
+-    const cloneB: PrinterDevice = { deviceId: '1155:22222', displayName: 'XP-420B', rawDevice: { vendorId: 1155, productId: 22222 } };
+-    expect(deviceIdOf(buildUsbConnection(cloneA))).toBe(deviceIdOf(buildUsbConnection(cloneB)));
+-  });
+-});
+-
+-describe('buildUsbConnection', () => {
+-  it('extracts vendorId/productId as numbers, omitting serialNumber when absent', () => {
+-    expect(buildUsbConnection(usbDevice)).toEqual({ type: ConnectionType.Usb, vendorId: 1155, productId: 22222 });
+-  });
+-
+-  it('includes serialNumber when the rawDevice descriptor carries one', () => {
+-    const withSerial: PrinterDevice = { ...usbDevice, rawDevice: { vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' } };
+-    expect(buildUsbConnection(withSerial)).toEqual({ type: ConnectionType.Usb, vendorId: 1155, productId: 22222, serialNumber: 'XPR-000123' });
+-  });
+-});
+-
+-describe('buildBluetoothConnection', () => {
+-  it('dùng MAC của thiết bị đã chọn', () => {
+-    expect(buildBluetoothConnection(btDevice)).toEqual({ type: ConnectionType.Bluetooth, mac: '00:11:22:33:44:55' });
+-  });
+-});
+-
+-describe('buildLanConnection', () => {
+-  it('builds a LanPrinterConnection from host/port', () => {
+-    expect(buildLanConnection('192.168.1.50', 9100)).toEqual({ type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 });
+-  });
+-});
+-
+-describe('deviceFromConnection', () => {
+-  it('round-trips a usb connection back into a PrinterDevice shape usable by buildUsbConnection', () => {
+-    const connection = buildUsbConnection(usbDevice);
+-    const device = deviceFromConnection(connection);
+-    expect(device).toBeDefined();
+-    expect(buildUsbConnection(device!)).toEqual(connection);
+-  });
+-
+-  it('round-trips a bluetooth connection back into a PrinterDevice shape usable by buildBluetoothConnection', () => {
+-    const connection = buildBluetoothConnection(btDevice);
+-    const device = deviceFromConnection(connection);
+-    expect(device).toBeDefined();
+-    expect(buildBluetoothConnection(device!)).toEqual(connection);
+-  });
+-
+-  it('returns undefined for a lan connection — LAN never seeds selectedDevice', () => {
+-    expect(deviceFromConnection(buildLanConnection('192.168.1.50', 9100))).toBeUndefined();
+-  });
+-});
+diff --git a/src/features/printer/drivers/DriverRegistry.ts b/src/features/printer/drivers/DriverRegistry.ts
+deleted file mode 100644
+index fb12086..0000000
+--- a/src/features/printer/drivers/DriverRegistry.ts
++++ /dev/null
+@@ -1,9 +0,0 @@
+-import type { IPrinterDriver } from './IPrinterDriver';
+-import { PrintLanguage } from '../models/printer/PrinterLanguage';
+-import { EscPosDriver } from './escpos/EscPosDriver';
+-import { TsplDriver } from './tspl/TsplDriver';
+-
+-export const DriverRegistry: Record<PrintLanguage, IPrinterDriver> = {
+-  [PrintLanguage.EscPos]: new EscPosDriver(),
+-  [PrintLanguage.Tspl]: new TsplDriver(),
+-};
+diff --git a/src/features/printer/drivers/DriverRegistry.web.ts b/src/features/printer/drivers/DriverRegistry.web.ts
+deleted file mode 100644
+index 1213ea5..0000000
+--- a/src/features/printer/drivers/DriverRegistry.web.ts
++++ /dev/null
+@@ -1,20 +0,0 @@
+-import type { IPrinterDriver, Unsubscribe } from './IPrinterDriver';
+-import { PrintLanguage } from '../models/printer/PrinterLanguage';
+-
+-/** Trình duyệt không quét được thiết bị và không xác nhận được ngôn ngữ nào. */
+-class WebUnsupportedDriver implements IPrinterDriver {
+-  scan(): Unsubscribe {
+-    return () => undefined;
+-  }
+-
+-  async identify(): Promise<null> {
+-    return null;
+-  }
+-}
+-
+-const webUnsupportedDriver = new WebUnsupportedDriver();
+-
+-export const DriverRegistry: Record<PrintLanguage, IPrinterDriver> = {
+-  [PrintLanguage.EscPos]: webUnsupportedDriver,
+-  [PrintLanguage.Tspl]: webUnsupportedDriver,
+-};
+diff --git a/src/features/printer/drivers/IPrinterDriver.ts b/src/features/printer/drivers/IPrinterDriver.ts
+deleted file mode 100644
+index cc10a18..0000000
+--- a/src/features/printer/drivers/IPrinterDriver.ts
++++ /dev/null
+@@ -1,14 +0,0 @@
+-import type { Unsubscribe } from '../adapters/IPrinterAdapter';
+-import type { ConnectionType } from '../models/printer/ConnectionType';
+-import type { DeviceScanEvent, PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+-import type { Printer } from '../models/printer/Printer';
+-
+-export type { Unsubscribe };
+-
+-/** Quét thiết bị và xác nhận ngôn ngữ của một máy in đã kết nối qua `PrinterConnectionService`. */
+-export interface IPrinterDriver {
+-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe;
+-
+-  /** `null` khi không xác nhận được máy in nói ngôn ngữ này. */
+-  identify(printer: Printer): Promise<PrinterDeviceInfo | null>;
+-}
+diff --git a/src/features/printer/drivers/__tests__/DriverRegistry.web.test.ts b/src/features/printer/drivers/__tests__/DriverRegistry.web.test.ts
+deleted file mode 100644
+index 8b70f65..0000000
+--- a/src/features/printer/drivers/__tests__/DriverRegistry.web.test.ts
++++ /dev/null
+@@ -1,23 +0,0 @@
+-import { DriverRegistry } from '../DriverRegistry.web';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+-import { makePrinter } from '../../testing/printerFixtures';
+-
+-describe('DriverRegistry (web)', () => {
+-  it('có đủ hai ngôn ngữ', () => {
+-    expect(DriverRegistry[PrintLanguage.EscPos]).toBeDefined();
+-    expect(DriverRegistry[PrintLanguage.Tspl]).toBeDefined();
+-  });
+-
+-  it('quét không báo thiết bị nào và trả hàm huỷ rỗng', () => {
+-    const onEvent = jest.fn();
+-    const unsubscribe = DriverRegistry[PrintLanguage.EscPos].scan(ConnectionType.Usb, onEvent);
+-
+-    expect(onEvent).not.toHaveBeenCalled();
+-    expect(() => unsubscribe()).not.toThrow();
+-  });
+-
+-  it('không xác nhận ngôn ngữ nào', async () => {
+-    await expect(DriverRegistry[PrintLanguage.Tspl].identify(makePrinter())).resolves.toBeNull();
+-  });
+-});
+diff --git a/src/features/printer/drivers/escpos/EscPosDriver.ts b/src/features/printer/drivers/escpos/EscPosDriver.ts
+deleted file mode 100644
+index 9de04f3..0000000
+--- a/src/features/printer/drivers/escpos/EscPosDriver.ts
++++ /dev/null
+@@ -1,88 +0,0 @@
+-import { Platform } from 'react-native';
+-import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { PrinterStatus } from '../../models/printer/PrinterStatus';
+-import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+-import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+-import type { Printer } from '../../models/printer/Printer';
+-import { PrinterErrorCode } from '../../errors/PrinterError';
+-import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionService';
+-import { PrinterLogger } from '../../logging/PrinterLogger';
+-import { LoggerService } from '../../../../services/LoggerService';
+-import { createPrinterAdapter } from '../../connection/createPrinterAdapter';
+-import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+-
+-/** Quét USB/Bluetooth qua native và xác nhận yếu ESC/POS sau khi kết nối. */
+-export class EscPosDriver implements IPrinterDriver {
+-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+-    if (connectionType === ConnectionType.Lan) {
+-      onEvent({ type: DeviceScanEventType.Empty });
+-      return () => undefined;
+-    }
+-
+-    if (connectionType === ConnectionType.Usb && Platform.OS !== 'android') {
+-      onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'USB chỉ hỗ trợ trên Android' } });
+-      return () => undefined;
+-    }
+-
+-    let cancelled = false;
+-    onEvent({ type: DeviceScanEventType.Loading });
+-    const startedAt = Date.now();
+-
+-    const run = async (): Promise<void> => {
+-      try {
+-        if (connectionType === ConnectionType.Bluetooth) {
+-          const granted = await ensureBluetoothPermission();
+-
+-          if (cancelled) {
+-            return;
+-          }
+-
+-          if (!granted) {
+-            onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
+-            return;
+-          }
+-        }
+-
+-        const devices = await createPrinterAdapter().listDevices(connectionType);
+-
+-        if (cancelled) {
+-          return;
+-        }
+-
+-        LoggerService.debug('EscPosDriver.scan: devices', { connectionType, devices });
+-        onEvent({ type: devices.length > 0 ? DeviceScanEventType.Found : DeviceScanEventType.Empty, devices });
+-        PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
+-      } catch (error) {
+-        if (cancelled) {
+-          return;
+-        }
+-
+-        const message = error instanceof Error ? error.message : String(error);
+-
+-        if (/no device found/i.test(message)) {
+-          onEvent({ type: DeviceScanEventType.Empty });
+-          PrinterLogger.scanCompleted({ connectionType, deviceCount: 0, durationMs: Date.now() - startedAt });
+-          return;
+-        }
+-
+-        onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message } });
+-        PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
+-      }
+-    };
+-
+-    run();
+-    return () => {
+-      cancelled = true;
+-    };
+-  }
+-
+-  /** ESC/POS không có phản hồi định danh: Bluetooth/LAN kết nối được coi như xác nhận yếu, USB thì không. */
+-  async identify(printer: Printer): Promise<PrinterDeviceInfo | null> {
+-    if (printer.connection.type === ConnectionType.Usb) {
+-      return null;
+-    }
+-
+-    return PrinterConnectionService.getStatus(printer.id) === PrinterStatus.Connected ? {} : null;
+-  }
+-}
+diff --git a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts b/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+deleted file mode 100644
+index 1f789ff..0000000
+--- a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
++++ /dev/null
+@@ -1,122 +0,0 @@
+-import { EscPosDriver } from '../EscPosDriver';
+-import { PrinterConnectionService } from '../../../connection/PrinterConnectionService';
+-import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+-import { ConnectionType } from '../../../models/printer/ConnectionType';
+-import type { Printer } from '../../../models/printer/Printer';
+-import { makePrinter } from '../../../testing/printerFixtures';
+-import { PrinterErrorCode } from '../../../errors/PrinterError';
+-
+-jest.mock('../../../../../services/LoggerService', () => ({
+-  LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
+-}));
+-jest.mock('../../../permissions/PrinterPermissionService', () => ({
+-  ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
+-}));
+-jest.mock('../../../logging/PrinterLogger', () => ({
+-  PrinterLogger: new Proxy(
+-    {},
+-    { get: (target: Record<string, jest.Mock>, key: string) => (target[key] ??= jest.fn()) },
+-  ),
+-}));
+-
+-const deviceModule = () =>
+-  (jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { discover: jest.Mock } }).DeviceModule;
+-
+-const printerLogger = () =>
+-  (jest.requireMock('../../../logging/PrinterLogger') as { PrinterLogger: Record<string, jest.Mock> }).PrinterLogger;
+-
+-const lanPrinter: Printer = makePrinter({
+-  id: 'receipt-lan',
+-  deviceId: 'lan:192.168.1.50:9100',
+-  connection: { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 },
+-});
+-
+-const usbPrinter: Printer = {
+-  ...lanPrinter,
+-  id: 'receipt-usb',
+-  connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
+-};
+-
+-/** Quét Bluetooth và chờ tới sự kiện kết thúc đầu tiên. */
+-const scanBluetooth = (driver: EscPosDriver): Promise<string[]> =>
+-  new Promise((resolve) => {
+-    const events: string[] = [];
+-    driver.scan(ConnectionType.Bluetooth, (event) => {
+-      events.push(event.type);
+-
+-      if (event.type !== DeviceScanEventType.Loading) {
+-        resolve(events);
+-      }
+-    });
+-  });
+-
+-describe('EscPosDriver', () => {
+-  afterEach(() => jest.clearAllMocks());
+-
+-  it('quét LAN báo rỗng ngay, không gọi native', () => {
+-    const events: string[] = [];
+-    new EscPosDriver().scan(ConnectionType.Lan, (event) => events.push(event.type));
+-
+-    expect(events).toEqual([DeviceScanEventType.Empty]);
+-    expect(deviceModule().discover).not.toHaveBeenCalled();
+-  });
+-
+-  it('quét Bluetooth xin quyền rồi gọi native discover', async () => {
+-    await expect(scanBluetooth(new EscPosDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Empty,
+-    ]);
+-    expect(deviceModule().discover).toHaveBeenCalledWith('bluetooth');
+-    expect(printerLogger().scanCompleted).toHaveBeenCalledWith(
+-      expect.objectContaining({ connectionType: ConnectionType.Bluetooth, deviceCount: 0 }),
+-    );
+-  });
+-
+-  it('kiểm tra quyền Bluetooth lỗi thì báo Error', async () => {
+-    const { ensureBluetoothPermission } = jest.requireMock('../../../permissions/PrinterPermissionService') as {
+-      ensureBluetoothPermission: jest.Mock;
+-    };
+-    ensureBluetoothPermission.mockRejectedValueOnce(new Error('permission check failed'));
+-
+-    await expect(scanBluetooth(new EscPosDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Error,
+-    ]);
+-  });
+-
+-  it('native báo "No Device Found" thì coi là rỗng', async () => {
+-    deviceModule().discover.mockRejectedValueOnce('No Device Found');
+-
+-    await expect(scanBluetooth(new EscPosDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Empty,
+-    ]);
+-  });
+-
+-  it('lỗi quét thật thì báo Error và ghi log scanFailed', async () => {
+-    deviceModule().discover.mockRejectedValueOnce(new Error('bluetooth adapter off'));
+-
+-    await expect(scanBluetooth(new EscPosDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Error,
+-    ]);
+-    expect(printerLogger().scanFailed).toHaveBeenCalledWith(
+-      expect.objectContaining({ errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED }),
+-    );
+-  });
+-
+-  it('xác nhận yếu: LAN đã kết nối thì xác nhận, chưa kết nối thì không', async () => {
+-    const driver = new EscPosDriver();
+-
+-    await expect(driver.identify(lanPrinter)).resolves.toBeNull();
+-
+-    await PrinterConnectionService.connect(lanPrinter);
+-    await expect(driver.identify(lanPrinter)).resolves.toEqual({});
+-  });
+-
+-  it('USB không bao giờ tự xác nhận ESC/POS', async () => {
+-    await PrinterConnectionService.connect(usbPrinter);
+-
+-    await expect(new EscPosDriver().identify(usbPrinter)).resolves.toBeNull();
+-  });
+-});
+diff --git a/src/features/printer/drivers/tspl/TsplDriver.ts b/src/features/printer/drivers/tspl/TsplDriver.ts
+deleted file mode 100644
+index cb05c09..0000000
+--- a/src/features/printer/drivers/tspl/TsplDriver.ts
++++ /dev/null
+@@ -1,96 +0,0 @@
+-import RNBluetoothClassic from 'react-native-bluetooth-classic';
+-import type { IPrinterDriver, Unsubscribe } from '../IPrinterDriver';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { DeviceScanEventType } from '../../models/printer/PrinterDevice';
+-import type { DeviceScanEvent, PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+-import type { Printer } from '../../models/printer/Printer';
+-import { TsplLanguage } from '../../languages/tspl/TsplLanguage';
+-import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+-import { PrinterErrorCode } from '../../errors/PrinterError';
+-import { ensureBluetoothPermission } from '../../permissions/PrinterPermissionService';
+-import { PrinterLogger } from '../../logging/PrinterLogger';
+-
+-/** Máy TSPL trả lời lệnh dò trong vài trăm mili giây; quá hạn coi như không phải TSPL. */
+-const IDENTIFY_TIMEOUT_MS = 1000;
+-
+-/** Quét Bluetooth bằng thư viện và xác nhận TSPL bằng lệnh dò sau khi kết nối. */
+-export class TsplDriver implements IPrinterDriver {
+-  scan(connectionType: ConnectionType, onEvent: (event: DeviceScanEvent) => void): Unsubscribe {
+-    if (connectionType === ConnectionType.Lan) {
+-      onEvent({ type: DeviceScanEventType.Empty });
+-      return () => undefined;
+-    }
+-
+-    if (connectionType === ConnectionType.Usb) {
+-      onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION, message: 'TsplDriver không tự quét USB' } });
+-      return () => undefined;
+-    }
+-
+-    onEvent({ type: DeviceScanEventType.Loading });
+-    let cancelled = false;
+-    const startedAt = Date.now();
+-
+-    ensureBluetoothPermission()
+-      .then((granted) => {
+-        if (cancelled) {
+-          return;
+-        }
+-
+-        if (!granted) {
+-          onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: 'Chưa được cấp quyền Bluetooth' } });
+-          return;
+-        }
+-
+-        RNBluetoothClassic.startDiscovery()
+-          .then((devices) => {
+-            if (cancelled) {
+-              return;
+-            }
+-
+-            onEvent({
+-              type: devices.length > 0 ? DeviceScanEventType.Found : DeviceScanEventType.Empty,
+-              devices: devices.map((d) => ({ deviceId: d.address, displayName: d.name ?? d.address, rawDevice: d as unknown as Record<string, unknown> })),
+-            });
+-            PrinterLogger.scanCompleted({ connectionType, deviceCount: devices.length, durationMs: Date.now() - startedAt });
+-          })
+-          .catch((error: unknown) => {
+-            if (cancelled) {
+-              return;
+-            }
+-
+-            onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
+-            PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
+-          });
+-      })
+-      .catch((error: unknown) => {
+-        if (cancelled) {
+-          return;
+-        }
+-
+-        onEvent({ type: DeviceScanEventType.Error, error: { code: PrinterErrorCode.PRINTER_CONNECTION_FAILED, message: String(error) } });
+-        PrinterLogger.scanFailed({ connectionType, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: Date.now() - startedAt });
+-      });
+-
+-    return () => {
+-      cancelled = true;
+-      RNBluetoothClassic.cancelDiscovery().catch(() => undefined);
+-    };
+-  }
+-
+-  /** Chưa kết nối hoặc máy không trả lời lệnh dò thì không xác nhận. */
+-  async identify(printer: Printer): Promise<PrinterDeviceInfo | null> {
+-    const probe = TsplLanguage.identifyProbe;
+-
+-    if (!probe) {
+-      return null;
+-    }
+-
+-    try {
+-      await PrinterConnectionService.send(printer.id, probe.command);
+-      const response = await PrinterConnectionService.read(printer.id, IDENTIFY_TIMEOUT_MS);
+-      return response && probe.matches(response) ? {} : null;
+-    } catch {
+-      return null;
+-    }
+-  }
+-}
+diff --git a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts b/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+deleted file mode 100644
+index 7990eac..0000000
+--- a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
++++ /dev/null
+@@ -1,102 +0,0 @@
+-import { TsplDriver } from '../TsplDriver';
+-import { PrinterConnectionService } from '../../../connection/PrinterConnectionService';
+-import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+-import { ConnectionType } from '../../../models/printer/ConnectionType';
+-import { PrintKind } from '../../../models/printer/PrintKind';
+-import type { Printer } from '../../../models/printer/Printer';
+-import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
+-
+-jest.mock('../../../permissions/PrinterPermissionService', () => ({
+-  ensureBluetoothPermission: jest.fn().mockResolvedValue(true),
+-}));
+-jest.mock('../../../logging/PrinterLogger', () => ({
+-  PrinterLogger: new Proxy(
+-    {},
+-    { get: (target: Record<string, jest.Mock>, key: string) => (target[key] ??= jest.fn()) },
+-  ),
+-}));
+-
+-const deviceModule = () =>
+-  (jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock; read: jest.Mock } })
+-    .DeviceModule;
+-
+-const permissionMock = () =>
+-  jest.requireMock('../../../permissions/PrinterPermissionService') as { ensureBluetoothPermission: jest.Mock };
+-
+-const bluetoothClassicMock = () =>
+-  jest.requireMock('react-native-bluetooth-classic') as { default: { startDiscovery: jest.Mock } };
+-
+-const labelPrinter: Printer = makePrinter({
+-  id: 'label-1',
+-  deviceId: 'lan:192.168.1.60:9100',
+-  kind: PrintKind.Label,
+-  language: makeTsplLanguage(),
+-  connection: { type: ConnectionType.Lan, host: '192.168.1.60', port: 9100 },
+-});
+-
+-/** Quét Bluetooth và chờ tới sự kiện kết thúc đầu tiên. */
+-const scanBluetooth = (driver: TsplDriver): Promise<string[]> =>
+-  new Promise((resolve) => {
+-    const events: string[] = [];
+-    driver.scan(ConnectionType.Bluetooth, (event) => {
+-      events.push(event.type);
+-
+-      if (event.type !== DeviceScanEventType.Loading) {
+-        resolve(events);
+-      }
+-    });
+-  });
+-
+-describe('TsplDriver', () => {
+-  afterEach(() => jest.clearAllMocks());
+-
+-  it('quét LAN báo rỗng ngay', () => {
+-    const events: string[] = [];
+-    new TsplDriver().scan(ConnectionType.Lan, (event) => events.push(event.type));
+-
+-    expect(events).toEqual([DeviceScanEventType.Empty]);
+-  });
+-
+-  it('không tự quét USB', () => {
+-    const events: string[] = [];
+-    new TsplDriver().scan(ConnectionType.Usb, (event) => events.push(event.type));
+-
+-    expect(events).toEqual([DeviceScanEventType.Error]);
+-  });
+-
+-  it('quét Bluetooth xin quyền trước', async () => {
+-    await expect(scanBluetooth(new TsplDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Empty,
+-    ]);
+-    expect(permissionMock().ensureBluetoothPermission).toHaveBeenCalled();
+-  });
+-
+-  it('không có quyền Bluetooth thì báo Error và không quét', async () => {
+-    permissionMock().ensureBluetoothPermission.mockResolvedValueOnce(false);
+-
+-    await expect(scanBluetooth(new TsplDriver())).resolves.toEqual([
+-      DeviceScanEventType.Loading,
+-      DeviceScanEventType.Error,
+-    ]);
+-    expect(bluetoothClassicMock().default.startDiscovery).not.toHaveBeenCalled();
+-  });
+-
+-  it('chưa kết nối thì không xác nhận', async () => {
+-    await expect(new TsplDriver().identify({ ...labelPrinter, id: 'never-connected' })).resolves.toBeNull();
+-  });
+-
+-  it('gửi lệnh dò ~!T; máy không trả lời thì không xác nhận', async () => {
+-    await PrinterConnectionService.connect(labelPrinter);
+-
+-    await expect(new TsplDriver().identify(labelPrinter)).resolves.toBeNull();
+-    expect(deviceModule().write).toHaveBeenCalledWith('mock-connection', 'fiFUDQo=', expect.any(Number));
+-  });
+-
+-  it('máy trả lời lệnh dò thì xác nhận TSPL', async () => {
+-    await PrinterConnectionService.connect(labelPrinter);
+-    deviceModule().read.mockResolvedValueOnce('VFNDIFRFMjQ0');
+-
+-    await expect(new TsplDriver().identify(labelPrinter)).resolves.toEqual({});
+-  });
+-});
+diff --git a/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx b/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
+index 373a025..e201ac0 100644
+--- a/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
++++ b/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
+@@ -5,14 +5,14 @@ import { PrinterRepository } from '../../storage/PrinterRepository';
+ import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+ import { PrinterPrintService } from '../../printing/PrinterPrintService';
+ import { PrinterConfigService } from '../../management/PrinterConfigService';
+-import { DeviceScanService } from '../../discovery/DeviceScanService';
+-import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
++import { LanguageDetectionService, LanguageDetectionStage } from '../../detection/LanguageDetectionService';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
+ import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import { PrinterStatus } from '../../models/printer/PrinterStatus';
+ import type { Printer } from '../../models/printer/Printer';
++import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+ 
+ // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
+ // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
+@@ -50,9 +50,10 @@ jest.mock('../../management/PrinterConfigService', () => ({
+   },
+ }));
+ 
+-jest.mock('../../discovery/DeviceScanService', () => ({
+-  DeviceScanService: {
+-    discoverDriver: jest.fn(() => () => undefined),
++jest.mock('../../detection/LanguageDetectionService', () => ({
++  ...jest.requireActual('../../detection/LanguageDetectionService'),
++  LanguageDetectionService: {
++    detect: jest.fn(() => () => undefined),
+   },
+ }));
+ 
+@@ -100,6 +101,12 @@ const savedEscpos: Printer = {
+ 
+ let capturedDiscoveryHandler: ((event: unknown) => void) | undefined;
+ 
++/** Máy USB vừa quét, chưa có quyền nên chưa có serial. */
++const usbDevice: DiscoveredDevice = {
++  device: { deviceId: 'usb:/dev/bus/usb/001/009', name: 'XP-420B', hasPermission: true },
++  connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751 },
++};
++
+ type FlowProps = Parameters<typeof useAddPrinterFlow>[0];
+ 
+ const render = (props: FlowProps) => {
+@@ -125,7 +132,7 @@ describe('useAddPrinterFlow', () => {
+     mockCaptureBillImage.mockClear();
+     (PrinterRepository.getPrinters as jest.Mock).mockReturnValue([]);
+     (PrinterConnectionService.getStatus as jest.Mock).mockReturnValue(PrinterStatus.Idle);
+-    (DeviceScanService.discoverDriver as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
++    (LanguageDetectionService.detect as jest.Mock).mockImplementation((_input: unknown, handler: (e: unknown) => void) => {
+       capturedDiscoveryHandler = handler;
+       return () => undefined;
+     });
+@@ -153,7 +160,7 @@ describe('useAddPrinterFlow', () => {
+     act(() => get().connectionSection.onConnectPress());
+     const detectedDriver = { type: PrintLanguage.Tspl, selection: LanguageSelection.Auto, renderMode: RenderMode.Raster };
+     act(() =>
+-      capturedDiscoveryHandler?.({ stage: DiscoveryStage.Identified, protocol: PrintLanguage.Tspl, language: detectedDriver }),
++      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: detectedDriver }),
+     );
+ 
+     expect(get().statusPanel.connectionState).toBe('connected');
+@@ -174,7 +181,7 @@ describe('useAddPrinterFlow', () => {
+   it('unknown_protocol → chọn tay protocol connect draft và gán language "manual"', async () => {
+     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+     act(() => get().connectionSection.onConnectPress());
+-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
++    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
+     expect(get().statusPanel.protocolState).toBe('unknown');
+ 
+     await act(async () => {
+@@ -224,8 +231,7 @@ describe('useAddPrinterFlow', () => {
+     act(() => get().connectionSection.onConnectPress());
+     act(() =>
+       capturedDiscoveryHandler?.({
+-        stage: DiscoveryStage.Identified,
+-        protocol: PrintLanguage.Tspl,
++        stage: LanguageDetectionStage.Detected,
+         language: {
+     type: PrintLanguage.Tspl,
+     selection: LanguageSelection.Auto,
+@@ -272,7 +278,7 @@ describe('useAddPrinterFlow', () => {
+   it('discovery "error" stage hiển thị lỗi và không có language', () => {
+     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+     act(() => get().connectionSection.onConnectPress());
+-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
++    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Error, error: { code: 'X', message: 'mất kết nối' } }));
+     expect(get().statusPanel.connectionState).toBe('error');
+     expect(get().statusPanel.errorMessage).toBe('mất kết nối');
+     expect(get().infoCard.language).toBeUndefined();
+@@ -280,23 +286,58 @@ describe('useAddPrinterFlow', () => {
+ 
+   it('điền sẵn tên hiển thị bằng tên thiết bị sau khi kết nối (ô còn để user sửa)', async () => {
+     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+-    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
++    act(() => get().connectionSection.onSelectDevice(usbDevice));
+     act(() => get().connectionSection.onConnectPress());
+-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
++    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
+     await act(async () => {
+       get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
+     });
+     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
+   });
+ 
++  it('USB: sau khi kết nối đọc lại serial theo mã quét của native để lưu đúng máy', async () => {
++    const { DeviceModule } = jest.requireMock('../../adapters/native/DeviceModule') as {
++      DeviceModule: { discover: jest.Mock };
++    };
++    DeviceModule.discover.mockResolvedValueOnce([
++      {
++        type: 'usb',
++        deviceId: 'usb:/dev/bus/usb/001/009',
++        name: 'XP-420B',
++        address: { type: 'usb', vendorId: 11575, productId: 33751, serialNumber: 'SN1', devicePath: '/dev/bus/usb/001/009' },
++        manufacturerName: null,
++        productName: null,
++        hasPermission: true,
++      },
++    ]);
++    const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
++    act(() => get().connectionSection.onSelectDevice(usbDevice));
++    act(() => get().connectionSection.onConnectPress());
++    await act(async () => {
++      capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Detected, language: savedTspl.language });
++      await new Promise((resolve) => setTimeout(resolve, 0));
++    });
++
++    await act(async () => {
++      await get().infoCard.onSave();
++    });
++
++    expect(PrinterRepository.addPrinter).toHaveBeenCalledWith(
++      expect.objectContaining({
++        connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
++        deviceId: 'usb:11575:33751:SN1',
++      }),
++    );
++  });
++
+   it('KHÔNG ghi đè tên hiển thị nếu user đã gõ', async () => {
+     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
+-    act(() => get().connectionSection.onSelectDevice({ deviceId: '11575:33751', displayName: 'XP-420B', rawDevice: { vendor_id: 11575, product_id: 33751 } }));
++    act(() => get().connectionSection.onSelectDevice(usbDevice));
+     act(() => {
+       (get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name = 'Máy quầy 1';
+     });
+     act(() => get().connectionSection.onConnectPress());
+-    act(() => capturedDiscoveryHandler?.({ stage: DiscoveryStage.UnknownProtocol }));
++    act(() => capturedDiscoveryHandler?.({ stage: LanguageDetectionStage.Unknown }));
+     await act(async () => {
+       get().statusPanel.onChooseProtocol(PrintLanguage.EscPos);
+     });
+diff --git a/src/features/printer/hooks/addPrinter/useConnectionSetup.ts b/src/features/printer/hooks/addPrinter/useConnectionSetup.ts
+index 6c418b0..4507794 100644
+--- a/src/features/printer/hooks/addPrinter/useConnectionSetup.ts
++++ b/src/features/printer/hooks/addPrinter/useConnectionSetup.ts
+@@ -3,19 +3,18 @@ import { useForm } from 'react-hook-form';
+ import { zodResolver } from '@hookform/resolvers/zod';
+ import { PrinterRepository } from '../../storage/PrinterRepository';
+ import { getCurrentWifiIp } from '../../discovery/NetworkInfoService';
+-import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection } from '../../discovery/PrinterResolver';
+ import { deviceIdOf } from '../../models/printer/deviceIdOf';
+-import { DeviceModule } from '../../adapters/native/DeviceModule';
++import { createPrinterAdapter } from '../../connection/createPrinterAdapter';
+ import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
+ import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import type { Printer } from '../../models/printer/Printer';
+-import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
++import type { DiscoveredDevice } from '../../models/device/DiscoveredDevice';
+ import type { PrintKind } from '../../models/printer/PrintKind';
+ 
+ /**
+  * Input cho {@link useConnectionSetup}. `getConnectionState`/`getProtocolState`
+- * đọc state của {@link useProtocolDiscovery} tại thời điểm handler chạy (không
++ * đọc state của {@link useLanguageDetection} tại thời điểm handler chạy (không
+  * phải render) — coordinator cung cấp qua ref bridge để phá vòng phụ thuộc.
+  */
+ export interface UseConnectionSetupInput {
+@@ -30,6 +29,24 @@ export interface UseConnectionSetupInput {
+   resetConnectionResult: () => void;
+ }
+ 
++/** Máy đang sửa chưa quét lại: dựng từ kết nối đã lưu để Lưu giữ nguyên kết nối. */
++const savedDeviceOf = (printer: Printer): DiscoveredDevice | undefined => {
++  if (printer.connection.type === ConnectionType.Lan) {
++    return undefined;
++  }
++
++  return {
++    device: {
++      deviceId: printer.deviceId,
++      name: '',
++      manufacturer: printer.vendor,
++      model: printer.model,
++      hasPermission: true,
++    },
++    connection: printer.connection,
++  };
++};
++
+ /**
+  * State + hàm cho phần "cách kết nối" (USB/BLE/LAN) của luồng Thêm/Sửa máy in:
+  * chọn thiết bị, nhập IP/port LAN, tự lấy IP WiFi, tính deviceId và cảnh báo
+@@ -45,8 +62,8 @@ export const useConnectionSetup = ({
+   resetConnectionResult,
+ }: UseConnectionSetupInput) => {
+   const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.Usb);
+-  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(
+-    initialValues ? deviceFromConnection(initialValues.connection) : undefined,
++  const [selectedDevice, setSelectedDevice] = useState<DiscoveredDevice | undefined>(
++    initialValues ? savedDeviceOf(initialValues) : undefined,
+   );
+   const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
+   const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
+@@ -62,29 +79,20 @@ export const useConnectionSetup = ({
+ 
+   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
+ 
+-  /** Không cần biết protocol — xem `deviceIdOf`. */
++  /** `null` khi chưa đủ thông tin kết nối (chưa chọn thiết bị, địa chỉ LAN chưa hợp lệ). */
+   const currentIdentityKey = (): string | null => {
+-    try {
+-      if (connectionType === ConnectionType.Lan) {
+-        const values = lanForm.getValues();
+-
+-        if (!lanConnectionSchema.safeParse(values).success) {
+-          return null;
+-        }
+-
+-        const { ip, port } = buildLan(values);
+-        return deviceIdOf(buildLanConnection(ip, port));
+-      }
++    if (connectionType !== ConnectionType.Lan) {
++      return selectedDevice ? deviceIdOf(selectedDevice.connection) : null;
++    }
+ 
+-      if (!selectedDevice) {
+-        return null;
+-      }
++    const values = lanForm.getValues();
+ 
+-      const connection = connectionType === ConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
+-      return deviceIdOf(connection);
+-    } catch {
++    if (!lanConnectionSchema.safeParse(values).success) {
+       return null;
+     }
++
++    const { ip, port } = buildLan(values);
++    return deviceIdOf({ type: ConnectionType.Lan, host: ip, port });
+   };
+ 
+   useEffect(() => {
+@@ -101,30 +109,23 @@ export const useConnectionSetup = ({
+   }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
+ 
+   /**
+-   * Serial USB chỉ đọc được sau khi người dùng cấp quyền (bấm "Kết nối") — lúc quét trả `null`. Quét lại sau khi
+-   * kết nối thành công và khớp đúng máy theo đường dẫn thiết bị để deviceId có serial
+-   * (`usb:<vid>:<pid>:<serial>`); khớp theo vendorId/productId sẽ lấy nhầm khi có 2 máy cùng model.
++   * Serial USB chỉ đọc được sau khi người dùng cấp quyền (bấm "Kết nối") — lúc quét chưa có. Quét lại sau khi kết
++   * nối và khớp đúng máy theo mã quét của native để deviceId có serial; khớp theo vendorId/productId sẽ lấy nhầm khi
++   * có 2 máy cùng model.
+    */
+   const refreshUsbSerial = async (): Promise<void> => {
+-    if (connectionType !== ConnectionType.Usb || !selectedDevice) {
+-      return;
+-    }
++    const selected = selectedDevice;
+ 
+-    const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
+-
+-    if (raw.serialNumber || !raw.devicePath) {
++    if (selected?.connection.type !== ConnectionType.Usb || selected.connection.serialNumber) {
+       return;
+     }
+ 
+-    const devices = await DeviceModule.discover('usb').catch(() => []);
+-    const match = devices.find((device) => device.type === 'usb' && device.address.devicePath === raw.devicePath);
+-    const serialNumber = match?.type === 'usb' ? match.address.serialNumber : null;
++    const devices = await createPrinterAdapter().listDevices(ConnectionType.Usb).catch(() => []);
++    const match = devices.find((candidate) => candidate.device.deviceId === selected.device.deviceId);
+ 
+-    if (!serialNumber) {
+-      return;
++    if (match?.connection.type === ConnectionType.Usb && match.connection.serialNumber) {
++      setSelectedDevice(match);
+     }
+-
+-    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber } } : prev));
+   };
+ 
+   const resetIfDirty = (): void => {
+@@ -143,7 +144,7 @@ export const useConnectionSetup = ({
+     resetIfDirty();
+   };
+ 
+-  const onSelectDevice = (device: PrinterDevice): void => {
++  const onSelectDevice = (device: DiscoveredDevice): void => {
+     if (hasDriver) {
+       return;
+     }
+diff --git a/src/features/printer/hooks/addPrinter/useLanguageDetection.ts b/src/features/printer/hooks/addPrinter/useLanguageDetection.ts
+new file mode 100644
+index 0000000..083795c
+--- /dev/null
++++ b/src/features/printer/hooks/addPrinter/useLanguageDetection.ts
+@@ -0,0 +1,143 @@
++import { useState, type MutableRefObject } from 'react';
++import type { UseFormReturn } from 'react-hook-form';
++import {
++  LanguageDetectionService,
++  LanguageDetectionStage,
++  type LanguageDetectionEvent,
++} from '../../detection/LanguageDetectionService';
++import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
++import { createPrinterLanguage } from '../../management/createPrinterDraft';
++import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
++import { ConnectionType } from '../../models/printer/ConnectionType';
++import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
++import type { Printer } from '../../models/printer/Printer';
++import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
++
++/**
++ * Input cho {@link useLanguageDetection}. `buildDraftPrinter`/`setLanguage`/`refreshUsbSerial`/`prefillDisplayName`
++ * do coordinator / {@link useConnectionSetup} sở hữu — hook này chỉ điều phối trạng thái kết nối và dò ngôn ngữ.
++ */
++export interface UseLanguageDetectionInput {
++  initialValues?: Printer;
++
++  connectionType: ConnectionType;
++
++  lanForm: UseFormReturn<LanConnectionValues>;
++
++  /** Huỷ lần dò đang chạy; coordinator gọi khi đóng modal. */
++  detectionUnsubscribeRef: MutableRefObject<(() => void) | null>;
++
++  buildDraftPrinter: () => Printer;
++
++  setLanguage: (language: PrinterLanguage) => void;
++
++  refreshUsbSerial: () => Promise<void>;
++
++  prefillDisplayName: () => void;
++}
++
++/**
++ * Trạng thái kết nối + dò ngôn ngữ của luồng Thêm/Sửa máy in: bấm "Kết nối" → `LanguageDetectionService.detect`,
++ * và nhánh chọn ngôn ngữ thủ công qua `PrinterConnectionService.connect`.
++ */
++export const useLanguageDetection = ({
++  initialValues,
++  connectionType,
++  lanForm,
++  detectionUnsubscribeRef,
++  buildDraftPrinter,
++  setLanguage,
++  refreshUsbSerial,
++  prefillDisplayName,
++}: UseLanguageDetectionInput) => {
++  const [connectionDirty, setConnectionDirty] = useState(!initialValues);
++  const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
++  const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
++  const [lastProtocol, setLastProtocol] = useState<PrintLanguage | undefined>(initialValues?.language.type);
++  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
++
++  const resetDetectionFields = (nextConnectionState: ConnectionState): void => {
++    setConnectionState(nextConnectionState);
++    setProtocolState('idle');
++    setConnectionErrorMessage(undefined);
++    setConnectionDirty(true);
++  };
++
++  const resetConnectionResult = (): void => {
++    detectionUnsubscribeRef.current?.();
++    detectionUnsubscribeRef.current = null;
++    resetDetectionFields('idle');
++  };
++
++  /** Đã kết nối và biết ngôn ngữ (tự dò hoặc người dùng chọn). */
++  const applyLanguage = (language: PrinterLanguage): void => {
++    setConnectionState('connected');
++    setProtocolState('identified');
++    setLastProtocol(language.type);
++    setConnectionDirty(false);
++    setLanguage(language);
++    refreshUsbSerial();
++    prefillDisplayName();
++  };
++
++  const onDetectionEvent = (event: LanguageDetectionEvent): void => {
++    switch (event.stage) {
++      case LanguageDetectionStage.Identifying:
++        setProtocolState('detecting');
++        break;
++      case LanguageDetectionStage.Detected:
++        applyLanguage(event.language);
++        break;
++      case LanguageDetectionStage.Unknown:
++        setConnectionState('idle');
++        setProtocolState('unknown');
++        break;
++      case LanguageDetectionStage.Error:
++        setConnectionState('error');
++        setProtocolState('idle');
++        setConnectionErrorMessage(event.error.message);
++        break;
++      default:
++        break;
++    }
++  };
++
++  const startDetection = (): void => {
++    resetDetectionFields('connecting');
++    const draftPrinter = buildDraftPrinter();
++    detectionUnsubscribeRef.current = LanguageDetectionService.detect({ draftPrinter }, onDetectionEvent);
++  };
++
++  const onConnectPress = (): void => {
++    if (connectionType === ConnectionType.Lan) {
++      lanForm.handleSubmit(() => startDetection())();
++    } else {
++      startDetection();
++    }
++  };
++
++  const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
++    setConnectionState('connecting');
++    setProtocolState('detecting');
++    const language = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
++
++    PrinterConnectionService.connect({ ...buildDraftPrinter(), language })
++      .then(() => applyLanguage(language))
++      .catch((error: { message: string }) => {
++        setConnectionState('error');
++        setProtocolState('idle');
++        setConnectionErrorMessage(error.message);
++      });
++  };
++
++  return {
++    connectionState,
++    protocolState,
++    lastProtocol,
++    connectionErrorMessage,
++    connectionDirty,
++    resetConnectionResult,
++    onConnectPress,
++    onChooseProtocol,
++  };
++};
+diff --git a/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts b/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
+deleted file mode 100644
+index 579e6b9..0000000
+--- a/src/features/printer/hooks/addPrinter/useProtocolDiscovery.ts
++++ /dev/null
+@@ -1,147 +0,0 @@
+-import { useState, type MutableRefObject } from 'react';
+-import type { UseFormReturn } from 'react-hook-form';
+-import { DeviceScanService } from '../../discovery/DeviceScanService';
+-import { PrinterConnectionService } from '../../connection/PrinterConnectionService';
+-import { createPrinterLanguage } from '../../management/createPrinterDraft';
+-import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
+-import { DiscoveryStage, type DiscoveryEvent } from '../../discovery/PrinterDiscoveryService';
+-import { ConnectionType } from '../../models/printer/ConnectionType';
+-import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
+-import type { Printer } from '../../models/printer/Printer';
+-import type { PrinterDeviceInfo } from '../../models/printer/PrinterDevice';
+-import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
+-
+-/**
+- * Input cho {@link useProtocolDiscovery}. `buildDraftPrinter`/`setLanguage`/
+- * `refreshUsbSerial`/`prefillDisplayName` do coordinator / {@link useConnectionSetup}
+- * sở hữu — hook này chỉ điều phối state machine dò protocol.
+- */
+-export interface UseProtocolDiscoveryInput {
+-  initialValues?: Printer;
+-  connectionType: ConnectionType;
+-  lanForm: UseFormReturn<LanConnectionValues>;
+-  discoveryUnsubscribeRef: MutableRefObject<(() => void) | null>;
+-  buildDraftPrinter: () => Printer;
+-  setLanguage: (language: PrinterLanguage) => void;
+-  refreshUsbSerial: () => Promise<void>;
+-  prefillDisplayName: (deviceName?: string) => void;
+-}
+-
+-/**
+- * State machine kết nối + dò protocol của luồng Thêm/Sửa máy in: bấm "Kết nối"
+- * → `DeviceScanService.discoverDriver`, xử lý các `DiscoveryEvent`, và nhánh
+- * chọn "Printer Language" thủ công qua `PrinterConnectionService.connect`.
+- */
+-export const useProtocolDiscovery = ({
+-  initialValues,
+-  connectionType,
+-  lanForm,
+-  discoveryUnsubscribeRef,
+-  buildDraftPrinter,
+-  setLanguage,
+-  refreshUsbSerial,
+-  prefillDisplayName,
+-}: UseProtocolDiscoveryInput) => {
+-  const [connectionDirty, setConnectionDirty] = useState(!initialValues);
+-  const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
+-  const [protocolState, setProtocolState] = useState<ProtocolState>(initialValues ? 'identified' : 'idle');
+-  const [lastProtocol, setLastProtocol] = useState<PrintLanguage | undefined>(initialValues?.language.type);
+-  const [deviceInfo, setDeviceInfo] = useState<PrinterDeviceInfo | undefined>(undefined);
+-  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | undefined>(undefined);
+-
+-  const resetDiscoveryFields = (nextConnectionState: ConnectionState): void => {
+-    setConnectionState(nextConnectionState);
+-    setProtocolState('idle');
+-    setDeviceInfo(undefined);
+-    setConnectionErrorMessage(undefined);
+-    setConnectionDirty(true);
+-  };
+-
+-  const resetConnectionResult = (): void => {
+-    discoveryUnsubscribeRef.current?.();
+-    discoveryUnsubscribeRef.current = null;
+-    resetDiscoveryFields('idle');
+-  };
+-
+-  const startDiscovery = (): void => {
+-    resetDiscoveryFields('connecting');
+-    discoveryUnsubscribeRef.current = DeviceScanService.discoverDriver(
+-      { draftPrinter: buildDraftPrinter() },
+-      (event: DiscoveryEvent) => {
+-        switch (event.stage) {
+-          case DiscoveryStage.Identifying:
+-            setProtocolState('detecting');
+-            break;
+-          case DiscoveryStage.Identified:
+-            if (!event.protocol || !event.language) {
+-              break;
+-            }
+-
+-            setConnectionState('connected');
+-            setProtocolState('identified');
+-            setLastProtocol(event.protocol);
+-            setDeviceInfo(event.deviceInfo);
+-            setConnectionDirty(false);
+-            setLanguage(event.language);
+-            refreshUsbSerial();
+-            prefillDisplayName(event.deviceInfo?.deviceName);
+-            break;
+-          case DiscoveryStage.UnknownProtocol:
+-            setConnectionState('idle');
+-            setProtocolState('unknown');
+-            break;
+-          case DiscoveryStage.Error:
+-            setConnectionState('error');
+-            setProtocolState('idle');
+-            setConnectionErrorMessage(event.error?.message);
+-            break;
+-          default:
+-            break;
+-        }
+-      },
+-    );
+-  };
+-
+-  const onConnectPress = (): void => {
+-    if (connectionType === ConnectionType.Lan) {
+-      lanForm.handleSubmit(() => startDiscovery())();
+-    } else {
+-      startDiscovery();
+-    }
+-  };
+-
+-  const onChooseProtocol = (chosenProtocol: PrintLanguage): void => {
+-    setConnectionState('connecting');
+-    setProtocolState('detecting');
+-    const draftLanguage: PrinterLanguage = createPrinterLanguage(chosenProtocol, LanguageSelection.Manual);
+-    const draftPrinter: Printer = { ...buildDraftPrinter(), language: draftLanguage };
+-    PrinterConnectionService.connect(draftPrinter)
+-      .then(() => {
+-        setConnectionState('connected');
+-        setProtocolState('identified');
+-        setLastProtocol(chosenProtocol);
+-        setDeviceInfo(undefined);
+-        setConnectionDirty(false);
+-        setLanguage(draftLanguage);
+-        refreshUsbSerial();
+-        prefillDisplayName();
+-      })
+-      .catch((error: { message: string }) => {
+-        setConnectionState('error');
+-        setProtocolState('idle');
+-        setConnectionErrorMessage(error.message);
+-      });
+-  };
+-
+-  return {
+-    connectionState,
+-    protocolState,
+-    lastProtocol,
+-    deviceInfo,
+-    connectionErrorMessage,
+-    connectionDirty,
+-    resetConnectionResult,
+-    onConnectPress,
+-    onChooseProtocol,
+-  };
+-};
+diff --git a/src/features/printer/hooks/useAddPrinterFlow.ts b/src/features/printer/hooks/useAddPrinterFlow.ts
+index dcd749c..c577277 100644
+--- a/src/features/printer/hooks/useAddPrinterFlow.ts
++++ b/src/features/printer/hooks/useAddPrinterFlow.ts
+@@ -18,12 +18,10 @@ import type { PrintKind } from '../models/printer/PrintKind';
+ import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/createPrinterDraft';
+ import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
+ import type { Printer } from '../models/printer/Printer';
+-import type { UsbRawDevice } from '../models/printer/PrinterDevice';
+ import { dieCutMediaError } from '../paper/validation';
+-import { buildBluetoothConnection, buildLanConnection, buildUsbConnection } from '../discovery/PrinterResolver';
+ import type { PrinterConnection } from '../models/printer/PrinterConnection';
+ import { useConnectionSetup } from './addPrinter/useConnectionSetup';
+-import { useProtocolDiscovery } from './addPrinter/useProtocolDiscovery';
++import { useLanguageDetection } from './addPrinter/useLanguageDetection';
+ import { useTestPrint } from './addPrinter/useTestPrint';
+ import { useDriverConfig } from './addPrinter/useDriverConfig';
+ 
+@@ -66,12 +64,12 @@ const resolveConnectLabel = (connectionState: ConnectionState): string => {
+ const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
+ 
+ /**
+- * Toàn bộ orchestration của luồng Thêm/Sửa máy in — scan, discovery, dựng draft,
++ * Toàn bộ orchestration của luồng Thêm/Sửa máy in — tìm thiết bị, dò ngôn ngữ, dựng draft,
+  * in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ còn render + wiring.
+  *
+  * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`, `autoReconnect`,
+  * `buildDraftPrinter`, vòng đời kết nối) và ghép 4 hook con dưới `addPrinter/`:
+- * `useConnectionSetup`, `useProtocolDiscovery`, `useTestPrint`, `useDriverConfig`.
++ * `useConnectionSetup`, `useLanguageDetection`, `useTestPrint`, `useDriverConfig`.
+  */
+ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
+   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
+@@ -89,15 +87,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     },
+   });
+ 
+-  const discoveryUnsubscribeRef = useRef<(() => void) | null>(null);
++  const detectionUnsubscribeRef = useRef<(() => void) | null>(null);
+   const savedRef = useRef(false);
+   const connectionRef = useRef<{ connectionState: ConnectionState; language?: PrinterLanguage }>({
+     connectionState: initialValues ? 'connected' : 'idle',
+     language: initialValues?.language,
+   });
+-  // Bridge để `useConnectionSetup` đọc state của `useProtocolDiscovery` tại thời
++  // Bridge để `useConnectionSetup` đọc state của `useLanguageDetection` tại thời
+   // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
+-  const discoveryRef = useRef<{
++  const detectionRef = useRef<{
+     connectionState: ConnectionState;
+     protocolState: ProtocolState;
+     resetConnectionResult: () => void;
+@@ -112,20 +110,20 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     printerId,
+     kind,
+     hasDriver: Boolean(language),
+-    getConnectionState: () => discoveryRef.current.connectionState,
+-    getProtocolState: () => discoveryRef.current.protocolState,
+-    resetConnectionResult: () => discoveryRef.current.resetConnectionResult(),
++    getConnectionState: () => detectionRef.current.connectionState,
++    getProtocolState: () => detectionRef.current.protocolState,
++    resetConnectionResult: () => detectionRef.current.resetConnectionResult(),
+   });
+   const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
+ 
+   const buildConnection = (): PrinterConnection => {
+     if (connectionType === ConnectionType.Lan) {
+       const { ip, port } = buildLan(lanForm.getValues());
+-      return buildLanConnection(ip, port);
++      return { type: ConnectionType.Lan, host: ip, port };
+     }
+ 
+     if (selectedDevice) {
+-      return connectionType === ConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
++      return selectedDevice.connection;
+     }
+ 
+     return connectionType === ConnectionType.Usb
+@@ -138,7 +136,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+    * (mỗi ngôn ngữ thử tự gắn cấu hình riêng); chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
+    */
+   const buildDraftPrinter = (): PrinterWriteInput => {
+-    const usbRaw = connectionType === ConnectionType.Usb ? (selectedDevice?.rawDevice as unknown as UsbRawDevice | undefined) : undefined;
+     const draft = createPrinterDraft({
+       id: printerId,
+       kind,
+@@ -149,8 +146,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     return {
+       ...draft,
+       name: displayForm.getValues('name') || draft.name,
+-      vendor: initialValues?.vendor ?? usbRaw?.manufacturerName ?? undefined,
+-      model: initialValues?.model ?? usbRaw?.productName ?? undefined,
++      vendor: initialValues?.vendor ?? selectedDevice?.device.manufacturer,
++      model: initialValues?.model ?? selectedDevice?.device.model,
+       deviceId: currentIdentityKey() ?? undefined,
+       capabilities: initialValues?.capabilities ?? draft.capabilities,
+       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
+@@ -161,7 +158,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     };
+   };
+ 
+-  /** `useTestPrint`/`useProtocolDiscovery` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế khi đã có device/LAN hợp lệ. */
++  /** `useTestPrint`/`useLanguageDetection` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế khi đã có device/LAN hợp lệ. */
+   const buildFullDraftPrinter = (): Printer => {
+     const draft = buildDraftPrinter();
+     return { ...draft, deviceId: draft.deviceId ?? '' };
+@@ -170,7 +167,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+   /**
+    * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn TRỐNG.
+    */
+-  const prefillDisplayName = (deviceName?: string): void => {
++  const prefillDisplayName = (): void => {
+     if (displayForm.getValues('name')) {
+       return;
+     }
+@@ -178,7 +175,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     const lanIp = connectionType === ConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
+     displayForm.setValue(
+       'name',
+-      deviceName ?? selectedDevice?.displayName ?? (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
++      selectedDevice?.device.name || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
+     );
+   };
+ 
+@@ -186,22 +183,22 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+   const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
+   const driverConfig = useDriverConfig({ printerId, language, setLanguage, paper, setPaper });
+ 
+-  const protocolDiscovery = useProtocolDiscovery({
++  const languageDetection = useLanguageDetection({
+     initialValues,
+     connectionType,
+     lanForm,
+-    discoveryUnsubscribeRef,
++    detectionUnsubscribeRef,
+     buildDraftPrinter: buildFullDraftPrinter,
+     setLanguage,
+     refreshUsbSerial: connectionSetup.refreshUsbSerial,
+     prefillDisplayName,
+   });
+-  discoveryRef.current = {
+-    connectionState: protocolDiscovery.connectionState,
+-    protocolState: protocolDiscovery.protocolState,
+-    resetConnectionResult: protocolDiscovery.resetConnectionResult,
++  detectionRef.current = {
++    connectionState: languageDetection.connectionState,
++    protocolState: languageDetection.protocolState,
++    resetConnectionResult: languageDetection.resetConnectionResult,
+   };
+-  const { connectionState, protocolState, deviceInfo, connectionDirty } = protocolDiscovery;
++  const { connectionState, protocolState, connectionDirty } = languageDetection;
+ 
+   useEffect(() => {
+     connectionRef.current = { connectionState, language };
+@@ -219,15 +216,15 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+ 
+   useEffect(() => {
+     if (!visible) {
+-      discoveryUnsubscribeRef.current?.();
+-      discoveryUnsubscribeRef.current = null;
++      detectionUnsubscribeRef.current?.();
++      detectionUnsubscribeRef.current = null;
+       const current = connectionRef.current;
+       if (current.connectionState === 'connected' && current.language && !savedRef.current) {
+         PrinterConnectionService.disconnect(printerId).catch(() => undefined);
+       }
+     }
+     return () => {
+-      discoveryUnsubscribeRef.current?.();
++      detectionUnsubscribeRef.current?.();
+     };
+   }, [visible, printerId]);
+ 
+@@ -288,7 +285,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     connectionSection: {
+       connectionType,
+       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
+-      selectedDeviceId: selectedDevice?.deviceId,
++      selectedDeviceId: selectedDevice?.device.deviceId,
+       onSelectDevice: connectionSetup.onSelectDevice,
+       lanIp: lanForm.watch('lanIp'),
+       lanPort: lanForm.watch('lanPort'),
+@@ -302,17 +299,17 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+       lanPortError: lanForm.formState.errors.lanPort?.message,
+       connectLabel,
+       connectDisabled,
+-      onConnectPress: protocolDiscovery.onConnectPress,
++      onConnectPress: languageDetection.onConnectPress,
+       disabled: Boolean(language),
+     },
+     statusPanel: {
+       connectionState,
+       protocolState,
+-      protocol: protocolDiscovery.lastProtocol,
+-      deviceInfo,
+-      errorMessage: protocolDiscovery.connectionErrorMessage,
++      protocol: languageDetection.lastProtocol,
++      device: selectedDevice?.device,
++      errorMessage: languageDetection.connectionErrorMessage,
+       kind,
+-      onChooseProtocol: protocolDiscovery.onChooseProtocol,
++      onChooseProtocol: languageDetection.onChooseProtocol,
+     },
+     infoCard: {
+       control: displayForm.control,
+@@ -321,7 +318,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+       language,
+       paper,
+       onChangePaper: driverConfig.onChangePaper,
+-      deviceInfo,
++      device: selectedDevice?.device,
+       status: liveStatus,
+       autoReconnect,
+       onAutoReconnectChange: setAutoReconnect,
+diff --git a/src/features/printer/logging/PrinterLogger.ts b/src/features/printer/logging/PrinterLogger.ts
+index 97264e5..0c76377 100644
+--- a/src/features/printer/logging/PrinterLogger.ts
++++ b/src/features/printer/logging/PrinterLogger.ts
+@@ -7,24 +7,17 @@ import type { PrintLanguage } from '../models/printer/PrinterLanguage';
+  * Điểm log chuẩn hoá duy nhất cho printer module — mỗi hàm ứng với đúng 1
+  * event name cố định và chỉ nhận field an toàn để log (printerId nội bộ,
+  * ngôn ngữ in, connectionType, errorCode, durationMs). Không có tham số nào cho
+- * phép truyền MAC/IP/rawDevice/nội dung hoá đơn, để log không bao giờ chứa
+- * dữ liệu nhạy cảm dù được ghi ra console hay (sau này) gửi lên server.
++ * phép truyền MAC/IP/thông tin thiết bị/nội dung hoá đơn, để log không bao giờ
++ * chứa dữ liệu nhạy cảm dù được ghi ra console hay (sau này) gửi lên server.
+  *
+  * Khoá in KHÔNG được log: key là `deviceId`, nhúng IP/MAC của máy in.
+  *
+- * Mọi payload đều kèm field chuẩn (§9.2 / §105):
+- * - `operation`: thao tác nghiệp vụ nào (`scan`, `connect`, ... `print`).
+- * - `result`: `success` / `failure` — OPTIONAL. Event mốc-bắt-đầu lifecycle
+- *   (`discoveryStarted`) KHÔNG phát `result`: `operation: 'discovery'` + tên
+- *   event `.started` đã mang phase, chưa có kết quả để phân loại.
++ * Mọi payload đều kèm field chuẩn:
++ * - `operation`: thao tác nghiệp vụ nào (`discovery`, `connect`, ... `print`).
++ * - `result`: `success` / `failure` — OPTIONAL. Event mốc bắt đầu (`*.started`)
++ *   KHÔNG phát `result` vì chưa có kết quả để phân loại.
+  */
+-type PrinterLogOperation =
+-  | 'scan'
+-  | 'connect'
+-  | 'disconnect'
+-  | 'discovery'
+-  | 'test-print'
+-  | 'print';
++type PrinterLogOperation = 'discovery' | 'connect' | 'disconnect' | 'detection' | 'test-print' | 'print';
+ 
+ type PrinterLogResult = 'success' | 'failure';
+ 
+@@ -39,12 +32,21 @@ const withStdFields = <T extends Record<string, unknown>>(
+ });
+ 
+ export const PrinterLogger = {
+-  scanCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void {
+-    LoggerService.info('printer.scan.completed', withStdFields('scan', 'success', params));
++  discoveryStarted(params: { connectionType: ConnectionType }): void {
++    LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
+   },
+ 
+-  scanFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
+-    LoggerService.warning('printer.scan.failed', withStdFields('scan', 'failure', params));
++  discoveryCompleted(params: { connectionType: ConnectionType; deviceCount: number; durationMs: number }): void {
++    LoggerService.info('printer.discovery.completed', withStdFields('discovery', 'success', params));
++  },
++
++  discoveryFailed(params: { connectionType: ConnectionType; errorCode: PrinterErrorCode; durationMs: number }): void {
++    LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
++  },
++
++  /** Quyền là cửa chặn của việc tìm thiết bị Bluetooth nên tính như tìm thiết bị thất bại. */
++  permissionDenied(params: { connectionType: ConnectionType }): void {
++    LoggerService.warning('printer.permission.denied', withStdFields('discovery', 'failure', params));
+   },
+ 
+   connectSucceeded(params: { printerId: string; connectionType: ConnectionType; durationMs: number }): void {
+@@ -68,70 +70,59 @@ export const PrinterLogger = {
+     LoggerService.warning('printer.disconnect.failed', withStdFields('disconnect', 'failure', params));
+   },
+ 
+-  testPrintSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
+-    LoggerService.info('printer.test-print.succeeded', withStdFields('test-print', 'success', params));
++  detectionStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrintLanguage[] }): void {
++    LoggerService.debug('printer.detection.started', withStdFields('detection', undefined, params));
+   },
+ 
+-  testPrintFailed(params: {
++  /** Loại một ngôn ngữ là bình thường trong lúc thử, chỉ log `debug` để không nhiễu ngoài lúc dev. */
++  detectionCandidateRejected(params: {
+     printerId: string;
+     language: PrintLanguage;
+-    errorCode: PrinterErrorCode;
+-    durationMs: number;
++    connectionType: ConnectionType;
+   }): void {
+-    LoggerService.error('printer.test-print.failed', withStdFields('test-print', 'failure', params));
+-  },
+-
+-  /** Permission là cửa chặn của scan (Bluetooth/USB) — coi như `scan` fail. */
+-  permissionDenied(params: { connectionType: ConnectionType }): void {
+-    LoggerService.warning('printer.permission.denied', withStdFields('scan', 'failure', params));
++    LoggerService.debug('printer.detection.candidate-rejected', withStdFields('detection', 'failure', params));
+   },
+ 
+-  discoveryStarted(params: { printerId: string; connectionType: ConnectionType; candidates: PrintLanguage[] }): void {
+-    LoggerService.debug('printer.discovery.started', withStdFields('discovery', undefined, params));
+-  },
+-
+-  /**
+-   * 1 candidate bị loại trong lúc dò — bình thường trong quá trình thử, không
+-   * phải sự cố (sự cố thật chỉ tính khi TOÀN BỘ candidate đều loại, xem
+-   * `discoveryFailed`/`protocolUnknown`) — log ở mức `debug` để không nhiễu
+-   * ngoài lúc dev.
+-   */
+-  discoveryCandidateRejected(params: {
++  /** Không kết nối được tới máy in — khác `languageUnknown` (kết nối được nhưng không ngôn ngữ nào khớp). */
++  detectionFailed(params: {
+     printerId: string;
+-    protocol: PrintLanguage;
+     connectionType: ConnectionType;
+-    reason: 'connect_failed' | 'not_confirmed';
++    errorCode: PrinterErrorCode;
++    durationMs: number;
+   }): void {
+-    LoggerService.debug('printer.discovery.candidate-rejected', withStdFields('discovery', 'failure', params));
++    LoggerService.warning('printer.detection.failed', withStdFields('detection', 'failure', params));
+   },
+ 
+-  /** Toàn bộ candidate đều KHÔNG connect được — khác `protocolUnknown` (connect được nhưng không xác nhận được protocol). */
+-  discoveryFailed(params: {
++  languageDetected(params: {
+     printerId: string;
++    language: PrintLanguage;
+     connectionType: ConnectionType;
+     candidatesTried: PrintLanguage[];
+     durationMs: number;
+   }): void {
+-    LoggerService.warning('printer.discovery.failed', withStdFields('discovery', 'failure', params));
++    LoggerService.info('printer.language.detected', withStdFields('detection', 'success', params));
+   },
+ 
+-  protocolDetected(params: {
++  languageUnknown(params: {
+     printerId: string;
+-    protocol: PrintLanguage;
+     connectionType: ConnectionType;
+     candidatesTried: PrintLanguage[];
+     durationMs: number;
+   }): void {
+-    LoggerService.info('printer.protocol.detected', withStdFields('discovery', 'success', params));
++    LoggerService.warning('printer.language.unknown', withStdFields('detection', 'failure', params));
+   },
+ 
+-  protocolUnknown(params: {
++  testPrintSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
++    LoggerService.info('printer.test-print.succeeded', withStdFields('test-print', 'success', params));
++  },
++
++  testPrintFailed(params: {
+     printerId: string;
+-    connectionType: ConnectionType;
+-    candidatesTried: PrintLanguage[];
++    language: PrintLanguage;
++    errorCode: PrinterErrorCode;
+     durationMs: number;
+   }): void {
+-    LoggerService.warning('printer.protocol.unknown', withStdFields('discovery', 'failure', params));
++    LoggerService.error('printer.test-print.failed', withStdFields('test-print', 'failure', params));
+   },
+ 
+   printSucceeded(params: { printerId: string; language: PrintLanguage; durationMs: number }): void {
+diff --git a/src/features/printer/logging/__tests__/PrinterLogger.test.ts b/src/features/printer/logging/__tests__/PrinterLogger.test.ts
+index 874ba91..13dec2d 100644
+--- a/src/features/printer/logging/__tests__/PrinterLogger.test.ts
++++ b/src/features/printer/logging/__tests__/PrinterLogger.test.ts
+@@ -5,230 +5,150 @@ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import { PrintLanguage } from '../../models/printer/PrinterLanguage';
+ 
+ jest.mock('../../../../services/LoggerService', () => ({
+-  LoggerService: {
+-    debug: jest.fn(),
+-    info: jest.fn(),
+-    warning: jest.fn(),
+-    error: jest.fn(),
+-  },
++  LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
+ }));
+ 
+-describe('PrinterLogger', () => {
+-  afterEach(() => {
+-    jest.clearAllMocks();
+-  });
+-
+-  it('scanCompleted logs an info event with connectionType/deviceCount/durationMs + operation/result', () => {
+-    PrinterLogger.scanCompleted({ connectionType: ConnectionType.Bluetooth, deviceCount: 3, durationMs: 120 });
+-    expect(LoggerService.info).toHaveBeenCalledWith('printer.scan.completed', {
+-      connectionType: ConnectionType.Bluetooth,
+-      deviceCount: 3,
+-      durationMs: 120,
+-      operation: 'scan',
+-      result: 'success',
+-    });
+-  });
+-
+-  it('scanFailed logs a warning event with connectionType/errorCode/durationMs + operation/result', () => {
+-    PrinterLogger.scanFailed({ connectionType: ConnectionType.Usb, errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED, durationMs: 50 });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.scan.failed', {
+-      connectionType: ConnectionType.Usb,
+-      errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+-      durationMs: 50,
+-      operation: 'scan',
+-      result: 'failure',
+-    });
+-  });
+-
+-  it('connectSucceeded logs an info event with operation=connect, result=success, and no resourceKey/ip', () => {
+-    PrinterLogger.connectSucceeded({ printerId: 'p1', connectionType: ConnectionType.Lan, durationMs: 200 });
+-    expect(LoggerService.info).toHaveBeenCalledWith(
+-      'printer.connect.succeeded',
+-      expect.objectContaining({ operation: 'connect', result: 'success' }),
+-    );
+-    const payload = (LoggerService.info as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
+-    expect(payload).not.toHaveProperty('resourceKey');
+-    expect(payload).not.toHaveProperty('ip');
+-    expect(payload).not.toHaveProperty('mac');
+-    expect(payload).toEqual({
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Lan,
+-      durationMs: 200,
+-      operation: 'connect',
+-      result: 'success',
+-    });
+-  });
+-
+-  it('connectFailed logs a warning event with operation=connect, result=failure', () => {
+-    PrinterLogger.connectFailed({
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Bluetooth,
+-      errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+-      durationMs: 300,
+-    });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.connect.failed', {
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Bluetooth,
+-      errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+-      durationMs: 300,
+-      operation: 'connect',
+-      result: 'failure',
+-    });
+-  });
+-
+-  it('disconnectSucceeded logs an info event with operation=disconnect, result=success', () => {
+-    PrinterLogger.disconnectSucceeded({ printerId: 'p1' });
+-    expect(LoggerService.info).toHaveBeenCalledWith('printer.disconnect.succeeded', {
+-      printerId: 'p1',
+-      operation: 'disconnect',
+-      result: 'success',
+-    });
+-  });
+-
+-  it('disconnectFailed logs a warning event with operation=disconnect, result=failure', () => {
+-    PrinterLogger.disconnectFailed({ printerId: 'p1', errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.disconnect.failed', {
+-      printerId: 'p1',
+-      errorCode: PrinterErrorCode.PRINTER_CONNECTION_FAILED,
+-      operation: 'disconnect',
+-      result: 'failure',
+-    });
+-  });
+-
+-  it('testPrintSucceeded logs an info event with operation=test-print, result=success', () => {
+-    PrinterLogger.testPrintSucceeded({ printerId: 'p1', language: PrintLanguage.EscPos, durationMs: 400 });
+-    expect(LoggerService.info).toHaveBeenCalledWith('printer.test-print.succeeded', {
++type Level = 'debug' | 'info' | 'warning' | 'error';
++
++/** Một dòng: hàm log, tham số, mức log, tên sự kiện, operation và result mong đợi. */
++interface LogCase {
++  log: (logger: typeof PrinterLogger) => void;
++  params: Record<string, unknown>;
++  level: Level;
++  event: string;
++  operation: string;
++  result?: 'success' | 'failure';
++}
++
++const bluetooth = ConnectionType.Bluetooth;
++
++const lan = ConnectionType.Lan;
++
++const failed = PrinterErrorCode.PRINTER_CONNECTION_FAILED;
++
++/** Dựng một dòng bảng từ hàm log và tham số của nó, để tham số chỉ viết một lần. */
++const logCase = <T extends Record<string, unknown>>(
++  call: (logger: typeof PrinterLogger, params: T) => void,
++  params: T,
++  expected: Omit<LogCase, 'log' | 'params'>,
++): [string, LogCase] => [expected.event, { log: (logger) => call(logger, params), params, ...expected }];
++
++const CASES: [string, LogCase][] = [
++  logCase(
++    (l, p) => l.discoveryStarted(p),
++    { connectionType: bluetooth },
++    { level: 'debug', event: 'printer.discovery.started', operation: 'discovery' },
++  ),
++  logCase(
++    (l, p) => l.discoveryCompleted(p),
++    { connectionType: bluetooth, deviceCount: 2, durationMs: 150 },
++    { level: 'info', event: 'printer.discovery.completed', operation: 'discovery', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.discoveryFailed(p),
++    { connectionType: bluetooth, errorCode: failed, durationMs: 90 },
++    { level: 'warning', event: 'printer.discovery.failed', operation: 'discovery', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.permissionDenied(p),
++    { connectionType: bluetooth },
++    { level: 'warning', event: 'printer.permission.denied', operation: 'discovery', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.connectSucceeded(p),
++    { printerId: 'p1', connectionType: lan, durationMs: 200 },
++    { level: 'info', event: 'printer.connect.succeeded', operation: 'connect', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.connectFailed(p),
++    { printerId: 'p1', connectionType: bluetooth, errorCode: failed, durationMs: 300 },
++    { level: 'warning', event: 'printer.connect.failed', operation: 'connect', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.disconnectSucceeded(p),
++    { printerId: 'p1' },
++    { level: 'info', event: 'printer.disconnect.succeeded', operation: 'disconnect', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.disconnectFailed(p),
++    { printerId: 'p1', errorCode: failed },
++    { level: 'warning', event: 'printer.disconnect.failed', operation: 'disconnect', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.detectionStarted(p),
++    { printerId: 'p1', connectionType: lan, candidates: [PrintLanguage.Tspl] },
++    { level: 'debug', event: 'printer.detection.started', operation: 'detection' },
++  ),
++  logCase(
++    (l, p) => l.detectionCandidateRejected(p),
++    { printerId: 'p1', language: PrintLanguage.Tspl, connectionType: lan },
++    { level: 'debug', event: 'printer.detection.candidate-rejected', operation: 'detection', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.detectionFailed(p),
++    { printerId: 'p1', connectionType: lan, errorCode: failed, durationMs: 40 },
++    { level: 'warning', event: 'printer.detection.failed', operation: 'detection', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.languageDetected(p),
++    {
+       printerId: 'p1',
+       language: PrintLanguage.EscPos,
+-      durationMs: 400,
+-      operation: 'test-print',
+-      result: 'success',
+-    });
+-  });
+-
+-  it('testPrintFailed logs an error event with operation=test-print, result=failure', () => {
+-    PrinterLogger.testPrintFailed({ printerId: 'p1', language: PrintLanguage.EscPos, errorCode: PrinterErrorCode.UNKNOWN_ERROR, durationMs: 500 });
+-    expect(LoggerService.error).toHaveBeenCalledWith('printer.test-print.failed', {
++      connectionType: lan,
++      candidatesTried: [PrintLanguage.Tspl],
++      durationMs: 70,
++    },
++    { level: 'info', event: 'printer.language.detected', operation: 'detection', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.languageUnknown(p),
++    { printerId: 'p1', connectionType: lan, candidatesTried: [], durationMs: 60 },
++    { level: 'warning', event: 'printer.language.unknown', operation: 'detection', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.testPrintSucceeded(p),
++    { printerId: 'p1', language: PrintLanguage.EscPos, durationMs: 400 },
++    { level: 'info', event: 'printer.test-print.succeeded', operation: 'test-print', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.testPrintFailed(p),
++    { printerId: 'p1', language: PrintLanguage.EscPos, errorCode: PrinterErrorCode.UNKNOWN_ERROR, durationMs: 500 },
++    { level: 'error', event: 'printer.test-print.failed', operation: 'test-print', result: 'failure' },
++  ),
++  logCase(
++    (l, p) => l.printSucceeded(p),
++    { printerId: 'p1', language: PrintLanguage.Tspl, durationMs: 250 },
++    { level: 'info', event: 'printer.print.succeeded', operation: 'print', result: 'success' },
++  ),
++  logCase(
++    (l, p) => l.printFailed(p),
++    {
+       printerId: 'p1',
+       language: PrintLanguage.EscPos,
+-      errorCode: PrinterErrorCode.UNKNOWN_ERROR,
+-      durationMs: 500,
+-      operation: 'test-print',
+-      result: 'failure',
+-    });
+-  });
+-
+-  it('permissionDenied logs a warning event mapped to operation=scan, result=failure', () => {
+-    PrinterLogger.permissionDenied({ connectionType: ConnectionType.Bluetooth });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.permission.denied', {
+-      connectionType: ConnectionType.Bluetooth,
+-      operation: 'scan',
+-      result: 'failure',
+-    });
+-  });
+-
+-  it('discoveryStarted logs a debug event with operation=discovery and NO result field', () => {
+-    PrinterLogger.discoveryStarted({ printerId: 'p1', connectionType: ConnectionType.Lan, candidates: [PrintLanguage.Tspl, PrintLanguage.EscPos] });
+-    expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.started', {
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Lan,
+-      candidates: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      operation: 'discovery',
+-    });
+-    const payload = (LoggerService.debug as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
+-    expect(payload).not.toHaveProperty('result');
+-  });
+-
+-  it('discoveryCandidateRejected logs a debug event with operation=discovery, result=failure', () => {
+-    PrinterLogger.discoveryCandidateRejected({
+-      printerId: 'p1',
+-      protocol: PrintLanguage.Tspl,
+-      connectionType: ConnectionType.Usb,
+-      reason: 'not_confirmed',
+-    });
+-    expect(LoggerService.debug).toHaveBeenCalledWith('printer.discovery.candidate-rejected', {
+-      printerId: 'p1',
+-      protocol: PrintLanguage.Tspl,
+-      connectionType: ConnectionType.Usb,
+-      reason: 'not_confirmed',
+-      operation: 'discovery',
+-      result: 'failure',
+-    });
+-  });
++      errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
++      durationMs: 80,
++    },
++    { level: 'error', event: 'printer.print.failed', operation: 'print', result: 'failure' },
++  ),
++];
+ 
+-  it('discoveryFailed logs a warning event with operation=discovery, result=failure', () => {
+-    PrinterLogger.discoveryFailed({
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Lan,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 600,
+-    });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.discovery.failed', {
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Lan,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 600,
+-      operation: 'discovery',
+-      result: 'failure',
+-    });
+-  });
++describe('PrinterLogger', () => {
++  afterEach(() => jest.clearAllMocks());
+ 
+-  it('protocolDetected logs an info event with operation=discovery, result=success', () => {
+-    PrinterLogger.protocolDetected({
+-      printerId: 'p1',
+-      protocol: PrintLanguage.EscPos,
+-      connectionType: ConnectionType.Lan,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 700,
+-    });
+-    expect(LoggerService.info).toHaveBeenCalledWith('printer.protocol.detected', {
+-      printerId: 'p1',
+-      protocol: PrintLanguage.EscPos,
+-      connectionType: ConnectionType.Lan,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 700,
+-      operation: 'discovery',
+-      result: 'success',
+-    });
+-  });
++  it.each(CASES)('%s ghi đúng mức log, tham số và field chuẩn', (_event, testCase) => {
++    testCase.log(PrinterLogger);
+ 
+-  it('protocolUnknown logs a warning event with operation=discovery, result=failure', () => {
+-    PrinterLogger.protocolUnknown({
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Usb,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 800,
+-    });
+-    expect(LoggerService.warning).toHaveBeenCalledWith('printer.protocol.unknown', {
+-      printerId: 'p1',
+-      connectionType: ConnectionType.Usb,
+-      candidatesTried: [PrintLanguage.Tspl, PrintLanguage.EscPos],
+-      durationMs: 800,
+-      operation: 'discovery',
+-      result: 'failure',
+-    });
++    const result = testCase.result ? { result: testCase.result } : {};
++    const expected = { ...testCase.params, operation: testCase.operation, ...result };
++    expect(LoggerService[testCase.level]).toHaveBeenCalledWith(testCase.event, expected);
+   });
+ 
+-  it('printSucceeded logs an info event with operation=print, result=success', () => {
+-    PrinterLogger.printSucceeded({ printerId: 'p1', language: PrintLanguage.EscPos, durationMs: 250 });
+-    expect(LoggerService.info).toHaveBeenCalledWith('printer.print.succeeded', {
+-      printerId: 'p1',
+-      language: PrintLanguage.EscPos,
+-      durationMs: 250,
+-      operation: 'print',
+-      result: 'success',
+-    });
+-  });
++  it('log kết nối không mang khoá in, IP hay MAC', () => {
++    PrinterLogger.connectSucceeded({ printerId: 'p1', connectionType: lan, durationMs: 200 });
+ 
+-  it('printFailed logs an error event with operation=print, result=failure', () => {
+-    PrinterLogger.printFailed({ printerId: 'p1', language: PrintLanguage.EscPos, errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED, durationMs: 80 });
+-    expect(LoggerService.error).toHaveBeenCalledWith('printer.print.failed', {
+-      printerId: 'p1',
+-      language: PrintLanguage.EscPos,
+-      errorCode: PrinterErrorCode.TSPL_ELEMENT_UNSUPPORTED,
+-      durationMs: 80,
+-      operation: 'print',
+-      result: 'failure',
+-    });
++    const payload = (LoggerService.info as jest.Mock).mock.calls[0][1] as Record<string, unknown>;
++    expect(payload).not.toHaveProperty('lockKey');
++    expect(payload).not.toHaveProperty('ip');
++    expect(payload).not.toHaveProperty('mac');
+   });
+ });
+diff --git a/src/features/printer/models/device/DeviceDiscoveryEvent.ts b/src/features/printer/models/device/DeviceDiscoveryEvent.ts
+new file mode 100644
+index 0000000..79d21e8
+--- /dev/null
++++ b/src/features/printer/models/device/DeviceDiscoveryEvent.ts
+@@ -0,0 +1,13 @@
++import type { PrinterError } from '../../errors/PrinterError';
++import type { DiscoveredDevice } from './DiscoveredDevice';
++
++export const DeviceDiscoveryEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
++
++export type DeviceDiscoveryEventType = (typeof DeviceDiscoveryEventType)[keyof typeof DeviceDiscoveryEventType];
++
++/** Một cập nhật trong lúc tìm thiết bị. */
++export type DeviceDiscoveryEvent =
++  | { type: typeof DeviceDiscoveryEventType.Loading }
++  | { type: typeof DeviceDiscoveryEventType.Found; devices: DiscoveredDevice[] }
++  | { type: typeof DeviceDiscoveryEventType.Empty }
++  | { type: typeof DeviceDiscoveryEventType.Error; error: PrinterError };
+diff --git a/src/features/printer/models/device/DeviceInfo.ts b/src/features/printer/models/device/DeviceInfo.ts
+new file mode 100644
+index 0000000..0dbf783
+--- /dev/null
++++ b/src/features/printer/models/device/DeviceInfo.ts
+@@ -0,0 +1,17 @@
++/** Thông tin cơ bản của một thiết bị tìm thấy khi quét. */
++export interface DeviceInfo {
++  /** Định danh thiết bị trong lần discovery hiện tại (native trả về), dùng làm key danh sách. */
++  deviceId: string;
++
++  /** Tên thiết bị; native không có thì dùng MAC hoặc đường dẫn thiết bị. */
++  name: string;
++
++  /** Nhà sản xuất, nếu đọc được (chỉ USB). */
++  manufacturer?: string;
++
++  /** Model hoặc tên sản phẩm, nếu đọc được (chỉ USB). */
++  model?: string;
++
++  /** App đã được cấp quyền dùng thiết bị chưa; quét không mở hộp thoại xin quyền. */
++  hasPermission: boolean;
++}
+diff --git a/src/features/printer/models/device/DiscoveredDevice.ts b/src/features/printer/models/device/DiscoveredDevice.ts
+new file mode 100644
+index 0000000..f7bc1cf
+--- /dev/null
++++ b/src/features/printer/models/device/DiscoveredDevice.ts
+@@ -0,0 +1,10 @@
++import type { PrinterConnection } from '../printer/PrinterConnection';
++import type { DeviceInfo } from './DeviceInfo';
++
++/** Một kết quả quét: thiết bị và cách kết nối tới nó. */
++export interface DiscoveredDevice {
++  device: DeviceInfo;
++
++  /** Chọn máy thì gán thẳng vào `Printer.connection`. */
++  connection: PrinterConnection;
++}
+diff --git a/src/features/printer/models/printer/PrinterDevice.ts b/src/features/printer/models/printer/PrinterDevice.ts
+deleted file mode 100644
+index b4f3b8e..0000000
+--- a/src/features/printer/models/printer/PrinterDevice.ts
++++ /dev/null
+@@ -1,42 +0,0 @@
+-import type { PrinterError } from '../../errors/PrinterError';
+-
+-/** 2 giai đoạn của 1 máy in: scan (`PrinterDevice`) → identify sau khi connect (`PrinterDeviceInfo`). Kết nối đã lưu xem `PrinterConnection.ts`. */
+-
+-/** 1 kết quả scan — thiết bị user có thể chọn, chưa connect, chưa lưu. */
+-export interface PrinterDevice {
+-  /** usb: `"<vendorId>:<productId>"`; bluetooth: MAC address. */
+-  deviceId: string;
+-  displayName: string;
+-  /** Payload gốc từ native — cast sang `UsbRawDevice` khi biết chắc là usb. */
+-  rawDevice: Record<string, unknown>;
+-}
+-
+-/**
+- * Hình dạng `PrinterDevice.rawDevice` khi `connectionType === ConnectionType.Usb` — dựng từ
+- * `NativeUsbDeviceInfo` (`vendorId`/`productId` luôn có; `serialNumber`
+- * cần quyền USB Android 10+, có thể null lúc scan lần đầu).
+- */
+-export interface UsbRawDevice {
+-  vendorId: number;
+-  productId: number;
+-  manufacturerName?: string | null;
+-  productName?: string | null;
+-  serialNumber?: string | null;
+-  /** Đường dẫn thiết bị trong lần cắm hiện tại (vd `/dev/bus/usb/001/004`); không lưu. */
+-  devicePath?: string | null;
+-}
+-
+-/** Kết quả `IPrinterDriver.identify()` sau khi connect — chỉ để hiển thị xác nhận, không dùng để lưu. */
+-export interface PrinterDeviceInfo {
+-  deviceName?: string;
+-  vendor?: string;
+-  model?: string;
+-}
+-
+-export const DeviceScanEventType = { Loading: 'Loading', Found: 'Found', Empty: 'Empty', Error: 'Error' } as const;
+-export type DeviceScanEventType = (typeof DeviceScanEventType)[keyof typeof DeviceScanEventType];
+-export interface DeviceScanEvent {
+-  type: DeviceScanEventType;
+-  devices?: PrinterDevice[];
+-  error?: PrinterError;
+-}
+diff --git a/src/features/printer/testing/printerServiceTestKit.ts b/src/features/printer/testing/printerServiceTestKit.ts
+index f29e6ec..d0744a8 100644
+--- a/src/features/printer/testing/printerServiceTestKit.ts
++++ b/src/features/printer/testing/printerServiceTestKit.ts
+@@ -1,5 +1,4 @@
+ import type { IPrinterAdapter } from '../adapters/IPrinterAdapter';
+-import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+ import type { PrinterConnectionService } from '../connection/PrinterConnectionService';
+ import { ConnectionType } from '../models/printer/ConnectionType';
+ import {
+@@ -14,15 +13,7 @@ import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+ import { type Printer } from '../models/printer/Printer';
+ import { PrintKind } from '../models/printer/PrintKind';
+ 
+-/**
+- * Fixture dùng chung cho các file test service — nằm ngoài `__tests__/` và
+- * không có đuôi `.test.` nên Jest bỏ qua.
+- */
+-export const makeMockDriver = (overrides: Partial<jest.Mocked<IPrinterDriver>> = {}): jest.Mocked<IPrinterDriver> => ({
+-  scan: jest.fn().mockReturnValue(() => undefined),
+-  identify: jest.fn().mockResolvedValue(null),
+-  ...overrides,
+-});
++// Fixture dùng chung cho các file test service; nằm ngoài `__tests__/` và không có đuôi `.test.` nên Jest bỏ qua.
+ 
+ /** Adapter giả ghi nhận lời gọi; `lose()` giả lập kết nối của adapter bị mất. */
+ export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose: () => void } => {
+diff --git a/src/features/printer/utils/sampleDocuments.ts b/src/features/printer/utils/sampleDocuments.ts
+index bc4af7b..be02edc 100644
+--- a/src/features/printer/utils/sampleDocuments.ts
++++ b/src/features/printer/utils/sampleDocuments.ts
+@@ -8,9 +8,7 @@ import type { PrintDocument, PrintElement } from '../models/printing/PrintDocume
+  * (`features/cart/services/OrderPrintTrigger.ts`) dùng cho bill thật, với dữ liệu ví dụ cố định
+  * — không đọc `OrderPrintTrigger` trực tiếp (đơn hàng/cart là data-owning feature ở tầng trên,
+  * `printer` không phụ thuộc ngược lại nó) nên layout ở đây độc lập, chỉ cố tình khớp hình dạng.
+- * Chỉ dùng `text`/`line`/`row` — 2 loại phần tử duy nhất cả `ThermalReceiptDriver` lẫn
+- * `TsplDriver` đều mã hoá được, vì `PrintKind` (Bill/Label) độc lập với `Protocol`
+- * (ESC/POS/TSPL): 1 máy in ESC/POS vẫn có thể được gán in Label và ngược lại.
++ * Chỉ dùng `text`/`line`/`row` — những phần tử cả ESC/POS lẫn TSPL đều encode được bằng lệnh.
+  */
+ 
+ /**
+diff --git a/webpack.config.js b/webpack.config.js
+index dda34b8..ae777c3 100644
+--- a/webpack.config.js
++++ b/webpack.config.js
+@@ -11,12 +11,10 @@ module.exports = {
+   resolve: {
+     alias: {
+       'react-native$': 'react-native-web',
+-      // Các module native-thuần cho máy in — DriverRegistry.web.ts (Task 2)
++      // Các module native-thuần cho máy in — createPrinterAdapter.web.ts
+       // không import chúng, nhưng alias sang `false` để Webpack không bao giờ
+       // cố resolve chúng nếu có đường import gián tiếp nào khác chạm tới.
+-      'react-native-bluetooth-classic': false,
+       '@poriyaalar/react-native-thermal-receipt-printer': false,
+-      'react-native-tcp-socket': false,
+       'react-native-nitro-modules': false,
+       // react-native-paper và @react-native-vector-icons/common thử require()
+       // các thư viện icon thay thế (Expo/react-native-vector-icons) bên trong
+-- 
+2.55.0.windows.5
+

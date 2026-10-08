@@ -12,9 +12,11 @@ import android.hardware.usb.UsbManager;
 import com.ndtcorepos.device.discovery.UsbDiscovery;
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.DeviceAddress;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /** Truyền byte qua USB bằng bulk transfer. */
 public final class UsbTransport implements ITransport {
@@ -41,7 +43,8 @@ public final class UsbTransport implements ITransport {
     /** `null` khi máy in không có endpoint đọc. */
     private volatile UsbEndpoint inEndpoint;
 
-    private volatile String serialNumber;
+    /** Có sau khi `open` thành công, kèm serial đọc được. */
+    private volatile DeviceAddress address;
 
     public UsbTransport(UsbManager usbManager, UsbDevice device) {
         this.usbManager = usbManager;
@@ -66,7 +69,7 @@ public final class UsbTransport implements ITransport {
         claimedInterface = printerInterface;
         outEndpoint = UsbDiscovery.findBulkEndpoint(printerInterface, UsbConstants.USB_DIR_OUT);
         inEndpoint = UsbDiscovery.findBulkEndpoint(printerInterface, UsbConstants.USB_DIR_IN);
-        serialNumber = readSerial();
+        address = DeviceAddress.usb(device.getVendorId(), device.getProductId(), readSerial(), device.getDeviceName());
         deviceConnection = connection;
     }
 
@@ -140,8 +143,25 @@ public final class UsbTransport implements ITransport {
     }
 
     @Override
-    public String serialNumber() {
-        return serialNumber;
+    public DeviceAddress address() {
+        return address;
+    }
+
+    /** Thiếu tên sản phẩm thì dùng đường dẫn thiết bị, giống lúc quét. */
+    @Override
+    public String name() {
+        String productName = productName();
+        return productName != null ? productName : device.getDeviceName();
+    }
+
+    @Override
+    public String manufacturerName() {
+        return readString(device::getManufacturerName);
+    }
+
+    @Override
+    public String productName() {
+        return readString(device::getProductName);
     }
 
     /** Ghi tới khi đủ, mỗi khúc tối đa 16 KB với thời gian chờ là phần còn lại của hạn. */
@@ -181,8 +201,12 @@ public final class UsbTransport implements ITransport {
 
     /** Từ Android 10, đọc serial khi chưa có quyền USB ném SecurityException. */
     private String readSerial() {
+        return readString(device::getSerialNumber);
+    }
+
+    private static String readString(Supplier<String> reader) {
         try {
-            return device.getSerialNumber();
+            return reader.get();
         } catch (SecurityException exception) {
             return null;
         }

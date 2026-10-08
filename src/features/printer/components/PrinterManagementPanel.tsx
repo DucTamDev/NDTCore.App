@@ -7,7 +7,8 @@ import { usePrinterList } from '../hooks/usePrinterList';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
 import { AddPrinterForm } from './AddPrinterForm';
-import { PrintType, PRINT_TYPE_LABELS } from '../models/printing/PrintType';
+import { PrintKind } from '../models/printer/PrintKind';
+import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
 import type { Printer } from '../models/printer/Printer';
 
 export const PrinterManagementPanel: React.FC = () => {
@@ -15,7 +16,7 @@ export const PrinterManagementPanel: React.FC = () => {
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
   const [addSessionId, setAddSessionId] = useState(0);
-  const [activeTab, setActiveTab] = useState<PrintType>(PrintType.Receipt);
+  const [activeTab, setActiveTab] = useState<PrintKind>(PrintKind.Receipt);
   const isPhone = useLayoutMode() === 'phone';
 
   const openAdd = (): void => {
@@ -46,8 +47,8 @@ export const PrinterManagementPanel: React.FC = () => {
   }, [isPhone, mode]);
 
   const formKey = editingPrinter?.id ?? `add-${addSessionId}`;
-  /** Sửa: giữ nguyên `type` đã lưu (không đổi được). Thêm mới: theo tab đang mở. */
-  const printType = editingPrinter ? editingPrinter.type : activeTab;
+  /** Sửa: giữ nguyên `kind` đã lưu (không đổi được). Thêm mới: theo tab đang mở. */
+  const kind = editingPrinter ? editingPrinter.kind : activeTab;
 
   if (isPhone && mode === 'form') {
     return (
@@ -59,13 +60,13 @@ export const PrinterManagementPanel: React.FC = () => {
           onSaved={onSaved}
           onBack={backToList}
           showBackButton={false}
-          printType={printType}
+          kind={kind}
         />
       </View>
     );
   }
 
-  const printersForTab = printers.filter((p) => p.type === activeTab);
+  const printersForTab = printers.filter((p) => p.kind === activeTab);
 
   return (
     <View style={styles.container}>
@@ -73,14 +74,14 @@ export const PrinterManagementPanel: React.FC = () => {
 
       <SegmentedButtons
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as PrintType)}
+        onValueChange={(value) => setActiveTab(value as PrintKind)}
         buttons={[
-          { value: PrintType.Receipt, label: PRINT_TYPE_LABELS.Receipt },
-          { value: PrintType.Label, label: PRINT_TYPE_LABELS.Label },
+          { value: PrintKind.Receipt, label: PRINT_KIND_LABELS.Receipt },
+          { value: PrintKind.Label, label: PRINT_KIND_LABELS.Label },
         ]}
       />
 
-      <AppButton label={`+ Thêm máy in ${PRINT_TYPE_LABELS[activeTab]}`} onPress={openAdd} />
+      <AppButton label={`+ Thêm máy in ${PRINT_KIND_LABELS[activeTab]}`} onPress={openAdd} />
 
       <PrinterList printers={printersForTab} actions={actions} onEdit={openEdit} />
 
@@ -91,7 +92,7 @@ export const PrinterManagementPanel: React.FC = () => {
           initialValues={editingPrinter}
           onDismiss={backToList}
           onSaved={onSaved}
-          printType={printType}
+          kind={kind}
         />
       )}
     </View>

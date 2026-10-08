@@ -1,4 +1,4 @@
-import { PrinterStorage } from '../PrinterStorage';
+import { printerStorage } from '../PrinterStorage';
 import { StorageService } from '../../../../services/StorageService';
 import { makePrinter } from '../../testing/printerFixtures';
 
@@ -12,34 +12,40 @@ describe('PrinterStorage', () => {
   });
 
   it('getPrinters() returns an empty array when nothing was saved yet', () => {
-    expect(PrinterStorage.getPrinters()).toEqual([]);
+    expect(printerStorage.getPrinters()).toEqual([]);
   });
 
   it('savePrinters() then getPrinters() round-trips the list', () => {
-    PrinterStorage.savePrinters([printer]);
-    expect(PrinterStorage.getPrinters()).toEqual([printer]);
+    printerStorage.savePrinters([printer]);
+    expect(printerStorage.getPrinters()).toEqual([printer]);
   });
 
-  it('stamps the current storage version (7) after a save + read', () => {
-    PrinterStorage.savePrinters([printer]);
-    PrinterStorage.getPrinters();
-    expect(StorageService.getItem('printer.storageVersion')).toBe(7);
+  it('stamps the current storage version (9) after a save + read', () => {
+    printerStorage.savePrinters([printer]);
+    printerStorage.getPrinters();
+    expect(StorageService.getItem('printer.storageVersion')).toBe(9);
+  });
+
+  it('discards printers saved under storage version 7 (driver-based model)', () => {
+    StorageService.setItem('printer.storageVersion', 7);
+    StorageService.setItem('printer.list', [{ id: 'old', identityKey: 'lan:1.2.3.4:9100', driver: { type: 'EscPos' } }]);
+    expect(printerStorage.getPrinters()).toEqual([]);
   });
 
   it('discards a legacy (pre-refactor) printer.list written under a missing/older storage version', () => {
     StorageService.setItem('printer.list', [{ id: 'legacy', printerName: 'Old shape', protocol: 'escpos' }]);
-    expect(PrinterStorage.getPrinters()).toEqual([]);
+    expect(printerStorage.getPrinters()).toEqual([]);
   });
 
   it('also clears the legacy printer.defaultId key on reset', () => {
     StorageService.setItem('printer.defaultId', 'old-id');
-    PrinterStorage.getPrinters();
+    printerStorage.getPrinters();
     expect(StorageService.getItem('printer.defaultId')).toBeNull();
   });
 
   it('does not wipe printer.list again on a second call once the version has been stamped', () => {
-    PrinterStorage.savePrinters([printer]);
-    expect(PrinterStorage.getPrinters()).toEqual([printer]);
-    expect(PrinterStorage.getPrinters()).toEqual([printer]);
+    printerStorage.savePrinters([printer]);
+    expect(printerStorage.getPrinters()).toEqual([printer]);
+    expect(printerStorage.getPrinters()).toEqual([printer]);
   });
 });

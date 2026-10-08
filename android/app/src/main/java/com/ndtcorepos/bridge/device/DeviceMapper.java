@@ -57,7 +57,11 @@ final class DeviceMapper {
     static WritableMap toWritableMap(ConnectedDevice connectedDevice) {
         WritableMap map = Arguments.createMap();
         map.putString("connectionId", connectedDevice.connectionId());
-        putNullableString(map, "serialNumber", connectedDevice.serialNumber());
+        map.putString("deviceId", connectedDevice.deviceId());
+        map.putMap("address", toWritableMap(connectedDevice.address()));
+        putNullableString(map, "name", connectedDevice.name());
+        putNullableString(map, "manufacturerName", connectedDevice.manufacturerName());
+        putNullableString(map, "productName", connectedDevice.productName());
         return map;
     }
 

@@ -14,9 +14,9 @@ Mỗi class/interface/type chỉ có **một responsibility rõ ràng**.
 
 ```text
 Printer
-PrinterDriver
-PrinterConnection
-PrintPaperConfig
+PrinterLanguage
+DeviceAddress
+PaperOptions
 PrinterCapabilities
 ```
 
@@ -39,10 +39,10 @@ Utils
 ConfigData
 
 // Ưu tiên
-PrintPaperConfig
-PrinterConnection
+PaperOptions
+DeviceAddress
 PrinterCapabilities
-PrintRoutingService
+PrinterRepository
 PrinterConnectionLock
 ```
 
@@ -51,7 +51,7 @@ PrinterConnectionLock
 ## 3. Interface
 
 Interface định nghĩa **contract** — dùng khi có ranh giới cần implement
-nhiều cách (native/library/vendor, mock cho test), không dùng cho object
+nhiều cách (native/vendor, mock cho test), không dùng cho object
 shape đơn thuần không có behavior thay thế được.
 
 ```ts
@@ -78,7 +78,7 @@ export interface Printer {
   id: string;
 }
 
-export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
+export type PrintLanguage = (typeof PrintLanguage)[keyof typeof PrintLanguage];
 ```
 
 ---
@@ -92,27 +92,27 @@ suốt:
 
 ```ts
 // Không hard-code rải rác
-if (driver === 'EscPos') { ... }
+if (language === 'EscPos') { ... }
 
 // Centralize đúng pattern đã dùng
-export const PrinterDriverType = {
+export const PrintLanguage = {
   EscPos: 'EscPos',
   Tspl: 'Tspl',
 } as const;
 
-export type PrinterDriverType = (typeof PrinterDriverType)[keyof typeof PrinterDriverType];
+export type PrintLanguage = (typeof PrintLanguage)[keyof typeof PrintLanguage];
 ```
 
-Sử dụng: `driver.type === PrinterDriverType.EscPos` — không so sánh string
-literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ
-`PrinterErrorCode` (giữ SCREAMING_SNAKE_CASE).
+Sử dụng: `printer.language.type === PrintLanguage.EscPos` — không so sánh string
+literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ các bộ mã lỗi
+(`DeviceErrorCode`, `PrinterErrorCode`, `PrintErrorCode`) giữ SCREAMING_SNAKE_CASE.
 
 ---
 
 ## 6. `readonly` — chỉ khi không xung đột với Redux Toolkit/Immer
 
 **Điều chỉnh so với đề xuất ban đầu:** KHÔNG áp `readonly` lên field của
-`Printer`/`PrinterDriver` — `store/printerSlice.ts` (Redux Toolkit
+`Printer`/`PrinterLanguage` — `store/printerSlice.ts` (Redux Toolkit
 `createSlice`) mutate trực tiếp field này theo đúng cú pháp Immer bắt buộc
 (`printer.enabled = ...`, `state.printers.push(...)`). Thêm `readonly` sẽ
 lỗi compile ngay, không phải lỗi cần sửa ở phía reducer.
@@ -130,28 +130,29 @@ Redux (vd config object truyền 1 lần cho constructor, DTO chỉ đọc).
 
 ---
 
-## 7. Constructor / Factory Function
+## 7. Service là class, kèm một instance dùng chung
 
-Codebase dùng **factory-function + closure** cho service (không dùng
-class), đã hỗ trợ dependency injection đầy đủ qua default parameter:
+Service viết bằng **class** (không dùng factory function + closure). Phụ
+thuộc truyền qua constructor, có giá trị mặc định là instance dùng chung để
+test thay được. Class đặt PascalCase, instance dùng chung đặt camelCase:
 
 ```ts
-export const createPrinterConfigService = (
-  repository: PrinterRepositoryLike = PrinterRepository,
-) => {
-  // ...
-  return { setRenderMode, setPaper };
-};
+export class PrinterManagementService {
+  constructor(private readonly repository: PrinterRepository = printerRepository) {}
 
-export const PrinterConfigService = createPrinterConfigService(PrinterRepository);
+  setEnabled(printerId: string, enabled: boolean): void { /* ... */ }
+}
+
+export const printerManagementService = new PrinterManagementService();
 ```
 
-**Không đổi sang class-based OOP** (`new PrinterConfigService(repository)`)
-— pattern hiện tại đạt cùng lợi ích DI mà không cần class, đổi chỉ là style
-rewrite không có lợi ích chức năng, chi phí rất cao (mọi service).
-
-Factory function không nên chứa workflow phức tạp trong closure setup —
-chỉ khởi tạo state/helper nội bộ, method thật nằm trong object trả về.
+Kiểu phụ thuộc là **nguyên class** (`PrinterRepository`), không dùng
+`Pick<Class, ...>` hay `ReturnType<typeof ...>`. Truyền **instance** làm phụ
+thuộc, không truyền method rời (`{ getPrinters: printerRepository.getPrinters }`)
+— method rời mất `this`. Test cần object giả thì dùng `mockOf<Class>({ ... })`
+(`testing/printerServiceTestKit.ts`), vì class có field private nên object viết
+tay không khớp kiểu class. Hàm thuần không có state (`createPrinterDraft`,
+`createPrinterAdapter`) vẫn là function.
 
 ---
 
@@ -163,7 +164,7 @@ Schema validation  → correctness (chạy ở service boundary, không chỉ UI
 ```
 
 Ví dụ: `columns > 0`, `itemWidthMm > 0`, ràng buộc die-cut không vượt khổ
-giấy — nằm trong `forms/addPrinter/PrinterSchema.ts` (`printMediaSchema`),
+giấy — nằm trong `forms/addPrinter/PrinterSchema.ts` (`paperOptionsSchema`),
 chạy lại ở `PrinterRepository.addPrinter()`/`updatePrinter()` qua
 `printerSchema.parse()`, không chỉ dựa vào form đã chặn trước đó.
 
@@ -183,7 +184,7 @@ width
 timeout
 ```
 
-Đã áp dụng nhất quán trong `PrintPaperConfig`/`paperSpec.ts` — giữ khi thêm field mới.
+Đã áp dụng nhất quán trong `PaperOptions`/`paperSpec.ts` — giữ khi thêm field mới.
 
 ---
 
@@ -200,18 +201,18 @@ const name = printer.name;
 ### 10.2 Comment giải thích WHY / constraint / non-obvious behavior
 
 ```ts
-// USB dùng chung 1 native module singleton — 2 job USB phải serialize
-// bất kể printerId khác nhau.
+// Hai lệnh in cùng một máy vật lý phải chạy lần lượt: native chỉ giữ
+// thứ tự từng lần gọi, không giữ trọn cả lệnh in.
 ```
 
 ### 10.3 Class/interface-level comment cho abstraction dùng chung
 
 ```ts
 /**
- * Giấy vật lý đang nạp trong máy in — thuộc Printer, KHÔNG thuộc driver.
- * Không mô tả behavior driver hay routing.
+ * Giấy vật lý đang nạp trong máy in — thuộc Printer, KHÔNG thuộc ngôn ngữ in.
+ * Không mô tả behavior encode hay routing.
  */
-export interface PrintPaperConfig { ... }
+export type PaperOptions = ContinuousPaper | DieCutPaper;
 ```
 
 ### 10.4 Field chỉ comment khi tên+type chưa đủ rõ
@@ -221,7 +222,7 @@ export interface PrintPaperConfig { ... }
 name: string;
 
 // Cần — constraint không thấy được từ tên+type
-/** Bắt buộc khi type = PrintPaperType.DieCut. Bỏ qua khi Continuous. */
+/** Bắt buộc khi type = PaperType.DieCut. Bỏ qua khi Continuous. */
 columns?: number;
 ```
 
@@ -239,8 +240,8 @@ columns?: number;
 // TODO: fix
 
 // Ưu tiên
-// TODO: bỏ ngưỡng CONTINUOUS_HEIGHT_MM tạm sau khi verify phần cứng thật
-// cho phép chiều cao lớn hơn (xem spec 2026-09-09 §9).
+// TODO: đổi SET CUTTER <copies> sang SET CUTTER BATCH sau khi verify
+// firmware TSPL clone hỗ trợ lệnh này trên máy thật.
 ```
 
 ---
@@ -276,8 +277,8 @@ function handle() { return save(); }
 
 Không tạo `Factory`/`Registry`/`Adapter` khi chỉ có `new X(...)` hoặc gọi
 thẳng 1 implementation — chỉ dựng khi creation logic thật sự có nhiều
-nhánh cấu hình (vd `resolvePrinterAdapter` — có thật 3 implementation,
-resolve theo 2 điều kiện, xứng đáng có hàm riêng).
+nhánh cấu hình (vd `getPrintLanguage` chọn ngôn ngữ theo cấu hình máy in;
+`createPrinterAdapter` có bản riêng cho web).
 
 ---
 
@@ -291,5 +292,5 @@ Pure/tính toán:            calculate, resolve, derive, validate, format, encod
 ```
 
 `resolveEffectiveCutterMode(media)` (pure) không được âm thầm ghi log/side
-effect; `PrinterConfigService.setPaper()` (side effect) phải có tên
-động từ rõ ràng, không đặt tên như `getDriverMedia`.
+effect; `PrinterManagementService.setEnabled()` (side effect) phải có tên
+động từ rõ ràng, không đặt tên như `getEnabled`.

@@ -1,191 +1,654 @@
-import { createPrinterConnectionService } from '../PrinterConnectionService';
-import { createPrinterRepository } from '../../storage/PrinterRepository';
-import { createResourceLock } from '../PrinterConnectionLock';
-import { PrinterStorage } from '../../storage/PrinterStorage';
-import { PrinterStatus } from '../../models/printer/PrinterStatus';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
-import { type Printer } from '../../models/printer/Printer';
-import { makeMockDriver, escposDriverEntry, tsplDriverEntry, basePrinter } from '../../testing/printerServiceTestKit';
+import { PrinterConnectionService } from '../PrinterConnectionService';
+import { PrinterConnectionLock } from '../PrinterConnectionLock';
+import { PrinterRepository } from '../../storage/PrinterRepository';
+import { printerStorage } from '../../storage/PrinterStorage';
+import { printerLogger } from '../../logging/PrinterLogger';
+import { ConnectionType } from '../../models/connections/ConnectionType';
+import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
+import type { Printer } from '../../models/printer/Printer';
+import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
+import { basePrinter, fakeConnectedDevice, makeFakeAdapter } from '../../testing/printerServiceTestKit';
+import type { ConnectedDevice } from '../../models/device/ConnectedDevice';
+import type { DeviceAddress } from '../../models/device/DeviceAddress';
+import { DeviceErrorCode } from '../../errors';
+import { DeviceErrorException } from '../../exceptions';
 
-jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
+jest.mock('../../../../services/LoggerService', () => ({
+  LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
+}));
+
+jest.mock('../../logging/PrinterLogger', () => ({
+  printerLogger: {
+    connectSucceeded: jest.fn(),
+    connectFailed: jest.fn(),
+    disconnectSucceeded: jest.fn(),
+    disconnectFailed: jest.fn(),
+  },
+}));
+
+const bluetoothPrinter: Printer = {
+  ...basePrinter,
+  id: 'p-bt',
+  deviceId: 'bluetooth:AA:BB:CC:DD:EE:FF',
+  connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB:CC:DD:EE:FF' },
+};
+
+const secondLanPrinter: Printer = {
+  ...basePrinter,
+  id: 'p2',
+  deviceId: 'lan:192.168.1.11:9100',
+  connection: { type: ConnectionType.Lan, host: '192.168.1.11', port: 9100 },
+};
+
+/** Service với các adapter giả lần lượt trả về cho mỗi lần kết nối; hết thì tạo adapter giả mới. */
+const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
+  const repository = new PrinterRepository();
+  const queue = [...adapters];
+  const createAdapter = jest.fn(() => queue.shift() ?? makeFakeAdapter().adapter);
+  const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
+  const lock = new PrinterConnectionLock();
+  const service = new PrinterConnectionService(createAdapter, ensureBluetoothPermission, repository, lock);
+
+  return { service, repository, lock, createAdapter, ensureBluetoothPermission };
+};
+
+/** Ghi lại mọi trạng thái của một máy in kể từ lúc gọi. */
+const recordStatuses = (service: ReturnType<typeof setup>['service'], printerId: string): ConnectionStatus[] => {
+  const statuses: ConnectionStatus[] = [];
+  service.onStatusChange(printerId, (status) => statuses.push(status));
+  return statuses;
+};
 
 describe('PrinterConnectionService', () => {
   beforeEach(() => {
-    PrinterStorage.savePrinters([]);
+    printerStorage.savePrinters([]);
+    jest.clearAllMocks();
   });
 
-  it("connect() connects via the printer's driver", async () => {
-    const escposDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter(basePrinter);
-    await service.connect(basePrinter.id);
-    expect(escposDriver.connect).toHaveBeenCalledWith(basePrinter);
+  it('kết nối trả thông tin máy native đọc được sau khi mở', async () => {
+    const { adapter } = makeFakeAdapter();
+    const withSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN' };
+    adapter.connect.mockResolvedValueOnce(fakeConnectedDevice(withSerial, { name: 'XP-58' }));
+    const { service } = setup([adapter]);
+
+    const withoutSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2 };
+    const connected = await service.connect({ ...basePrinter, connection: withoutSerial });
+
+    expect(connected).toMatchObject({ deviceId: 'usb:1:2:SN', address: withSerial, name: 'XP-58' });
   });
 
-  it("disconnect() disconnects via the printer's driver", async () => {
-    const escposDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter(basePrinter);
-    await service.disconnect(basePrinter.id);
-    expect(escposDriver.disconnect).toHaveBeenCalledWith(basePrinter.id);
+  it('hai địa chỉ khác nhau mà native báo cùng kết nối: dùng chung, ngắt máy này không đóng của máy kia', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const withSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN' };
+    const sameDevice = fakeConnectedDevice(withSerial, { connectionId: 'usb:/dev/bus/usb/001/004' });
+    first.connect.mockResolvedValue(sameDevice);
+    second.connect.mockResolvedValue(sameDevice);
+    const { service } = setup([first, second]);
+    const receipt: Printer = { ...basePrinter, id: 'receipt', connection: withSerial, deviceId: sameDevice.deviceId };
+    const draft: Printer = {
+      ...basePrinter,
+      id: 'draft',
+      connection: { type: ConnectionType.Usb, vendorId: 1, productId: 2 },
+      deviceId: '',
+    };
+
+    await service.connect(receipt);
+    await service.connect(draft);
+    await service.disconnect(draft.id);
+    await service.send(receipt.id, new Uint8Array([9]));
+
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(second.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([9]));
+    expect(service.getStatus(receipt.id)).toBe(ConnectionStatus.Connected);
   });
 
-  it("getStatus() returns the status from the printer's driver", () => {
-    const escposDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected) });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter(basePrinter);
-    expect(service.getStatus(basePrinter.id)).toBe(PrinterStatus.Connected);
-  });
-
-  it("onStatusChange() subscribes to the printer's driver and unsubscribes on cleanup", () => {
-    const unsubscribe = jest.fn();
-    const escposDriver = makeMockDriver({ onStatusChange: jest.fn().mockReturnValue(unsubscribe) });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter(basePrinter);
-
-    const callback = jest.fn();
-    const result = service.onStatusChange(basePrinter.id, callback);
-    expect(escposDriver.onStatusChange).toHaveBeenCalledWith(basePrinter.id, callback);
-
-    result();
-    expect(unsubscribe).toHaveBeenCalled();
-  });
-
-  it('reconnect() disconnects then connects', async () => {
-    const escposDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter(basePrinter);
-    await service.reconnect(basePrinter.id);
-    expect(escposDriver.disconnect).toHaveBeenCalledWith(basePrinter.id);
-    expect(escposDriver.connect).toHaveBeenCalledWith(basePrinter);
-  });
-
-  it('reconnectAutoPrinters() connects only enabled printers with autoReconnect on', () => {
-    const escposDriver = makeMockDriver();
-    const tsplDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
-    const auto: Printer = { ...basePrinter, id: 'p-auto', autoReconnect: true, enabled: true, identityKey: 'lan:1.1.1.1:9100', connection: { type: 'Lan', host: '1.1.1.1', port: 9100 } };
-    const manual: Printer = { ...basePrinter, id: 'p-manual', autoReconnect: false, enabled: true, identityKey: 'lan:1.1.1.2:9100', connection: { type: 'Lan', host: '1.1.1.2', port: 9100 } };
-    repository.addPrinter(auto);
-    repository.addPrinter(manual);
-    service.reconnectAutoPrinters();
-    expect(escposDriver.connect).toHaveBeenCalledTimes(1);
-    expect(escposDriver.connect).toHaveBeenCalledWith(auto);
-  });
-
-  it('reconnectAutoPrinters() swallows a connect failure for one printer without throwing', async () => {
-    const escposDriver = makeMockDriver({ connect: jest.fn().mockRejectedValue(new Error('offline')) });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    repository.addPrinter({ ...basePrinter, autoReconnect: true, enabled: true });
-
-    expect(() => service.reconnectAutoPrinters()).not.toThrow();
-    await Promise.resolve();
-    await Promise.resolve();
-  });
-
-  it('connectDraft() connects via the driver already attached to the draft printer, without touching storage', async () => {
-    const tsplDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
-    const draftPrinter: Printer = { ...basePrinter, id: 'draft-1', driver: tsplDriverEntry };
-    await service.connectDraft(draftPrinter);
-    expect(tsplDriver.connect).toHaveBeenCalledWith(draftPrinter);
-    expect(repository.getPrinters()).toEqual([]);
-  });
-
-  it('disconnectForDriver() disconnects via the driver looked up by type, bypassing the repository', async () => {
-    const tsplDriver = makeMockDriver();
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
-
-    await service.disconnectForDriver(PrinterDriverType.Tspl, 'draft-1');
-
-    expect(tsplDriver.disconnect).toHaveBeenCalledWith('draft-1');
-    expect(repository.getPrinters()).toEqual([]);
-  });
-
-  it('getStatusForDriver() reads status from the driver looked up by type, bypassing the repository', () => {
-    const tsplDriver = makeMockDriver({ getStatus: jest.fn().mockReturnValue(PrinterStatus.Connected) });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
-
-    expect(service.getStatusForDriver(PrinterDriverType.Tspl, 'draft-1')).toBe(PrinterStatus.Connected);
-    expect(tsplDriver.getStatus).toHaveBeenCalledWith('draft-1');
-  });
-
-  it('onStatusChangeForDriver() subscribes to the driver looked up by type, bypassing the repository', () => {
-    const unsubscribe = jest.fn();
-    const tsplDriver = makeMockDriver({ onStatusChange: jest.fn().mockReturnValue(unsubscribe) });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver }, repository, createResourceLock());
-
-    const callback = jest.fn();
-    const result = service.onStatusChangeForDriver(PrinterDriverType.Tspl, 'draft-1', callback);
-    expect(tsplDriver.onStatusChange).toHaveBeenCalledWith('draft-1', callback);
-
-    result();
-    expect(unsubscribe).toHaveBeenCalled();
-  });
-
-  it('connect() runs the driver call through the connection lock, keyed by connectionResourceKey', async () => {
-    const escposDriver = makeMockDriver();
-    const lock = createResourceLock();
-    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, lock);
-    repository.addPrinter(basePrinter);
-    await service.connect(basePrinter.id);
-    expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
-    expect(escposDriver.connect).toHaveBeenCalledWith(basePrinter);
-  });
-
-  it('disconnect() runs the driver call through the connection lock, keyed by connectionResourceKey', async () => {
-    const escposDriver = makeMockDriver();
-    const lock = createResourceLock();
-    const runExclusiveSpy = jest.spyOn(lock, 'runExclusive');
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, lock);
-    repository.addPrinter(basePrinter);
-    await service.disconnect(basePrinter.id);
-    expect(runExclusiveSpy).toHaveBeenCalledWith('escpos:lan', expect.any(Function));
-    expect(escposDriver.disconnect).toHaveBeenCalledWith(basePrinter.id);
-  });
-
-  it('two printers sharing the same resourceKey never connect concurrently', async () => {
-    let inFlight = 0;
-    let maxInFlight = 0;
-    const escposDriver = makeMockDriver({
-      connect: jest.fn().mockImplementation(async () => {
-        inFlight += 1;
-        maxInFlight = Math.max(maxInFlight, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        inFlight -= 1;
+  it('kết nối bị đóng trong lúc lượt khác đang mở cùng máy: lượt đó mở lại thay vì giữ kết nối đã đóng', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    let finishSecond: () => void = () => undefined;
+    second.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finishSecond = () => resolve(fakeConnectedDevice(basePrinter.connection));
       }),
-    });
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: escposDriver, [PrinterDriverType.Tspl]: makeMockDriver() }, repository, createResourceLock());
-    const second: Printer = { ...basePrinter, id: 'p2', identityKey: 'lan:1.1.1.2:9100', connection: { type: 'Lan', host: '1.1.1.2', port: 9100 } };
-    repository.addPrinter(basePrinter);
-    repository.addPrinter(second);
-    await Promise.all([service.connect(basePrinter.id), service.connect(second.id)]);
-    expect(maxInFlight).toBe(1);
+    );
+    const { service } = setup([first, second]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+
+    const connectingLabel = service.connect(label);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await service.disconnect(basePrinter.id);
+    finishSecond();
+    await connectingLabel;
+    await service.send(label.id, new Uint8Array([6]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.connect).toHaveBeenCalledTimes(2);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([6]));
   });
 
-  it('reconnect() never invokes the tspl driver installTsplFont (RULE 15-17)', async () => {
-    const tsplDriver = { ...makeMockDriver(), installTsplFont: jest.fn().mockResolvedValue(undefined) };
-    const repository = createPrinterRepository();
-    const service = createPrinterConnectionService({ [PrinterDriverType.EscPos]: makeMockDriver(), [PrinterDriverType.Tspl]: tsplDriver as never }, repository, createResourceLock());
-    repository.addPrinter({ ...basePrinter, driver: escposDriverEntry });
+  it('ensureConnected đang có lượt kết nối thì chờ lượt đó, không mở lượt mới', async () => {
+    const first = makeFakeAdapter().adapter;
+    let finish: () => void = () => undefined;
+    first.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finish = () => resolve(fakeConnectedDevice(basePrinter.connection));
+      }),
+    );
+    const { service, createAdapter } = setup([first]);
+
+    const appStart = service.connect(basePrinter);
+    const printing = service.ensureConnected(basePrinter);
+    finish();
+    await Promise.all([appStart, printing]);
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('ensureConnected đã kết nối thì không làm gì, chưa kết nối thì kết nối', async () => {
+    const { service, createAdapter } = setup([]);
+
+    await service.ensureConnected(basePrinter);
+    await service.ensureConnected(basePrinter);
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('ghi lỗi do kết nối hỏng thì bỏ kết nối, lần sau ensureConnected mở lại', async () => {
+    const first = makeFakeAdapter().adapter;
+    first.write.mockRejectedValueOnce(
+      new DeviceErrorException({ code: DeviceErrorCode.WRITE_TIMEOUT, message: 'Máy in không nhận hết dữ liệu' }),
+    );
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
+    await service.connect(basePrinter);
+
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.WRITE_TIMEOUT,
+    });
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+
+    await service.ensureConnected(basePrinter);
+    await service.send(basePrinter.id, new Uint8Array([2]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([2]));
+  });
+
+  it('ghi lỗi không phải do kết nối thì giữ kết nối', async () => {
+    const { adapter } = makeFakeAdapter();
+    adapter.write.mockRejectedValueOnce(new Error('lỗi lập trình'));
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toThrow('lỗi lập trình');
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(adapter.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('forget dọn trạng thái máy đã ngắt, giữ nguyên máy còn kết nối', async () => {
+    const { service } = setup([]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+    await service.disconnect(label.id);
+
+    service.forget(label.id);
+    service.forget(basePrinter.id);
+
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Idle);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('máy chưa từng kết nối ở trạng thái Idle', () => {
+    const { service } = setup([]);
+
+    expect(service.getStatus('never')).toBe(ConnectionStatus.Idle);
+  });
+
+  it('kết nối mở adapter bằng đúng kết nối của máy và chuyển Connecting → Connected', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    const statuses = recordStatuses(service, basePrinter.id);
+
+    await service.connect(basePrinter);
+
+    expect(adapter.connect).toHaveBeenCalledWith(basePrinter.connection);
+    expect(statuses).toEqual([ConnectionStatus.Connecting, ConnectionStatus.Connected]);
+    expect(printerLogger.connectSucceeded).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: basePrinter.id, connectionType: ConnectionType.Lan }),
+    );
+  });
+
+  it('kết nối Bluetooth xin quyền trước', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, ensureBluetoothPermission } = setup([adapter]);
+
+    await service.connect(bluetoothPrinter);
+
+    expect(ensureBluetoothPermission).toHaveBeenCalled();
+    expect(adapter.connect).toHaveBeenCalledWith(bluetoothPrinter.connection);
+  });
+
+  it('không có quyền Bluetooth → PERMISSION_DENIED, trạng thái Error, không mở adapter', async () => {
+    const { service, createAdapter } = setup([], false);
+
+    await expect(service.connect(bluetoothPrinter)).rejects.toMatchObject({
+      code: DeviceErrorCode.PERMISSION_DENIED,
+    });
+
+    expect(createAdapter).not.toHaveBeenCalled();
+    expect(service.getStatus(bluetoothPrinter.id)).toBe(ConnectionStatus.Error);
+  });
+
+  it('kết nối thất bại → trạng thái Error, ghi log và ném lại lỗi', async () => {
+    const { adapter } = makeFakeAdapter();
+    const failure = new DeviceErrorException({ code: DeviceErrorCode.CONNECTION_FAILED, message: 'down' });
+    adapter.connect.mockRejectedValueOnce(failure);
+    const { service } = setup([adapter]);
+
+    await expect(service.connect(basePrinter)).rejects.toBe(failure);
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
+    expect(printerLogger.connectFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ printerId: basePrinter.id, errorCode: DeviceErrorCode.CONNECTION_FAILED }),
+    );
+  });
+
+  it('kết nối lại cùng máy: native trả cùng kết nối nên dùng lại, bỏ adapter mới mà không ngắt', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
+
+    await service.connect(basePrinter);
+    await service.connect(basePrinter);
+    await service.send(basePrinter.id, new Uint8Array([1]));
+
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(second.disconnect).not.toHaveBeenCalled();
+    expect(second.write).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([1]));
+  });
+
+  it('hai máy in trỏ cùng một máy vật lý dùng chung một kết nối; ngắt máy này máy kia vẫn in được', async () => {
+    const shared = makeFakeAdapter().adapter;
+    const { service } = setup([shared]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+
+    await service.connect(basePrinter);
+    await service.connect(label);
+    await service.disconnect(basePrinter.id);
+    await service.send(label.id, new Uint8Array([3]));
+
+    expect(shared.disconnect).not.toHaveBeenCalled();
+    expect(shared.write).toHaveBeenCalledWith(new Uint8Array([3]));
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Connected);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('máy in cuối cùng ngắt thì mới đóng kết nối dùng chung', async () => {
+    const shared = makeFakeAdapter().adapter;
+    const { service } = setup([shared]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+
+    await service.disconnect(basePrinter.id);
+    await service.disconnect(label.id);
+
+    expect(shared.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('mất kết nối dùng chung thì mọi máy in trên máy đó chuyển Disconnected', async () => {
+    const shared = makeFakeAdapter();
+    const { service } = setup([shared.adapter]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+
+    shared.lose();
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Disconnected);
+    expect(shared.adapter.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('chuyển sang máy vật lý khác mà mở thất bại thì giữ kết nối cũ', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    second.connect.mockRejectedValueOnce(new Error('down'));
+    const { service } = setup([first, second]);
+
+    await service.connect(basePrinter);
+    await expect(service.connect({ ...basePrinter, connection: secondLanPrinter.connection })).rejects.toThrow('down');
+    await service.send(basePrinter.id, new Uint8Array([2]));
+
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([2]));
+  });
+
+  it('chuyển sang máy vật lý khác: đóng kết nối cũ, lỗi khi đóng chỉ ghi log', async () => {
+    const first = makeFakeAdapter().adapter;
+    first.disconnect.mockRejectedValueOnce(new Error('close failed'));
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
+
+    await service.connect(basePrinter);
+    await service.connect({ ...basePrinter, connection: secondLanPrinter.connection });
+    await service.send(basePrinter.id, new Uint8Array([4]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([4]));
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(printerLogger.disconnectFailed).toHaveBeenCalledWith(expect.objectContaining({ printerId: basePrinter.id }));
+  });
+
+  it('hai máy cùng loại kết nối giữ kết nối song song', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
+
+    await service.connect(basePrinter);
+    await service.connect(secondLanPrinter);
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(service.getStatus(secondLanPrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(first.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('ngắt kết nối: Disconnecting → Disconnected, trả adapter, sau đó gửi báo PRINTER_NOT_CONNECTED', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+    const statuses = recordStatuses(service, basePrinter.id);
+
+    await service.disconnect(basePrinter.id);
+
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    expect(statuses).toEqual([ConnectionStatus.Disconnecting, ConnectionStatus.Disconnected]);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('ngắt kết nối chờ lệnh đang giữ khoá của máy xong mới trả adapter', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, lock } = setup([adapter]);
+    await service.connect(basePrinter);
+    let release: () => void = () => undefined;
+    const held = lock.runExclusive(
+      basePrinter.deviceId,
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+
+    const disconnecting = service.disconnect(basePrinter.id);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(adapter.disconnect).not.toHaveBeenCalled();
+
+    release();
+    await held;
+    await disconnecting;
+
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('lệnh ngắt đang chờ khoá hết hiệu lực khi máy in được kết nối lại', async () => {
+    const first = makeFakeAdapter().adapter;
+    const { service, lock } = setup([first]);
+    await service.connect(basePrinter);
+    let release: () => void = () => undefined;
+    const held = lock.runExclusive(
+      basePrinter.deviceId,
+      () => new Promise<void>((resolve) => (release = resolve)),
+    );
+
+    const disconnecting = service.disconnect(basePrinter.id);
+    await service.connect(basePrinter);
+    release();
+    await held;
+    await disconnecting;
+    await service.send(basePrinter.id, new Uint8Array([7]));
+
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([7]));
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('kết nối không bị khoá in giữ chặn (print kết nối bên trong khoá)', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, lock } = setup([adapter]);
+
+    await lock.runExclusive(basePrinter.deviceId, () => service.connect(basePrinter));
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('ngắt máy chưa kết nối chỉ đặt Disconnected', async () => {
+    const { service } = setup([]);
+
+    await service.disconnect('never');
+
+    expect(service.getStatus('never')).toBe(ConnectionStatus.Disconnected);
+  });
+
+  it('ngắt thất bại → trạng thái Error và ném lại lỗi', async () => {
+    const { adapter } = makeFakeAdapter();
+    adapter.disconnect.mockRejectedValueOnce(new Error('close failed'));
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+
+    await expect(service.disconnect(basePrinter.id)).rejects.toThrow('close failed');
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
+  });
+
+  it('gửi khi chưa kết nối → NOT_CONNECTED', async () => {
+    const { service } = setup([]);
+
+    await expect(service.send('never', new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('đọc trả phản hồi của adapter', async () => {
+    const { adapter } = makeFakeAdapter();
+    adapter.read.mockResolvedValueOnce(new Uint8Array([0x41]));
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+
+    await expect(service.read(basePrinter.id)).resolves.toEqual(new Uint8Array([0x41]));
+    expect(adapter.read).toHaveBeenCalledTimes(1);
+  });
+
+  it('adapter báo mất kết nối → Disconnected, bỏ phiên và trả adapter', async () => {
+    const { adapter, lose } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+
+    lose();
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('ngắt sau khi đã mất kết nối thì không gọi lại adapter', async () => {
+    const { adapter, lose } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+    lose();
+
+    await service.disconnect(basePrinter.id);
+
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+  });
+
+  it('lượt kết nối cũ thất bại thì không ghi đè trạng thái của lượt mới', async () => {
+    const slow = makeFakeAdapter();
+    let failSlow: (error: Error) => void = () => undefined;
+    slow.adapter.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((_resolve, reject) => {
+        failSlow = reject;
+      }),
+    );
+    const fast = makeFakeAdapter();
+    const { service } = setup([slow.adapter, fast.adapter]);
+
+    const first = service.connect(basePrinter);
+    const second = service.connect(basePrinter);
+    failSlow(new Error('timeout'));
+
+    await expect(first).rejects.toThrow('timeout');
+    await second;
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).resolves.toBeUndefined();
+    expect(fast.adapter.write).toHaveBeenCalled();
+  });
+
+  it('hai lượt kết nối cùng lúc: chỉ lượt mới nhất giữ máy in, trạng thái Connected', async () => {
+    const slow = makeFakeAdapter();
+    let finishSlow: () => void = () => undefined;
+    slow.adapter.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finishSlow = () => resolve(fakeConnectedDevice(basePrinter.connection));
+      }),
+    );
+    const fast = makeFakeAdapter();
+    const { service } = setup([slow.adapter, fast.adapter]);
+
+    const first = service.connect(basePrinter);
+    const second = service.connect(basePrinter);
+    finishSlow();
+    await Promise.all([first, second]);
+    await service.send(basePrinter.id, new Uint8Array([5]));
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect([slow.adapter, fast.adapter].filter((adapter) => adapter.write.mock.calls.length > 0)).toHaveLength(1);
+  });
+
+  it('ngắt trong lúc đang kết nối thì kết nối xong bị trả lại, trạng thái giữ Disconnected', async () => {
+    const { adapter } = makeFakeAdapter();
+    let finishConnect: () => void = () => undefined;
+    adapter.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finishConnect = () => resolve(fakeConnectedDevice(basePrinter.connection));
+      }),
+    );
+    const { service } = setup([adapter]);
+
+    const connecting = service.connect(basePrinter);
+    await service.disconnect(basePrinter.id);
+    finishConnect();
+    await connecting;
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+    expect(adapter.disconnect).toHaveBeenCalledTimes(1);
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.NOT_CONNECTED,
+    });
+  });
+
+  it('listener ném lỗi không làm hỏng kết nối và không chặn listener khác', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    const after = jest.fn();
+    service.onStatusChange(basePrinter.id, () => {
+      throw new Error('listener hỏng');
+    });
+    service.onStatusChange(basePrinter.id, after);
+
+    await expect(service.connect(basePrinter)).resolves.toMatchObject({ deviceId: basePrinter.deviceId });
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(after).toHaveBeenCalledWith(ConnectionStatus.Connected);
+  });
+
+  it('kết nối cũ (đã chuyển sang máy khác) báo mất thì không đổi trạng thái', async () => {
+    const first = makeFakeAdapter();
+    const second = makeFakeAdapter();
+    const { service } = setup([first.adapter, second.adapter]);
+    await service.connect(basePrinter);
+    await service.connect({ ...basePrinter, connection: secondLanPrinter.connection });
+
+    first.lose();
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('huỷ đăng ký trạng thái thì không nhận nữa', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service } = setup([adapter]);
+    const listener = jest.fn();
+    const unsubscribe = service.onStatusChange(basePrinter.id, listener);
+
+    unsubscribe();
+    await service.connect(basePrinter);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('reconnect ngắt rồi kết nối lại bằng máy in đã lưu', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const { service, repository } = setup([first, second]);
+    repository.addPrinter(basePrinter);
+    await service.connect(basePrinter);
 
     await service.reconnect(basePrinter.id);
 
-    expect(tsplDriver.installTsplFont).not.toHaveBeenCalled();
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.connect).toHaveBeenCalledWith(basePrinter.connection);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('reconnect máy in đã bị xoá thì chỉ ngắt, không mở lại', async () => {
+    const first = makeFakeAdapter().adapter;
+    const { service, createAdapter } = setup([first]);
+    await service.connect(basePrinter);
+
+    await service.reconnect(basePrinter.id);
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+  });
+
+  it('mở app kết nối mọi máy đang bật, bỏ qua máy đã tắt', async () => {
+    const { adapter } = makeFakeAdapter();
+    const { service, repository, createAdapter } = setup([adapter]);
+    repository.addPrinter({ ...basePrinter, enabled: true });
+    repository.addPrinter({ ...secondLanPrinter, enabled: false });
+
+    service.connectEnabledPrinters();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(service.getStatus(secondLanPrinter.id)).toBe(ConnectionStatus.Idle);
+  });
+
+  it('mở app kết nối: lỗi của từng máy bị nuốt, máy đó ở trạng thái Error', async () => {
+    const { adapter } = makeFakeAdapter();
+    adapter.connect.mockRejectedValueOnce(new Error('offline'));
+    const { service, repository } = setup([adapter]);
+    repository.addPrinter({ ...basePrinter, enabled: true });
+
+    expect(() => service.connectEnabledPrinters()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Error);
   });
 });

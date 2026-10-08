@@ -1,48 +1,8 @@
-import { connectionResourceKey, createResourceLock } from '../PrinterConnectionLock';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
-import type { PrinterConnection } from '../../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../../models/printer/PrinterDriver';
+import { PrinterConnectionLock } from '../PrinterConnectionLock';
 
-const bluetoothConnection = (deviceId: string): PrinterConnection => ({ type: PrinterConnectionType.Bluetooth, deviceId });
-const lanConnection: PrinterConnection = { type: PrinterConnectionType.Lan, host: '192.168.1.50', port: 9100 };
-const usbConnection: PrinterConnection = { type: PrinterConnectionType.Usb, vendorId: 1155, productId: 22222 };
-
-describe('connectionResourceKey', () => {
-  it('is "usb" for any driver over USB (RNUSBPrinter is a shared native singleton)', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: usbConnection })).toBe('usb');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: usbConnection })).toBe('usb');
-  });
-
-  it('is "escpos:bluetooth" regardless of device — the vendor library BLEPrinter namespace is a global singleton', () => {
-    const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
-    const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceB }),
-    );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: deviceA })).toBe('escpos:bluetooth');
-  });
-
-  it('is "escpos:lan" regardless of host:port — the vendor library NetPrinter namespace is a global singleton', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.EscPos, connection: lanConnection })).toBe('escpos:lan');
-  });
-
-  it('is per-device for tspl over bluetooth — TsplDriver manages its own transport per printer, no shared native singleton', () => {
-    const deviceA = bluetoothConnection('AA:AA:AA:AA:AA:AA');
-    const deviceB = bluetoothConnection('BB:BB:BB:BB:BB:BB');
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).not.toBe(
-      connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceB }),
-    );
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: deviceA })).toBe('tspl:bluetooth:AA:AA:AA:AA:AA:AA');
-  });
-
-  it('is per-host:port for tspl over lan', () => {
-    expect(connectionResourceKey({ driverType: PrinterDriverType.Tspl, connection: lanConnection })).toBe('tspl:lan:192.168.1.50:9100');
-  });
-});
-
-describe('createResourceLock', () => {
+describe('PrinterConnectionLock', () => {
   it('runs two tasks under the same key sequentially, never overlapping', async () => {
-    const lock = createResourceLock();
+    const lock = new PrinterConnectionLock();
     let inFlight = 0;
     let maxInFlight = 0;
     const task = () =>
@@ -57,7 +17,7 @@ describe('createResourceLock', () => {
   });
 
   it('runs tasks under different keys concurrently', async () => {
-    const lock = createResourceLock();
+    const lock = new PrinterConnectionLock();
     let inFlight = 0;
     let maxInFlight = 0;
     const task = (key: string) =>
@@ -73,7 +33,7 @@ describe('createResourceLock', () => {
 
   it('runs queued tasks in the order they were submitted', async () => {
     const order: string[] = [];
-    const lock = createResourceLock();
+    const lock = new PrinterConnectionLock();
     await Promise.all([
       lock.runExclusive('k', async () => {
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -87,21 +47,21 @@ describe('createResourceLock', () => {
   });
 
   it('resolves with the task result and does not swallow the task error', async () => {
-    const lock = createResourceLock();
+    const lock = new PrinterConnectionLock();
     await expect(lock.runExclusive('k', async () => undefined)).resolves.toBeUndefined();
     await expect(
       lock.runExclusive('k', async () => {
-        throw new Error('driver lỗi');
+        throw new Error('tác vụ lỗi');
       }),
-    ).rejects.toThrow('driver lỗi');
+    ).rejects.toThrow('tác vụ lỗi');
   });
 
   it('a rejecting task does not block the next queued task for the same key', async () => {
-    const lock = createResourceLock();
+    const lock = new PrinterConnectionLock();
     const order: string[] = [];
     const first = lock
       .runExclusive('k', async () => {
-        throw new Error('driver lỗi');
+        throw new Error('tác vụ lỗi');
       })
       .catch(() => order.push('first-rejected'));
     const second = lock.runExclusive('k', async () => {

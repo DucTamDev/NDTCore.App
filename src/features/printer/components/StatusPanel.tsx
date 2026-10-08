@@ -3,49 +3,51 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { AppButton } from '../../../components/AppButton';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import { getDriverCapabilities } from '../drivers/DriverCapabilities';
-import { type PrinterDeviceInfo } from '../models/printer/PrinterDevice';
-import type { PrintType } from '../models/printing/PrintType';
+import { PrintLanguage } from '../models/printer/PrinterLanguage';
+import { canPrintKind } from '../forms/addPrinter/printerRules';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
+import type { PrintKind } from '../models/printer/PrintKind';
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
-export type ProtocolState = 'idle' | 'detecting' | 'identified' | 'unknown';
+export type LanguageState = 'idle' | 'detecting' | 'identified' | 'unknown';
 
 export interface StatusPanelProps {
   connectionState: ConnectionState;
-  protocolState: ProtocolState;
-  protocol?: PrinterDriverType;
-  deviceInfo?: PrinterDeviceInfo;
+  languageState: LanguageState;
+  /** Ngôn ngữ đã xác nhận. */
+  languageType?: PrintLanguage;
+  /** Thiết bị đang chọn, để hiển thị hãng và model nếu đọc được. */
+  device?: DeviceInfo;
   errorMessage?: string;
-  /** Lọc danh sách protocol cho phép chọn tay — ESC/POS không hỗ trợ Label. */
-  printType: PrintType;
-  onChooseProtocol: (protocol: PrinterDriverType) => void;
+  /** Lọc danh sách ngôn ngữ cho phép chọn tay — ESC/POS không in được tem. */
+  kind: PrintKind;
+  onChooseLanguage: (language: PrintLanguage) => void;
 }
 
-const protocolLabel: Record<PrinterDriverType, string> = {
+const languageLabel: Record<PrintLanguage, string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
 
-const ALL_PROTOCOLS: PrinterDriverType[] = [PrinterDriverType.EscPos, PrinterDriverType.Tspl];
+const ALL_LANGUAGES: PrintLanguage[] = [PrintLanguage.EscPos, PrintLanguage.Tspl];
 
 export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,
-  protocolState,
-  protocol,
-  deviceInfo,
+  languageState,
+  languageType,
+  device,
   errorMessage,
-  printType,
-  onChooseProtocol,
+  kind,
+  onChooseLanguage,
 }) => {
-  if (protocolState === 'unknown') {
-    const choices = ALL_PROTOCOLS.filter((type) => getDriverCapabilities(type).contentTypes.includes(printType));
+  if (languageState === 'unknown') {
+    const choices = ALL_LANGUAGES.filter((type) => canPrintKind(type, kind));
     return (
       <View style={styles.container}>
         <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
         <View style={styles.choiceRow}>
           {choices.map((type) => (
-            <AppButton key={type} label={protocolLabel[type]} mode="contained" onPress={() => onChooseProtocol(type)} />
+            <AppButton key={type} label={languageLabel[type]} mode="contained" onPress={() => onChooseLanguage(type)} />
           ))}
         </View>
       </View>
@@ -60,7 +62,7 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
     );
   }
 
-  if (connectionState === 'connecting' && protocolState === 'detecting') {
+  if (connectionState === 'connecting' && languageState === 'detecting') {
     return (
       <View style={styles.container}>
         <LoadingOverlay />
@@ -78,13 +80,13 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
     );
   }
 
-  if (connectionState === 'connected' && protocolState === 'identified') {
+  if (connectionState === 'connected' && languageState === 'identified') {
     return (
       <View style={styles.container}>
         <Text variant="bodyMedium" style={styles.successText}>✓ Đã kết nối</Text>
-        {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
-        {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
-        {protocol ? <Text variant="bodySmall">Giao thức: {protocolLabel[protocol]}</Text> : null}
+        {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
+        {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
+        {languageType ? <Text variant="bodySmall">Giao thức: {languageLabel[languageType]}</Text> : null}
       </View>
     );
   }

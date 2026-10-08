@@ -3,27 +3,26 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Chip, List } from 'react-native-paper';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
 import { AppInput } from '../../../components/AppInput';
-import { AppSwitch } from '../../../components/AppSwitch';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
-import { DriverMediaSection } from './DriverMediaSection';
-import { DriverRenderModeSection } from './DriverRenderModeSection';
+import { PaperSection } from './PaperSection';
 import { TestPrintPanel } from './TestPrintPanel';
 import type { PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
-import { PrintType, PRINT_TYPE_LABELS } from '../models/printing/PrintType';
-import { DriverSource, RenderMode, type BitmapSource, type PrinterDriver } from '../models/printer/PrinterDriver';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterStatus } from '../models/printer/PrinterStatus';
-import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
+import { PrintKind } from '../models/printer/PrintKind';
+import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
+import { LanguageSelection, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import { ConnectionStatus } from '../models/connections/ConnectionStatus';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
+import type { PaperForm } from '../forms/addPrinter/PaperFormSchema';
 
-const connectionLabel: Record<PrinterConnectionType, string> = {
+const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
   Bluetooth: 'Bluetooth',
   Lan: 'LAN',
 };
 
-const protocolLabel: Record<PrinterDriver['type'], string> = {
+const languageLabel: Record<PrinterLanguage['type'], string> = {
   EscPos: 'ESC/POS',
   Tspl: 'TSPL',
 };
@@ -31,25 +30,21 @@ const protocolLabel: Record<PrinterDriver['type'], string> = {
 export interface PrinterInfoCardProps {
   control: Control<PrinterDisplayValues>;
   errors: FieldErrors<PrinterDisplayValues>;
-  connectionType: PrinterConnectionType;
+  connectionType: ConnectionType;
   /** `undefined` trước khi discovery xác nhận. */
-  driver?: PrinterDriver;
-  paper: PrintPaperConfig;
-  onChangePaper: (patch: Partial<PrintPaperConfig>) => void;
-  deviceInfo?: PrinterDeviceInfo;
-  status: PrinterStatus;
-  autoReconnect: boolean;
-  onAutoReconnectChange: (value: boolean) => void;
+  language?: PrinterLanguage;
+  /** Form giấy; với máy in đã lưu, đổi giấy hợp lệ được ghi ngay. */
+  paperForm: PaperForm;
+  /** Thiết bị đang chọn, để hiển thị tên, hãng và model nếu đọc được. */
+  device?: DeviceInfo;
+  status: ConnectionStatus;
   testPrintPending: boolean;
   onTestPrint: () => void;
-  onSelectRenderMode: (mode: RenderMode) => void;
-  /** Chỉ có tác dụng khi `driver.config.renderMode === Bitmap`. */
-  onSelectBitmapSource: (source: BitmapSource) => void;
   /** Số hàng die-cut cho "In thử" — giữ dạng text để nhập dở. */
   testPrintRowsText: string;
   onTestPrintRowsChange: (text: string) => void;
   /** Loại nội dung CỐ ĐỊNH của printer này. */
-  printType: PrintType;
+  kind: PrintKind;
   onSave: () => void;
   saveDisabled: boolean;
   locked: boolean;
@@ -59,20 +54,15 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
   control,
   errors,
   connectionType,
-  driver,
-  paper,
-  onChangePaper,
-  deviceInfo,
+  language,
+  paperForm,
+  device,
   status,
-  autoReconnect,
-  onAutoReconnectChange,
   testPrintPending,
   onTestPrint,
-  onSelectRenderMode,
-  onSelectBitmapSource,
   testPrintRowsText,
   onTestPrintRowsChange,
-  printType,
+  kind,
   onSave,
   saveDisabled,
   locked,
@@ -89,20 +79,20 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         )}
       />
 
-      {deviceInfo?.deviceName ? <Text variant="bodySmall">Tên thiết bị: {deviceInfo.deviceName}</Text> : null}
-      {deviceInfo?.vendor ? <Text variant="bodySmall">Hãng sản xuất: {deviceInfo.vendor}</Text> : null}
-      {deviceInfo?.model ? <Text variant="bodySmall">Model: {deviceInfo.model}</Text> : null}
+      {device?.name ? <Text variant="bodySmall">Tên thiết bị: {device.name}</Text> : null}
+      {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
+      {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
       <View style={styles.row}>
         <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
         <PrinterStatusBadge status={status} />
       </View>
 
-      {driver ? (
-        <View style={styles.driverCard}>
+      {language ? (
+        <View style={styles.languageCard}>
           <View style={styles.row}>
-            <Chip>{`Driver: ${protocolLabel[driver.type]}`}</Chip>
-            <Chip>{driver.source === DriverSource.Auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
-            <Chip>{`In: ${PRINT_TYPE_LABELS[printType]}`}</Chip>
+            <Chip>{`Driver: ${languageLabel[language.type]}`}</Chip>
+            <Chip>{language.selection === LanguageSelection.Auto ? 'Tự động nhận diện' : 'Người dùng chọn'}</Chip>
+            <Chip>{`In: ${PRINT_KIND_LABELS[kind]}`}</Chip>
           </View>
         </View>
       ) : null}
@@ -113,17 +103,13 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
         onPress={() => setAdvancedExpanded((v) => !v)}
         style={styles.advancedAccordion}
       >
-        <AppSwitch label="Tự động kết nối lại" value={autoReconnect} onValueChange={onAutoReconnectChange} disabled={locked} />
-        <DriverMediaSection driverType={driver?.type} paper={paper} disabled={locked} onChange={onChangePaper} />
-        {driver ? (
-          <DriverRenderModeSection driver={driver} disabled={locked} onSelectRenderMode={onSelectRenderMode} onSelectBitmapSource={onSelectBitmapSource} />
-        ) : null}
-        {printType === PrintType.Label ? (
+        <PaperSection languageType={language?.type} form={paperForm} disabled={locked} />
+        {kind === PrintKind.Label ? (
           <AppInput label="Số hàng in thử" keyboardType="numeric" value={testPrintRowsText} onChangeText={onTestPrintRowsChange} disabled={locked} />
         ) : null}
       </List.Accordion>
 
-      <TestPrintPanel status={status} printType={printType} testPrintPending={testPrintPending} onTestPrint={onTestPrint} />
+      <TestPrintPanel status={status} kind={kind} testPrintPending={testPrintPending} onTestPrint={onTestPrint} />
       <AppButton label="Lưu máy in" disabled={saveDisabled} onPress={onSave} />
     </View>
   );
@@ -132,6 +118,6 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
 const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  driverCard: { gap: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
+  languageCard: { gap: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F9FAFB' },
   advancedAccordion: { paddingHorizontal: 0 },
 });

@@ -7,16 +7,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { store } from './src/store';
 import { theme } from './src/theme/theme';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { PrinterConnectionService } from './src/features/printer/connection/PrinterConnectionService';
+import { printerConnectionService } from './src/features/printer/connection/PrinterConnectionService';
 
 const queryClient = new QueryClient();
 
 function App(): React.JSX.Element {
-  // Trạng thái kết nối máy in chỉ sống trong bộ nhớ JS của driver, không
-  // persist — mỗi lần app khởi động lại, mọi máy in đều mất kết nối cho tới
-  // khi có bước này (xem PrinterConnectionService.reconnectAutoPrinters).
+  // Trạng thái kết nối máy in chỉ sống trong bộ nhớ, mở app là mất hết; kết nối lại để trạng thái khớp thực tế.
   useEffect(() => {
-    PrinterConnectionService.reconnectAutoPrinters();
+    printerConnectionService.connectEnabledPrinters();
   }, []);
 
   return (

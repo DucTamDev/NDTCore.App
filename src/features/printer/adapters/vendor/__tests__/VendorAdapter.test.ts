@@ -1,30 +1,32 @@
 import { VendorAdapter } from '../VendorAdapter';
-import { PrinterConnectionType } from '../../../models/printer/PrinterConnection';
-import { PrinterErrorCode } from '../../../errors/PrinterError';
+import { ConnectionType } from '../../../models/connections/ConnectionType';
+import { PrinterErrorCode } from '../../../errors';
 
-describe('VendorAdapter (skeleton)', () => {
-  it('source là "vendor"', () => {
-    expect(new VendorAdapter().source).toBe('vendor');
+describe('VendorAdapter (khung)', () => {
+  it('source là "vendor" và không đọc được phản hồi', () => {
+    const adapter = new VendorAdapter();
+    expect(adapter.source).toBe('vendor');
+    expect(adapter.canRead).toBe(false);
   });
 
   it('listDevices trả []', async () => {
-    await expect(new VendorAdapter().listDevices(PrinterConnectionType.Lan)).resolves.toEqual([]);
+    await expect(new VendorAdapter().listDevices(ConnectionType.Lan)).resolves.toEqual([]);
   });
 
-  it('connect / write / printText ném PRINTER_UNSUPPORTED_CONNECTION', async () => {
+  it('connect và write ném PRINTER_UNSUPPORTED_CONNECTION', async () => {
     const adapter = new VendorAdapter();
-    await expect(adapter.connect({ printerId: 'p1', connectionType: PrinterConnectionType.Lan, lan: { ip: '1.1.1.1', port: 9100 } })).rejects.toMatchObject({
-      code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION,
-    });
-    await expect(adapter.write(new Uint8Array([1]))).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
-    await expect(
-      adapter.printText('x', { cut: true, tailingLine: true, encoding: 'UTF8' }),
-    ).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION });
+    const unsupported = { code: PrinterErrorCode.PRINTER_UNSUPPORTED_CONNECTION };
+
+    await expect(adapter.connect({ type: ConnectionType.Lan, host: '1.1.1.1', port: 9100 })).rejects.toMatchObject(
+      unsupported,
+    );
+    await expect(adapter.write(new Uint8Array([1]))).rejects.toMatchObject(unsupported);
   });
 
-  it('read trả null, disconnect không ném', async () => {
+  it('read trả null, onLost trả hàm huỷ rỗng, disconnect không ném', async () => {
     const adapter = new VendorAdapter();
-    await expect(adapter.read(100)).resolves.toBeNull();
+    await expect(adapter.read()).resolves.toBeNull();
+    expect(() => adapter.onLost(jest.fn())()).not.toThrow();
     await expect(adapter.disconnect()).resolves.toBeUndefined();
   });
 });

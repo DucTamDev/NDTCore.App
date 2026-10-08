@@ -11,7 +11,7 @@ import { formatCurrency } from '../../../utils/formatCurrency';
 import { CartItemRow } from './CartItemRow';
 import { CartItemEditModal } from './CartItemEditModal';
 import { useCheckout } from '../hooks/useCheckout';
-import { useBillImageCapture } from '../../printer/hooks/useBillImageCapture';
+import { usePrintImageCapture } from '../../printer/hooks/usePrintImageCapture';
 import {
   itemEdited,
   itemQuantityChanged,
@@ -38,8 +38,9 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
   const serviceType = useSelector((state: RootState) => selectServiceType(state));
   const note = useSelector((state: RootState) => selectCartNote(state));
   const total = useSelector((state: RootState) => selectCartTotal(state));
-  const { captureNode, captureBillImage } = useBillImageCapture();
-  const { submit, isSubmitting, error, dismissError, receiptPrintWarning, dismissReceiptPrintWarning } = useCheckout(captureBillImage);
+  const { captureNode, captureImage } = usePrintImageCapture();
+  const { submit, isSubmitting, error, dismissError, receiptPrintWarning, dismissReceiptPrintWarning } =
+    useCheckout(captureImage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 

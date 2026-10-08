@@ -1,6 +1,6 @@
 # NDTCore POS — Printer Architecture
 
-## 1. Mục tiêu
+# 1. Mục tiêu
 
 Printer feature được thiết kế cho production Android POS với các mục tiêu:
 
@@ -8,10 +8,11 @@ Printer feature được thiết kế cho production Android POS với các mụ
 * Single Responsibility.
 * Explicit dependency direction.
 * Dễ test.
-* Dễ mở rộng driver và connection type.
+* Dễ thêm ngôn ngữ in và loại kết nối.
 * Cô lập Android/vendor SDK khỏi business logic.
-* Hỗ trợ nhiều printer trong cùng POS.
-* Hỗ trợ một physical printer phục vụ nhiều loại nội dung (Hoá đơn + Tem) qua nhiều `Printer` record độc lập, cùng `identityKey`.
+* Hỗ trợ nhiều printer trong cùng POS, kể cả nhiều máy cùng loại kết nối kết nối cùng lúc.
+* Hỗ trợ một máy in vật lý phục vụ nhiều loại nội dung (Hoá đơn + Tem) qua nhiều `Printer` record độc lập, cùng
+  `deviceId`.
 * Không tạo abstraction nếu abstraction không mang lại boundary hoặc responsibility thực sự.
 
 Nguyên tắc cốt lõi:
@@ -30,48 +31,51 @@ Nguyên tắc cốt lõi:
 
 # 2. Architecture Overview
 
-Runtime print flow:
+Feature có hai luồng chính. Ngôn ngữ in (ESC/POS, TSPL) chỉ encode nội dung thành byte; tìm thiết bị, kết nối, trạng
+thái và gửi byte nằm ở **một tầng kết nối chung**, không phân theo ngôn ngữ. Chỗ ghép hai thứ là `printing/` và
+`detection/`.
+
+Luồng in:
 
 ```text
-PrintService
+PrintService                  chọn máy theo kind, khoá theo máy vật lý
     ↓
-PrintRoutingService
-    ↓
-PrintScheduler
-    ↓
-PrinterPrintService
-    ↓
-PrinterConnectionService
-    ↓
-PrinterDriver
-    ↓
-Transport
-    ↓
-Native Adapter
-    ↓
-Android / Vendor SDK
+PrinterService                encode theo ngôn ngữ + gửi qua kết nối
+    ↓                ↓
+IPrintLanguage   PrinterConnectionService
+                     ↓
+                 IPrinterAdapter (NativeAdapter)
+                     ↓
+                 DeviceModule (native Android)
 ```
 
-Mỗi layer có một responsibility rõ ràng.
+Luồng thêm máy in:
 
-| Component                  | Responsibility                                    |
-| --------------------------- | -------------------------------------------------- |
-| `PrintService`             | Public API cho print operation                    |
-| `PrintRoutingService`      | Xác định printer nào cần nhận document            |
-| `PrintScheduler`           | Queue, ordering và concurrency                    |
-| `PrinterPrintService`      | Thực thi print/test-print cho một printer         |
-| `PrinterConnectionService` | Connection lifecycle                              |
-| `PrinterConnectionLock`    | Serialize operation theo runtime resource         |
-| `PrinterDriver`            | Protocol-specific behavior                        |
-| `Transport`                | Gửi byte tới connection                           |
-| Native Adapter             | Bridge tới Android/vendor API                     |
-| `PrinterDiscoveryService`  | Discovery và identification                       |
-| `PrinterResolver`          | Mapping device identity vào printer configuration |
-| `PrinterConfigService`     | Quản lý printer configuration                     |
-| `PrinterRepository`        | Persistence boundary                              |
-| `PrinterStorage`           | MMKV implementation                               |
-| `PrinterPermissionService` | Platform permission                               |
-| `PrinterLogger`            | Structured logging                                |
+```text
+DeviceDiscoveryService        tìm thiết bị → DeviceInfo
+    ↓
+PrinterDetectionService      tra PRINTER_DETECTION_TABLE theo thiết bị quét được
+    ↓
+createPrinterDraft            mặc định theo ngôn ngữ
+    ↓
+PrinterRepository             lưu
+```
+
+| Component                  | Responsibility                                            |
+| -------------------------- | --------------------------------------------------------- |
+| `PrintService`             | Public API in; chọn máy theo `kind`, khoá theo máy vật lý |
+| `PrinterService`           | In / in thử một printer: encode rồi gửi                   |
+| `IPrintLanguage`           | Encode nội dung thành byte theo một ngôn ngữ lệnh          |
+| `PrinterConnectionService` | Phiên kết nối theo `printerId`: mở, đóng, gửi, đọc, trạng thái |
+| `PrinterConnectionLock`    | Khoá loại trừ theo máy vật lý                              |
+| `IPrinterAdapter`          | Một kết nối qua một cơ chế (native module, SDK hãng)       |
+| `DeviceDiscoveryService`   | Tìm thiết bị cho người dùng chọn                          |
+| `PrinterDetectionService` | Tra bảng model: ngôn ngữ, khả năng của máy in mới         |
+| `PrinterManagementService` | Lưu, xoá (ngắt kết nối trước), bật/tắt máy in đã lưu      |
+| `PrinterRepository`        | Persistence boundary                                      |
+| `PrinterStorage`           | MMKV implementation                                       |
+| `PrinterPermissionService` | Platform permission                                       |
+| `PrinterLogger`            | Structured logging                                        |
 
 Không đưa responsibility của một layer sang layer khác chỉ để giảm số lượng file.
 
@@ -82,97 +86,67 @@ Không đưa responsibility của một layer sang layer khác chỉ để giả
 ```text
 src/features/printer/
 ├── ARCHITECTURE.md
+├── CODING_STYLE.md
 │
 ├── models/
-│   ├── printer/
-│   ├── printing/
-│   └── paper/
+│   ├── device/          DeviceInfo (thiết bị tìm thấy), ConnectedDevice (kết quả connect), DeviceAddress
+│   ├── discovery/       DiscoveryStatus, DiscoveryEvent — tiến trình tìm thiết bị
+│   ├── connections/     ConnectionType, ConnectionStatus (trạng thái trong phiên, không lưu)
+│   ├── printer/         Printer, PrintKind, PrinterLanguage, PrinterCapabilities — lưu xuống bộ nhớ
+│   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
+│   │                    paperSpec (thông số theo khổ giấy)
+│   └── printing/        PrintOptions, PrintTask (dữ liệu vào), PrintTaskResult, PrintResult (kết quả)
 │
-├── drivers/
-│   ├── escpos/
-│   └── tspl/
-│       └── strategies/
-│
-├── transports/
-│
-├── discovery/
-│   ├── DeviceScanService.ts
-│   ├── NetworkInfoService.ts
-│   ├── PrinterDiscoveryService.ts
-│   └── PrinterResolver.ts
-│
-├── printing/
-│   ├── PrintRoutingService.ts
-│   ├── PrintScheduler.ts
-│   ├── PrintService.ts
-│   └── PrinterPrintService.ts
-│
-├── connection/
-│   ├── PrinterConnectionService.ts
-│   └── PrinterConnectionLock.ts
-│
-├── permissions/
-│   └── PrinterPermissionService.ts
-│
-├── management/
-│   └── PrinterConfigService.ts
-│
-├── storage/
-│   ├── PrinterRepository.ts
-│   ├── PrinterStorage.ts
-│   └── PrinterWriteInput.ts
-│
-├── paper/
-│   ├── cutter.ts
-│   ├── paperSpec.ts
-│   └── validation.ts
+├── languages/
+│   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
+│   ├── IPrintLanguage.ts
+│   ├── escpos/          EscPosLanguage (encode ảnh bằng GS v 0)
+│   └── tspl/            TsplLanguage (encode ảnh bằng BITMAP)
 │
 ├── adapters/
 │   ├── IPrinterAdapter.ts
-│   ├── resolvePrinterAdapter.ts
-│   ├── library/
-│   ├── native/
-│   │   ├── NativeAdapter.ts
-│   │   ├── DeviceModule.ts
-│   │   ├── NativeConnectionPool.ts
-│   │   ├── toPrinterError.ts
-│   │   ├── utils/
-│   │   │   └── buffer-helper.ts
-│   │   └── EPToolkit.ts
-│   └── vendor/
+│   ├── native/          NativeAdapter (+ toDeviceError), DeviceModule
+│   └── vendor/          VendorAdapter (khung)
 │
-├── logging/
-│   └── PrinterLogger.ts
+├── connection/
+│   ├── PrinterAdapterFactory.ts / .web.ts   createPrinterAdapter theo nền tảng
+│   ├── PrinterConnectionService.ts
+│   └── PrinterConnectionLock.ts
 │
-├── errors/
-│   └── PrinterError.ts
+├── discovery/           DeviceDiscoveryService, NetworkDiscoveryService
+├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
+├── printing/            PrintService, PrinterService
+├── management/          PrinterManagementService, createPrinterDraft
+├── permissions/         PrinterPermissionService
+├── storage/             PrinterRepository, PrinterStorage
+├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
+├── logging/             PrinterLogger
+├── errors/              index.ts (barrel), DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
+├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
+│                        (lớp nền), DeviceErrorException, PrinterErrorException, PrintErrorException
 │
-├── components/
-├── hooks/
-├── forms/
+├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
+├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
+├── forms/               schema (máy in, form giấy, LAN, tên), printerRules (canPrintKind)
 ├── store/
-├── utils/
+├── utils/               printKindLabels (nhãn UI), paperUtils, printOptionsUtils
 │
-└── testing/
-    ├── printerFixtures.ts
-    └── printerServiceTestKit.ts
+└── testing/             printerFixtures, printerServiceTestKit, encodeCases
 ```
 
 ## Structure Rules
 
-* `models/` chỉ chứa domain/data contracts.
-* `drivers/` chứa protocol behavior.
-* `transports/` chứa connection transport.
-* `adapters/` chứa integration với library/native/vendor.
-* `discovery/` chứa discovery và identity resolution.
-* `printing/` chứa print orchestration.
-* `connection/` chỉ xử lý connection lifecycle và resource locking.
-* `paper/` chứa paper calculation, specification và validation.
+* `models/` chỉ chứa dữ liệu và hàm thuần suy ra từ dữ liệu; không chứa nhãn UI, không import từ
+  `languages/`, `connection/`, `printing/`, `components/`.
+* `languages/` chỉ encode; không biết kết nối.
+* `adapters/` chứa integration với native module / SDK hãng; không chứa business rule.
+* `connection/` quản lý phiên kết nối và khoá; không biết ngôn ngữ in.
+* `discovery/` tìm thiết bị; `detection/` tra bảng model máy in.
+* `printing/` ghép ngôn ngữ với kết nối để in.
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
-* `management/` chứa configuration management.
-* `logging/` chứa structured logging.
-* `errors/` chứa printer-specific errors.
+* `management/` chứa thao tác quản lý máy in đã lưu (`PrinterManagementService`) và giá trị mặc định khi tạo máy mới.
+* `logging/` chứa structured logging; `errors/` chứa lỗi dạng dữ liệu và mã lỗi; `exceptions/` chứa exception ném ra.
 
 Không tạo thêm folder chỉ vì muốn "đủ layer".
 
@@ -180,65 +154,39 @@ Không tạo thêm folder chỉ vì muốn "đủ layer".
 
 # 4. Core Domain Model
 
-## 4.1 Independent Axes
-
-Printer architecture không map cứng:
+Các trục độc lập, không map cứng `Receipt → ESC/POS`, `Label → TSPL`:
 
 ```text
-Receipt → ESC/POS
-Label   → TSPL
+PrintKind        Receipt | Label            loại nội dung một Printer record in
+PrintLanguage    EscPos | Tspl              ngôn ngữ lệnh của máy
+ConnectionType   Usb | Bluetooth | Lan      đường kết nối
 ```
 
-Thay vào đó, các concept độc lập:
+Quy ước chung: const-object + type cùng tên (không dùng `enum`); mỗi model một file; summary tiếng Việt cho model và
+field cần giải thích.
 
-```text
-PrintType
-PrinterDriverType
-PrinterConnectionType
-RenderMode
-```
-
-Ví dụ:
-
-```ts
-export const PrintType = {
-  Receipt: 'Receipt',
-  Label: 'Label',
-} as const;
-
-export const PrinterDriverType = {
-  EscPos: 'EscPos',
-  Tspl: 'Tspl',
-} as const;
-
-export const PrinterConnectionType = {
-  Usb: 'Usb',
-  Bluetooth: 'Bluetooth',
-  Lan: 'Lan',
-} as const;
-```
-
-Driver TYPE quyết định content type nào driver đó CÓ THỂ hỗ trợ (`DRIVER_CAPABILITIES` — xem §9). Nhưng mỗi `Printer` record chỉ gắn với ĐÚNG 1 `type` cụ thể — xem §5.
+Ràng buộc duy nhất giữa ngôn ngữ và loại nội dung là `canPrintKind(language, kind)`
+(`forms/addPrinter/printerRules.ts`): ESC/POS chỉ in `Receipt`; TSPL in cả hai.
+Schema, bước tra bảng model khi thêm máy và UI chọn ngôn ngữ tay cùng dùng hàm này.
 
 ---
 
 # 5. Printer Model
 
-Một `Printer` là cấu hình atomic: ĐÚNG 1 `connection` + ĐÚNG 1 `driver` + ĐÚNG 1 `paper` config + ĐÚNG 1 `type` (loại nội dung cố định).
+Một `Printer` là cấu hình atomic: ĐÚNG 1 `connection` + ĐÚNG 1 `language` + ĐÚNG 1 `paper` + ĐÚNG 1 `kind`.
 
 ```ts
 export interface Printer {
   id: string;
-  identityKey: string;
-  type: PrintType;
+  deviceId: string;
+  kind: PrintKind;
   name: string;
   vendor?: string;
   model?: string;
-  connection: PrinterConnection;
-  driver: PrinterDriver;
-  paper: PrintPaperConfig;
+  connection: DeviceAddress;
+  language: PrinterLanguage;
+  paper: PaperOptions;
   capabilities: PrinterCapabilities;
-  autoReconnect: boolean;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -247,523 +195,186 @@ export interface Printer {
 
 ### Field rules
 
-`id`
-
-* Stable identifier của printer configuration.
-* Dùng để reference printer trong storage, routing và runtime operation.
-
-`identityKey`
-
-* Dùng để nhận diện physical printer — chỉ phụ thuộc `connection`, không phụ thuộc `driver`.
-* Dùng cho duplicate prevention.
-* Không dùng để lock runtime resource (xem `resourceKey`, §6).
-* Ràng buộc unique là cặp `(identityKey, type)`, không phải `identityKey` một mình — một physical printer có thể có nhiều `Printer` record (mỗi record một `type`) cùng `identityKey`.
-
-`type`
-
-* Loại nội dung CỐ ĐỊNH của printer record này: `PrintType.Receipt` hoặc `PrintType.Label`.
-* Không đổi được sau khi tạo — đổi loại nội dung nghĩa là tạo printer record khác.
-
-`name`
-
-* Display name do application quản lý.
-
-`vendor`, `model`
-
-* Thông tin tham khảo, lấy từ `identify()` lúc thêm printer — không dùng cho business logic.
-
-`connection`
-
-* Thông tin connection của printer.
-* Là discriminated union theo `PrinterConnectionType`.
-
-`driver`
-
-* ĐÚNG 1 driver được cấu hình cho printer — không phải mảng.
-* `driver.type` phải nằm trong `DRIVER_CAPABILITIES[driver.type].contentTypes` mới hỗ trợ được `printer.type` (enforce ở `PrinterSchema.ts`, xem §9).
-
-`paper`
-
-* Cấu hình giấy (`PrintPaperConfig`) áp dụng cho printer này.
-
-`capabilities`
-
-* Physical capabilities được phát hiện hoặc cấu hình.
-* Không dùng để thay thế driver configuration.
-
-`autoReconnect`
-
-* Có tự động reconnect khi mất kết nối hay không.
-
-`enabled`
-
-* Xác định printer có được routing vào print job hay không.
-
-Không có:
-
-```ts
-isDefault
-```
-
-Printer selection được quyết định bởi routing configuration.
-
-### Một physical printer phục vụ nhiều loại nội dung
-
-Một máy in vật lý phục vụ cả Hoá đơn lẫn Tem (ví dụ máy TSPL) được biểu diễn bằng **2 `Printer` record riêng biệt**, cùng `identityKey` (cùng physical device), khác `type` — có thể cùng `connection`, khác `driver` config (ví dụ cùng Bluetooth device nhưng mỗi record một `PrinterDriverConfig`). Xem `discovery/PrinterResolver.ts` và `storage/PrinterRepository.ts`.
+* `id` sinh khi tạo, không đổi khi sửa. Phiên kết nối và trạng thái được giữ theo `id`.
+* `deviceId` — định danh máy vật lý do native trả lúc kết nối (§6); bản nháp chưa kết nối thì rỗng.
+* `kind` cố định cho record này. Một máy in vật lý phục vụ cả Hoá đơn lẫn Tem được biểu diễn bằng **2 `Printer`
+  record** cùng `deviceId`, khác `kind`. Unique theo cặp (`deviceId`, `kind`).
+* `language` (§8), `paper` (§11), `capabilities` (§9).
+* Không có `isDefault`.
 
 ---
 
-# 6. Identity Key và Resource Key
+# 6. `deviceId` và khoá in
 
-Hai concept này không được merge.
+Native `connect` trả `ConnectedDevice { connectionId, deviceId, address, name?, manufacturer?, model? }`. JS không tự
+tính định danh máy từ địa chỉ: chỉ native, sau khi mở được máy, mới biết serial thật và hai địa chỉ có cùng một máy.
 
-## `identityKey`
+| Kết nối   | `deviceId` (native, ổn định qua các lần cắm)    |
+| --------- | --------------------------------------------- |
+| LAN       | `lan:<host>:<port>`                           |
+| Bluetooth | `bluetooth:<MAC viết hoa>`                    |
+| USB       | `usb:<vendorId>:<productId>[:<serialNumber>]` |
 
-Dùng để trả lời:
+USB không có serial thì không phân biệt được hai máy cùng model.
 
-> "Đây có phải cùng một physical printer không?"
+* `deviceId` lưu vào `Printer.deviceId`; dùng chống thêm trùng (cặp `deviceId` + `kind`, kiểm sau khi kết nối) và làm
+  khoá in: cùng máy vật lý thì in lần lượt, máy khác nhau in song song.
+* `address` (USB có serial) lưu vào `Printer.connection`.
+* `connectionId` chỉ sống trong phiên kết nối (đổi khi rút ra cắm lại), dùng để gom kết nối: hai lần `connect` ra cùng
+  `connectionId` là cùng một kết nối native, dùng chung, không ngắt nhầm của nhau.
 
-Ví dụ:
-
-```text
-usb:<vendorId>:<productId>:<serialNumber>
-bluetooth:<deviceId>
-lan:<ip>:<port>
-```
-
-Identity key phục vụ:
-
-* Duplicate prevention.
-* Device matching.
-* Configuration resolution.
-
-## `resourceKey`
-
-Dùng để trả lời:
-
-> "Những operation nào không được chạy đồng thời?"
-
-Resource key phục vụ:
-
-* Concurrency control.
-* Connection locking.
-* Scheduler serialization.
-
-Ví dụ:
-
-```text
-usb
-
-escpos:bluetooth
-escpos:lan
-
-tspl:bluetooth:<deviceId>
-tspl:lan:<ip>:<port>
-```
-
-### Resource rules
-
-#### USB
-
-```text
-usb
-```
-
-USB native layer sử dụng shared runtime resource.
-
-Do đó:
-
-```text
-ESC/POS USB
-TSPL USB
-```
-
-không được execute concurrently.
-
-#### ESC/POS Bluetooth
-
-```text
-escpos:bluetooth
-```
-
-ESC/POS library có singleton scope theo Bluetooth namespace.
-
-#### ESC/POS LAN
-
-```text
-escpos:lan
-```
-
-ESC/POS library có singleton scope theo LAN namespace.
-
-#### TSPL Bluetooth
-
-```text
-tspl:bluetooth:<deviceId>
-```
-
-TSPL transport được quản lý theo connection cụ thể.
-
-#### TSPL LAN
-
-```text
-tspl:lan:<ip>:<port>
-```
-
-Mỗi network endpoint là một resource độc lập.
+**Không bao giờ** so `Printer.deviceId` với `DeviceInfo.deviceId` (§10): mã lúc quét chỉ là key danh sách.
 
 ---
 
 # 7. Printer Connection
 
-```ts
-export type PrinterConnection =
-  | UsbPrinterConnection
-  | BluetoothPrinterConnection
-  | LanPrinterConnection;
-
-export interface UsbPrinterConnection {
-  type: typeof PrinterConnectionType.Usb;
-  vendorId: number;
-  productId: number;
-  serialNumber?: string;
-}
-
-export interface BluetoothPrinterConnection {
-  type: typeof PrinterConnectionType.Bluetooth;
-  deviceId: string;
-  name?: string;
-}
-
-export interface LanPrinterConnection {
-  type: typeof PrinterConnectionType.Lan;
-  host: string;
-  port: number;
-}
-```
-
-Discriminated union được sử dụng để đảm bảo connection-specific fields được kiểm tra bởi TypeScript.
-
-Không dùng:
+Discriminated union theo `type`, đủ để kết nối lại mà không cần quét:
 
 ```ts
-type PrinterConnection = {
-  type: string;
-  deviceId?: string;
-  host?: string;
-  port?: number;
-};
+UsbPrinterConnection        { type: Usb; vendorId; productId; serialNumber? }
+BluetoothPrinterConnection  { type: Bluetooth; mac }
+LanPrinterConnection        { type: Lan; host; port }
 ```
 
-vì kiểu này cho phép invalid state.
+Không lưu đường dẫn thiết bị USB (chỉ đúng trong một lần cắm).
 
 ---
 
-# 8. Printer Driver
+# 8. Printer Language
 
-Driver chịu trách nhiệm protocol-specific behavior.
-
-```text
-PrinterDriver
-    ↓
-Transport
+```ts
+export interface PrinterLanguage {
+  type: PrintLanguage;           // EscPos | Tspl
+  selection: LanguageSelection;  // Auto (dò) | Manual (người dùng chọn) — chỉ để hiển thị
+}
 ```
 
-Driver biết:
-
-* protocol;
-* supported content types;
-* encoding;
-* rendering strategy;
-* command generation;
-* protocol-specific limitation.
-
-Driver không chịu trách nhiệm:
-
-* persistence;
-* printer routing;
-* scheduling;
-* permission management;
-* UI;
-* global configuration.
+Giá trị mặc định khi tạo máy mới nằm ở `management/PrinterDefaults.ts` (`createPrinterLanguage`,
+`createPrinterDraft`).
 
 ---
 
-# 9. Driver Capability
-
-`PrinterDriver` là field của `Printer` (§5) — mỗi `Printer` có ĐÚNG 1 driver, không phải mảng:
-
-```ts
-export interface PrinterDriver {
-  type: PrinterDriverType;
-  source: DriverSource;
-  config: PrinterDriverConfig;
-}
-
-export interface PrinterDriverConfig {
-  renderMode: RenderMode;
-}
-```
-
-`DriverCapabilities` là bảng TĨNH theo driver TYPE, trả lời "driver loại này CÓ THỂ phục vụ content type nào" — dùng để lọc candidate lúc discovery và validate ở `PrinterSchema.ts` (driver type phải hỗ trợ `printer.type`), KHÔNG phải config của một `Printer` cụ thể:
-
-```ts
-export interface DriverCapabilities {
-  contentTypes: PrintType[];
-  defaultConfig: PrinterDriverConfig;
-}
-
-export const DRIVER_CAPABILITIES: Record<PrinterDriverType, DriverCapabilities> = {
-  [PrinterDriverType.EscPos]: {
-    contentTypes: [PrintType.Receipt],
-    defaultConfig: { renderMode: RenderMode.Encoder },
-  },
-
-  [PrinterDriverType.Tspl]: {
-    contentTypes: [PrintType.Receipt, PrintType.Label],
-    defaultConfig: { renderMode: RenderMode.Bitmap },
-  },
-};
-```
-
-`PrintType` và `PrinterDriverType` vẫn là hai independent concepts — không map cứng 1-1.
-
-Không tạo type:
-
-```ts
-type PrinterKind = 'receipt-printer' | 'label-printer';
-```
-
-Một physical printer hỗ trợ nhiều content type (ví dụ TSPL) được biểu diễn bằng nhiều `Printer` record độc lập, mỗi record một `type` — không phải một `Printer` với nhiều driver/content type (xem §5).
-
----
-
-# 10. Print Paper Configuration
-
-Tên chính thức:
-
-```ts
-PrintPaperConfig
-```
-
-Không sử dụng:
-
-```text
-PrintMedia
-PrinterPaperConfig
-media/
-models/media/
-```
-
-`PrintPaperConfig` mô tả **paper configuration của print job**.
-
-Nó không mô tả physical capability của printer.
-
-```ts
-export const PrintPaperType = {
-  Continuous: 'Continuous',
-  DieCut: 'DieCut',
-} as const;
-
-export type PrintPaperType = (typeof PrintPaperType)[keyof typeof PrintPaperType];
-
-export interface PrintPaperConfig {
-  type: PrintPaperType;
-  paperSize: PaperSize;
-
-  itemWidthMm?: number;
-  itemHeightMm?: number;
-
-  columns?: number;
-  horizontalGapMm?: number;
-  verticalGapMm?: number;
-
-  cutterMode?: CutterMode;
-}
-```
-
-## Responsibility
-
-`PrintPaperConfig` dùng cho:
-
-* layout;
-* paper calculation;
-* die-cut positioning;
-* cutter behavior;
-* print job configuration.
-
-Không dùng nó để biểu diễn:
-
-* printer hardware capability;
-* supported paper size của physical printer;
-* protocol capability.
-
----
-
-# 11. PrintPaperConfig Rules
-
-## Continuous
-
-```ts
-{
-  type: PrintPaperType.Continuous,
-  paperSize: PaperSize.Mm80,
-}
-```
-
-`cutterMode` có thể được chỉ định.
-
-Nếu không chỉ định:
-
-```text
-CutterMode.PerJob
-```
-
-được áp dụng.
-
-## Die-cut
-
-Die-cut không sử dụng cutter.
-
-```text
-cutterMode = CutterMode.None
-```
-
-Nếu caller truyền cutter configuration không phù hợp, validation phải xử lý.
-
-## Die-cut columns
-
-`columns` chỉ có ý nghĩa với:
-
-```ts
-type === PrintPaperType.DieCut
-```
-
-Khi die-cut:
-
-```text
-rowWidth =
-  columns × itemWidthMm
-  + (columns - 1) × horizontalGapMm
-```
-
-Nếu:
-
-```text
-rowWidth > printableWidth
-```
-
-configuration không hợp lệ.
-
-Business rule này phải nằm trong:
-
-```text
-paper/validation.ts
-```
-
-Không cố nhét toàn bộ rule vào type comment.
-
----
-
-# 12. Printer Capabilities
-
-`PrinterCapabilities` mô tả physical capability của printer.
-
-Ví dụ:
+# 9. Printer Capabilities
 
 ```ts
 export interface PrinterCapabilities {
-  /** Máy in có dao cắt (phần cứng). */
   cutter: boolean;
+  cashDrawer: boolean;
+  color: boolean;
+  image: boolean;
 }
 ```
 
-Không merge với `PrintPaperConfig`.
+Mô tả phần cứng; hiện chỉ khai báo, chưa chặn hành vi in. Mặc định theo ngôn ngữ (`createPrinterDraft`): ESC/POS
+`{ cutter, cashDrawer, image }`, TSPL `{ image }`.
 
-So sánh:
+Không merge với `PaperOptions`:
 
 ```text
-PrintPaperConfig
-→ Job muốn in như thế nào?
-
-PrinterCapabilities
-→ Printer thực tế có khả năng gì?
+PaperOptions         → Job muốn in như thế nào?
+PrinterCapabilities  → Máy thực tế có khả năng gì?
 ```
+
+---
+
+# 10. Device Models
+
+`models/device/` chứa `DeviceInfo` (thiết bị tìm thấy, không lưu) và `DeviceAddress` (địa chỉ để `connect`, cũng là
+kiểu của `Printer.connection`); `models/discovery/` là tiến trình tìm thiết bị.
+
+```ts
+/** Một thiết bị tìm thấy khi quét, khớp `DeviceInfo` native trả về. */
+interface DeviceInfo {
+  deviceId: string;        // mã quét của native trong lần discovery hiện tại; key danh sách
+  name: string;            // native không có thì dùng MAC hoặc đường dẫn thiết bị
+  manufacturer?: string;   // chỉ USB
+  model?: string;          // chỉ USB
+  hasPermission: boolean;  // quét không mở hộp thoại xin quyền
+  address: DeviceAddress;  // để connect; chọn máy thì gán vào Printer.connection
+}
+
+type DeviceAddress = UsbDeviceAddress | BluetoothDeviceAddress | LanDeviceAddress;
+
+/** Trạng thái một lần tìm thiết bị. */
+const DiscoveryStatus = { Loading, Found, Empty, Error };
+
+type DiscoveryEvent =                       // field `status` phân loại
+  | { status: Loading } | { status: Found; devices: DeviceInfo[] }
+  | { status: Empty } | { status: Error; error: PrinterFeatureException };
+```
+
+`DeviceInfo.deviceId` của USB chứa đường dẫn thiết bị nên đổi khi rút ra cắm lại; luồng thêm máy dùng nó để quét lại và
+lấy serial sau khi được cấp quyền.
+
+---
+
+# 11. Paper Options
+
+```ts
+type PaperOptions = ContinuousPaper | DieCutPaper;
+
+ContinuousPaper  { type: Continuous; paperSize; cutterMode }
+DieCutPaper      { type: DieCut; paperSize; itemWidthMm; itemHeightMm; columns; horizontalGapMm; verticalGapMm }
+```
+
+Union theo `type` để trạng thái vô nghĩa không biểu diễn được (giấy cuộn không có kích thước tem; tem không có dao cắt).
+Form giấy là react-hook-form + zod (`forms/addPrinter/PaperFormSchema.ts`), giống form LAN: ô kích thước tem giữ
+dạng chữ nên được trống khi đang gõ; schema kiểm từng ô, hợp lệ thì `transform` ra `PaperOptions`.
+
+`PaperOptions` dùng cho layout, paper calculation, die-cut positioning, cutter behavior. Không dùng để biểu diễn
+capability phần cứng.
+
+---
+
+# 12. Paper Rules
+
+* Giấy cuộn: `cutterMode` bắt buộc; mặc định khi tạo máy `PerJob`.
+* Tem rời: không cắt (`resolveEffectiveCutterMode` trả `None`).
+* ESC/POS chỉ giấy cuộn (schema chặn).
+* Tem rời nhiều cột:
+
+```text
+rowWidth = columns × itemWidthMm + (columns - 1) × horizontalGapMm
+rowWidth > printableWidth → cấu hình không hợp lệ
+```
+
+`dieCutRowOverflow` nằm ở `utils/paperUtils.ts`, nhận `PaperOptions` hợp lệ; schema lưu (`PrinterSchema`) và form
+giấy (`PaperFormSchema`) cùng gọi trong `superRefine`.
 
 ---
 
 # 13. Paper Module
 
 ```text
-paper/
-├── cutter.ts
-├── paperSpec.ts
-└── validation.ts
+models/paper/
+├── PaperOptions.ts     ContinuousPaper | DieCutPaper
+├── PaperSize.ts        58 | 80 | 100 | 104 (mm)
+├── PaperType.ts        Continuous | DieCut
+├── CutterMode.ts       None | PerJob | PerRow
+└── paperSpec.ts        thông số theo khổ: vùng in, bề rộng ảnh
+
+utils/
+└── paperUtils.ts       resolveEffectiveCutterMode (DieCut → None, Continuous → paper.cutterMode),
+                        dieCutRowOverflow (hàng tem tràn khổ)
+
+forms/addPrinter/
+└── PaperFormSchema.ts  PaperFormValues (ô tem dạng chữ), paperFormSchema, toPaperFormValues,
+                        toPaperOptions, paperFormErrorOf
 ```
 
-## `paperSpec.ts`
-
-Chứa:
-
-* paper dimensions;
-* printable width;
-* physical paper specification;
-* calculations cần thiết.
-
-## `cutter.ts`
-
-Chứa cutter rules.
-
-Ví dụ:
-
-```text
-Continuous + undefined cutter
-→ PerJob
-
-DieCut
-→ None
-```
-
-## `validation.ts`
-
-Chứa business validation:
-
-* required fields;
-* dimension validation;
-* die-cut row overflow;
-* invalid cutter configuration;
-* paper compatibility.
-
-Validation không nên được phân tán vào nhiều layer.
+`models/paper/` chỉ chứa kiểu và dữ liệu của giấy (`paperSpec`); hàm tính trên giấy nằm ở `utils/paperUtils.ts`.
+Kiểm tra ô nhập (trống, không phải số) thuộc form; quy tắc trên giấy hợp lệ (tràn khổ) dùng chung cho form và
+schema lưu.
 
 ---
 
 # 14. Rendering
 
-Rendering strategy (`RenderMode`) là config dùng chung cho CẢ 2 protocol, nằm trong `PrinterDriver.config` (§9):
-
-```ts
-export const RenderMode = {
-  Encoder: 'Encoder',
-  Bitmap: 'Bitmap',
-} as const;
-
-export type RenderMode = (typeof RenderMode)[keyof typeof RenderMode];
-
-export interface PrinterDriverConfig {
-  renderMode: RenderMode;
-}
-```
-
-Chỉ còn 2 render mode. TSPL đã bỏ TrueType/internal-font (xem lịch sử ở dưới) — TSPL LUÔN dùng `RenderMode.Bitmap`. ESC/POS chọn `Encoder` hoặc `Bitmap`. Việc "TSPL chỉ được `Bitmap`" được enforce ở `PrinterSchema.ts` (`superRefine`), không phải ở type, vì cả 2 driver dùng chung 1 `PrinterDriverConfig`.
-
-## `Encoder`
-
-Protocol encoder trực tiếp tạo command (ESC/POS only — qua `EPToolkit`, cần đúng codepage CP1258, không rasterize).
-
-## `Bitmap`
-
-Nội dung đã được render thành ảnh (PNG base64, `documents.image`) ở lớp trên; driver decode ảnh này thành monochrome 1-bit rồi gửi lệnh bitmap của protocol (`BITMAP` cho TSPL, tương ứng cho ESC/POS). Chậm hơn `Encoder` nhưng đúng trên mọi máy bất kể codepage.
+Mọi lệnh in là ảnh. Nội dung in là React element (vd `ReceiptView` của cart, `SampleReceipt`/`SampleLabel` khi in
+thử) dựng từ `PrintLayout`; `usePrintImageCapture` render element đó ngoài màn hình theo bề rộng giấy rồi chụp thành
+PNG base64. Ngôn ngữ decode ảnh thành monochrome 1-bit rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho
+TSPL), nên in đúng tiếng Việt trên mọi máy bất kể codepage hay font của máy.
 
 ---
 
@@ -771,214 +382,84 @@ Nội dung đã được render thành ảnh (PNG base64, `documents.image`) ở
 
 Protocol codepage và font rendering là hai vấn đề khác nhau.
 
-Nếu text đã được rasterize thành bitmap:
+Nếu text đã được rasterize thành ảnh:
 
 ```text
-Unicode text
-    ↓
-TrueType font
-    ↓
-Bitmap
-    ↓
-TSPL / ESC-POS
+Unicode text → font Unicode → bitmap → ESC/POS / TSPL
 ```
 
-thì protocol không còn chịu trách nhiệm encode Unicode text.
-
-Ví dụ Vietnamese:
-
-```text
-"Nước"
-    ↓
-Noto Sans / Unicode font
-    ↓
-bitmap
-```
-
-không phụ thuộc vào việc TSPL printer có Vietnamese codepage hay không.
+thì ngôn ngữ in không còn chịu trách nhiệm encode Unicode text — "Nước" in đúng dù máy TSPL không có codepage tiếng
+Việt.
 
 ---
 
-# 16. TSPL TrueType Font (ĐÃ BỎ)
-
-TSPL từng có kế hoạch hỗ trợ thêm `truetype`/`internalfont` render mode (font cài trên printer, `DOWNLOAD "<name>",<byteCount>` + `TsplFontManager`/`TsplFontConfig`/`TsplCodepage`). Feature này đã bị **xoá hoàn toàn** trước khi triển khai production — TSPL chỉ còn một render mode duy nhất: `RenderMode.Bitmap` (xem §14). Không có `TsplStrategyRegistry`, `TsplTrueTypeStrategy`, `TsplInternalFontStrategy` hay `utils/cp1258.ts` trong codebase hiện tại.
-
-Lý do: rasterize sang bitmap ở lớp trên (canvas render Unicode/Vietnamese text → PNG) hoạt động đúng trên mọi máy TSPL bất kể firmware có hỗ trợ TrueType/codepage hay không, nên không cần thêm complexity của việc quản lý font cài trên printer.
-
----
-
-# 17. Driver Structure
-
-```text
-drivers/
-├── DriverCapabilities.ts
-├── DriverRegistry.ts
-├── escpos/
-│   ├── EscPosDriver.ts
-│   ├── EscPosBitmapEncoder.ts
-│   ├── EscPosTextBuilder.ts
-│   └── ...
-│
-└── tspl/
-    ├── TsplDriver.ts
-    ├── TsplEncoder.ts
-    └── strategies/
-        └── TsplBitmapStrategy.ts
-```
-
-Driver không biết printer được lưu ở đâu.
-
-Driver không tự quyết định printer nào sẽ nhận job.
-
-Driver chỉ xử lý print operation được giao cho nó.
-
----
-
-# 18. ESC/POS Driver
-
-ESC/POS driver chịu trách nhiệm:
-
-* ESC/POS command generation;
-* text encoding;
-* barcode;
-* QR;
-* image;
-* paper/cutter commands;
-* interaction với ESC/POS library adapter.
-
-ESC/POS library có singleton behavior theo connection namespace.
-
-Do đó concurrency không được tự xử lý trong driver.
-
-Concurrency được quản lý bởi:
-
-```text
-PrintScheduler
-    ↓
-PrinterConnectionLock
-```
-
----
-
-# 19. TSPL Driver
-
-TSPL driver chịu trách nhiệm:
-
-* TSPL command generation;
-* `SIZE`;
-* `GAP`;
-* `CODEPAGE`;
-* `TEXT`;
-* `BARCODE`;
-* `QRCODE`;
-* `BITMAP`;
-* rendering strategy (chỉ còn `TsplBitmapStrategy` — TrueType/internal-font đã bỏ, xem §16).
-
-Bitmap flow:
-
-```text
-Image
- ↓
-Decode
- ↓
-Resize
- ↓
-Grayscale
- ↓
-1-bit bitmap
- ↓
-Hardware transform
- ↓
-TSPL BITMAP
-```
-
-XP-420B firmware có behavior khác với chuẩn bitmap thông thường.
-
-Nếu firmware yêu cầu invert bitmap:
+# 16. Print Languages
 
 ```ts
-// XP-420B firmware expects inverted bitmap bits.
-invertBitmap(bitmap);
+/** Một ngôn ngữ lệnh máy in: chỉ biến ảnh thành byte, không biết kết nối. */
+interface IPrintLanguage {
+  encode(printer: Printer, image: string, options?: PrintOptions): Uint8Array;   // image: PNG base64
+}
+
+getPrintLanguage(type: PrintLanguage): IPrintLanguage
 ```
 
-Comment này cần tồn tại vì code tự nó không thể giải thích lý do inversion.
+* `encode` kiểm tra rồi encode; ảnh hỏng (`INVALID_IMAGE`) hay cao quá giấy (`IMAGE_TOO_LARGE`) ném
+  `PrintErrorException`.
+* `PrintOptions` (`utils/printOptionsUtils.ts` chuẩn hoá): `copies` (mặc định 1), `cut` (`false` thì không cắt;
+  giấy tem không bao giờ cắt), `feedMm` (đẩy thêm giấy), `cashDrawer` (mở ngăn kéo).
+* `EscPosLanguage`: lệnh `GS v 0`; nhiều bản thì lặp lại ảnh, mỗi bản `ESC J` (đẩy giấy) rồi `ESC m` (cắt);
+  `cashDrawer` gửi `ESC p 0 25 250` sau cùng.
+* `TsplLanguage`: lệnh `SIZE`/`GAP`, `BITMAP` mỗi cột tem, `SET CUTTER`, `PRINT copies,1`, rồi `FEED` nếu có
+  `feedMm`; bỏ qua `cashDrawer` (máy tem không có ngăn kéo). Chiều cao `SIZE` theo cấu hình giấy của máy in, không
+  theo loại nội dung: giấy tem theo `itemHeightMm` (ảnh cao hơn con tem → `IMAGE_TOO_LARGE`); giấy cuộn đúng bằng
+  nội dung (làm tròn lên mm), không giới hạn, để máy chỉ đẩy phần đã in.
+* Byte encode được ghim bằng fixture (`testing/encodeCases.ts`): mọi thay đổi encoder phải giữ nguyên dấu vân tay hoặc
+  cập nhật fixture có chủ đích.
+
+Thêm ngôn ngữ mới: thêm giá trị `PrintLanguage`, một `IPrintLanguage`, nhánh trong `getPrintLanguage`, quy tắc trong
+`canPrintKind` và mặc định trong `createPrinterDraft`.
 
 ---
 
-# 20. Transport
-
-Transport chịu trách nhiệm gửi bytes qua:
-
-```text
-USB
-Bluetooth
-LAN
-```
-
-Transport không biết:
-
-* Receipt;
-* Label;
-* TSPL layout;
-* ESC/POS command semantics.
-
-Transport chỉ biết byte stream.
-
-Ví dụ contract:
+# 17. Adapter Layer
 
 ```ts
-export interface IPrinterTransport {
-  connect(): Promise<void>;
+interface IPrinterAdapter {
+  readonly source: 'native' | 'vendor';
+  readonly canRead: boolean;
+  listDevices(connectionType): Promise<DeviceInfo[]>;
+  connect(connection: DeviceAddress): Promise<void>;   // mở được rồi mới trả kết nối cũ
+  write(bytes: Uint8Array): Promise<void>;
+  read(): Promise<Uint8Array | null>;                     // null khi quá hạn của native module
+  onLost(callback): Unsubscribe;                           // kết nối của chính instance này mất
   disconnect(): Promise<void>;
-  write(data: Uint8Array): Promise<void>;
 }
 ```
 
-Higher-level TypeScript layer sử dụng:
+* Mỗi instance giữ tối đa một kết nối.
+* `NativeAdapter` dùng cho USB, Bluetooth và LAN qua native module `DeviceModule`: chỉ chuyển lời gọi xuống native
+  và đổi lỗi, giữ `connectionId` của kết nối đang mở. Hạn ghi (theo cỡ dữ liệu) và hạn đọc (cố định) nằm trong
+  `DeviceModule.ts`, không lộ ra adapter. `onLost` nghe `DeviceDisconnected` và so `connectionId` đó.
+  Dùng chung kết nối giữa nhiều `Printer` là việc của `PrinterConnectionService`.
+* `VendorAdapter` là khung cho SDK hãng, chưa tích hợp.
+* `createPrinterAdapter` (`connection/PrinterAdapterFactory.ts`) trả `NativeAdapter`; bản `.web.ts` trả adapter báo
+  `PRINTER_UNSUPPORTED_CONNECTION`.
 
-```ts
-Uint8Array
-```
-
-Native React Native bridge sử dụng:
-
-```text
-Base64
-```
-
-để truyền binary data qua JS/native boundary.
+Không đưa business rule vào adapter.
 
 ---
 
-# 21. Native Boundary
+# 18. Native Boundary
 
-Native Android code nằm dưới:
+Native Android code nằm dưới `adapters/native/` (TS) và module `DeviceModule` (Java). Không tạo top-level `native/`.
 
-```text
-adapters/native/
-```
-
-Không tạo top-level:
-
-```text
-native/
-```
-
-Native adapter chịu trách nhiệm:
-
-* Android API;
-* USB API;
-* Bluetooth API;
-* socket API;
-* vendor SDK;
-* binary conversion;
-* native lifecycle.
-
-TypeScript business code không trực tiếp sử dụng Android API.
+Native chịu trách nhiệm USB / Bluetooth / socket API, chuyển đổi byte và vòng đời kết nối native. TypeScript business
+code không trực tiếp sử dụng Android API, kể cả UI: muốn quét thì đi qua `createPrinterAdapter().listDevices`.
 
 ---
 
-# 22. Native API Comment Rule
+# 19. Native API Comment Rule
 
 Không comment mọi function chỉ vì function sử dụng Android API.
 
@@ -998,13 +479,6 @@ Không cần:
 UsbManager manager = ...
 ```
 
-Không cần:
-
-```java
-// Open USB connection.
-connection = ...
-```
-
 Comment cần giải thích:
 
 * Android-specific limitation;
@@ -1016,556 +490,281 @@ Comment cần giải thích:
 
 ---
 
-# 23. Adapter Layer
+# 20. Connection Service
 
-```text
-adapters/
-├── IPrinterAdapter.ts
-├── resolvePrinterAdapter.ts
-├── library/
-├── native/
-└── vendor/
-```
+`PrinterConnectionService` giữ kết nối theo `connectionId` native và trạng thái theo `printerId` — dùng cho cả máy đã
+lưu lẫn bản nháp đang thêm. Mỗi lần `connect` đều hỏi native; native trả lại kết nối đang mở nếu cùng máy, khi đó dùng
+lại kết nối JS cũ và bỏ adapter mới (không ngắt). Nhiều `Printer` trỏ cùng một máy (vd hoá đơn và tem) dùng chung một
+adapter; `Printer` cuối cùng ngắt thì mới đóng. Ngắt khoá theo `deviceId` của kết nối.
 
-Adapter chịu trách nhiệm integration với external implementation.
+| Hàm | Làm gì |
+| --- | --- |
+| `connect(printer)` | Hỏi native qua adapter mới, `Connecting` → `Connected` / `Error`; trả `ConnectedDevice` |
+| `ensureConnected(printer)` | Trước khi in: đã kết nối thì thôi, đang kết nối thì chờ lượt đó, chưa thì kết nối |
+| `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; huỷ cả lượt `connect` đang chạy |
+| `send(printerId, bytes)` | Ghi qua adapter; chưa kết nối → `NOT_CONNECTED`; lỗi do kết nối hỏng thì bỏ phiên |
+| `read(printerId)` | Đọc phản hồi; `null` khi quá hạn |
+| `getStatus` / `onStatusChange` | Trong bộ nhớ; chưa từng kết nối là `Idle`; UI đọc qua `useConnectionStatus` |
+| `forget(printerId)` | Dọn trạng thái máy đã xoá / bản nháp đã đóng (sau khi ngắt) |
+| `reconnect(printerId)`, `connectEnabledPrinters()` | Đọc máy in đã lưu; mở app kết nối máy đang bật |
 
-Ví dụ:
+* `connect`: Bluetooth thì xin quyền trước. Thành công mới thay phiên cũ rồi trả adapter cũ (lỗi khi trả chỉ ghi
+  log); thất bại thì phiên cũ giữ nguyên.
+* Mỗi `connect` là một lượt; chỉ lượt mới nhất được đổi trạng thái. Lượt bị thay (có `connect` mới hơn hoặc
+  `disconnect`) mà mở được kết nối thì trả kết nối đó ngay và kết thúc êm, thất bại thì vẫn ném lỗi nhưng không đổi
+  trạng thái.
+* Adapter báo `onLost` → bỏ phiên, trả adapter, `Disconnected`; `send`/`read` sau đó báo `NOT_CONNECTED` (adapter
+  đã bị thay thì bỏ qua).
+* Listener trạng thái ném lỗi chỉ bị ghi log, không làm hỏng việc kết nối hay chặn listener khác.
+* Mở/gắn và gỡ/đóng cùng một máy vật lý chạy lần lượt (hàng đợi riêng của service, khác khoá in), để một lần mở
+  gửi trước lệnh đóng không nhận phải kết nối sắp đóng.
+* Máy in chuyển sang máy vật lý khác thì gỡ khỏi máy cũ trong khoá in của máy cũ.
+* `reconnect` không mở lại kết nối nếu còn `Printer` khác đang dùng chung máy vật lý.
+* Không giới hạn số máy cùng loại kết nối kết nối cùng lúc.
+* Không biết ngôn ngữ in; log kết nối không mang ngôn ngữ.
+* **Không tự khoá**: `PrinterService.print` kết nối bên trong khoá của `PrintService`, khoá lại sẽ treo.
 
-```text
-Driver
- ↓
-Adapter
- ↓
-Library / Native / Vendor SDK
-```
-
-Không đưa business rule vào adapter.
+Không chịu trách nhiệm `print`, `route`, `render`, `encode`, `save`.
 
 ---
 
-# 24. Connection Service
-
-`PrinterConnectionService` chỉ chịu trách nhiệm connection lifecycle.
+# 21. PrinterConnectionLock
 
 ```ts
-connect()
-disconnect()
-reconnect()
-getStatus()
+class PrinterConnectionLock → runExclusive(key, task)   // khoá in: key = deviceId native
+printerConnectionLock    instance dùng chung
 ```
 
-Không chịu trách nhiệm:
+Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn cả lệnh in, nên hai lệnh
+in cùng một máy phải chạy lần lượt. Lệnh in (`PrintService`) và nút "In thử" (`PrinterService.testPrint`)
+dùng chung một khoá. Khoá không reentrant.
 
-```text
-print()
-route()
-schedule()
-render()
-encode()
-save()
-```
-
-Print execution nằm ở:
-
-```text
-PrinterPrintService
-```
+Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ---
 
-# 25. PrinterConnectionLock
-
-`PrinterConnectionLock` quản lý runtime resource concurrency.
-
-```text
-PrintScheduler
-    ↓
-PrinterConnectionLock
-```
-
-Lock sử dụng:
-
-```text
-resourceKey
-```
-
-không sử dụng:
-
-```text
-identityKey
-```
-
-Lý do:
-
-```text
-identityKey
-→ physical identity
-
-resourceKey
-→ runtime concurrency boundary
-```
-
-Hai printer khác nhau có thể có cùng resource key.
-
-Ví dụ:
-
-```text
-Printer A → escpos:bluetooth
-Printer B → escpos:bluetooth
-```
-
-Hai printer này vẫn phải được serialize nếu underlying library có singleton scope.
-
----
-
-# 26. Printing Services
+# 22. Printing Services
 
 ## `PrintService`
 
-Public entry point.
+Public entry point. `print(kind, render)` chọn máy nhận từ repository theo `printer.kind` và `enabled` (không có máy
+thì không chụp), gọi `render(paper)` một lần cho mỗi cấu hình giấy khác nhau (lần lượt, vì chỉ có một khung chụp;
+chụp hỏng thì cả yêu cầu `Failed`), tạo một `PrintTask` cho mỗi máy với ảnh đúng giấy của nó, chạy trong khoá theo
+`task.deviceId` (native trả, cùng khoá với "In thử") rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
+lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
 
-Ví dụ:
+## `PrinterService`
 
-```ts
-await printService.print(document);
+```text
+print(printerId, image, options?)
+  lấy Printer → chưa Connected thì connect → getPrintLanguage(type).encode → send
+testPrint(printer, image, options?)
+  như trên, máy có thể chưa lưu; tự khoá theo máy vật lý
 ```
 
-Không chứa:
-
-* device discovery;
-* connection lifecycle;
-* protocol encoding;
-* low-level transport.
+`print` không tự khoá (luôn được `PrintService` gọi bên trong khoá). Ghi log `print*` / `testPrint*` kèm ngôn ngữ.
 
 ---
 
-## `PrintRoutingService`
-
-Xác định target printer.
-
-Input:
+# 23. Complete Print Flow
 
 ```text
-PrintContentType
-Document
-Printer configuration
+PrintService → target printers (mỗi target một task) → PrinterConnectionLock(task.deviceId)
+    ↓
+PrinterService
+    ├── PrinterConnectionService.connect (nếu chưa Connected)
+    ├── IPrintLanguage.encode
+    └── PrinterConnectionService.send → NativeAdapter → DeviceModule
 ```
 
-Output:
-
-```text
-Selected printer targets
-```
-
-Routing phải kiểm tra:
-
-* printer enabled;
-* driver hỗ trợ content type;
-* configuration hợp lệ.
+Máy khác nhau in song song; hai record cùng máy vật lý in lần lượt.
 
 ---
 
-## `PrintScheduler`
-
-Chịu trách nhiệm:
-
-* queue;
-* ordering;
-* concurrency;
-* resource locking;
-* job lifecycle.
-
-Scheduler không encode protocol.
-
-Scheduler không biết TSPL command.
-
-Scheduler không biết ESC/POS command.
-
----
-
-## `PrinterPrintService`
-
-Đây là boundary thực thi print cho một printer cụ thể.
-
-Responsibilities:
-
-```text
-load printer configuration
-    ↓
-select driver
-    ↓
-connect
-    ↓
-print
-    ↓
-disconnect/reuse connection
-```
-
-`PrinterPrintService` cũng xử lý:
-
-```text
-testPrint()
-```
-
-Không đưa print execution trở lại `PrinterConnectionService`.
-
----
-
-# 27. Complete Print Flow
-
-```text
-PrintService
-    ↓
-PrintRoutingService
-    ↓
-resolve target printers
-    ↓
-PrintScheduler
-    ↓
-PrinterConnectionLock(resourceKey)
-    ↓
-PrinterPrintService
-    ↓
-PrinterConnectionService
-    ↓
-PrinterDriver
-    ↓
-Transport
-    ↓
-Native Adapter
-    ↓
-Android / SDK
-```
-
-Với nhiều target:
-
-```text
-Receipt
- ├── Printer A
- ├── Printer B
- └── Printer C
-```
-
-mỗi target tạo print job riêng.
-
-Scheduler quyết định execution order và concurrency dựa trên `resourceKey`.
-
----
-
-# 28. Print Failure Policy
+# 24. Print Failure Policy
 
 POS print failure không được làm crash sales flow một cách không cần thiết.
 
-Ví dụ public receipt printing:
-
-```ts
-printReceipt()
-```
-
-không throw error ra UI flow nếu application policy yêu cầu best-effort printing.
-
-Lower-level layers vẫn phải trả structured error.
-
-Ví dụ:
+Public receipt printing không throw error ra UI flow nếu application policy yêu cầu best-effort printing. Lower-level
+layers vẫn trả structured error:
 
 ```text
-Transport error
+Native / adapter error (DeviceErrorException), encode error (PrintErrorException)
     ↓
-Driver error
+PrinterService (log print* failed)
     ↓
-PrinterPrintService
-    ↓
-Scheduler
+PrintService (task Failed + PrinterFeatureException)
     ↓
 Logging / monitoring
 ```
 
-Không swallow error ở mọi layer.
-
-Chỉ public operation quyết định error policy phù hợp với POS flow.
+Không swallow error ở mọi layer. Chỉ public operation quyết định error policy phù hợp với POS flow.
 
 ---
 
-# 29. Discovery
+# 25. Device Discovery
 
-```text
-discovery/
-├── DeviceScanService.ts
-├── NetworkInfoService.ts
-├── PrinterDiscoveryService.ts
-└── PrinterResolver.ts
-```
+`DeviceDiscoveryService.discover(connectionType, onEvent): Unsubscribe`
 
-## `DeviceScanService`
-
-Scan physical devices:
-
-```text
-USB
-Bluetooth
-LAN discovery source
-```
-
-## `NetworkInfoService`
-
-Network-related information cần cho discovery.
-
-## `PrinterDiscoveryService`
-
-Orchestrate identification.
-
-Discovery thử candidate driver theo thứ tự:
-
-```text
-TSPL
-↓
-ESC/POS
-```
-
-TSPL được thử trước vì identification có thể sử dụng:
-
-```text
-~!T
-```
-
-USB limitation:
-
-```text
-identify() → null
-```
-
-vì native USB module không đảm bảo đọc response từ printer.
-
-Discovery không được coi `null` là "không phải printer".
-
-Nó có nghĩa:
-
-```text
-Unable to identify through this transport.
-```
-
-## `PrinterResolver`
-
-Map physical identity vào printer configuration.
-
-Responsibilities:
-
-* build `identityKey`;
-* tìm existing printer;
-* detect duplicate;
-* resolve configuration.
+* LAN → `Empty` ngay (người dùng nhập IP; `NetworkDiscoveryService` gợi ý IP WiFi hiện tại).
+* Bluetooth → xin quyền rồi `adapter.listDevices` (chỉ máy đã ghép đôi).
+* USB → `adapter.listDevices`; quét không mở hộp thoại xin quyền (`hasPermission` cho biết đã có quyền chưa).
+* Native báo "No Device Found" bằng lỗi thì coi là rỗng.
+* Huỷ thì không báo thêm sự kiện.
+* Log `debug` chi tiết thiết bị chỉ trong dev; `PrinterLogger.discovery*` không mang MAC.
 
 ---
 
-# 30. Permissions
+# 26. Printer Detection
 
-```text
-permissions/
-└── PrinterPermissionService.ts
-```
+`PrinterDetectionService.detect(device: DeviceInfo): PrinterDetection | undefined`
 
-Chỉ xử lý platform permission.
-
-Không đưa permission checking vào:
-
-```text
-Driver
-Transport
-PrintService
-```
-
-trừ khi operation thực sự cần một permission cụ thể ở platform boundary.
+* Chỉ tra `PRINTER_DETECTION_TABLE` (`detection/PrinterDetectionTable.ts`) theo thiết bị quét được để biết hãng,
+  model, ngôn ngữ (`PrinterLanguage`) và khả năng (`PrinterCapabilities`). Không kết nối, không gửi/đọc gì từ máy in,
+  không lưu.
+* Một định nghĩa khớp khi khai báo ít nhất một trường trong `PrinterIdentifiers` và mọi trường đã khai báo đều khớp:
+  `vendorId`/`productId` so với kết nối USB; `manufacturer`/`product` so với tên hãng/sản phẩm thiết bị báo (không phân
+  biệt hoa thường, bỏ khoảng trắng thừa; thiết bị không có tên sản phẩm thì so bằng tên thiết bị). Nhiều định nghĩa
+  khớp thì lấy cái đầu tiên.
+* Không có trong bảng (LAN luôn vậy vì không quét), hoặc ngôn ngữ của model không in được loại nội dung đang thêm
+  (`canPrintKind`) → người dùng chọn ngôn ngữ tay. Khả năng khi đó lấy mặc định theo
+  ngôn ngữ (`defaultCapabilitiesOf`).
+* Kết nối sau khi biết ngôn ngữ do `usePrinterDetection` gọi `PrinterConnectionService.connect`.
 
 ---
 
-# 31. Configuration Management
+# 27. Printer Add Flow
 
 ```text
-management/
-└── PrinterConfigService.ts
+Chọn loại kết nối
+    ↓
+Chọn thiết bị (DiscoveredDeviceList) / nhập IP + port
+    ↓
+Tra bảng model (usePrinterDetection) → kết nối; không có trong bảng (luôn vậy với LAN) → chọn ngôn ngữ tay rồi kết nối
+    ↓
+Kết nối xong: native trả deviceId, địa chỉ có serial, tên → cảnh báo trùng (deviceId + kind)
+    ↓
+Chỉnh giấy (form giấy, lưu cùng lúc bấm Lưu) → In thử
+    ↓
+Lưu (createPrinterDraft + giá trị người dùng chỉnh); không ngắt hay kết nối lại
 ```
 
-Chịu trách nhiệm:
-
-* add printer;
-* update printer;
-* remove printer;
-* enable/disable;
-* validate configuration trước khi lưu.
-
-Không chịu trách nhiệm:
-
-* physical discovery;
-* actual printing;
-* queue;
-* transport.
+Identity check phải xảy ra trước khi lưu. Ngôn ngữ chỉ có sau khi kết nối thành công nên máy mới phải kết nối được
+mới lưu được. Lúc sửa, phần kết nối khoá cho tới khi bấm "Đổi kết nối" (bỏ ngôn ngữ, phải kết nối lại). Đóng form
+mà chưa lưu: chỉ khi form đã tự kết nối mới trả máy về như cũ (máy đang sửa vốn đang kết nối thì kết nối lại bằng
+cấu hình đã lưu, còn lại thì ngắt). Hook `useAddPrinterFlow` điều phối `useConnectionSetup`,
+`usePrinterDetection`, `useTestPrint`.
 
 ---
 
-# 32. Storage
+# 28. Permissions
+
+`permissions/PrinterPermissionService.ts` chỉ xử lý platform permission. Quyền Bluetooth được xin ở
+`DeviceDiscoveryService` (trước khi quét) và `PrinterConnectionService` (trước khi kết nối) — hai nơi chạm platform
+boundary. Không đưa permission checking vào ngôn ngữ in hay `PrintService`.
+
+---
+
+# 29. Configuration Management
+
+* `management/PrinterManagementService.ts`: `save` (thêm hoặc sửa theo `id`), `remove` (ngắt kết nối rồi xoá),
+  `setEnabled`. Hook quản lý gọi service rồi cập nhật store.
+* `management/PrinterDefaults.ts`: `createPrinterDraft({ id?, kind, connection, language })` — máy in mới với mọi
+  giá trị mặc định (giấy cuộn 80mm cắt cuối job, capabilities theo ngôn ngữ).
+  Mọi nơi tạo máy in dùng hàm này.
+* `forms/addPrinter/printerRules.ts`: `canPrintKind`.
+
+Không chịu trách nhiệm physical discovery, actual printing, queue.
+
+---
+
+# 30. Storage
 
 ```text
 storage/
-├── PrinterRepository.ts
-├── PrinterStorage.ts
-└── PrinterWriteInput.ts
+├── PrinterRepository.ts   persistence boundary: tính lại deviceId, chống trùng (deviceId + kind), validate schema
+├── PrinterStorage.ts      MMKV implementation + storage version
 ```
-
-## `PrinterRepository`
-
-Persistence boundary.
-
-Ví dụ:
-
-```ts
-interface PrinterRepository {
-  getAll(): Promise<Printer[]>;
-  getById(id: string): Promise<Printer | undefined>;
-  save(printer: PrinterWriteInput): Promise<void>;
-  delete(id: string): Promise<void>;
-}
-```
-
-## `PrinterStorage`
-
-MMKV implementation.
 
 Storage implementation không được leak ra domain layer.
 
-## `PrinterWriteInput`
+## Storage Versioning
 
-Input dành cho persistence write.
-
-Không sử dụng native runtime object trong Redux hoặc persistent storage.
-
----
-
-# 33. Storage Versioning
-
-Printer storage sử dụng version.
-
-Khi data model thay đổi breaking:
-
-```text
-storage version bump
-```
-
-Nếu migration không được hỗ trợ:
-
-```text
-destructive reset
-```
-
-Không cố migrate old printer data nếu migration không nằm trong scope.
+`printer.storageVersion` hiện là **8**. Khi data model thay đổi breaking thì bump version; dữ liệu phiên bản khác bị
+xoá sạch, người dùng thêm lại máy in (không migrate).
 
 ---
 
-# 34. State Management
+# 31. State Management
 
-Redux chỉ lưu serializable configuration/state.
-
-Không lưu:
-
-```text
-UsbDevice
-UsbDeviceConnection
-Socket
-Bluetooth runtime object
-Native SDK instance
-Transport instance
-Driver runtime instance
-```
-
-Runtime objects phải nằm trong service/driver/transport lifecycle.
+Redux chỉ lưu serializable configuration/state (`Printer`, trạng thái kết nối). Không lưu adapter, kết nối native,
+socket hay SDK instance — runtime objects nằm trong vòng đời của service/adapter.
 
 ---
 
-# 35. Logging
+# 32. Logging
 
-```text
-logging/
-└── PrinterLogger.ts
-```
+`logging/PrinterLogger.ts` — mỗi hàm một event name cố định, chỉ nhận field an toàn (printerId nội bộ, ngôn ngữ,
+connectionType, errorCode, durationMs) và kèm `operation` / `result`.
 
-Logging phải có structured context.
+| Operation    | Events |
+| ------------ | ------ |
+| `discovery`  | `discoveryStarted`, `discoveryCompleted`, `discoveryFailed`, `permissionDenied` |
+| `connect` / `disconnect` | `connectSucceeded`, `connectFailed`, `disconnectSucceeded`, `disconnectFailed` |
+| `detection`  | `printerDetected`, `printerNotDetected` |
+| `print` / `test-print` | `printSucceeded`, `printFailed`, `testPrintSucceeded`, `testPrintFailed` |
 
-Ví dụ:
-
-```ts
-logger.error('printer.print.failed', {
-  printerId,
-  driverType,
-  connectionType,
-  errorCode,
-});
-```
-
-Không log binary payload lớn nếu không cần thiết.
-
-Không log credential hoặc sensitive network information nếu không cần thiết.
+Không log binary payload, MAC/IP hay nội dung hoá đơn.
 
 ---
 
-# 36. Errors
+# 33. Errors
 
-```text
-errors/
-└── PrinterError.ts
-```
+Ba bộ mã lỗi ổn định, mỗi bộ một tầng:
 
-Printer errors nên có stable error code.
+| Bộ mã              | Tầng                                    | Exception               |
+| ------------------ | --------------------------------------- | ----------------------- |
+| `DeviceErrorCode`  | thiết bị, kết nối, đọc ghi (khớp 1:1 native) | `DeviceErrorException`  |
+| `PrinterErrorCode` | cấu hình và tìm máy in                  | `PrinterErrorException` |
+| `PrintErrorCode`   | một lệnh in (ảnh, encode, không có máy nhận) | `PrintErrorException`   |
 
-Ví dụ:
+Ba exception kế thừa `PrinterFeatureException` nên nơi gọi bắt chung và đọc `code` (`ErrorCode`, hợp 3 bộ mã);
+`errorCodeOf` trả `UNKNOWN_ERROR` cho lỗi không phải exception của feature, `toPrinterFeatureException` bọc lỗi đó
+thành `PrintErrorException(UNKNOWN_ERROR)`. Job in, kết quả in và event lỗi tìm thiết bị mang thẳng
+exception, không có bản sao dạng dữ liệu. `toDeviceError` (`adapters/native/NativeAdapter.ts`) giữ nguyên mã native và
+gắn thông báo tiếng Việt; lỗi native không mang mã thiết bị được ném nguyên.
 
-```text
-PRINTER_NOT_FOUND
-PRINTER_NOT_CONFIGURED
-PRINTER_CONNECTION_FAILED
-PRINTER_WRITE_FAILED
-PRINTER_TIMEOUT
-PRINTER_UNSUPPORTED_CONTENT
-TSPL_FONT_INSTALL_FAILED
-```
-
-Error code phục vụ:
-
-* logging;
-* diagnostics;
-* UI mapping;
-* monitoring;
-* testing.
-
-Không dùng error message làm machine-readable identifier.
+Error code phục vụ logging, diagnostics, UI mapping, monitoring, testing. Không dùng error message làm machine-readable
+identifier.
 
 ---
 
-# 37. TypeScript Readability Rules
+# 34. TypeScript Readability Rules
 
-## 37.1 Main flow phải nhìn thấy được
+## 34.1 Main flow phải nhìn thấy được
 
 Ưu tiên:
 
 ```ts
-const printer = await getPrinter(printerId);
+const printer = repository.findById(printerId);
 
 if (!printer) {
-  return;
+  throw new PrinterErrorException({ code: PrinterErrorCode.PRINTER_NOT_FOUND, message });
 }
 
-const driver = resolveDriver(printer, contentType);
-
-if (!driver) {
-  return;
+if (connectionService.getStatus(printer.id) !== ConnectionStatus.Connected) {
+  await connectionService.connect(printer);
 }
 
-await driver.print(document);
+const bytes = getPrintLanguage(printer.language.type).encode(printer, image, options);
+await connectionService.send(printer.id, bytes);
 ```
 
 hơn một function wrapper chain khó trace.
 
 ---
 
-# 38. Guard Clause
+# 35. Guard Clause
 
 Ưu tiên early return.
 
@@ -1574,8 +773,8 @@ Không nên:
 ```ts
 if (printer) {
   if (printer.enabled) {
-    if (driver) {
-      await driver.print(document);
+    if (isConnected) {
+      await send(printer, image);
     }
   }
 }
@@ -1592,11 +791,11 @@ if (!printer.enabled) {
   return;
 }
 
-if (!driver) {
+if (!isConnected) {
   return;
 }
 
-await driver.print(document);
+await send(printer, image);
 ```
 
 Mục tiêu:
@@ -1609,7 +808,7 @@ Nếu vượt quá, xem xét refactor.
 
 ---
 
-# 39. Function Responsibility
+# 36. Function Responsibility
 
 Một function nên có một purpose.
 
@@ -1630,7 +829,7 @@ Nhưng không tạo function chỉ để giảm số dòng.
 
 ---
 
-# 40. Class Responsibility
+# 37. Class Responsibility
 
 Một class có thể có nhiều methods nếu chúng cùng phục vụ một responsibility.
 
@@ -1666,7 +865,7 @@ Không tạo "Manager" class để gom mọi behavior của feature.
 
 ---
 
-# 41. Naming
+# 38. Naming
 
 Tên phải thể hiện intent.
 
@@ -1699,7 +898,7 @@ Không dùng comment để giải thích cho tên biến kém rõ.
 
 ---
 
-# 42. Condition Naming
+# 39. Condition Naming
 
 Condition phức tạp nên được đặt tên nếu business meaning không rõ.
 
@@ -1708,7 +907,7 @@ Ví dụ:
 ```ts
 const canPrintReceipt =
   printer.enabled &&
-  printer.type === PrintType.Receipt;
+  printer.kind === PrintKind.Receipt;
 
 if (!canPrintReceipt) {
   return;
@@ -1727,7 +926,7 @@ Tên condition phải phản ánh business intent.
 
 ---
 
-# 43. Comments
+# 40. Comments
 
 Comment chỉ tồn tại khi code không thể tự giải thích đầy đủ.
 
@@ -1749,7 +948,7 @@ complex code
 
 ---
 
-# 44. Field Comment Rules
+# 41. Field Comment Rules
 
 Comment field khi field có:
 
@@ -1768,16 +967,10 @@ interface Printer {
   name: string;
 
   /**
-   * Stable key used to identify the physical printer
-   * and prevent duplicate configuration.
+   * Định danh máy in vật lý, tính từ `connection`; chống thêm trùng
+   * và làm khoá để hai lệnh in cùng máy không chạy đồng thời.
    */
-  identityKey: string;
-
-  /**
-   * Runtime resource boundary used to serialize operations
-   * that cannot safely execute concurrently.
-   */
-  resourceKey: string;
+  deviceId: string;
 }
 ```
 
@@ -1790,20 +983,18 @@ id: string;
 
 ---
 
-# 45. Field Invariant
+# 42. Field Invariant
 
 Nếu invariant đơn giản, có thể comment ngay tại field.
 
 Ví dụ:
 
 ```ts
-interface PrintPaperConfig {
-  type: PrintPaperType;
+interface PaperFormValues {
+  type: PaperType;
 
-  /**
-   * Required when type is DieCut.
-   */
-  columns?: number;
+  /** Chỉ kiểm khi type là DieCut. */
+  columns: string;
 }
 ```
 
@@ -1822,12 +1013,12 @@ không nên nhét toàn bộ rule vào comments.
 Rule phải nằm trong:
 
 ```text
-paper/validation.ts
+forms/addPrinter/PaperFormSchema.ts
 ```
 
 ---
 
-# 46. Comment WHAT vs WHY
+# 43. Comment WHAT vs WHY
 
 Không nên:
 
@@ -1858,7 +1049,7 @@ Comment này giải thích lý do guard tồn tại.
 
 ---
 
-# 47. Business Rule Comment
+# 44. Business Rule Comment
 
 Có thể comment business rule khi rule không thể hiện rõ từ code.
 
@@ -1869,19 +1060,19 @@ await printReceipt(order);
 
 ---
 
-# 48. Constraint Comment
+# 45. Constraint Comment
 
 ```ts
-// The underlying ESC/POS library uses a shared Bluetooth connection scope.
-// Concurrent writes must therefore be serialized.
-await connectionLock.runExclusive(resourceKey, () =>
-  driver.print(document),
+// Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi
+// nên hai lệnh in cùng một máy phải chạy lần lượt.
+await lock.runExclusive(printer.deviceId, () =>
+  send(printer, image),
 );
 ```
 
 ---
 
-# 49. Workaround Comment
+# 46. Workaround Comment
 
 ```ts
 // XP-420B firmware expects inverted bitmap bits.
@@ -1901,7 +1092,7 @@ nếu thông tin đó thực sự hữu ích.
 
 ---
 
-# 50. No Obvious Comments
+# 47. No Obvious Comments
 
 Không comment:
 
@@ -1931,7 +1122,7 @@ Code tự giải thích được.
 
 ---
 
-# 51. No Comment-Based Complexity
+# 48. No Comment-Based Complexity
 
 Không dùng comment để hợp thức hóa code khó đọc.
 
@@ -1942,8 +1133,8 @@ Không nên:
 if (
   printer &&
   printer.enabled &&
-  printer.type === PrintType.Receipt &&
-  printer.driver.type === PrinterDriverType.EscPos
+  printer.kind === PrintKind.Receipt &&
+  printer.language.type === PrintLanguage.EscPos
 ) {
   ...
 }
@@ -1961,7 +1152,7 @@ Business rule được đặt trong function có tên rõ ràng.
 
 ---
 
-# 52. Side Effects
+# 49. Side Effects
 
 Side effect phải dễ nhận biết.
 
@@ -2001,7 +1192,7 @@ Tên function phải phản ánh behavior thật.
 
 ---
 
-# 53. Abstraction Rules
+# 50. Abstraction Rules
 
 Không tạo abstraction chỉ vì muốn architecture "clean".
 
@@ -2027,7 +1218,7 @@ nếu abstraction không tạo ra:
 
 ---
 
-# 54. No Meaningless Wrapper
+# 51. No Meaningless Wrapper
 
 Không nên:
 
@@ -2049,7 +1240,7 @@ Nếu không có responsibility boundary, giữ flow ở nơi caller có thể �
 
 ---
 
-# 55. Không Over-Abstraction Printer Architecture
+# 52. Không Over-Abstraction Printer Architecture
 
 Không tạo:
 
@@ -2057,8 +1248,8 @@ Không tạo:
 PrintManager
 PrinterManager
 PrinterFactory
-DriverFactory
-TransportFactory
+LanguageFactory
+ConnectionFactory
 GenericRenderer
 GenericPrinterService
 ```
@@ -2068,7 +1259,7 @@ chỉ để điều phối các class hiện có.
 Nếu resolver thực sự có responsibility:
 
 ```ts
-resolvePrinterAdapter(...)
+getPrintLanguage(type)
 ```
 
 thì giữ resolver.
@@ -2085,412 +1276,160 @@ thì xem xét loại bỏ wrapper.
 
 ---
 
-# 56. Dependency Direction
-
-Dependency direction:
+# 53. Dependency Direction
 
 ```text
-UI
+UI (components, hooks)
  ↓
-Printing / Management
+printing / detection / discovery / management
  ↓
-Domain Models
+languages            connection
+                       ↓
+                     adapters
+                       ↓
+                     Native / Vendor SDK
  ↓
-Drivers / Transports
- ↓
-Adapters
- ↓
-Native / Vendor SDK
+models (không phụ thuộc layer nào ở trên)
 ```
 
-Các layer phía trên không được phụ thuộc trực tiếp vào Android API.
+* `languages/` và `connection/` không phụ thuộc nhau.
+* Các layer phía trên không phụ thuộc trực tiếp vào Android API.
 
 Không cho phép:
 
 ```text
-UI → Native SDK
-Driver → MMKV
-Transport → Redux
+UI → DeviceModule / Native SDK
+Language → Connection / Adapter
+Connection → Language
+Adapter → Redux / MMKV
 Storage → React Component
-Native Adapter → PrintRoutingService
+Model → languages / connection / printing / components
 ```
 
 ---
 
-# 57. Testing Structure
-
-Testing structure giữ nguyên:
+# 54. Testing Structure
 
 ```text
 testing/
-├── printerFixtures.ts
-└── printerServiceTestKit.ts
+├── printerFixtures.ts        makePrinter, makeEscPosLanguage, makeTsplLanguage
+├── printerServiceTestKit.ts  makeFakeAdapter, makeMockConnectionService, basePrinter
+└── encodeCases.ts            fixture byte encode + fingerprintOf
 ```
 
-Không đổi structure này chỉ để phù hợp một convention khác.
-
-Existing:
+Test tập trung vào responsibility của component:
 
 ```text
-*.test.ts
+IPrintLanguage           → byte encode khớp fixture, lỗi nội dung
+PrinterConnectionService → phiên, trạng thái, thay adapter, onLost, nhiều máy song song
+PrinterDetectionService  → khớp trường nhận diện, không phân biệt hoa thường, định nghĩa đầu tiên thắng
+DeviceDiscoveryService   → quyền, ánh xạ native → DeviceInfo
+PrinterService           → encode + gửi, kết nối khi cần, không tự khoá khi print
+PaperFormSchema          → ô trống/sai, tràn khổ, đổi qua lại PaperOptions
 ```
 
-giữ nguyên.
+`printing/__tests__/encodeCases.test.ts` chạy trọn đường in thử (service thật + `DeviceModule` mock) và so dấu vân tay
+byte với fixture.
 
-Test nên tập trung vào responsibility của component.
+---
 
-Ví dụ:
+# 55. Testing Runtime Concurrency
+
+Test các boundary của khoá:
 
 ```text
-PrintRoutingService
-→ routing tests
-
-PrintScheduler
-→ ordering/concurrency tests
-
-PrinterConnectionLock
-→ resource locking tests
-
-TsplDriver
-→ encoding/rendering tests
-
-paper/validation
-→ paper rule tests
+hai Printer record cùng máy vật lý      → in lần lượt
+máy khác nhau, cùng loại kết nối        → in song song
+job trong hàng đợi + "In thử" cùng máy  → in lần lượt (chung khoá)
 ```
 
 ---
 
-# 58. Testing Runtime Concurrency
-
-Đặc biệt test các resource boundary:
+# 56. Native Binary Contract
 
 ```text
-USB
-→ shared resource
-
-ESC/POS Bluetooth
-→ shared ESC/POS resource
-
-ESC/POS LAN
-→ shared ESC/POS resource
-
-TSPL Bluetooth
-→ per-device resource
-
-TSPL LAN
-→ per-endpoint resource
-```
-
-Mục tiêu là đảm bảo hai jobs có cùng `resourceKey` không chạy đồng thời.
-
----
-
-# 59. Printer Add Flow
-
-Add Printer flow:
-
-```text
-Choose connection type
-        ↓
-Select device / enter IP + port
-        ↓
-Build identity
-        ↓
-Check duplicate
-        ↓
-Connect
-        ↓
-Discover / identify driver
-        ↓
-Resolve capabilities
-        ↓
-Test print
-        ↓
-Save configuration
-```
-
-Identity check phải xảy ra trước khi tạo duplicate connection configuration.
-
----
-
-# 60. Discovery Driver Order
-
-Candidate order:
-
-```text
-TSPL
-↓
-ESC/POS
-```
-
-Lý do:
-
-TSPL identification có thể sử dụng command:
-
-```text
-~!T
-```
-
-USB không thể đảm bảo identification response vì native module không đọc response theo cách discovery yêu cầu.
-
-Do đó:
-
-```text
-identify() === null
-```
-
-không đồng nghĩa:
-
-```text
-unsupported printer
-```
-
-mà là:
-
-```text
-unable to identify through this transport
-```
-
----
-
-# 61. Native Binary Contract
-
-Application layer:
-
-```ts
-Uint8Array
-```
-
-Native bridge:
-
-```text
-Base64
-```
-
-Flow:
-
-```text
-Driver
- ↓
-Uint8Array
- ↓
-Adapter
- ↓
-Base64
- ↓
-React Native Bridge
- ↓
-Android byte[]
+IPrintLanguage → Uint8Array → NativeAdapter → Base64 → React Native bridge → Android byte[]
 ```
 
 Không expose Android `byte[]` trực tiếp lên TypeScript.
 
 ---
 
-# 62. Vendor SDK Isolation
+# 57. Vendor SDK Isolation
 
-Vendor SDK phải được cô lập tại:
-
-```text
-adapters/vendor/
-```
-
-hoặc:
+Vendor SDK phải được cô lập tại `adapters/vendor/` hoặc `adapters/native/`. Ngôn ngữ in và connection service chỉ biết
+contract `IPrinterAdapter`.
 
 ```text
-adapters/native/
+PrinterConnectionService → IPrinterAdapter → NativeAdapter / VendorAdapter → SDK
 ```
-
-Driver không nên biết vendor-specific API.
-
-Ví dụ:
-
-```text
-TsplDriver
-    ↓
-IPrinterAdapter
-    ↓
-NativeAdapter
-    ↓
-Android SDK
-```
-
-Driver chỉ biết contract mà adapter cung cấp.
 
 ---
 
-# 63. Android API Rule
+# 58. Android API Rule
 
-Các class sử dụng Android API phải nằm ở native/integration boundary.
-
-Ví dụ:
-
-```text
-android.content.Context
-android.hardware.usb.UsbDevice
-android.hardware.usb.UsbManager
-android.bluetooth.*
-android.net.*
-android.util.*
-```
-
-không được leak lên TypeScript domain/service layer.
+Các class sử dụng Android API (`android.content.Context`, `android.hardware.usb.*`, `android.bluetooth.*`,
+`android.net.*`) phải nằm ở native/integration boundary, không leak lên TypeScript domain/service layer.
 
 Comment Android API chỉ thêm khi có behavior không hiển nhiên.
 
 ---
 
-# 64. Runtime Object Rule
+# 59. Runtime Object Rule
 
-Không persist hoặc Redux-store runtime object.
+Không persist hoặc Redux-store runtime object (`UsbDevice`, `UsbDeviceConnection`, `BluetoothSocket`, socket, SDK
+instance, adapter instance).
 
-Không lưu:
-
-```text
-UsbDevice
-UsbDeviceConnection
-UsbEndpoint
-Socket
-BluetoothSocket
-SDK instance
-Transport instance
-Driver instance
-```
-
-Chỉ lưu serializable configuration:
-
-```text
-Printer
-PrinterConnection
-PrinterDriver configuration
-PrinterCapabilities
-PrintPaperConfig
-```
+Chỉ lưu serializable configuration: `Printer`, `DeviceAddress`, `PrinterLanguage`, `PrinterCapabilities`,
+`PaperOptions`.
 
 ---
 
-# 65. Migration Rules
-
-Khi refactor architecture:
-
-```text
-services/
-```
-
-được phân tách theo responsibility.
-
-Mapping:
-
-```text
-services/PrinterLogger.ts
-→ logging/PrinterLogger.ts
-
-services/PrinterConnectionService.ts
-→ connection/PrinterConnectionService.ts
-
-services/PrinterConfigService.ts
-→ management/PrinterConfigService.ts
-
-services/device/DeviceScanService.ts
-→ discovery/DeviceScanService.ts
-
-services/device/NetworkInfoService.ts
-→ discovery/NetworkInfoService.ts
-
-services/discovery/PrinterDiscoveryService.ts
-→ discovery/PrinterDiscoveryService.ts
-
-services/discovery/PrinterResolver.ts
-→ discovery/PrinterResolver.ts
-
-services/permission/PrinterPermissionService.ts
-→ permissions/PrinterPermissionService.ts
-
-services/printing/PrintRoutingService.ts
-→ printing/PrintRoutingService.ts
-
-services/printing/PrintScheduler.ts
-→ printing/PrintScheduler.ts
-
-services/printing/PrintService.ts
-→ printing/PrintService.ts
-
-services/connection/PrinterConnectionLock.ts
-→ connection/PrinterConnectionLock.ts
-```
-
-`PrinterPrintService.ts` là service mới được tạo để giữ print execution responsibility riêng biệt.
-
-Sau migration:
-
-```text
-services/
-```
-
-được xóa.
-
----
-
-# 66. Final Architecture Invariants
-
-Các invariant sau phải được giữ:
+# 60. Final Architecture Invariants
 
 ### Printer
 
 * Không có `isDefault`.
-* Có `identityKey`.
-* `identityKey` không dùng cho concurrency.
-* Mỗi printer có ĐÚNG 1 `driver`, ĐÚNG 1 `connection`, ĐÚNG 1 `paper`, ĐÚNG 1 `type` cố định.
-* Một physical printer phục vụ nhiều content type = nhiều `Printer` record cùng `identityKey`, khác `type`.
-* Unique constraint là cặp `(identityKey, type)`.
+* `deviceId` do native trả lúc kết nối, định danh máy vật lý; repository không tự tính.
+* Mỗi printer có ĐÚNG 1 `language`, ĐÚNG 1 `connection`, ĐÚNG 1 `paper`, ĐÚNG 1 `kind` cố định.
+* Một máy vật lý phục vụ nhiều loại nội dung = nhiều `Printer` record cùng `deviceId`, khác `kind`.
+* Unique constraint là cặp (`deviceId`, `kind`).
+* Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
 
-### Drivers
+### Languages
 
-* `EscPos` và `Tspl` là independent driver types.
-* `DRIVER_CAPABILITIES` quyết định driver type nào CÓ THỂ phục vụ content type nào — enforce khớp với `printer.type` ở `PrinterSchema.ts`.
-* Driver không quản lý persistence.
-* Driver không quản lý routing.
+* `EscPos` và `Tspl` là ngôn ngữ độc lập; chỉ encode, không biết kết nối.
+* `canPrintKind` là ràng buộc duy nhất giữa ngôn ngữ và loại nội dung.
+* Byte encode khớp fixture.
 
 ### Connection
 
-* `PrinterConnectionService` chỉ quản lý lifecycle.
-* `PrinterConnectionLock` quản lý concurrency.
-* `resourceKey` quyết định concurrency boundary.
+* `PrinterConnectionService` giữ phiên theo `printerId`, không biết ngôn ngữ, không tự khoá.
+* Mọi loại kết nối đi qua `NativeAdapter`.
+* Khoá in theo máy vật lý (`deviceId` native), do tầng in giữ; kết nối gom theo `connectionId` native.
 
 ### Printing
 
 ```text
-PrintService
-→ PrintRoutingService
-→ PrintScheduler
-→ PrinterPrintService
-→ PrinterConnectionService
-→ PrinterDriver
-→ Transport
-→ Native Adapter
+PrintService (khoá) → PrinterService
+    → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter
 ```
 
 ### Paper
 
-* Tên chính thức là `PrintPaperConfig`.
-* Folder là `paper/`.
-* `PrintPaperConfig` không đại diện physical capability.
+* `PaperOptions` = `ContinuousPaper | DieCutPaper`; không đại diện capability phần cứng.
 * `PrinterCapabilities` không đại diện print-job configuration.
-* Die-cut không dùng cutter.
-* Continuous không khai báo cutter thì mặc định `CutterMode.PerJob`.
-* Die-cut row overflow phải được validation.
+* Tem rời không cắt; giấy cuộn luôn có `cutterMode`.
+* Tràn hàng tem phải được validation.
 
 ### Rendering
 
-* Chỉ có 2 render mode: `Encoder`, `Bitmap`.
-* TSPL LUÔN dùng `Bitmap` (TrueType/internal-font đã bị xoá hoàn toàn — không phải spike, không tồn tại trong code).
-* ESC/POS chọn `Encoder` hoặc `Bitmap`.
+* Mọi lệnh in là ảnh chụp từ React element; không có chế độ in lệnh văn bản.
 
 ### Native
 
 * Native code chỉ nằm ở adapter/native boundary.
-* Binary từ TypeScript sử dụng `Uint8Array`.
-* React Native bridge sử dụng Base64.
+* Binary từ TypeScript sử dụng `Uint8Array`; React Native bridge sử dụng Base64.
 * Android/vendor behavior chỉ được comment khi không hiển nhiên.
 
 ### Code quality
@@ -2508,7 +1447,7 @@ PrintService
 
 ---
 
-# 67. Pull Request Review Checklist
+# 61. Pull Request Review Checklist
 
 ## Readability
 
@@ -2555,17 +1494,16 @@ PrintService
 
 ## Architecture
 
-* [ ] Driver có chứa protocol logic thay vì orchestration không?
-* [ ] Transport có chỉ xử lý byte transport không?
-* [ ] Connection service có chỉ xử lý lifecycle không?
+* [ ] Ngôn ngữ in có chỉ encode, không chạm kết nối không?
+* [ ] Connection service có chỉ quản lý phiên, không biết ngôn ngữ không?
 * [ ] Scheduler có chịu trách nhiệm concurrency không?
-* [ ] `resourceKey` có được sử dụng cho locking không?
-* [ ] `identityKey` có chỉ dùng cho physical identity không?
+* [ ] Khoá in có theo máy vật lý (`deviceId` native) không?
+* [ ] `deviceId` có chỉ dùng cho định danh máy vật lý và khoá không?
 * [ ] Native/vendor SDK có bị leak lên business layer không?
 
 ---
 
-# 68. Core Principle
+# 62. Core Principle
 
 > **Code dễ đọc trước, code ngắn sau.**
 

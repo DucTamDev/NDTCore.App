@@ -1,139 +1,80 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PrinterRepository } from '../../storage/PrinterRepository';
-import { getCurrentWifiIp } from '../../discovery/NetworkInfoService';
-import { buildBluetoothConnection, buildLanConnection, buildUsbConnection, deviceFromConnection, resolveIdentityKey } from '../../discovery/PrinterResolver';
-import { DeviceModule } from '../../adapters/native/DeviceModule';
+import { getCurrentWifiIp } from '../../discovery/NetworkDiscoveryService';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
-import type { ConnectionState, ProtocolState } from '../../components/StatusPanel';
-import { PrinterConnectionType } from '../../models/printer/PrinterConnection';
+import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
+import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
-import type { PrinterDevice, UsbRawDevice } from '../../models/printer/PrinterDevice';
-import type { PrintType } from '../../models/printing/PrintType';
+import type { DeviceInfo } from '../../models/device/DeviceInfo';
 
 /**
- * Input cho {@link useConnectionSetup}. `getConnectionState`/`getProtocolState`
- * đọc state của {@link useProtocolDiscovery} tại thời điểm handler chạy (không
+ * Input cho {@link useConnectionSetup}. `getConnectionState`/`getLanguageState`
+ * đọc state của {@link usePrinterDetection} tại thời điểm handler chạy (không
  * phải render) — coordinator cung cấp qua ref bridge để phá vòng phụ thuộc.
  */
 export interface UseConnectionSetupInput {
   initialValues?: Printer;
-  printerId: string;
-  /** Loại nội dung CỐ ĐỊNH của printer này — dùng để check trùng đúng cặp `(identityKey, type)`. */
-  printType: PrintType;
-  /** true khi đã xác nhận driver — khoá input kết nối, không cho đổi giữa chừng. */
-  hasDriver: boolean;
+  /** true khi đã xác nhận ngôn ngữ — khoá input kết nối, không cho đổi giữa chừng. */
+  hasLanguage: boolean;
   getConnectionState: () => ConnectionState;
-  getProtocolState: () => ProtocolState;
+  getLanguageState: () => LanguageState;
   resetConnectionResult: () => void;
 }
 
+/** Máy đang sửa chưa quét lại: dựng từ kết nối đã lưu để Lưu giữ nguyên kết nối. */
+const savedDeviceOf = (printer: Printer): DeviceInfo | undefined => {
+  if (printer.connection.type === ConnectionType.Lan) {
+    return undefined;
+  }
+
+  return {
+    deviceId: printer.deviceId,
+    name: '',
+    manufacturer: printer.vendor,
+    model: printer.model,
+    hasPermission: true,
+    address: printer.connection,
+  };
+};
+
 /**
  * State + hàm cho phần "cách kết nối" (USB/BLE/LAN) của luồng Thêm/Sửa máy in:
- * chọn thiết bị, nhập IP/port LAN, tự lấy IP WiFi, tính identityKey và cảnh báo
- * trùng máy in đã lưu.
+ * chọn thiết bị, nhập IP/port LAN, tự lấy IP WiFi. Định danh máy và kiểm tra trùng có sau khi kết nối.
  */
 export const useConnectionSetup = ({
   initialValues,
-  printerId,
-  printType,
-  hasDriver,
+  hasLanguage,
   getConnectionState,
-  getProtocolState,
+  getLanguageState,
   resetConnectionResult,
 }: UseConnectionSetupInput) => {
-  const [connectionType, setConnectionType] = useState<PrinterConnectionType>(initialValues?.connection.type ?? PrinterConnectionType.Usb);
-  const [selectedDevice, setSelectedDevice] = useState<PrinterDevice | undefined>(
-    initialValues ? deviceFromConnection(initialValues.connection) : undefined,
+  const [connectionType, setConnectionType] = useState<ConnectionType>(initialValues?.connection.type ?? ConnectionType.Usb);
+  const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | undefined>(
+    initialValues ? savedDeviceOf(initialValues) : undefined,
   );
-  const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
   const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
   const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
 
   const lanForm = useForm<LanConnectionValues>({
     resolver: zodResolver(lanConnectionSchema),
     defaultValues: {
-      lanIp: initialValues?.connection.type === PrinterConnectionType.Lan ? initialValues.connection.host : '',
-      lanPort: initialValues?.connection.type === PrinterConnectionType.Lan ? String(initialValues.connection.port) : '',
+      lanIp: initialValues?.connection.type === ConnectionType.Lan ? initialValues.connection.host : '',
+      lanPort: initialValues?.connection.type === ConnectionType.Lan ? String(initialValues.connection.port) : '',
     },
   });
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
-  /** Không cần biết protocol — xem `resolveIdentityKey`. */
-  const currentIdentityKey = (): string | null => {
-    try {
-      if (connectionType === PrinterConnectionType.Lan) {
-        const values = lanForm.getValues();
-
-        if (!lanConnectionSchema.safeParse(values).success) {
-          return null;
-        }
-
-        const { ip, port } = buildLan(values);
-        return resolveIdentityKey(buildLanConnection(ip, port));
-      }
-
-      if (!selectedDevice) {
-        return null;
-      }
-
-      const connection = connectionType === PrinterConnectionType.Usb ? buildUsbConnection(selectedDevice) : buildBluetoothConnection(selectedDevice);
-      return resolveIdentityKey(connection);
-    } catch {
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    const key = currentIdentityKey();
-
-    if (!key) {
-      setIdentityErrorMessage(undefined);
-      return;
-    }
-
-    const collision = PrinterRepository.getPrinters().find((p) => p.id !== printerId && p.identityKey === key && p.type === printType);
-    setIdentityErrorMessage(collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chạy lại khi connectionType/selectedDevice/lan form thay đổi, đọc qua currentIdentityKey() ở trên
-  }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
-
-  /**
-   * Serial USB chỉ đọc được sau khi người dùng cấp quyền (bấm "Kết nối") — lúc quét trả `null`. Quét lại sau khi
-   * kết nối thành công và khớp đúng máy theo đường dẫn thiết bị để identityKey có serial
-   * (`usb:<vid>:<pid>:<serial>`); khớp theo vendorId/productId sẽ lấy nhầm khi có 2 máy cùng model.
-   */
-  const refreshUsbSerial = async (): Promise<void> => {
-    if (connectionType !== PrinterConnectionType.Usb || !selectedDevice) {
-      return;
-    }
-
-    const raw = selectedDevice.rawDevice as unknown as UsbRawDevice;
-
-    if (raw.serialNumber || !raw.devicePath) {
-      return;
-    }
-
-    const devices = await DeviceModule.discover('usb').catch(() => []);
-    const match = devices.find((device) => device.type === 'usb' && device.address.devicePath === raw.devicePath);
-    const serialNumber = match?.type === 'usb' ? match.address.serialNumber : null;
-
-    if (!serialNumber) {
-      return;
-    }
-
-    setSelectedDevice((prev) => (prev ? { ...prev, rawDevice: { ...prev.rawDevice, serialNumber } } : prev));
-  };
 
   const resetIfDirty = (): void => {
-    if (getConnectionState() !== 'idle' || getProtocolState() !== 'idle') {
+    if (getConnectionState() !== 'idle' || getLanguageState() !== 'idle') {
       resetConnectionResult();
     }
   };
 
-  const onConnectionTypeChange = (value: PrinterConnectionType): void => {
-    if (hasDriver) {
+  const onConnectionTypeChange = (value: ConnectionType): void => {
+    if (hasLanguage) {
       return;
     }
 
@@ -142,8 +83,8 @@ export const useConnectionSetup = ({
     resetIfDirty();
   };
 
-  const onSelectDevice = (device: PrinterDevice): void => {
-    if (hasDriver) {
+  const onSelectDevice = (device: DeviceInfo): void => {
+    if (hasLanguage) {
       return;
     }
 
@@ -152,7 +93,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanIpChange = (text: string): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
@@ -161,7 +102,7 @@ export const useConnectionSetup = ({
   };
 
   const onLanPortChange = (text: string): void => {
-    if (hasDriver) {
+    if (hasLanguage) {
       return;
     }
 
@@ -199,12 +140,9 @@ export const useConnectionSetup = ({
     onFetchLanIp,
     onAutoFillLanIp,
     buildLan,
-    currentIdentityKey,
-    identityErrorMessage,
     onConnectionTypeChange,
     onSelectDevice,
     onLanIpChange,
     onLanPortChange,
-    refreshUsbSerial,
   };
 };

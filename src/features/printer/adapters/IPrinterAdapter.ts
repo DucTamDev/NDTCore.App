@@ -1,80 +1,34 @@
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import type { PrinterDevice } from '../models/printer/PrinterDevice';
-import type { Printer } from '../models/printer/Printer';
+import type { ConnectionType } from '../models/connections/ConnectionType';
+import type { DeviceAddress } from '../models/device/DeviceAddress';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
+import type { ConnectedDevice } from '../models/device/ConnectedDevice';
+
+/** Huỷ một đăng ký lắng nghe. */
+export type Unsubscribe = () => void;
 
 /**
- * Mục tiêu kết nối 1 máy in — phẳng theo `connectionType`, driver dựng từ
- * `Printer` (xem `toConnectTarget`). Adapter chỉ đọc field khớp `connectionType`.
- */
-export interface PrinterConnectTarget {
-  printerId: string;
-  connectionType: PrinterConnectionType;
-  lan?: { ip: string; port: number };
-  bluetooth?: { deviceId: string };
-  usb?: { vendorId: number; productId: number; serialNumber?: string };
-}
-
-/** Tuỳ chọn khi để adapter tự encode ESC/POS (`printText`). */
-export interface PrinterPrintTextOptions {
-  cut: boolean;
-  tailingLine: boolean;
-  encoding: 'UTF8';
-}
-
-/**
- * Contract chung cho MỌI cách feature máy in giao tiếp ra ngoài, phân theo
- * nguồn cơ chế:
- * - `native`  — native module tự viết (`DeviceModule`)
- * - `library` — thư viện npm (`react-native-tcp-socket` / `-bluetooth-classic`)
- * - `vendor`  — SDK do hãng máy in cung cấp
- *
- * 1 instance = 1 kết nối (stateful, giống `Transport`). Driver tạo mới mỗi
- * `printerId`. `listDevices` gọi được trước `connect` (không cần kết nối).
+ * Một cách giao tiếp với máy in: `native` là native module của app, `vendor` là SDK của hãng máy in.
+ * Mỗi instance giữ tối đa một kết nối; `listDevices` gọi được khi chưa kết nối.
  */
 export interface IPrinterAdapter {
-  readonly source: 'native' | 'library' | 'vendor';
+  readonly source: 'native' | 'vendor';
 
-  /**
-   * `true` nếu `read()` đọc được phản hồi từ máy in. `false` thì caller KHÔNG được ghi lệnh dò (`~!T`…) rồi chờ
-   * đọc — `TsplDriver.identify()` phải trả `null` ngay, không ghi.
-   */
+  /** `false` thì `read` luôn trả `null`, không đọc được phản hồi của máy in. */
   readonly canRead: boolean;
 
-  /** Liệt kê thiết bị cho 1 connectionType — `[]` nếu adapter không quét loại đó. */
-  listDevices(connectionType: PrinterConnectionType): Promise<PrinterDevice[]>;
+  /** Thiết bị tìm thấy cho một loại kết nối; `[]` nếu adapter không quét loại đó. */
+  listDevices(connectionType: ConnectionType): Promise<DeviceInfo[]>;
 
-  /** Mở kết nối. Idempotent phần init tầng dưới. */
-  connect(target: PrinterConnectTarget): Promise<void>;
+  /** Mở kết nối, trả thông tin máy đọc được sau khi mở; native có thể trả kết nối đang mở nếu cùng máy. */
+  connect(connection: DeviceAddress): Promise<ConnectedDevice>;
 
-  /** Ghi byte thô (TSPL, hoặc ESC/POS đã encode ở driver). */
   write(bytes: Uint8Array): Promise<void>;
 
-  /** Encode ESC/POS từ `text` (có tag `<C>`/`<B>`…) rồi gửi. */
-  printText(text: string, options: PrinterPrintTextOptions): Promise<void>;
+  /** Phản hồi của máy in; `null` khi quá hạn mà máy in chưa trả lời. */
+  read(): Promise<Uint8Array | null>;
 
-  /** Đọc 1 lần phản hồi trong `timeoutMs` — `null` nếu adapter/kết nối không đọc được. */
-  read(timeoutMs: number): Promise<Uint8Array | null>;
+  /** Báo khi kết nối hiện tại của instance này mất ngoài ý muốn (rút cáp, tắt máy, mất sóng). */
+  onLost(callback: () => void): Unsubscribe;
 
-  /** Đóng kết nối. */
   disconnect(): Promise<void>;
 }
-
-/**
- * Dựng `PrinterConnectTarget` từ `Printer` — `printer.connection` là
- * discriminated union nên không còn trạng thái thiếu cấu hình để validate ở
- * đây (khác bản cũ dùng field optional dùng chung).
- */
-export const toConnectTarget = (printer: Printer): PrinterConnectTarget => {
-  const { connection } = printer;
-
-  if (connection.type === PrinterConnectionType.Lan) {
-    return { printerId: printer.id, connectionType: connection.type, lan: { ip: connection.host, port: connection.port } };
-  }
-
-  if (connection.type === PrinterConnectionType.Bluetooth) {
-    return { printerId: printer.id, connectionType: connection.type, bluetooth: { deviceId: connection.deviceId } };
-  }
-
-  const { vendorId, productId, serialNumber } = connection;
-  return { printerId: printer.id, connectionType: connection.type, usb: { vendorId, productId, serialNumber } };
-};

@@ -1,13 +1,12 @@
-import { buildReceiptDocument, buildReprintDocument, printReceipt } from '../OrderPrintTrigger';
-import { PrintService } from '../../../printer/printing/PrintService';
-import { PrintResultStatus } from '../../../printer/models/printing/PrintJob';
+import { buildReceipt, buildReprintReceipt, printReceipt } from '../OrderPrintTrigger';
+import { ReceiptView } from '../../components/ReceiptView';
+import { printService } from '../../../printer/printing/PrintService';
+import { PrintStatus } from '../../../printer/models/printing/PrintStatus';
 import { LoggerService } from '../../../../services/LoggerService';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
-import type { PrintRowElement, PrintTextElement } from '../../../printer/models/printing/PrintDocument';
 import type { StoreViewModel } from '../../../store/types/store.types';
-import { PrintType } from '../../../printer/models/printing/PrintType';
-import { PrintPaperType } from '../../../printer/models/paper/PrintPaperConfig';
-import { BitmapSource } from '../../../printer/models/printer/PrinterDriver';
+import { PrintKind } from '../../../printer/models/printer/PrintKind';
+import { PaperType } from '../../../printer/models/paper/PaperType';
 
 jest.mock('../../../printer/printing/PrintService');
 jest.mock('../../../../services/LoggerService');
@@ -24,60 +23,37 @@ const store: StoreViewModel = {
   address: '123 Lê Lợi', district: null, province: null,
 };
 
-const findRow = (elements: unknown[], left: string): PrintRowElement | undefined =>
-  elements.find((el): el is PrintRowElement => (el as PrintRowElement).type === 'row' && (el as PrintRowElement).left === left);
+const valueOf = (rows: { label: string; value: string }[], label: string): string | undefined =>
+  rows.find((row) => row.label === label)?.value;
 
-const findText = (elements: unknown[], content: string): PrintTextElement | undefined =>
-  elements.find((el): el is PrintTextElement => (el as PrintTextElement).type === 'text' && (el as PrintTextElement).content === content);
-
-describe('buildReceiptDocument', () => {
-  it('includes store name/address as the first lines when a store is given', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', store);
-    expect(document.elements[0]).toEqual({ type: 'text', content: 'NDTCore Quận 1', x: 0, y: 0 });
-    expect(document.elements[1]).toEqual({ type: 'text', content: '123 Lê Lợi', x: 0, y: 20 });
+describe('buildReceipt', () => {
+  it('lấy tên và địa chỉ cửa hàng khi có cửa hàng', () => {
+    const receipt = buildReceipt(orderResponse, [item], 'DineIn', store);
+    expect(receipt).toMatchObject({ storeName: 'NDTCore Quận 1', storeAddress: '123 Lê Lợi' });
   });
 
-  it('omits store lines when no store is given', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    expect(document.elements[0]).not.toMatchObject({ content: 'NDTCore Quận 1' });
+  it('không có cửa hàng thì tên và địa chỉ là null', () => {
+    const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
+    expect(receipt).toMatchObject({ storeName: null, storeAddress: null });
   });
 
-  it('has header rows for order number, time, and service type', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    expect(findRow(document.elements, 'Mã đơn')).toMatchObject({ right: '#ORD-001' });
-    expect(findRow(document.elements, 'Hình thức')).toMatchObject({ right: 'Tại quầy' });
+  it('có dòng mã đơn và hình thức phục vụ', () => {
+    const { headerRows } = buildReceipt(orderResponse, [item], 'DineIn', null);
+    expect(valueOf(headerRows, 'Mã đơn')).toBe('#ORD-001');
+    expect(valueOf(headerRows, 'Hình thức')).toBe('Tại quầy');
   });
 
-  it('renders each item as a row with quantity prefix and line total, plus a note line', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    expect(findRow(document.elements, '2x Trà sữa')).toMatchObject({ right: '60.000đ' });
-    expect(findText(document.elements, '  Ghi chú: ít đường')).toBeDefined();
+  it('chuyển món trong giỏ thành món trên bill, ghi chú rỗng thành null', () => {
+    const receipt = buildReceipt(orderResponse, [item, { ...item, note: '  ' }], 'DineIn', null);
+    expect(receipt.items).toEqual([
+      { name: 'Trà sữa', quantity: 2, unitPrice: 30000, note: 'ít đường' },
+      { name: 'Trà sữa', quantity: 2, unitPrice: 30000, note: null },
+    ]);
   });
 
-  it('does not prefix quantity for a single-unit item', () => {
-    const document = buildReceiptDocument(orderResponse, [{ ...item, quantity: 1 }], 'DineIn', null);
-    expect(findRow(document.elements, 'Trà sữa')).toMatchObject({ right: '30.000đ' });
-  });
-
-  it('omits the note line when the item has no note', () => {
-    const document = buildReceiptDocument(orderResponse, [{ ...item, note: '' }], 'DineIn', null);
-    expect(findText(document.elements, '  Ghi chú: ít đường')).toBeUndefined();
-  });
-
-  it('shows subtotal and total but no discount/delivery/payment lines (not collected at checkout yet)', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    expect(findRow(document.elements, 'Tạm tính')).toMatchObject({ right: '60.000đ' });
-    expect(findRow(document.elements, 'TỔNG THANH TOÁN')).toMatchObject({ right: '60.000đ' });
-    expect(findRow(document.elements, 'Giảm giá')).toBeUndefined();
-    expect(findRow(document.elements, 'Phương thức')).toBeUndefined();
-  });
-
-  it('ends with a thank-you line', () => {
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    expect(document.elements[document.elements.length - 1]).toMatchObject({
-      type: 'text',
-      content: 'Cảm ơn quý khách! Hẹn gặp lại lần sau',
-    });
+  it('chưa có giảm giá, phí giao hàng, phương thức thanh toán ở bước thanh toán', () => {
+    const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
+    expect(receipt).toMatchObject({ discountAmount: 0, deliveryFee: 0, paymentMethod: null });
   });
 });
 
@@ -96,125 +72,74 @@ const orderDetail: OrderDetail = {
   Items: [{ ProductName: 'Trà sữa', Quantity: 2, Note: 'ít đường', UnitPrice: 30000, Options: [] }],
 };
 
-describe('buildReprintDocument', () => {
-  it('marks the order number row with "(In lại)"', () => {
-    const document = buildReprintDocument(orderDetail, null);
-    expect(findRow(document.elements, 'Mã đơn')).toMatchObject({ right: '#ORD-001 (In lại)' });
+describe('buildReprintReceipt', () => {
+  it('đánh dấu mã đơn "(In lại)"', () => {
+    const { headerRows } = buildReprintReceipt(orderDetail, null);
+    expect(valueOf(headerRows, 'Mã đơn')).toBe('#ORD-001 (In lại)');
   });
 
-  it('renders discount and payment method rows from OrderDetail (unlike checkout, which never has them yet)', () => {
-    const document = buildReprintDocument(orderDetail, null);
-    expect(findRow(document.elements, 'Giảm giá')).toMatchObject({ right: '-5.000đ' });
-    expect(findRow(document.elements, 'TỔNG THANH TOÁN')).toMatchObject({ right: '55.000đ' });
-    expect(findRow(document.elements, 'Phương thức')).toMatchObject({ right: 'Tiền mặt' });
-    expect(findRow(document.elements, 'Số tiền nhận')).toMatchObject({ right: '100.000đ' });
-    expect(findRow(document.elements, 'Tiền thừa')).toMatchObject({ right: '45.000đ' });
+  it('lấy giảm giá và thanh toán từ đơn đã lưu', () => {
+    expect(buildReprintReceipt(orderDetail, null)).toMatchObject({
+      discountAmount: 5000,
+      paymentMethod: 'Cash',
+      amountReceived: 100000,
+      changeAmount: 45000,
+    });
   });
 
-  it('omits the payment method rows when PaymentMethod is null', () => {
-    const document = buildReprintDocument({ ...orderDetail, PaymentMethod: null }, null);
-    expect(findRow(document.elements, 'Phương thức')).toBeUndefined();
-  });
-
-  it('falls back to the raw ServiceType string instead of printing "undefined" when the value is not a known service type', () => {
-    const document = buildReprintDocument({ ...orderDetail, ServiceType: 'PhoneOrder' }, null);
-    expect(findRow(document.elements, 'Hình thức')).toMatchObject({ right: 'PhoneOrder' });
-  });
-
-  it('omits the note line when the order item has no note', () => {
-    const document = buildReprintDocument({ ...orderDetail, Items: [{ ...orderDetail.Items[0], Note: null }] }, null);
-    expect(findText(document.elements, '  Ghi chú: ít đường')).toBeUndefined();
+  it('hình thức lạ thì in nguyên chuỗi gốc thay vì "undefined"', () => {
+    const { headerRows } = buildReprintReceipt({ ...orderDetail, ServiceType: 'PhoneOrder' }, null);
+    expect(valueOf(headerRows, 'Hình thức')).toBe('PhoneOrder');
   });
 });
 
 describe('printReceipt', () => {
-  const noopCapture = jest.fn();
+  const paper = { type: PaperType.Continuous, paperSize: 58 };
+  const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
 
-  afterEach(() => {
-    noopCapture.mockClear();
-    (PrintService.imageDocumentTarget as jest.Mock | undefined)?.mockReset();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('resolves "no-printer" when PrintService reports no-available-printer', async () => {
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.NoAvailablePrinter, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    await expect(printReceipt(document, noopCapture)).resolves.toBe('no-printer');
+  it('chưa có máy in hoá đơn → "no-printer"', async () => {
+    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.NoAvailablePrinter, results: [] });
+
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('no-printer');
   });
 
-  it('resolves "failed" and never rejects when PrintService.print rejects', async () => {
-    (PrintService.print as jest.Mock).mockRejectedValue(new Error('mất kết nối'));
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    await expect(printReceipt(document, noopCapture)).resolves.toBe('failed');
+  it('PrintService chụp bill theo giấy của từng máy qua hàm chụp được truyền vào', async () => {
+    const capture = jest.fn().mockResolvedValue('base64-png-data');
+    (printService.print as jest.Mock).mockImplementation(async (_kind, render) => {
+      await render(paper);
+      return { status: PrintStatus.Success, results: [] };
+    });
+
+    await expect(printReceipt(receipt, capture)).resolves.toBe('ok');
+    expect(printService.print).toHaveBeenCalledWith(PrintKind.Receipt, expect.any(Function));
+    expect(capture).toHaveBeenCalledWith(expect.objectContaining({ type: ReceiptView, props: { receipt } }), paper);
   });
 
-  it('resolves "ok" when printing succeeds', async () => {
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    await expect(printReceipt(document, noopCapture)).resolves.toBe('ok');
+  it('chụp thất bại → "failed", ghi log kèm lý do', async () => {
+    (printService.print as jest.Mock).mockResolvedValue({
+      status: PrintStatus.Failed,
+      results: [],
+      error: { message: 'Không chụp được nội dung Hoá đơn để in' },
+    });
+
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('failed');
+    expect(LoggerService.warning).toHaveBeenCalledWith(expect.stringContaining('Không chụp được'));
   });
 
-  it('resolves "failed" and logs a warning when PrintService reports failed', async () => {
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Failed, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    await expect(printReceipt(document, noopCapture)).resolves.toBe('failed');
+  it('máy in báo lỗi → "failed" và ghi log', async () => {
+    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.Failed, results: [] });
+
+    await expect(printReceipt(receipt, jest.fn().mockResolvedValue('png'))).resolves.toBe('failed');
     expect(LoggerService.warning).toHaveBeenCalled();
   });
 
-  it('does not call captureBillImage when no target printer needs an image document', async () => {
-    (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue(null);
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-    await printReceipt(document, noopCapture);
-    expect(noopCapture).not.toHaveBeenCalled();
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
-  });
+  it('printService.print reject → "failed", không bao giờ reject', async () => {
+    (printService.print as jest.Mock).mockRejectedValue(new Error('mất kết nối'));
 
-  it('captures a bill image and sends it alongside the text document when a target printer uses Image bitmapSource', async () => {
-    (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 58 },
-      bitmapSource: BitmapSource.Image,
-    });
-    const capture = jest.fn().mockResolvedValue('base64-png-data');
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-
-    await printReceipt(document, capture);
-
-    expect(capture).toHaveBeenCalledWith(document, { type: PrintPaperType.Continuous, paperSize: 58 });
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
-      text: document,
-      image: 'base64-png-data',
-    });
-  });
-
-  it('renders via Skia and sends the result alongside the text document when a target printer uses Ast bitmapSource', async () => {
-    (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 58 },
-      bitmapSource: BitmapSource.Ast,
-    });
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-
-    await printReceipt(document, noopCapture);
-
-    expect(noopCapture).not.toHaveBeenCalled();
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, {
-      text: document,
-      image: expect.any(String),
-    });
-  });
-
-  it('falls back to text-only when captureBillImage resolves null (capture failed)', async () => {
-    (PrintService.imageDocumentTarget as jest.Mock).mockReturnValue({
-      paper: { type: PrintPaperType.Continuous, paperSize: 80 },
-      bitmapSource: BitmapSource.Image,
-    });
-    const capture = jest.fn().mockResolvedValue(null);
-    (PrintService.print as jest.Mock).mockResolvedValue({ status: PrintResultStatus.Success, jobs: [] });
-    const document = buildReceiptDocument(orderResponse, [item], 'DineIn', null);
-
-    await printReceipt(document, capture);
-
-    expect(PrintService.print).toHaveBeenCalledWith(PrintType.Receipt, { text: document });
+    await expect(printReceipt(receipt, jest.fn().mockResolvedValue('png'))).resolves.toBe('failed');
   });
 });

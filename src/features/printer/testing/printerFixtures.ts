@@ -1,40 +1,39 @@
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { DriverSource, PrinterDriverType, RenderMode } from '../models/printer/PrinterDriver';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
 import type { Printer } from '../models/printer/Printer';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
-import type { PrinterDriver } from '../models/printer/PrinterDriver';
-import { PaperSize, PrintPaperType } from '../models/paper/PrintPaperConfig';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import { PrintType } from '../models/printing/PrintType';
+import type { DeviceAddress } from '../models/device/DeviceAddress';
+import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+import { CutterMode } from '../models/paper/CutterMode';
+import { PaperSize } from '../models/paper/PaperSize';
+import { PaperType } from '../models/paper/PaperType';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import { PrintKind } from '../models/printer/PrintKind';
 
-export const DEFAULT_PAPER: PrintPaperConfig = { type: PrintPaperType.Continuous, paperSize: PaperSize.Mm80 };
+export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
 
-export const makeEscPosDriver = (o: Partial<PrinterDriver> = {}): PrinterDriver => ({
-  type: PrinterDriverType.EscPos,
-  source: DriverSource.Auto,
-  config: { renderMode: RenderMode.Encoder },
+export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
+  type: PrintLanguage.EscPos,
+  selection: LanguageSelection.Auto,
   ...o,
 });
 
-export const makeTsplDriver = (o: Partial<PrinterDriver> = {}): PrinterDriver => ({
-  type: PrinterDriverType.Tspl,
-  source: DriverSource.Auto,
-  config: { renderMode: RenderMode.Bitmap },
+export const makeTsplLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
+  type: PrintLanguage.Tspl,
+  selection: LanguageSelection.Auto,
   ...o,
 });
 
-const DEFAULT_CONNECTION: PrinterConnection = { type: PrinterConnectionType.Lan, host: '192.168.1.10', port: 9100 };
+const DEFAULT_CONNECTION: DeviceAddress = { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 };
 
 export const makePrinter = (o: Partial<Printer> = {}): Printer => ({
   id: 'p1',
-  identityKey: 'lan:192.168.1.10:9100',
-  type: PrintType.Receipt,
+  deviceId: 'lan:192.168.1.10:9100',
+  kind: PrintKind.Receipt,
   name: 'Máy in test',
-  driver: makeEscPosDriver(),
+  language: makeEscPosLanguage(),
   connection: DEFAULT_CONNECTION,
   paper: { ...DEFAULT_PAPER },
-  capabilities: { cutter: false },
-  autoReconnect: false,
+  capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',

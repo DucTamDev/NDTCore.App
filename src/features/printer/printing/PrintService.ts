@@ -1,80 +1,146 @@
-import { PrintRoutingService } from './PrintRoutingService';
-import { PrintScheduler } from './PrintScheduler';
+import { printerService, type PrinterService } from './PrinterService';
+import { printerConnectionLock, type PrinterConnectionLock } from '../connection/PrinterConnectionLock';
+import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { generateId } from '../../../utils/id';
-import { PRINT_TYPE_LABELS } from '../models/printing/PrintType';
-import { PrinterErrorCode } from '../errors/PrinterError';
-import type { PrintType } from '../models/printing/PrintType';
-import { usesBitmapRenderMode } from '../drivers/driverConfig';
-import { BitmapSource } from '../models/printer/PrinterDriver';
-import type { PrintPaperConfig } from '../models/paper/PrintPaperConfig';
-import type { PrintDocuments } from '../drivers/IPrinterDriver';
-import { PrintJobStatus, PrintResultStatus, type PrintJob, type PrintResult } from '../models/printing/PrintJob';
+import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
+import { PrintErrorCode } from '../errors';
+import { PrintErrorException, toPrinterFeatureException } from '../exceptions';
+import type { PrintKind } from '../models/printer/PrintKind';
+import type { Printer } from '../models/printer/Printer';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+import { PrintTaskStatus } from '../models/printing/PrintTaskStatus';
+import { PrintStatus } from '../models/printing/PrintStatus';
+import type { PrintTask } from '../models/printing/PrintTask';
+import type { PrintTaskResult } from '../models/printing/PrintTaskResult';
+import type { PrintResult } from '../models/printing/PrintResult';
 
-export type { PrintDocuments };
-
-interface PrintServiceDeps {
-  routing: Pick<typeof PrintRoutingService, 'resolveTargets'>;
-  scheduler: Pick<typeof PrintScheduler, 'enqueue'>;
-}
+/** Chụp nội dung cần in theo một khổ giấy, ra ảnh PNG base64; `null` khi chụp không được. */
+export type RenderPrintImage = (paper: PaperOptions) => Promise<string | null>;
 
 /** `successCount`/`total` → kết quả tổng hợp: tất cả OK / tất cả fail / 1 phần fail. */
-const resolveResultStatus = (successCount: number, total: number): PrintResultStatus => {
+const resolvePrintStatus = (successCount: number, total: number): PrintStatus => {
   if (successCount === total) {
-    return PrintResultStatus.Success;
+    return PrintStatus.Success;
   }
 
   if (successCount === 0) {
-    return PrintResultStatus.Failed;
+    return PrintStatus.Failed;
   }
 
-  return PrintResultStatus.PartialFailure;
+  return PrintStatus.PartialFailure;
 };
 
-export const createPrintService = (deps: PrintServiceDeps) => {
+/** Điểm vào công khai: in một loại nội dung ra mọi máy in đang nhận loại đó. */
+export class PrintService {
+  constructor(
+    /** Nguồn máy in đã lưu để chọn máy nhận lệnh. */
+    private readonly repository: PrinterRepository = printerRepository,
+
+    /** In một lệnh in trên máy của nó. */
+    private readonly printing: PrinterService = printerService,
+
+    /** Khoá theo máy vật lý, dùng chung với nút "In thử". */
+    private readonly lock: PrinterConnectionLock = printerConnectionLock,
+  ) {}
+
   /**
-   * Target (paper + bitmapSource) cần để render ảnh cho `printType` này, hoặc
-   * `null` nếu không có target nào (TSPL hoặc ESC/POS) đang cấu hình
-   * `renderMode: 'Bitmap'`. Nơi gọi (`OrderPrintTrigger`) chỉ nên tốn chi phí
-   * capture khi có giá trị trả về — capture theo `paper` để máy die-cut chụp
-   * đúng bề rộng tem (`itemWidthMm`) thay vì bề rộng giấy đầy đủ.
+   * Mỗi máy nhận một lệnh in với ảnh chụp theo giấy của chính nó; máy khác nhau in song song, cùng máy vật lý in lần
+   * lượt. Không có máy nào thì không chụp. Chụp hỏng thì cả yêu cầu thất bại, không gửi gì. Không throw.
    */
-  const imageDocumentTarget = (printType: PrintType): { paper: PrintPaperConfig; bitmapSource: BitmapSource } | null => {
-    const target = deps.routing.resolveTargets(printType).find((printer) => usesBitmapRenderMode(printer.driver));
-    return target ? { paper: target.paper, bitmapSource: target.driver.config.bitmapSource ?? BitmapSource.Image } : null;
-  };
+  async print(kind: PrintKind, render: RenderPrintImage): Promise<PrintResult> {
+    const printers = this.findEnabledPrintersByKind(kind);
 
-  const print = async (printType: PrintType, documents: PrintDocuments): Promise<PrintResult> => {
-    const targets = deps.routing.resolveTargets(printType);
-
-    if (targets.length === 0) {
+    if (printers.length === 0) {
       return {
-        status: PrintResultStatus.NoAvailablePrinter,
-        jobs: [],
-        error: { code: PrinterErrorCode.NO_AVAILABLE_PRINTER, message: `Chưa thiết lập máy in cho ${PRINT_TYPE_LABELS[printType]}` },
+        status: PrintStatus.NoAvailablePrinter,
+        results: [],
+        error: new PrintErrorException({
+          code: PrintErrorCode.NO_AVAILABLE_PRINTER,
+          message: `Chưa thiết lập máy in cho ${PRINT_KIND_LABELS[kind]}`,
+        }),
       };
     }
 
-    const requestId = generateId();
-    const jobs: PrintJob[] = await Promise.all(
-      targets.map((printer) =>
-        deps.scheduler.enqueue({
-          id: generateId(),
-          requestId,
-          printerId: printer.id,
-          printType,
-          documents,
-          status: PrintJobStatus.Pending,
-          retryCount: 0,
-          createdAt: new Date().toISOString(),
+    const tasks = await this.createTasks(printers, render).catch(() => null);
+
+    if (!tasks) {
+      return {
+        status: PrintStatus.Failed,
+        results: [],
+        error: new PrintErrorException({
+          code: PrintErrorCode.INVALID_IMAGE,
+          message: `Không chụp được nội dung ${PRINT_KIND_LABELS[kind]} để in`,
         }),
-      ),
-    );
-    const successCount = jobs.filter((job) => job.status === PrintJobStatus.Success).length;
-    const status = resolveResultStatus(successCount, jobs.length);
-    return { status, jobs };
-  };
+      };
+    }
 
-  return { print, imageDocumentTarget };
-};
+    const results = await Promise.all(tasks.map((task) => this.run(task)));
 
-export const PrintService = createPrintService({ routing: PrintRoutingService, scheduler: PrintScheduler });
+    const successCount = results.filter((result) => result.status === PrintTaskStatus.Success).length;
+    const status = resolvePrintStatus(successCount, results.length);
+    return { status, results };
+  }
+
+  /** Máy in đang bật và nhận loại nội dung `kind`. */
+  private findEnabledPrintersByKind(kind: PrintKind): Printer[] {
+    return this.repository.getPrinters().filter((printer) => printer.enabled && printer.kind === kind);
+  }
+
+  /**
+   * Máy cùng cấu hình giấy dùng chung một ảnh, khác giấy (58mm với 80mm, tem khác cỡ) chụp riêng. Chụp lần lượt vì chỉ
+   * có một khung chụp. `null` khi một lần chụp hỏng.
+   */
+  private async createTasks(printers: Printer[], render: RenderPrintImage): Promise<PrintTask[] | null> {
+    const imageByPaper = new Map<string, string>();
+    const tasks: PrintTask[] = [];
+
+    for (const printer of printers) {
+      const paperKey = JSON.stringify(printer.paper);
+      const image = imageByPaper.get(paperKey) ?? (await render(printer.paper));
+
+      if (!image) {
+        return null;
+      }
+
+      imageByPaper.set(paperKey, image);
+      tasks.push(this.createTask(printer, image));
+    }
+
+    return tasks;
+  }
+
+  private createTask(printer: Printer, data: string): PrintTask {
+    return {
+      id: generateId(),
+      printerId: printer.id,
+      printerName: printer.name,
+      deviceId: printer.deviceId,
+      connectionType: printer.connection.type,
+      kind: printer.kind,
+      data,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  /** Khoá theo `task.deviceId` (native trả), cùng khoá với nút "In thử" và lệnh ngắt trên máy đó. */
+  private run(task: PrintTask): Promise<PrintTaskResult> {
+    return this.lock.runExclusive(task.deviceId, async () => {
+      const startedAt = new Date().toISOString();
+
+      try {
+        await this.printing.print(task.printerId, task.data);
+        return { task, status: PrintTaskStatus.Success, startedAt, completedAt: new Date().toISOString() };
+      } catch (error) {
+        return {
+          task,
+          status: PrintTaskStatus.Failed,
+          error: toPrinterFeatureException(error),
+          startedAt,
+          completedAt: new Date().toISOString(),
+        };
+      }
+    });
+  }
+}
+
+export const printService = new PrintService();

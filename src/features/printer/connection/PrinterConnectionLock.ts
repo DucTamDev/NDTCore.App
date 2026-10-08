@@ -1,100 +1,54 @@
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import { PrinterDriverType } from '../models/printer/PrinterDriver';
-import type { Printer } from '../models/printer/Printer';
-import type { PrinterConnection } from '../models/printer/PrinterConnection';
 import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 
-export interface ConnectionResourceKeyInput {
-  driverType: PrinterDriverType;
-  connection: PrinterConnection;
-}
-
 /**
- * Khoá lệnh in: mỗi key chỉ chạy một lệnh in tại một thời điểm, vì một lệnh in gồm nhiều lần gọi native mà native
- * chỉ giữ đúng thứ tự từng lần gọi, không giữ trọn vẹn cả lệnh in.
- *
- * Key hiện thô hơn mức cần: USB dùng chung `"usb"`, ESC/POS Bluetooth/LAN dùng chung theo loại kết nối, nên hai máy
- * khác nhau cùng loại in lần lượt thay vì song song — vẫn an toàn. TSPL Bluetooth/LAN đi qua transport thư viện riêng
- * từng máy nên đã khoá theo từng kết nối.
+ * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Khoá in dùng key là
+ * `deviceId` của máy (native trả): một lệnh in gồm nhiều lần gọi native, native chỉ giữ thứ tự từng lần gọi chứ không
+ * giữ trọn cả lệnh in, nên lệnh in, nút "In thử" và lệnh ngắt trên cùng một máy phải chạy lần lượt.
  */
-export const connectionResourceKey = (input: ConnectionResourceKeyInput): string => {
-  const { connection, driverType } = input;
+export class PrinterConnectionLock {
+  /** Việc đang chờ theo key; việc đầu hàng là việc đang chạy. */
+  private readonly queues = new Map<string, Task[]>();
 
-  if (connection.type === PrinterConnectionType.Usb) {
-    return 'usb';
-  }
+  /** Key đang có vòng xử lý hàng đợi, để không chạy hai vòng cho cùng một key. */
+  private readonly processing = new Set<string>();
 
-  if (driverType === PrinterDriverType.EscPos) {
-    return connection.type === PrinterConnectionType.Bluetooth ? 'escpos:bluetooth' : 'escpos:lan';
-  }
-
-  if (connection.type === PrinterConnectionType.Bluetooth) {
-    return `tspl:bluetooth:${connection.deviceId}`;
-  }
-
-  return `tspl:lan:${connection.host}:${connection.port}`;
-};
-
-/**
- * Tra resource key từ 1 `Printer` — helper dùng chung bởi
- * `PrinterConnectionService` và `PrinterConfigService`, wrapper mỏng quanh
- * `connectionResourceKey`. Mỗi `Printer` giờ chỉ có 1 driver nên không cần
- * tham số `driverType` rời như bản cũ.
- */
-export const resourceKeyFor = (printer: Printer): string =>
-  connectionResourceKey({ driverType: printer.driver.type, connection: printer.connection });
-
-/**
- * Khoá loại trừ lẫn nhau theo resource key tuỳ ý — dùng chung bởi
- * `PrintScheduler` (hàng đợi in) và `PrinterPrintService.testPrint()` (thao tác
- * thủ công "In thử"), để 2 đường gọi này không bao giờ chạm cùng 1 kết nối
- * native cùng lúc.
- */
-export const createResourceLock = () => {
-  const queues = new Map<string, Task[]>();
-  const processing = new Set<string>();
-
-  const processQueue = async (key: string): Promise<void> => {
-    if (processing.has(key)) {
-      return;
-    }
-
-    processing.add(key);
-
-    try {
-      const queue = queues.get(key);
-      while (queue && queue.length > 0) {
-        const task = queue[0];
-        await task();
-        queue.shift();
-      }
-    } finally {
-      queues.delete(key);
-      processing.delete(key);
-    }
-  };
-
-  const runExclusive = <T>(key: string, task: () => Promise<T>): Promise<T> =>
-    new Promise<T>((resolve, reject) => {
-      if (!queues.has(key)) {
-        queues.set(key, []);
+  runExclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.queues.has(key)) {
+        this.queues.set(key, []);
       }
 
-      queues.get(key)?.push(() => task().then(resolve, reject));
-      // `processQueue` tự nuốt lỗi từng task (mỗi task đã `.then(resolve, reject)`
-      // về promise ngoài) nên `.catch` này gần như không bao giờ chạy — chỉ để
-      // không bỏ floating promise nếu chính `processQueue` hỏng ngoài dự kiến.
-      processQueue(key).catch((error: unknown) => {
+      this.queues.get(key)?.push(() => task().then(resolve, reject));
+      // Mỗi task đã chuyển lỗi về promise ngoài nên nhánh này chỉ chạy khi chính hàng đợi hỏng.
+      this.processQueue(key).catch((error: unknown) => {
         LoggerService.error('PrinterConnectionLock.processQueue', {
-          key,
           error: error instanceof Error ? error.message : String(error),
         });
       });
     });
+  }
 
-  return { runExclusive };
-};
+  private async processQueue(key: string): Promise<void> {
+    if (this.processing.has(key)) {
+      return;
+    }
 
-export const PrinterConnectionLock = createResourceLock();
+    this.processing.add(key);
+
+    try {
+      const queue = this.queues.get(key);
+
+      while (queue && queue.length > 0) {
+        await queue[0]();
+        queue.shift();
+      }
+    } finally {
+      this.queues.delete(key);
+      this.processing.delete(key);
+    }
+  }
+}
+
+export const printerConnectionLock = new PrinterConnectionLock();

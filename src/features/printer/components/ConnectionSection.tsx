@@ -3,15 +3,18 @@ import { View, StyleSheet } from 'react-native';
 import { SegmentedButtons, HelperText } from 'react-native-paper';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
-import { DeviceScanList } from './DeviceScanList';
-import { PrinterConnectionType } from '../models/printer/PrinterConnection';
-import type { PrinterDevice } from '../models/printer/PrinterDevice';
+import { DiscoveredDeviceList } from './DiscoveredDeviceList';
+import { ConnectionType } from '../models/connections/ConnectionType';
+import type { DeviceInfo } from '../models/device/DeviceInfo';
 
 export interface ConnectionSectionProps {
-  connectionType: PrinterConnectionType;
-  onConnectionTypeChange: (value: PrinterConnectionType) => void;
-  selectedDeviceId?: string;
-  onSelectDevice: (device: PrinterDevice) => void;
+  connectionType: ConnectionType;
+  onConnectionTypeChange: (value: ConnectionType) => void;
+
+  /** Mã quét native của thiết bị đang chọn; còn đúng sau khi kết nối đổi serial. */
+  selectedScanId?: string;
+
+  onSelectDevice: (device: DeviceInfo) => void;
   lanIp: string;
   lanPort: string;
   onLanIpChange: (value: string) => void;
@@ -25,14 +28,18 @@ export interface ConnectionSectionProps {
   connectLabel: string;
   connectDisabled: boolean;
   onConnectPress: () => void;
-  /** Điểm kết nối vật lý cố định sau khi driver đầu tiên được xác nhận. */
+
+  /** Bỏ ngôn ngữ đã xác định để mở khoá phần kết nối; nút chỉ hiện khi phần kết nối đang bị khoá. */
+  onChangeConnection: () => void;
+
+  /** Điểm kết nối vật lý cố định sau khi đã xác nhận ngôn ngữ. */
   disabled: boolean;
 }
 
 export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectionType,
   onConnectionTypeChange,
-  selectedDeviceId,
+  selectedScanId,
   onSelectDevice,
   lanIp,
   lanPort,
@@ -47,19 +54,20 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectLabel,
   connectDisabled,
   onConnectPress,
+  onChangeConnection,
   disabled,
 }) => (
   <View style={styles.container}>
     <SegmentedButtons
       value={connectionType}
-      onValueChange={(value) => onConnectionTypeChange(value as PrinterConnectionType)}
+      onValueChange={(value) => onConnectionTypeChange(value as ConnectionType)}
       buttons={[
-        { value: PrinterConnectionType.Usb, label: 'USB' },
-        { value: PrinterConnectionType.Bluetooth, label: 'Bluetooth' },
-        { value: PrinterConnectionType.Lan, label: 'LAN' },
+        { value: ConnectionType.Usb, label: 'USB' },
+        { value: ConnectionType.Bluetooth, label: 'Bluetooth' },
+        { value: ConnectionType.Lan, label: 'LAN' },
       ]}
     />
-    {connectionType === PrinterConnectionType.Lan ? (
+    {connectionType === ConnectionType.Lan ? (
       <>
         <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} disabled={disabled} />
         <View style={styles.lanIpActions}>
@@ -77,9 +85,14 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
         />
       </>
     ) : (
-      <DeviceScanList connectionType={connectionType} selectedDeviceId={selectedDeviceId} onSelect={disabled ? () => undefined : onSelectDevice} />
+      <DiscoveredDeviceList
+        connectionType={connectionType}
+        selectedScanId={selectedScanId}
+        onSelect={disabled ? () => undefined : onSelectDevice}
+      />
     )}
     <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
+    {disabled ? <AppButton label="Đổi kết nối" mode="outlined" onPress={onChangeConnection} /> : null}
   </View>
 );
 

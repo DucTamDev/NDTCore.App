@@ -32,7 +32,7 @@ public class ConnectionTest {
     private static final long QUEUE_DELAY_MS = 300;
 
     private final FakeTransport transport =
-            new FakeTransport("10.0.0.1:9100", null, Collections.synchronizedList(new ArrayList<>()));
+            new FakeTransport("10.0.0.1:9100", null, null, Collections.synchronizedList(new ArrayList<>()));
 
     private final AtomicInteger transportLostCount = new AtomicInteger();
 

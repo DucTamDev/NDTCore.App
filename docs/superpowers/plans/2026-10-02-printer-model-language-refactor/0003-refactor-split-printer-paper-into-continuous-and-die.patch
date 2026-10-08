@@ -1,0 +1,1340 @@
+From 733ff9a70cbb3c9627945b879bf7effc1239528d Mon Sep 17 00:00:00 2001
+From: Tam Nguyen <tam.nguyen@mercatus.com>
+Date: Sat, 3 Oct 2026 21:06:42 +0700
+Subject: [PATCH 3/9] refactor: split printer paper into continuous and die-cut
+ options
+
+The add-printer form keeps a PaperDraft while die-cut sizes are being typed.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../printer/components/DriverMediaSection.tsx |  8 +--
+ .../printer/components/PrinterInfoCard.tsx    |  6 +-
+ .../drivers/__tests__/driverConfig.test.ts    |  4 +-
+ src/features/printer/drivers/driverConfig.ts  |  4 +-
+ .../escpos/__tests__/EscPosDriver.test.ts     | 16 +++--
+ .../printer/drivers/tspl/TsplEncoder.ts       | 53 ++++-----------
+ .../drivers/tspl/__tests__/TsplDriver.test.ts |  4 +-
+ .../tspl/__tests__/TsplEncoder.test.ts        | 12 ++--
+ .../tspl/strategies/TsplBitmapStrategy.ts     |  2 +-
+ .../__tests__/TsplBitmapStrategy.test.ts      |  6 +-
+ .../__tests__/TsplTextStrategy.test.ts        |  2 +-
+ .../printer/forms/addPrinter/PaperDraft.ts    | 68 +++++++++++++++++++
+ .../printer/forms/addPrinter/PrinterSchema.ts | 54 ++++++---------
+ .../addPrinter/__tests__/PaperDraft.test.ts   | 65 ++++++++++++++++++
+ .../__tests__/PrinterSchema.test.ts           | 27 +-------
+ .../__tests__/useAddPrinterFlow.test.tsx      | 20 +++++-
+ .../hooks/addPrinter/useDriverConfig.ts       | 22 +++---
+ .../printer/hooks/addPrinter/useTestPrint.ts  | 11 ++-
+ .../printer/hooks/useAddPrinterFlow.ts        | 12 ++--
+ .../printer/hooks/useBillImageCapture.tsx     |  2 +-
+ .../management/PrinterConfigService.ts        |  4 +-
+ .../__tests__/PrinterConfigService.test.ts    | 14 ++--
+ .../printer/models/paper/PaperOptions.ts      | 30 +++++---
+ .../models/printer/__tests__/Printer.test.ts  |  6 +-
+ .../printer/paper/__tests__/cutter.test.ts    | 31 +++++----
+ .../paper/__tests__/validation.test.ts        | 10 +--
+ src/features/printer/paper/cutter.ts          | 19 +-----
+ src/features/printer/paper/validation.ts      | 58 ++++++----------
+ .../printing/__tests__/PrintService.test.ts   |  8 +--
+ .../__tests__/renderDocumentToBitmap.test.ts  |  2 +-
+ .../rendering/renderDocumentToBitmap.ts       |  2 +-
+ src/features/printer/testing/encodeCases.ts   |  2 +-
+ .../printer/testing/printerFixtures.ts        |  4 +-
+ .../printer/testing/printerServiceTestKit.ts  |  4 +-
+ 34 files changed, 348 insertions(+), 244 deletions(-)
+ create mode 100644 src/features/printer/forms/addPrinter/PaperDraft.ts
+ create mode 100644 src/features/printer/forms/addPrinter/__tests__/PaperDraft.test.ts
+
+diff --git a/src/features/printer/components/DriverMediaSection.tsx b/src/features/printer/components/DriverMediaSection.tsx
+index 297b195..89d2f46 100644
+--- a/src/features/printer/components/DriverMediaSection.tsx
++++ b/src/features/printer/components/DriverMediaSection.tsx
+@@ -5,7 +5,7 @@ import { AppSelect } from '../../../components/AppSelect';
+ import { AppInput } from '../../../components/AppInput';
+ import { PrintLanguage } from '../models/printer/PrinterLanguage';
+ import { PaperSize, PaperType } from '../models/paper/PaperOptions';
+-import type { PaperOptions } from '../models/paper/PaperOptions';
++import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
+ import { dieCutMediaError } from '../paper/validation';
+ 
+ const PAPER_SIZE_OPTIONS = [PaperSize.Mm58, PaperSize.Mm80, PaperSize.Mm100, PaperSize.Mm104].map((n) => ({ label: `${n}mm`, value: String(n) }));
+@@ -17,9 +17,9 @@ const MEDIA_TYPE_OPTIONS = [
+ export interface DriverMediaSectionProps {
+   /** `undefined` trước khi driver được xác nhận — TSPL-only field (loại giấy/die-cut) chỉ hiện khi đã biết driver là TSPL. */
+   driverType?: PrintLanguage;
+-  paper: PaperOptions;
++  paper: PaperDraft;
+   disabled: boolean;
+-  onChange: (patch: Partial<PaperOptions>) => void;
++  onChange: (patch: Partial<PaperDraft>) => void;
+ }
+ 
+ const parseNum = (t: string): number | undefined => (t.trim() === '' ? undefined : Number(t));
+@@ -43,7 +43,7 @@ export const DriverMediaSection: React.FC<DriverMediaSectionProps> = ({ driverTy
+           <AppSelect
+             label="Loại giấy"
+             value={paper.type}
+-            onSelect={(v) => onChange({ type: v as PaperOptions['type'] })}
++            onSelect={(v) => onChange({ type: v as PaperType })}
+             options={MEDIA_TYPE_OPTIONS}
+             disabled={disabled}
+           />
+diff --git a/src/features/printer/components/PrinterInfoCard.tsx b/src/features/printer/components/PrinterInfoCard.tsx
+index 611fd8d..6e8dfd9 100644
+--- a/src/features/printer/components/PrinterInfoCard.tsx
++++ b/src/features/printer/components/PrinterInfoCard.tsx
+@@ -16,7 +16,7 @@ import { LanguageSelection, RenderMode, type RasterSource, type PrinterLanguage
+ import { ConnectionType } from '../models/printer/ConnectionType';
+ import { PrinterStatus } from '../models/printer/PrinterStatus';
+ import type { PrinterDeviceInfo } from '../models/printer/PrinterDevice';
+-import type { PaperOptions } from '../models/paper/PaperOptions';
++import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
+ 
+ const connectionLabel: Record<ConnectionType, string> = {
+   Usb: 'USB',
+@@ -35,8 +35,8 @@ export interface PrinterInfoCardProps {
+   connectionType: ConnectionType;
+   /** `undefined` trước khi discovery xác nhận. */
+   language?: PrinterLanguage;
+-  paper: PaperOptions;
+-  onChangePaper: (patch: Partial<PaperOptions>) => void;
++  paper: PaperDraft;
++  onChangePaper: (patch: Partial<PaperDraft>) => void;
+   deviceInfo?: PrinterDeviceInfo;
+   status: PrinterStatus;
+   autoReconnect: boolean;
+diff --git a/src/features/printer/drivers/__tests__/driverConfig.test.ts b/src/features/printer/drivers/__tests__/driverConfig.test.ts
+index 834904a..b678582 100644
+--- a/src/features/printer/drivers/__tests__/driverConfig.test.ts
++++ b/src/features/printer/drivers/__tests__/driverConfig.test.ts
+@@ -1,11 +1,11 @@
+ import { DEFAULT_PAPER, usesRasterRenderMode } from '../driverConfig';
+ import { LanguageSelection, RasterSource, RenderMode, PrintLanguage } from '../../models/printer/PrinterLanguage';
+ import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
+-import { PaperSize, PaperType } from '../../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+ 
+ describe('DEFAULT_PAPER', () => {
+   it('là giấy cuộn liên tục 80mm', () => {
+-    expect(DEFAULT_PAPER).toEqual({ type: PaperType.Continuous, paperSize: PaperSize.Mm80 });
++    expect(DEFAULT_PAPER).toEqual({ type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob });
+   });
+ });
+ 
+diff --git a/src/features/printer/drivers/driverConfig.ts b/src/features/printer/drivers/driverConfig.ts
+index 2df44fd..6dcae14 100644
+--- a/src/features/printer/drivers/driverConfig.ts
++++ b/src/features/printer/drivers/driverConfig.ts
+@@ -1,10 +1,10 @@
+ import { RenderMode } from '../models/printer/PrinterLanguage';
+ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+ import type { PaperOptions } from '../models/paper/PaperOptions';
+ 
+ /** Cấu hình giấy mặc định khi tạo 1 `Printer` mới — 80mm, cuộn liên tục. */
+-export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80 };
++export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
+ 
+ /** Máy in có đang in ảnh không. */
+ export const usesRasterRenderMode = (language: PrinterLanguage): boolean => language.renderMode === RenderMode.Raster;
+diff --git a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts b/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+index 044522c..0d374e7 100644
+--- a/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
++++ b/src/features/printer/drivers/escpos/__tests__/EscPosDriver.test.ts
+@@ -7,7 +7,7 @@ import { DeviceScanEventType } from '../../../models/printer/PrinterDevice';
+ import { ConnectionType } from '../../../models/printer/ConnectionType';
+ import { RenderMode, PrintLanguage } from '../../../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../../../models/printer/PrinterStatus';
+-import { CutterMode, PaperSize } from '../../../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+ import { type Printer } from '../../../models/printer/Printer';
+ import { makePrinter, makeEscPosLanguage } from '../../../testing/printerFixtures';
+ import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
+@@ -131,7 +131,7 @@ describe('EscPosDriver', () => {
+     expect(bytesOf(base64).toString('utf8')).toContain('In thử');
+   });
+ 
+-  it('sendDocuments gửi cut:true khi media.cutterMode undefined (mặc định giữ hành vi cũ)', async () => {
++  it('sendDocuments gửi lệnh cắt khi giấy cuộn cắt cuối job', async () => {
+     const driver = new EscPosDriver();
+     await driver.connect(lanPrinter);
+     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
+@@ -141,7 +141,10 @@ describe('EscPosDriver', () => {
+   });
+ 
+   it('sendDocuments gửi cut:false khi media.cutterMode = none', async () => {
+-    const noCutPrinter: Printer = { ...lanPrinter, paper: { ...lanPrinter.paper, cutterMode: CutterMode.None } };
++    const noCutPrinter: Printer = {
++      ...lanPrinter,
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.None },
++    };
+     const driver = new EscPosDriver();
+     await driver.connect(noCutPrinter);
+     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
+@@ -190,12 +193,15 @@ describe('EscPosDriver', () => {
+     // eslint-disable-next-line no-bitwise -- intentional low-byte/high-byte reconstruction of a little-endian field
+     const widthBytes = bytes[6] | (bytes[7] << 8);
+     expect(widthBytes).toBe(72); // ceil(PAPER_SIZE_SPECS[80].imageWidthPx / 8) = ceil(576/8)
+-    // media.cutterMode undefined trên continuous → resolveEffectiveCutterMode = perJob → có cut_bytes cuối payload.
++    // Giấy cuộn cắt cuối job → có lệnh cắt cuối payload.
+     expect(bytes.subarray(bytes.length - 2)).toEqual(Buffer.from([0x1b, 0x6d]));
+   });
+ 
+   it('sendDocuments bitmap mode: cutterMode = none → không phát cut_bytes cuối payload', async () => {
+-    const noCutBitmapPrinter: Printer = { ...bitmapPrinter, paper: { ...bitmapPrinter.paper, cutterMode: CutterMode.None } };
++    const noCutBitmapPrinter: Printer = {
++      ...bitmapPrinter,
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.None },
++    };
+     const driver = new EscPosDriver();
+     await driver.connect(noCutBitmapPrinter);
+     const { DeviceModule } = jest.requireMock('../../../adapters/native/DeviceModule') as { DeviceModule: { write: jest.Mock } };
+diff --git a/src/features/printer/drivers/tspl/TsplEncoder.ts b/src/features/printer/drivers/tspl/TsplEncoder.ts
+index 829680c..48c95fd 100644
+--- a/src/features/printer/drivers/tspl/TsplEncoder.ts
++++ b/src/features/printer/drivers/tspl/TsplEncoder.ts
+@@ -1,4 +1,4 @@
+-import type { PaperOptions } from '../../models/paper/PaperOptions';
++import type { DieCutPaper, PaperOptions } from '../../models/paper/PaperOptions';
+ import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import type { MonochromeBitmap } from '../../utils/monochromeBitmap';
+@@ -41,62 +41,37 @@ const encodeUtf8 = (text: string): number[] => {
+ };
+ 
+ /**
+- * Chiều cao khổ giấy mặc định khai báo trong `SIZE`/`GAP` khi in Tem
+- * (`PrintKind.Label`) và driver chưa tự cấu hình `media.itemHeightMm`
+- * (máy in đã lưu từ trước khi field này tồn tại). Với giấy tem rời có khe,
+- * con số này phải khớp chiều dài tem VẬT LÝ để cảm biến dò khe hoạt động
+- * đúng — không phải khớp nội dung cần in, và KHÔNG có nghĩa mọi máy đều dùng
+- * tem 30mm (giấy vật lý mỗi nơi khác nhau) — xem `media.itemHeightMm`.
+- * Nội dung cao hơn khổ giấy thật phải bị chặn ở tầng gọi (`TsplDriver`),
+- * không thể "sửa" bằng cách nới `SIZE` lên tuỳ tiện.
++ * Chiều cao khai báo trong `SIZE` khi in tem trên giấy cuộn (không có kích thước tem). Nội dung cao hơn phải bị
++ * chặn ở nơi gọi; nới `SIZE` không làm máy in thêm giấy.
+  */
+ export const DEFAULT_LABEL_HEIGHT_MM = 30;
+ 
+ export { DOTS_PER_MM, CONTINUOUS_HEIGHT_MM };
+ 
+-/**
+- * Chiều cao khai báo cho `SIZE`:
+- * - die_cut → `itemHeightMm` (schema SP-A đảm bảo có).
+- * - continuous Label → `itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM`.
+- * - continuous Receipt (hoặc không truyền kind) → `CONTINUOUS_HEIGHT_MM`.
+- *
+- * Declared height for `SIZE`: die_cut → item height; continuous Label →
+- * item height or the default; continuous Receipt → the wide safety ceiling.
+- */
++/** Chiều cao khai báo cho `SIZE`: giấy tem theo con tem; tem trên giấy cuộn theo mặc định; hoá đơn theo trần an toàn. */
+ export const resolveSizeHeightMm = (media: PaperOptions, kind: PrintKind): number => {
+   if (media.type === PaperType.DieCut) {
+-    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
++    return media.itemHeightMm;
+   }
+ 
+   if (kind === PrintKind.Label) {
+-    return media.itemHeightMm ?? DEFAULT_LABEL_HEIGHT_MM;
++    return DEFAULT_LABEL_HEIGHT_MM;
+   }
+ 
+   return CONTINUOUS_HEIGHT_MM;
+ };
+ 
+-/**
+- * Khoảng cách tâm-đến-tâm giữa 2 cột die-cut, theo dot. Chỉ có nghĩa khi
+- * `media.type === 'die_cut'`.
+- *
+- * Centre-to-centre pitch between two die-cut columns, in dots.
+- */
+-export const columnPitchDots = (media: PaperOptions): number =>
+-  ((media.itemWidthMm ?? 0) + (media.horizontalGapMm ?? 0)) * DOTS_PER_MM;
++/** Khoảng cách tâm-đến-tâm giữa hai cột tem (dot). */
++export const columnPitchDots = (media: DieCutPaper): number => (media.itemWidthMm + media.horizontalGapMm) * DOTS_PER_MM;
+ 
+-/**
+- * x-offset (dot) cho từng cột: die_cut → `[0, pitch, ...]` (`columns` phần
+- * tử); mọi trường hợp khác → `[0]`.
+- *
+- * Per-column x-offset in dots: die_cut → one entry per column; otherwise `[0]`.
+- */
++/** Toạ độ x (dot) của từng cột: giấy tem một phần tử mỗi cột; giấy cuộn chỉ `[0]`. */
+ export const columnOffsets = (media: PaperOptions): number[] => {
+   if (media.type !== PaperType.DieCut) {
+     return [0];
+   }
+ 
+   const pitch = columnPitchDots(media);
+-  return Array.from({ length: media.columns ?? 1 }, (_, i) => i * pitch);
++  return Array.from({ length: media.columns }, (_, i) => i * pitch);
+ };
+ 
+ /**
+@@ -110,7 +85,7 @@ export const contentWidthChars = (media: PaperOptions): number => {
+     return spec.charsPerLine;
+   }
+ 
+-  const dieCutWidthRatio = (media.itemWidthMm ?? 0) / spec.printableWidthMm;
++  const dieCutWidthRatio = media.itemWidthMm / spec.printableWidthMm;
+   return Math.max(1, Math.floor(spec.charsPerLine * dieCutWidthRatio));
+ };
+ 
+@@ -145,10 +120,10 @@ export class TsplEncoder {
+     const heightMm = resolveSizeHeightMm(media, kind);
+ 
+     if (media.type === PaperType.DieCut) {
+-      const columns = media.columns ?? 1;
+-      const rowWidthMm = columns * (media.itemWidthMm ?? 0) + (columns - 1) * (media.horizontalGapMm ?? 0);
++      const { columns } = media;
++      const rowWidthMm = columns * media.itemWidthMm + (columns - 1) * media.horizontalGapMm;
+       this.pushLine(`SIZE ${rowWidthMm} mm, ${heightMm} mm`);
+-      this.pushLine(`GAP ${media.verticalGapMm ?? 0} mm, 0 mm`);
++      this.pushLine(`GAP ${media.verticalGapMm} mm, 0 mm`);
+     } else {
+       this.pushLine(`SIZE ${PAPER_SIZE_SPECS[media.paperSize].printableWidthMm} mm, ${heightMm} mm`);
+       this.pushLine('GAP 0 mm, 0 mm');
+diff --git a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts b/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+index 141af5f..3a1335f 100644
+--- a/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
++++ b/src/features/printer/drivers/tspl/__tests__/TsplDriver.test.ts
+@@ -6,7 +6,7 @@ import { ConnectionType } from '../../../models/printer/ConnectionType';
+ import { PrintLanguage, RenderMode } from '../../../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../../../models/printer/PrinterStatus';
+ import { PrintKind } from '../../../models/printer/PrintKind';
+-import { PaperSize, PaperType } from '../../../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
+ import { type Printer } from '../../../models/printer/Printer';
+ import { makePrinter, makeTsplLanguage } from '../../../testing/printerFixtures';
+ import type { PrintDocuments } from '../../../models/printing/PrintDocuments';
+@@ -68,7 +68,7 @@ jest.mock('../../../logging/PrinterLogger', () => ({
+   },
+ }));
+ 
+-const MEDIA_58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58 } as const;
++const MEDIA_58 = { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob } as const;
+ 
+ /** Máy in Tem (LAN) — dùng cho các test phụ thuộc `resolveSizeHeightMm`/DEFAULT_LABEL_HEIGHT_MM (rows/cutter/IMAGE_TOO_LARGE). */
+ const lanLabelPrinter: Printer = makePrinter({
+diff --git a/src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts b/src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
+index e84fcd3..c97d017 100644
+--- a/src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
++++ b/src/features/printer/drivers/tspl/__tests__/TsplEncoder.test.ts
+@@ -1,11 +1,15 @@
+ import { TsplEncoder, columnPitchDots, columnOffsets, resolveSizeHeightMm } from '../TsplEncoder';
+ import { PrintKind } from '../../../models/printer/PrintKind';
+ import { PaperType, CutterMode } from '../../../models/paper/PaperOptions';
+-import type { PaperOptions } from '../../../models/paper/PaperOptions';
++import type { DieCutPaper, PaperOptions } from '../../../models/paper/PaperOptions';
+ import type { MonochromeBitmap } from '../../../utils/monochromeBitmap';
+ 
+-const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({ type: PaperType.Continuous, paperSize });
+-const DIE = (): PaperOptions => ({
++const CONT = (paperSize: PaperOptions['paperSize'] = 58): PaperOptions => ({
++  type: PaperType.Continuous,
++  paperSize,
++  cutterMode: CutterMode.PerJob,
++});
++const DIE = (): DieCutPaper => ({
+   type: PaperType.DieCut,
+   paperSize: 100,
+   itemWidthMm: 30,
+@@ -86,7 +90,7 @@ describe('TsplEncoder', () => {
+     expect(columnOffsets(CONT())).toEqual([0]);
+   });
+ 
+-  it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → itemHeightMm ?? DEFAULT', () => {
++  it('resolveSizeHeightMm: die_cut → itemHeightMm; continuous Receipt → CONTINUOUS_HEIGHT_MM; continuous Label → DEFAULT', () => {
+     expect(resolveSizeHeightMm(DIE(), PrintKind.Label)).toBe(20);
+     expect(resolveSizeHeightMm(CONT(), PrintKind.Receipt)).toBe(200);
+     expect(resolveSizeHeightMm(CONT(), PrintKind.Label)).toBe(30);
+diff --git a/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts b/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts
+index 7567b44..972b5f0 100644
+--- a/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts
++++ b/src/features/printer/drivers/tspl/strategies/TsplBitmapStrategy.ts
+@@ -28,7 +28,7 @@ export class TsplBitmapStrategy implements ITsplPrintStrategy {
+     const heightMm = resolveSizeHeightMm(paper, kind);
+     const paperSize = paper.paperSize;
+     const targetWidthPx = paper.type === PaperType.DieCut
+-      ? (paper.itemWidthMm ?? 0) * DOTS_PER_MM
++      ? paper.itemWidthMm * DOTS_PER_MM
+       : PAPER_SIZE_SPECS[paperSize].imageWidthPx;
+ 
+     let bitmap;
+diff --git a/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts b/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts
+index 9654dae..8e180fc 100644
+--- a/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts
++++ b/src/features/printer/drivers/tspl/strategies/__tests__/TsplBitmapStrategy.test.ts
+@@ -13,7 +13,7 @@ jest.mock('../../../../utils/pngToMonochrome', () => {
+   return { __esModule: true, ...actual, decodePngBase64ToMonochrome: jest.fn(actual.decodePngBase64ToMonochrome) };
+ });
+ 
+-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
++const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
+ 
+ const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+ 
+@@ -89,9 +89,9 @@ describe('TsplBitmapStrategy', () => {
+   });
+ 
+   it('encode ném IMAGE_TOO_LARGE khi ảnh cao hơn resolveSizeHeightMm(paper)*DOTS_PER_MM', () => {
+-    // itemHeightMm cực nhỏ + Label để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
++    // Tem cao cực nhỏ để resolveSizeHeightMm ra ~0 → chắc chắn vượt.
+     const tiny: Partial<TsplStrategyContext> = {
+-      paper: { type: 'Continuous', paperSize: 80, itemHeightMm: 0.01 },
++      paper: { ...DIE_CUT, itemHeightMm: 0.01 },
+       kind: PrintKind.Label,
+     };
+     expect(() => s.encode(ctx(tiny))).toThrow();
+diff --git a/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts b/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts
+index 627abc5..7b2ddd5 100644
+--- a/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts
++++ b/src/features/printer/drivers/tspl/strategies/__tests__/TsplTextStrategy.test.ts
+@@ -9,7 +9,7 @@ import type { PaperOptions } from '../../../../models/paper/PaperOptions';
+ import type { PrintDocument } from '../../../../models/printing/PrintDocument';
+ import { makePrinter, makeTsplLanguage } from '../../../../testing/printerFixtures';
+ 
+-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
++const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
+ 
+ const DIE_CUT: PaperOptions = { type: 'DieCut', paperSize: 80, itemWidthMm: 30, itemHeightMm: 40, columns: 3, horizontalGapMm: 2, verticalGapMm: 3 };
+ 
+diff --git a/src/features/printer/forms/addPrinter/PaperDraft.ts b/src/features/printer/forms/addPrinter/PaperDraft.ts
+new file mode 100644
+index 0000000..da74dc4
+--- /dev/null
++++ b/src/features/printer/forms/addPrinter/PaperDraft.ts
+@@ -0,0 +1,68 @@
++import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
++import type { PaperOptions, PaperSize } from '../../models/paper/PaperOptions';
++
++/** Cấu hình giấy đang nhập trong form; kích thước tem có thể còn trống khi người dùng đang gõ. */
++export interface PaperDraft {
++  type: PaperType;
++
++  paperSize: PaperSize;
++
++  /** Chiều rộng một con tem (mm). */
++  itemWidthMm?: number;
++
++  /** Chiều cao một con tem (mm). */
++  itemHeightMm?: number;
++
++  /** Số con tem trên một hàng. */
++  columns?: number;
++
++  /** Khe giữa hai con tem cạnh nhau (mm). */
++  horizontalGapMm?: number;
++
++  /** Khe giữa hai hàng tem (mm). */
++  verticalGapMm?: number;
++
++  cutterMode?: CutterMode;
++}
++
++/** Kích thước điền sẵn khi người dùng chuyển sang giấy tem, để form không trống. */
++export const DIE_CUT_DRAFT_DEFAULTS = {
++  itemWidthMm: 30,
++  itemHeightMm: 20,
++  columns: 2,
++  horizontalGapMm: 2,
++  verticalGapMm: 3,
++} as const;
++
++/** Đổi bản nháp thành cấu hình giấy hợp lệ; giấy tem còn thiếu kích thước thì trả `null`. */
++export const toPaperOptions = (draft: PaperDraft): PaperOptions | null => {
++  if (draft.type === PaperType.Continuous) {
++    return {
++      type: PaperType.Continuous,
++      paperSize: draft.paperSize,
++      cutterMode: draft.cutterMode ?? CutterMode.PerJob,
++    };
++  }
++
++  const { itemWidthMm, itemHeightMm, columns, horizontalGapMm, verticalGapMm } = draft;
++
++  if (
++    itemWidthMm === undefined ||
++    itemHeightMm === undefined ||
++    columns === undefined ||
++    horizontalGapMm === undefined ||
++    verticalGapMm === undefined
++  ) {
++    return null;
++  }
++
++  return {
++    type: PaperType.DieCut,
++    paperSize: draft.paperSize,
++    itemWidthMm,
++    itemHeightMm,
++    columns,
++    horizontalGapMm,
++    verticalGapMm,
++  };
++};
+diff --git a/src/features/printer/forms/addPrinter/PrinterSchema.ts b/src/features/printer/forms/addPrinter/PrinterSchema.ts
+index 8e7c35d..db438c2 100644
+--- a/src/features/printer/forms/addPrinter/PrinterSchema.ts
++++ b/src/features/printer/forms/addPrinter/PrinterSchema.ts
+@@ -2,7 +2,6 @@ import { z } from 'zod';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import { LanguageSelection, RenderMode, PrintLanguage, RasterSource } from '../../models/printer/PrinterLanguage';
+ import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+-import type { PaperOptions } from '../../models/paper/PaperOptions';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import { dieCutRowOverflow } from '../../paper/validation';
+ import { getDriverCapabilities } from '../../drivers/DriverCapabilities';
+@@ -14,40 +13,29 @@ const paperSizeSchema = z.union([
+   z.literal(PaperSize.Mm104),
+ ]);
+ 
+-const DIE_CUT_REQUIRED = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
+-
+-const printPaperConfigSchema = z
+-  .object({
+-    type: z.enum([PaperType.Continuous, PaperType.DieCut]),
+-    paperSize: paperSizeSchema,
+-    itemWidthMm: z.number().positive().optional(),
+-    itemHeightMm: z.number().positive().optional(),
+-    columns: z.number().int().min(1).optional(),
+-    horizontalGapMm: z.number().min(0).optional(),
+-    verticalGapMm: z.number().min(0).optional(),
+-    cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]).optional(),
+-  })
+-  .superRefine((paper, ctx) => {
+-    if (paper.type !== PaperType.DieCut) {
+-      return;
+-    }
+-
+-    for (const f of DIE_CUT_REQUIRED) {
+-      if (paper[f] === undefined) {
+-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [f], message: `Giấy die-cut cần ${f}` });
+-      }
+-    }
++const continuousPaperSchema = z.object({
++  type: z.literal(PaperType.Continuous),
++  paperSize: paperSizeSchema,
++  cutterMode: z.enum([CutterMode.None, CutterMode.PerJob, CutterMode.PerRow]),
++});
+ 
+-    if (paper.cutterMode && paper.cutterMode !== CutterMode.None) {
+-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cutterMode'], message: 'Giấy die-cut không cắt được (răng cưa tự tách)' });
+-    }
++const dieCutPaperSchema = z.object({
++  type: z.literal(PaperType.DieCut),
++  paperSize: paperSizeSchema,
++  itemWidthMm: z.number().positive(),
++  itemHeightMm: z.number().positive(),
++  columns: z.number().int().min(1),
++  horizontalGapMm: z.number().min(0),
++  verticalGapMm: z.number().min(0),
++});
+ 
+-    const overflow = dieCutRowOverflow(paper as PaperOptions);
++const paperOptionsSchema = z.discriminatedUnion('type', [continuousPaperSchema, dieCutPaperSchema]).superRefine((paper, ctx) => {
++  const overflow = dieCutRowOverflow(paper);
+ 
+-    if (overflow) {
+-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
+-    }
+-  });
++  if (overflow) {
++    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['columns'], message: overflow });
++  }
++});
+ 
+ const printerCapabilitiesSchema = z.object({
+   cutter: z.boolean(),
+@@ -97,7 +85,7 @@ export const printerSchema = z
+     kind: z.enum([PrintKind.Receipt, PrintKind.Label]),
+     language: printerLanguageSchema,
+     connection: printerConnectionSchema,
+-    paper: printPaperConfigSchema,
++    paper: paperOptionsSchema,
+     deviceId: z.string().min(1),
+     capabilities: printerCapabilitiesSchema,
+     autoReconnect: z.boolean(),
+diff --git a/src/features/printer/forms/addPrinter/__tests__/PaperDraft.test.ts b/src/features/printer/forms/addPrinter/__tests__/PaperDraft.test.ts
+new file mode 100644
+index 0000000..fd55758
+--- /dev/null
++++ b/src/features/printer/forms/addPrinter/__tests__/PaperDraft.test.ts
+@@ -0,0 +1,65 @@
++import { toPaperOptions } from '../PaperDraft';
++import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
++
++describe('toPaperOptions', () => {
++  it('giấy cuộn chưa chọn cách cắt thì cắt cuối job', () => {
++    const draft = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
++
++    expect(toPaperOptions(draft)).toEqual({
++      type: PaperType.Continuous,
++      paperSize: PaperSize.Mm80,
++      cutterMode: CutterMode.PerJob,
++    });
++  });
++
++  it('giấy cuộn bỏ các kích thước tem còn sót từ lần chọn giấy tem trước', () => {
++    const draft = {
++      type: PaperType.Continuous,
++      paperSize: PaperSize.Mm58,
++      cutterMode: CutterMode.None,
++      itemHeightMm: 40,
++    };
++
++    expect(toPaperOptions(draft)).toEqual({
++      type: PaperType.Continuous,
++      paperSize: PaperSize.Mm58,
++      cutterMode: CutterMode.None,
++    });
++  });
++
++  it('giấy tem đủ kích thước thì ra giấy tem, không có cách cắt', () => {
++    const draft = {
++      type: PaperType.DieCut,
++      paperSize: PaperSize.Mm58,
++      itemWidthMm: 20,
++      itemHeightMm: 10,
++      columns: 2,
++      horizontalGapMm: 2,
++      verticalGapMm: 3,
++      cutterMode: CutterMode.PerJob,
++    };
++
++    expect(toPaperOptions(draft)).toEqual({
++      type: PaperType.DieCut,
++      paperSize: PaperSize.Mm58,
++      itemWidthMm: 20,
++      itemHeightMm: 10,
++      columns: 2,
++      horizontalGapMm: 2,
++      verticalGapMm: 3,
++    });
++  });
++
++  it('giấy tem thiếu một kích thước thì chưa hợp lệ', () => {
++    const draft = {
++      type: PaperType.DieCut,
++      paperSize: PaperSize.Mm58,
++      itemWidthMm: 20,
++      itemHeightMm: 10,
++      columns: 2,
++      horizontalGapMm: 2,
++    };
++
++    expect(toPaperOptions(draft)).toBeNull();
++  });
++});
+diff --git a/src/features/printer/forms/addPrinter/__tests__/PrinterSchema.test.ts b/src/features/printer/forms/addPrinter/__tests__/PrinterSchema.test.ts
+index 4e077c5..5e4be5b 100644
+--- a/src/features/printer/forms/addPrinter/__tests__/PrinterSchema.test.ts
++++ b/src/features/printer/forms/addPrinter/__tests__/PrinterSchema.test.ts
+@@ -1,7 +1,7 @@
+ import { printerSchema } from '../PrinterSchema';
+ import { ConnectionType } from '../../../models/printer/ConnectionType';
+ import { RenderMode, RasterSource } from '../../../models/printer/PrinterLanguage';
+-import { CutterMode, PaperSize, PaperType } from '../../../models/paper/PaperOptions';
++import { PaperSize, PaperType, type PaperOptions } from '../../../models/paper/PaperOptions';
+ import { PrintKind } from '../../../models/printer/PrintKind';
+ import { makePrinter, makeEscPosLanguage, makeTsplLanguage } from '../../../testing/printerFixtures';
+ 
+@@ -59,33 +59,12 @@ describe('printerSchema', () => {
+         itemHeightMm: 20,
+         columns: 3,
+         horizontalGapMm: 2,
+-        // thiếu verticalGapMm
+-      },
++        // thiếu verticalGapMm; dữ liệu không qua kiểu (vd đọc từ bộ nhớ) vẫn phải bị chặn.
++      } as unknown as PaperOptions,
+     });
+     expect(printerSchema.safeParse(printer).success).toBe(false);
+   });
+ 
+-  it('rejects die-cut paper with cutterMode other than None', () => {
+-    const printer = makePrinter({
+-      language: makeTsplLanguage(),
+-      paper: {
+-        type: PaperType.DieCut,
+-        paperSize: PaperSize.Mm100,
+-        itemWidthMm: 30,
+-        itemHeightMm: 20,
+-        columns: 3,
+-        horizontalGapMm: 2,
+-        verticalGapMm: 3,
+-        cutterMode: CutterMode.PerJob,
+-      },
+-    });
+-    const result = printerSchema.safeParse(printer);
+-    expect(result.success).toBe(false);
+-    if (!result.success) {
+-      expect(result.error.issues.some((i) => i.path.join('.') === 'paper.cutterMode')).toBe(true);
+-    }
+-  });
+-
+   it('rejects ESC/POS + kind Label (ESC/POS chỉ in Receipt)', () => {
+     const printer = makePrinter({ language: makeEscPosLanguage(), kind: PrintKind.Label });
+     const result = printerSchema.safeParse(printer);
+diff --git a/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx b/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
+index 617aea4..d885a38 100644
+--- a/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
++++ b/src/features/printer/hooks/__tests__/useAddPrinterFlow.test.tsx
+@@ -9,7 +9,7 @@ import { DeviceScanService } from '../../discovery/DeviceScanService';
+ import { DiscoveryStage } from '../../discovery/PrinterDiscoveryService';
+ import { ConnectionType } from '../../models/printer/ConnectionType';
+ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../../models/printer/PrinterLanguage';
+-import { PaperType, PaperSize } from '../../models/paper/PaperOptions';
++import { CutterMode, PaperType, PaperSize } from '../../models/paper/PaperOptions';
+ import { PrintKind } from '../../models/printer/PrintKind';
+ import { PrinterStatus } from '../../models/printer/PrinterStatus';
+ import type { Printer } from '../../models/printer/Printer';
+@@ -73,7 +73,7 @@ const savedTspl: Printer = {
+     renderMode: RenderMode.Raster,
+     rasterSource: RasterSource.Image,
+   },
+-  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
++  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
+   connection: { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 },
+   deviceId: 'lan:10.0.0.5:9100',
+   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
+@@ -336,6 +336,22 @@ describe('useAddPrinterFlow', () => {
+     );
+   });
+ 
++  it('onTestPrint khi giấy tem thiếu kích thước → báo lỗi giấy, không gửi lệnh in', async () => {
++    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
++    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
++    await act(async () => {
++      await get().infoCard.onTestPrint();
++    });
++    expect(PrinterPrintService.testPrint).not.toHaveBeenCalled();
++    expect(get().testPrintErrorMessage).toContain('itemWidthMm');
++  });
++
++  it('onChangePaper giấy tem thiếu kích thước → không ghi vào máy in đã lưu', () => {
++    const { get } = render({ visible: true, initialValues: savedTspl, onSaved: jest.fn(), kind: savedTspl.kind });
++    act(() => get().infoCard.onChangePaper({ type: PaperType.DieCut, itemWidthMm: undefined }));
++    expect(PrinterConfigService.setPaper).not.toHaveBeenCalled();
++  });
++
+   it('onTestPrint ở chế độ Bitmap gọi captureBillImage trước khi in; ở Encoder thì không', async () => {
+     const bitmapEscpos: Printer = { ...savedEscpos, language: { ...savedEscpos.language, renderMode: RenderMode.Raster } };
+     const { get: getBitmap } = render({ visible: true, initialValues: bitmapEscpos, onSaved: jest.fn(), kind: bitmapEscpos.kind });
+diff --git a/src/features/printer/hooks/addPrinter/useDriverConfig.ts b/src/features/printer/hooks/addPrinter/useDriverConfig.ts
+index d40429a..beadef4 100644
+--- a/src/features/printer/hooks/addPrinter/useDriverConfig.ts
++++ b/src/features/printer/hooks/addPrinter/useDriverConfig.ts
+@@ -1,15 +1,15 @@
+ import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
+ import type { PrinterLanguage } from '../../models/printer/PrinterLanguage';
+ import { PaperType } from '../../models/paper/PaperOptions';
+-import type { PaperOptions } from '../../models/paper/PaperOptions';
++import { DIE_CUT_DRAFT_DEFAULTS, toPaperOptions, type PaperDraft } from '../../forms/addPrinter/PaperDraft';
+ import { PrinterConfigService } from '../../management/PrinterConfigService';
+ 
+ export interface UseDriverConfigInput {
+   printerId: string;
+   language?: PrinterLanguage;
+   setLanguage: (language: PrinterLanguage) => void;
+-  paper: PaperOptions;
+-  setPaper: (paper: PaperOptions) => void;
++  paper: PaperDraft;
++  setPaper: (paper: PaperDraft) => void;
+ }
+ 
+ /**
+@@ -35,15 +35,17 @@ export const useDriverConfig = ({ printerId, language, setLanguage, paper, setPa
+     PrinterConfigService.setRasterSource(printerId, rasterSource);
+   };
+ 
+-  const onChangePaper = (patch: Partial<PaperOptions>): void => {
+-    let next = { ...paper, ...patch } as PaperOptions;
+-
+-    if (next.type === PaperType.DieCut) {
+-      next = { itemWidthMm: 30, itemHeightMm: 20, columns: 2, horizontalGapMm: 2, verticalGapMm: 3, ...next };
+-    }
++  /** Giấy tem còn thiếu kích thước thì chỉ cập nhật form, chưa ghi vào máy in đã lưu. */
++  const onChangePaper = (patch: Partial<PaperDraft>): void => {
++    const merged: PaperDraft = { ...paper, ...patch };
++    const next = merged.type === PaperType.DieCut ? { ...DIE_CUT_DRAFT_DEFAULTS, ...merged } : merged;
++    const options = toPaperOptions(next);
+ 
+     setPaper(next);
+-    PrinterConfigService.setPaper(printerId, next);
++
++    if (options) {
++      PrinterConfigService.setPaper(printerId, options);
++    }
+   };
+ 
+   return { onSelectRenderMode, onSelectRasterSource, onChangePaper };
+diff --git a/src/features/printer/hooks/addPrinter/useTestPrint.ts b/src/features/printer/hooks/addPrinter/useTestPrint.ts
+index a03cc1c..7892f9a 100644
+--- a/src/features/printer/hooks/addPrinter/useTestPrint.ts
++++ b/src/features/printer/hooks/addPrinter/useTestPrint.ts
+@@ -18,6 +18,10 @@ import type { UseBillImageCapture } from '../useBillImageCapture';
+  */
+ export interface UseTestPrintInput {
+   language?: PrinterLanguage;
++
++  /** Lỗi cấu hình giấy đang nhập; có lỗi thì không in thử. */
++  paperError: string | null;
++
+   displayForm: UseFormReturn<PrinterDisplayValues>;
+   buildDraftPrinter: () => Printer;
+   captureBillImage: UseBillImageCapture['captureBillImage'];
+@@ -28,7 +32,7 @@ export interface UseTestPrintInput {
+  * cố định, ở chế độ Bitmap thì chụp ảnh bill trước khi gửi, rồi gọi
+  * `PrinterPrintService.testPrint`.
+  */
+-export const useTestPrint = ({ language, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
++export const useTestPrint = ({ language, paperError, displayForm, buildDraftPrinter, captureBillImage }: UseTestPrintInput) => {
+   const [testPrintPending, setTestPrintPending] = useState(false);
+   const [testPrintErrorMessage, setTestPrintErrorMessage] = useState<string | null>(null);
+   const [testPrintRowsText, setTestPrintRowsText] = useState('1');
+@@ -52,6 +56,11 @@ export const useTestPrint = ({ language, displayForm, buildDraftPrinter, capture
+       return;
+     }
+ 
++    if (paperError) {
++      setTestPrintErrorMessage(paperError);
++      return;
++    }
++
+     const printer = buildDraftPrinter();
+     const valid = await displayForm.trigger();
+ 
+diff --git a/src/features/printer/hooks/useAddPrinterFlow.ts b/src/features/printer/hooks/useAddPrinterFlow.ts
+index 10d68ac..e813923 100644
+--- a/src/features/printer/hooks/useAddPrinterFlow.ts
++++ b/src/features/printer/hooks/useAddPrinterFlow.ts
+@@ -16,7 +16,7 @@ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../models/printer/PrinterStatus';
+ import type { PrintKind } from '../models/printer/PrintKind';
+ import { DEFAULT_PAPER } from '../drivers/driverConfig';
+-import type { PaperOptions } from '../models/paper/PaperOptions';
++import { toPaperOptions, type PaperDraft } from '../forms/addPrinter/PaperDraft';
+ import type { Printer } from '../models/printer/Printer';
+ import type { UsbRawDevice } from '../models/printer/PrinterDevice';
+ import { dieCutMediaError } from '../paper/validation';
+@@ -82,7 +82,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+   const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
+   const [autoReconnect, setAutoReconnect] = useState(initialValues?.autoReconnect ?? true);
+   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
+-  const [paper, setPaper] = useState<PaperOptions>(initialValues?.paper ?? { ...DEFAULT_PAPER });
++  const [paper, setPaper] = useState<PaperDraft>(initialValues?.paper ?? { ...DEFAULT_PAPER });
+   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+   const { captureNode, captureBillImage } = useBillImageCapture();
+   const [liveStatus, setLiveStatus] = useState<PrinterStatus>(PrinterStatus.Idle);
+@@ -154,7 +154,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+       deviceId: currentIdentityKey() ?? undefined,
+       capabilities: initialValues?.capabilities ?? { cutter: false, cashDrawer: false, color: false, image: false },
+       language: language ?? PLACEHOLDER_LANGUAGE,
+-      paper,
++      // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
++      paper: toPaperOptions(paper) ?? DEFAULT_PAPER,
+       autoReconnect,
+       enabled: initialValues?.enabled ?? true,
+       createdAt: initialValues?.createdAt ?? new Date().toISOString(),
+@@ -183,7 +184,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     );
+   };
+ 
+-  const testPrint = useTestPrint({ language, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
++  const paperError = dieCutMediaError(paper);
++  const testPrint = useTestPrint({ language, paperError, displayForm, buildDraftPrinter: buildFullDraftPrinter, captureBillImage });
+   const driverConfig = useDriverConfig({ printerId, language, setLanguage, paper, setPaper });
+ 
+   const protocolDiscovery = useProtocolDiscovery({
+@@ -274,7 +276,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
+     connectionState === 'connecting' ||
+     (connectionType !== ConnectionType.Lan && !selectedDevice) ||
+     Boolean(identityErrorMessage);
+-  const hasDieCutMediaError = dieCutMediaError(paper) != null;
++  const hasDieCutMediaError = paperError != null;
+ 
+   return {
+     title: initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in',
+diff --git a/src/features/printer/hooks/useBillImageCapture.tsx b/src/features/printer/hooks/useBillImageCapture.tsx
+index 928a56b..18bf151 100644
+--- a/src/features/printer/hooks/useBillImageCapture.tsx
++++ b/src/features/printer/hooks/useBillImageCapture.tsx
+@@ -47,7 +47,7 @@ export const useBillImageCapture = (): UseBillImageCapture => {
+         resolverRef.current = resolve;
+         const widthPx =
+           media.type === PaperType.DieCut
+-            ? (media.itemWidthMm ?? 0) * DOTS_PER_MM
++            ? media.itemWidthMm * DOTS_PER_MM
+             : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
+         setPending({ document, widthPx });
+       }),
+diff --git a/src/features/printer/management/PrinterConfigService.ts b/src/features/printer/management/PrinterConfigService.ts
+index 54402b5..1ea4bd5 100644
+--- a/src/features/printer/management/PrinterConfigService.ts
++++ b/src/features/printer/management/PrinterConfigService.ts
+@@ -34,14 +34,14 @@ export const createPrinterConfigService = (repository: PrinterRepositoryLike = P
+     );
+   };
+ 
+-  const setPaper = (printerId: string, patch: Partial<PaperOptions>): void => {
++  const setPaper = (printerId: string, paper: PaperOptions): void => {
+     const printer = repository.getPrinters().find((p) => p.id === printerId);
+ 
+     if (!printer) {
+       return;
+     }
+ 
+-    repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper: { ...p.paper, ...patch } })));
++    repository.savePrinters(repository.getPrinters().map((p) => (p.id !== printerId ? p : { ...p, paper })));
+   };
+ 
+   return { setRenderMode, setRasterSource, setPaper };
+diff --git a/src/features/printer/management/__tests__/PrinterConfigService.test.ts b/src/features/printer/management/__tests__/PrinterConfigService.test.ts
+index f9ad897..f773a8c 100644
+--- a/src/features/printer/management/__tests__/PrinterConfigService.test.ts
++++ b/src/features/printer/management/__tests__/PrinterConfigService.test.ts
+@@ -2,7 +2,7 @@ import { createPrinterConfigService } from '../PrinterConfigService';
+ import { createPrinterRepository } from '../../storage/PrinterRepository';
+ import { PrinterStorage } from '../../storage/PrinterStorage';
+ import { RenderMode } from '../../models/printer/PrinterLanguage';
+-import { PaperSize, PaperType } from '../../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+ import { type Printer } from '../../models/printer/Printer';
+ import { basePrinter } from '../../testing/printerServiceTestKit';
+ 
+@@ -32,23 +32,25 @@ describe('PrinterConfigService', () => {
+     expect(repository.getPrinters()).toEqual([]);
+   });
+ 
+-  it('setPaper() persist patch merge vào printer.paper cho printer đã lưu', () => {
++  it('setPaper() ghi đè printer.paper cho printer đã lưu', () => {
+     const repository = createPrinterRepository();
+     const service = createPrinterConfigService(repository);
+-    const printer: Printer = { ...basePrinter, paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 } };
++    const printer: Printer = { ...basePrinter, paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob } };
+     repository.addPrinter(printer);
+ 
+-    service.setPaper(printer.id, { paperSize: PaperSize.Mm100 });
++    service.setPaper(printer.id, { type: PaperType.Continuous, paperSize: PaperSize.Mm100, cutterMode: CutterMode.PerJob });
+ 
+     const saved = repository.getPrinters().find((p) => p.id === printer.id)!;
+-    expect(saved.paper).toMatchObject({ type: PaperType.Continuous, paperSize: PaperSize.Mm100 });
++    expect(saved.paper).toMatchObject({ type: PaperType.Continuous, paperSize: PaperSize.Mm100, cutterMode: CutterMode.PerJob });
+   });
+ 
+   it('setPaper() là no-op cho printer chưa lưu', () => {
+     const repository = createPrinterRepository();
+     const service = createPrinterConfigService(repository);
+ 
+-    expect(() => service.setPaper('not-saved', { paperSize: PaperSize.Mm100 })).not.toThrow();
++    const paper = { type: PaperType.Continuous, paperSize: PaperSize.Mm100, cutterMode: CutterMode.PerJob } as const;
++
++    expect(() => service.setPaper('not-saved', paper)).not.toThrow();
+     expect(repository.getPrinters()).toEqual([]);
+   });
+ });
+diff --git a/src/features/printer/models/paper/PaperOptions.ts b/src/features/printer/models/paper/PaperOptions.ts
+index 3f343a8..2882497 100644
+--- a/src/features/printer/models/paper/PaperOptions.ts
++++ b/src/features/printer/models/paper/PaperOptions.ts
+@@ -32,26 +32,36 @@ export const CutterMode = {
+ 
+ export type CutterMode = (typeof CutterMode)[keyof typeof CutterMode];
+ 
+-/** Cấu hình giấy của một máy in; các field kích thước tem chỉ có nghĩa với giấy tem. */
+-export interface PaperOptions {
+-  type: PaperType;
++/** Giấy cuộn liên tục. */
++export interface ContinuousPaper {
++  type: typeof PaperType.Continuous;
++
++  paperSize: PaperSize;
++
++  cutterMode: CutterMode;
++}
++
++/** Giấy tem rời; tách bằng răng cưa nên không cắt. */
++export interface DieCutPaper {
++  type: typeof PaperType.DieCut;
+ 
+   paperSize: PaperSize;
+ 
+   /** Chiều rộng một con tem (mm). */
+-  itemWidthMm?: number;
++  itemWidthMm: number;
+ 
+   /** Chiều cao một con tem (mm). */
+-  itemHeightMm?: number;
++  itemHeightMm: number;
+ 
+   /** Số con tem trên một hàng. */
+-  columns?: number;
++  columns: number;
+ 
+   /** Khe giữa hai con tem cạnh nhau (mm). */
+-  horizontalGapMm?: number;
++  horizontalGapMm: number;
+ 
+   /** Khe giữa hai hàng tem (mm). */
+-  verticalGapMm?: number;
+-
+-  cutterMode?: CutterMode;
++  verticalGapMm: number;
+ }
++
++/** Cấu hình giấy của một máy in. */
++export type PaperOptions = ContinuousPaper | DieCutPaper;
+diff --git a/src/features/printer/models/printer/__tests__/Printer.test.ts b/src/features/printer/models/printer/__tests__/Printer.test.ts
+index d67cdf0..945a5b7 100644
+--- a/src/features/printer/models/printer/__tests__/Printer.test.ts
++++ b/src/features/printer/models/printer/__tests__/Printer.test.ts
+@@ -2,7 +2,7 @@ import { ConnectionType } from '../ConnectionType';
+ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../PrinterLanguage';
+ import { type Printer } from '../Printer';
+ import { PrintKind } from '../PrintKind';
+-import { PaperSize, PaperType } from '../../paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../paper/PaperOptions';
+ 
+ describe('Printer domain type', () => {
+   it('accepts a fully-formed Printer with a TSPL language for a LAN label printer', () => {
+@@ -19,7 +19,7 @@ describe('Printer domain type', () => {
+       name: 'Máy in tem quầy 1',
+       language,
+       connection: { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 },
+-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
+       capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
+       autoReconnect: true,
+       enabled: true,
+@@ -42,7 +42,7 @@ describe('Printer domain type', () => {
+         rasterSource: RasterSource.Image,
+       },
+       connection: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 },
+-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
+       capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
+       autoReconnect: false,
+       enabled: true,
+diff --git a/src/features/printer/paper/__tests__/cutter.test.ts b/src/features/printer/paper/__tests__/cutter.test.ts
+index c8e4209..802e9da 100644
+--- a/src/features/printer/paper/__tests__/cutter.test.ts
++++ b/src/features/printer/paper/__tests__/cutter.test.ts
+@@ -2,23 +2,30 @@ import { resolveEffectiveCutterMode } from '../cutter';
+ import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
+ import type { PaperOptions } from '../../models/paper/PaperOptions';
+ 
+-const dieCut = (cutterMode?: CutterMode): PaperOptions => ({
+-  type: PaperType.DieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, cutterMode,
++const dieCut: PaperOptions = {
++  type: PaperType.DieCut,
++  paperSize: 100,
++  itemWidthMm: 30,
++  itemHeightMm: 20,
++  columns: 3,
++  horizontalGapMm: 2,
++  verticalGapMm: 3,
++};
++
++const continuous = (cutterMode: CutterMode): PaperOptions => ({
++  type: PaperType.Continuous,
++  paperSize: 80,
++  cutterMode,
+ });
+-const continuous = (cutterMode?: CutterMode): PaperOptions => ({ type: PaperType.Continuous, paperSize: 80, cutterMode });
+ 
+ describe('resolveEffectiveCutterMode', () => {
+-  it('die_cut → luôn none, bất kể cutterMode', () => {
+-    expect(resolveEffectiveCutterMode(dieCut(undefined))).toBe(CutterMode.None);
+-    expect(resolveEffectiveCutterMode(dieCut(CutterMode.PerJob))).toBe(CutterMode.None);
+-  });
+-  it('continuous + cutterMode undefined → per_job (mặc định "cứ cắt")', () => {
+-    expect(resolveEffectiveCutterMode(continuous(undefined))).toBe(CutterMode.PerJob);
++  it('giấy tem → không bao giờ cắt', () => {
++    expect(resolveEffectiveCutterMode(dieCut)).toBe(CutterMode.None);
+   });
+-  it('continuous + none → none', () => {
++
++  it('giấy cuộn → theo cấu hình', () => {
++    expect(resolveEffectiveCutterMode(continuous(CutterMode.PerJob))).toBe(CutterMode.PerJob);
+     expect(resolveEffectiveCutterMode(continuous(CutterMode.None))).toBe(CutterMode.None);
+-  });
+-  it('continuous + per_row → per_row', () => {
+     expect(resolveEffectiveCutterMode(continuous(CutterMode.PerRow))).toBe(CutterMode.PerRow);
+   });
+ });
+diff --git a/src/features/printer/paper/__tests__/validation.test.ts b/src/features/printer/paper/__tests__/validation.test.ts
+index b7261f4..7aa81c7 100644
+--- a/src/features/printer/paper/__tests__/validation.test.ts
++++ b/src/features/printer/paper/__tests__/validation.test.ts
+@@ -1,8 +1,8 @@
+ import { dieCutRowOverflow, dieCutMediaError } from '../validation';
+-import { PaperType } from '../../models/paper/PaperOptions';
+-import type { PaperOptions } from '../../models/paper/PaperOptions';
++import { CutterMode, PaperType } from '../../models/paper/PaperOptions';
++import type { PaperDraft } from '../../forms/addPrinter/PaperDraft';
+ 
+-const die = (o: Partial<PaperOptions>): PaperOptions => ({
++const die = (o: Partial<PaperDraft>): PaperDraft => ({
+   type: PaperType.DieCut, paperSize: 100, itemWidthMm: 30, itemHeightMm: 20, columns: 3, horizontalGapMm: 2, verticalGapMm: 3, ...o,
+ });
+ 
+@@ -16,7 +16,7 @@ describe('dieCutRowOverflow', () => {
+     expect(msg).toContain('96');
+   });
+   it('null cho media continuous', () => {
+-    expect(dieCutRowOverflow({ type: PaperType.Continuous, paperSize: 80 })).toBeNull();
++    expect(dieCutRowOverflow({ type: PaperType.Continuous, paperSize: 80, cutterMode: CutterMode.PerJob })).toBeNull();
+   });
+   it('null khi die-cut thiếu field (chưa đủ để tính)', () => {
+     expect(dieCutRowOverflow({ type: PaperType.DieCut, paperSize: 100 })).toBeNull();
+@@ -37,6 +37,6 @@ describe('dieCutMediaError', () => {
+     expect(dieCutMediaError(die({}))).toBeNull();
+   });
+   it('null cho media continuous', () => {
+-    expect(dieCutMediaError({ type: PaperType.Continuous, paperSize: 80 })).toBeNull();
++    expect(dieCutMediaError({ type: PaperType.Continuous, paperSize: 80, cutterMode: CutterMode.PerJob })).toBeNull();
+   });
+ });
+diff --git a/src/features/printer/paper/cutter.ts b/src/features/printer/paper/cutter.ts
+index eb8e125..70723e5 100644
+--- a/src/features/printer/paper/cutter.ts
++++ b/src/features/printer/paper/cutter.ts
+@@ -1,19 +1,6 @@
+ import { CutterMode, PaperType } from '../models/paper/PaperOptions';
+ import type { PaperOptions } from '../models/paper/PaperOptions';
+ 
+-/**
+- * Chế độ cắt THỰC THI sau khi áp ràng buộc vật lý:
+- * - DieCut: LUÔN `None` — giấy die-cut tách bằng răng cưa, không có chỗ cắt.
+- * - Continuous: `media.cutterMode ?? PerJob` — mặc định cắt cuối mỗi job
+- *   (giữ hành vi ESC/POS hiện tại; chỉ `None` tường minh mới tắt).
+- *
+- * KHÔNG đọc `Printer.capabilities.cutter` — field đó dormant, `cutterMode` là
+- * nguồn sự thật duy nhất cho tới khi có UI (SP-C không làm, spec §1).
+- *
+- * Effective cutter mode after physical constraints:
+- * - DieCut: always `None` (die-cut paper is torn along perforations).
+- * - Continuous: `media.cutterMode ?? PerJob` (keeps current ESC/POS
+- *   behaviour; only an explicit `None` disables the cut).
+- */
+-export const resolveEffectiveCutterMode = (media: PaperOptions): CutterMode =>
+-  media.type === PaperType.DieCut ? CutterMode.None : (media.cutterMode ?? CutterMode.PerJob);
++/** Cách cắt thực tế: giấy tem tách bằng răng cưa nên không bao giờ cắt; giấy cuộn theo cấu hình. */
++export const resolveEffectiveCutterMode = (paper: PaperOptions): CutterMode =>
++  paper.type === PaperType.DieCut ? CutterMode.None : paper.cutterMode;
+diff --git a/src/features/printer/paper/validation.ts b/src/features/printer/paper/validation.ts
+index 4246b19..cb1d377 100644
+--- a/src/features/printer/paper/validation.ts
++++ b/src/features/printer/paper/validation.ts
+@@ -1,67 +1,51 @@
+ import { PaperType } from '../models/paper/PaperOptions';
+-import type { PaperOptions } from '../models/paper/PaperOptions';
++import type { PaperDraft } from '../forms/addPrinter/PaperDraft';
+ import { PAPER_SIZE_SPECS } from './paperSpec';
+ 
++/** Kích thước bắt buộc của giấy tem, theo thứ tự hiển thị trong thông báo lỗi. */
++const DIE_CUT_REQUIRED_FIELDS = ['itemWidthMm', 'itemHeightMm', 'columns', 'horizontalGapMm', 'verticalGapMm'] as const;
++
+ /**
+- * `null` nếu một hàng die-cut vừa vùng in được của khổ giấy (hoặc chưa đủ field
+- * để tính, hoặc là giấy cuộn); ngược lại trả message tiếng Việt. Dùng chung cho
+- * `printMediaSchema` (chặn Save) và `PrinterInfoCard` (cảnh báo inline).
++ * Thông báo khi một hàng tem rộng hơn vùng in được của khổ giấy; `null` nếu vừa, chưa đủ số liệu để tính, hoặc là
++ * giấy cuộn. Nhận cả cấu hình đã hợp lệ lẫn bản nháp đang nhập.
+  */
+-export const dieCutRowOverflow = (media: PaperOptions): string | null => {
+-  if (media.type !== PaperType.DieCut) {
++export const dieCutRowOverflow = (paper: PaperDraft): string | null => {
++  if (paper.type !== PaperType.DieCut) {
+     return null;
+   }
+ 
+-  if (
+-    media.columns == null ||
+-    media.itemWidthMm == null ||
+-    media.horizontalGapMm == null
+-  ) {
++  const { columns, itemWidthMm, horizontalGapMm } = paper;
++
++  if (columns === undefined || itemWidthMm === undefined || horizontalGapMm === undefined) {
+     return null;
+   }
+ 
+-  const itemsWidthTotalMm = media.columns * media.itemWidthMm;
+-  // `columns - 1`: gap chỉ nằm giữa các tem, không có sau con tem cuối cùng.
+-  const gapsWidthTotalMm = (media.columns - 1) * media.horizontalGapMm;
+-  const requiredWidthMm = itemsWidthTotalMm + gapsWidthTotalMm;
+-
+-  const printableWidthMm = PAPER_SIZE_SPECS[media.paperSize].printableWidthMm;
++  // Khe chỉ nằm giữa các tem, không có sau con tem cuối.
++  const requiredWidthMm = columns * itemWidthMm + (columns - 1) * horizontalGapMm;
++  const printableWidthMm = PAPER_SIZE_SPECS[paper.paperSize].printableWidthMm;
+ 
+   if (requiredWidthMm <= printableWidthMm) {
+     return null;
+   }
+ 
+   return (
+-    `Hàng ${media.columns} cột rộng ${requiredWidthMm}mm, ` +
++    `Hàng ${columns} cột rộng ${requiredWidthMm}mm, ` +
+     `vượt khổ in được ${printableWidthMm}mm — ` +
+-    `giảm số cột / kích thước tem / khoảng cách.`
++    'giảm số cột / kích thước tem / khoảng cách.'
+   );
+ };
+ 
+-const DIE_CUT_REQUIRED_FIELDS: (keyof PaperOptions)[] = [
+-  'itemWidthMm',
+-  'itemHeightMm',
+-  'columns',
+-  'horizontalGapMm',
+-  'verticalGapMm',
+-];
+-
+-/**
+- * Lỗi cấu hình media để hiển thị cho người dùng — thiếu field die-cut, hoặc
+- * hàng vượt khổ giấy — hoặc `null` nếu hợp lệ. Là nguồn sự thật CHUNG với
+- * `printMediaSchema` (schema thêm issue theo từng `path`; hàm này gộp thành 1
+- * message để `saveDisabled` + cảnh báo inline dùng).
+- */
+-export const dieCutMediaError = (media: PaperOptions): string | null => {
+-  if (media.type !== PaperType.DieCut) {
++/** Lỗi cấu hình giấy để hiện cho người dùng (thiếu kích thước tem hoặc hàng tràn khổ); `null` nếu hợp lệ. */
++export const dieCutMediaError = (paper: PaperDraft): string | null => {
++  if (paper.type !== PaperType.DieCut) {
+     return null;
+   }
+ 
+-  const missingFields = DIE_CUT_REQUIRED_FIELDS.filter((field) => media[field] == null);
++  const missingFields = DIE_CUT_REQUIRED_FIELDS.filter((field) => paper[field] === undefined);
+ 
+   if (missingFields.length > 0) {
+     return `Giấy die-cut cần đủ: ${missingFields.join(', ')}`;
+   }
+ 
+-  return dieCutRowOverflow(media);
++  return dieCutRowOverflow(paper);
+ };
+diff --git a/src/features/printer/printing/__tests__/PrintService.test.ts b/src/features/printer/printing/__tests__/PrintService.test.ts
+index 065b272..d0d34ce 100644
+--- a/src/features/printer/printing/__tests__/PrintService.test.ts
++++ b/src/features/printer/printing/__tests__/PrintService.test.ts
+@@ -1,6 +1,6 @@
+ import { createPrintService, PrintService } from '../PrintService';
+ import { RenderMode, RasterSource } from '../../models/printer/PrinterLanguage';
+-import { PaperSize, PaperType } from '../../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../../models/paper/PaperOptions';
+ import { type Printer } from '../../models/printer/Printer';
+ import { PrintJobStatus, PrintResultStatus, type PrintJob } from '../../models/printing/PrintJob';
+ import { PrinterErrorCode } from '../../errors/PrinterError';
+@@ -106,7 +106,7 @@ describe('PrintService.imageDocumentTarget', () => {
+     const p1 = makePrinter({
+       id: 'p1',
+       language: makeEscPosLanguage({ renderMode: RenderMode.Raster }),
+-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
+     });
+     const deps = makeDeps([p1], () => {
+       throw new Error('unused');
+@@ -118,7 +118,7 @@ describe('PrintService.imageDocumentTarget', () => {
+     const p1 = makePrinter({
+       id: 'p1',
+       language: makeTsplLanguage({ renderMode: RenderMode.Raster, rasterSource: RasterSource.Ast }),
+-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58 },
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm58, cutterMode: CutterMode.PerJob },
+     });
+     const deps = makeDeps([p1], () => {
+       throw new Error('unused');
+@@ -128,7 +128,7 @@ describe('PrintService.imageDocumentTarget', () => {
+ 
+   it('returns the bitmap target when a mix of encoder and bitmap targets both resolve the same kind', () => {
+     const p1 = makePrinter({ id: 'p1', language: makeEscPosLanguage() });
+-    const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage(), paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 } });
++    const p2 = makePrinter({ id: 'p2', language: makeTsplLanguage(), paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob } });
+     const deps = makeDeps([p1, p2], () => {
+       throw new Error('unused');
+     });
+diff --git a/src/features/printer/rendering/__tests__/renderDocumentToBitmap.test.ts b/src/features/printer/rendering/__tests__/renderDocumentToBitmap.test.ts
+index 293cbcc..5f891ba 100644
+--- a/src/features/printer/rendering/__tests__/renderDocumentToBitmap.test.ts
++++ b/src/features/printer/rendering/__tests__/renderDocumentToBitmap.test.ts
+@@ -4,7 +4,7 @@ import type { PaperOptions } from '../../models/paper/PaperOptions';
+ import { encodeCode128 } from '../code128';
+ import { LINE_HEIGHT_DOTS as LINE_HEIGHT_PX, BARCODE_HEIGHT_DOTS, QRCODE_HEIGHT_DOTS } from '../printLayoutConstants';
+ 
+-const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80 };
++const MEDIA: PaperOptions = { type: 'Continuous', paperSize: 80, cutterMode: 'PerJob' };
+ 
+ describe('renderDocumentToBitmap', () => {
+   beforeEach(() => {
+diff --git a/src/features/printer/rendering/renderDocumentToBitmap.ts b/src/features/printer/rendering/renderDocumentToBitmap.ts
+index 4b880f7..e441f52 100644
+--- a/src/features/printer/rendering/renderDocumentToBitmap.ts
++++ b/src/features/printer/rendering/renderDocumentToBitmap.ts
+@@ -19,7 +19,7 @@ export type SkiaCanvas = ReturnType<NonNullable<SkiaSurface>['getCanvas']>;
+ 
+ /** Cùng logic đo bề rộng với `useBillImageCapture.tsx` — die-cut theo itemWidthMm, còn lại theo khổ giấy. */
+ const resolveWidthPx = (media: PaperOptions): number =>
+-  media.type === PaperType.DieCut ? (media.itemWidthMm ?? 0) * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
++  media.type === PaperType.DieCut ? media.itemWidthMm * DOTS_PER_MM : PAPER_SIZE_SPECS[media.paperSize].imageWidthPx;
+ 
+ /**
+  * Đếm số dòng sẽ vẽ (không wrap — spec §6, mỗi phần tử/mỗi row trong table là
+diff --git a/src/features/printer/testing/encodeCases.ts b/src/features/printer/testing/encodeCases.ts
+index 75d0c8d..8972871 100644
+--- a/src/features/printer/testing/encodeCases.ts
++++ b/src/features/printer/testing/encodeCases.ts
+@@ -90,7 +90,7 @@ export const ENCODE_CASES: EncodeCase[] = [
+     name: 'ESC/POS lệnh văn bản, 80mm, cắt cuối job',
+     printer: makePrinter({
+       connection: usbConnection,
+-      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
++      paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
+     }),
+     documents: { text: receiptDocument },
+     fingerprint: '234:f64def3b',
+diff --git a/src/features/printer/testing/printerFixtures.ts b/src/features/printer/testing/printerFixtures.ts
+index ee36d2c..abc0a33 100644
+--- a/src/features/printer/testing/printerFixtures.ts
++++ b/src/features/printer/testing/printerFixtures.ts
+@@ -3,11 +3,11 @@ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode } from '../m
+ import type { Printer } from '../models/printer/Printer';
+ import type { PrinterConnection } from '../models/printer/PrinterConnection';
+ import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
+-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+ import type { PaperOptions } from '../models/paper/PaperOptions';
+ import { PrintKind } from '../models/printer/PrintKind';
+ 
+-export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80 };
++export const DEFAULT_PAPER: PaperOptions = { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob };
+ 
+ export const makeEscPosLanguage = (o: Partial<PrinterLanguage> = {}): PrinterLanguage => ({
+   type: PrintLanguage.EscPos,
+diff --git a/src/features/printer/testing/printerServiceTestKit.ts b/src/features/printer/testing/printerServiceTestKit.ts
+index 93ce80c..c49423c 100644
+--- a/src/features/printer/testing/printerServiceTestKit.ts
++++ b/src/features/printer/testing/printerServiceTestKit.ts
+@@ -2,7 +2,7 @@ import type { IPrinterDriver } from '../drivers/IPrinterDriver';
+ import { ConnectionType } from '../models/printer/ConnectionType';
+ import { LanguageSelection, PrintLanguage, RasterSource, RenderMode, type PrinterLanguage } from '../models/printer/PrinterLanguage';
+ import { PrinterStatus } from '../models/printer/PrinterStatus';
+-import { PaperSize, PaperType } from '../models/paper/PaperOptions';
++import { CutterMode, PaperSize, PaperType } from '../models/paper/PaperOptions';
+ import { type Printer } from '../models/printer/Printer';
+ import { PrintKind } from '../models/printer/PrintKind';
+ 
+@@ -43,7 +43,7 @@ export const basePrinter: Printer = {
+   name: 'Máy in hóa đơn quầy 1',
+   language: escposLanguage,
+   connection: { type: ConnectionType.Lan, host: '192.168.1.10', port: 9100 },
+-  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80 },
++  paper: { type: PaperType.Continuous, paperSize: PaperSize.Mm80, cutterMode: CutterMode.PerJob },
+   capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
+   autoReconnect: false,
+   enabled: true,
+-- 
+2.55.0.windows.5
+

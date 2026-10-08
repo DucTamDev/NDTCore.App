@@ -81,6 +81,19 @@ public final class DeviceAddress {
         return new DeviceAddress(TransportType.LAN, 0, 0, null, null, null, requireNotBlank(host, "host"), port);
     }
 
+    /**
+     * Định danh ổn định của máy vật lý để TS lưu. Giống `lookupKey()` nhưng USB không dùng đường dẫn thiết bị vì đường
+     * dẫn đổi khi rút ra cắm lại; USB không có serial thì không phân biệt được hai máy cùng model.
+     */
+    public String deviceId() {
+        if (type != TransportType.USB) {
+            return lookupKey();
+        }
+
+        String base = "usb:" + vendorId + ":" + productId;
+        return serialNumber == null ? base : base + ":" + serialNumber;
+    }
+
     /** Khoá gộp các lần kết nối đồng thời cùng địa chỉ, dùng trước khi biết đó là thiết bị vật lý nào. */
     public String lookupKey() {
         if (type == TransportType.BLUETOOTH) {
