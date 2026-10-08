@@ -122,7 +122,7 @@ export class PrintService {
     };
   }
 
-  /** Khoá theo `task.deviceId`, trùng `lockKeyOf` của máy in đã lưu nên cùng khoá với nút "In thử". */
+  /** Khoá theo `task.deviceId` (native trả), cùng khoá với nút "In thử" và lệnh ngắt trên máy đó. */
   private run(task: PrintTask): Promise<PrintTaskResult> {
     return this.lock.runExclusive(task.deviceId, async () => {
       const startedAt = new Date().toISOString();

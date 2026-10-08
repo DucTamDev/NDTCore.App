@@ -86,7 +86,7 @@ Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinte
 ```
 
 - **`models/`** — `printer/` (`Printer`, `PrinterLanguage`, `PrinterCapabilities`),
-  `device/` (`DeviceInfo` — chỉ lúc tìm thiết bị, `DeviceAddress` + `deviceIdOf`),
+  `device/` (`DeviceInfo` — chỉ lúc tìm thiết bị, `ConnectedDevice` — kết quả connect, `DeviceAddress`),
   `paper/` (`PaperOptions`, `paperSpec`, `cutter`),
   `printing/`. Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
 - **`languages/`** — `IPrintLanguage` (`encode`, `identifyProbe?`), `EscPosLanguage`, `TsplLanguage`,
@@ -96,7 +96,7 @@ Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinte
   `android/app/src/main/java/com/ndtcorepos/` — `bridge/`, `device/`; chỉ Android), kết nối dùng chung qua
   `NativeConnectionPool`. `VendorAdapter` là khung cho SDK hãng.
 - **`connection/`** — `PrinterAdapterFactory(.web)`, `PrinterConnectionService` (phiên theo `printerId` cho cả máy đã
-  lưu lẫn bản nháp; không giới hạn số máy cùng loại kết nối), `PrinterConnectionLock` (`lockKeyOf` = máy vật lý).
+  lưu lẫn bản nháp; không giới hạn số máy cùng loại kết nối), `PrinterConnectionLock` (khoá in theo `deviceId` native).
 - **`discovery/DeviceDiscoveryService`**, **`detection/LanguageDetectionService`** — tìm thiết bị; dò ngôn ngữ trên
   một lần kết nối (TSPL bằng lệnh dò `~!T`, ESC/POS xác nhận yếu trừ USB — USB không bao giờ tự xác nhận ESC/POS).
 - **`management/PrinterDefaults`** — mặc định khi tạo máy mới (`createPrinterDraft`);

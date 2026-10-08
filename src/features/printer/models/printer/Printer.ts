@@ -9,7 +9,7 @@ export interface Printer {
   /** ID bản ghi, sinh khi tạo, không đổi khi sửa. */
   id: string;
 
-  /** Máy vật lý, tính từ `connection` bằng `deviceIdOf`; cặp (`deviceId`, `kind`) là duy nhất. */
+  /** Máy vật lý do native trả khi kết nối (bản nháp chưa kết nối thì rỗng); cặp (`deviceId`, `kind`) là duy nhất. */
   deviceId: string;
 
   /** Loại nội dung máy nhận in (hoá đơn, tem). */

@@ -23,6 +23,16 @@ const emitDisconnected = (connectionId: string): void => {
 
 const lanConnection: DeviceAddress = { type: ConnectionType.Lan, host: '10.0.0.5', port: 9100 };
 
+/** Kết quả `connect` của native cho một mã kết nối, theo máy LAN 10.0.0.5:9100. */
+const nativeConnected = (connectionId: string) => ({
+  connectionId,
+  deviceId: 'lan:10.0.0.5:9100',
+  address: { type: 'lan', host: '10.0.0.5', port: 9100 },
+  name: null,
+  manufacturerName: null,
+  productName: null,
+});
+
 const bluetoothConnection: DeviceAddress = { type: ConnectionType.Bluetooth, mac: 'AA:BB' };
 
 describe('NativeAdapter', () => {
@@ -132,6 +142,34 @@ describe('NativeAdapter', () => {
     });
   });
 
+  it('connect trả thông tin máy native đọc được: địa chỉ có serial (bỏ đường dẫn), deviceId, tên', async () => {
+    deviceModule().connect.mockResolvedValueOnce({
+      connectionId: 'usb:/dev/bus/usb/001/004',
+      deviceId: 'usb:1155:22222:SN1',
+      address: {
+        type: 'usb',
+        vendorId: 1155,
+        productId: 22222,
+        serialNumber: 'SN1',
+        devicePath: '/dev/bus/usb/001/004',
+      },
+      name: 'XP-58',
+      manufacturerName: 'Xprinter',
+      productName: 'XP-58',
+    });
+
+    await expect(
+      new NativeAdapter().connect({ type: ConnectionType.Usb, vendorId: 1155, productId: 22222 }),
+    ).resolves.toEqual({
+      connectionId: 'usb:/dev/bus/usb/001/004',
+      deviceId: 'usb:1155:22222:SN1',
+      address: { type: ConnectionType.Usb, vendorId: 1155, productId: 22222, serialNumber: 'SN1' },
+      name: 'XP-58',
+      manufacturer: 'Xprinter',
+      model: 'XP-58',
+    });
+  });
+
   it('connect USB chưa biết serial gửi serialNumber null', async () => {
     await new NativeAdapter().connect({ type: ConnectionType.Usb, vendorId: 1155, productId: 22222 });
 
@@ -157,8 +195,8 @@ describe('NativeAdapter', () => {
   it('connect lần hai tới kết nối khác thì đóng kết nối cũ đúng một lần và ghi qua kết nối mới', async () => {
     const adapter = new NativeAdapter();
     deviceModule()
-      .connect.mockResolvedValueOnce({ connectionId: 'first', serialNumber: null })
-      .mockResolvedValueOnce({ connectionId: 'second', serialNumber: null });
+      .connect.mockResolvedValueOnce(nativeConnected('first'))
+      .mockResolvedValueOnce(nativeConnected('second'));
 
     await adapter.connect(lanConnection);
     await adapter.connect(lanConnection);
@@ -179,7 +217,7 @@ describe('NativeAdapter', () => {
 
   it('connect lần hai thất bại giữ nguyên kết nối của lần đầu', async () => {
     const adapter = new NativeAdapter();
-    deviceModule().connect.mockResolvedValueOnce({ connectionId: 'first', serialNumber: null });
+    deviceModule().connect.mockResolvedValueOnce(nativeConnected('first'));
     await adapter.connect(lanConnection);
 
     deviceModule().connect.mockRejectedValueOnce({ code: 'CONNECTION_FAILED', message: 'fail' });

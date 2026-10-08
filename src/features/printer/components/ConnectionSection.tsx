@@ -10,8 +10,6 @@ import type { DeviceInfo } from '../models/device/DeviceInfo';
 export interface ConnectionSectionProps {
   connectionType: ConnectionType;
   onConnectionTypeChange: (value: ConnectionType) => void;
-  /** `deviceIdOf` của kết nối đang chọn (cũng dùng để đánh dấu máy đang sửa). */
-  selectedConnectionKey?: string;
 
   /** Mã quét native của thiết bị đang chọn; còn đúng sau khi kết nối đổi serial. */
   selectedScanId?: string;
@@ -41,7 +39,6 @@ export interface ConnectionSectionProps {
 export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   connectionType,
   onConnectionTypeChange,
-  selectedConnectionKey,
   selectedScanId,
   onSelectDevice,
   lanIp,
@@ -90,7 +87,6 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
     ) : (
       <DiscoveredDeviceList
         connectionType={connectionType}
-        selectedConnectionKey={selectedConnectionKey}
         selectedScanId={selectedScanId}
         onSelect={disabled ? () => undefined : onSelectDevice}
       />

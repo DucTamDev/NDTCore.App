@@ -1,5 +1,7 @@
 import type { IPrinterAdapter } from '../adapters/IPrinterAdapter';
 import type { PrinterConnectionService } from '../connection/PrinterConnectionService';
+import type { DeviceAddress } from '../models/device/DeviceAddress';
+import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 import { ConnectionType } from '../models/connections/ConnectionType';
 import {
   LanguageSelection,
@@ -15,6 +17,31 @@ import { PrintKind } from '../models/printer/PrintKind';
 
 // Fixture dùng chung cho các file test service; nằm ngoài `__tests__/` và không có đuôi `.test.` nên Jest bỏ qua.
 
+/** Định danh giống quy tắc native: LAN theo host:port, Bluetooth theo MAC, USB theo vendorId:productId (+ serial). */
+export const fakeDeviceIdOf = (address: DeviceAddress): string => {
+  if (address.type === ConnectionType.Lan) {
+    return `lan:${address.host}:${address.port}`;
+  }
+
+  if (address.type === ConnectionType.Bluetooth) {
+    return `bluetooth:${address.mac.toUpperCase()}`;
+  }
+
+  const usbId = `usb:${address.vendorId}:${address.productId}`;
+  return address.serialNumber ? `${usbId}:${address.serialNumber}` : usbId;
+};
+
+/** Thông tin native trả khi kết nối; cùng địa chỉ thì cùng `connectionId`, như native dùng chung kết nối. */
+export const fakeConnectedDevice = (
+  address: DeviceAddress,
+  overrides: Partial<ConnectedDevice> = {},
+): ConnectedDevice => ({
+  connectionId: `conn:${fakeDeviceIdOf(address)}`,
+  deviceId: fakeDeviceIdOf(address),
+  address,
+  ...overrides,
+});
+
 /** Adapter giả ghi nhận lời gọi; `lose()` giả lập kết nối của adapter bị mất. */
 export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose: () => void } => {
   const lostCallbacks = new Set<() => void>();
@@ -23,7 +50,7 @@ export const makeFakeAdapter = (): { adapter: jest.Mocked<IPrinterAdapter>; lose
     source: 'native',
     canRead: true,
     listDevices: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue(undefined),
+    connect: jest.fn((address: DeviceAddress) => Promise.resolve(fakeConnectedDevice(address))),
     write: jest.fn().mockResolvedValue(undefined),
     read: jest.fn().mockResolvedValue(null),
     onLost: jest.fn((callback: () => void) => {

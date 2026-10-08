@@ -1,19 +1,11 @@
-import { deviceIdOf } from '../models/device/DeviceAddress';
-import type { Printer } from '../models/printer/Printer';
 import { LoggerService } from '../../../services/LoggerService';
 
 type Task = () => Promise<void>;
 
 /**
- * Khoá theo máy vật lý: một lệnh in gồm nhiều lần gọi native, native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn
- * cả lệnh in, nên hai lệnh in cùng một máy phải chạy lần lượt; máy khác nhau in song song. Tính từ kết nối để bản
- * nháp chưa lưu cũng có khoá đúng máy.
- */
-export const lockKeyOf = (printer: Printer): string => deviceIdOf(printer.connection);
-
-/**
- * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Lệnh in và nút
- * "In thử" dùng chung một khoá để không bao giờ chạm cùng một máy cùng lúc.
+ * Khoá loại trừ lẫn nhau theo key: mỗi key chỉ chạy một việc tại một thời điểm, việc sau xếp hàng. Khoá in dùng key là
+ * `deviceId` của máy (native trả): một lệnh in gồm nhiều lần gọi native, native chỉ giữ thứ tự từng lần gọi chứ không
+ * giữ trọn cả lệnh in, nên lệnh in, nút "In thử" và lệnh ngắt trên cùng một máy phải chạy lần lượt.
  */
 export class PrinterConnectionLock {
   /** Việc đang chờ theo key; việc đầu hàng là việc đang chạy. */

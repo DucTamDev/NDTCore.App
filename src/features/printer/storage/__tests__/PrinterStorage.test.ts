@@ -20,10 +20,10 @@ describe('PrinterStorage', () => {
     expect(printerStorage.getPrinters()).toEqual([printer]);
   });
 
-  it('stamps the current storage version (8) after a save + read', () => {
+  it('stamps the current storage version (9) after a save + read', () => {
     printerStorage.savePrinters([printer]);
     printerStorage.getPrinters();
-    expect(StorageService.getItem('printer.storageVersion')).toBe(8);
+    expect(StorageService.getItem('printer.storageVersion')).toBe(9);
   });
 
   it('discards printers saved under storage version 7 (driver-based model)', () => {

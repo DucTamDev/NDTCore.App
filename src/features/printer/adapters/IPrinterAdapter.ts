@@ -1,6 +1,7 @@
 import type { ConnectionType } from '../models/connections/ConnectionType';
 import type { DeviceAddress } from '../models/device/DeviceAddress';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
+import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 
 /** Huỷ một đăng ký lắng nghe. */
 export type Unsubscribe = () => void;
@@ -18,8 +19,8 @@ export interface IPrinterAdapter {
   /** Thiết bị tìm thấy cho một loại kết nối; `[]` nếu adapter không quét loại đó. */
   listDevices(connectionType: ConnectionType): Promise<DeviceInfo[]>;
 
-  /** Mở kết nối; mở được rồi mới trả kết nối cũ của chính instance này. */
-  connect(connection: DeviceAddress): Promise<void>;
+  /** Mở kết nối, trả thông tin máy đọc được sau khi mở; mở được rồi mới trả kết nối cũ của chính instance này. */
+  connect(connection: DeviceAddress): Promise<ConnectedDevice>;
 
   write(bytes: Uint8Array): Promise<void>;
 

@@ -1,6 +1,7 @@
 import type { IPrinterAdapter, Unsubscribe } from '../adapters/IPrinterAdapter';
 import { ConnectionType } from '../models/connections/ConnectionType';
 import type { Printer } from '../models/printer/Printer';
+import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import { DeviceErrorCode } from '../errors';
 import { DeviceErrorException, errorCodeOf } from '../exceptions';
@@ -9,15 +10,18 @@ import { ensureBluetoothPermission } from '../permissions/PrinterPermissionServi
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 import { LoggerService } from '../../../services/LoggerService';
 import { createPrinterAdapter } from './PrinterAdapterFactory';
-import { printerConnectionLock, lockKeyOf, PrinterConnectionLock } from './PrinterConnectionLock';
+import { printerConnectionLock, PrinterConnectionLock } from './PrinterConnectionLock';
 
 /** Nơi nhận trạng thái mới của một máy in. */
 type StatusListener = (status: ConnectionStatus) => void;
 
-/** Kết nối đang mở tới một máy vật lý, dùng chung cho mọi máy in (đã lưu hoặc bản nháp) trỏ tới máy đó. */
+/** Một kết nối native đang mở, dùng chung cho mọi máy in (đã lưu hoặc bản nháp) trỏ tới cùng máy vật lý. */
 interface DeviceConnection {
   /** Adapter giữ kết nối này. */
   adapter: IPrinterAdapter;
+
+  /** Thông tin native trả khi mở; `connectionId` là khoá của kết nối, `deviceId` là khoá in. */
+  device: ConnectedDevice;
 
   /** Máy in đang dùng kết nối, kèm lượt `connect` đã gắn nó vào; hết máy in thì đóng kết nối. */
   users: Map<string, number>;
@@ -26,12 +30,15 @@ interface DeviceConnection {
   stopWatchingLost: Unsubscribe;
 }
 
-/** Máy in vừa gắn vào máy vật lý mới thì phải gỡ khỏi máy cũ; `attempt` là lượt đã gắn nó vào máy cũ. */
+/** Máy in vừa gắn vào kết nối mới thì phải gỡ khỏi kết nối cũ; `attempt` là lượt đã gắn nó vào kết nối cũ. */
 interface PreviousAttachment {
-  lockKey: string;
+  connectionId: string;
 
   attempt: number;
 }
+
+/** Việc sổ sách (gắn, gỡ, đóng) chạy lần lượt; mở kết nối chạy ngoài hàng nên máy khác nhau mở song song. */
+const BOOKKEEPING_KEY = 'devices';
 
 const notConnected = (): DeviceErrorException =>
   new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'Máy in chưa kết nối' });
@@ -40,14 +47,15 @@ const bluetoothDenied = (): DeviceErrorException =>
   new DeviceErrorException({ code: DeviceErrorCode.PERMISSION_DENIED, message: 'Chưa được cấp quyền Bluetooth' });
 
 /**
- * Kết nối theo máy vật lý (`lockKeyOf`) và trạng thái theo từng máy in: hai máy in (vd hoá đơn và tem) trỏ cùng một
- * máy dùng chung một kết nối, máy in cuối cùng ngắt thì mới đóng. Không biết ngôn ngữ in; khoá in do tầng in giữ.
+ * Kết nối theo máy vật lý và trạng thái theo từng máy in: hai máy in (vd hoá đơn và tem) trỏ cùng một máy dùng chung
+ * một kết nối, máy in cuối cùng ngắt thì mới đóng. Máy nào là máy nào do native quyết (cùng `connectionId`), JS không
+ * tự đoán từ địa chỉ. Không biết ngôn ngữ in; khoá in do tầng in giữ.
  */
 export class PrinterConnectionService {
-  /** Kết nối đang mở theo khoá máy vật lý. */
+  /** Kết nối đang mở theo `connectionId` của native. */
   private readonly devices = new Map<string, DeviceConnection>();
 
-  /** Máy vật lý (khoá) mà từng máy in đang dùng. */
+  /** Kết nối (`connectionId`) mà từng máy in đang dùng. */
   private readonly sessions = new Map<string, string>();
 
   /** Trạng thái theo `printerId`; máy chưa từng kết nối không có mục nào (coi là `Idle`). */
@@ -65,14 +73,17 @@ export class PrinterConnectionService {
   /** Bộ đếm sinh mã lượt, tăng dần cho mọi máy. */
   private attemptCounter = 0;
 
-  /**
-   * Mở/gắn và gỡ/đóng cùng một máy vật lý chạy lần lượt, để một lần mở gửi trước lệnh đóng không nhận phải kết nối
-   * sắp đóng. Riêng với khoá in vì `connect` chạy bên trong khoá in.
-   */
-  private readonly deviceQueue = new PrinterConnectionLock();
+  /** Đếm số lần đóng kết nối, để biết một kết nối có bị đóng trong lúc `connect` khác đang mở dở không. */
+  private closeCounter = 0;
+
+  /** Lần đóng gần nhất (theo `closeCounter`) của từng `connectionId`. */
+  private readonly lastClosedAt = new Map<string, number>();
+
+  /** Hàng sổ sách, riêng với khoá in vì `connect` chạy bên trong khoá in. */
+  private readonly bookkeeping = new PrinterConnectionLock();
 
   constructor(
-    /** Tạo adapter mới cho mỗi máy vật lý được mở. */
+    /** Tạo adapter mới cho mỗi lần mở. */
     private readonly createAdapter: () => IPrinterAdapter = createPrinterAdapter,
 
     /** Xin quyền Bluetooth; `true` khi app đã có quyền. */
@@ -81,37 +92,38 @@ export class PrinterConnectionService {
     /** Nguồn máy in đã lưu cho `reconnect` và kết nối khi mở app. */
     private readonly repository: PrinterRepository = printerRepository,
 
-    /** Khoá dùng chung với tầng in. */
+    /** Khoá in dùng chung với tầng in, theo `deviceId`. */
     private readonly lock: PrinterConnectionLock = printerConnectionLock,
   ) {}
 
   /**
-   * Máy vật lý đã mở thì chỉ gắn thêm máy in, không mở lại. Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên.
-   * Lượt bị thay (bởi `connect` mới hơn hoặc `disconnect`) thì gỡ phần mình đã gắn và không đổi trạng thái.
+   * Trả thông tin máy native đọc được sau khi mở. Máy đã mở thì native trả lại đúng kết nối đó và máy in chỉ được gắn
+   * thêm. Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên. Lượt bị thay (bởi `connect` mới hơn hoặc
+   * `disconnect`) thì gỡ phần mình đã gắn và không đổi trạng thái.
    */
-  async connect(printer: Printer): Promise<void> {
+  async connect(printer: Printer): Promise<ConnectedDevice> {
     const printerId = printer.id;
     const connectionType = printer.connection.type;
     const startedAt = Date.now();
     const attempt = this.beginAttempt(printerId);
-    const lockKey = lockKeyOf(printer);
     this.setStatus(printerId, ConnectionStatus.Connecting);
 
     try {
       await this.ensurePermission(connectionType);
-      const previous = await this.deviceQueue.runExclusive(lockKey, () => this.attach(printer, lockKey, attempt));
+      const { opened, previous } = await this.openAndAttach(printer, attempt);
 
       if (previous) {
-        await this.lock.runExclusive(previous.lockKey, () => this.detachQuietly(printerId, previous));
+        await this.detachFromPrevious(printerId, previous);
       }
 
       if (!this.isCurrentAttempt(printerId, attempt)) {
-        await this.detachQuietly(printerId, { lockKey, attempt });
-        return;
+        await this.detachQuietly(printerId, { connectionId: opened.connectionId, attempt });
+        return opened;
       }
 
       this.setStatus(printerId, ConnectionStatus.Connected);
       printerLogger.connectSucceeded({ printerId, connectionType, durationMs: Date.now() - startedAt });
+      return opened;
     } catch (error) {
       if (this.isCurrentAttempt(printerId, attempt)) {
         this.setStatus(printerId, ConnectionStatus.Error);
@@ -133,15 +145,16 @@ export class PrinterConnectionService {
    */
   async disconnect(printerId: string): Promise<void> {
     const attempt = this.beginAttempt(printerId);
-    const lockKey = this.sessions.get(printerId);
+    const connectionId = this.sessions.get(printerId);
+    const device = connectionId ? this.devices.get(connectionId) : undefined;
 
-    if (!lockKey) {
+    if (!connectionId || !device) {
       this.setStatus(printerId, ConnectionStatus.Disconnected);
       return;
     }
 
-    await this.lock.runExclusive(lockKey, () =>
-      this.deviceQueue.runExclusive(lockKey, () => this.disconnectNow(printerId, lockKey, attempt)),
+    await this.lock.runExclusive(device.device.deviceId, () =>
+      this.bookkeeping.runExclusive(BOOKKEEPING_KEY, () => this.disconnectNow(printerId, connectionId, attempt)),
     );
   }
 
@@ -237,54 +250,94 @@ export class PrinterConnectionService {
   }
 
   /**
-   * Chạy trong hàng đợi của máy: mở máy nếu chưa mở rồi gắn máy in vào. Lượt đã bị thay thì không gắn (và đóng máy
-   * vừa mở nếu không ai dùng). Trả nơi máy in đang gắn trước đó nếu là máy vật lý khác, để gỡ ra.
+   * Luôn hỏi native: máy đã mở thì native trả lại đúng kết nối đó (cùng `connectionId`) mà không mở lại, khi đó dùng
+   * kết nối JS đang có và bỏ adapter mới (không ngắt, vì nó trỏ vào cùng kết nối native). Mở chạy ngoài hàng sổ sách;
+   * nếu trong lúc mở, JS vừa đóng đúng kết nối này thì kết nối native trả về có thể đã đóng, nên mở lại trong hàng.
    */
-  private async attach(printer: Printer, lockKey: string, attempt: number): Promise<PreviousAttachment | undefined> {
-    const printerId = printer.id;
-    const device = this.devices.get(lockKey) ?? (await this.open(printer, lockKey));
+  private async openAndAttach(
+    printer: Printer,
+    attempt: number,
+  ): Promise<{ opened: ConnectedDevice; previous?: PreviousAttachment }> {
+    const adapter = this.createAdapter();
+    const closeMark = this.closeCounter;
+    const opened = await adapter.connect(printer.connection);
+
+    return this.bookkeeping.runExclusive(BOOKKEEPING_KEY, async () => {
+      const existing = this.devices.get(opened.connectionId);
+      const device = existing ?? (await this.register(adapter, opened, closeMark, printer));
+      return { opened: device.device, previous: await this.attach(printer.id, device, attempt) };
+    });
+  }
+
+  /** Chạy trong hàng sổ sách. Kết nối vừa bị JS đóng trong lúc mở thì kết nối native trả về có thể đã chết: mở lại. */
+  private async register(
+    adapter: IPrinterAdapter,
+    opened: ConnectedDevice,
+    closeMark: number,
+    printer: Printer,
+  ): Promise<DeviceConnection> {
+    const closedMeanwhile = (this.lastClosedAt.get(opened.connectionId) ?? -1) > closeMark;
+    const device = closedMeanwhile ? await adapter.connect(printer.connection) : opened;
+    const connection: DeviceConnection = {
+      adapter,
+      device,
+      users: new Map(),
+      stopWatchingLost: adapter.onLost(() => this.handleLost(device.connectionId, adapter)),
+    };
+    this.devices.set(device.connectionId, connection);
+    return connection;
+  }
+
+  /**
+   * Chạy trong hàng sổ sách: gắn máy in vào kết nối. Lượt đã bị thay thì không gắn (và đóng kết nối nếu không ai
+   * dùng). Trả kết nối máy in đang gắn trước đó nếu khác, để gỡ ra.
+   */
+  private async attach(
+    printerId: string,
+    device: DeviceConnection,
+    attempt: number,
+  ): Promise<PreviousAttachment | undefined> {
+    const opened = device.device;
 
     if (!this.isCurrentAttempt(printerId, attempt)) {
       if (device.users.size === 0) {
-        await this.closeQuietly(printerId, lockKey, device);
+        await this.close(opened.connectionId, device, printerId);
       }
 
       return undefined;
     }
 
-    const previousKey = this.sessions.get(printerId);
-    const previousAttempt = previousKey ? this.devices.get(previousKey)?.users.get(printerId) : undefined;
+    const previousId = this.sessions.get(printerId);
+    const previousAttempt = previousId ? this.devices.get(previousId)?.users.get(printerId) : undefined;
     device.users.set(printerId, attempt);
-    this.sessions.set(printerId, lockKey);
+    this.sessions.set(printerId, opened.connectionId);
 
-    if (previousKey === undefined || previousKey === lockKey || previousAttempt === undefined) {
+    if (previousId === undefined || previousId === opened.connectionId || previousAttempt === undefined) {
       return undefined;
     }
 
-    return { lockKey: previousKey, attempt: previousAttempt };
+    return { connectionId: previousId, attempt: previousAttempt };
   }
 
-  private async open(printer: Printer, lockKey: string): Promise<DeviceConnection> {
-    const adapter = this.createAdapter();
-    await adapter.connect(printer.connection);
+  /** Gỡ khỏi kết nối cũ trong khoá in của máy cũ, để không cắt ngang lệnh in đang chạy trên đó. */
+  private async detachFromPrevious(printerId: string, previous: PreviousAttachment): Promise<void> {
+    const device = this.devices.get(previous.connectionId);
 
-    const device: DeviceConnection = {
-      adapter,
-      users: new Map(),
-      stopWatchingLost: adapter.onLost(() => this.handleLost(lockKey, adapter)),
-    };
-    this.devices.set(lockKey, device);
-    return device;
+    if (!device) {
+      return;
+    }
+
+    await this.lock.runExclusive(device.device.deviceId, () => this.detachQuietly(printerId, previous));
   }
 
   /**
-   * Chạy trong khoá in và hàng đợi của máy. Trong lúc chờ, máy in có thể đã được `connect` lại (lệnh ngắt này hết
-   * hiệu lực) hoặc đã chuyển sang máy vật lý khác; khi đó không gỡ gì.
+   * Chạy trong khoá in và hàng sổ sách. Trong lúc chờ, máy in có thể đã được `connect` lại (lệnh ngắt này hết
+   * hiệu lực) hoặc đã chuyển sang kết nối khác; khi đó không gỡ gì.
    */
-  private async disconnectNow(printerId: string, lockKey: string, attempt: number): Promise<void> {
-    const device = this.devices.get(lockKey);
+  private async disconnectNow(printerId: string, connectionId: string, attempt: number): Promise<void> {
+    const device = this.devices.get(connectionId);
 
-    if (!this.isCurrentAttempt(printerId, attempt) || this.sessions.get(printerId) !== lockKey || !device) {
+    if (!this.isCurrentAttempt(printerId, attempt) || this.sessions.get(printerId) !== connectionId || !device) {
       return;
     }
 
@@ -293,8 +346,7 @@ export class PrinterConnectionService {
     this.sessions.delete(printerId);
 
     if (device.users.size === 0) {
-      this.devices.delete(lockKey);
-      device.stopWatchingLost();
+      this.forget(connectionId, device);
 
       try {
         await device.adapter.disconnect();
@@ -309,12 +361,12 @@ export class PrinterConnectionService {
     printerLogger.disconnectSucceeded({ printerId });
   }
 
-  /** Gỡ đúng phần lượt `attempt` đã gắn (lượt mới hơn gắn lại thì giữ nguyên); máy không còn ai dùng thì đóng. */
+  /** Gỡ đúng phần lượt `attempt` đã gắn (lượt mới hơn gắn lại thì giữ nguyên); kết nối không còn ai dùng thì đóng. */
   private detachQuietly(printerId: string, attachment: PreviousAttachment): Promise<void> {
-    const { lockKey, attempt } = attachment;
+    const { connectionId, attempt } = attachment;
 
-    return this.deviceQueue.runExclusive(lockKey, async () => {
-      const device = this.devices.get(lockKey);
+    return this.bookkeeping.runExclusive(BOOKKEEPING_KEY, async () => {
+      const device = this.devices.get(connectionId);
 
       if (!device || device.users.get(printerId) !== attempt) {
         return;
@@ -322,28 +374,40 @@ export class PrinterConnectionService {
 
       device.users.delete(printerId);
 
-      if (this.sessions.get(printerId) === lockKey) {
+      if (this.sessions.get(printerId) === connectionId) {
         this.sessions.delete(printerId);
       }
 
       if (device.users.size === 0) {
-        await this.closeQuietly(printerId, lockKey, device);
+        await this.close(connectionId, device, printerId);
       }
     });
   }
 
-  /** Lỗi khi đóng kết nối không ai còn dùng không được làm hỏng việc đang chạy nên chỉ ghi log. */
-  private async closeQuietly(printerId: string, lockKey: string, device: DeviceConnection): Promise<void> {
-    if (this.devices.get(lockKey) === device) {
-      this.devices.delete(lockKey);
+  /** Bỏ kết nối khỏi sổ sách và ghi lần đóng, để `connect` đang mở dở biết kết nối native có thể đã đóng. */
+  private forget(connectionId: string, device: DeviceConnection): void {
+    if (this.devices.get(connectionId) === device) {
+      this.devices.delete(connectionId);
     }
 
+    this.closeCounter += 1;
+    this.lastClosedAt.set(connectionId, this.closeCounter);
     device.stopWatchingLost();
+  }
+
+  /**
+   * Lỗi khi đóng kết nối không ai còn dùng không được làm hỏng việc đang chạy nên chỉ ghi log. Không có máy in nào
+   * để gắn vào log thì bỏ qua log chứ không ghi khoá kết nối, vì khoá chứa IP/MAC.
+   */
+  private async close(connectionId: string, device: DeviceConnection, printerId?: string): Promise<void> {
+    this.forget(connectionId, device);
 
     try {
       await device.adapter.disconnect();
     } catch (error) {
-      printerLogger.disconnectFailed({ printerId, errorCode: errorCodeOf(error) });
+      if (printerId) {
+        printerLogger.disconnectFailed({ printerId, errorCode: errorCodeOf(error) });
+      }
     }
   }
 
@@ -351,8 +415,8 @@ export class PrinterConnectionService {
    * Bỏ kết nối ngay để `send`/`read` báo `NOT_CONNECTED` thay vì gọi vào kết nối đã chết; mọi máy in dùng chung đều
    * chuyển `Disconnected`. Adapter đã bị thay thì bỏ qua.
    */
-  private handleLost(lockKey: string, adapter: IPrinterAdapter): void {
-    const device = this.devices.get(lockKey);
+  private handleLost(connectionId: string, adapter: IPrinterAdapter): void {
+    const device = this.devices.get(connectionId);
 
     if (device?.adapter !== adapter) {
       return;
@@ -361,19 +425,19 @@ export class PrinterConnectionService {
     const users = [...device.users.keys()];
 
     for (const printerId of users) {
-      if (this.sessions.get(printerId) === lockKey) {
+      if (this.sessions.get(printerId) === connectionId) {
         this.sessions.delete(printerId);
       }
 
       this.setStatus(printerId, ConnectionStatus.Disconnected);
     }
 
-    this.closeQuietly(users[0] ?? lockKey, lockKey, device);
+    this.close(connectionId, device, users[0]);
   }
 
   private requireAdapter(printerId: string): IPrinterAdapter {
-    const lockKey = this.sessions.get(printerId);
-    const device = lockKey ? this.devices.get(lockKey) : undefined;
+    const connectionId = this.sessions.get(printerId);
+    const device = connectionId ? this.devices.get(connectionId) : undefined;
 
     if (!device) {
       throw notConnected();

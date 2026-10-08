@@ -10,11 +10,12 @@ import { ConnectionType } from '../../models/connections/ConnectionType';
 import { LanguageSelection, type PrinterLanguage, type PrintLanguage } from '../../models/printer/PrinterLanguage';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
+import type { ConnectedDevice } from '../../models/device/ConnectedDevice';
 import type { LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 
 /**
- * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDetection`/`refreshUsbSerial`/
- * `prefillDisplayName`/`onConnectStart` do coordinator / {@link useConnectionSetup} sở hữu.
+ * Input cho {@link usePrinterDetection}. `buildDraftPrinter`/`setLanguage`/`setDetection`/`onConnectStart`/
+ * `onConnected` do coordinator sở hữu.
  */
 export interface UsePrinterDetectionInput {
   initialValues?: Printer;
@@ -36,9 +37,8 @@ export interface UsePrinterDetectionInput {
   /** Model tra được trong bảng máy in; `undefined` khi không có trong bảng. */
   setDetection: (detection: PrinterDetection | undefined) => void;
 
-  refreshUsbSerial: () => Promise<void>;
-
-  prefillDisplayName: () => void;
+  /** Kết nối xong: thông tin máy native đọc được sau khi mở (định danh, địa chỉ có serial, tên). */
+  onConnected: (device: ConnectedDevice) => void;
 
   /** Báo coordinator form vừa tự mở kết nối, để lúc đóng mà chưa lưu biết phải trả máy in về như cũ. */
   onConnectStart: () => void;
@@ -57,9 +57,8 @@ export const usePrinterDetection = ({
   buildDraftPrinter,
   setLanguage,
   setDetection,
-  refreshUsbSerial,
-  prefillDisplayName,
   onConnectStart,
+  onConnected,
 }: UsePrinterDetectionInput) => {
   const [connectionDirty, setConnectionDirty] = useState(!initialValues);
   const [connectionState, setConnectionState] = useState<ConnectionState>(initialValues ? 'connected' : 'idle');
@@ -93,8 +92,6 @@ export const usePrinterDetection = ({
     setLanguageType(language.type);
     setConnectionDirty(false);
     setLanguage(language);
-    refreshUsbSerial();
-    prefillDisplayName();
   };
 
   const connectWith = (language: PrinterLanguage): void => {
@@ -107,8 +104,9 @@ export const usePrinterDetection = ({
 
     printerConnectionService
       .connect({ ...buildDraftPrinter(), language })
-      .then(() => {
+      .then((device) => {
         if (run === connectRunRef.current) {
+          onConnected(device);
           applyLanguage(language);
         }
       })

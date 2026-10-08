@@ -3,11 +3,13 @@ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
+import type { ConnectedDevice } from '../../models/device/ConnectedDevice';
 import { DeviceErrorException } from '../../exceptions';
 import { DeviceErrorCode } from '../../errors';
 import {
   DeviceModule,
   subscribeDeviceDisconnected,
+  type NativeConnectedDevice,
   type NativeDeviceAddress,
   type NativeDeviceInfo,
 } from './DeviceModule';
@@ -17,6 +19,29 @@ const READ_MAX_BYTES = 1_024;
 
 const toNativeDiscoverableType = (connectionType: ConnectionType): 'usb' | 'bluetooth' =>
   connectionType === ConnectionType.Usb ? 'usb' : 'bluetooth';
+
+/** Đường dẫn USB chỉ đúng trong lần cắm hiện tại nên không giữ. */
+const toDeviceAddress = (address: NativeDeviceAddress): DeviceAddress => {
+  if (address.type === 'usb') {
+    const { vendorId, productId, serialNumber } = address;
+    return { type: ConnectionType.Usb, vendorId, productId, ...(serialNumber ? { serialNumber } : {}) };
+  }
+
+  if (address.type === 'bluetooth') {
+    return { type: ConnectionType.Bluetooth, mac: address.mac };
+  }
+
+  return { type: ConnectionType.Lan, host: address.host, port: address.port };
+};
+
+const toConnectedDevice = (connected: NativeConnectedDevice): ConnectedDevice => ({
+  connectionId: connected.connectionId,
+  deviceId: connected.deviceId,
+  address: toDeviceAddress(connected.address),
+  ...(connected.name ? { name: connected.name } : {}),
+  ...(connected.manufacturerName ? { manufacturer: connected.manufacturerName } : {}),
+  ...(connected.productName ? { model: connected.productName } : {}),
+});
 
 /** Bluetooth không có tên thì hiển thị MAC; native USB đã thay tên trống bằng đường dẫn thiết bị. */
 const toDeviceInfo = (device: NativeDeviceInfo): DeviceInfo => {
@@ -128,7 +153,7 @@ export class NativeAdapter implements IPrinterAdapter {
   }
 
   /** Native trả lại đúng kết nối đang mở nếu cùng thiết bị, nên chỉ đóng kết nối cũ khi id khác. */
-  async connect(connection: DeviceAddress): Promise<void> {
+  async connect(connection: DeviceAddress): Promise<ConnectedDevice> {
     const connected = await callNative(() => DeviceModule.connect(toNativeAddress(connection)));
     const previous = this.connectionId;
     this.connectionId = connected.connectionId;
@@ -136,6 +161,8 @@ export class NativeAdapter implements IPrinterAdapter {
     if (previous && previous !== connected.connectionId) {
       await callNative(() => DeviceModule.disconnect(previous));
     }
+
+    return toConnectedDevice(connected);
   }
 
   async write(bytes: Uint8Array): Promise<void> {

@@ -92,13 +92,25 @@ export interface NativeBluetoothDeviceInfo {
 
 export type NativeDeviceInfo = NativeUsbDeviceInfo | NativeBluetoothDeviceInfo;
 
-/** Kết quả `connect`. */
+/** Kết quả `connect`: mã phiên kết nối và thông tin máy đọc được sau khi mở. */
 export interface NativeConnectedDevice {
   /** Mã mờ của kết nối, chỉ dùng trong phiên kết nối; không phân tích, không lưu. */
   readonly connectionId: string;
 
-  /** Serial đọc được sau khi mở (USB); `null` nếu không có. */
-  readonly serialNumber: string | null;
+  /** Định danh ổn định của máy vật lý (USB có serial nếu máy có, không dùng đường dẫn). */
+  readonly deviceId: string;
+
+  /** Địa chỉ đầy đủ sau khi mở; USB có serial đọc được. */
+  readonly address: NativeDeviceAddress;
+
+  /** Tên Bluetooth hoặc tên sản phẩm USB; `null` nếu không đọc được. */
+  readonly name: string | null;
+
+  /** Chỉ USB. */
+  readonly manufacturerName: string | null;
+
+  /** Chỉ USB. */
+  readonly productName: string | null;
 }
 
 export type DisconnectReason = 'usb_detached' | 'bluetooth_disconnected' | 'io_error';

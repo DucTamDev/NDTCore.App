@@ -89,7 +89,7 @@ src/features/printer/
 ├── CODING_STYLE.md
 │
 ├── models/
-│   ├── device/          DeviceInfo (thiết bị tìm thấy, không lưu), DeviceAddress (+ deviceIdOf)
+│   ├── device/          DeviceInfo (thiết bị tìm thấy), ConnectedDevice (kết quả connect), DeviceAddress
 │   ├── discovery/       DiscoveryStatus, DiscoveryEvent — tiến trình tìm thiết bị
 │   ├── connections/     ConnectionType, ConnectionStatus (trạng thái trong phiên, không lưu)
 │   ├── printer/         Printer, PrintKind, PrinterLanguage, PrinterCapabilities — lưu xuống bộ nhớ
@@ -118,7 +118,7 @@ src/features/printer/
 ├── printing/            PrintService, PrinterService
 ├── management/          PrinterManagementService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
-├── storage/             PrinterRepository, PrinterStorage, PrinterWriteInput
+├── storage/             PrinterRepository, PrinterStorage
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── logging/             PrinterLogger
 ├── errors/              index.ts (barrel), DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
@@ -136,7 +136,7 @@ src/features/printer/
 
 ## Structure Rules
 
-* `models/` chỉ chứa dữ liệu và hàm thuần suy ra từ dữ liệu (vd `deviceIdOf`); không chứa nhãn UI, không import từ
+* `models/` chỉ chứa dữ liệu và hàm thuần suy ra từ dữ liệu; không chứa nhãn UI, không import từ
   `languages/`, `connection/`, `printing/`, `components/`.
 * `languages/` chỉ encode; không biết kết nối.
 * `adapters/` chứa integration với native module / SDK hãng; không chứa business rule.
@@ -196,7 +196,7 @@ export interface Printer {
 ### Field rules
 
 * `id` sinh khi tạo, không đổi khi sửa. Phiên kết nối và trạng thái được giữ theo `id`.
-* `deviceId` = `deviceIdOf(connection)` — định danh máy vật lý (§6). `PrinterRepository` tự tính lại, không tin caller.
+* `deviceId` — định danh máy vật lý do native trả lúc kết nối (§6); bản nháp chưa kết nối thì rỗng.
 * `kind` cố định cho record này. Một máy in vật lý phục vụ cả Hoá đơn lẫn Tem được biểu diễn bằng **2 `Printer`
   record** cùng `deviceId`, khác `kind`. Unique theo cặp (`deviceId`, `kind`).
 * `language` (§8), `paper` (§11), `capabilities` (§9).
@@ -206,26 +206,24 @@ export interface Printer {
 
 # 6. `deviceId` và khoá in
 
-```ts
-deviceIdOf(connection: DeviceAddress): string
-```
+Native `connect` trả `ConnectedDevice { connectionId, deviceId, address, name?, manufacturer?, model? }`. JS không tự
+tính định danh máy từ địa chỉ: chỉ native, sau khi mở được máy, mới biết serial thật và hai địa chỉ có cùng một máy.
 
-| Kết nối   | `deviceId`                                    |
+| Kết nối   | `deviceId` (native, ổn định qua các lần cắm)    |
 | --------- | --------------------------------------------- |
 | LAN       | `lan:<host>:<port>`                           |
-| Bluetooth | `bluetooth:mac:<MAC viết hoa>`                |
+| Bluetooth | `bluetooth:<MAC viết hoa>`                    |
 | USB       | `usb:<vendorId>:<productId>[:<serialNumber>]` |
 
-USB chỉ có serial sau khi người dùng cấp quyền; không có serial thì không phân biệt được hai máy cùng model.
+USB không có serial thì không phân biệt được hai máy cùng model.
 
-`deviceId` dùng cho hai việc:
+* `deviceId` lưu vào `Printer.deviceId`; dùng chống thêm trùng (cặp `deviceId` + `kind`, kiểm sau khi kết nối) và làm
+  khoá in: cùng máy vật lý thì in lần lượt, máy khác nhau in song song.
+* `address` (USB có serial) lưu vào `Printer.connection`.
+* `connectionId` chỉ sống trong phiên kết nối (đổi khi rút ra cắm lại), dùng để gom kết nối: hai lần `connect` ra cùng
+  `connectionId` là cùng một kết nối native, dùng chung, không ngắt nhầm của nhau.
 
-* chống thêm trùng (cặp `deviceId` + `kind`);
-* khoá in: `lockKeyOf(printer)` = `deviceIdOf(printer.connection)` — cùng máy vật lý thì in lần lượt, máy khác nhau in
-  song song. Tính từ kết nối để bản nháp chưa lưu cũng khoá đúng máy.
-
-**Không bao giờ** so `Printer.deviceId` với `DeviceInfo.deviceId` (§10): muốn biết một kết quả quét có phải máy đã lưu
-thì so `printer.deviceId === deviceIdOf(discovered.connection)`.
+**Không bao giờ** so `Printer.deviceId` với `DeviceInfo.deviceId` (§10): mã lúc quét chỉ là key danh sách.
 
 ---
 
@@ -494,9 +492,10 @@ Comment cần giải thích:
 
 # 20. Connection Service
 
-`PrinterConnectionService` giữ kết nối theo máy vật lý (`lockKeyOf`) và trạng thái theo `printerId` — dùng cho cả
-máy đã lưu lẫn bản nháp đang thêm. Nhiều `Printer` trỏ cùng một máy (vd hoá đơn và tem) dùng chung một adapter;
-`Printer` cuối cùng ngắt thì mới đóng.
+`PrinterConnectionService` giữ kết nối theo `connectionId` native và trạng thái theo `printerId` — dùng cho cả máy đã
+lưu lẫn bản nháp đang thêm. Mỗi lần `connect` đều hỏi native; native trả lại kết nối đang mở nếu cùng máy, khi đó dùng
+lại kết nối JS cũ và bỏ adapter mới (không ngắt). Nhiều `Printer` trỏ cùng một máy (vd hoá đơn và tem) dùng chung một
+adapter; `Printer` cuối cùng ngắt thì mới đóng. Ngắt khoá theo `deviceId` của kết nối.
 
 | Hàm | Làm gì |
 | --- | --- |
@@ -530,8 +529,7 @@ Không chịu trách nhiệm `print`, `route`, `render`, `encode`, `save`.
 # 21. PrinterConnectionLock
 
 ```ts
-lockKeyOf(printer)       = deviceIdOf(printer.connection)
-class PrinterConnectionLock → runExclusive(key, task)
+class PrinterConnectionLock → runExclusive(key, task)   // khoá in: key = deviceId native
 printerConnectionLock    instance dùng chung
 ```
 
@@ -550,7 +548,7 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 Public entry point. `print(kind, render)` chọn máy nhận từ repository theo `printer.kind` và `enabled` (không có máy
 thì không chụp), gọi `render(paper)` một lần cho mỗi cấu hình giấy khác nhau (lần lượt, vì chỉ có một khung chụp;
 chụp hỏng thì cả yêu cầu `Failed`), tạo một `PrintTask` cho mỗi máy với ảnh đúng giấy của nó, chạy trong khoá theo
-`task.deviceId` (bằng `lockKeyOf` của máy in đã lưu) rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
+`task.deviceId` (native trả, cùng khoá với "In thử") rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
 lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
 
 ## `PrinterService`
@@ -640,11 +638,9 @@ Chọn loại kết nối
     ↓
 Chọn thiết bị (DiscoveredDeviceList) / nhập IP + port
     ↓
-deviceIdOf(connection) → cảnh báo trùng (deviceId + kind)
-    ↓
 Tra bảng model (usePrinterDetection) → kết nối; không có trong bảng (luôn vậy với LAN) → chọn ngôn ngữ tay rồi kết nối
     ↓
-USB: quét lại theo DeviceInfo.deviceId để lấy serial (refreshUsbSerial)
+Kết nối xong: native trả deviceId, địa chỉ có serial, tên → cảnh báo trùng (deviceId + kind)
     ↓
 Chỉnh giấy (form giấy, lưu cùng lúc bấm Lưu) → In thử
     ↓
@@ -686,7 +682,6 @@ Không chịu trách nhiệm physical discovery, actual printing, queue.
 storage/
 ├── PrinterRepository.ts   persistence boundary: tính lại deviceId, chống trùng (deviceId + kind), validate schema
 ├── PrinterStorage.ts      MMKV implementation + storage version
-└── PrinterWriteInput.ts   input ghi: như Printer nhưng deviceId chỉ là đề xuất
 ```
 
 Storage implementation không được leak ra domain layer.
@@ -1068,7 +1063,7 @@ await printReceipt(order);
 ```ts
 // Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi
 // nên hai lệnh in cùng một máy phải chạy lần lượt.
-await lock.runExclusive(lockKeyOf(printer), () =>
+await lock.runExclusive(printer.deviceId, () =>
   send(printer, image),
 );
 ```
@@ -1393,7 +1388,7 @@ Chỉ lưu serializable configuration: `Printer`, `DeviceAddress`, `PrinterLangu
 ### Printer
 
 * Không có `isDefault`.
-* `deviceId` = `deviceIdOf(connection)`, định danh máy vật lý; repository tự tính lại.
+* `deviceId` do native trả lúc kết nối, định danh máy vật lý; repository không tự tính.
 * Mỗi printer có ĐÚNG 1 `language`, ĐÚNG 1 `connection`, ĐÚNG 1 `paper`, ĐÚNG 1 `kind` cố định.
 * Một máy vật lý phục vụ nhiều loại nội dung = nhiều `Printer` record cùng `deviceId`, khác `kind`.
 * Unique constraint là cặp (`deviceId`, `kind`).
@@ -1409,7 +1404,7 @@ Chỉ lưu serializable configuration: `Printer`, `DeviceAddress`, `PrinterLangu
 
 * `PrinterConnectionService` giữ phiên theo `printerId`, không biết ngôn ngữ, không tự khoá.
 * Mọi loại kết nối đi qua `NativeAdapter`.
-* Khoá in theo máy vật lý (`lockKeyOf`), do tầng in giữ.
+* Khoá in theo máy vật lý (`deviceId` native), do tầng in giữ; kết nối gom theo `connectionId` native.
 
 ### Printing
 
@@ -1500,7 +1495,7 @@ PrintService (khoá) → PrinterService
 * [ ] Ngôn ngữ in có chỉ encode, không chạm kết nối không?
 * [ ] Connection service có chỉ quản lý phiên, không biết ngôn ngữ không?
 * [ ] Scheduler có chịu trách nhiệm concurrency không?
-* [ ] Khoá in có theo máy vật lý (`lockKeyOf`) không?
+* [ ] Khoá in có theo máy vật lý (`deviceId` native) không?
 * [ ] `deviceId` có chỉ dùng cho định danh máy vật lý và khoá không?
 * [ ] Native/vendor SDK có bị leak lên business layer không?
 

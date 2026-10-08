@@ -51,7 +51,14 @@ jest.mock('react-native-view-shot', () => ({
 jest.mock('./src/features/printer/adapters/native/DeviceModule', () => ({
   DeviceModule: {
     discover: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue({ connectionId: 'mock-connection', serialNumber: null }),
+    connect: jest.fn().mockResolvedValue({
+      connectionId: 'mock-connection',
+      deviceId: 'lan:10.0.0.5:9100',
+      address: { type: 'lan', host: '10.0.0.5', port: 9100 },
+      name: null,
+      manufacturerName: null,
+      productName: null,
+    }),
     write: jest.fn().mockResolvedValue(undefined),
     read: jest.fn().mockResolvedValue(null),
     disconnect: jest.fn().mockResolvedValue(undefined),
@@ -65,7 +72,14 @@ jest.mock('./src/features/printer/adapters/native/DeviceModule', () => ({
   const { NativeModules } = require('react-native');
   NativeModules.DeviceModule = {
     discover: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue({ connectionId: 'mock-connection', serialNumber: null }),
+    connect: jest.fn().mockResolvedValue({
+      connectionId: 'mock-connection',
+      deviceId: 'lan:10.0.0.5:9100',
+      address: { type: 'lan', host: '10.0.0.5', port: 9100 },
+      name: null,
+      manufacturerName: null,
+      productName: null,
+    }),
     write: jest.fn().mockResolvedValue(undefined),
     read: jest.fn().mockResolvedValue(null),
     disconnect: jest.fn().mockResolvedValue(undefined),

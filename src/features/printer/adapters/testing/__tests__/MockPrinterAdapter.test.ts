@@ -6,7 +6,11 @@ describe('MockPrinterAdapter', () => {
     await expect(mock.discover('usb')).resolves.toEqual([]);
     await expect(mock.connect({ type: 'lan', host: '10.0.0.1', port: 9100 })).resolves.toEqual({
       connectionId: 'mock-connection',
-      serialNumber: null,
+      deviceId: 'lan:10.0.0.5:9100',
+      address: { type: 'lan', host: '10.0.0.5', port: 9100 },
+      name: null,
+      manufacturerName: null,
+      productName: null,
     });
     await expect(mock.write('mock-connection', 'QUI=', 1000)).resolves.toBeUndefined();
     await expect(mock.read('mock-connection', 16, 1000)).resolves.toBeNull();

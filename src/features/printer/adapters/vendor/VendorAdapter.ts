@@ -2,6 +2,7 @@ import type { IPrinterAdapter, Unsubscribe } from '../IPrinterAdapter';
 import type { ConnectionType } from '../../models/connections/ConnectionType';
 import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
+import type { ConnectedDevice } from '../../models/device/ConnectedDevice';
 import { PrinterErrorException } from '../../exceptions';
 import { PrinterErrorCode } from '../../errors';
 
@@ -18,7 +19,7 @@ export class VendorAdapter implements IPrinterAdapter {
     return [];
   }
 
-  async connect(_connection: DeviceAddress): Promise<void> {
+  async connect(_connection: DeviceAddress): Promise<ConnectedDevice> {
     this.notIntegrated();
   }
 

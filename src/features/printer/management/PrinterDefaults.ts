@@ -3,7 +3,6 @@ import { CutterMode } from '../models/paper/CutterMode';
 import { PaperSize } from '../models/paper/PaperSize';
 import { PaperType } from '../models/paper/PaperType';
 import type { ContinuousPaper } from '../models/paper/PaperOptions';
-import { deviceIdOf } from '../models/device/DeviceAddress';
 import type { Printer } from '../models/printer/Printer';
 import type { PrinterCapabilities } from '../models/printer/PrinterCapabilities';
 import { PrintLanguage } from '../models/printer/PrinterLanguage';
@@ -45,7 +44,7 @@ export const createPrinterDraft = ({
 
   return {
     id: id ?? generateId(),
-    deviceId: deviceIdOf(connection),
+    deviceId: '',
     kind,
     name: DEFAULT_PRINTER_NAME,
     connection,

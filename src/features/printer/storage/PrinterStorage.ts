@@ -9,7 +9,7 @@ const PRINTER_DEFAULT_ID_KEY = 'printer.defaultId';
 const PRINTER_STORAGE_VERSION_KEY = 'printer.storageVersion';
 
 /** Tăng khi đổi cấu trúc `Printer` mà dữ liệu cũ không đọc được; dữ liệu phiên bản khác bị xoá, không migrate. */
-const CURRENT_STORAGE_VERSION = 8;
+const CURRENT_STORAGE_VERSION = 9;
 
 /** MMKV ghi đồng bộ nên ba lệnh liên tiếp đủ coi như một lần ghi, không cần transaction. */
 const resetIfOutdated = (): void => {

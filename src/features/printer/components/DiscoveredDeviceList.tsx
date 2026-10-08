@@ -7,13 +7,10 @@ import { LoadingOverlay } from '../../../components/LoadingOverlay';
 import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { ConnectionType } from '../models/connections/ConnectionType';
-import { deviceIdOf } from '../models/device/DeviceAddress';
 
 export interface DiscoveredDeviceListProps {
   connectionType: ConnectionType;
 
-  /** `deviceIdOf` của kết nối đang chọn. */
-  selectedConnectionKey?: string;
 
   /** Mã quét native của thiết bị đang chọn. */
   selectedScanId?: string;
@@ -27,7 +24,6 @@ const DISCOVERY_TIMEOUT_MS = 30000;
 /** Danh sách thiết bị tìm thấy cho một loại kết nối; tự quét khi mở và khi bấm làm mới. */
 export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
   connectionType,
-  selectedConnectionKey,
   selectedScanId,
   onSelect,
 }) => {
@@ -88,8 +84,7 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
       {!loading &&
         !errorMessage &&
         devices.map((discovered) => {
-          const isSameScan = discovered.deviceId === selectedScanId;
-          const isSelected = isSameScan || deviceIdOf(discovered.address) === selectedConnectionKey;
+          const isSelected = discovered.deviceId === selectedScanId;
 
           return (
             <List.Item

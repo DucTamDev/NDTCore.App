@@ -1,35 +1,4 @@
-import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
-import { ConnectionType } from '../../models/connections/ConnectionType';
-import type { DeviceAddress } from '../../models/device/DeviceAddress';
-import { makePrinter, makeTsplLanguage } from '../../testing/printerFixtures';
-
-const bluetoothConnection = (mac: string): DeviceAddress => ({ type: ConnectionType.Bluetooth, mac });
-
-const lanConnection: DeviceAddress = { type: ConnectionType.Lan, host: '192.168.1.50', port: 9100 };
-
-const usbConnection: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1155, productId: 22222 };
-
-describe('lockKeyOf', () => {
-  it('cùng máy vật lý thì cùng khoá, dù khác máy in đã lưu và khác ngôn ngữ', () => {
-    const receipt = makePrinter({ id: 'receipt', connection: lanConnection });
-    const label = makePrinter({ id: 'label', connection: lanConnection, language: makeTsplLanguage() });
-
-    expect(lockKeyOf(receipt)).toBe(lockKeyOf(label));
-  });
-
-  it('máy khác nhau cùng loại kết nối thì khác khoá', () => {
-    const deviceA = makePrinter({ connection: bluetoothConnection('AA:AA:AA:AA:AA:AA') });
-    const deviceB = makePrinter({ connection: bluetoothConnection('BB:BB:BB:BB:BB:BB') });
-
-    expect(lockKeyOf(deviceA)).not.toBe(lockKeyOf(deviceB));
-  });
-
-  it('tính từ kết nối nên bản nháp chưa có deviceId vẫn khoá đúng máy', () => {
-    const draft = makePrinter({ deviceId: '', connection: usbConnection });
-
-    expect(lockKeyOf(draft)).toBe('usb:1155:22222');
-  });
-});
+import { PrinterConnectionLock } from '../PrinterConnectionLock';
 
 describe('PrinterConnectionLock', () => {
   it('runs two tasks under the same key sequentially, never overlapping', async () => {

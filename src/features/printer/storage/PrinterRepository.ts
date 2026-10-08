@@ -2,13 +2,11 @@ import type { Printer } from '../models/printer/Printer';
 import { PrinterErrorException } from '../exceptions';
 import { PrinterErrorCode } from '../errors';
 import { printerStorage, type PrinterStorage } from './PrinterStorage';
-import { deviceIdOf } from '../models/device/DeviceAddress';
 import { printerSchema } from '../forms/addPrinter/PrinterSchema';
-import type { PrinterWriteInput } from './PrinterWriteInput';
 
 /**
- * Kho lưu trữ máy in — bọc `PrinterStorage` và các bất biến về định danh
- * (`deviceId` tính lại + chống trùng). Không phụ thuộc kết nối hay khoá in.
+ * Kho lưu trữ máy in — bọc `PrinterStorage` và chống trùng (`deviceId`, `kind`). `deviceId` do native trả lúc kết nối,
+ * repository không tự tính. Không phụ thuộc kết nối hay khoá in.
  */
 export class PrinterRepository {
   constructor(private readonly storage: PrinterStorage = printerStorage) {}
@@ -26,12 +24,12 @@ export class PrinterRepository {
     return this.getPrinters().find((printer) => printer.id === printerId);
   }
 
-  addPrinter(printer: PrinterWriteInput): void {
+  addPrinter(printer: Printer): void {
     const withIdentity = this.validated(printer);
     this.savePrinters([...this.getPrinters(), withIdentity]);
   }
 
-  updatePrinter(printer: PrinterWriteInput): void {
+  updatePrinter(printer: Printer): void {
     const withIdentity = this.validated(printer);
     this.savePrinters(this.getPrinters().map((saved) => (saved.id === withIdentity.id ? withIdentity : saved)));
   }
@@ -46,14 +44,12 @@ export class PrinterRepository {
   }
 
   /**
-   * Tính lại `deviceId` từ chính `printer.connection` (không tin giá trị nơi gọi truyền vào), kiểm tra schema rồi
-   * chống trùng (`deviceId`, `kind`) — lưới an toàn ở tầng lưu, UI đã tự kiểm trước.
+   * Kiểm tra schema rồi chống trùng (`deviceId`, `kind`) — lưới an toàn ở tầng lưu, UI đã tự kiểm sau khi kết nối.
    */
-  private validated(printer: PrinterWriteInput): Printer {
-    const withIdentity: Printer = { ...printer, deviceId: deviceIdOf(printer.connection) };
-    printerSchema.parse(withIdentity);
-    this.assertNoDuplicateIdentity(withIdentity);
-    return withIdentity;
+  private validated(printer: Printer): Printer {
+    printerSchema.parse(printer);
+    this.assertNoDuplicateIdentity(printer);
+    return printer;
   }
 
   private assertNoDuplicateIdentity(printer: Printer): void {

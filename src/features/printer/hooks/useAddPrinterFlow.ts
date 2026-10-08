@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { printerManagementService } from '../management/PrinterManagementService';
-import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
+import { printerRepository } from '../storage/PrinterRepository';
+import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { usePrintImageCapture } from './usePrintImageCapture';
 import { generateId } from '../../../utils/id';
@@ -30,7 +31,6 @@ import { useConnectionSetup } from './addPrinter/useConnectionSetup';
 import { usePrinterDetection } from './addPrinter/usePrinterDetection';
 import type { PrinterDetection } from '../detection/PrinterDetection';
 import { useTestPrint } from './addPrinter/useTestPrint';
-import { deviceIdOf } from '../models/device/DeviceAddress';
 
 export interface UseAddPrinterFlowInput {
   visible: boolean;
@@ -53,6 +53,18 @@ export interface UseAddPrinterFlow {
   clearTestPrintError: () => void;
   clearSaveError: () => void;
 }
+
+/** Thông báo khi đã có máy in khác (khác `printerId`) cùng máy vật lý và cùng loại nội dung. */
+const duplicatePrinterMessage = (
+  deviceId: string | undefined,
+  printerId: string,
+  kind: PrintKind,
+): string | undefined => {
+  const collision = deviceId
+    ? printerRepository.getPrinters().find((p) => p.id !== printerId && p.deviceId === deviceId && p.kind === kind)
+    : undefined;
+  return collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined;
+};
 
 /** Nhãn nút "Kết nối" theo `connectionState` hiện tại. */
 const resolveConnectLabel = (connectionState: ConnectionState): string => {
@@ -124,16 +136,27 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   const connectionSetup = useConnectionSetup({
     initialValues,
-    printerId,
-    kind,
     hasLanguage: Boolean(language),
     getConnectionState: () => detectionRef.current.connectionState,
     getLanguageState: () => detectionRef.current.languageState,
     resetConnectionResult: () => detectionRef.current.resetConnectionResult(),
   });
-  const { connectionType, selectedDevice, lanForm, buildLan, currentIdentityKey, identityErrorMessage } = connectionSetup;
+  const { connectionType, selectedDevice, lanForm, buildLan } = connectionSetup;
+
+  /** Thông tin native trả ở lần kết nối gần nhất trong form; máy đang sửa chưa kết nối lại trong form thì chưa có. */
+  const [connectedDevice, setConnectedDevice] = useState<ConnectedDevice | undefined>(undefined);
+
+  /** Trùng chỉ biết được sau khi kết nối, vì định danh máy do native trả. */
+  const identityErrorMessage = useMemo(
+    () => duplicatePrinterMessage(connectedDevice?.deviceId, printerId, kind),
+    [connectedDevice, printerId, kind],
+  );
 
   const buildConnection = (): DeviceAddress => {
+    if (connectedDevice) {
+      return connectedDevice.address;
+    }
+
     if (connectionType === ConnectionType.Lan) {
       const { ip, port } = buildLan(lanForm.getValues());
       return { type: ConnectionType.Lan, host: ip, port };
@@ -152,7 +175,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
    * Bản nháp phải đủ field vì kết nối, dò ngôn ngữ và in thử đều nhận `Printer`. `PLACEHOLDER_LANGUAGE` không
    * ảnh hưởng lúc dò; chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
    */
-  const buildDraftPrinter = (): PrinterWriteInput => {
+  const buildDraftPrinter = (): Printer => {
     const draft = createPrinterDraft({
       id: printerId,
       kind,
@@ -163,9 +186,10 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     return {
       ...draft,
       name: displayForm.getValues('name') || draft.name,
-      vendor: initialValues?.vendor ?? detection?.vendor ?? selectedDevice?.manufacturer,
-      model: initialValues?.model ?? detection?.model ?? selectedDevice?.model,
-      deviceId: currentIdentityKey() ?? undefined,
+      vendor:
+        initialValues?.vendor ?? detection?.vendor ?? connectedDevice?.manufacturer ?? selectedDevice?.manufacturer,
+      model: initialValues?.model ?? detection?.model ?? connectedDevice?.model ?? selectedDevice?.model,
+      deviceId: connectedDevice?.deviceId ?? initialValues?.deviceId ?? '',
       capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
       // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
       paper: toPaperOptions(paperForm.getValues()) ?? DEFAULT_PAPER,
@@ -174,35 +198,26 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     };
   };
 
-  /**
-   * `useTestPrint`/`usePrinterDetection` cần `Printer` đủ — `?? ''` chỉ là fallback kiểu, không chạm tới trên thực tế
-   * khi đã có device/LAN hợp lệ.
-   */
-  const buildFullDraftPrinter = (): Printer => {
-    const draft = buildDraftPrinter();
-    return { ...draft, deviceId: draft.deviceId ?? '' };
-  };
-
-  /**
-   * Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối — chỉ khi ô còn TRỐNG.
-   */
-  const prefillDisplayName = (): void => {
+  /** Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối, chỉ khi ô còn trống. */
+  const prefillDisplayName = (deviceName: string | undefined): void => {
     if (displayForm.getValues('name')) {
       return;
     }
 
     const lanIp = connectionType === ConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
-    displayForm.setValue(
-      'name',
-      selectedDevice?.name || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'),
-    );
+    displayForm.setValue('name', deviceName || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'));
+  };
+
+  const onConnected = (device: ConnectedDevice): void => {
+    setConnectedDevice(device);
+    prefillDisplayName(device.name ?? selectedDevice?.name);
   };
 
   const testPrint = useTestPrint({
     language,
     paperError,
     displayForm,
-    buildDraftPrinter: buildFullDraftPrinter,
+    buildDraftPrinter,
     captureImage,
   });
 
@@ -212,14 +227,13 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     selectedDevice,
     lanForm,
     cancelConnectRef,
-    buildDraftPrinter: buildFullDraftPrinter,
+    buildDraftPrinter,
     setLanguage,
     setDetection,
-    refreshUsbSerial: connectionSetup.refreshUsbSerial,
-    prefillDisplayName,
     onConnectStart: () => {
       connectionTouchedRef.current = true;
     },
+    onConnected,
   });
   detectionRef.current = {
     connectionState: printerDetection.connectionState,
@@ -272,6 +286,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   /** Mở khoá phần kết nối để chọn máy hoặc địa chỉ khác; phải kết nối và xác định ngôn ngữ lại mới lưu được. */
   const onChangeConnection = (): void => {
     setLanguage(undefined);
+    setConnectedDevice(undefined);
     setDetection(undefined);
     printerDetection.resetConnectionResult();
   };
@@ -296,8 +311,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const connectLabel = resolveConnectLabel(connectionState);
   const connectDisabled =
     connectionState === 'connecting' ||
-    (connectionType !== ConnectionType.Lan && !selectedDevice) ||
-    Boolean(identityErrorMessage);
+    (connectionType !== ConnectionType.Lan && !selectedDevice);
   const hasDieCutMediaError = paperError != null;
 
   return {
@@ -312,7 +326,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     connectionSection: {
       connectionType,
       onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
-      selectedConnectionKey: selectedDevice ? deviceIdOf(selectedDevice.address) : undefined,
       selectedScanId: selectedDevice?.deviceId,
       onSelectDevice: connectionSetup.onSelectDevice,
       lanIp: lanForm.watch('lanIp'),
@@ -354,7 +367,7 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
       onTestPrintRowsChange: testPrint.setTestPrintRowsText,
       kind,
       onSave,
-      saveDisabled: !language || connectionDirty || hasDieCutMediaError,
+      saveDisabled: !language || connectionDirty || hasDieCutMediaError || Boolean(identityErrorMessage),
       locked: !language,
     },
   };

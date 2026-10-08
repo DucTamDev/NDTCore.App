@@ -14,9 +14,13 @@ describe('DeviceModule', () => {
   it('connect gửi nguyên địa chỉ và trả kết quả native', async () => {
     const address = { type: 'usb', vendorId: 1, productId: 2, serialNumber: 'SN', devicePath: null } as const;
     await expect(loadReal().DeviceModule.connect(address)).resolves.toEqual({
-      connectionId: 'mock-connection',
-      serialNumber: null,
-    });
+  connectionId: 'mock-connection',
+  deviceId: 'lan:10.0.0.5:9100',
+  address: { type: 'lan', host: '10.0.0.5', port: 9100 },
+  name: null,
+  manufacturerName: null,
+  productName: null,
+});
     expect(NativeModules.DeviceModule.connect).toHaveBeenCalledWith(address);
   });
 

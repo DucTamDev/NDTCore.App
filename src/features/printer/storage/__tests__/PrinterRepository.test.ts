@@ -42,11 +42,11 @@ describe('PrinterRepository', () => {
     expect(repository.getPrinters()[0].name).toBe('Tên mới');
   });
 
-  it('addPrinter() recomputes deviceId from connection fields, overriding a wrong caller-supplied value', () => {
+  it('addPrinter() giữ nguyên deviceId nơi gọi truyền vào (native trả lúc kết nối), không tự tính lại', () => {
     const repository = new PrinterRepository();
-    const staleIdentity: Printer = { ...basePrinter, deviceId: 'lan:9.9.9.9:1' };
-    repository.addPrinter(staleIdentity);
-    expect(repository.getPrinters()[0].deviceId).toBe('lan:192.168.1.10:9100');
+    const fromNative: Printer = { ...basePrinter, deviceId: 'usb:1155:22222:SN1' };
+    repository.addPrinter(fromNative);
+    expect(repository.getPrinters()[0].deviceId).toBe('usb:1155:22222:SN1');
   });
 
   it('removePrinter() removes it from the list', () => {

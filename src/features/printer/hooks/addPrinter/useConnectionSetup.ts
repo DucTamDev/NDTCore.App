@@ -1,16 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { printerRepository } from '../../storage/PrinterRepository';
 import { getCurrentWifiIp } from '../../discovery/NetworkDiscoveryService';
-import { deviceIdOf } from '../../models/device/DeviceAddress';
-import { createPrinterAdapter } from '../../connection/PrinterAdapterFactory';
 import { lanConnectionSchema, type LanConnectionValues } from '../../forms/addPrinter/LanConnectionSchema';
 import type { ConnectionState, LanguageState } from '../../components/StatusPanel';
 import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
-import type { PrintKind } from '../../models/printer/PrintKind';
 
 /**
  * Input cho {@link useConnectionSetup}. `getConnectionState`/`getLanguageState`
@@ -19,9 +15,6 @@ import type { PrintKind } from '../../models/printer/PrintKind';
  */
 export interface UseConnectionSetupInput {
   initialValues?: Printer;
-  printerId: string;
-  /** Loại nội dung CỐ ĐỊNH của printer này — dùng để check trùng đúng cặp `(deviceId, type)`. */
-  kind: PrintKind;
   /** true khi đã xác nhận ngôn ngữ — khoá input kết nối, không cho đổi giữa chừng. */
   hasLanguage: boolean;
   getConnectionState: () => ConnectionState;
@@ -47,13 +40,10 @@ const savedDeviceOf = (printer: Printer): DeviceInfo | undefined => {
 
 /**
  * State + hàm cho phần "cách kết nối" (USB/BLE/LAN) của luồng Thêm/Sửa máy in:
- * chọn thiết bị, nhập IP/port LAN, tự lấy IP WiFi, tính deviceId và cảnh báo
- * trùng máy in đã lưu.
+ * chọn thiết bị, nhập IP/port LAN, tự lấy IP WiFi. Định danh máy và kiểm tra trùng có sau khi kết nối.
  */
 export const useConnectionSetup = ({
   initialValues,
-  printerId,
-  kind,
   hasLanguage,
   getConnectionState,
   getLanguageState,
@@ -63,7 +53,6 @@ export const useConnectionSetup = ({
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | undefined>(
     initialValues ? savedDeviceOf(initialValues) : undefined,
   );
-  const [identityErrorMessage, setIdentityErrorMessage] = useState<string | undefined>(undefined);
   const [detectedLanIp, setDetectedLanIp] = useState<string | null>(null);
   const [lanIpFetchError, setLanIpFetchError] = useState<string | undefined>(undefined);
 
@@ -77,54 +66,6 @@ export const useConnectionSetup = ({
 
   const buildLan = (values: LanConnectionValues) => ({ ip: values.lanIp, port: Number(values.lanPort) });
 
-  /** `null` khi chưa đủ thông tin kết nối (chưa chọn thiết bị, địa chỉ LAN chưa hợp lệ). */
-  const currentIdentityKey = (): string | null => {
-    if (connectionType !== ConnectionType.Lan) {
-      return selectedDevice ? deviceIdOf(selectedDevice.address) : null;
-    }
-
-    const values = lanForm.getValues();
-
-    if (!lanConnectionSchema.safeParse(values).success) {
-      return null;
-    }
-
-    const { ip, port } = buildLan(values);
-    return deviceIdOf({ type: ConnectionType.Lan, host: ip, port });
-  };
-
-  useEffect(() => {
-    const key = currentIdentityKey();
-
-    if (!key) {
-      setIdentityErrorMessage(undefined);
-      return;
-    }
-
-    const collision = printerRepository.getPrinters().find((p) => p.id !== printerId && p.deviceId === key && p.kind === kind);
-    setIdentityErrorMessage(collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- chạy lại khi connectionType/selectedDevice/lan form thay đổi, đọc qua currentIdentityKey() ở trên
-  }, [connectionType, selectedDevice, lanForm.watch('lanIp'), lanForm.watch('lanPort')]);
-
-  /**
-   * Serial USB chỉ đọc được sau khi người dùng cấp quyền (bấm "Kết nối") — lúc quét chưa có. Quét lại sau khi kết
-   * nối và khớp đúng máy theo mã quét của native để deviceId có serial; khớp theo vendorId/productId sẽ lấy nhầm khi
-   * có 2 máy cùng model.
-   */
-  const refreshUsbSerial = async (): Promise<void> => {
-    const selected = selectedDevice;
-
-    if (selected?.address.type !== ConnectionType.Usb || selected.address.serialNumber) {
-      return;
-    }
-
-    const devices = await createPrinterAdapter().listDevices(ConnectionType.Usb).catch(() => []);
-    const match = devices.find((candidate) => candidate.deviceId === selected.deviceId);
-
-    if (match?.address.type === ConnectionType.Usb && match.address.serialNumber) {
-      setSelectedDevice(match);
-    }
-  };
 
   const resetIfDirty = (): void => {
     if (getConnectionState() !== 'idle' || getLanguageState() !== 'idle') {
@@ -199,12 +140,9 @@ export const useConnectionSetup = ({
     onFetchLanIp,
     onAutoFillLanIp,
     buildLan,
-    currentIdentityKey,
-    identityErrorMessage,
     onConnectionTypeChange,
     onSelectDevice,
     onLanIpChange,
     onLanPortChange,
-    refreshUsbSerial,
   };
 };

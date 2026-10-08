@@ -18,13 +18,13 @@ describe('createPrinterLanguage', () => {
 });
 
 describe('createPrinterDraft', () => {
-  it('điền mặc định và tính deviceId từ kết nối', () => {
+  it('điền mặc định; deviceId để trống tới khi native trả lúc kết nối', () => {
     const language = createPrinterLanguage(PrintLanguage.Tspl, LanguageSelection.Auto);
     const printer = createPrinterDraft({ id: 'p1', kind: PrintKind.Label, connection: lan, language });
 
     expect(printer).toMatchObject({
       id: 'p1',
-      deviceId: 'lan:192.168.1.50:9100',
+      deviceId: '',
       kind: PrintKind.Label,
       connection: lan,
       language,

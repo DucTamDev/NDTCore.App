@@ -13,13 +13,16 @@ import { PaperType } from '../../models/paper/PaperType';
 import { PaperSize } from '../../models/paper/PaperSize';
 import { PrintKind } from '../../models/printer/PrintKind';
 import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
-import { deviceIdOf } from '../../models/device/DeviceAddress';
 import type { Printer } from '../../models/printer/Printer';
 import type { DeviceInfo } from '../../models/device/DeviceInfo';
+import { fakeConnectedDevice } from '../../testing/printerServiceTestKit';
 
 // Đặt tên bắt đầu bằng "mock" — babel-plugin-jest-hoist chỉ cho phép factory
 // của jest.mock() tham chiếu biến out-of-scope theo pattern này.
 const mockIdleStatus = ConnectionStatus.Idle;
+
+/** Native trả thông tin máy theo đúng địa chỉ bản nháp kết nối tới. */
+const mockConnectedDeviceOf = (printer: Printer) => fakeConnectedDevice(printer.connection);
 
 jest.mock('../../storage/PrinterRepository', () => ({
   printerRepository: {
@@ -35,7 +38,7 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
     getStatus: jest.fn(() => mockIdleStatus),
     onStatusChange: jest.fn(() => () => undefined),
     disconnect: jest.fn(() => Promise.resolve()),
-    connect: jest.fn(() => Promise.resolve()),
+    connect: jest.fn((printer: Printer) => Promise.resolve(mockConnectedDeviceOf(printer))),
     reconnect: jest.fn(() => Promise.resolve()),
   },
 }));
@@ -340,21 +343,37 @@ describe('useAddPrinterFlow', () => {
     expect(printerConnectionService.connect).not.toHaveBeenCalled();
   });
 
-  it('identity trùng (deviceId, type) — cùng key + cùng type → báo lỗi', () => {
+  /** Thêm máy tem LAN 10.0.0.5:9100: kết nối rồi chọn TSPL (LAN luôn chọn tay). */
+  const connectLanLabel = async (get: () => UseAddPrinterFlow): Promise<void> => {
+    act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
+    act(() => get().connectionSection.onLanIpChange('10.0.0.5'));
+    act(() => get().connectionSection.onLanPortChange('9100'));
+    await act(async () => {
+      get().connectionSection.onConnectPress();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      get().statusPanel.onChooseLanguage(PrintLanguage.Tspl);
+    });
+  };
+
+  it('trùng (deviceId native trả, kind) với máy đã lưu → báo lỗi sau khi kết nối, chưa lưu được', async () => {
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id' }]);
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
-    act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
-    act(() => get().connectionSection.onLanIpChange('10.0.0.5'));
-    act(() => get().connectionSection.onLanPortChange('9100'));
+    expect(get().identityErrorMessage).toBeUndefined();
+
+    await connectLanLabel(get);
+
     expect(get().identityErrorMessage).toBeDefined();
+    expect(get().infoCard.saveDisabled).toBe(true);
   });
 
-  it('identity cùng key nhưng KHÁC type → không báo lỗi (2 Printer cùng máy vật lý, khác nội dung)', () => {
+  it('cùng máy vật lý nhưng KHÁC loại nội dung → không báo lỗi (2 máy in cùng máy vật lý)', async () => {
     (printerRepository.getPrinters as jest.Mock).mockReturnValue([{ ...savedTspl, id: 'other-id', kind: PrintKind.Receipt }]);
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
-    act(() => get().connectionSection.onConnectionTypeChange(ConnectionType.Lan));
-    act(() => get().connectionSection.onLanIpChange('10.0.0.5'));
-    act(() => get().connectionSection.onLanPortChange('9100'));
+
+    await connectLanLabel(get);
+
     expect(get().identityErrorMessage).toBeUndefined();
   });
 
@@ -415,36 +434,11 @@ describe('useAddPrinterFlow', () => {
     expect((get().infoCard.control as unknown as { _formValues: { name: string } })._formValues.name).toBe('XP-420B');
   });
 
-  it('USB: sau khi kết nối đọc lại serial theo mã quét của native để lưu đúng máy', async () => {
-    const { DeviceModule } = jest.requireMock('../../adapters/native/DeviceModule') as {
-      DeviceModule: { discover: jest.Mock };
-    };
-    DeviceModule.discover.mockResolvedValueOnce([
-      {
-        type: 'usb',
-        deviceId: 'usb:/dev/bus/usb/001/003',
-        name: 'XP-420B',
-        address: {
-          type: 'usb',
-          vendorId: 11575,
-          productId: 33751,
-          serialNumber: 'OTHER',
-          devicePath: '/dev/bus/usb/001/003',
-        },
-        manufacturerName: null,
-        productName: null,
-        hasPermission: true,
-      },
-      {
-        type: 'usb',
-        deviceId: 'usb:/dev/bus/usb/001/009',
-        name: 'XP-420B',
-        address: { type: 'usb', vendorId: 11575, productId: 33751, serialNumber: 'SN1', devicePath: '/dev/bus/usb/001/009' },
-        manufacturerName: null,
-        productName: null,
-        hasPermission: true,
-      },
-    ]);
+  it('USB: lưu địa chỉ có serial, deviceId và tên native đọc được khi kết nối', async () => {
+    const withSerial = { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' } as const;
+    (printerConnectionService.connect as jest.Mock).mockResolvedValueOnce(
+      fakeConnectedDevice(withSerial, { name: 'XP-420B (USB)', manufacturer: 'Xprinter' }),
+    );
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Label });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
     detectXprinter();
@@ -459,8 +453,9 @@ describe('useAddPrinterFlow', () => {
 
     expect(printerRepository.addPrinter).toHaveBeenCalledWith(
       expect.objectContaining({
-        connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
+        connection: withSerial,
         deviceId: 'usb:11575:33751:SN1',
+        name: 'XP-420B (USB)',
       }),
     );
   });
@@ -579,28 +574,9 @@ describe('useAddPrinterFlow', () => {
     expect(get().infoCard.saveDisabled).toBe(true);
   });
 
-  it('edit mode USB printer có selectedConnectionKey bằng deviceIdOf kết nối đã lưu', () => {
-    const savedUsbPrinter: Printer = {
-      id: 'p3',
-      kind: PrintKind.Label,
-      name: 'Máy USB',
-      language: savedTspl.language,
-      paper: savedTspl.paper,
-      connection: { type: ConnectionType.Usb, vendorId: 11575, productId: 33751, serialNumber: 'SN1' },
-      deviceId: 'usb:11575:33751:SN1',
-      capabilities: { cutter: false, cashDrawer: false, color: false, image: false },
-      enabled: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    };
-    const { get } = render({ visible: true, initialValues: savedUsbPrinter, onSaved: jest.fn(), kind: savedUsbPrinter.kind });
-    expect(get().connectionSection.selectedConnectionKey).toBe('usb:11575:33751:SN1');
-  });
-
-  it('sau onSelectDevice quét được thiết bị → selectedConnectionKey bằng deviceIdOf thiết bị đó', () => {
+  it('sau onSelectDevice quét được thiết bị → đánh dấu theo mã quét của thiết bị đó', () => {
     const { get } = render({ visible: true, onSaved: jest.fn(), kind: PrintKind.Receipt });
     act(() => get().connectionSection.onSelectDevice(usbDevice));
-    expect(get().connectionSection.selectedConnectionKey).toBe(deviceIdOf(usbDevice.address));
     expect(get().connectionSection.selectedScanId).toBe(usbDevice.deviceId);
   });
 });

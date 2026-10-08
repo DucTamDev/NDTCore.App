@@ -1,5 +1,5 @@
 import { PrinterConnectionService } from '../PrinterConnectionService';
-import { PrinterConnectionLock, lockKeyOf } from '../PrinterConnectionLock';
+import { PrinterConnectionLock } from '../PrinterConnectionLock';
 import { PrinterRepository } from '../../storage/PrinterRepository';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
@@ -7,7 +7,9 @@ import { ConnectionType } from '../../models/connections/ConnectionType';
 import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 import type { Printer } from '../../models/printer/Printer';
 import type { IPrinterAdapter } from '../../adapters/IPrinterAdapter';
-import { basePrinter, makeFakeAdapter } from '../../testing/printerServiceTestKit';
+import { basePrinter, fakeConnectedDevice, makeFakeAdapter } from '../../testing/printerServiceTestKit';
+import type { ConnectedDevice } from '../../models/device/ConnectedDevice';
+import type { DeviceAddress } from '../../models/device/DeviceAddress';
 import { DeviceErrorCode } from '../../errors';
 import { DeviceErrorException } from '../../exceptions';
 
@@ -27,7 +29,7 @@ jest.mock('../../logging/PrinterLogger', () => ({
 const bluetoothPrinter: Printer = {
   ...basePrinter,
   id: 'p-bt',
-  deviceId: 'bluetooth:mac:AA:BB:CC:DD:EE:FF',
+  deviceId: 'bluetooth:AA:BB:CC:DD:EE:FF',
   connection: { type: ConnectionType.Bluetooth, mac: 'AA:BB:CC:DD:EE:FF' },
 };
 
@@ -38,19 +40,11 @@ const secondLanPrinter: Printer = {
   connection: { type: ConnectionType.Lan, host: '192.168.1.11', port: 9100 },
 };
 
-/** Service với các adapter giả lần lượt trả về cho mỗi lần kết nối. */
+/** Service với các adapter giả lần lượt trả về cho mỗi lần kết nối; hết thì tạo adapter giả mới. */
 const setup = (adapters: IPrinterAdapter[], bluetoothGranted = true) => {
   const repository = new PrinterRepository();
   const queue = [...adapters];
-  const createAdapter = jest.fn(() => {
-    const next = queue.shift();
-
-    if (!next) {
-      throw new Error('Hết adapter giả');
-    }
-
-    return next;
-  });
+  const createAdapter = jest.fn(() => queue.shift() ?? makeFakeAdapter().adapter);
   const ensureBluetoothPermission = jest.fn().mockResolvedValue(bluetoothGranted);
   const lock = new PrinterConnectionLock();
   const service = new PrinterConnectionService(createAdapter, ensureBluetoothPermission, repository, lock);
@@ -69,6 +63,70 @@ describe('PrinterConnectionService', () => {
   beforeEach(() => {
     printerStorage.savePrinters([]);
     jest.clearAllMocks();
+  });
+
+  it('kết nối trả thông tin máy native đọc được sau khi mở', async () => {
+    const { adapter } = makeFakeAdapter();
+    const withSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN' };
+    adapter.connect.mockResolvedValueOnce(fakeConnectedDevice(withSerial, { name: 'XP-58' }));
+    const { service } = setup([adapter]);
+
+    const withoutSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2 };
+    const connected = await service.connect({ ...basePrinter, connection: withoutSerial });
+
+    expect(connected).toMatchObject({ deviceId: 'usb:1:2:SN', address: withSerial, name: 'XP-58' });
+  });
+
+  it('hai địa chỉ khác nhau mà native báo cùng kết nối: dùng chung, ngắt máy này không đóng của máy kia', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    const withSerial: DeviceAddress = { type: ConnectionType.Usb, vendorId: 1, productId: 2, serialNumber: 'SN' };
+    const sameDevice = fakeConnectedDevice(withSerial, { connectionId: 'usb:/dev/bus/usb/001/004' });
+    first.connect.mockResolvedValue(sameDevice);
+    second.connect.mockResolvedValue(sameDevice);
+    const { service } = setup([first, second]);
+    const receipt: Printer = { ...basePrinter, id: 'receipt', connection: withSerial, deviceId: sameDevice.deviceId };
+    const draft: Printer = {
+      ...basePrinter,
+      id: 'draft',
+      connection: { type: ConnectionType.Usb, vendorId: 1, productId: 2 },
+      deviceId: '',
+    };
+
+    await service.connect(receipt);
+    await service.connect(draft);
+    await service.disconnect(draft.id);
+    await service.send(receipt.id, new Uint8Array([9]));
+
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(second.disconnect).not.toHaveBeenCalled();
+    expect(first.write).toHaveBeenCalledWith(new Uint8Array([9]));
+    expect(service.getStatus(receipt.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('kết nối bị đóng trong lúc lượt khác đang mở cùng máy: lượt đó mở lại thay vì giữ kết nối đã đóng', async () => {
+    const first = makeFakeAdapter().adapter;
+    const second = makeFakeAdapter().adapter;
+    let finishSecond: () => void = () => undefined;
+    second.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finishSecond = () => resolve(fakeConnectedDevice(basePrinter.connection));
+      }),
+    );
+    const { service } = setup([first, second]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+
+    const connectingLabel = service.connect(label);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await service.disconnect(basePrinter.id);
+    finishSecond();
+    await connectingLabel;
+    await service.send(label.id, new Uint8Array([6]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.connect).toHaveBeenCalledTimes(2);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([6]));
   });
 
   it('máy chưa từng kết nối ở trạng thái Idle', () => {
@@ -126,22 +184,24 @@ describe('PrinterConnectionService', () => {
     );
   });
 
-  it('kết nối lại cùng máy dùng lại kết nối đang mở, không mở adapter mới', async () => {
+  it('kết nối lại cùng máy: native trả cùng kết nối nên dùng lại, bỏ adapter mới mà không ngắt', async () => {
     const first = makeFakeAdapter().adapter;
-    const { service, createAdapter } = setup([first]);
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
 
     await service.connect(basePrinter);
     await service.connect(basePrinter);
     await service.send(basePrinter.id, new Uint8Array([1]));
 
-    expect(createAdapter).toHaveBeenCalledTimes(1);
     expect(first.disconnect).not.toHaveBeenCalled();
+    expect(second.disconnect).not.toHaveBeenCalled();
+    expect(second.write).not.toHaveBeenCalled();
     expect(first.write).toHaveBeenCalledWith(new Uint8Array([1]));
   });
 
   it('hai máy in trỏ cùng một máy vật lý dùng chung một kết nối; ngắt máy này máy kia vẫn in được', async () => {
     const shared = makeFakeAdapter().adapter;
-    const { service, createAdapter } = setup([shared]);
+    const { service } = setup([shared]);
     const label: Printer = { ...basePrinter, id: 'p-label' };
 
     await service.connect(basePrinter);
@@ -149,7 +209,6 @@ describe('PrinterConnectionService', () => {
     await service.disconnect(basePrinter.id);
     await service.send(label.id, new Uint8Array([3]));
 
-    expect(createAdapter).toHaveBeenCalledTimes(1);
     expect(shared.disconnect).not.toHaveBeenCalled();
     expect(shared.write).toHaveBeenCalledWith(new Uint8Array([3]));
     expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
@@ -250,7 +309,7 @@ describe('PrinterConnectionService', () => {
     await service.connect(basePrinter);
     let release: () => void = () => undefined;
     const held = lock.runExclusive(
-      lockKeyOf(basePrinter),
+      basePrinter.deviceId,
       () => new Promise<void>((resolve) => (release = resolve)),
     );
 
@@ -273,7 +332,7 @@ describe('PrinterConnectionService', () => {
     await service.connect(basePrinter);
     let release: () => void = () => undefined;
     const held = lock.runExclusive(
-      lockKeyOf(basePrinter),
+      basePrinter.deviceId,
       () => new Promise<void>((resolve) => (release = resolve)),
     );
 
@@ -293,7 +352,7 @@ describe('PrinterConnectionService', () => {
     const { adapter } = makeFakeAdapter();
     const { service, lock } = setup([adapter]);
 
-    await lock.runExclusive(lockKeyOf(basePrinter), () => service.connect(basePrinter));
+    await lock.runExclusive(basePrinter.deviceId, () => service.connect(basePrinter));
 
     expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
   });
@@ -365,7 +424,7 @@ describe('PrinterConnectionService', () => {
     const slow = makeFakeAdapter();
     let failSlow: (error: Error) => void = () => undefined;
     slow.adapter.connect.mockReturnValueOnce(
-      new Promise<void>((_resolve, reject) => {
+      new Promise<ConnectedDevice>((_resolve, reject) => {
         failSlow = reject;
       }),
     );
@@ -387,8 +446,8 @@ describe('PrinterConnectionService', () => {
     const slow = makeFakeAdapter();
     let finishSlow: () => void = () => undefined;
     slow.adapter.connect.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishSlow = resolve;
+      new Promise<ConnectedDevice>((resolve) => {
+        finishSlow = () => resolve(fakeConnectedDevice(basePrinter.connection));
       }),
     );
     const fast = makeFakeAdapter();
@@ -408,8 +467,8 @@ describe('PrinterConnectionService', () => {
     const { adapter } = makeFakeAdapter();
     let finishConnect: () => void = () => undefined;
     adapter.connect.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishConnect = resolve;
+      new Promise<ConnectedDevice>((resolve) => {
+        finishConnect = () => resolve(fakeConnectedDevice(basePrinter.connection));
       }),
     );
     const { service } = setup([adapter]);
@@ -435,7 +494,7 @@ describe('PrinterConnectionService', () => {
     });
     service.onStatusChange(basePrinter.id, after);
 
-    await expect(service.connect(basePrinter)).resolves.toBeUndefined();
+    await expect(service.connect(basePrinter)).resolves.toMatchObject({ deviceId: basePrinter.deviceId });
 
     expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
     expect(after).toHaveBeenCalledWith(ConnectionStatus.Connected);

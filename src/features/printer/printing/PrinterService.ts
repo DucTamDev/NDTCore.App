@@ -6,7 +6,7 @@ import { PrinterErrorCode } from '../errors';
 import { printerLogger } from '../logging/PrinterLogger';
 import { getPrintLanguage } from '../languages';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
-import { printerConnectionLock, lockKeyOf, type PrinterConnectionLock } from '../connection/PrinterConnectionLock';
+import { printerConnectionLock, type PrinterConnectionLock } from '../connection/PrinterConnectionLock';
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
 
 /** In ảnh ra một máy in: encode theo ngôn ngữ của máy rồi gửi qua kết nối của máy. */
@@ -44,7 +44,7 @@ export class PrinterService {
 
   /** Máy in có thể chưa lưu (đang thêm máy); tự khoá vì UI gọi thẳng, không qua hàng đợi. */
   testPrint(printer: Printer, image: string, options?: PrintOptions): Promise<void> {
-    return this.lock.runExclusive(lockKeyOf(printer), async () => {
+    return this.lock.runExclusive(printer.deviceId, async () => {
       const printerId = printer.id;
       const language = printer.language.type;
       const startedAt = Date.now();

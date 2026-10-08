@@ -1,5 +1,5 @@
 import { printerRepository, type PrinterRepository } from '../storage/PrinterRepository';
-import type { PrinterWriteInput } from '../storage/PrinterWriteInput';
+import type { Printer } from '../models/printer/Printer';
 import { printerConnectionService, type PrinterConnectionService } from '../connection/PrinterConnectionService';
 
 /** Thao tác trên máy in đã lưu mà màn hình quản lý gọi: lưu, xoá, bật/tắt. */
@@ -13,7 +13,7 @@ export class PrinterManagementService {
   ) {}
 
   /** Chưa có máy in cùng `id` thì thêm, có rồi thì sửa; sai schema hoặc trùng máy thì ném lỗi của repository. */
-  save(printer: PrinterWriteInput): void {
+  save(printer: Printer): void {
     if (this.repository.findById(printer.id)) {
       this.repository.updatePrinter(printer);
       return;
