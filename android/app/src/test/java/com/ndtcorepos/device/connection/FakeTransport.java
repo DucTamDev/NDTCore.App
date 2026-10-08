@@ -2,6 +2,7 @@ package com.ndtcorepos.device.connection;
 
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.DeviceAddress;
 import com.ndtcorepos.device.transport.ITransport;
 
 import java.util.List;
@@ -19,7 +20,10 @@ final class FakeTransport implements ITransport {
 
     private final String hardwareAddress;
 
-    private final String serialNumber;
+    /** Địa chỉ trả sau khi mở. */
+    private final DeviceAddress address;
+
+    private final String name;
 
     /** Nhật ký dùng chung giữa các transport để kiểm thứ tự mở/đóng. */
     private final List<String> events;
@@ -62,10 +66,12 @@ final class FakeTransport implements ITransport {
 
     FakeTransport(
             String hardwareAddress,
-            String serialNumber,
+            DeviceAddress address,
+            String name,
             List<String> events) {
         this.hardwareAddress = hardwareAddress;
-        this.serialNumber = serialNumber;
+        this.address = address;
+        this.name = name;
         this.events = events;
     }
 
@@ -128,8 +134,23 @@ final class FakeTransport implements ITransport {
     }
 
     @Override
-    public String serialNumber() {
-        return serialNumber;
+    public DeviceAddress address() {
+        return address;
+    }
+
+    @Override
+    public String name() {
+        return name;
+    }
+
+    @Override
+    public String manufacturerName() {
+        return null;
+    }
+
+    @Override
+    public String productName() {
+        return null;
     }
 
     private void stop(String eventPrefix) {

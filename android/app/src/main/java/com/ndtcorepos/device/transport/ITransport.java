@@ -1,6 +1,7 @@
 package com.ndtcorepos.device.transport;
 
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.DeviceAddress;
 
 /**
  * Truyền byte trên một đường truyền. Mọi hạn (`deadlineNanos`) là mốc tuyệt đối theo `System.nanoTime()` để không
@@ -28,6 +29,15 @@ public interface ITransport {
     /** Địa chỉ phần cứng (đường dẫn USB, MAC, host:port) để tạo `connectionId` và khớp sự kiện mất kết nối. */
     String hardwareAddress();
 
-    /** Serial đọc từ thiết bị; `null` nếu không có hoặc đường truyền không hỗ trợ. */
-    String serialNumber();
+    /** Địa chỉ đầy đủ đọc được sau khi mở (USB có serial nếu máy có); chỉ gọi sau khi `open` thành công. */
+    DeviceAddress address();
+
+    /** Tên thiết bị (tên Bluetooth, tên sản phẩm USB); `null` nếu không đọc được. */
+    String name();
+
+    /** Nhà sản xuất, chỉ USB; `null` nếu không có. */
+    String manufacturerName();
+
+    /** Tên sản phẩm, chỉ USB; `null` nếu không có. */
+    String productName();
 }

@@ -36,7 +36,11 @@ final class FakeTransportFactory implements ITransportFactory {
     /** Gắn vào mọi transport tạo ra: `open` chờ latch này. */
     volatile CountDownLatch openGate;
 
-    volatile String serialNumber;
+    /** Khác `null` thì transport trả địa chỉ này sau khi mở (vd USB đọc thêm serial); không thì trả địa chỉ yêu cầu. */
+    volatile DeviceAddress openedAddress;
+
+    /** Tên transport trả sau khi mở. */
+    volatile String name;
 
     @Override
     public ITransport create(DeviceAddress address) throws DeviceException {
@@ -45,7 +49,8 @@ final class FakeTransportFactory implements ITransportFactory {
         String lookupKey = address.lookupKey();
         String defaultHardwareAddress = lookupKey.substring(lookupKey.indexOf(':') + 1);
         String hardwareAddress = hardwareByLookupKey.getOrDefault(lookupKey, defaultHardwareAddress);
-        FakeTransport transport = new FakeTransport(hardwareAddress, serialNumber, events);
+        DeviceAddress opened = openedAddress != null ? openedAddress : address;
+        FakeTransport transport = new FakeTransport(hardwareAddress, opened, name, events);
         transport.openGate = openGate;
         created.add(transport);
         return transport;

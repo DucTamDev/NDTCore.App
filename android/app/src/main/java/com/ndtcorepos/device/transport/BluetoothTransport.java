@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothSocket;
 
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.DeviceAddress;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,9 @@ public final class BluetoothTransport implements ITransport {
 
     private volatile BluetoothSocket socket;
 
+    /** Có sau khi `open` thành công. */
+    private volatile DeviceAddress address;
+
     private volatile int lastWriteSizeBytes;
 
     private volatile long lastWriteCompletedAtNanos;
@@ -45,6 +49,7 @@ public final class BluetoothTransport implements ITransport {
     public void open() throws DeviceException {
         try {
             socket = connectWithRetry();
+            address = DeviceAddress.bluetooth(device.getAddress());
         } catch (SecurityException exception) {
             throw new DeviceException(DeviceErrorCode.PERMISSION_DENIED, "Thiếu quyền Bluetooth", exception);
         } catch (IOException exception) {
@@ -122,7 +127,27 @@ public final class BluetoothTransport implements ITransport {
     }
 
     @Override
-    public String serialNumber() {
+    public DeviceAddress address() {
+        return address;
+    }
+
+    /** Từ Android 12, đọc tên khi thiếu quyền BLUETOOTH_CONNECT ném SecurityException. */
+    @Override
+    public String name() {
+        try {
+            return device.getName();
+        } catch (SecurityException exception) {
+            return null;
+        }
+    }
+
+    @Override
+    public String manufacturerName() {
+        return null;
+    }
+
+    @Override
+    public String productName() {
         return null;
     }
 

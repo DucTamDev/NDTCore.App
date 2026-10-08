@@ -4,6 +4,7 @@ import static com.ndtcorepos.device.constants.TransportConstants.LAN_CONNECT_TIM
 
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.DeviceAddress;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -113,7 +114,26 @@ public final class LanTransport implements ITransport {
     }
 
     @Override
-    public String serialNumber() {
+    public DeviceAddress address() {
+        try {
+            return DeviceAddress.lan(host, port);
+        } catch (DeviceException exception) {
+            throw new IllegalStateException("Địa chỉ LAN đã mở được thì phải hợp lệ", exception);
+        }
+    }
+
+    @Override
+    public String name() {
+        return null;
+    }
+
+    @Override
+    public String manufacturerName() {
+        return null;
+    }
+
+    @Override
+    public String productName() {
         return null;
     }
 

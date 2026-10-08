@@ -66,13 +66,18 @@ public class ConnectionPoolTest {
     }
 
     @Test
-    public void connectReturnsIdFromHardwareAddressAndSerial() throws Exception {
-        factory.serialNumber = "SN1";
+    public void connectReturnsSessionIdAndDeviceReadAfterOpen() throws Exception {
+        DeviceAddress requested = DeviceAddress.usb(1155, 22222, null, "/dev/bus/usb/001/004");
+        factory.hardwareByLookupKey.put(requested.lookupKey(), "/dev/bus/usb/001/004");
+        factory.openedAddress = DeviceAddress.usb(1155, 22222, "SN1", "/dev/bus/usb/001/004");
+        factory.name = "XP-58";
 
-        ConnectedDevice connected = await(pool.connect(printerA));
+        ConnectedDevice connected = await(pool.connect(requested));
 
-        assertEquals("lan:10.0.0.1:9100", connected.connectionId());
-        assertEquals("SN1", connected.serialNumber());
+        assertEquals("usb:/dev/bus/usb/001/004", connected.connectionId());
+        assertEquals("usb:1155:22222:SN1", connected.deviceId());
+        assertEquals("SN1", connected.address().serialNumber());
+        assertEquals("XP-58", connected.name());
     }
 
     @Test

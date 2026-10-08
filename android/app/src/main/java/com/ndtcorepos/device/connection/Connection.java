@@ -2,6 +2,7 @@ package com.ndtcorepos.device.connection;
 
 import com.ndtcorepos.device.error.DeviceErrorCode;
 import com.ndtcorepos.device.error.DeviceException;
+import com.ndtcorepos.device.model.ConnectedDevice;
 import com.ndtcorepos.device.transport.ITransport;
 
 import java.util.ArrayList;
@@ -69,8 +70,14 @@ public final class Connection {
         return transport.hardwareAddress();
     }
 
-    public String serialNumber() {
-        return transport.serialNumber();
+    /** Thông tin trả cho TS sau khi kết nối; đọc từ transport đã mở nên USB có serial. */
+    public ConnectedDevice describe() {
+        return new ConnectedDevice(
+                connectionId,
+                transport.address(),
+                transport.name(),
+                transport.manufacturerName(),
+                transport.productName());
     }
 
     public synchronized boolean isAlive() {

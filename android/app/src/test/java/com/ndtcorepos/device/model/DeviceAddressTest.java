@@ -24,6 +24,14 @@ public class DeviceAddressTest {
     }
 
     @Test
+    public void deviceIdIgnoresUsbPathButKeepsSerial() throws Exception {
+        assertEquals("usb:8137:8214:SN1", DeviceAddress.usb(8137, 8214, "SN1", "/dev/bus/usb/001/004").deviceId());
+        assertEquals("usb:8137:8214", DeviceAddress.usb(8137, 8214, null, "/dev/bus/usb/001/004").deviceId());
+        assertEquals("bluetooth:AA:BB", DeviceAddress.bluetooth("aa:bb").deviceId());
+        assertEquals("lan:10.0.0.1:9100", DeviceAddress.lan("10.0.0.1", 9100).deviceId());
+    }
+
+    @Test
     public void usbEmptySerialAndPathBecomeNull() throws Exception {
         DeviceAddress address = DeviceAddress.usb(1, 2, "", "");
 
