@@ -102,8 +102,8 @@ Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinte
 - **`management/PrinterDefaults`** — mặc định khi tạo máy mới (`createPrinterDraft`);
   **`forms/addPrinter/printerRules`** — `canPrintKind` (ESC/POS chỉ in hoá đơn).
 - **`components/AddPrinterModal.tsx`** — modal cuộn 1 màn hình (không phải wizard nhiều bước). Xem chi tiết state machine ở `docs/superpowers/specs/2026-08-01-printer-modal-single-screen-design.md`.
-- **`hooks/usePrinterConnection.ts`** — subscribe `PrinterConnectionService.onStatusChange` vào Redux, dùng trong danh
-  sách máy in đã lưu.
+- **`hooks/useConnectionStatus.ts`** — đọc trạng thái kết nối thẳng từ `PrinterConnectionService`
+  (`useSyncExternalStore`), không chép vào Redux; dùng trong danh sách máy in và form thêm/sửa.
 
 ---
 
@@ -115,7 +115,7 @@ Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinte
 - Trạng thái kết nối máy in là **event-driven** (`onStatusChange`/`DeviceDiscoveryEvent`/`LanguageDetectionEvent`) — không polling
 - **Disable, không Hide** — component điều kiện theo trạng thái (chưa kết nối, đang xử lý...) dùng prop `disabled`, không unmount/remount (`{condition && <X/>}` là anti-pattern trong các form nhiều bước phụ thuộc trạng thái)
 - Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, languages, schemas, reducers) mới có `.test.ts`, đặt trong thư mục con `__tests__/` cùng cấp với file logic nó test (vd `services/__tests__/XService.test.ts`) — không nằm chung thư mục với file logic. Jest tự nhận diện `__tests__/` mặc định, không cần cấu hình thêm.
-- Không thêm feature/abstraction/error-handling vượt quá yêu cầu — xem `usePrinterConnection.ts` làm ví dụ: 1 hook, 1 trách nhiệm
+- Không thêm feature/abstraction/error-handling vượt quá yêu cầu — ví dụ `useConnectionStatus.ts`: 1 hook, 1 trách nhiệm
 - **TypeScript/TSX** (`src/`): xem [`docs/CODING_STANDARDS_TS.md`](docs/CODING_STANDARDS_TS.md) — tóm tắt: guard clause/early return (tối đa 2 cấp nesting), 1 function/class = 1 trách nhiệm, tên biến/field thể hiện rõ ý định (không dùng `data`/`result`/`value`/`temp`), field chỉ comment khi tên+type chưa đủ rõ (comment mô tả mục đích/constraint/lifecycle, không mô tả lại kiểu dữ liệu), comment giải thích WHY chứ không lặp lại WHAT, không abstraction/function trung gian khi chưa có responsibility rõ ràng.
 - **Java native** (`android/app/src/main/java/com/ndtcorepos/`): xem [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) — tóm tắt: ưu tiên guard clause/early return hơn nesting (tối đa 2 cấp), không `else` sau `return`, tên biến/method thể hiện rõ ý định (không viết tắt tuỳ tiện), không nested method call làm giảm readability, blank line tách logical block, hằng số log dùng `LOG_SOURCE` (không dùng `TAG`), comment function dùng trực tiếp Android API ở cấp function (không rải theo từng dòng API call, và chỉ khi tên+code chưa đủ rõ).
 

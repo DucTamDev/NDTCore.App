@@ -46,6 +46,15 @@ describe('PrinterManagementService', () => {
     expect(repository.getPrinters()).toEqual([]);
   });
 
+  it('remove: dọn trạng thái kết nối của máy đã xoá', async () => {
+    const { service, connectionService } = setup();
+    service.save(basePrinter);
+
+    await service.remove(basePrinter.id);
+
+    expect(connectionService.forget).toHaveBeenCalledWith(basePrinter.id);
+  });
+
   it('remove: ngắt lỗi vẫn xoá', async () => {
     const { service, repository } = setup(jest.fn().mockRejectedValue(new Error('io')));
     service.save(basePrinter);

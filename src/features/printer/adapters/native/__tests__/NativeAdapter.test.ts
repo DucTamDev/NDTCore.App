@@ -192,7 +192,7 @@ describe('NativeAdapter', () => {
     await expect(adapter.read()).resolves.toBeNull();
   });
 
-  it('connect lần hai tới kết nối khác thì đóng kết nối cũ đúng một lần và ghi qua kết nối mới', async () => {
+  it('connect lần hai chỉ đổi kết nối đang giữ, không đóng kết nối cũ (native có thể đang dùng chung)', async () => {
     const adapter = new NativeAdapter();
     deviceModule()
       .connect.mockResolvedValueOnce(nativeConnected('first'))
@@ -202,17 +202,8 @@ describe('NativeAdapter', () => {
     await adapter.connect(lanConnection);
     await adapter.write(new Uint8Array([1]));
 
-    expect(deviceModule().disconnect).toHaveBeenCalledTimes(1);
-    expect(deviceModule().disconnect).toHaveBeenCalledWith('first');
-    expect(deviceModule().write).toHaveBeenCalledWith('second', expect.any(String));
-  });
-
-  it('connect lần hai native trả lại đúng kết nối đang giữ thì không đóng nó', async () => {
-    const adapter = new NativeAdapter();
-    await adapter.connect(lanConnection);
-    await adapter.connect(lanConnection);
-
     expect(deviceModule().disconnect).not.toHaveBeenCalled();
+    expect(deviceModule().write).toHaveBeenCalledWith('second', expect.any(String));
   });
 
   it('connect lần hai thất bại giữ nguyên kết nối của lần đầu', async () => {

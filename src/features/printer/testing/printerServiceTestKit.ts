@@ -82,6 +82,8 @@ export const makeMockConnectionService = (
     onStatusChange: jest.fn().mockReturnValue(() => undefined),
     reconnect: jest.fn().mockResolvedValue(undefined),
     connectEnabledPrinters: jest.fn(),
+    ensureConnected: jest.fn().mockResolvedValue(undefined),
+    forget: jest.fn(),
     ...overrides,
   });
 

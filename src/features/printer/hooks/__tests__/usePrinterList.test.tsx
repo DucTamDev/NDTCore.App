@@ -25,6 +25,7 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
     connect: jest.fn(() => Promise.resolve()),
     disconnect: jest.fn(() => Promise.resolve()),
     reconnect: jest.fn(() => Promise.resolve()),
+    forget: jest.fn(),
   },
 }));
 

@@ -152,16 +152,10 @@ export class NativeAdapter implements IPrinterAdapter {
     return devices.map(toDeviceInfo);
   }
 
-  /** Native trả lại đúng kết nối đang mở nếu cùng thiết bị, nên chỉ đóng kết nối cũ khi id khác. */
+  /** Gọi lại thì chỉ đổi mã kết nối đang giữ, không đóng kết nối cũ: native có thể đang cho adapter khác dùng chung. */
   async connect(connection: DeviceAddress): Promise<ConnectedDevice> {
     const connected = await callNative(() => DeviceModule.connect(toNativeAddress(connection)));
-    const previous = this.connectionId;
     this.connectionId = connected.connectionId;
-
-    if (previous && previous !== connected.connectionId) {
-      await callNative(() => DeviceModule.disconnect(previous));
-    }
-
     return toConnectedDevice(connected);
   }
 

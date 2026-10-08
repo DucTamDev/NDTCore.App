@@ -19,7 +19,7 @@ export interface IPrinterAdapter {
   /** Thiết bị tìm thấy cho một loại kết nối; `[]` nếu adapter không quét loại đó. */
   listDevices(connectionType: ConnectionType): Promise<DeviceInfo[]>;
 
-  /** Mở kết nối, trả thông tin máy đọc được sau khi mở; mở được rồi mới trả kết nối cũ của chính instance này. */
+  /** Mở kết nối, trả thông tin máy đọc được sau khi mở; native có thể trả kết nối đang mở nếu cùng máy. */
   connect(connection: DeviceAddress): Promise<ConnectedDevice>;
 
   write(bytes: Uint8Array): Promise<void>;

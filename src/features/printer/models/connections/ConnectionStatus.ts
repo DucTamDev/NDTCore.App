@@ -15,9 +15,6 @@ export const ConnectionStatus = {
   /** Đã ngắt (chủ động hoặc mất kết nối). */
   Disconnected: 'Disconnected',
 
-  /** Đang kết nối lại. */
-  Reconnecting: 'Reconnecting',
-
   /** Kết nối hoặc ngắt thất bại. */
   Error: 'Error',
 } as const;

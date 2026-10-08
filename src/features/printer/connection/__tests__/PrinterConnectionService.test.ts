@@ -129,6 +129,83 @@ describe('PrinterConnectionService', () => {
     expect(second.write).toHaveBeenCalledWith(new Uint8Array([6]));
   });
 
+  it('ensureConnected đang có lượt kết nối thì chờ lượt đó, không mở lượt mới', async () => {
+    const first = makeFakeAdapter().adapter;
+    let finish: () => void = () => undefined;
+    first.connect.mockReturnValueOnce(
+      new Promise<ConnectedDevice>((resolve) => {
+        finish = () => resolve(fakeConnectedDevice(basePrinter.connection));
+      }),
+    );
+    const { service, createAdapter } = setup([first]);
+
+    const appStart = service.connect(basePrinter);
+    const printing = service.ensureConnected(basePrinter);
+    finish();
+    await Promise.all([appStart, printing]);
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(first.disconnect).not.toHaveBeenCalled();
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('ensureConnected đã kết nối thì không làm gì, chưa kết nối thì kết nối', async () => {
+    const { service, createAdapter } = setup([]);
+
+    await service.ensureConnected(basePrinter);
+    await service.ensureConnected(basePrinter);
+
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
+  it('ghi lỗi do kết nối hỏng thì bỏ kết nối, lần sau ensureConnected mở lại', async () => {
+    const first = makeFakeAdapter().adapter;
+    first.write.mockRejectedValueOnce(
+      new DeviceErrorException({ code: DeviceErrorCode.WRITE_TIMEOUT, message: 'Máy in không nhận hết dữ liệu' }),
+    );
+    const second = makeFakeAdapter().adapter;
+    const { service } = setup([first, second]);
+    await service.connect(basePrinter);
+
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toMatchObject({
+      code: DeviceErrorCode.WRITE_TIMEOUT,
+    });
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Disconnected);
+
+    await service.ensureConnected(basePrinter);
+    await service.send(basePrinter.id, new Uint8Array([2]));
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expect(second.write).toHaveBeenCalledWith(new Uint8Array([2]));
+  });
+
+  it('ghi lỗi không phải do kết nối thì giữ kết nối', async () => {
+    const { adapter } = makeFakeAdapter();
+    adapter.write.mockRejectedValueOnce(new Error('lỗi lập trình'));
+    const { service } = setup([adapter]);
+    await service.connect(basePrinter);
+
+    await expect(service.send(basePrinter.id, new Uint8Array([1]))).rejects.toThrow('lỗi lập trình');
+
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+    expect(adapter.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('forget dọn trạng thái máy đã ngắt, giữ nguyên máy còn kết nối', async () => {
+    const { service } = setup([]);
+    const label: Printer = { ...basePrinter, id: 'p-label' };
+    await service.connect(basePrinter);
+    await service.connect(label);
+    await service.disconnect(label.id);
+
+    service.forget(label.id);
+    service.forget(basePrinter.id);
+
+    expect(service.getStatus(label.id)).toBe(ConnectionStatus.Idle);
+    expect(service.getStatus(basePrinter.id)).toBe(ConnectionStatus.Connected);
+  });
+
   it('máy chưa từng kết nối ở trạng thái Idle', () => {
     const { service } = setup([]);
 

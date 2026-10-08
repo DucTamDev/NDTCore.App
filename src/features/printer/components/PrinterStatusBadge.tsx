@@ -9,7 +9,6 @@ const labelByStatus: Record<ConnectionStatus, string> = {
   Connected: 'Đã kết nối',
   Disconnecting: 'Đang ngắt kết nối',
   Disconnected: 'Mất kết nối',
-  Reconnecting: 'Đang kết nối lại',
   Error: 'Lỗi',
 };
 
@@ -19,7 +18,6 @@ const colorByStatus: Record<ConnectionStatus, { bg: string; fg: string }> = {
   Connected: { bg: '#DCFCE7', fg: '#15803D' },
   Disconnecting: { bg: '#FEF3C7', fg: '#B45309' },
   Disconnected: { bg: '#FEE2E2', fg: '#B91C1C' },
-  Reconnecting: { bg: '#FEF3C7', fg: '#B45309' },
   Error: { bg: '#FEE2E2', fg: '#B91C1C' },
 };
 

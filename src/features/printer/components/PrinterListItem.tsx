@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, IconButton, Menu, Switch } from 'react-native-paper';
-import { usePrinterConnection } from '../hooks/usePrinterConnection';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
@@ -29,7 +29,7 @@ const languageLabel: Record<PrintLanguage, string> = {
 };
 
 export const PrinterListItem: React.FC<PrinterListItemProps> = ({ printer, actions, onEdit }) => {
-  const status = usePrinterConnection(printer.id);
+  const status = useConnectionStatus(printer.id);
   const [menuVisible, setMenuVisible] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 

@@ -6,6 +6,7 @@ import { printerRepository } from '../storage/PrinterRepository';
 import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 import { printerConnectionService } from '../connection/PrinterConnectionService';
 import { usePrintImageCapture } from './usePrintImageCapture';
+import { useConnectionStatus } from './useConnectionStatus';
 import { generateId } from '../../../utils/id';
 import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
 import type { ConnectionSectionProps } from '../components/ConnectionSection';
@@ -95,7 +96,6 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const { captureNode, captureImage } = usePrintImageCapture();
-  const [liveStatus, setLiveStatus] = useState<ConnectionStatus>(ConnectionStatus.Idle);
 
   const displayForm = useForm<PrinterDisplayValues>({
     resolver: zodResolver(printerDisplaySchema),
@@ -117,6 +117,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
 
   /** Form đã tự mở kết nối (bấm Kết nối / chọn ngôn ngữ); chỉ khi đó đóng form mới phải trả máy in về như cũ. */
   const connectionTouchedRef = useRef(false);
+
+  const isEdit = Boolean(initialValues);
 
   /** Máy đang sửa có đang kết nối lúc mở form không; Huỷ thì kết nối lại bằng cấu hình đã lưu thay vì ngắt. */
   const [restoreOnCancel] = useState(
@@ -242,15 +244,8 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
   };
   const { connectionState, languageState, connectionDirty } = printerDetection;
 
-  useEffect(() => {
-    if (!language) {
-      setLiveStatus(ConnectionStatus.Idle);
-      return undefined;
-    }
-
-    setLiveStatus(printerConnectionService.getStatus(printerId));
-    return printerConnectionService.onStatusChange(printerId, setLiveStatus);
-  }, [language, printerId]);
+  const connectionStatus = useConnectionStatus(printerId);
+  const liveStatus = language ? connectionStatus : ConnectionStatus.Idle;
 
   /**
    * Đóng form mà chưa lưu: chỉ khi form đã tự kết nối mới trả máy in về như trước khi mở. Ngắt cũng huỷ lượt kết nối
@@ -262,11 +257,21 @@ export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: Use
     }
 
     connectionTouchedRef.current = false;
-    const restore = restoreOnCancel
-      ? printerConnectionService.reconnect(printerId)
-      : printerConnectionService.disconnect(printerId);
-    restore.catch(() => undefined);
-  }, [printerId, restoreOnCancel]);
+
+    if (restoreOnCancel) {
+      printerConnectionService.reconnect(printerId).catch(() => undefined);
+      return;
+    }
+
+    printerConnectionService
+      .disconnect(printerId)
+      .catch(() => undefined)
+      .then(() => {
+        if (!isEdit) {
+          printerConnectionService.forget(printerId);
+        }
+      });
+  }, [printerId, restoreOnCancel, isEdit]);
 
   useEffect(() => {
     if (!visible) {

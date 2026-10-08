@@ -3,7 +3,7 @@ import { ConnectionType } from '../models/connections/ConnectionType';
 import type { Printer } from '../models/printer/Printer';
 import type { ConnectedDevice } from '../models/device/ConnectedDevice';
 import { ConnectionStatus } from '../models/connections/ConnectionStatus';
-import { DeviceErrorCode } from '../errors';
+import { DeviceErrorCode, type ErrorCode } from '../errors';
 import { DeviceErrorException, errorCodeOf } from '../exceptions';
 import { printerLogger } from '../logging/PrinterLogger';
 import { ensureBluetoothPermission } from '../permissions/PrinterPermissionService';
@@ -40,6 +40,14 @@ interface PreviousAttachment {
 /** Việc sổ sách (gắn, gỡ, đóng) chạy lần lượt; mở kết nối chạy ngoài hàng nên máy khác nhau mở song song. */
 const BOOKKEEPING_KEY = 'devices';
 
+/** Lỗi ghi cho thấy kết nối đã hỏng dù native chưa báo mất (hay gặp với LAN): bỏ kết nối để lần sau mở lại. */
+const BROKEN_CONNECTION_CODES: ReadonlySet<ErrorCode> = new Set<ErrorCode>([
+  DeviceErrorCode.NOT_CONNECTED,
+  DeviceErrorCode.CONNECTION_LOST,
+  DeviceErrorCode.WRITE_FAILED,
+  DeviceErrorCode.WRITE_TIMEOUT,
+]);
+
 const notConnected = (): DeviceErrorException =>
   new DeviceErrorException({ code: DeviceErrorCode.NOT_CONNECTED, message: 'Máy in chưa kết nối' });
 
@@ -73,6 +81,9 @@ export class PrinterConnectionService {
   /** Bộ đếm sinh mã lượt, tăng dần cho mọi máy. */
   private attemptCounter = 0;
 
+  /** Lượt `connect` đang chạy theo `printerId`, để `ensureConnected` chờ lượt đó thay vì mở lượt mới. */
+  private readonly pendingConnects = new Map<string, Promise<ConnectedDevice>>();
+
   /** Đếm số lần đóng kết nối, để biết một kết nối có bị đóng trong lúc `connect` khác đang mở dở không. */
   private closeCounter = 0;
 
@@ -101,7 +112,46 @@ export class PrinterConnectionService {
    * thêm. Kết nối thất bại thì phiên cũ (nếu có) vẫn giữ nguyên. Lượt bị thay (bởi `connect` mới hơn hoặc
    * `disconnect`) thì gỡ phần mình đã gắn và không đổi trạng thái.
    */
-  async connect(printer: Printer): Promise<ConnectedDevice> {
+  connect(printer: Printer): Promise<ConnectedDevice> {
+    const pending = this.connectNow(printer);
+    const clear = (): void => {
+      if (this.pendingConnects.get(printer.id) === pending) {
+        this.pendingConnects.delete(printer.id);
+      }
+    };
+    this.pendingConnects.set(printer.id, pending);
+    pending.then(clear, clear);
+    return pending;
+  }
+
+  /**
+   * Dùng trước khi in: đã kết nối thì thôi; đang có lượt kết nối (vd lúc mở app) thì chờ lượt đó, vì mở lượt mới sẽ
+   * làm lượt kia đóng rồi mở lại kết nối; lượt đó lỗi hoặc chưa kết nối thì mới kết nối.
+   */
+  async ensureConnected(printer: Printer): Promise<void> {
+    await this.pendingConnects.get(printer.id)?.catch(() => undefined);
+
+    if (this.getStatus(printer.id) === ConnectionStatus.Connected && this.sessions.has(printer.id)) {
+      return;
+    }
+
+    await this.connect(printer);
+  }
+
+  /**
+   * Bỏ trạng thái của máy in không còn dùng (đã xoá, bản nháp đã đóng), gọi sau khi đã ngắt. Máy còn đang gắn vào kết
+   * nối thì giữ nguyên.
+   */
+  forget(printerId: string): void {
+    if (this.sessions.has(printerId)) {
+      return;
+    }
+
+    this.statuses.delete(printerId);
+    this.attempts.delete(printerId);
+  }
+
+  private async connectNow(printer: Printer): Promise<ConnectedDevice> {
     const printerId = printer.id;
     const connectionType = printer.connection.type;
     const startedAt = Date.now();
@@ -158,9 +208,27 @@ export class PrinterConnectionService {
     );
   }
 
-  /** Chưa kết nối (hoặc đã mất kết nối) thì báo `NOT_CONNECTED`. */
+  /**
+   * Chưa kết nối (hoặc đã mất kết nối) thì báo `NOT_CONNECTED`. Ghi lỗi do kết nối hỏng thì bỏ kết nối như khi mất,
+   * để lần in sau tự kết nối lại thay vì gửi mãi vào kết nối chết. Không thử lại ở đây vì máy có thể đã in một phần.
+   */
   async send(printerId: string, bytes: Uint8Array): Promise<void> {
-    return this.requireAdapter(printerId).write(bytes);
+    const connectionId = this.sessions.get(printerId);
+    const device = connectionId ? this.devices.get(connectionId) : undefined;
+
+    if (!connectionId || !device) {
+      throw notConnected();
+    }
+
+    try {
+      await device.adapter.write(bytes);
+    } catch (error) {
+      if (BROKEN_CONNECTION_CODES.has(errorCodeOf(error))) {
+        this.handleLost(connectionId, device.adapter);
+      }
+
+      throw error;
+    }
   }
 
   /** `null` khi quá hạn mà máy in chưa trả lời. */
@@ -346,7 +414,7 @@ export class PrinterConnectionService {
     this.sessions.delete(printerId);
 
     if (device.users.size === 0) {
-      this.forget(connectionId, device);
+      this.unregister(connectionId, device);
 
       try {
         await device.adapter.disconnect();
@@ -385,7 +453,7 @@ export class PrinterConnectionService {
   }
 
   /** Bỏ kết nối khỏi sổ sách và ghi lần đóng, để `connect` đang mở dở biết kết nối native có thể đã đóng. */
-  private forget(connectionId: string, device: DeviceConnection): void {
+  private unregister(connectionId: string, device: DeviceConnection): void {
     if (this.devices.get(connectionId) === device) {
       this.devices.delete(connectionId);
     }
@@ -400,7 +468,7 @@ export class PrinterConnectionService {
    * để gắn vào log thì bỏ qua log chứ không ghi khoá kết nối, vì khoá chứa IP/MAC.
    */
   private async close(connectionId: string, device: DeviceConnection, printerId?: string): Promise<void> {
-    this.forget(connectionId, device);
+    this.unregister(connectionId, device);
 
     try {
       await device.adapter.disconnect();

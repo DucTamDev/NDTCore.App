@@ -40,6 +40,7 @@ jest.mock('../../connection/PrinterConnectionService', () => ({
     disconnect: jest.fn(() => Promise.resolve()),
     connect: jest.fn((printer: Printer) => Promise.resolve(mockConnectedDeviceOf(printer))),
     reconnect: jest.fn(() => Promise.resolve()),
+    forget: jest.fn(),
   },
 }));
 
@@ -225,6 +226,10 @@ describe('useAddPrinterFlow', () => {
     update({ visible: false, onSaved: jest.fn(), kind: PrintKind.Label });
 
     expect(printerConnectionService.disconnect).toHaveBeenCalledWith(draftId);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(printerConnectionService.forget).toHaveBeenCalledWith(draftId);
   });
 
   it('thêm máy: unmount (phone backToList) chưa lưu sau khi kết nối → ngắt bản nháp', async () => {

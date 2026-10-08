@@ -499,11 +499,13 @@ adapter; `Printer` cuối cùng ngắt thì mới đóng. Ngắt khoá theo `dev
 
 | Hàm | Làm gì |
 | --- | --- |
-| `connect(printer)` | Mở kết nối bằng adapter mới, `Connecting` → `Connected` / `Error` (chi tiết dưới bảng) |
+| `connect(printer)` | Hỏi native qua adapter mới, `Connecting` → `Connected` / `Error`; trả `ConnectedDevice` |
+| `ensureConnected(printer)` | Trước khi in: đã kết nối thì thôi, đang kết nối thì chờ lượt đó, chưa thì kết nối |
 | `disconnect(printerId)` | `Disconnecting` → trả adapter → `Disconnected`; huỷ cả lượt `connect` đang chạy |
-| `send(printerId, bytes)` | Ghi qua adapter của phiên; chưa kết nối → `NOT_CONNECTED` |
+| `send(printerId, bytes)` | Ghi qua adapter; chưa kết nối → `NOT_CONNECTED`; lỗi do kết nối hỏng thì bỏ phiên |
 | `read(printerId)` | Đọc phản hồi; `null` khi quá hạn |
-| `getStatus` / `onStatusChange` | Theo phiên trong bộ nhớ; chưa từng kết nối là `Idle` |
+| `getStatus` / `onStatusChange` | Trong bộ nhớ; chưa từng kết nối là `Idle`; UI đọc qua `useConnectionStatus` |
+| `forget(printerId)` | Dọn trạng thái máy đã xoá / bản nháp đã đóng (sau khi ngắt) |
 | `reconnect(printerId)`, `connectEnabledPrinters()` | Đọc máy in đã lưu; mở app kết nối máy đang bật |
 
 * `connect`: Bluetooth thì xin quyền trước. Thành công mới thay phiên cũ rồi trả adapter cũ (lỗi khi trả chỉ ghi

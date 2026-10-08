@@ -28,6 +28,7 @@ export class PrinterManagementService {
    */
   async remove(printerId: string): Promise<void> {
     await this.connectionService.disconnect(printerId).catch(() => undefined);
+    this.connectionService.forget(printerId);
     this.repository.removePrinter(printerId);
   }
 

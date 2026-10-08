@@ -3,7 +3,6 @@ import { PrinterRepository } from '../../storage/PrinterRepository';
 import { PrinterConnectionLock } from '../../connection/PrinterConnectionLock';
 import { printerStorage } from '../../storage/PrinterStorage';
 import { printerLogger } from '../../logging/PrinterLogger';
-import { ConnectionStatus } from '../../models/connections/ConnectionStatus';
 import { PrintLanguage } from '../../models/printer/PrinterLanguage';
 import { ConnectionType } from '../../models/connections/ConnectionType';
 import type { Printer } from '../../models/printer/Printer';
@@ -70,29 +69,25 @@ describe('PrinterService', () => {
     const { service, connectionService } = setup();
 
     await expect(service.print('deleted', image)).rejects.toMatchObject({ code: PrinterErrorCode.PRINTER_NOT_FOUND });
-    expect(connectionService.connect).not.toHaveBeenCalled();
+    expect(connectionService.ensureConnected).not.toHaveBeenCalled();
     expect(connectionService.send).not.toHaveBeenCalled();
   });
 
-  it('in: chưa kết nối thì kết nối trước', async () => {
-    const { service, connectionService, repository } = setup({
-      getStatus: jest.fn().mockReturnValue(ConnectionStatus.Idle),
+  it('in: bảo đảm đã kết nối trước khi gửi', async () => {
+    const order: string[] = [];
+    const { service, repository } = setup({
+      ensureConnected: jest.fn().mockImplementation(async () => {
+        order.push('ensureConnected');
+      }),
+      send: jest.fn().mockImplementation(async () => {
+        order.push('send');
+      }),
     });
     repository.addPrinter(basePrinter);
 
     await service.print(basePrinter.id, image);
 
-    expect(connectionService.connect).toHaveBeenCalledWith(basePrinter);
-    expect(connectionService.send).toHaveBeenCalled();
-  });
-
-  it('in: đã kết nối thì không kết nối lại', async () => {
-    const { service, connectionService, repository } = setup();
-    repository.addPrinter(basePrinter);
-
-    await service.print(basePrinter.id, image);
-
-    expect(connectionService.connect).not.toHaveBeenCalled();
+    expect(order).toEqual(['ensureConnected', 'send']);
   });
 
   it('in: chuyển tuỳ chọn số hàng xuống ngôn ngữ in', async () => {
@@ -145,8 +140,7 @@ describe('PrinterService', () => {
 
   it('in thử: kết nối thất bại thì ghi log thất bại và ném lại lỗi', async () => {
     const { service } = setup({
-      getStatus: jest.fn().mockReturnValue(ConnectionStatus.Idle),
-      connect: jest.fn().mockRejectedValue(new Error('offline')),
+      ensureConnected: jest.fn().mockRejectedValue(new Error('offline')),
     });
 
     await expect(service.testPrint(basePrinter, image)).rejects.toThrow('offline');
