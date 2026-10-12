@@ -49,7 +49,8 @@ export const useTestPrint = (input: UseTestPrintInput) => {
     setTestPrintErrorMessage(null);
     try {
       const isLabel = printer.kind === PrintKind.Label;
-      const image = await captureImage(createElement(isLabel ? SampleLabel : SampleReceipt), printer.paper);
+      const sample = isLabel ? createElement(SampleLabel, { paper: printer.paper }) : createElement(SampleReceipt);
+      const image = await captureImage(sample, printer.paper);
 
       if (!image) {
         setTestPrintErrorMessage('Không chụp được bản in thử');

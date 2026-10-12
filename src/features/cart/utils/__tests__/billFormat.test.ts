@@ -1,4 +1,4 @@
-import { formatDateTime, PAYMENT_METHOD_LABEL } from '../billFormat';
+import { formatDateTime, formatTime, PAYMENT_METHOD_LABEL } from '../billFormat';
 
 describe('formatDateTime', () => {
   it('returns an empty string for null', () => {
@@ -9,6 +9,13 @@ describe('formatDateTime', () => {
     const result = formatDateTime('2026-08-21T09:05:00.000Z');
     expect(result).toMatch(/\d{2}\/\d{2}\/\d{4}/);
     expect(result).toMatch(/\d{2}:\d{2}/);
+  });
+});
+
+describe('formatTime', () => {
+  it('chỉ có giờ:phút, null thì chuỗi rỗng', () => {
+    expect(formatTime('2026-08-21T09:05:00.000Z')).toMatch(/^\d{2}:\d{2}$/);
+    expect(formatTime(null)).toBe('');
   });
 });
 

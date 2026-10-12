@@ -73,6 +73,7 @@ export const usePrintImageCapture = (): UsePrintImageCapture => {
 };
 
 const styles = StyleSheet.create({
-  // Nền trắng đặc để ảnh chụp luôn có pixel trắng thật, không phụ thuộc thiết bị xử lý nền trong suốt ra sao.
-  page: { position: 'absolute', left: -9999, top: 0, padding: 16, backgroundColor: '#ffffff' },
+  // Nền trắng đặc để ảnh chụp luôn có pixel trắng thật, không phụ thuộc thiết bị xử lý nền trong suốt ra sao. Không
+  // padding: lề do mẫu in tự đặt.
+  page: { position: 'absolute', left: -9999, top: 0, backgroundColor: '#ffffff' },
 });

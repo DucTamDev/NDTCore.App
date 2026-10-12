@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
 import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { orderApi } from '../api/orderApi';
-import { buildReprintReceipt, printReceipt, type PrintReceiptOutcome } from '../services/OrderPrintTrigger';
+import { buildReprintReceipt, printReceipt, type PrintOutcome } from '../services/OrderPrintTrigger';
 import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import type { OrderHistoryItem } from '../types/cart.types';
 
@@ -33,7 +33,7 @@ export const useOrderHistory = (captureImage: CaptureImage) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reprintingIds, setReprintingIds] = useState<Set<number>>(new Set());
-  const [receiptPrintWarning, setReceiptPrintWarning] = useState<Exclude<PrintReceiptOutcome, 'ok'> | null>(null);
+  const [receiptPrintWarning, setReceiptPrintWarning] = useState<Exclude<PrintOutcome, 'ok'> | null>(null);
   // Ref (không phải state) để guard chặn fetch chồng lấp mà không đổi identity
   // của refresh() — pull-to-refresh và useEffect lúc mount có thể cùng gọi
   // refresh() gần nhau; nếu đưa isLoading vào deps của useCallback, mỗi lần

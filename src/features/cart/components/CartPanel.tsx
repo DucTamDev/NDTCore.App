@@ -39,8 +39,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
   const note = useSelector((state: RootState) => selectCartNote(state));
   const total = useSelector((state: RootState) => selectCartTotal(state));
   const { captureNode, captureImage } = usePrintImageCapture();
-  const { submit, isSubmitting, error, dismissError, receiptPrintWarning, dismissReceiptPrintWarning } =
-    useCheckout(captureImage);
+  const { submit, isSubmitting, error, dismissError, printWarning, dismissPrintWarning } = useCheckout(captureImage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
@@ -103,8 +102,8 @@ export const CartPanel: React.FC<CartPanelProps> = ({ onOrderCreated }) => {
         <Snackbar visible={successMessage !== null} onDismiss={() => setSuccessMessage(null)} duration={3000}>
           {successMessage}
         </Snackbar>
-        <Snackbar visible={receiptPrintWarning !== null} onDismiss={dismissReceiptPrintWarning} duration={4000}>
-          {receiptPrintWarning === 'no-printer' ? 'Chưa thiết lập máy in cho Hoá đơn' : 'In hoá đơn không thành công'}
+        <Snackbar visible={printWarning !== null} onDismiss={dismissPrintWarning} duration={4000}>
+          {printWarning}
         </Snackbar>
       </Portal>
       {captureNode}
