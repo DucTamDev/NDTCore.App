@@ -2,15 +2,20 @@ import React from 'react';
 import { Text } from 'react-native';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
 import { DEFAULT_RECEIPT_TEMPLATE, ReceiptTemplate } from '..';
+import { PrintBarcode, PrintQrCode } from '../PrintCodes';
 import type { ReceiptContent } from '../../models/templates/ReceiptContent';
 import type { ReceiptTemplateOptions } from '../../models/templates/ReceiptTemplateOptions';
 
 const content: ReceiptContent = {
+  logoUri: null,
   storeName: 'NDTCore Quận 1',
   storeAddress: '123 Lê Lợi',
+  storePhone: null,
   orderNumber: 'ORD-001',
   time: '21/08/2026 16:00',
   serviceType: 'Tại quầy',
+  table: null,
+  cashierName: null,
   items: [
     {
       name: 'Trà sữa',
@@ -27,17 +32,49 @@ const content: ReceiptContent = {
   ],
   discountAmount: 0,
   deliveryFee: 0,
+  vat: null,
   payment: null,
+  wifi: null,
+  paymentQr: null,
+  orderBarcode: null,
 };
 
-/** Mọi dòng chữ của hoá đơn theo thứ tự hiển thị. */
-const linesOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): string[] => {
+/** Nội dung có đủ dữ liệu cho các tuỳ chọn mặc định tắt. */
+const fullContent: ReceiptContent = {
+  ...content,
+  storePhone: '028 3822 1234',
+  table: 'B05',
+  cashierName: 'Lan',
+  vat: { ratePercent: 8, amount: 8960 },
+  wifi: { ssid: 'NDT_Guest', password: 'caphengon' },
+  paymentQr: 'VIETQR-PAYLOAD',
+  orderBarcode: 'ORD-001',
+};
+
+/** Mọi tuỳ chọn mặc định tắt được bật lên. */
+const allOn: ReceiptTemplateOptions = {
+  ...DEFAULT_RECEIPT_TEMPLATE,
+  showLogo: true,
+  showPhone: true,
+  showTable: true,
+  showCashier: true,
+  showVat: true,
+  showWifi: true,
+  showPaymentQr: true,
+  showOrderBarcode: true,
+};
+
+const rendererOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): ReactTestRenderer => {
   let renderer: ReactTestRenderer | undefined;
   act(() => {
     renderer = TestRenderer.create(<ReceiptTemplate content={value} options={options} />);
   });
-  return (renderer as ReactTestRenderer).root.findAllByType(Text).map((node) => String(node.props.children));
+  return renderer as ReactTestRenderer;
 };
+
+/** Mọi dòng chữ của hoá đơn theo thứ tự hiển thị. */
+const linesOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): string[] =>
+  rendererOf(value, options).root.findAllByType(Text).map((node) => String(node.props.children));
 
 /** Giá trị nằm ngay sau nhãn trên cùng một dòng. */
 const valueAfter = (lines: string[], label: string): string | undefined => {
@@ -125,5 +162,46 @@ describe('ReceiptTemplate', () => {
   it('lời cảm ơn rỗng thì không in', () => {
     const lines = linesOf(content, { ...DEFAULT_RECEIPT_TEMPLATE, footerText: '' });
     expect(lines[lines.length - 1]).toBe('112.000đ');
+  });
+});
+
+describe('ReceiptTemplate tuỳ chọn mặc định tắt', () => {
+  it('mặc định không in SĐT, bàn, thu ngân, VAT, Wi-Fi, QR, mã vạch dù có dữ liệu', () => {
+    const renderer = rendererOf(fullContent);
+    const lines = renderer.root.findAllByType(Text).map((node) => String(node.props.children));
+    expect(lines).not.toContain('ĐT: 028 3822 1234');
+    expect(lines).not.toContain('Bàn');
+    expect(lines).not.toContain('Thu ngân');
+    expect(lines).not.toContain('VAT 8%');
+    expect(lines).not.toContain('Wi-Fi: NDT_Guest');
+    expect(renderer.root.findAllByType(PrintQrCode)).toHaveLength(0);
+    expect(renderer.root.findAllByType(PrintBarcode)).toHaveLength(0);
+  });
+
+  it('bật lên thì in đủ, VAT nằm trước tổng cộng', () => {
+    const lines = linesOf(fullContent, allOn);
+    expect(lines).toContain('ĐT: 028 3822 1234');
+    expect(valueAfter(lines, 'Bàn')).toBe('B05');
+    expect(valueAfter(lines, 'Thu ngân')).toBe('Lan');
+    expect(valueAfter(lines, 'VAT 8%')).toBe('8.960đ');
+    expect(lines.indexOf('VAT 8%')).toBeLessThan(lines.indexOf('TỔNG CỘNG'));
+    expect(lines).toEqual(expect.arrayContaining(['Wi-Fi: NDT_Guest', 'Mật khẩu: caphengon']));
+    expect(lines).toContain('Quét để chuyển khoản 120.960đ');
+  });
+
+  it('tiền VAT luôn cộng vào tổng cộng, kể cả khi tắt dòng VAT', () => {
+    expect(valueAfter(linesOf(fullContent), 'TỔNG CỘNG')).toBe('120.960đ');
+  });
+
+  it('bật QR và mã vạch thì vẽ mã kèm dòng chữ, mã vạch in giá trị bên dưới', () => {
+    const renderer = rendererOf(fullContent, allOn);
+    expect(renderer.root.findByType(PrintQrCode).props.value).toBe('VIETQR-PAYLOAD');
+    expect(renderer.root.findByType(PrintBarcode).props.value).toBe('ORD-001');
+  });
+
+  it('bật nhưng thiếu dữ liệu thì bỏ qua dòng đó', () => {
+    const renderer = rendererOf(content, allOn);
+    expect(renderer.root.findAllByType(PrintQrCode)).toHaveLength(0);
+    expect(renderer.root.findAllByType(Text).map((node) => String(node.props.children))).not.toContain('Bàn');
   });
 });

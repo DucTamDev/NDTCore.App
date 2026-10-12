@@ -5,6 +5,8 @@ import type { LabelTemplateOptions } from './LabelTemplateOptions';
 export interface LabelContent {
   storeName: string | null;
 
+  customerName: string | null;
+
   orderNumber: string;
 
   /** Tên hình thức phục vụ đã dịch sẵn (vd "Mang đi"). */

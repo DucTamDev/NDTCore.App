@@ -16,6 +16,7 @@ const item = (overrides: Partial<PrintItem> = {}): PrintItem => ({
 
 const contentOf = (items: PrintItem[]): LabelContent => ({
   storeName: null,
+  customerName: null,
   orderNumber: 'A1',
   serviceType: null,
   time: '',

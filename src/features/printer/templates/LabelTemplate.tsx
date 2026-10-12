@@ -28,10 +28,15 @@ const headerPartsOf = (content: LabelContent, page: LabelPage, options: LabelTem
     options.showCupIndex ? `Ly ${page.cupNumber}/${page.cupCount}` : '',
   ].filter(Boolean);
 
-const footerPartsOf = (content: LabelContent, options: LabelTemplateOptions): [string, string] => [
-  options.showStoreName ? (content.storeName ?? '') : '',
-  options.showTime ? content.time : '',
-];
+/** Bên trái tên cửa hàng · tên khách, bên phải giờ. */
+const footerPartsOf = (content: LabelContent, options: LabelTemplateOptions): [string, string] => {
+  const names = [
+    options.showStoreName ? content.storeName : null,
+    options.showCustomerName ? content.customerName : null,
+  ];
+
+  return [names.filter(Boolean).join(' · '), options.showTime ? content.time : ''];
+};
 
 /** Thuộc tính của mẫu tem. */
 interface LabelTemplateProps {

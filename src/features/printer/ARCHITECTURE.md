@@ -123,7 +123,7 @@ src/features/printer/
 ├── storage/             PrinterRepository, PrinterStorage
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
 ├── templates/           index.ts (barrel); ReceiptTemplate, LabelTemplate, PrintLayout (PrintText/PrintRow/
-│                        PrintDivider), TemplateDefaults (mẫu mặc định, cỡ chữ mức Normal)
+│                        PrintDivider), PrintCodes (QR, mã vạch CODE128), TemplateDefaults (mẫu mặc định)
 ├── logging/             PrinterLogger
 ├── errors/              index.ts (barrel), DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
 ├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
@@ -389,6 +389,9 @@ Quy ước của mẫu:
   dùng Small, tem dùng Normal.
 * Mỗi con tem là một lệnh in riêng (lệnh in tem chỉ nhận ảnh cao tối đa một con tem). `labelPagesOf` tách mỗi phần
   món thành một ly; ly nhiều loại topping hơn `maxToppingsPerLabel` thì tách tem, cỡ tem không tự tăng.
+* Logo, SĐT, bàn, thu ngân, VAT, Wi-Fi, QR chuyển khoản, mã vạch đơn, tên khách trên tem mặc định tắt; bật mà nội
+  dung thiếu dữ liệu thì bỏ qua dòng đó. QR vẽ bằng `qrcode-generator`, mã vạch lấy bộ mã hoá CODE128 của
+  `jsbarcode` (không dùng phần vẽ canvas/svg); cả hai vẽ thành View đen trắng.
 * Tuỳ chọn mẫu hiện là hằng số mặc định, chưa lưu và chưa có màn hình chỉnh.
 
 ---

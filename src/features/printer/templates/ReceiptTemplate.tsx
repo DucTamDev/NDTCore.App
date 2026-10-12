@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { basePriceOf, lineTotalOf, toppingTextOf, type PrintItem } from '../models/templates/PrintItem';
 import {
@@ -11,6 +11,7 @@ import {
 import type { ReceiptTemplateOptions } from '../models/templates/ReceiptTemplateOptions';
 import { DEFAULT_RECEIPT_TEMPLATE } from './TemplateDefaults';
 import { PrintDivider, PrintRow, PrintText, paddingStyleOf } from './PrintLayout';
+import { PrintBarcode, PrintQrCode } from './PrintCodes';
 
 type Lines = React.ReactElement[];
 
@@ -23,9 +24,18 @@ interface ReceiptSection {
 
 const STORE_SECTION_KEY = 'store';
 
+/** Logo khoảng 12mm. */
+const LOGO_SIZE_DOTS = 96;
+
 const storeLines = (content: ReceiptContent, options: ReceiptTemplateOptions): Lines => {
   const { fontSize } = options;
   const lines: Lines = [];
+
+  // Ảnh tải bất đồng bộ còn khung chụp chụp ngay khi layout xong, nên logo phải có sẵn trong bộ nhớ đệm ảnh mới
+  // chắc chắn hiện trên bản in.
+  if (options.showLogo && content.logoUri) {
+    lines.push(<Image key="logo" source={{ uri: content.logoUri }} style={styles.logo} resizeMode="contain" />);
+  }
 
   if (options.showStoreName && content.storeName) {
     lines.push(<PrintText key="name" size={fontSize.storeName} bold center>{content.storeName}</PrintText>);
@@ -33,6 +43,10 @@ const storeLines = (content: ReceiptContent, options: ReceiptTemplateOptions): L
 
   if (options.showAddress && content.storeAddress) {
     lines.push(<PrintText key="address" size={fontSize.storeInfo} center>{content.storeAddress}</PrintText>);
+  }
+
+  if (options.showPhone && content.storePhone) {
+    lines.push(<PrintText key="phone" size={fontSize.storeInfo} center>{`ĐT: ${content.storePhone}`}</PrintText>);
   }
 
   return lines;
@@ -54,6 +68,14 @@ const orderLines = (content: ReceiptContent, options: ReceiptTemplateOptions): L
 
   if (options.showServiceType && content.serviceType) {
     lines.push(<PrintRow key="service" label="Hình thức" value={content.serviceType} size={size} />);
+  }
+
+  if (options.showTable && content.table) {
+    lines.push(<PrintRow key="table" label="Bàn" value={content.table} size={size} />);
+  }
+
+  if (options.showCashier && content.cashierName) {
+    lines.push(<PrintRow key="cashier" label="Thu ngân" value={content.cashierName} size={size} />);
   }
 
   return lines;
@@ -124,6 +146,11 @@ const totalLines = (content: ReceiptContent, options: ReceiptTemplateOptions): L
     lines.push(<PrintRow key="delivery" label="Phí giao hàng" value={deliveryFeeText} size={size} />);
   }
 
+  if (options.showVat && content.vat) {
+    const vatLabel = `VAT ${content.vat.ratePercent}%`;
+    lines.push(<PrintRow key="vat" label={vatLabel} value={formatCurrency(content.vat.amount)} size={size} />);
+  }
+
   const grandTotalText = formatCurrency(grandTotalOf(content));
   lines.push(<PrintRow key="total" label="TỔNG CỘNG" value={grandTotalText} size={options.fontSize.grandTotal} bold />);
   return lines;
@@ -154,10 +181,33 @@ const paymentLines = (content: ReceiptContent, options: ReceiptTemplateOptions):
   return lines;
 };
 
-const footerLines = (options: ReceiptTemplateOptions): Lines =>
-  options.footerText
-    ? [<PrintText key="footer" size={options.fontSize.footer} bold center>{options.footerText}</PrintText>]
-    : [];
+const footerLines = (content: ReceiptContent, options: ReceiptTemplateOptions): Lines => {
+  const size = options.fontSize.footer;
+  const { wifi, paymentQr, orderBarcode } = content;
+  const lines: Lines = [];
+
+  if (options.showWifi && wifi) {
+    lines.push(<PrintText key="wifi" size={size} center>{`Wi-Fi: ${wifi.ssid}`}</PrintText>);
+    lines.push(<PrintText key="wifi-password" size={size} center>{`Mật khẩu: ${wifi.password}`}</PrintText>);
+  }
+
+  if (options.showPaymentQr && paymentQr) {
+    const qrCaption = `Quét để chuyển khoản ${formatCurrency(grandTotalOf(content))}`;
+    lines.push(<PrintQrCode key="qr" value={paymentQr} />);
+    lines.push(<PrintText key="qr-caption" size={size} center>{qrCaption}</PrintText>);
+  }
+
+  if (options.showOrderBarcode && orderBarcode) {
+    lines.push(<PrintBarcode key="barcode" value={orderBarcode} />);
+    lines.push(<PrintText key="barcode-text" size={size} center>{orderBarcode}</PrintText>);
+  }
+
+  if (options.footerText) {
+    lines.push(<PrintText key="footer" size={size} bold center>{options.footerText}</PrintText>);
+  }
+
+  return lines;
+};
 
 /** Phần trống thì bỏ luôn cả đường kẻ của nó. */
 const sectionsOf = (content: ReceiptContent, options: ReceiptTemplateOptions): ReceiptSection[] =>
@@ -167,7 +217,7 @@ const sectionsOf = (content: ReceiptContent, options: ReceiptTemplateOptions): R
     { key: 'items', lines: content.items.flatMap((item, index) => itemLines(item, `item-${index}`, options)) },
     { key: 'totals', lines: totalLines(content, options) },
     { key: 'payment', lines: paymentLines(content, options) },
-    { key: 'footer', lines: footerLines(options) },
+    { key: 'footer', lines: footerLines(content, options) },
   ].filter((section) => section.lines.length > 0);
 
 /** Thuộc tính của mẫu hoá đơn. */
@@ -192,3 +242,7 @@ export const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ content, optio
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  logo: { width: LOGO_SIZE_DOTS, height: LOGO_SIZE_DOTS, alignSelf: 'center' },
+});

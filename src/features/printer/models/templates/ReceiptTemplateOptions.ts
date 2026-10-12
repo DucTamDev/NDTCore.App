@@ -40,15 +40,24 @@ export interface ReceiptTemplateOptions {
   /** Khoảng cách giữa các dòng trong một phần (dot). */
   lineGap: number;
 
+  /** Logo ở đầu bill; ảnh màu in qua ngưỡng đen trắng nên nên dùng logo nét đơn sắc. */
+  showLogo: boolean;
+
   showStoreName: boolean;
 
   showAddress: boolean;
+
+  showPhone: boolean;
 
   showOrderNumber: boolean;
 
   showTime: boolean;
 
   showServiceType: boolean;
+
+  showTable: boolean;
+
+  showCashier: boolean;
 
   /** Dòng thuộc tính (size, đường, đá) và các dòng topping dưới mỗi món. */
   showItemOptions: boolean;
@@ -68,10 +77,22 @@ export interface ReceiptTemplateOptions {
   /** Chỉ in khi đơn có phí giao hàng. */
   showDeliveryFee: boolean;
 
+  /** Dòng VAT; tiền VAT luôn cộng vào tổng cộng dù dòng này tắt. */
+  showVat: boolean;
+
   showPaymentMethod: boolean;
 
   /** Tiền nhận và tiền thừa; chỉ in khi nội dung có đủ hai số này (trả tiền mặt). */
   showCashChange: boolean;
+
+  /** Tên và mật khẩu Wi-Fi ở chân bill. */
+  showWifi: boolean;
+
+  /** Mã QR chuyển khoản ở chân bill. */
+  showPaymentQr: boolean;
+
+  /** Mã vạch CODE128 của đơn ở chân bill. */
+  showOrderBarcode: boolean;
 
   /** Lời cảm ơn cuối bill; chuỗi rỗng thì không in. */
   footerText: string;

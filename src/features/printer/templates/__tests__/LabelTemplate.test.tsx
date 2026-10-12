@@ -24,6 +24,7 @@ const toppings = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({ name, quantity:
 
 const content: LabelContent = {
   storeName: 'NDTCore',
+  customerName: 'Anh Minh',
   orderNumber: 'A1024',
   serviceType: 'Mang đi',
   time: '10:42',
@@ -84,5 +85,24 @@ describe('LabelTemplate', () => {
     };
     expect(heightOf(dieCut40x30)).toBe(30 * 8 - 2);
     expect(heightOf(continuous58)).toBeUndefined();
+  });
+});
+
+describe('LabelTemplate dòng dưới', () => {
+  it('mặc định không có dòng dưới; bật thì tên cửa hàng · tên khách bên trái, giờ bên phải', () => {
+    const footerOf = (labelOptions: LabelTemplateOptions): string[] => {
+      let renderer: ReactTestRenderer | undefined;
+      act(() => {
+        renderer = TestRenderer.create(
+          <LabelTemplate content={content} page={pages[1]} paper={dieCut40x30} options={labelOptions} />,
+        );
+      });
+      const lines = (renderer as ReactTestRenderer).root.findAllByType(Text).map((node) => String(node.props.children));
+      return lines.slice(lines.indexOf('* Không ống hút') + 1);
+    };
+
+    expect(footerOf(DEFAULT_LABEL_TEMPLATE)).toEqual([]);
+    const allOn = { ...DEFAULT_LABEL_TEMPLATE, showStoreName: true, showCustomerName: true, showTime: true };
+    expect(footerOf(allOn)).toEqual(['NDTCore · Anh Minh', '10:42']);
   });
 });

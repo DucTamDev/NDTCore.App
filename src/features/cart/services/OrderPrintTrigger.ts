@@ -85,6 +85,25 @@ const toReprintItem = (item: OrderDetailItem): PrintItem => {
   };
 };
 
+/** Phần cửa hàng của hoá đơn; cửa hàng chưa có số điện thoại. */
+const storeOf = (
+  store: StoreViewModel | null,
+): Pick<ReceiptContent, 'logoUri' | 'storeName' | 'storeAddress' | 'storePhone'> => ({
+  logoUri: store?.logoUrl ?? null,
+  storeName: store?.name ?? null,
+  storeAddress: store?.address ?? null,
+  storePhone: null,
+});
+
+/** Dữ liệu hoá đơn app chưa thu thập; mẫu bỏ qua dòng tương ứng dù tuỳ chọn đang bật. */
+const MISSING_ORDER_DETAILS: Pick<ReceiptContent, 'table' | 'cashierName' | 'vat' | 'wifi' | 'paymentQr'> = {
+  table: null,
+  cashierName: null,
+  vat: null,
+  wifi: null,
+  paymentQr: null,
+};
+
 /** Tiền nhận và tiền thừa chỉ có nghĩa khi trả tiền mặt. */
 const toReceiptPayment = (order: OrderDetail): ReceiptPayment | null => {
   const { PaymentMethod: method } = order;
@@ -101,35 +120,40 @@ const toReceiptPayment = (order: OrderDetail): ReceiptPayment | null => {
   };
 };
 
-/** Hoá đơn lúc thanh toán. Giảm giá, phí giao hàng, phương thức thanh toán chưa có UI thu thập nên luôn trống. */
+/**
+ * Hoá đơn lúc thanh toán. Giảm giá, phí giao hàng, phương thức thanh toán chưa có UI thu thập nên luôn trống; số điện
+ * thoại, bàn, thu ngân, VAT, Wi-Fi, QR chuyển khoản app chưa có dữ liệu.
+ */
 export const buildReceipt = (
   orderResponse: CreateOrderResponse,
   items: CartItem[],
   serviceType: ServiceType,
   store: StoreViewModel | null,
 ): ReceiptContent => ({
-  storeName: store?.name ?? null,
-  storeAddress: store?.address ?? null,
+  ...storeOf(store),
   orderNumber: orderResponse.OrderNumber,
   time: formatDateTime(orderResponse.CreatedAt),
   serviceType: SERVICE_TYPE_LABELS[serviceType],
+  ...MISSING_ORDER_DETAILS,
   items: items.map(toPrintItem),
   discountAmount: 0,
   deliveryFee: 0,
   payment: null,
+  orderBarcode: orderResponse.OrderNumber,
 });
 
 /** Hoá đơn in lại từ đơn đã đặt, thêm "(In lại)" để phân biệt với hoá đơn gốc. */
 export const buildReprintReceipt = (order: OrderDetail, store: StoreViewModel | null): ReceiptContent => ({
-  storeName: store?.name ?? null,
-  storeAddress: store?.address ?? null,
+  ...storeOf(store),
   orderNumber: `${order.OrderNumber} (In lại)`,
   time: formatDateTime(order.CreatedAt),
   serviceType: serviceTypeNameOf(order.ServiceType),
+  ...MISSING_ORDER_DETAILS,
   items: order.Items.map(toReprintItem),
   discountAmount: order.DiscountAmount,
   deliveryFee: order.DeliveryFee,
   payment: toReceiptPayment(order),
+  orderBarcode: order.OrderNumber,
 });
 
 /** Tem lúc thanh toán; mỗi phần món một ly. */
@@ -140,6 +164,7 @@ export const buildLabels = (
   store: StoreViewModel | null,
 ): LabelContent => ({
   storeName: store?.name ?? null,
+  customerName: null,
   orderNumber: orderResponse.OrderNumber,
   serviceType: SERVICE_TYPE_LABELS[serviceType],
   time: formatTime(orderResponse.CreatedAt),

@@ -14,7 +14,7 @@ export interface LabelFontSizes {
 
   note: number;
 
-  /** Dòng dưới: tên cửa hàng, giờ. */
+  /** Dòng dưới: tên cửa hàng hoặc tên khách, giờ. */
   footer: number;
 }
 
@@ -56,6 +56,9 @@ export interface LabelTemplateOptions {
   showPrice: boolean;
 
   showStoreName: boolean;
+
+  /** Tên khách ở dòng dưới, sau tên cửa hàng. */
+  showCustomerName: boolean;
 
   showTime: boolean;
 }

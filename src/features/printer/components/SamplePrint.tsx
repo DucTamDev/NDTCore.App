@@ -47,16 +47,27 @@ const formatSampleDateTime = (): string =>
     minute: '2-digit',
   });
 
+const formatSampleTime = (): string => new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+/** Có đủ dữ liệu cho mọi tuỳ chọn để bật tuỳ chọn nào cũng thấy kết quả; không VAT để tổng khớp các dòng in. */
 const SAMPLE_RECEIPT: ReceiptContent = {
+  logoUri: null,
   storeName: 'NDTCore Coffee',
   storeAddress: '123 Nguyễn Huệ, Quận 1, TP.HCM',
+  storePhone: '028 3822 1234',
   orderNumber: `${SAMPLE_ORDER_NUMBER} (In thử)`,
   time: '',
   serviceType: 'Mang đi',
+  table: 'B05',
+  cashierName: 'Lan',
   items: SAMPLE_ITEMS,
   discountAmount: 10000,
   deliveryFee: 0,
+  vat: null,
   payment: { methodName: 'Tiền mặt', amountReceived: 200000, changeAmount: 40000 },
+  wifi: { ssid: 'NDTCore_Guest', password: 'caphengon' },
+  paymentQr: 'NDTCORE-DEMO001',
+  orderBarcode: SAMPLE_ORDER_NUMBER,
 };
 
 /** Ly trà sữa có topping để tem in thử có đủ các dòng. */
@@ -64,6 +75,7 @@ const SAMPLE_LABEL_ITEM = SAMPLE_ITEMS[1];
 
 const SAMPLE_LABEL: LabelContent = {
   storeName: 'NDTCore Coffee',
+  customerName: 'Anh Minh',
   orderNumber: SAMPLE_ORDER_NUMBER,
   serviceType: 'Mang đi',
   time: '',
@@ -86,5 +98,5 @@ export const SampleReceipt: React.FC = () => (
 
 /** Tem mẫu cho "In thử": một ly trà sữa có topping, cao đúng một con tem của `paper`. */
 export const SampleLabel: React.FC<{ paper: PaperOptions }> = ({ paper }) => (
-  <LabelTemplate content={SAMPLE_LABEL} page={SAMPLE_LABEL_PAGE} paper={paper} />
+  <LabelTemplate content={{ ...SAMPLE_LABEL, time: formatSampleTime() }} page={SAMPLE_LABEL_PAGE} paper={paper} />
 );
