@@ -95,7 +95,9 @@ src/features/printer/
 │   ├── printer/         Printer, PrintKind, PrinterLanguage, PrinterCapabilities — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
-│   └── printing/        PrintOptions, PrintTask (dữ liệu vào), PrintTaskResult, PrintResult (kết quả)
+│   ├── printing/        PrintOptions, PrintTask (dữ liệu vào), PrintTaskResult, PrintResult (kết quả)
+│   └── templates/       ReceiptTemplateOptions, LabelTemplateOptions, PrintPadding, FontSizePreset (tuỳ chọn mẫu);
+│                        ReceiptContent, LabelContent (+ labelPagesOf), PrintItem (nội dung cần in)
 │
 ├── languages/
 │   ├── index.ts         barrel: getPrintLanguage, EscPosLanguage, TsplLanguage, IPrintLanguage
@@ -120,12 +122,14 @@ src/features/printer/
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage
 ├── rendering/           MonochromeBitmap (PNG → ảnh 1-bit)
+├── templates/           index.ts (barrel); ReceiptTemplate, LabelTemplate, PrintLayout (PrintText/PrintRow/
+│                        PrintDivider), TemplateDefaults (mẫu mặc định, cỡ chữ mức Normal)
 ├── logging/             PrinterLogger
 ├── errors/              index.ts (barrel), DeviceErrorCode, PrinterErrorCode, PrintErrorCode, ErrorCode (hợp 3 bộ mã)
 ├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
 │                        (lớp nền), DeviceErrorException, PrinterErrorException, PrintErrorException
 │
-├── components/          UI quản lý máy in; PrintLayout (PrintText/PrintRow/PrintDivider), SamplePrint (bản in thử)
+├── components/          UI quản lý máy in; SamplePrint (bản in thử, dùng mẫu mặc định)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
 ├── forms/               schema (máy in, form giấy, LAN, tên), printerRules (canPrintKind)
 ├── store/
@@ -145,6 +149,7 @@ src/features/printer/
 * `printing/` ghép ngôn ngữ với kết nối để in.
 * `storage/` chứa persistence boundary.
 * `permissions/` chứa platform permission.
+* `templates/` chứa mẫu hoá đơn/tem (component chụp thành ảnh) và giá trị mặc định; không biết máy in hay kết nối.
 * `management/` chứa thao tác quản lý máy in đã lưu (`PrinterManagementService`) và giá trị mặc định khi tạo máy mới.
 * `logging/` chứa structured logging; `errors/` chứa lỗi dạng dữ liệu và mã lỗi; `exceptions/` chứa exception ném ra.
 
@@ -371,10 +376,20 @@ schema lưu.
 
 # 14. Rendering
 
-Mọi lệnh in là ảnh. Nội dung in là React element (vd `ReceiptView` của cart, `SampleReceipt`/`SampleLabel` khi in
-thử) dựng từ `PrintLayout`; `usePrintImageCapture` render element đó ngoài màn hình theo bề rộng giấy rồi chụp thành
-PNG base64. Ngôn ngữ decode ảnh thành monochrome 1-bit rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho
-TSPL), nên in đúng tiếng Việt trên mọi máy bất kể codepage hay font của máy.
+Mọi lệnh in là ảnh. Nội dung in là React element dựng từ mẫu trong `templates/` (`ReceiptTemplate`,
+`LabelTemplate`): cart chuyển đơn hàng thành `ReceiptContent`/`LabelContent`, "In thử" dùng dữ liệu mẫu.
+`usePrintImageCapture` render element đó ngoài màn hình theo bề rộng giấy rồi chụp thành PNG base64. Ngôn ngữ decode
+ảnh thành monochrome 1-bit rồi gửi lệnh ảnh của mình (`GS v 0` cho ESC/POS, `BITMAP` cho TSPL), nên in đúng tiếng
+Việt trên mọi máy bất kể codepage hay font của máy.
+
+Quy ước của mẫu:
+
+* Cỡ chữ, padding, khoảng cách tính bằng dot (8 dot = 1mm). Khung chụp không có padding: lề do mẫu tự đặt.
+* Cỡ chữ đặt nhanh theo `FontSizePreset` (Small × 0,85 / Normal / Large × 1,2 so với mức Normal); hoá đơn mặc định
+  dùng Small, tem dùng Normal.
+* Mỗi con tem là một lệnh in riêng (lệnh in tem chỉ nhận ảnh cao tối đa một con tem). `labelPagesOf` tách mỗi phần
+  món thành một ly; ly nhiều loại topping hơn `maxToppingsPerLabel` thì tách tem, cỡ tem không tự tăng.
+* Tuỳ chọn mẫu hiện là hằng số mặc định, chưa lưu và chưa có màn hình chỉnh.
 
 ---
 

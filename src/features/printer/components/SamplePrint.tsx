@@ -1,7 +1,42 @@
 import React from 'react';
-import { View } from 'react-native';
-import { formatCurrency } from '../../../utils/formatCurrency';
-import { PrintDivider, PrintRow, PrintText } from './PrintLayout';
+import { LabelTemplate, ReceiptTemplate } from '../templates';
+import type { LabelContent, LabelPage } from '../models/templates/LabelContent';
+import type { PrintItem } from '../models/templates/PrintItem';
+import type { ReceiptContent } from '../models/templates/ReceiptContent';
+import type { PaperOptions } from '../models/paper/PaperOptions';
+
+const SAMPLE_ORDER_NUMBER = 'DEMO001';
+
+const SAMPLE_ITEMS: PrintItem[] = [
+  {
+    name: 'Cà phê sữa đá',
+    quantity: 2,
+    unitPrice: 29000,
+    attributes: ['Size L', 'Ít đá'],
+    toppings: [],
+    note: null,
+  },
+  {
+    name: 'Trà sữa trân châu',
+    quantity: 1,
+    unitPrice: 77000,
+    attributes: ['Size M', '50% đường', 'Ít đá'],
+    toppings: [
+      { name: 'Trân châu đen', quantity: 2, price: 8000 },
+      { name: 'Thạch dừa', quantity: 1, price: 8000 },
+      { name: 'Pudding trứng', quantity: 1, price: 8000 },
+    ],
+    note: 'Không lấy ống hút',
+  },
+  {
+    name: 'Bánh mì thịt nướng',
+    quantity: 1,
+    unitPrice: 35000,
+    attributes: [],
+    toppings: [],
+    note: null,
+  },
+];
 
 const formatSampleDateTime = (): string =>
   new Date().toLocaleString('vi-VN', {
@@ -12,34 +47,44 @@ const formatSampleDateTime = (): string =>
     minute: '2-digit',
   });
 
-/** Bill mẫu cho "In thử": dữ liệu cố định, bố cục giống bill thật để người dùng thấy kết quả in. */
+const SAMPLE_RECEIPT: ReceiptContent = {
+  storeName: 'NDTCore Coffee',
+  storeAddress: '123 Nguyễn Huệ, Quận 1, TP.HCM',
+  orderNumber: `${SAMPLE_ORDER_NUMBER} (In thử)`,
+  time: '',
+  serviceType: 'Mang đi',
+  items: SAMPLE_ITEMS,
+  discountAmount: 10000,
+  deliveryFee: 0,
+  payment: { methodName: 'Tiền mặt', amountReceived: 200000, changeAmount: 40000 },
+};
+
+/** Ly trà sữa có topping để tem in thử có đủ các dòng. */
+const SAMPLE_LABEL_ITEM = SAMPLE_ITEMS[1];
+
+const SAMPLE_LABEL: LabelContent = {
+  storeName: 'NDTCore Coffee',
+  orderNumber: SAMPLE_ORDER_NUMBER,
+  serviceType: 'Mang đi',
+  time: '',
+  items: [SAMPLE_LABEL_ITEM],
+};
+
+const SAMPLE_LABEL_PAGE: LabelPage = {
+  item: SAMPLE_LABEL_ITEM,
+  cupNumber: 1,
+  cupCount: 1,
+  partNumber: 1,
+  partCount: 1,
+  toppings: SAMPLE_LABEL_ITEM.toppings,
+};
+
+/** Hoá đơn mẫu cho "In thử": dữ liệu cố định, dùng đúng mẫu của hoá đơn thật. */
 export const SampleReceipt: React.FC = () => (
-  <View>
-    <PrintText>NDTCore Coffee - Chi nhánh Quận 1</PrintText>
-    <PrintText>123 Nguyễn Huệ, Quận 1, TP.HCM</PrintText>
-    <PrintDivider />
-    <PrintRow label="Mã đơn" value="#DEMO001 (In thử)" />
-    <PrintRow label="Thời gian" value={formatSampleDateTime()} />
-    <PrintRow label="Hình thức" value="Tại quán" />
-    <PrintDivider />
-    <PrintText>SẢN PHẨM</PrintText>
-    <PrintRow label="2x Cà phê sữa đá" value={formatCurrency(2 * 29000)} />
-    <PrintText>  Ghi chú: Ít đá</PrintText>
-    <PrintRow label="1x Bánh mì thịt" value={formatCurrency(35000)} />
-    <PrintRow label="1x Trà đào cam sả" value={formatCurrency(45000)} />
-    <PrintDivider />
-    <PrintRow label="Tổng số lượng" value="4" />
-    <PrintRow label="Tạm tính" value={formatCurrency(138000)} />
-    <PrintRow label="Giảm giá" value={`-${formatCurrency(8000)}`} />
-    <PrintDivider />
-    <PrintRow label="TỔNG THANH TOÁN" value={formatCurrency(130000)} />
-    <PrintRow label="Phương thức" value="Tiền mặt" />
-    <PrintRow label="Số tiền nhận" value={formatCurrency(150000)} />
-    <PrintRow label="Tiền thừa" value={formatCurrency(20000)} />
-    <PrintDivider />
-    <PrintText>Cảm ơn quý khách! Hẹn gặp lại lần sau</PrintText>
-  </View>
+  <ReceiptTemplate content={{ ...SAMPLE_RECEIPT, time: formatSampleDateTime() }} />
 );
 
-/** Tem mẫu chỉ có tên món: tem rời thường cao ~30mm, nội dung dài hơn sẽ tràn sang tem kế tiếp. */
-export const SampleLabel: React.FC = () => <PrintText>Trà sữa trân châu</PrintText>;
+/** Tem mẫu cho "In thử": một ly trà sữa có topping, cao đúng một con tem của `paper`. */
+export const SampleLabel: React.FC<{ paper: PaperOptions }> = ({ paper }) => (
+  <LabelTemplate content={SAMPLE_LABEL} page={SAMPLE_LABEL_PAGE} paper={paper} />
+);

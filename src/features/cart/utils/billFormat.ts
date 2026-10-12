@@ -9,6 +9,12 @@ export const formatDateTime = (iso: string | null): string => {
   });
 };
 
+/** Giờ:phút in trên tem. */
+export const formatTime = (iso: string | null): string => {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   Cash: 'Tiền mặt',
   Card: 'Thẻ',
