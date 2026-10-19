@@ -106,6 +106,11 @@ export class PrinterLogger {
   }): void {
     LoggerService.error('printer.print.failed', withStdFields('print', 'failure', params));
   }
+
+  /** `attempt` là lần thử lại thứ mấy (từ 1), `delayMs` là thời gian chờ trước lần đó. */
+  printRetryScheduled(params: { printerId: string; attempt: number; delayMs: number; errorCode: ErrorCode }): void {
+    LoggerService.warning('printer.print.retry_scheduled', withStdFields('print', 'failure', params));
+  }
 }
 
 export const printerLogger = new PrinterLogger();
