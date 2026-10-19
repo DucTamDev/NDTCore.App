@@ -30,8 +30,8 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 1. Cùng máy vật lý có hai máy in đã lưu (máy hoá đơn + máy tem cùng `deviceId`) → chung một hàng, đúng thứ tự; D10 bỏ cả
    lệnh của máy in đã lưu kia. (Task 2, test `hai máy in đã lưu cùng deviceId dùng chung một hàng`)
 2. Listener `onTaskFinished` ném lỗi → hàng đợi vẫn in tiếp lệnh sau. (Task 2, test `listener ném lỗi không làm dừng hàng đợi`)
-3. Máy bị xoá khi lệnh đang chờ → `PRINTER_NOT_FOUND` là lỗi khác, chỉ bỏ lệnh đó, lệnh sau vẫn chạy (không áp D10).
-   (Task 2, test `lỗi khác không thử lại và không bỏ các lệnh sau`)
+3. Máy bị xoá khi lệnh đang chờ → `PRINTER_NOT_FOUND` là lỗi của riêng lệnh, chỉ bỏ lệnh đó, lệnh sau vẫn chạy
+   (không áp D10). (Task 2, test `lỗi của riêng lệnh chỉ bỏ lệnh đó`)
 4. Lỗi mới đến khi snackbar đang hiện → không mất, hiện ở thông báo kế tiếp. (Task 4, test `lỗi đến khi đang hiện thì
    chờ thông báo sau`)
 5. Hai lần thanh toán liên tiếp → hàng đợi giữ thứ tự bill1, tem1…, bill2, tem2… (Task 2, test FIFO `in đúng thứ tự
@@ -50,8 +50,8 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 
 **Interfaces:**
 - Produces:
-  - `PrintFailureKind = { ConnectFailed: 'ConnectFailed', DuringSend: 'DuringSend', Other: 'Other' }` (const-object +
-    type cùng tên)
+  - `PrintFailureKind = { ConnectFailed: 'ConnectFailed', DeviceUnavailable: 'DeviceUnavailable', TaskFailed: 'TaskFailed' }`
+    (const-object + type cùng tên)
   - `printFailureKindOf(code: ErrorCode): PrintFailureKind` (cùng file)
   - `PrintTask.title: string` — mô tả nội dung để báo lỗi/log, vd `Hoá đơn #A1024`, `Tem #A1024 · ly 2/3`
 
@@ -61,19 +61,19 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 describe('printFailureKindOf', () => {
   it('CONNECTION_FAILED là lỗi kết nối', () =>
     expect(printFailureKindOf('CONNECTION_FAILED')).toBe(PrintFailureKind.ConnectFailed));
-  it.each(['WRITE_FAILED', 'WRITE_TIMEOUT', 'CONNECTION_LOST'])(
-    '%s là lỗi trong lúc gửi', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.DuringSend));
-  it.each(['NOT_CONNECTED', 'DEVICE_NOT_FOUND', 'BLUETOOTH_DISABLED', 'SERVICE_CLOSED', 'INVALID_IMAGE',
-    'PRINTER_NOT_FOUND', 'UNKNOWN_ERROR'])(
-    '%s là lỗi khác', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.Other));
+  it.each(['CONNECTION_LOST', 'NOT_CONNECTED', 'DEVICE_NOT_FOUND', 'BLUETOOTH_DISABLED', 'SERVICE_CLOSED',
+    'PERMISSION_DENIED'])('%s là máy không dùng được', (code) =>
+    expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.DeviceUnavailable));
+  it.each(['WRITE_FAILED', 'WRITE_TIMEOUT', 'INVALID_IMAGE', 'ENCODE_FAILED', 'PRINTER_NOT_FOUND', 'UNKNOWN_ERROR'])(
+    '%s là lỗi của riêng lệnh', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.TaskFailed));
 });
 ```
 
 - [ ] **Step 2: Chạy, thấy fail** — `npx jest src/features/printer/models/printing` → FAIL (module chưa có).
 
 - [ ] **Step 3: Viết `PrintFailureKind.ts`** — `CONNECTION_FAILED` → ConnectFailed; một `Set<ErrorCode>` cho
-  DuringSend (hằng của `DeviceErrorCode`); còn lại Other. Comment WHY: chỉ mở kết nối thất bại mới chắc chắn chưa in gì
-  và có thể tự hết; nhóm DuringSend có thể đã in một phần.
+  DeviceUnavailable (6 mã ở test, dùng hằng của `DeviceErrorCode`); còn lại TaskFailed. Comment WHY: chỉ mở kết nối thất
+  bại mới có thể tự hết sau vài giây; nhóm DeviceUnavailable nghĩa là lệnh sau của máy cũng sẽ lỗi.
 
 - [ ] **Step 4: Thêm `title` vào `PrintTask`** (JSDoc như ở Interfaces); `PrintService.createTask(printer, data, title)`
   — tạm truyền `PRINT_KIND_LABELS[kind]` từ `print()` để Task này tự build được (Task 3 thay bằng tham số thật). Sửa
@@ -117,9 +117,11 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
 - `Map<deviceId, PrintTask[]>`; enqueue vào máy chưa có worker thì khởi động worker; worker lấy lệnh đầu, in, emit, xoá,
   lặp; hết lệnh thì xoá key khỏi `Map` và dừng.
 - Mỗi lần gửi: `lock.runExclusive(task.deviceId, () => printing.print(task.printerId, task.data))`.
-- Lỗi ConnectFailed và còn lượt → `printerLogger.printRetryScheduled(...)`, chờ `PRINT_RETRY_DELAYS_MS[attempt]` bằng `setTimeout` **ngoài
-  khoá**, thử lại. Hết lượt → emit `Failed` cho lệnh đó **và mọi lệnh còn trong hàng của máy** (cùng lỗi), xoá hàng (D10).
-- Lỗi DuringSend / Other → emit `Failed` chỉ lệnh đó; lệnh sau chạy tiếp.
+- Lỗi ConnectFailed và còn lượt → `printerLogger.printRetryScheduled(...)`, chờ `PRINT_RETRY_DELAYS_MS[attempt]`
+  bằng `setTimeout` **ngoài khoá**, thử lại.
+- ConnectFailed hết lượt, hoặc DeviceUnavailable → emit `Failed` cho lệnh đó **và mọi lệnh còn trong hàng của máy**
+  (cùng lỗi), xoá hàng (D10).
+- TaskFailed → emit `Failed` chỉ lệnh đó; lệnh sau chạy tiếp.
 - `PrintTaskResult.startedAt` = lúc bắt đầu lần thử đầu tiên; với lệnh bị bỏ theo D10, `startedAt = completedAt` = lúc bỏ.
 - Listener ném lỗi: bắt, ghi `LoggerService.warning`, gọi listener kế và in tiếp.
 
@@ -136,10 +138,11 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
   - `lỗi kết nối cả 3 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
     `print` gọi đúng 3 lần (chỉ cho a1) ở các mốc 0 / 2000 / 7000ms, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
     gọi `print`.
-  - `lỗi trong lúc gửi không thử lại, lệnh sau vẫn in` — a1 `WRITE_TIMEOUT` → `Failed`, `print` 1 lần cho a1, a2 `Success`.
-  - `lỗi khác không thử lại và không bỏ các lệnh sau` — `it.each` với `NOT_CONNECTED`, `DEVICE_NOT_FOUND`,
-    `PRINTER_NOT_FOUND`: a1 → `Failed`, `print` 1 lần cho a1, a2 `Success`, không có timer chờ
-    (`jest.getTimerCount()` = 0 sau khi a1 lỗi).
+  - `máy không dùng được thì bỏ hết lệnh của máy, không thử lại` — `it.each` với `CONNECTION_LOST`, `NOT_CONNECTED`,
+    `DEVICE_NOT_FOUND`, `BLUETOOTH_DISABLED`, `SERVICE_CLOSED`, `PERMISSION_DENIED`: a1 lỗi → a1/a2/a3 `Failed` cùng
+    mã, `print` 1 lần (chỉ a1), `jest.getTimerCount()` = 0.
+  - `lỗi của riêng lệnh chỉ bỏ lệnh đó` — `it.each` với `WRITE_FAILED`, `WRITE_TIMEOUT`, `PRINTER_NOT_FOUND`:
+    a1 → `Failed`, `print` 1 lần cho a1, a2 `Success`, không có timer chờ.
   - `trong lúc chờ thử lại, khoá của máy được nhả` — a1 lỗi `CONNECTION_FAILED`, chưa tiến timer; trong lúc chờ đó,
     `lock.runExclusive(deviceId, async () => 'ok')` resolve.
   - `listener ném lỗi không làm dừng hàng đợi` — listener đầu ném, listener sau vẫn nhận; lệnh sau vẫn in.
@@ -275,7 +278,7 @@ git commit -m "feat(printer): PrintService enqueues tasks; cart enqueues receipt
 - Test: `src/features/printer/components/__tests__/PrintFailureSnackbar.test.tsx`
 
 **Interfaces:**
-- Consumes: `PrintQueue.onTaskFinished` (Task 2), `printFailureKindOf`/`PrintFailureKind` (Task 1), `errorCodeOf`.
+- Consumes: `PrintQueue.onTaskFinished` (Task 2), `PrintTask.title` (Task 1).
 - Produces:
   - `PrintFailureSnackbar: React.FC<{ queue?: PrintQueue }>` (mặc định `printQueue`)
   - `printFailureNoticeOf(results: PrintTaskResult[]): string` (export từ cùng file, hàm thuần)
@@ -284,7 +287,6 @@ git commit -m "feat(printer): PrintService enqueues tasks; cart enqueues receipt
 Nội dung thông báo (gộp theo `printerName`, mỗi máy một dòng, nối bằng `\n`):
 - máy có 1 lệnh lỗi: `` `${title} in không thành công trên ${printerName}: ${error.message}.` ``
 - máy có n > 1 lệnh lỗi: `` `Máy ${printerName}: ${n} lệnh in không thành công (${error.message của lệnh đầu}).` ``
-- có lệnh lỗi DuringSend: thêm dòng `'Có thể đã in một phần, kiểm tra máy trước khi in lại.'`
 - luôn kết thúc bằng dòng `'In lại trong Lịch sử đơn.'`
 
 Hành vi: chỉ xử lý `Failed`; gom kết quả đến trong `FAILURE_BATCH_WINDOW_MS` kể từ lỗi đầu của đợt rồi hiện; lỗi đến
@@ -292,7 +294,7 @@ khi snackbar đang hiện được giữ lại và hiện ở thông báo kế t
 
 - [ ] **Step 1: Viết test**
   - `printFailureNoticeOf`: 1 lệnh; 3 lệnh cùng máy → `'Máy Tem quầy: 3 lệnh in không thành công (…).'`; hai máy → hai
-    dòng; có `WRITE_TIMEOUT` → có dòng "Có thể đã in một phần…"; luôn có dòng cuối "In lại trong Lịch sử đơn.".
+    dòng; luôn có dòng cuối "In lại trong Lịch sử đơn.".
   - Component (fake timers, `queue = mockOf<PrintQueue>({ onTaskFinished: jest.fn((l) => { listener = l; return unsubscribe; }) })`,
     bọc `PaperProvider`): `Success không hiện gì`; `hai lỗi trong 1 giây gộp thành một thông báo`;
     `lỗi đến khi đang hiện thì chờ thông báo sau`; `unmount thì huỷ đăng ký`.
