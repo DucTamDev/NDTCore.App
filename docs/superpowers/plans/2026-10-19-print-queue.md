@@ -105,8 +105,8 @@ git commit -m "feat(printer): classify print failures; PrintTask carries a title
 - Produces:
   - `PRINT_RETRY_DELAYS_MS: readonly number[] = [2000, 5000, 15000]` (export từ `PrintQueue.ts`)
   - `class PrintQueue`:
-    - `constructor(printing = printerService, lock = printerConnectionLock, retryDelaysMs = PRINT_RETRY_DELAYS_MS,
-      wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)))`
+    - `constructor(printing: PrinterService = printerService, lock: PrinterConnectionLock = printerConnectionLock)`
+      — thời gian chờ dùng thẳng `PRINT_RETRY_DELAYS_MS`, không truyền qua constructor
     - `enqueue(task: PrintTask): void`
     - `onTaskFinished(listener: (result: PrintTaskResult) => void): () => void` — trả hàm huỷ đăng ký
   - `export const printQueue = new PrintQueue()`
@@ -116,14 +116,14 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
 - `Map<deviceId, PrintTask[]>`; enqueue vào máy chưa có worker thì khởi động worker; worker lấy lệnh đầu, in, emit, xoá,
   lặp; hết lệnh thì xoá key khỏi `Map` và dừng.
 - Mỗi lần gửi: `lock.runExclusive(task.deviceId, () => printing.print(task.printerId, task.data))`.
-- Lỗi BeforeSend và còn lượt → `printerLogger.printRetryScheduled(...)`, `await wait(retryDelaysMs[attempt])` **ngoài
+- Lỗi BeforeSend và còn lượt → `printerLogger.printRetryScheduled(...)`, chờ `PRINT_RETRY_DELAYS_MS[attempt]` bằng `setTimeout` **ngoài
   khoá**, thử lại. Hết lượt → emit `Failed` cho lệnh đó **và mọi lệnh còn trong hàng của máy** (cùng lỗi), xoá hàng (D10).
 - Lỗi DuringSend / Permanent → emit `Failed` chỉ lệnh đó; lệnh sau chạy tiếp.
 - `PrintTaskResult.startedAt` = lúc bắt đầu lần thử đầu tiên; với lệnh bị bỏ theo D10, `startedAt = completedAt` = lúc bỏ.
 - Listener ném lỗi: bắt, ghi `LoggerService.warning`, gọi listener kế và in tiếp.
 
 - [ ] **Step 1: Viết test** — dùng `mockOf<PrinterService>({ print: jest.fn(...) })`, `new PrinterConnectionLock()`,
-  `wait` giả ghi lại `ms` và resolve ngay (`const waits: number[] = []; const wait = async (ms) => { waits.push(ms); }`),
+  `jest.useFakeTimers()` + `jest.advanceTimersByTimeAsync(ms)` để đi qua thời gian chờ,
   và helper `drain()` chờ tới khi `onTaskFinished` nhận đủ N kết quả. Các test:
   - `in đúng thứ tự enqueue trên cùng máy, không chạy chồng` — enqueue a1,b1,a2 (cùng deviceId) → thứ tự gọi `print`
     a1,b1,a2; số lệnh đang chạy tối đa 1.
@@ -131,14 +131,14 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
   - `hai máy in đã lưu cùng deviceId dùng chung một hàng` — printerId khác, deviceId giống → tuần tự.
   - `thành công: emit Success một lần rồi xoá khỏi hàng`.
   - `lỗi trước khi gửi rồi thành công ở lần 2` — `print` ném `DeviceErrorException(NOT_CONNECTED)` lần đầu → 1 kết quả
-    `Success`, `print` gọi 2 lần, `waits` = `[2000]`.
+    `Success`, `print` gọi 2 lần; sau 1999ms `print` mới gọi 1 lần, tới 2000ms gọi lần 2.
   - `lỗi trước khi gửi cả 4 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
-    `print` gọi đúng 4 lần (chỉ cho a1), `waits` = `[2000, 5000, 15000]`, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
+    `print` gọi đúng 4 lần (chỉ cho a1) ở các mốc 0 / 2000 / 7000 / 22000ms, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
     gọi `print`.
   - `lỗi trong lúc gửi không thử lại, lệnh sau vẫn in` — a1 `WRITE_TIMEOUT` → `Failed`, `print` 1 lần cho a1, a2 `Success`.
   - `lỗi vĩnh viễn không bỏ các lệnh sau` — a1 ném `PrinterErrorException(PRINTER_NOT_FOUND)` → `Failed`, a2 `Success`,
-    `waits` rỗng.
-  - `trong lúc chờ thử lại, khoá của máy được nhả` — `wait` giả treo tới khi test gọi `release()`; trong lúc treo,
+    không có timer chờ (`jest.getTimerCount()` = 0 sau khi a1 lỗi).
+  - `trong lúc chờ thử lại, khoá của máy được nhả` — a1 lỗi `NOT_CONNECTED`, chưa tiến timer; trong lúc chờ đó,
     `lock.runExclusive(deviceId, async () => 'ok')` resolve.
   - `listener ném lỗi không làm dừng hàng đợi` — listener đầu ném, listener sau vẫn nhận; lệnh sau vẫn in.
   - `huỷ đăng ký thì không nhận kết quả nữa`.

@@ -59,7 +59,6 @@ export class PrintQueue {
   constructor(
     private readonly printing: PrinterService = printerService,
     private readonly lock: PrinterConnectionLock = printerConnectionLock,
-    private readonly retryDelaysMs: readonly number[] = PRINT_RETRY_DELAYS_MS,
   ) {}
 
   /** Đưa lệnh vào cuối hàng đợi của máy; không chờ in. */
@@ -120,8 +119,8 @@ enqueue(task) → cuối hàng của task.deviceId → (worker tới lượt)
     runExclusive(deviceId) { printing.print(printerId, data) }
       ├─ OK → emit Success, xoá lệnh, sang lệnh kế
       └─ lỗi:
-           ├─ nhóm "trước khi gửi" và attempt < retryDelays.length
-           │     → chờ retryDelays[attempt] (ngoài khoá), attempt++, lặp
+           ├─ nhóm "trước khi gửi" và attempt < PRINT_RETRY_DELAYS_MS.length
+           │     → chờ PRINT_RETRY_DELAYS_MS[attempt] (ngoài khoá), attempt++, lặp
            └─ còn lại → emit Failed, xoá lệnh (§5.3 nếu là "trước khi gửi")
 ```
 
@@ -199,7 +198,7 @@ reprint(orderId)
 
 ## 8. Kiểm thử
 
-`PrintQueue` dùng `PrinterService` giả, `retryDelaysMs` nhỏ (hoặc fake timers):
+`PrintQueue` dùng `PrinterService` giả và fake timers của Jest:
 
 - Cùng máy: in đúng thứ tự enqueue, không chạy chồng; khác máy: song song.
 - Thành công: emit `Success` một lần, hàng đợi rỗng sau đó.
