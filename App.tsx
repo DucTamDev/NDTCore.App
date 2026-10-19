@@ -8,6 +8,7 @@ import { store } from './src/store';
 import { theme } from './src/theme/theme';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { printerConnectionService } from './src/features/printer/connection/PrinterConnectionService';
+import { PrintFailureSnackbar } from './src/features/printer/components/PrintFailureSnackbar';
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ function App(): React.JSX.Element {
         <SafeAreaProvider>
           <PaperProvider theme={theme}>
             <RootNavigator />
+            <PrintFailureSnackbar />
           </PaperProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
