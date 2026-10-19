@@ -16,6 +16,7 @@ describe('print task types', () => {
       connectionType: ConnectionType.Lan,
       kind: PrintKind.Receipt,
       data: 'base64-png',
+      title: 'Hoá đơn #A1024',
       createdAt: new Date().toISOString(),
     };
     expect(task.printerId).toBe('p1');

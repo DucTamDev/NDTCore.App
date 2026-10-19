@@ -67,6 +67,7 @@ describe('PrintService.print', () => {
         connectionType: ConnectionType.Lan,
         kind: PrintKind.Receipt,
         data: image,
+        title: 'Hoá đơn',
       },
       status: PrintTaskStatus.Success,
     });

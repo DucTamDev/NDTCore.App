@@ -24,6 +24,9 @@ export interface PrintTask {
   /** Ảnh cần in, dạng PNG base64 không có tiền tố `data:`. */
   data: string;
 
+  /** Mô tả nội dung để báo lỗi và ghi log, vd `Hoá đơn #A1024`, `Tem #A1024 · ly 2/3`. */
+  title: string;
+
   /** Thời điểm tạo lệnh (ISO 8601 UTC). */
   createdAt: string;
 }

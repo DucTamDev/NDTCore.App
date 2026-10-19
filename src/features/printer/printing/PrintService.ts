@@ -61,7 +61,7 @@ export class PrintService {
       };
     }
 
-    const tasks = await this.createTasks(printers, render).catch(() => null);
+    const tasks = await this.createTasks(printers, render, PRINT_KIND_LABELS[kind]).catch(() => null);
 
     if (!tasks) {
       return {
@@ -90,7 +90,11 @@ export class PrintService {
    * Máy cùng cấu hình giấy dùng chung một ảnh, khác giấy (58mm với 80mm, tem khác cỡ) chụp riêng. Chụp lần lượt vì chỉ
    * có một khung chụp. `null` khi một lần chụp hỏng.
    */
-  private async createTasks(printers: Printer[], render: RenderPrintImage): Promise<PrintTask[] | null> {
+  private async createTasks(
+    printers: Printer[],
+    render: RenderPrintImage,
+    title: string,
+  ): Promise<PrintTask[] | null> {
     const imageByPaper = new Map<string, string>();
     const tasks: PrintTask[] = [];
 
@@ -103,13 +107,13 @@ export class PrintService {
       }
 
       imageByPaper.set(paperKey, image);
-      tasks.push(this.createTask(printer, image));
+      tasks.push(this.createTask(printer, image, title));
     }
 
     return tasks;
   }
 
-  private createTask(printer: Printer, data: string): PrintTask {
+  private createTask(printer: Printer, data: string, title: string): PrintTask {
     return {
       id: generateId(),
       printerId: printer.id,
@@ -118,6 +122,7 @@ export class PrintService {
       connectionType: printer.connection.type,
       kind: printer.kind,
       data,
+      title,
       createdAt: new Date().toISOString(),
     };
   }
