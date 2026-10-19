@@ -171,7 +171,7 @@ export const buildLabels = (
   items: items.map(toPrintItem),
 });
 
-/** Tem in lại từ đơn đã đặt; không ghi "(In lại)" vì dòng trên của tem hẹp, thêm chữ sẽ đẩy số thứ tự ly xuống dòng. */
+/** Tem in lại từ đơn đã đặt; không ghi "(In lại)" vì dòng trên của tem hẹp, thêm chữ đẩy số thứ tự ly xuống dòng. */
 export const buildReprintLabels = (order: OrderDetail, store: StoreViewModel | null): LabelContent => ({
   storeName: store?.name ?? null,
   customerName: null,
@@ -242,7 +242,7 @@ export const printLabels = async (content: LabelContent, captureImage: CaptureIm
 };
 
 /** Hoá đơn vào hàng đợi trước tem: chỉ có một khung chụp nên hai việc chụp không được chạy cùng lúc. */
-export const printOrder = async (
+const printOrderNow = async (
   receipt: ReceiptContent,
   labels: LabelContent,
   captureImage: CaptureImage,
@@ -250,6 +250,23 @@ export const printOrder = async (
   const receiptOutcome = await printReceipt(receipt, captureImage);
   const labelsOutcome = await printLabels(labels, captureImage);
   return { receipt: receiptOutcome, labels: labelsOutcome };
+};
+
+/** Đơn đang chụp dở; đơn sau nối vào sau đơn này. */
+let printOrderChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Khung chụp chỉ giữ một lần chụp: hai đơn chụp chồng nhau thì một đơn treo hoặc chụp nhầm nội dung đơn kia. Vì vậy đơn
+ * sau (thanh toán liên tiếp, in lại nhiều đơn) chờ đơn trước chụp xong, nhờ đó bill/tem cũng vào hàng đợi đúng thứ tự.
+ */
+export const printOrder = (
+  receipt: ReceiptContent,
+  labels: LabelContent,
+  captureImage: CaptureImage,
+): Promise<OrderPrintOutcome> => {
+  const run = printOrderChain.then(() => printOrderNow(receipt, labels, captureImage));
+  printOrderChain = run.catch(() => undefined);
+  return run;
 };
 
 /** Cảnh báo biết ngay lúc bấm in; chưa có máy in tem là bình thường nên không cảnh báo. */

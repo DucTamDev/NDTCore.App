@@ -296,6 +296,43 @@ describe('printOrder', () => {
     jest.clearAllMocks();
   });
 
+  it('hai đơn in chồng nhau thì đơn sau chờ đơn trước chụp xong', async () => {
+    (printService.print as jest.Mock).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return enqueueResult(PrintEnqueueStatus.Queued);
+    });
+    const first = buildReceipt({ ...orderResponse, OrderNumber: 'A1' }, [item], 'DineIn', null);
+    const second = buildReceipt({ ...orderResponse, OrderNumber: 'A2' }, [item], 'DineIn', null);
+    const firstLabels = buildLabels({ ...orderResponse, OrderNumber: 'A1' }, [item], 'DineIn', null);
+    const secondLabels = buildLabels({ ...orderResponse, OrderNumber: 'A2' }, [item], 'DineIn', null);
+
+    await Promise.all([printOrder(first, firstLabels, jest.fn()), printOrder(second, secondLabels, jest.fn())]);
+
+    expect(printedTitles()).toEqual([
+      'Hoá đơn #A1',
+      'Tem #A1 · ly 1/2',
+      'Tem #A1 · ly 2/2',
+      'Hoá đơn #A2',
+      'Tem #A2 · ly 1/2',
+      'Tem #A2 · ly 2/2',
+    ]);
+  });
+
+  it('đơn trước lỗi bất ngờ thì đơn sau vẫn in', async () => {
+    (printService.print as jest.Mock)
+      .mockRejectedValueOnce(new Error('view chưa mount'))
+      .mockResolvedValue(enqueueResult(PrintEnqueueStatus.Queued));
+    const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
+    const labels = buildLabels(orderResponse, [item], 'DineIn', null);
+
+    const [, second] = await Promise.all([
+      printOrder(receipt, labels, jest.fn()),
+      printOrder(receipt, labels, jest.fn()),
+    ]);
+
+    expect(second).toEqual({ receipt: 'queued', labels: 'queued' });
+  });
+
   it('đưa hoá đơn vào hàng đợi trước rồi mới tới các tem', async () => {
     mockPrint(PrintEnqueueStatus.Queued);
     const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);

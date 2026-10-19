@@ -129,6 +129,24 @@ describe('PrintQueue thứ tự', () => {
   });
 });
 
+describe('PrintQueue khoá theo máy', () => {
+  it('gửi lệnh trong khoá của máy: khoá đang bị giữ (In thử, ngắt kết nối) thì lệnh chờ', async () => {
+    const { queue, lock, print, results } = setup();
+    let release: () => void = () => undefined;
+    lock.runExclusive(DEVICE_A, () => new Promise<void>((resolve) => {
+      release = resolve;
+    }));
+
+    queue.enqueue(makeTask('a1'));
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(print).not.toHaveBeenCalled();
+
+    release();
+    await drain(results, 1);
+    expect(print).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('PrintQueue thử lại khi lỗi kết nối', () => {
   it('lỗi kết nối rồi thành công ở lần 2', async () => {
     const { queue, print, results } = setup(async (_name, attempt) => {
