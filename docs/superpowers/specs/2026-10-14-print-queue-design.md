@@ -30,6 +30,7 @@ Hàng đợi in cần:
 | D8 | `print()` trả về ngay sau khi đưa lệnh vào hàng đợi. |
 | D9 | Nút "In thử" in thẳng, không qua hàng đợi, báo lỗi ngay trên form. |
 | D10 | Lệnh đầu hàng lỗi hẳn vì lỗi trước khi gửi thì **bỏ luôn các lệnh còn lại của máy đó**, báo gộp một lần (xem §5.3). |
+| D11 | "In lại" trong Lịch sử đơn in **cả bill lẫn tem**, cùng đường với lúc thanh toán (xem §5.5). |
 
 ## 3. Phân loại lỗi
 
@@ -152,6 +153,22 @@ mất gần 2 phút và hiện 5 snackbar. Vì vậy:
 Lúc tới lượt, `PrinterService.print()` không tìm thấy máy sẽ ném `PRINTER_NOT_FOUND` → lỗi vĩnh viễn, bỏ lệnh.
 Máy bị tắt (`enabled = false`) nhưng còn lưu: lệnh đã vào hàng vẫn in (người dùng tắt để không nhận lệnh *mới*).
 
+### 5.5 In lại từ "Lịch sử đơn" (D11)
+
+```
+reprint(orderId)
+  order = orderApi.getOrderByIdAsync(orderId)
+  printOrder(buildReprintReceipt(order, store), buildReprintLabels(order, store), captureImage)
+```
+
+- `buildReprintLabels(order, store)` (mới, `OrderPrintTrigger.ts`): như `buildLabels` nhưng lấy từ `OrderDetail`; món
+  dựng bằng `toReprintItem` sẵn có (option có giá là topping), giờ lấy từ `order.CreatedAt`, tên khách `null`.
+- Bill in lại vẫn ghi "(In lại)" sau mã đơn như hiện tại. Tem in lại **không** ghi thêm: dòng trên của tem hẹp, thêm
+  chữ sẽ đẩy số thứ tự ly xuống dòng.
+- Cảnh báo giống lúc thanh toán: chưa có máy in hoá đơn thì báo ngay; chưa có máy in tem thì im lặng; lỗi in đến sau
+  qua §6.
+- In lại tạo lệnh mới hoàn toàn từ dữ liệu đơn trên server; không dùng lại ảnh cũ (D4).
+
 ## 6. Báo lỗi cho thu ngân
 
 - Component mới `PrintFailureSnackbar` (`printer/components/`), mount một lần trong `App.tsx` bên trong
@@ -175,7 +192,8 @@ Máy bị tắt (`enabled = false`) nhưng còn lưu: lệnh đã vào hàng v�
 | `models/printing/printFailure.ts` hoặc trong `PrintQueue.ts` | Phân loại lỗi §3 |
 | `components/PrintFailureSnackbar.tsx` | Mới |
 | `App.tsx` | Mount snackbar |
-| `cart/services/OrderPrintTrigger.ts` | Truyền `title`; `printLabels` không chờ in; kết quả chỉ còn no-printer/capture |
+| `cart/services/OrderPrintTrigger.ts` | Truyền `title`; `printLabels` không chờ in; kết quả chỉ còn no-printer/capture; thêm `buildReprintLabels` |
+| `cart/hooks/useOrderHistory.ts` | `reprint` gọi `printOrder` (bill + tem) thay vì chỉ `printReceipt` |
 | `cart/hooks/useCheckout.ts`, `useOrderHistory.ts`, `CartPanel`, `OrderHistoryPanel` | Bỏ cảnh báo "in không thành công" (đã chuyển sang §6) |
 | `ARCHITECTURE.md` | §22–24: hàng đợi, phân loại lỗi, chính sách lỗi |
 
@@ -193,11 +211,12 @@ Máy bị tắt (`enabled = false`) nhưng còn lưu: lệnh đã vào hàng v�
 - Trong lúc chờ thử lại, `testPrint` cùng máy chạy được (khoá không bị giữ khi chờ).
 - `PrintService.print`: trả `Queued` ngay khi chưa in xong; `NoAvailablePrinter`/`CaptureFailed` không enqueue gì.
 - `printOrder`: bill enqueue trước các tem; tem theo đúng thứ tự trang.
+- `buildReprintLabels`: món, topping (option có giá), giờ lấy từ đơn đã lưu; mã đơn không có "(In lại)".
+- `useOrderHistory.reprint`: in cả bill lẫn tem; chưa có máy in tem thì không cảnh báo.
 - `PrintFailureSnackbar`: gộp nhiều lỗi cùng máy thành một thông báo.
 
 ## 9. Ngoài phạm vi
 
 - Lưu hàng đợi xuống máy (D7).
 - Màn hình xem hàng đợi / huỷ lệnh đang chờ.
-- **In lại tem từ "Lịch sử đơn"**: hiện lịch sử chỉ in lại được bill; tem in lỗi chưa có đường in lại. Chờ quyết định
-  có làm cùng đợt hay không.
+- In lại riêng bill hoặc riêng tem (D11 in cả hai).
