@@ -21,7 +21,7 @@ Hàng đợi in cần:
 | # | Quyết định |
 |---|---|
 | D1 | Mỗi máy vật lý (`deviceId`) một hàng đợi, in đúng thứ tự vào trước ra trước; máy khác nhau in song song. |
-| D2 | Chỉ tự in lại lỗi xảy ra **trước khi gửi dữ liệu**; tối đa 3 lần, chờ 2s → 5s → 15s. |
+| D2 | Chỉ tự in lại lỗi xảy ra **trước khi gửi dữ liệu**; tối đa 2 lần, chờ 2s → 5s. |
 | D3 | Lỗi trong lúc gửi và lỗi vĩnh viễn: không tự in lại. |
 | D4 | Lệnh in xong (thành công hoặc lỗi hẳn) là **xoá khỏi hàng đợi ngay**; không giữ lệnh lỗi. |
 | D5 | Lỗi chỉ báo một lần qua snackbar; in lại bằng "Lịch sử đơn". |
@@ -139,7 +139,7 @@ printOrder(receipt, labels, captureImage)
 
 ### 5.3 Máy lỗi thì bỏ cả hàng của máy (D10)
 
-Máy tắt hoặc mất kết nối thì lệnh đầu hàng thử 3 lần (~22s) rồi lỗi. Nếu các lệnh sau cũng thử lại từng lệnh, 5 con tem
+Máy tắt hoặc mất kết nối thì lệnh đầu hàng thử lại 2 lần (~7s) rồi lỗi. Nếu các lệnh sau cũng thử lại từng lệnh, 5 con tem
 mất gần 2 phút và hiện 5 snackbar. Vì vậy:
 
 - Lệnh đầu hàng lỗi hẳn với nhóm "trước khi gửi" → bỏ luôn mọi lệnh còn trong hàng của máy đó, emit `Failed` cho
@@ -203,7 +203,7 @@ reprint(orderId)
 - Cùng máy: in đúng thứ tự enqueue, không chạy chồng; khác máy: song song.
 - Thành công: emit `Success` một lần, hàng đợi rỗng sau đó.
 - Lỗi "trước khi gửi" rồi thành công ở lần 2: chỉ một `Success`, `print` được gọi 2 lần.
-- Lỗi "trước khi gửi" cả 4 lần: `print` gọi đúng 4 lần, chờ đúng 2s/5s/15s, emit `Failed`; các lệnh sau cùng máy cũng
+- Lỗi "trước khi gửi" cả 3 lần: `print` gọi đúng 3 lần, chờ đúng 2s/5s, emit `Failed`; các lệnh sau cùng máy cũng
   `Failed` mà không gọi `print` (D10).
 - Lỗi `WRITE_TIMEOUT`: không thử lại, emit `Failed` với cờ "có thể đã in một phần"; lệnh sau vẫn in.
 - Lỗi vĩnh viễn: không thử lại.

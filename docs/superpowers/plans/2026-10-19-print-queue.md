@@ -21,7 +21,7 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 - Comment tiếng Việt, chỉ giải thích WHY, 1–3 dòng; không kể lịch sử, không tham chiếu số mục spec.
 - Type/interface export: mỗi field một dòng JSDoc tiếng Việt (bỏ qua khi tên đã hiển nhiên), một dòng trống giữa các field.
 - Dòng ≤ 120 ký tự, đo bằng Node (`line.length`); nesting ≤ 3; không hàm lồng trong hàm (trừ lambda ngắn).
-- Thời gian chờ thử lại: `PRINT_RETRY_DELAYS_MS = [2000, 5000, 15000]` (3 lần thử lại sau lần đầu).
+- Thời gian chờ thử lại: `PRINT_RETRY_DELAYS_MS = [2000, 5000]` (2 lần thử lại sau lần đầu).
 - Commit: không `git add -A`/`git add .`; kết thúc message bằng `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Mỗi task xong phải: `npx tsc --noEmit` 0 lỗi, `npx eslint src` sạch, jest của phần liên quan pass.
 
@@ -103,7 +103,7 @@ git commit -m "feat(printer): classify print failures; PrintTask carries a title
   `PrinterConnectionLock.runExclusive(key, task)`; `PrintTaskResult`, `PrintTaskStatus`; `toPrinterFeatureException`,
   `errorCodeOf` từ `../exceptions`.
 - Produces:
-  - `PRINT_RETRY_DELAYS_MS: readonly number[] = [2000, 5000, 15000]` (export từ `PrintQueue.ts`)
+  - `PRINT_RETRY_DELAYS_MS: readonly number[] = [2000, 5000]` (export từ `PrintQueue.ts`)
   - `class PrintQueue`:
     - `constructor(printing: PrinterService = printerService, lock: PrinterConnectionLock = printerConnectionLock)`
       — thời gian chờ dùng thẳng `PRINT_RETRY_DELAYS_MS`, không truyền qua constructor
@@ -132,8 +132,8 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
   - `thành công: emit Success một lần rồi xoá khỏi hàng`.
   - `lỗi trước khi gửi rồi thành công ở lần 2` — `print` ném `DeviceErrorException(NOT_CONNECTED)` lần đầu → 1 kết quả
     `Success`, `print` gọi 2 lần; sau 1999ms `print` mới gọi 1 lần, tới 2000ms gọi lần 2.
-  - `lỗi trước khi gửi cả 4 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
-    `print` gọi đúng 4 lần (chỉ cho a1) ở các mốc 0 / 2000 / 7000 / 22000ms, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
+  - `lỗi trước khi gửi cả 3 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
+    `print` gọi đúng 3 lần (chỉ cho a1) ở các mốc 0 / 2000 / 7000ms, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
     gọi `print`.
   - `lỗi trong lúc gửi không thử lại, lệnh sau vẫn in` — a1 `WRITE_TIMEOUT` → `Failed`, `print` 1 lần cho a1, a2 `Success`.
   - `lỗi vĩnh viễn không bỏ các lệnh sau` — a1 ném `PrinterErrorException(PRINTER_NOT_FOUND)` → `Failed`, a2 `Success`,
