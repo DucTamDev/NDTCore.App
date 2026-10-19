@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Lệnh in đi qua hàng đợi theo từng máy vật lý: trả về ngay, in đúng thứ tự, tự in lại lỗi trước khi gửi, báo lỗi
+**Goal:** Lệnh in đi qua hàng đợi theo từng máy vật lý: trả về ngay, in đúng thứ tự, tự in lại khi lỗi kết nối, báo lỗi
 một lần rồi bỏ lệnh; "In lại" trong Lịch sử đơn in cả bill lẫn tem.
 
 **Architecture:** `PrintQueue` (class + `printQueue`) giữ `Map<deviceId, PrintTask[]>`, mỗi máy một worker; mỗi lần gửi
@@ -30,8 +30,8 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 1. Cùng máy vật lý có hai máy in đã lưu (máy hoá đơn + máy tem cùng `deviceId`) → chung một hàng, đúng thứ tự; D10 bỏ cả
    lệnh của máy in đã lưu kia. (Task 2, test `hai máy in đã lưu cùng deviceId dùng chung một hàng`)
 2. Listener `onTaskFinished` ném lỗi → hàng đợi vẫn in tiếp lệnh sau. (Task 2, test `listener ném lỗi không làm dừng hàng đợi`)
-3. Máy bị xoá khi lệnh đang chờ → `PRINTER_NOT_FOUND` là lỗi vĩnh viễn, chỉ bỏ lệnh đó, lệnh sau vẫn chạy (không áp D10).
-   (Task 2, test `lỗi vĩnh viễn không bỏ các lệnh sau`)
+3. Máy bị xoá khi lệnh đang chờ → `PRINTER_NOT_FOUND` là lỗi khác, chỉ bỏ lệnh đó, lệnh sau vẫn chạy (không áp D10).
+   (Task 2, test `lỗi khác không thử lại và không bỏ các lệnh sau`)
 4. Lỗi mới đến khi snackbar đang hiện → không mất, hiện ở thông báo kế tiếp. (Task 4, test `lỗi đến khi đang hiện thì
    chờ thông báo sau`)
 5. Hai lần thanh toán liên tiếp → hàng đợi giữ thứ tự bill1, tem1…, bill2, tem2… (Task 2, test FIFO `in đúng thứ tự
@@ -50,7 +50,7 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 
 **Interfaces:**
 - Produces:
-  - `PrintFailureKind = { BeforeSend: 'BeforeSend', DuringSend: 'DuringSend', Permanent: 'Permanent' }` (const-object +
+  - `PrintFailureKind = { ConnectFailed: 'ConnectFailed', DuringSend: 'DuringSend', Other: 'Other' }` (const-object +
     type cùng tên)
   - `printFailureKindOf(code: ErrorCode): PrintFailureKind` (cùng file)
   - `PrintTask.title: string` — mô tả nội dung để báo lỗi/log, vd `Hoá đơn #A1024`, `Tem #A1024 · ly 2/3`
@@ -59,20 +59,21 @@ chạy trong `PrinterConnectionLock`, chờ thử lại nằm ngoài khoá. `Pri
 
 ```ts
 describe('printFailureKindOf', () => {
-  it.each(['NOT_CONNECTED', 'CONNECTION_FAILED', 'DEVICE_NOT_FOUND', 'BLUETOOTH_DISABLED', 'SERVICE_CLOSED'])(
-    '%s là lỗi trước khi gửi', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.BeforeSend));
+  it('CONNECTION_FAILED là lỗi kết nối', () =>
+    expect(printFailureKindOf('CONNECTION_FAILED')).toBe(PrintFailureKind.ConnectFailed));
   it.each(['WRITE_FAILED', 'WRITE_TIMEOUT', 'CONNECTION_LOST'])(
     '%s là lỗi trong lúc gửi', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.DuringSend));
-  it.each(['INVALID_IMAGE', 'IMAGE_TOO_LARGE', 'ENCODE_FAILED', 'PERMISSION_DENIED', 'PRINTER_NOT_FOUND', 'UNKNOWN_ERROR'])(
-    '%s là lỗi vĩnh viễn', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.Permanent));
+  it.each(['NOT_CONNECTED', 'DEVICE_NOT_FOUND', 'BLUETOOTH_DISABLED', 'SERVICE_CLOSED', 'INVALID_IMAGE',
+    'PRINTER_NOT_FOUND', 'UNKNOWN_ERROR'])(
+    '%s là lỗi khác', (code) => expect(printFailureKindOf(code as ErrorCode)).toBe(PrintFailureKind.Other));
 });
 ```
 
 - [ ] **Step 2: Chạy, thấy fail** — `npx jest src/features/printer/models/printing` → FAIL (module chưa có).
 
-- [ ] **Step 3: Viết `PrintFailureKind.ts`** — hai `Set<ErrorCode>` cho BeforeSend/DuringSend (dùng hằng của
-  `DeviceErrorCode`), còn lại là Permanent. Comment WHY: `NOT_CONNECTED` từ `send()` vẫn là trước khi gửi vì native từ
-  chối trước khi ghi; nhóm DuringSend có thể đã in một phần nên không tự in lại.
+- [ ] **Step 3: Viết `PrintFailureKind.ts`** — `CONNECTION_FAILED` → ConnectFailed; một `Set<ErrorCode>` cho
+  DuringSend (hằng của `DeviceErrorCode`); còn lại Other. Comment WHY: chỉ mở kết nối thất bại mới chắc chắn chưa in gì
+  và có thể tự hết; nhóm DuringSend có thể đã in một phần.
 
 - [ ] **Step 4: Thêm `title` vào `PrintTask`** (JSDoc như ở Interfaces); `PrintService.createTask(printer, data, title)`
   — tạm truyền `PRINT_KIND_LABELS[kind]` từ `print()` để Task này tự build được (Task 3 thay bằng tham số thật). Sửa
@@ -116,9 +117,9 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
 - `Map<deviceId, PrintTask[]>`; enqueue vào máy chưa có worker thì khởi động worker; worker lấy lệnh đầu, in, emit, xoá,
   lặp; hết lệnh thì xoá key khỏi `Map` và dừng.
 - Mỗi lần gửi: `lock.runExclusive(task.deviceId, () => printing.print(task.printerId, task.data))`.
-- Lỗi BeforeSend và còn lượt → `printerLogger.printRetryScheduled(...)`, chờ `PRINT_RETRY_DELAYS_MS[attempt]` bằng `setTimeout` **ngoài
+- Lỗi ConnectFailed và còn lượt → `printerLogger.printRetryScheduled(...)`, chờ `PRINT_RETRY_DELAYS_MS[attempt]` bằng `setTimeout` **ngoài
   khoá**, thử lại. Hết lượt → emit `Failed` cho lệnh đó **và mọi lệnh còn trong hàng của máy** (cùng lỗi), xoá hàng (D10).
-- Lỗi DuringSend / Permanent → emit `Failed` chỉ lệnh đó; lệnh sau chạy tiếp.
+- Lỗi DuringSend / Other → emit `Failed` chỉ lệnh đó; lệnh sau chạy tiếp.
 - `PrintTaskResult.startedAt` = lúc bắt đầu lần thử đầu tiên; với lệnh bị bỏ theo D10, `startedAt = completedAt` = lúc bỏ.
 - Listener ném lỗi: bắt, ghi `LoggerService.warning`, gọi listener kế và in tiếp.
 
@@ -130,15 +131,16 @@ Hành vi (spec §4.1, §5.1, §5.3, §5.4):
   - `máy khác nhau in song song` — hai deviceId, `print` chờ 5ms → đang chạy tối đa 2.
   - `hai máy in đã lưu cùng deviceId dùng chung một hàng` — printerId khác, deviceId giống → tuần tự.
   - `thành công: emit Success một lần rồi xoá khỏi hàng`.
-  - `lỗi trước khi gửi rồi thành công ở lần 2` — `print` ném `DeviceErrorException(NOT_CONNECTED)` lần đầu → 1 kết quả
+  - `lỗi kết nối rồi thành công ở lần 2` — `print` ném `DeviceErrorException(CONNECTION_FAILED)` lần đầu → 1 kết quả
     `Success`, `print` gọi 2 lần; sau 1999ms `print` mới gọi 1 lần, tới 2000ms gọi lần 2.
-  - `lỗi trước khi gửi cả 3 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
+  - `lỗi kết nối cả 3 lần thì Failed và bỏ cả hàng của máy` — task a1 luôn `CONNECTION_FAILED`, a2/a3 đã enqueue →
     `print` gọi đúng 3 lần (chỉ cho a1) ở các mốc 0 / 2000 / 7000ms, 3 kết quả `Failed` cùng mã lỗi, a2/a3 không
     gọi `print`.
   - `lỗi trong lúc gửi không thử lại, lệnh sau vẫn in` — a1 `WRITE_TIMEOUT` → `Failed`, `print` 1 lần cho a1, a2 `Success`.
-  - `lỗi vĩnh viễn không bỏ các lệnh sau` — a1 ném `PrinterErrorException(PRINTER_NOT_FOUND)` → `Failed`, a2 `Success`,
-    không có timer chờ (`jest.getTimerCount()` = 0 sau khi a1 lỗi).
-  - `trong lúc chờ thử lại, khoá của máy được nhả` — a1 lỗi `NOT_CONNECTED`, chưa tiến timer; trong lúc chờ đó,
+  - `lỗi khác không thử lại và không bỏ các lệnh sau` — `it.each` với `NOT_CONNECTED`, `DEVICE_NOT_FOUND`,
+    `PRINTER_NOT_FOUND`: a1 → `Failed`, `print` 1 lần cho a1, a2 `Success`, không có timer chờ
+    (`jest.getTimerCount()` = 0 sau khi a1 lỗi).
+  - `trong lúc chờ thử lại, khoá của máy được nhả` — a1 lỗi `CONNECTION_FAILED`, chưa tiến timer; trong lúc chờ đó,
     `lock.runExclusive(deviceId, async () => 'ok')` resolve.
   - `listener ném lỗi không làm dừng hàng đợi` — listener đầu ném, listener sau vẫn nhận; lệnh sau vẫn in.
   - `huỷ đăng ký thì không nhận kết quả nữa`.

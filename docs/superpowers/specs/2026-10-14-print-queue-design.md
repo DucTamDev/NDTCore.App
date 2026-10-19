@@ -21,15 +21,15 @@ Hàng đợi in cần:
 | # | Quyết định |
 |---|---|
 | D1 | Mỗi máy vật lý (`deviceId`) một hàng đợi, in đúng thứ tự vào trước ra trước; máy khác nhau in song song. |
-| D2 | Chỉ tự in lại lỗi xảy ra **trước khi gửi dữ liệu**; tối đa 2 lần, chờ 2s → 5s. |
-| D3 | Lỗi trong lúc gửi và lỗi vĩnh viễn: không tự in lại. |
+| D2 | Chỉ tự in lại **lỗi kết nối** (`CONNECTION_FAILED`); tối đa 2 lần, chờ 2s → 5s. |
+| D3 | Mọi lỗi khác: không tự in lại. |
 | D4 | Lệnh in xong (thành công hoặc lỗi hẳn) là **xoá khỏi hàng đợi ngay**; không giữ lệnh lỗi. |
 | D5 | Lỗi chỉ báo một lần qua snackbar; in lại bằng "Lịch sử đơn". |
 | D6 | Kết nối lại máy (thu ngân tự bấm) **không** tự in gì. |
 | D7 | Hàng đợi chỉ nằm trong bộ nhớ; tắt app là mất lệnh đang chờ. |
 | D8 | `print()` trả về ngay sau khi đưa lệnh vào hàng đợi. |
 | D9 | Nút "In thử" in thẳng, không qua hàng đợi, báo lỗi ngay trên form. |
-| D10 | Lệnh đầu hàng lỗi hẳn vì lỗi trước khi gửi thì **bỏ luôn các lệnh còn lại của máy đó**, báo gộp một lần (xem §5.3). |
+| D10 | Lệnh đầu hàng lỗi kết nối hết lượt thử lại thì **bỏ luôn các lệnh còn lại của máy đó**, báo gộp một lần (xem §5.3). |
 | D11 | "In lại" trong Lịch sử đơn in **cả bill lẫn tem**, cùng đường với lúc thanh toán (xem §5.5). |
 
 ## 3. Phân loại lỗi
@@ -38,12 +38,12 @@ Phân loại theo mã lỗi (`errorCodeOf(error)`), quyết định có tự in 
 
 | Nhóm | Mã lỗi | Ý nghĩa | Xử lý |
 |---|---|---|---|
-| Trước khi gửi | `NOT_CONNECTED`, `CONNECTION_FAILED`, `DEVICE_NOT_FOUND`, `BLUETOOTH_DISABLED`, `SERVICE_CLOSED` | Chưa byte nào tới máy | Tự in lại (D2) |
+| Lỗi kết nối | `CONNECTION_FAILED` | Mở kết nối thất bại (USB/Bluetooth/LAN đều ném mã này), chưa byte nào tới máy | Tự in lại (D2), hết lượt thì D10 |
 | Trong lúc gửi | `WRITE_FAILED`, `WRITE_TIMEOUT`, `CONNECTION_LOST` | Có thể đã in một phần | Lỗi hẳn, báo "có thể đã in một phần" |
-| Vĩnh viễn | mọi mã còn lại (`INVALID_IMAGE`, `IMAGE_TOO_LARGE`, `ENCODE_FAILED`, `PERMISSION_DENIED`, `PRINTER_NOT_FOUND`, `CANCELLED`, `UNKNOWN_ERROR`…) | In lại cũng lỗi y vậy | Lỗi hẳn |
+| Khác | mọi mã còn lại (`NOT_CONNECTED`, `DEVICE_NOT_FOUND`, `BLUETOOTH_DISABLED`, `SERVICE_CLOSED`, `INVALID_IMAGE`, `ENCODE_FAILED`, `PRINTER_NOT_FOUND`, `UNKNOWN_ERROR`…) | Không phải lỗi kết nối tạm thời | Lỗi hẳn, chỉ bỏ lệnh đó |
 
-`NOT_CONNECTED` có thể đến từ `send()` khi phiên vừa rớt giữa `ensureConnected` và `send`; native từ chối trước khi
-ghi nên vẫn là "trước khi gửi".
+`DEVICE_NOT_FOUND` (rút USB, không thấy máy Bluetooth) và `BLUETOOTH_DISABLED` cần người can thiệp nên không tự in
+lại; các lệnh sau của máy cũng sẽ lỗi ngay và được snackbar gộp lại (§6).
 
 Thử lại tự động gọi lại `PrinterService.print()`, trong đó có `ensureConnected` mở lại kết nối. Đây là một phần của
 lần thử lại, không mâu thuẫn với D6: D6 nói về việc thu ngân tự kết nối lại máy sau khi lệnh đã bị bỏ.
@@ -119,9 +119,9 @@ enqueue(task) → cuối hàng của task.deviceId → (worker tới lượt)
     runExclusive(deviceId) { printing.print(printerId, data) }
       ├─ OK → emit Success, xoá lệnh, sang lệnh kế
       └─ lỗi:
-           ├─ nhóm "trước khi gửi" và attempt < PRINT_RETRY_DELAYS_MS.length
+           ├─ lỗi kết nối và attempt < PRINT_RETRY_DELAYS_MS.length
            │     → chờ PRINT_RETRY_DELAYS_MS[attempt] (ngoài khoá), attempt++, lặp
-           └─ còn lại → emit Failed, xoá lệnh (§5.3 nếu là "trước khi gửi")
+           └─ còn lại → emit Failed, xoá lệnh (§5.3 nếu là lỗi kết nối)
 ```
 
 ### 5.2 Thanh toán (cart)
@@ -139,17 +139,17 @@ printOrder(receipt, labels, captureImage)
 
 ### 5.3 Máy lỗi thì bỏ cả hàng của máy (D10)
 
-Máy tắt hoặc mất kết nối thì lệnh đầu hàng thử lại 2 lần (~7s) rồi lỗi. Nếu các lệnh sau cũng thử lại từng lệnh, 5 con tem
+Máy tắt hoặc không kết nối được thì lệnh đầu hàng thử lại 2 lần (~7s) rồi lỗi. Nếu các lệnh sau cũng thử lại từng lệnh, 5 con tem
 mất gần 2 phút và hiện 5 snackbar. Vì vậy:
 
-- Lệnh đầu hàng lỗi hẳn với nhóm "trước khi gửi" → bỏ luôn mọi lệnh còn trong hàng của máy đó, emit `Failed` cho
+- Lệnh đầu hàng lỗi kết nối hết lượt thử lại → bỏ luôn mọi lệnh còn trong hàng của máy đó, emit `Failed` cho
   từng lệnh với cùng lỗi.
 - Snackbar gộp theo máy: "Máy *Tem quầy*: 5 lệnh in không thành công (không kết nối được)".
-- Lỗi "trong lúc gửi" hoặc "vĩnh viễn" chỉ bỏ đúng lệnh đó; lệnh sau vẫn in bình thường.
+- Lỗi khác chỉ bỏ đúng lệnh đó; lệnh sau vẫn in bình thường.
 
 ### 5.4 Máy bị xoá hoặc tắt khi lệnh còn chờ
 
-Lúc tới lượt, `PrinterService.print()` không tìm thấy máy sẽ ném `PRINTER_NOT_FOUND` → lỗi vĩnh viễn, bỏ lệnh.
+Lúc tới lượt, `PrinterService.print()` không tìm thấy máy sẽ ném `PRINTER_NOT_FOUND` → lỗi khác, chỉ bỏ lệnh đó.
 Máy bị tắt (`enabled = false`) nhưng còn lưu: lệnh đã vào hàng vẫn in (người dùng tắt để không nhận lệnh *mới*).
 
 ### 5.5 In lại từ "Lịch sử đơn" (D11)
@@ -202,11 +202,11 @@ reprint(orderId)
 
 - Cùng máy: in đúng thứ tự enqueue, không chạy chồng; khác máy: song song.
 - Thành công: emit `Success` một lần, hàng đợi rỗng sau đó.
-- Lỗi "trước khi gửi" rồi thành công ở lần 2: chỉ một `Success`, `print` được gọi 2 lần.
-- Lỗi "trước khi gửi" cả 3 lần: `print` gọi đúng 3 lần, chờ đúng 2s/5s, emit `Failed`; các lệnh sau cùng máy cũng
+- `CONNECTION_FAILED` rồi thành công ở lần 2: chỉ một `Success`, `print` được gọi 2 lần.
+- `CONNECTION_FAILED` cả 3 lần: `print` gọi đúng 3 lần, chờ đúng 2s/5s, emit `Failed`; các lệnh sau cùng máy cũng
   `Failed` mà không gọi `print` (D10).
 - Lỗi `WRITE_TIMEOUT`: không thử lại, emit `Failed` với cờ "có thể đã in một phần"; lệnh sau vẫn in.
-- Lỗi vĩnh viễn: không thử lại.
+- Lỗi khác (`NOT_CONNECTED`, `DEVICE_NOT_FOUND`, `PRINTER_NOT_FOUND`): không thử lại, không bỏ các lệnh sau.
 - Trong lúc chờ thử lại, `testPrint` cùng máy chạy được (khoá không bị giữ khi chờ).
 - `PrintService.print`: trả `Queued` ngay khi chưa in xong; `NoAvailablePrinter`/`CaptureFailed` không enqueue gì.
 - `printOrder`: bill enqueue trước các tem; tem theo đúng thứ tự trang.
