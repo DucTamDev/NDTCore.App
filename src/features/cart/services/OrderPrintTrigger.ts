@@ -1,9 +1,9 @@
 import { createElement } from 'react';
 import { printService } from '../../printer/printing/PrintService';
-import { PrintStatus } from '../../printer/models/printing/PrintStatus';
-import type { PrintResult } from '../../printer/models/printing/PrintResult';
+import { PrintEnqueueStatus } from '../../printer/models/printing/PrintEnqueueStatus';
+import type { PrintEnqueueResult } from '../../printer/models/printing/PrintEnqueueResult';
 import { PrintKind } from '../../printer/models/printer/PrintKind';
-import { labelPagesOf, type LabelContent } from '../../printer/models/templates/LabelContent';
+import { labelPagesOf, type LabelContent, type LabelPage } from '../../printer/models/templates/LabelContent';
 import type { PrintItem, PrintTopping } from '../../printer/models/templates/PrintItem';
 import type { ReceiptContent, ReceiptPayment } from '../../printer/models/templates/ReceiptContent';
 import { DEFAULT_LABEL_TEMPLATE, LabelTemplate, ReceiptTemplate } from '../../printer/templates';
@@ -171,67 +171,77 @@ export const buildLabels = (
   items: items.map(toPrintItem),
 });
 
-export type PrintOutcome = 'ok' | 'no-printer' | 'failed';
+/** Tem in lại từ đơn đã đặt; không ghi "(In lại)" vì dòng trên của tem hẹp, thêm chữ sẽ đẩy số thứ tự ly xuống dòng. */
+export const buildReprintLabels = (order: OrderDetail, store: StoreViewModel | null): LabelContent => ({
+  storeName: store?.name ?? null,
+  customerName: null,
+  orderNumber: order.OrderNumber,
+  serviceType: serviceTypeNameOf(order.ServiceType),
+  time: formatTime(order.CreatedAt),
+  items: order.Items.map(toReprintItem),
+});
 
-/** Kết quả in một đơn lúc thanh toán. */
+/** `failed`: chụp hỏng hoặc lỗi trước khi vào hàng đợi; lỗi của máy in đến sau qua hàng đợi in. */
+export type PrintOutcome = 'queued' | 'no-printer' | 'failed';
+
+/** Kết quả đưa một đơn vào hàng đợi in. */
 export interface OrderPrintOutcome {
   receipt: PrintOutcome;
 
   labels: PrintOutcome;
 }
 
-/** Lỗi in chỉ ghi log, người gọi quyết định có báo cho thu ngân hay không. */
-const outcomeOf = (result: PrintResult, contentName: string): PrintOutcome => {
-  if (result.status === PrintStatus.NoAvailablePrinter) return 'no-printer';
-  if (result.status === PrintStatus.Success) return 'ok';
+const outcomeOf = (result: PrintEnqueueResult): PrintOutcome => {
+  if (result.status === PrintEnqueueStatus.Queued) return 'queued';
+  return result.status === PrintEnqueueStatus.NoAvailablePrinter ? 'no-printer' : 'failed';
+};
 
-  const reason = result.error ? ` (${result.error.message})` : '';
-  LoggerService.warning(`In ${contentName} không thành công: ${result.status}${reason}`);
-  return 'failed';
+const labelTitleOf = (orderNumber: string, page: LabelPage): string => {
+  const cupText = `Tem #${orderNumber} · ly ${page.cupNumber}/${page.cupCount}`;
+  return page.partCount > 1 ? `${cupText} · tem ${page.partNumber}/${page.partCount}` : cupText;
 };
 
 /**
- * In hoá đơn kiểu "fire-and-forget": không bao giờ reject, mọi lỗi chỉ ghi log để `submit()` phía trên không bị ảnh
- * hưởng. `PrintService` chỉ chụp hoá đơn khi có máy in hoá đơn, mỗi khổ giấy một lần.
+ * Đưa hoá đơn vào hàng đợi in, không chờ in xong; không bao giờ reject để `submit()` phía trên không bị ảnh hưởng.
+ * `PrintService` chỉ chụp hoá đơn khi có máy in hoá đơn, mỗi khổ giấy một lần.
  */
 export const printReceipt = async (content: ReceiptContent, captureImage: CaptureImage): Promise<PrintOutcome> => {
   try {
     const element = createElement(ReceiptTemplate, { content });
-    const result = await printService.print(PrintKind.Receipt, (paper) => captureImage(element, paper));
-    return outcomeOf(result, 'hoá đơn');
+    const title = `Hoá đơn #${content.orderNumber}`;
+    const result = await printService.print(PrintKind.Receipt, (paper) => captureImage(element, paper), title);
+    return outcomeOf(result);
   } catch (err) {
-    LoggerService.warning(`In hoá đơn thất bại: ${String(err)}`);
+    LoggerService.warning(`Đưa hoá đơn vào hàng đợi in thất bại: ${String(err)}`);
     return 'failed';
   }
 };
 
 /**
- * Mỗi con tem một lệnh in vì máy in tem chỉ nhận ảnh cao tối đa một con tem. Không có máy in tem, hoặc mọi máy in tem
- * đều lỗi, thì dừng luôn thay vì chờ lỗi lặp lại cho từng tem. Không bao giờ reject.
+ * Mỗi con tem một lệnh in vì máy in tem chỉ nhận ảnh cao tối đa một con tem. Không có máy in tem hoặc chụp hỏng thì
+ * dừng, không chụp các tem còn lại. Không bao giờ reject.
  */
 export const printLabels = async (content: LabelContent, captureImage: CaptureImage): Promise<PrintOutcome> => {
-  let outcome: PrintOutcome = 'ok';
-
   try {
     for (const page of labelPagesOf(content, DEFAULT_LABEL_TEMPLATE)) {
-      const result = await printService.print(PrintKind.Label, (paper) =>
-        captureImage(createElement(LabelTemplate, { content, page, paper }), paper),
+      const result = await printService.print(
+        PrintKind.Label,
+        (paper) => captureImage(createElement(LabelTemplate, { content, page, paper }), paper),
+        labelTitleOf(content.orderNumber, page),
       );
-      const pageOutcome = outcomeOf(result, 'tem');
-      const shouldStop = pageOutcome === 'no-printer' || result.status === PrintStatus.Failed;
+      const outcome = outcomeOf(result);
 
-      if (shouldStop) return pageOutcome;
-      if (pageOutcome === 'failed') outcome = 'failed';
+      if (outcome !== 'queued') return outcome;
     }
 
-    return outcome;
+    return 'queued';
   } catch (err) {
-    LoggerService.warning(`In tem thất bại: ${String(err)}`);
+    LoggerService.warning(`Đưa tem vào hàng đợi in thất bại: ${String(err)}`);
     return 'failed';
   }
 };
 
-/** In hoá đơn rồi mới in tem: chỉ có một khung chụp nên hai việc chụp không được chạy cùng lúc. */
+/** Hoá đơn vào hàng đợi trước tem: chỉ có một khung chụp nên hai việc chụp không được chạy cùng lúc. */
 export const printOrder = async (
   receipt: ReceiptContent,
   labels: LabelContent,
@@ -240,4 +250,12 @@ export const printOrder = async (
   const receiptOutcome = await printReceipt(receipt, captureImage);
   const labelsOutcome = await printLabels(labels, captureImage);
   return { receipt: receiptOutcome, labels: labelsOutcome };
+};
+
+/** Cảnh báo biết ngay lúc bấm in; chưa có máy in tem là bình thường nên không cảnh báo. */
+export const printWarningOf = (outcome: OrderPrintOutcome): string | null => {
+  if (outcome.receipt === 'no-printer') return 'Chưa thiết lập máy in cho Hoá đơn';
+  if (outcome.receipt === 'failed') return 'Không chụp được hoá đơn để in';
+  if (outcome.labels === 'failed') return 'Không chụp được tem để in';
+  return null;
 };

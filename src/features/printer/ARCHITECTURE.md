@@ -63,7 +63,8 @@ PrinterRepository             lưu
 
 | Component                  | Responsibility                                            |
 | -------------------------- | --------------------------------------------------------- |
-| `PrintService`             | Public API in; chọn máy theo `kind`, khoá theo máy vật lý |
+| `PrintService`             | Public API in; chọn máy theo `kind`, chụp ảnh, đưa lệnh vào hàng đợi |
+| `PrintQueue`               | Hàng đợi theo máy vật lý: in lần lượt, thử lại lỗi kết nối, báo kết quả |
 | `PrinterService`           | In / in thử một printer: encode rồi gửi                   |
 | `IPrintLanguage`           | Encode nội dung thành byte theo một ngôn ngữ lệnh          |
 | `PrinterConnectionService` | Phiên kết nối theo `printerId`: mở, đóng, gửi, đọc, trạng thái |
@@ -95,7 +96,8 @@ src/features/printer/
 │   ├── printer/         Printer, PrintKind, PrinterLanguage, PrinterCapabilities — lưu xuống bộ nhớ
 │   ├── paper/           PaperOptions, PaperSize, PaperType, CutterMode,
 │   │                    paperSpec (thông số theo khổ giấy)
-│   ├── printing/        PrintOptions, PrintTask (dữ liệu vào), PrintTaskResult, PrintResult (kết quả)
+│   ├── printing/        PrintOptions, PrintTask (dữ liệu vào), PrintEnqueueResult (kết quả đưa vào hàng đợi),
+│   │                    PrintTaskResult (kết quả in một lệnh), PrintFailureKind (phân loại lỗi in)
 │   └── templates/       ReceiptTemplateOptions, LabelTemplateOptions, PrintPadding, FontSizePreset (tuỳ chọn mẫu);
 │                        ReceiptContent, LabelContent (+ labelPagesOf), PrintItem (nội dung cần in)
 │
@@ -117,7 +119,7 @@ src/features/printer/
 │
 ├── discovery/           DeviceDiscoveryService, NetworkDiscoveryService
 ├── detection/           PrinterDetectionService, PrinterDetection, PrinterDetectionTable
-├── printing/            PrintService, PrinterService
+├── printing/            PrintService, PrintQueue, PrinterService
 ├── management/          PrinterManagementService, createPrinterDraft
 ├── permissions/         PrinterPermissionService
 ├── storage/             PrinterRepository, PrinterStorage
@@ -554,8 +556,8 @@ printerConnectionLock    instance dùng chung
 ```
 
 Một lệnh in gồm nhiều lần gọi native; native chỉ giữ thứ tự từng lần gọi chứ không giữ trọn cả lệnh in, nên hai lệnh
-in cùng một máy phải chạy lần lượt. Lệnh in (`PrintService`) và nút "In thử" (`PrinterService.testPrint`)
-dùng chung một khoá. Khoá không reentrant.
+in cùng một máy phải chạy lần lượt. Lệnh in (`PrintQueue`), nút "In thử" (`PrinterService.testPrint`) và lệnh ngắt
+kết nối dùng chung một khoá. Khoá không reentrant.
 
 Không log key: key là `deviceId`, nhúng IP/MAC.
 
@@ -565,11 +567,24 @@ Không log key: key là `deviceId`, nhúng IP/MAC.
 
 ## `PrintService`
 
-Public entry point. `print(kind, render)` chọn máy nhận từ repository theo `printer.kind` và `enabled` (không có máy
-thì không chụp), gọi `render(paper)` một lần cho mỗi cấu hình giấy khác nhau (lần lượt, vì chỉ có một khung chụp;
-chụp hỏng thì cả yêu cầu `Failed`), tạo một `PrintTask` cho mỗi máy với ảnh đúng giấy của nó, chạy trong khoá theo
-`task.deviceId` (native trả, cùng khoá với "In thử") rồi tổng hợp kết quả. Không có hàng đợi riêng: thứ tự giữa các
-lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discovery, connection lifecycle, encoding.
+Public entry point. `print(kind, render, title)` chọn máy nhận từ repository theo `printer.kind` và `enabled` (không có
+máy thì `NoAvailablePrinter`, không chụp), gọi `render(paper)` một lần cho mỗi cấu hình giấy khác nhau (lần lượt, vì
+chỉ có một khung chụp; chụp hỏng thì `CaptureFailed`, không lệnh nào vào hàng đợi), tạo một `PrintTask` cho mỗi máy
+với ảnh đúng giấy của nó, đưa vào `PrintQueue` rồi trả `Queued` ngay, không chờ in. `title` (vd `Hoá đơn #A1024`)
+dùng để báo lỗi. Không chứa device discovery, connection lifecycle, encoding.
+
+## `PrintQueue`
+
+```ts
+class PrintQueue → enqueue(task), onTaskFinished(listener) → unsubscribe
+printQueue        instance dùng chung
+PRINT_RETRY_DELAYS_MS = [2000, 5000]
+```
+
+Mỗi `deviceId` một hàng, in lần lượt đúng thứ tự enqueue; máy khác nhau in song song. Mỗi lần gửi chạy trong
+`PrinterConnectionLock` của máy; thời gian chờ thử lại nằm ngoài khoá. Lệnh in xong (thành công hoặc lỗi hẳn) bị xoá
+khỏi hàng ngay, kết quả báo qua `onTaskFinished`; không giữ lệnh lỗi, không lưu xuống máy (tắt app là mất lệnh đang
+chờ). Kết nối lại máy không tự in lại gì.
 
 ## `PrinterService`
 
@@ -577,43 +592,54 @@ lệnh cùng máy do `PrinterConnectionLock` giữ. Không chứa device discove
 print(printerId, image, options?)
   lấy Printer → chưa Connected thì connect → getPrintLanguage(type).encode → send
 testPrint(printer, image, options?)
-  như trên, máy có thể chưa lưu; tự khoá theo máy vật lý
+  như trên, máy có thể chưa lưu; tự khoá theo máy vật lý, không qua hàng đợi
 ```
 
-`print` không tự khoá (luôn được `PrintService` gọi bên trong khoá). Ghi log `print*` / `testPrint*` kèm ngôn ngữ.
+`print` không tự khoá (luôn được `PrintQueue` gọi bên trong khoá). Ghi log `print*` / `testPrint*` kèm ngôn ngữ.
 
 ---
 
 # 23. Complete Print Flow
 
 ```text
-PrintService → target printers (mỗi target một task) → PrinterConnectionLock(task.deviceId)
+PrintService → target printers (mỗi target một task) → PrintQueue.enqueue → trả Queued
+    ↓ (worker của task.deviceId)
+PrinterConnectionLock(task.deviceId)
     ↓
 PrinterService
     ├── PrinterConnectionService.connect (nếu chưa Connected)
     ├── IPrintLanguage.encode
     └── PrinterConnectionService.send → NativeAdapter → DeviceModule
+    ↓
+PrintQueue.onTaskFinished → PrintFailureSnackbar (khi lỗi)
 ```
 
-Máy khác nhau in song song; hai record cùng máy vật lý in lần lượt.
+Máy khác nhau in song song; hai record cùng máy vật lý chung một hàng.
 
 ---
 
 # 24. Print Failure Policy
 
-POS print failure không được làm crash sales flow một cách không cần thiết.
+POS print failure không được làm crash sales flow. `PrintService.print` không throw và không chờ in; lỗi in đến sau
+qua `PrintQueue.onTaskFinished`, hiện bằng `PrintFailureSnackbar` ở gốc app (gộp các lỗi đến trong 1 giây theo máy).
+In lại bằng "Lịch sử đơn" (in cả bill lẫn tem).
 
-Public receipt printing không throw error ra UI flow nếu application policy yêu cầu best-effort printing. Lower-level
-layers vẫn trả structured error:
+`PrintFailureKind` quyết định cách xử lý một lệnh lỗi:
+
+| Nhóm | Mã lỗi | Xử lý |
+|---|---|---|
+| `ConnectFailed` | `CONNECTION_FAILED` | Thử lại sau 2s, 5s; vẫn lỗi thì bỏ hết lệnh của máy |
+| `DeviceUnavailable` | `CONNECTION_LOST`, `NOT_CONNECTED`, `DEVICE_NOT_FOUND`, `BLUETOOTH_DISABLED`, `SERVICE_CLOSED`, `PERMISSION_DENIED` | Không thử lại, bỏ hết lệnh của máy |
+| `TaskFailed` | `WRITE_FAILED`, `WRITE_TIMEOUT` và mọi mã còn lại | Không thử lại, chỉ bỏ lệnh đó |
 
 ```text
 Native / adapter error (DeviceErrorException), encode error (PrintErrorException)
     ↓
 PrinterService (log print* failed)
     ↓
-PrintService (task Failed + PrinterFeatureException)
+PrintQueue (thử lại / bỏ lệnh / bỏ cả hàng; PrintTaskResult Failed + PrinterFeatureException)
     ↓
-Logging / monitoring
+PrintFailureSnackbar, logging
 ```
 
 Không swallow error ở mọi layer. Chỉ public operation quyết định error policy phù hợp với POS flow.

@@ -17,8 +17,8 @@ export const OrderHistoryPanel: React.FC = () => {
     dismissError,
     reprint,
     reprintingIds,
-    receiptPrintWarning,
-    dismissReceiptPrintWarning,
+    printWarning,
+    dismissPrintWarning,
     refresh,
   } = useOrderHistory(captureImage);
 
@@ -41,8 +41,8 @@ export const OrderHistoryPanel: React.FC = () => {
         <Snackbar visible={error !== null} onDismiss={dismissError} duration={4000}>
           {error}
         </Snackbar>
-        <Snackbar visible={receiptPrintWarning !== null} onDismiss={dismissReceiptPrintWarning} duration={4000}>
-          {receiptPrintWarning === 'no-printer' ? 'Chưa thiết lập máy in cho Hoá đơn' : 'In hoá đơn không thành công'}
+        <Snackbar visible={printWarning !== null} onDismiss={dismissPrintWarning} duration={4000}>
+          {printWarning}
         </Snackbar>
       </Portal>
       {captureNode}

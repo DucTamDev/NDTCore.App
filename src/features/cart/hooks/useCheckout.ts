@@ -4,19 +4,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { CartService } from '../services/CartService';
-import { buildLabels, buildReceipt, printOrder, type OrderPrintOutcome } from '../services/OrderPrintTrigger';
+import { buildLabels, buildReceipt, printOrder, printWarningOf } from '../services/OrderPrintTrigger';
 import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import type { CreateOrderResponse } from '../types/cart.types';
-
-/** Cảnh báo sau khi in đơn; chưa có máy in tem là bình thường nên không cảnh báo. */
-const printWarningOf = (outcome: OrderPrintOutcome): string | null => {
-  if (outcome.receipt === 'no-printer') return 'Chưa thiết lập máy in cho Hoá đơn';
-  if (outcome.receipt === 'failed') return 'In hoá đơn không thành công';
-  if (outcome.labels === 'failed') return 'In tem không thành công';
-  return null;
-};
 
 export const useCheckout = (captureImage: CaptureImage) => {
   const dispatch = useDispatch<AppDispatch>();

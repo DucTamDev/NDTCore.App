@@ -1,15 +1,17 @@
 import {
   buildLabels,
   buildReceipt,
+  buildReprintLabels,
   buildReprintReceipt,
   printLabels,
   printOrder,
   printReceipt,
+  printWarningOf,
 } from '../OrderPrintTrigger';
 import { LabelTemplate, ReceiptTemplate } from '../../../printer/templates';
 import { printService } from '../../../printer/printing/PrintService';
-import { PrintStatus } from '../../../printer/models/printing/PrintStatus';
-import { LoggerService } from '../../../../services/LoggerService';
+import { PrintEnqueueStatus } from '../../../printer/models/printing/PrintEnqueueStatus';
+import type { LabelContent } from '../../../printer/models/templates/LabelContent';
 import type { CartItem, CreateOrderResponse, OrderDetail } from '../../types/cart.types';
 import type { StoreViewModel } from '../../../store/types/store.types';
 import { PrintKind } from '../../../printer/models/printer/PrintKind';
@@ -159,6 +161,16 @@ describe('buildReprintReceipt', () => {
   });
 });
 
+/** Kết quả `print` giả với trạng thái cho trước. */
+const enqueueResult = (status: PrintEnqueueStatus) => ({ status, tasks: [] });
+
+const mockPrint = (status: PrintEnqueueStatus): void => {
+  (printService.print as jest.Mock).mockResolvedValue(enqueueResult(status));
+};
+
+/** `title` của từng lần gọi `print`, theo thứ tự. */
+const printedTitles = (): string[] => (printService.print as jest.Mock).mock.calls.map(([, , title]) => title);
+
 describe('printReceipt', () => {
   const paper = { type: PaperType.Continuous, paperSize: 58 };
   const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
@@ -167,49 +179,37 @@ describe('printReceipt', () => {
     jest.clearAllMocks();
   });
 
-  it('chưa có máy in hoá đơn → "no-printer"', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.NoAvailablePrinter, results: [] });
-
-    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('no-printer');
-  });
-
-  it('PrintService chụp bill theo giấy của từng máy qua hàm chụp được truyền vào', async () => {
+  it('đưa hoá đơn vào hàng đợi với title, chụp theo giấy của từng máy → "queued"', async () => {
     const capture = jest.fn().mockResolvedValue('base64-png-data');
     (printService.print as jest.Mock).mockImplementation(async (_kind, render) => {
       await render(paper);
-      return { status: PrintStatus.Success, results: [] };
+      return enqueueResult(PrintEnqueueStatus.Queued);
     });
 
-    await expect(printReceipt(receipt, capture)).resolves.toBe('ok');
-    expect(printService.print).toHaveBeenCalledWith(PrintKind.Receipt, expect.any(Function));
+    await expect(printReceipt(receipt, capture)).resolves.toBe('queued');
+    expect(printService.print).toHaveBeenCalledWith(PrintKind.Receipt, expect.any(Function), 'Hoá đơn #ORD-001');
     expect(capture).toHaveBeenCalledWith(
       expect.objectContaining({ type: ReceiptTemplate, props: { content: receipt } }),
       paper,
     );
   });
 
-  it('chụp thất bại → "failed", ghi log kèm lý do', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({
-      status: PrintStatus.Failed,
-      results: [],
-      error: { message: 'Không chụp được nội dung Hoá đơn để in' },
-    });
+  it('chưa có máy in hoá đơn → "no-printer"', async () => {
+    mockPrint(PrintEnqueueStatus.NoAvailablePrinter);
 
-    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('failed');
-    expect(LoggerService.warning).toHaveBeenCalledWith(expect.stringContaining('Không chụp được'));
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('no-printer');
   });
 
-  it('máy in báo lỗi → "failed" và ghi log', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.Failed, results: [] });
+  it('chụp hỏng → "failed"', async () => {
+    mockPrint(PrintEnqueueStatus.CaptureFailed);
 
-    await expect(printReceipt(receipt, jest.fn().mockResolvedValue('png'))).resolves.toBe('failed');
-    expect(LoggerService.warning).toHaveBeenCalled();
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('failed');
   });
 
   it('printService.print reject → "failed", không bao giờ reject', async () => {
-    (printService.print as jest.Mock).mockRejectedValue(new Error('mất kết nối'));
+    (printService.print as jest.Mock).mockRejectedValue(new Error('view chưa mount'));
 
-    await expect(printReceipt(receipt, jest.fn().mockResolvedValue('png'))).resolves.toBe('failed');
+    await expect(printReceipt(receipt, jest.fn())).resolves.toBe('failed');
   });
 });
 
@@ -218,6 +218,16 @@ describe('buildLabels', () => {
     const labels = buildLabels(orderResponse, [milkTea], 'TakeAway', store);
     expect(labels).toMatchObject({ storeName: 'NDTCore Quận 1', orderNumber: 'ORD-001', serviceType: 'Mang đi' });
     expect(labels.items).toEqual(buildReceipt(orderResponse, [milkTea], 'TakeAway', store).items);
+  });
+});
+
+describe('buildReprintLabels', () => {
+  it('lấy món và topping từ đơn đã lưu, mã đơn không ghi "(In lại)", giờ dạng HH:mm', () => {
+    const labels = buildReprintLabels(orderDetail, store);
+
+    expect(labels).toMatchObject({ storeName: 'NDTCore Quận 1', orderNumber: 'ORD-001', customerName: null });
+    expect(labels.time).toMatch(/^\d{2}:\d{2}$/);
+    expect(labels.items).toEqual(buildReprintReceipt(orderDetail, store).items);
   });
 });
 
@@ -231,43 +241,51 @@ describe('printLabels', () => {
     jest.clearAllMocks();
   });
 
-  it('mỗi con tem một lệnh in, chụp theo giấy tem của máy', async () => {
+  it('mỗi con tem một lệnh in mang title theo ly, chụp theo giấy tem của máy → "queued"', async () => {
     const capture = jest.fn().mockResolvedValue('png');
     (printService.print as jest.Mock).mockImplementation(async (_kind, render) => {
       await render(dieCut);
-      return { status: PrintStatus.Success, results: [] };
+      return enqueueResult(PrintEnqueueStatus.Queued);
     });
 
-    await expect(printLabels(labels, capture)).resolves.toBe('ok');
-    expect(printService.print).toHaveBeenCalledTimes(3);
-    expect(printService.print).toHaveBeenCalledWith(PrintKind.Label, expect.any(Function));
+    await expect(printLabels(labels, capture)).resolves.toBe('queued');
+    expect(printService.print).toHaveBeenCalledWith(PrintKind.Label, expect.any(Function), expect.any(String));
+    expect(printedTitles()).toEqual(['Tem #ORD-001 · ly 1/3', 'Tem #ORD-001 · ly 2/3', 'Tem #ORD-001 · ly 3/3']);
     expect(capture.mock.calls.map(([element]) => element.props.page.cupNumber)).toEqual([1, 2, 3]);
     expect(capture).toHaveBeenCalledWith(expect.objectContaining({ type: LabelTemplate }), dieCut);
   });
 
+  it('ly tách nhiều tem thì title ghi thêm số tem', async () => {
+    mockPrint(PrintEnqueueStatus.Queued);
+    const toppings = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({ name, quantity: 1, price: 0 }));
+    const splitCup: LabelContent = {
+      ...labels,
+      items: [{ name: 'Trà sữa', quantity: 1, unitPrice: 30000, attributes: [], toppings, note: null }],
+    };
+
+    await printLabels(splitCup, jest.fn());
+
+    expect(printedTitles()).toEqual(['Tem #ORD-001 · ly 1/1 · tem 1/2', 'Tem #ORD-001 · ly 1/1 · tem 2/2']);
+  });
+
   it('chưa có máy in tem → "no-printer", không thử các tem còn lại', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.NoAvailablePrinter, results: [] });
+    mockPrint(PrintEnqueueStatus.NoAvailablePrinter);
 
     await expect(printLabels(labels, jest.fn())).resolves.toBe('no-printer');
     expect(printService.print).toHaveBeenCalledTimes(1);
   });
 
-  it('mọi máy in tem lỗi → "failed", dừng ngay', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.Failed, results: [] });
+  it('chụp hỏng ở tem 2 → "failed", không đưa tem 3 vào hàng đợi', async () => {
+    (printService.print as jest.Mock)
+      .mockResolvedValueOnce(enqueueResult(PrintEnqueueStatus.Queued))
+      .mockResolvedValueOnce(enqueueResult(PrintEnqueueStatus.CaptureFailed));
 
     await expect(printLabels(labels, jest.fn())).resolves.toBe('failed');
-    expect(printService.print).toHaveBeenCalledTimes(1);
-  });
-
-  it('một phần máy lỗi → vẫn in hết các tem, kết quả "failed"', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.PartialFailure, results: [] });
-
-    await expect(printLabels(labels, jest.fn())).resolves.toBe('failed');
-    expect(printService.print).toHaveBeenCalledTimes(3);
+    expect(printService.print).toHaveBeenCalledTimes(2);
   });
 
   it('printService.print reject → "failed", không bao giờ reject', async () => {
-    (printService.print as jest.Mock).mockRejectedValue(new Error('mất kết nối'));
+    (printService.print as jest.Mock).mockRejectedValue(new Error('view chưa mount'));
 
     await expect(printLabels(labels, jest.fn())).resolves.toBe('failed');
   });
@@ -278,16 +296,28 @@ describe('printOrder', () => {
     jest.clearAllMocks();
   });
 
-  it('in hoá đơn xong mới in tem', async () => {
-    (printService.print as jest.Mock).mockResolvedValue({ status: PrintStatus.Success, results: [] });
+  it('đưa hoá đơn vào hàng đợi trước rồi mới tới các tem', async () => {
+    mockPrint(PrintEnqueueStatus.Queued);
     const receipt = buildReceipt(orderResponse, [item], 'DineIn', null);
     const labels = buildLabels(orderResponse, [item], 'DineIn', null);
 
-    await expect(printOrder(receipt, labels, jest.fn())).resolves.toEqual({ receipt: 'ok', labels: 'ok' });
+    await expect(printOrder(receipt, labels, jest.fn())).resolves.toEqual({ receipt: 'queued', labels: 'queued' });
     expect((printService.print as jest.Mock).mock.calls.map(([kind]) => kind)).toEqual([
       PrintKind.Receipt,
       PrintKind.Label,
       PrintKind.Label,
     ]);
+  });
+});
+
+describe('printWarningOf', () => {
+  it.each([
+    [{ receipt: 'no-printer', labels: 'queued' }, 'Chưa thiết lập máy in cho Hoá đơn'],
+    [{ receipt: 'failed', labels: 'queued' }, 'Không chụp được hoá đơn để in'],
+    [{ receipt: 'queued', labels: 'failed' }, 'Không chụp được tem để in'],
+    [{ receipt: 'queued', labels: 'queued' }, null],
+    [{ receipt: 'queued', labels: 'no-printer' }, null],
+  ] as const)('%p → %p', (outcome, warning) => {
+    expect(printWarningOf(outcome)).toBe(warning);
   });
 });
