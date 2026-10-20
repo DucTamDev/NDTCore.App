@@ -1,9 +1,15 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { PAPER_SIZE_SPECS, DOTS_PER_MM } from '../models/paper/paperSpec';
 import type { PaperOptions } from '../models/paper/PaperOptions';
 import { PaperType } from '../models/paper/PaperType';
+
+/**
+ * Chụp thường xong dưới một giây. Lần chụp không bao giờ xong (khung chụp không hiện lên) phải trả `null`, vì các đơn
+ * in chờ nhau chụp: một lần treo sẽ chặn mọi lệnh in sau.
+ */
+export const CAPTURE_TIMEOUT_MS = 5000;
 
 /** Chụp `content` thành PNG base64 (không tiền tố `data:`) rộng theo `paper`; `null` khi chụp thất bại. */
 export type CaptureImage = (content: React.ReactElement, paper: PaperOptions) => Promise<string | null>;
@@ -36,26 +42,47 @@ const widthPxOf = (paper: PaperOptions): number =>
 export const usePrintImageCapture = (): UsePrintImageCapture => {
   const viewRef = useRef<View>(null);
   const resolverRef = useRef<((base64: string | null) => void) | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pending, setPending] = useState<PendingCapture | null>(null);
+
+  /** Lấy lời hứa đang chờ ra khỏi ref để mỗi lần chụp chỉ được trả kết quả một lần. */
+  const takeResolver = useCallback(() => {
+    const resolve = resolverRef.current;
+    resolverRef.current = null;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    return resolve;
+  }, []);
 
   const captureImage = useCallback<CaptureImage>(
     (content, paper) =>
       new Promise((resolve) => {
+        takeResolver()?.(null);
         resolverRef.current = resolve;
+        timeoutRef.current = setTimeout(() => {
+          takeResolver()?.(null);
+          setPending(null);
+        }, CAPTURE_TIMEOUT_MS);
         setPending({ content, widthPx: widthPxOf(paper) });
       }),
-    [],
+    [takeResolver],
   );
 
+  // Màn hình chứa khung chụp đóng giữa chừng thì lần chụp đang chờ không bao giờ xong.
+  useEffect(() => () => takeResolver()?.(null), [takeResolver]);
+
   const onLayout = useCallback(() => {
-    const resolve = resolverRef.current;
-    resolverRef.current = null;
+    const resolve = takeResolver();
     if (!resolve) return;
     captureRef(viewRef, { format: 'png', result: 'base64' })
       .then((base64) => resolve(base64))
       .catch(() => resolve(null))
       .finally(() => setPending(null));
-  }, []);
+  }, [takeResolver]);
 
   // `collapsable={false}`: thiếu nó Android có thể bỏ View khỏi cây native và chụp ra ảnh rỗng.
   const captureNode = pending ? (

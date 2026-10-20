@@ -131,7 +131,8 @@ src/features/printer/
 ├── exceptions/          index.ts (barrel + errorCodeOf, toPrinterFeatureException), PrinterFeatureException
 │                        (lớp nền), DeviceErrorException, PrinterErrorException, PrintErrorException
 │
-├── components/          UI quản lý máy in; SamplePrint (bản in thử, dùng mẫu mặc định)
+├── components/          UI quản lý máy in; SamplePrint (bản in thử, dùng mẫu mặc định); PrintFailureSnackbar
+│                        (báo lệnh in lỗi, mount ở gốc app)
 ├── hooks/               usePrintImageCapture (chụp React element thành ảnh in), luồng thêm máy in
 ├── forms/               schema (máy in, form giấy, LAN, tên), printerRules (canPrintKind)
 ├── store/
