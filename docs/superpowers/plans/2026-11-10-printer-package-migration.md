@@ -6,8 +6,8 @@
 lệnh, lưu máy in đi qua `@ndtcore/printer` và `@ndtcore/printer-native`.
 
 **Architecture:** Package nằm ở repo `NDTCore.Package` cùng thư mục cha, App phụ thuộc bằng `file:`. Task 1–2 sửa
-package cho đủ nhu cầu của App; Task 3 nối package vào bundler, Jest, webpack; Task 4–10 chuyển từng phần App sang API package
-trong khi code cũ vẫn chạy song song; Task 11 gỡ code cũ; Task 12 kiểm đầu cuối trên máy ảo.
+package cho đủ nhu cầu của App; Task 3 nối package vào bundler, Jest, webpack; Task 4–10 chuyển từng phần App
+sang API package trong khi code cũ vẫn chạy song song; Task 11 gỡ code cũ; Task 12 kiểm đầu cuối trên máy ảo.
 
 **Tech Stack:** React Native 0.86.2 New Architecture, TypeScript strict, Jest + react-test-renderer, react-native-paper,
 react-hook-form + zod, Metro, webpack (bản web).
@@ -88,7 +88,8 @@ Repo `NDTCore.Package`, tạo nhánh `feat/app-integration` từ `main`.
 - Produces:
   - `renderWithContext(renderer: PrintRenderer, context: PrintRenderContext): ReactElement` xuất ở `@ndtcore/printer`.
   - `printerManager.testPrintAsync(printerId: string, renderers: PrintRenderer[], changes?: PrinterChanges)`
-    trả `Promise<void>`: `changes` gộp vào cấu hình đã lưu như `updateAsync` (cùng `requireEditable`, `mergeChanges`), không lưu (FR-T04).
+    trả `Promise<void>`: `changes` gộp vào cấu hình đã lưu như `updateAsync` (cùng `requireEditable`,
+    `mergeChanges`), không lưu (FR-T04).
     Lý do: app không tạo được `Printer` cho máy đã lưu vì `Printer.createUnsaved` không công khai.
   - Trên web `@ndtcore/printer-native` có module `null`; mọi hàm của `printerNative` ném `PLATFORM_UNSUPPORTED`.
 
@@ -401,7 +402,8 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
 Không có test tự động; ghi kết quả vào `docs/superpowers/plans/2026-11-10-printer-package-migration-results.md`.
 
 - [ ] **Step 1:** Chạy máy in LAN giả (cổng 9100):
-  `node ../NDTCore.Package/NDTCore.Package.Printer.Native/example/scripts/fake-lan-printer.js`; máy ảo `Small_Tablet`, `adb reverse tcp:8081 tcp:8081`, `npm run android`.
+  `node ../NDTCore.Package/NDTCore.Package.Printer.Native/example/scripts/fake-lan-printer.js`;
+  máy ảo `Small_Tablet`, `adb reverse tcp:8081 tcp:8081`, `npm run android`.
 - [ ] **Step 2:** Thêm máy hoá đơn LAN `10.0.2.2:9100` → kết nối, dò ra ESC/POS, in thử có đường bao, lưu; danh sách
   hiện `Đã kết nối`.
 - [ ] **Step 3:** Thanh toán một đơn có tem → máy giả nhận dữ liệu hoá đơn (log số byte); không có máy tem → không cảnh
