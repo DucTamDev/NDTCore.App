@@ -1,5 +1,6 @@
 // webpack.config.js
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
@@ -119,6 +120,10 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, 'web/index.html'),
+    }),
+    // Metro tự định nghĩa __DEV__; webpack thì không, nên LoggerService ném ReferenceError trên web.
+    new webpack.DefinePlugin({
+      __DEV__: 'process.env.NODE_ENV !== "production"',
     }),
   ],
   devServer: {
