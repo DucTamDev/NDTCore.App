@@ -64,7 +64,7 @@ Làm ở plan package (Task 1–5) cùng nhánh. API App dùng từ đây trở 
 - `Printer` chỉ đọc: `id`, `createdAt`, `deviceInfo`, `connectionConfig`, `config` (`PrinterConfig`: `kind`, `name`,
   `lang`, `langSource`, `capabilities`, `paper`), `status`, `address`.
 - `printer.withConfig(update: PrinterConfigUpdate): Printer` (`name?`, `lang?`, `capabilities?`, `paper?`): bản sao chưa
-  lưu, ném `INPUT_INVALID` kèm `fieldErrors` ngay khi sai. `paper` thay nguyên khối. Kiểm cả cấu hình sau khi ghép:
+  lưu, ném `INPUT_INVALID` kèm `fieldErrors` ngay khi sai. `paper` ghép từng field. Kiểm cả cấu hình sau khi ghép:
   bản nháp không dò được `lang` có `lang` rỗng, nên `withConfig` thiếu `lang` (vd chỉ đổi tên) ném lỗi trường `lang`
   `REQUIRED`. App luôn dựng `update` từ cả form gồm ô `lang` (TSD 5.3).
 - `printerSetup.connectAsync(candidate): Promise<Printer>` trả bản nháp; `printerSetup.saveAsync(draft)` nhận bản nháp
@@ -73,6 +73,9 @@ Làm ở plan package (Task 1–5) cùng nhánh. API App dùng từ đây trở 
   `printerManager.updateLanAddressAsync(printerId, host, port)` đổi IP, cổng máy LAN.
 - `printService.testPrintAsync(printer, renderers)`: in thử bản nháp, máy đã lưu hoặc bản `withConfig`. Không còn
   `printerSetup.testPrintAsync`, `printerManager.testPrintAsync`.
+- `PrinterConfig` một interface (`kind`, `name`, `lang`, `langSource`, `capabilities`, `paper`). `PaperConfig` phẳng:
+  `widthMm` bắt buộc; `heightMm`, `columns`, `columnGapMm`, `rowGapMm` (tem), `cutMode`, `feedLines` (hoá đơn) optional,
+  thiếu thì package lấy mặc định; `heightMm` bắt buộc với tem. Field của kind kia không kiểm, không dùng.
 - Trên web `@ndtcore/printer-native` có module `null`; mọi hàm ném `PLATFORM_UNSUPPORTED`.
 
 ### Task 3: App — nối package vào Metro, Jest, webpack
@@ -312,11 +315,11 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
   `printService.testPrintAsync(printer, renderers)` (package, Task 2); `RECEIPT_PAPER_WIDTHS_MM`,
   `LABEL_SIZE_PRESETS_MM`, `PrinterDpi`, `CutMode`; `SampleReceipt`, `SampleLabel` (Task 5).
 - Produces:
-  - Form giấy theo kiểu package: hoá đơn `paperWidthMm`, `cutMode`, `feedLines`; tem `labelWidthMm`, `labelHeightMm`,
-    `labelsPerRow`, `columnGapMm`, `rowGapMm`; khả năng `hasCutter`, `dpi`. Bỏ loại giấy, `cutterMode`,
-    `cashDrawer`, `color`, `image`, `enabled`.
+  - Form giấy theo `PaperConfig` của package: hoá đơn `widthMm`, `cutMode`, `feedLines`; tem `widthMm`, `heightMm`,
+    `columns`, `columnGapMm`, `rowGapMm`; khả năng `hasCutter`, `dpi`. Bỏ loại giấy, `cutterMode`, `cashDrawer`,
+    `color`, `image`, `enabled`.
   - `configUpdateOf(values: PrinterFormValues): PrinterConfigUpdate` đổi giá trị form sang bản cập nhật của package.
-  - `applyFieldErrors(fieldErrors: FieldError[], setError: UseFormSetError<…>): void` gắn `paper.paperWidthMm`… vào
+  - `applyFieldErrors(fieldErrors: FieldError[], setError: UseFormSetError<…>): void` gắn `paper.widthMm`… vào
     ô tương ứng; dùng cho lỗi ném từ `withConfig` (đồng bộ) và reject của `saveAsync`, `updateAsync`.
   - `useAddPrinterFlow({ visible, kind, initialPrinter?: Printer, onSaved })`: thêm mới dùng `printerSetup`, sửa dùng
     `printerManager`.
@@ -326,7 +329,7 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
   - `it('sửa máy: lưu gọi updateAsync với saved.withConfig(cấu hình form)')`.
   - `it('sửa máy LAN đổi IP: gọi updateLanAddressAsync, rồi updateAsync nếu cấu hình in cũng đổi')`.
   - `it('fieldErrors của package gắn vào đúng trường')`: `withConfig` ném
-    `{ code: 'INPUT_INVALID', fieldErrors: [{ field: 'paper.paperWidthMm', reason: 'OUT_OF_RANGE' }] }` → ô khổ giấy
+    `{ code: 'INPUT_INVALID', fieldErrors: [{ field: 'paper.widthMm', reason: 'OUT_OF_RANGE' }] }` → ô khổ giấy
     có lỗi, giá trị đã nhập còn nguyên.
   - `it('in thử máy đang thêm truyền SampleReceipt')`, `it('in thử tem truyền SampleLabel đủ số hàng')`.
   - `it('in thử máy đã lưu dùng saved.withConfig(cấu hình đang chỉnh), không lưu')`.
