@@ -4,12 +4,10 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { Portal, Snackbar, Text } from 'react-native-paper';
 import { EmptyState } from '../../../components/EmptyState';
 import { useOrderHistory } from '../hooks/useOrderHistory';
-import { usePrintImageCapture } from '../../printer/hooks/usePrintImageCapture';
 import { OrderHistoryListItem } from './OrderHistoryListItem';
 import type { OrderHistoryItem } from '../types/cart.types';
 
 export const OrderHistoryPanel: React.FC = () => {
-  const { captureNode, captureImage } = usePrintImageCapture();
   const {
     orders,
     isLoading,
@@ -20,7 +18,7 @@ export const OrderHistoryPanel: React.FC = () => {
     printWarning,
     dismissPrintWarning,
     refresh,
-  } = useOrderHistory(captureImage);
+  } = useOrderHistory();
 
   return (
     <View style={styles.container}>
@@ -45,7 +43,6 @@ export const OrderHistoryPanel: React.FC = () => {
           {printWarning}
         </Snackbar>
       </Portal>
-      {captureNode}
     </View>
   );
 };

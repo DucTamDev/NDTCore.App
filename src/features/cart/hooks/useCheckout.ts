@@ -4,13 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../../store';
 import { selectCurrentStore, selectCurrentStoreId } from '../../store/store/storeSlice';
 import { CartService } from '../services/CartService';
-import { buildLabels, buildReceipt, printOrder, printWarningOf } from '../services/OrderPrintTrigger';
-import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
+import { buildLabels, buildReceipt, printOrderAsync, printWarningOf } from '../services/OrderPrintTrigger';
 import { orderApi } from '../api/orderApi';
 import { cartCleared, selectCartItems, selectCartNote, selectServiceType } from '../store/cartSlice';
 import type { CreateOrderResponse } from '../types/cart.types';
 
-export const useCheckout = (captureImage: CaptureImage) => {
+export const useCheckout = () => {
   const dispatch = useDispatch<AppDispatch>();
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
   const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
@@ -46,7 +45,7 @@ export const useCheckout = (captureImage: CaptureImage) => {
       // công, không chờ việc in ấn (fire-and-forget theo spec §5).
       const receipt = buildReceipt(response.Data, items, serviceType, currentStore);
       const labels = buildLabels(response.Data, items, serviceType, currentStore);
-      printOrder(receipt, labels, captureImage).then((outcome) => setPrintWarning(printWarningOf(outcome)));
+      printOrderAsync(receipt, labels).then((outcome) => setPrintWarning(printWarningOf(outcome)));
       return response.Data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tạo đơn hàng');
@@ -55,7 +54,7 @@ export const useCheckout = (captureImage: CaptureImage) => {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [dispatch, storeId, items, serviceType, note, currentStore, captureImage]);
+  }, [dispatch, storeId, items, serviceType, note, currentStore]);
 
   const dismissError = useCallback(() => setError(null), []);
   const dismissPrintWarning = useCallback(() => setPrintWarning(null), []);

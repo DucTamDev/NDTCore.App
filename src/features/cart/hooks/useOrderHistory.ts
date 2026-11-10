@@ -7,10 +7,9 @@ import { orderApi } from '../api/orderApi';
 import {
   buildReprintLabels,
   buildReprintReceipt,
-  printOrder,
+  printOrderAsync,
   printWarningOf,
 } from '../services/OrderPrintTrigger';
-import type { CaptureImage } from '../../printer/hooks/usePrintImageCapture';
 import type { OrderHistoryItem } from '../types/cart.types';
 
 export const getTodayRange = (now: Date): { fromDate: string; toDate: string } => {
@@ -31,7 +30,7 @@ export const finishReprint = (ids: ReadonlySet<number>, orderId: number): Set<nu
   return next;
 };
 
-export const useOrderHistory = (captureImage: CaptureImage) => {
+export const useOrderHistory = () => {
   const storeId = useSelector((state: RootState) => selectCurrentStoreId(state));
   const currentStore = useSelector((state: RootState) => selectCurrentStore(state));
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
@@ -80,13 +79,13 @@ export const useOrderHistory = (captureImage: CaptureImage) => {
       }
       const receipt = buildReprintReceipt(response.Data, currentStore);
       const labels = buildReprintLabels(response.Data, currentStore);
-      setPrintWarning(printWarningOf(await printOrder(receipt, labels, captureImage)));
+      setPrintWarning(printWarningOf(await printOrderAsync(receipt, labels)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'In lại thất bại');
     } finally {
       setReprintingIds((prev) => finishReprint(prev, orderId));
     }
-  }, [currentStore, captureImage]);
+  }, [currentStore]);
 
   const dismissError = useCallback(() => setError(null), []);
   const dismissPrintWarning = useCallback(() => setPrintWarning(null), []);
