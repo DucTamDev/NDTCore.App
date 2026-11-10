@@ -7,7 +7,8 @@ lệnh, lưu máy in đi qua `@ndtcore/printer` và `@ndtcore/printer-native`.
 
 **Architecture:** Package nằm ở repo `NDTCore.Package` cùng thư mục cha, App phụ thuộc bằng `file:`. Task 1–2 (sửa
 package cho đủ nhu cầu của App) đã làm ở plan package `refactor/printer-model`; Task 3 nối package vào bundler,
-Jest, webpack; Task 4–10 chuyển từng phần App sang API package trong khi code cũ vẫn chạy song song; Task 11 gỡ code cũ; Task 12 kiểm đầu cuối trên máy ảo.
+Jest, webpack; Task 4–10 chuyển từng phần App sang API package trong khi code cũ vẫn chạy song song; Task 11 gỡ code
+cũ; Task 12 kiểm đầu cuối trên máy ảo.
 
 **Tech Stack:** React Native 0.86.2 New Architecture, TypeScript strict, Jest + react-test-renderer, react-native-paper,
 react-hook-form + zod, Metro, webpack (bản web).
@@ -63,8 +64,9 @@ Làm ở plan package (Task 1–5) cùng nhánh. API App dùng từ đây trở 
 - `Printer` chỉ đọc: `id`, `createdAt`, `deviceInfo`, `connectionConfig`, `config` (`PrinterConfig`: `kind`, `name`,
   `lang`, `langSource`, `capabilities`, `paper`), `status`, `address`.
 - `printer.withConfig(update: PrinterConfigUpdate): Printer` (`name?`, `lang?`, `capabilities?`, `paper?`): bản sao chưa
-  lưu, ném `INPUT_INVALID` kèm `fieldErrors` ngay khi sai. `paper` thay nguyên khối; bản nháp chưa dò được `lang` thì
-  lần `withConfig` đầu phải có `lang`.
+  lưu, ném `INPUT_INVALID` kèm `fieldErrors` ngay khi sai. `paper` thay nguyên khối. Kiểm cả cấu hình sau khi ghép:
+  bản nháp không dò được `lang` có `lang` rỗng, nên `withConfig` thiếu `lang` (vd chỉ đổi tên) ném lỗi trường `lang`
+  `REQUIRED`. App luôn dựng `update` từ cả form gồm ô `lang` (TSD 5.3).
 - `printerSetup.connectAsync(candidate): Promise<Printer>` trả bản nháp; `printerSetup.saveAsync(draft)` nhận bản nháp
   (hoặc bản `withConfig` của nó), trả Printer mới. Không còn `getDefaultPrinter`, `SetupConnection`.
 - `printerManager.updateAsync(printer)` nhận bản `withConfig` của máy đã lưu;
@@ -72,7 +74,6 @@ Làm ở plan package (Task 1–5) cùng nhánh. API App dùng từ đây trở 
 - `printService.testPrintAsync(printer, renderers)`: in thử bản nháp, máy đã lưu hoặc bản `withConfig`. Không còn
   `printerSetup.testPrintAsync`, `printerManager.testPrintAsync`.
 - Trên web `@ndtcore/printer-native` có module `null`; mọi hàm ném `PLATFORM_UNSUPPORTED`.
-- MMKV đổi khoá sang `printerRecords` (`schemaVersion` 1): máy đã lưu ở bản package cũ cũng phải thêm lại (D6).
 
 ### Task 3: App — nối package vào Metro, Jest, webpack
 
