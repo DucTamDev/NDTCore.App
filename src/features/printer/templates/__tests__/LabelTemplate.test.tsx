@@ -1,24 +1,10 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
+import type { ReactTestRenderer } from 'react-test-renderer';
+import { renderTemplate } from '../__testing__/renderTemplate';
 import { DEFAULT_LABEL_TEMPLATE, LabelTemplate } from '..';
 import { labelPagesOf, type LabelContent, type LabelPage } from '../../models/templates/LabelContent';
 import type { LabelTemplateOptions } from '../../models/templates/LabelTemplateOptions';
-import { CutterMode } from '../../models/paper/CutterMode';
-import { PaperType } from '../../models/paper/PaperType';
-import type { PaperOptions } from '../../models/paper/PaperOptions';
-
-const dieCut40x30: PaperOptions = {
-  type: PaperType.DieCut,
-  paperSize: 58,
-  itemWidthMm: 40,
-  itemHeightMm: 30,
-  columns: 1,
-  horizontalGapMm: 0,
-  verticalGapMm: 2,
-};
-
-const continuous58: PaperOptions = { type: PaperType.Continuous, paperSize: 58, cutterMode: CutterMode.PerJob };
 
 const toppings = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({ name, quantity: 1, price: 8000 }));
 
@@ -44,13 +30,8 @@ const options: LabelTemplateOptions = { ...DEFAULT_LABEL_TEMPLATE, showServiceTy
 
 const pages = labelPagesOf(content, options);
 
-const render = (page: LabelPage, paper: PaperOptions = dieCut40x30): ReactTestRenderer => {
-  let renderer: ReactTestRenderer | undefined;
-  act(() => {
-    renderer = TestRenderer.create(<LabelTemplate content={content} page={page} paper={paper} options={options} />);
-  });
-  return renderer as ReactTestRenderer;
-};
+const render = (page: LabelPage): ReactTestRenderer =>
+  renderTemplate(<LabelTemplate content={content} page={page} options={options} />);
 
 const linesOf = (page: LabelPage): string[] =>
   render(page).root.findAllByType(Text).map((node) => String(node.props.children));
@@ -78,26 +59,19 @@ describe('LabelTemplate', () => {
     expect(linesOf(pages[1]).slice(3)).toEqual(['Trà sữa trân châu', 'tem 2/2', '+ f', '* Không ống hút']);
   });
 
-  it('tem rời cao đúng một con tem trừ phần chừa làm tròn; giấy cuộn cao theo nội dung', () => {
-    const heightOf = (paper: PaperOptions): unknown => {
-      const root = render(pages[0], paper).root.findAllByType(View)[0];
-      return [root.props.style].flat(2).find((style) => style && 'height' in style)?.height;
-    };
-    expect(heightOf(dieCut40x30)).toBe(30 * 8 - 2);
-    expect(heightOf(continuous58)).toBeUndefined();
+  it('LabelTemplate lấp đầy khung tem, không tự đặt chiều cao', () => {
+    const root = render(pages[0]).root.findAllByType(View)[0];
+    const style = Object.assign({}, ...[root.props.style].flat(2).filter(Boolean));
+    expect(style.flex).toBe(1);
+    expect(style.height).toBeUndefined();
   });
 });
 
 describe('LabelTemplate dòng dưới', () => {
   it('mặc định không có dòng dưới; bật thì tên cửa hàng · tên khách bên trái, giờ bên phải', () => {
     const footerOf = (labelOptions: LabelTemplateOptions): string[] => {
-      let renderer: ReactTestRenderer | undefined;
-      act(() => {
-        renderer = TestRenderer.create(
-          <LabelTemplate content={content} page={pages[1]} paper={dieCut40x30} options={labelOptions} />,
-        );
-      });
-      const lines = (renderer as ReactTestRenderer).root.findAllByType(Text).map((node) => String(node.props.children));
+      const renderer = renderTemplate(<LabelTemplate content={content} page={pages[1]} options={labelOptions} />);
+      const lines = renderer.root.findAllByType(Text).map((node) => String(node.props.children));
       return lines.slice(lines.indexOf('* Không ống hút') + 1);
     };
 

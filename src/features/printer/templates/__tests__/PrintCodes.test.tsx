@@ -1,15 +1,11 @@
 import React from 'react';
 import { View } from 'react-native';
-import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
+import type { ReactTestRenderer } from 'react-test-renderer';
+import { IDENTITY, renderTemplate } from '../__testing__/renderTemplate';
 import { PrintBarcode, PrintQrCode } from '../PrintCodes';
 
-const render = (element: React.ReactElement): ReactTestRenderer => {
-  let renderer: ReactTestRenderer | undefined;
-  act(() => {
-    renderer = TestRenderer.create(element);
-  });
-  return renderer as ReactTestRenderer;
-};
+/** Dựng với 1 dot = 1 dp để so số dot trực tiếp. */
+const render = (element: React.ReactElement): ReactTestRenderer => renderTemplate(element, IDENTITY);
 
 /** Các đoạn màu (View lá có `width` trong style). */
 const runWidthsOf = (renderer: ReactTestRenderer): number[] =>
@@ -42,6 +38,14 @@ describe('PrintBarcode', () => {
     expect(widths.reduce((sum, width) => sum + width, 0)).toBe(79 * 2);
     expect(renderer.root.findAllByType(View).find((node) => node.props.style?.width)?.props.style.backgroundColor)
       .toBe('#000000');
+  });
+
+  it('mỗi ô đổi sang dp một lần rồi nhân, không đổi cả đoạn', () => {
+    // 2 dot × 1,3 = 2,6 → 3 dp mỗi ô; đổi cả đoạn 2 ô sẽ ra round(5,2) = 5, không phải 6.
+    const renderer = renderTemplate(<PrintBarcode value="A1024" />, (dots) => Math.round(dots * 1.3));
+    const widths = runWidthsOf(renderer);
+    expect(widths.every((width) => width % 3 === 0)).toBe(true);
+    expect(widths.reduce((sum, width) => sum + width, 0)).toBe(79 * 3);
   });
 
   it('giá trị có chữ có dấu thì không vẽ gì', () => {

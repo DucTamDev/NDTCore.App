@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
+import { renderTemplate } from '../__testing__/renderTemplate';
 import { DEFAULT_RECEIPT_TEMPLATE, ReceiptTemplate } from '..';
 import { PrintBarcode, PrintQrCode } from '../PrintCodes';
 import type { ReceiptContent } from '../../models/templates/ReceiptContent';
@@ -64,13 +65,19 @@ const allOn: ReceiptTemplateOptions = {
   showOrderBarcode: true,
 };
 
-const rendererOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): ReactTestRenderer => {
-  let renderer: ReactTestRenderer | undefined;
-  act(() => {
-    renderer = TestRenderer.create(<ReceiptTemplate content={value} options={options} />);
+const rendererOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): ReactTestRenderer =>
+  renderTemplate(<ReceiptTemplate content={value} options={options} />);
+
+describe('ReceiptTemplate ngoài context', () => {
+  it('mẫu dựng ngoài context thì ném rõ lỗi', () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const renderOutside = () => act(() => {
+      TestRenderer.create(<ReceiptTemplate content={content} />);
+    });
+    expect(renderOutside).toThrow(/usePrintRenderContext/);
+    jest.restoreAllMocks();
   });
-  return renderer as ReactTestRenderer;
-};
+});
 
 /** Mọi dòng chữ của hoá đơn theo thứ tự hiển thị. */
 const linesOf = (value: ReceiptContent, options?: ReceiptTemplateOptions): string[] =>

@@ -1,24 +1,15 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { usePrintRenderContext } from '@ndtcore/printer';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import type { LabelContent, LabelPage } from '../models/templates/LabelContent';
 import type { LabelTemplateOptions } from '../models/templates/LabelTemplateOptions';
 import { toppingTextOf } from '../models/templates/PrintItem';
-import type { PaperOptions } from '../models/paper/PaperOptions';
-import { PaperType } from '../models/paper/PaperType';
-import { DOTS_PER_MM } from '../models/paper/paperSpec';
 import { DEFAULT_LABEL_TEMPLATE } from './TemplateDefaults';
-import { PrintText, paddingStyleOf } from './PrintLayout';
+import { PrintText, usePaddingStyle } from './PrintLayout';
 
-/**
- * Ảnh chụp theo pixel vật lý rồi mới thu về dot, làm tròn có thể dư 1 dot; ảnh cao hơn tem bị từ chối in nên chừa
- * trước một ít.
- */
-const LABEL_HEIGHT_MARGIN_DOTS = 2;
-
-/** Tem rời cao đúng một con tem, nội dung dài hơn bị cắt; giấy cuộn cao theo nội dung. */
-const labelHeightOf = (paper: PaperOptions): number | undefined =>
-  paper.type === PaperType.DieCut ? paper.itemHeightMm * DOTS_PER_MM - LABEL_HEIGHT_MARGIN_DOTS : undefined;
+/** Khoảng giữa hai phần trên cùng một dòng. */
+const SPREAD_GAP_DOTS = 8;
 
 /** Dòng trên theo thứ tự mã đơn → hình thức → số thứ tự ly. */
 const headerPartsOf = (content: LabelContent, page: LabelPage, options: LabelTemplateOptions): string[] =>
@@ -44,9 +35,6 @@ interface LabelTemplateProps {
 
   page: LabelPage;
 
-  /** Giấy của máy in nhận tem, để biết chiều cao con tem. */
-  paper: PaperOptions;
-
   options?: LabelTemplateOptions;
 }
 
@@ -55,7 +43,10 @@ interface LabelTemplateProps {
  * "tem p/P" bên phải tên món.
  */
 export const LabelTemplate: React.FC<LabelTemplateProps> = (props) => {
-  const { content, page, paper, options = DEFAULT_LABEL_TEMPLATE } = props;
+  const { content, page, options = DEFAULT_LABEL_TEMPLATE } = props;
+  const { toDp } = usePrintRenderContext();
+  const paddingStyle = usePaddingStyle(options.padding);
+  const spreadStyle = [styles.spread, { gap: toDp(SPREAD_GAP_DOTS) }];
   const { fontSize } = options;
   const { item } = page;
   const isFirstPart = page.partNumber === 1;
@@ -67,22 +58,19 @@ export const LabelTemplate: React.FC<LabelTemplateProps> = (props) => {
   const showPrice = isFirstPart && options.showPrice;
   const showFooter = Boolean(footerLeft || footerRight);
   const partText = page.partCount > 1 ? `tem ${page.partNumber}/${page.partCount}` : null;
-  const containerStyle = [
-    styles.label,
-    paddingStyleOf(options.padding),
-    { gap: options.lineGap, height: labelHeightOf(paper) },
-  ];
+  // Khung chụp của package cao đúng một con tem; mẫu lấp đầy khung, nội dung dài hơn bị cắt.
+  const containerStyle = [styles.label, paddingStyle, { gap: toDp(options.lineGap) }];
 
   return (
     <View style={containerStyle}>
       {headerParts.length > 0 ? (
-        <View style={styles.spread}>
+        <View style={spreadStyle}>
           {headerParts.map((part) => (
             <PrintText key={part} size={fontSize.header} bold>{part}</PrintText>
           ))}
         </View>
       ) : null}
-      <View style={styles.spread}>
+      <View style={spreadStyle}>
         <PrintText size={fontSize.itemName} bold style={styles.name}>{item.name}</PrintText>
         {partText ? <PrintText size={fontSize.itemName} style={styles.part}>{partText}</PrintText> : null}
       </View>
@@ -93,7 +81,7 @@ export const LabelTemplate: React.FC<LabelTemplateProps> = (props) => {
       {showNote ? <PrintText size={fontSize.note}>{`* ${item.note}`}</PrintText> : null}
       {showPrice ? <PrintText size={fontSize.attributes}>{formatCurrency(item.unitPrice)}</PrintText> : null}
       {showFooter ? (
-        <View style={[styles.spread, styles.footer]}>
+        <View style={[spreadStyle, styles.footer]}>
           <PrintText size={fontSize.footer}>{footerLeft}</PrintText>
           <PrintText size={fontSize.footer}>{footerRight}</PrintText>
         </View>
@@ -103,8 +91,8 @@ export const LabelTemplate: React.FC<LabelTemplateProps> = (props) => {
 };
 
 const styles = StyleSheet.create({
-  label: { overflow: 'hidden' },
-  spread: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  label: { flex: 1, overflow: 'hidden' },
+  spread: { flexDirection: 'row', justifyContent: 'space-between' },
   name: { flexShrink: 1 },
   part: { flexShrink: 0 },
   footer: { marginTop: 'auto' },

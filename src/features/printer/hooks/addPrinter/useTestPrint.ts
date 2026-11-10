@@ -49,7 +49,7 @@ export const useTestPrint = (input: UseTestPrintInput) => {
     setTestPrintErrorMessage(null);
     try {
       const isLabel = printer.kind === PrintKind.Label;
-      const sample = isLabel ? createElement(SampleLabel, { paper: printer.paper }) : createElement(SampleReceipt);
+      const sample = isLabel ? createElement(SampleLabel) : createElement(SampleReceipt);
       const image = await captureImage(sample, printer.paper);
 
       if (!image) {

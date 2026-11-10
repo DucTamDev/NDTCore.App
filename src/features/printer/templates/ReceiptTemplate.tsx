@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
+import { usePrintRenderContext } from '@ndtcore/printer';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import { basePriceOf, lineTotalOf, toppingTextOf, type PrintItem } from '../models/templates/PrintItem';
 import {
@@ -10,7 +11,7 @@ import {
 } from '../models/templates/ReceiptContent';
 import type { ReceiptTemplateOptions } from '../models/templates/ReceiptTemplateOptions';
 import { DEFAULT_RECEIPT_TEMPLATE } from './TemplateDefaults';
-import { PrintDivider, PrintRow, PrintText, paddingStyleOf } from './PrintLayout';
+import { PrintDivider, PrintRow, PrintText, usePaddingStyle } from './PrintLayout';
 import { PrintBarcode, PrintQrCode } from './PrintCodes';
 
 type Lines = React.ReactElement[];
@@ -27,6 +28,14 @@ const STORE_SECTION_KEY = 'store';
 /** Logo khoảng 12mm. */
 const LOGO_SIZE_DOTS = 96;
 
+/** Logo cửa hàng căn giữa, cạnh đo bằng dot chuẩn. */
+const PrintLogo: React.FC<{ uri: string }> = ({ uri }) => {
+  const { toDp } = usePrintRenderContext();
+  const size = toDp(LOGO_SIZE_DOTS);
+
+  return <Image source={{ uri }} style={[styles.logo, { width: size, height: size }]} resizeMode="contain" />;
+};
+
 const storeLines = (content: ReceiptContent, options: ReceiptTemplateOptions): Lines => {
   const { fontSize } = options;
   const lines: Lines = [];
@@ -34,7 +43,7 @@ const storeLines = (content: ReceiptContent, options: ReceiptTemplateOptions): L
   // Ảnh tải bất đồng bộ còn khung chụp chụp ngay khi layout xong, nên logo phải có sẵn trong bộ nhớ đệm ảnh mới
   // chắc chắn hiện trên bản in.
   if (options.showLogo && content.logoUri) {
-    lines.push(<Image key="logo" source={{ uri: content.logoUri }} style={styles.logo} resizeMode="contain" />);
+    lines.push(<PrintLogo key="logo" uri={content.logoUri} />);
   }
 
   if (options.showStoreName && content.storeName) {
@@ -229,14 +238,16 @@ interface ReceiptTemplateProps {
 
 /** Hoá đơn khách hàng để chụp thành ảnh in; rộng theo khung chụp (bề rộng vùng in của giấy). */
 export const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ content, options = DEFAULT_RECEIPT_TEMPLATE }) => {
+  const { toDp } = usePrintRenderContext();
+  const paddingStyle = usePaddingStyle(options.padding);
   const sections = sectionsOf(content, options);
 
   return (
-    <View style={[paddingStyleOf(options.padding), { gap: options.sectionGap }]}>
+    <View style={[paddingStyle, { gap: toDp(options.sectionGap) }]}>
       {sections.map((section, index) => (
         <React.Fragment key={section.key}>
           {index > 0 ? <PrintDivider dashed={sections[index - 1].key !== STORE_SECTION_KEY} /> : null}
-          <View style={{ gap: options.lineGap }}>{section.lines}</View>
+          <View style={{ gap: toDp(options.lineGap) }}>{section.lines}</View>
         </React.Fragment>
       ))}
     </View>
@@ -244,5 +255,5 @@ export const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ content, optio
 };
 
 const styles = StyleSheet.create({
-  logo: { width: LOGO_SIZE_DOTS, height: LOGO_SIZE_DOTS, alignSelf: 'center' },
+  logo: { alignSelf: 'center' },
 });

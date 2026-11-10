@@ -226,7 +226,7 @@ export const printLabels = async (content: LabelContent, captureImage: CaptureIm
     for (const page of labelPagesOf(content, DEFAULT_LABEL_TEMPLATE)) {
       const result = await printService.print(
         PrintKind.Label,
-        (paper) => captureImage(createElement(LabelTemplate, { content, page, paper }), paper),
+        (paper) => captureImage(createElement(LabelTemplate, { content, page }), paper),
         labelTitleOf(content.orderNumber, page),
       );
       const outcome = outcomeOf(result);

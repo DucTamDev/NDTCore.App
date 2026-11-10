@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { usePrintRenderContext } from '@ndtcore/printer';
 import qrcode from 'qrcode-generator';
 import { CODE128 } from 'jsbarcode/bin/barcodes/CODE128';
 
@@ -44,16 +45,16 @@ const runsOf = (cells: boolean[]): Run[] => {
   return runs;
 };
 
-/** Một hàng ô đen/trắng, mỗi ô rộng `moduleDots`. */
-const ModuleRow: React.FC<{ cells: boolean[]; moduleDots: number; heightDots: number }> = (props) => {
-  const { cells, moduleDots, heightDots } = props;
+/** Một hàng ô đen/trắng, mỗi ô rộng `moduleDp`; đã đổi sang dp để mọi ô cùng cỡ dù toDp làm tròn. */
+const ModuleRow: React.FC<{ cells: boolean[]; moduleDp: number; heightDp: number }> = (props) => {
+  const { cells, moduleDp, heightDp } = props;
 
   return (
     <View style={styles.row}>
       {runsOf(cells).map((run, index) => (
         <View
           key={index}
-          style={{ width: run.length * moduleDots, height: heightDots, backgroundColor: run.dark ? INK : undefined }}
+          style={{ width: run.length * moduleDp, height: heightDp, backgroundColor: run.dark ? INK : undefined }}
         />
       ))}
     </View>
@@ -75,18 +76,19 @@ const qrMatrixOf = (value: string): boolean[][] | null => {
 
 /** Mã QR căn giữa, kèm vùng trắng chuẩn; không mã hoá được thì không vẽ gì. */
 export const PrintQrCode: React.FC<{ value: string }> = ({ value }) => {
+  const { toDp } = usePrintRenderContext();
   const matrix = qrMatrixOf(value);
 
   if (!matrix) {
     return null;
   }
 
-  const moduleDots = Math.max(QR_MIN_MODULE_DOTS, Math.floor(QR_TARGET_SIZE_DOTS / matrix.length));
+  const moduleDp = toDp(Math.max(QR_MIN_MODULE_DOTS, Math.floor(QR_TARGET_SIZE_DOTS / matrix.length)));
 
   return (
-    <View style={[styles.centered, { padding: QR_QUIET_ZONE_MODULES * moduleDots }]}>
+    <View style={[styles.centered, { padding: QR_QUIET_ZONE_MODULES * moduleDp }]}>
       {matrix.map((cells, row) => (
-        <ModuleRow key={row} cells={cells} moduleDots={moduleDots} heightDots={moduleDots} />
+        <ModuleRow key={row} cells={cells} moduleDp={moduleDp} heightDp={moduleDp} />
       ))}
     </View>
   );
@@ -105,6 +107,7 @@ const barcodeCellsOf = (value: string): boolean[] | null => {
 
 /** Mã vạch CODE128 căn giữa; giá trị không mã hoá được thì không vẽ gì. */
 export const PrintBarcode: React.FC<{ value: string }> = ({ value }) => {
+  const { toDp } = usePrintRenderContext();
   const cells = barcodeCellsOf(value);
 
   if (!cells) {
@@ -113,7 +116,7 @@ export const PrintBarcode: React.FC<{ value: string }> = ({ value }) => {
 
   return (
     <View style={styles.centered}>
-      <ModuleRow cells={cells} moduleDots={BARCODE_MODULE_DOTS} heightDots={BARCODE_HEIGHT_DOTS} />
+      <ModuleRow cells={cells} moduleDp={toDp(BARCODE_MODULE_DOTS)} heightDp={toDp(BARCODE_HEIGHT_DOTS)} />
     </View>
   );
 };

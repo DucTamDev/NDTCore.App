@@ -3,7 +3,6 @@ import { LabelTemplate, ReceiptTemplate } from '../templates';
 import type { LabelContent, LabelPage } from '../models/templates/LabelContent';
 import type { PrintItem } from '../models/templates/PrintItem';
 import type { ReceiptContent } from '../models/templates/ReceiptContent';
-import type { PaperOptions } from '../models/paper/PaperOptions';
 
 const SAMPLE_ORDER_NUMBER = 'DEMO001';
 
@@ -96,7 +95,7 @@ export const SampleReceipt: React.FC = () => (
   <ReceiptTemplate content={{ ...SAMPLE_RECEIPT, time: formatSampleDateTime() }} />
 );
 
-/** Tem mẫu cho "In thử": một ly trà sữa có topping, cao đúng một con tem của `paper`. */
-export const SampleLabel: React.FC<{ paper: PaperOptions }> = ({ paper }) => (
-  <LabelTemplate content={{ ...SAMPLE_LABEL, time: formatSampleTime() }} page={SAMPLE_LABEL_PAGE} paper={paper} />
+/** Tem mẫu cho "In thử": một ly trà sữa có topping, lấp đầy khung tem của package. */
+export const SampleLabel: React.FC = () => (
+  <LabelTemplate content={{ ...SAMPLE_LABEL, time: formatSampleTime() }} page={SAMPLE_LABEL_PAGE} />
 );
