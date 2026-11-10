@@ -26,7 +26,7 @@ Mục tiêu: App chỉ còn UI, mẫu in và dữ liệu đơn; mọi việc v�
 | D11 | Mỗi đơn là một Job: `printService.printAsync({ title, parts: [hoá đơn, tem] })`; package tự chụp tuần tự, App bỏ chuỗi `printOrderChain` | Package giữ thứ tự Job và một khung chụp (`PrintCaptureHost`) |
 | D12 | Cảnh báo "Chưa thiết lập máy in cho Hoá đơn" tính ngay lúc bấm in từ `printerManager.getPrinters()`; lỗi in đến sau qua `printService.subscribe` và snackbar | `printAsync` trả về khi Job vào hàng, kết quả đến sau |
 | D13 | Lỗi package hiện cho người dùng bằng một bảng mã → câu tiếng Việt ở App, đủ 26 mã public (TSD 12.3) | Package trả mã, không trả câu cho người dùng |
-| D14 | Package đổi `printerManager.testPrintAsync(printerId, renderers, printer?)` thành `(printerId, renderers, changes?: PrinterChanges)` | App không tạo được `Printer` cho cấu hình đang chỉnh của máy đã lưu (`Printer.createUnsaved` không công khai); `changes` cùng kiểu với `updateAsync` |
+| D14 | Cấu hình đang chỉnh là `printer.withConfig(update)` (bản sao chưa lưu, kiểm lỗi ngay); in thử mọi trường hợp bằng `printService.testPrintAsync(printer, renderers)`; lưu bằng `printerSetup.saveAsync(draft)` hoặc `printerManager.updateAsync(copy)`; đổi IP máy LAN bằng `updateLanAddressAsync` | Package đã sửa ở nhánh `refactor/printer-model` (D8–D10, D14): `Printer` chỉ đọc, app không tự dựng `Printer` |
 
 ## Ánh xạ tính năng
 
@@ -35,9 +35,9 @@ Mục tiêu: App chỉ còn UI, mẫu in và dữ liệu đơn; mọi việc v�
 | Danh sách máy, trạng thái `ConnectionStatus` | `printerManager.getPrinters()`, `subscribe`; trạng thái `Printer.status` (`ConnectionState`, `errorCode`, `actions`) |
 | Nút kết nối / ngắt / kết nối lại | Chỉ "Kết nối lại" khi `actions` có `PrinterAction.Reconnect`; thêm "Chọn lại máy USB" khi có `PrinterAction.RebindUsb` |
 | Xoá máy | `printerManager.removeAsync` |
-| Thêm máy: tìm USB/Bluetooth, nhập LAN, kết nối, dò ngôn ngữ | `printerSetup.start(kind)`, `listUsbDevices`, `listBluetoothDevicesAsync`, `checkLanAddress`, `connectAsync` (trả `lang` dò được) |
-| Cấu hình giấy, tên, ngôn ngữ, dao cắt | `getDefaultPrinter()` rồi `saveAsync(printer)`; sửa máy đã lưu bằng `printerManager.updateAsync(printerId, changes)` |
-| In thử `SampleReceipt` / `SampleLabel` | `printerSetup.testPrintAsync(printer, renderers)`, `printerManager.testPrintAsync(printerId, renderers, changes?)` |
+| Thêm máy: tìm USB/Bluetooth, nhập LAN, kết nối, dò ngôn ngữ | `printerSetup.start(kind)`, `listUsbDevices`, `listBluetoothDevicesAsync`, `checkLanAddress`, `connectAsync` (trả bản nháp `Printer`: cấu hình mặc định theo `kind`, `lang` dò được hoặc rỗng) |
+| Cấu hình giấy, tên, ngôn ngữ, dao cắt | Máy đang thêm: `printerSetup.saveAsync(draft.withConfig(update))`; máy đã lưu: `printerManager.updateAsync(saved.withConfig(update))`; IP, cổng LAN: `printerManager.updateLanAddressAsync(id, host, port)` |
+| In thử `SampleReceipt` / `SampleLabel` | `printService.testPrintAsync(printer.withConfig(update), renderers)` cho cả bản nháp và máy đã lưu |
 | In đơn, in lại | `printService.printAsync` |
 | Snackbar lỗi in | `printService.subscribe`, sự kiện `SUB_JOB_FINISHED` có `outcome` khác `PRINTED` |
 | Khung chụp ở `CartPanel`, `OrderHistoryPanel` | Một `PrintCaptureHost` ở gốc app |

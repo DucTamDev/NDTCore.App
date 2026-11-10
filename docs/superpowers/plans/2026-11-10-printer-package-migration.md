@@ -5,20 +5,20 @@
 **Goal:** `features/printer` của App chỉ còn UI, mẫu in và dữ liệu đơn; kết nối, dò ngôn ngữ, hàng đợi, chụp ảnh, dựng
 lệnh, lưu máy in đi qua `@ndtcore/printer` và `@ndtcore/printer-native`.
 
-**Architecture:** Package nằm ở repo `NDTCore.Package` cùng thư mục cha, App phụ thuộc bằng `file:`. Task 1–2 sửa
-package cho đủ nhu cầu của App; Task 3 nối package vào bundler, Jest, webpack; Task 4–10 chuyển từng phần App
-sang API package trong khi code cũ vẫn chạy song song; Task 11 gỡ code cũ; Task 12 kiểm đầu cuối trên máy ảo.
+**Architecture:** Package nằm ở repo `NDTCore.Package` cùng thư mục cha, App phụ thuộc bằng `file:`. Task 1–2 (sửa
+package cho đủ nhu cầu của App) đã làm ở plan package `refactor/printer-model`; Task 3 nối package vào bundler,
+Jest, webpack; Task 4–10 chuyển từng phần App sang API package trong khi code cũ vẫn chạy song song; Task 11 gỡ code cũ; Task 12 kiểm đầu cuối trên máy ảo.
 
 **Tech Stack:** React Native 0.86.2 New Architecture, TypeScript strict, Jest + react-test-renderer, react-native-paper,
 react-hook-form + zod, Metro, webpack (bản web).
 
-**Spec:** `docs/superpowers/specs/2026-11-10-printer-package-migration-design.md` (D1–D13). API package:
-`../NDTCore.Package/docs/05-technical/tsd.md` mục 5, 9.6, 9.11.
+**Spec:** `docs/superpowers/specs/2026-11-10-printer-package-migration-design.md` (D1–D14). API package:
+`../NDTCore.Package/docs/05-technical/tsd.md` mục 5, 8.1, 9.6, 9.11.
 
 ## Global Constraints
 
-- Hai repo, không worktree: `C:\NDTCORE\NDTCore\NDTCore.Package` nhánh `feat/app-integration` (tách từ `main`,
-  Task 1–2); `C:\NDTCORE\NDTCore\NDTCore.App` nhánh `feat/printer-package` (Task 3–12).
+- Hai repo, không worktree: `C:\NDTCORE\NDTCore\NDTCore.Package` ở `main` sau khi merge `refactor/printer-model`
+  (chỉ sửa khi Task 3 bước 10 cần); `C:\NDTCORE\NDTCore\NDTCore.App` nhánh `feat/printer-package` (Task 3–12).
 - Package: theo `NDTCore.Package/docs/04-architecture/03-structure.md` (thư mục `enums/`, `constants/`, `types/`…,
   import trong module thẳng file, khác module qua barrel). Mỗi task package sửa code thì sửa docs liên quan (SRS, TSD,
   test case) trong commit docs riêng.
@@ -49,70 +49,30 @@ react-hook-form + zod, Metro, webpack (bản web).
 
 ---
 
-### Task 1: Package — vùng in khổ 100 mm và 104 mm
+### Task 1: Package — vùng in khổ 100 mm và 104 mm (đã xong ở package)
 
-Repo `NDTCore.Package`, tạo nhánh `feat/app-integration` từ `main`.
+Làm ở plan package `NDTCore.Package/docs/superpowers/plans/2026-11-10-printer-model-refactor.md` Task 5, nhánh
+`refactor/printer-model` (790d701): `printableWidthMm(100) === 96`, `printableWidthMm(104) === 104`;
+`RECEIPT_PAPER_WIDTHS_MM` có 100, 104. Không còn việc ở plan này.
 
-**Files:**
-- Modify: `NDTCore.Package.Printer/src/printer/constants/PrintableArea.ts`
-- Test: `NDTCore.Package.Printer/src/printer/__tests__/PrinterConfig.test.ts`
-- Docs: `docs/03-requirements/srs.md` (FR-S06), `docs/05-technical/tsd.md` (8.3),
-  `docs/02-product/prd-decisions.md` (bảng vùng in dưới BR-16), `docs/07-testing/03-test-cases/04-configuration.md`
-  (TC-S-06)
+### Task 2: Package — API cho app (đã xong ở package)
 
-**Interfaces:**
-- Produces: `PaperLayout.printableWidthMm(100) === 96`, `PaperLayout.printableWidthMm(104) === 104`.
+Làm ở plan package (Task 1–5) cùng nhánh. API App dùng từ đây trở đi:
 
-- [ ] **Step 1: Thêm test** vào `describe('PaperLayout')`:
-  `it('TC-S-06: khổ 100 mm vùng in 96 mm, khổ 104 mm in hết khổ')` với
-  `expect(PaperLayout.printableWidthMm(100)).toBe(96)`, `expect(PaperLayout.printableWidthMm(104)).toBe(104)`,
-  `expect(PaperLayout.receiptWidthDots({ ...DEFAULT_RECEIPT_PAPER, paperWidthMm: 104 }, PrinterDpi.Dpi203)).toBe(832)`.
-- [ ] **Step 2:** `npx jest src/printer/__tests__/PrinterConfig` → FAIL (100 ra 92, 104 ra 96).
-- [ ] **Step 3:** Thêm `100: 96` và `104: 104` vào `RECEIPT_PRINTABLE_WIDTHS_MM`.
-- [ ] **Step 4:** `npx jest` → PASS toàn bộ; tsc, eslint sạch.
-- [ ] **Step 5:** Commit code `feat: printable width for 100 mm and 104 mm receipt paper`.
-- [ ] **Step 6:** Thêm hai dòng vào bảng vùng in ở SRS FR-S06, TSD 8.3, `prd-decisions.md`; TC-S-06 thêm 100 và 104.
-  Commit `docs: printable width for 100 mm and 104 mm`.
-
-### Task 2: Package — API cho app: `renderWithContext`, sửa in thử máy đã lưu, bản web
-
-**Files:**
-- Modify: `NDTCore.Package.Printer/index.ts` (xuất `renderWithContext`)
-- Modify: `NDTCore.Package.Printer/src/manager/services/PrinterManager.ts` (`testPrintAsync`)
-- Create: `NDTCore.Package.Printer.Native/src/NativePrinterNative.web.ts`
-- Test: `NDTCore.Package.Printer/src/setup/__tests__/Setup.test.ts`,
-  `NDTCore.Package.Printer.Native/src/__tests__/PrinterNative.test.ts`
-- Docs: TSD 5.2, 5.4, 9.11, 12.5; `docs/07-testing/03-test-cases/05-test-print.md` (TC-T-02, TC-T-03, TC-T-06, TC-T-14)
-
-**Interfaces:**
-- Produces:
-  - `renderWithContext(renderer: PrintRenderer, context: PrintRenderContext): ReactElement` xuất ở `@ndtcore/printer`.
-  - `printerManager.testPrintAsync(printerId: string, renderers: PrintRenderer[], changes?: PrinterChanges)`
-    trả `Promise<void>`: `changes` gộp vào cấu hình đã lưu như `updateAsync` (cùng `requireEditable`,
-    `mergeChanges`), không lưu (FR-T04).
-    Lý do: app không tạo được `Printer` cho máy đã lưu vì `Printer.createUnsaved` không công khai.
-  - Trên web `@ndtcore/printer-native` có module `null`; mọi hàm của `printerNative` ném `PLATFORM_UNSUPPORTED`.
-
-- [ ] **Step 1: Sửa test in thử máy đã lưu** trong `Setup.test.ts`: TC-T-02/TC-T-03 gọi
-  `manager.testPrintAsync(id, sample(), { name: 'Đang sửa' })`, kỳ vọng tên đã lưu không đổi; TC-T-06 truyền
-  `{ name: '' }` → `INPUT_INVALID`; thêm `it('TC-T-03: in thử dựng theo changes')` với renderer `jest.fn` và
-  `changes = { paper: { ...savedPaper, paperWidthMm: 58 } }` → renderer nhận `widthMm: 58`.
-- [ ] **Step 2:** `npx jest src/setup` → FAIL (chữ ký cũ nhận `Printer`).
-- [ ] **Step 3:** Đổi chữ ký `testPrintAsync` của `PrinterManager`; dựng `config` bằng
-  `this.mergeChanges(saved.printerConfig, changes)` sau `this.requireEditable`, rồi `printService.testPrintAsync(saved,
-  config, renderers)`. Xuất `renderWithContext` ở `index.ts`.
-- [ ] **Step 4:** `npx jest` → PASS; tsc, eslint sạch.
-- [ ] **Step 5: Bản web.** Tạo `NativePrinterNative.web.ts` xuất `default` là `null` với kiểu `Spec | null`
-  (kiểu `Spec` lấy từ `NativePrinterNative.ts`). Thêm test trong `PrinterNative.test.ts`:
-  `it('web: module null thì mọi hàm ném PLATFORM_UNSUPPORTED')` với
-  `require('../NativePrinterNative.web').default === null` và `new PrinterNative(null).getUsbDevices()` ném
-  `{ code: 'PLATFORM_UNSUPPORTED' }`.
-- [ ] **Step 6:** `cd NDTCore.Package.Printer.Native && npx jest && npx tsc --noEmit && npm run prepare` → PASS, có
-  `lib/module/NativePrinterNative.web.js`.
-- [ ] **Step 7:** Commit code `feat: app integration API: renderWithContext, test print with changes, web module`.
-- [ ] **Step 8:** Docs: TSD 5.2 thêm `renderWithContext`; 5.4 và 9.11 chữ ký mới; 12.5 không đổi mã; test case
-  TC-T-02, TC-T-03, TC-T-06, TC-T-14 theo `changes`; TSD 4.2 hoặc 6.1 ghi bản web. Commit
-  `docs: app integration API`.
+- `renderWithContext(renderer, context): ReactElement` xuất ở `@ndtcore/printer`.
+- `Printer` chỉ đọc: `id`, `createdAt`, `deviceInfo`, `connectionConfig`, `config` (`PrinterConfig`: `kind`, `name`,
+  `lang`, `langSource`, `capabilities`, `paper`), `status`, `address`.
+- `printer.withConfig(update: PrinterConfigUpdate): Printer` (`name?`, `lang?`, `capabilities?`, `paper?`): bản sao chưa
+  lưu, ném `INPUT_INVALID` kèm `fieldErrors` ngay khi sai. `paper` thay nguyên khối; bản nháp chưa dò được `lang` thì
+  lần `withConfig` đầu phải có `lang`.
+- `printerSetup.connectAsync(candidate): Promise<Printer>` trả bản nháp; `printerSetup.saveAsync(draft)` nhận bản nháp
+  (hoặc bản `withConfig` của nó), trả Printer mới. Không còn `getDefaultPrinter`, `SetupConnection`.
+- `printerManager.updateAsync(printer)` nhận bản `withConfig` của máy đã lưu;
+  `printerManager.updateLanAddressAsync(printerId, host, port)` đổi IP, cổng máy LAN.
+- `printService.testPrintAsync(printer, renderers)`: in thử bản nháp, máy đã lưu hoặc bản `withConfig`. Không còn
+  `printerSetup.testPrintAsync`, `printerManager.testPrintAsync`.
+- Trên web `@ndtcore/printer-native` có module `null`; mọi hàm ném `PLATFORM_UNSUPPORTED`.
+- MMKV đổi khoá sang `printerRecords` (`schemaVersion` 1): máy đã lưu ở bản package cũ cũng phải thêm lại (D6).
 
 ### Task 3: App — nối package vào Metro, Jest, webpack
 
@@ -189,7 +149,7 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
 - Test: `templates/__tests__/LabelTemplate.test.tsx`, `PrintCodes.test.tsx`, `ReceiptTemplate.test.tsx`
 
 **Interfaces:**
-- Consumes: `usePrintRenderContext()`, `renderWithContext` (Task 2).
+- Consumes: `usePrintRenderContext()`, `renderWithContext` (package, Task 2).
 - Produces:
   - `usePaddingStyle(padding: PrintPadding): ViewStyle` thay `paddingStyleOf`.
   - `LabelTemplate` bỏ prop `paper`; `SampleLabel` bỏ prop `paper`.
@@ -242,7 +202,7 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
   - `it('có logo thì tải sẵn trước khi in')`: `Image.prefetch` gọi với `logoUri` trước `printAsync`; prefetch lỗi
     vẫn in.
 - [ ] **Step 2:** `npx jest src/features/cart` → FAIL.
-- [ ] **Step 3:** Viết `printOrderAsync`: tính `no-printer` theo `getPrinters().some((p) => p.printerConfig.kind ===
+- [ ] **Step 3:** Viết `printOrderAsync`: tính `no-printer` theo `getPrinters().some((p) => p.config.kind ===
   kind)`; renderer hoá đơn `() => <ReceiptTemplate content={receipt} />`, tem
   `pages.map((page) => () => <LabelTemplate content={labels} page={page} />)`; bọc try/catch như cũ. Sửa hook và
   panel: bỏ `usePrintImageCapture`, `captureNode`, tham số `captureImage`.
@@ -312,21 +272,21 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
 
 **Interfaces:**
 - Consumes: `printerSetup.start`, `listUsbDevices`, `listBluetoothDevicesAsync`, `checkLanAddress`, `connectAsync`,
-  `cancelAsync`, `subscribe`; kiểu `DeviceCandidate`, `SetupConnection`, `TransportType`, `PrinterLang`.
+  `cancelAsync`, `subscribe`; kiểu `DeviceCandidate`, `Printer`, `TransportType`, `PrinterLang`.
 - Produces: `usePrinterSetupSession(kind: PrinterKind)` trả:
   - `transport: TransportType`, `setTransport(value)`;
   - `candidates: DeviceCandidate[]`, `refreshAsync(): Promise<void>` (USB đọc ngay, Bluetooth xin quyền);
   - `checkLan(host: string, port: number): LanCandidate | FieldError[]`;
-  - `connectAsync(candidate): Promise<void>`, `connection?: SetupConnection`,
+  - `connectAsync(candidate): Promise<void>`, `draft?: Printer` (bản nháp `connectAsync` trả về),
     `connectionState: 'idle' | 'connecting' | 'connected' | 'error'`, `errorMessage?: string`;
-  - `lang?: PrinterLang` (dò được hoặc người dùng chọn), `setLang(lang)`;
+  - `lang?: PrinterLang` (`draft.config.lang` khi dò được, rỗng thì chờ người dùng chọn), `setLang(lang)`;
   - `cancelAsync(): Promise<void>` (gọi khi đóng modal).
   - Bỏ `useConnectionSetup`, `usePrinterDetection`.
 
 - [ ] **Step 1: Viết test** với `printerSetup` giả:
   - `it('đổi transport sang Bluetooth thì xin quyền rồi liệt kê máy đã ghép đôi')`.
   - `it('ứng viên trùng hiện duplicate, connectAsync báo PRINTER_ALREADY_EXISTS thành error')`.
-  - `it('kết nối xong lấy lang dò được; không dò được thì chờ người dùng chọn')`.
+  - `it('kết nối xong giữ bản nháp; lang lấy từ draft.config, rỗng thì chờ người dùng chọn')`.
   - `it('LAN sai IP trả fieldErrors host')`.
   - `it('đóng modal gọi cancelAsync')`.
 - [ ] **Step 2:** Chạy → FAIL.
@@ -346,31 +306,33 @@ Repo `NDTCore.App`, nhánh `feat/printer-package` (đã tạo từ `main`).
 - Test: `hooks/__tests__/useAddPrinterFlow.test.tsx`, `forms/addPrinter/__tests__/*`
 
 **Interfaces:**
-- Consumes: `usePrinterSetupSession` (Task 9); `printerSetup.getDefaultPrinter`, `testPrintAsync(printer, renderers)`,
-  `saveAsync(printer)`; `printerManager.updateAsync(printerId, changes)`,
-  `testPrintAsync(printerId, renderers, changes?)` (Task 2); `RECEIPT_PAPER_WIDTHS_MM`, `LABEL_SIZE_PRESETS_MM`,
-  `PrinterDpi`, `CutMode`; `SampleReceipt`, `SampleLabel` (Task 5).
+- Consumes: `usePrinterSetupSession` (Task 9, `draft`); `printer.withConfig(update)`, `printerSetup.saveAsync(draft)`,
+  `printerManager.updateAsync(printer)`, `updateLanAddressAsync(printerId, host, port)`,
+  `printService.testPrintAsync(printer, renderers)` (package, Task 2); `RECEIPT_PAPER_WIDTHS_MM`,
+  `LABEL_SIZE_PRESETS_MM`, `PrinterDpi`, `CutMode`; `SampleReceipt`, `SampleLabel` (Task 5).
 - Produces:
   - Form giấy theo kiểu package: hoá đơn `paperWidthMm`, `cutMode`, `feedLines`; tem `labelWidthMm`, `labelHeightMm`,
     `labelsPerRow`, `columnGapMm`, `rowGapMm`; khả năng `hasCutter`, `dpi`. Bỏ loại giấy, `cutterMode`,
     `cashDrawer`, `color`, `image`, `enabled`.
+  - `configUpdateOf(values: PrinterFormValues): PrinterConfigUpdate` đổi giá trị form sang bản cập nhật của package.
   - `applyFieldErrors(fieldErrors: FieldError[], setError: UseFormSetError<…>): void` gắn `paper.paperWidthMm`… vào
-    ô tương ứng.
+    ô tương ứng; dùng cho lỗi ném từ `withConfig` (đồng bộ) và reject của `saveAsync`, `updateAsync`.
   - `useAddPrinterFlow({ visible, kind, initialPrinter?: Printer, onSaved })`: thêm mới dùng `printerSetup`, sửa dùng
     `printerManager`.
 
 - [ ] **Step 1: Viết lại test**:
-  - `it('thêm máy: lưu gọi saveAsync với cấu hình form')`.
-  - `it('sửa máy: lưu gọi updateAsync chỉ với trường đổi')`.
-  - `it('fieldErrors của package gắn vào đúng trường')`: `saveAsync` reject
+  - `it('thêm máy: lưu gọi saveAsync với draft.withConfig(cấu hình form)')`.
+  - `it('sửa máy: lưu gọi updateAsync với saved.withConfig(cấu hình form)')`.
+  - `it('sửa máy LAN đổi IP: gọi updateLanAddressAsync, rồi updateAsync nếu cấu hình in cũng đổi')`.
+  - `it('fieldErrors của package gắn vào đúng trường')`: `withConfig` ném
     `{ code: 'INPUT_INVALID', fieldErrors: [{ field: 'paper.paperWidthMm', reason: 'OUT_OF_RANGE' }] }` → ô khổ giấy
     có lỗi, giá trị đã nhập còn nguyên.
   - `it('in thử máy đang thêm truyền SampleReceipt')`, `it('in thử tem truyền SampleLabel đủ số hàng')`.
-  - `it('in thử máy đã lưu truyền changes đang chỉnh')`.
+  - `it('in thử máy đã lưu dùng saved.withConfig(cấu hình đang chỉnh), không lưu')`.
 - [ ] **Step 2:** Chạy → FAIL.
-- [ ] **Step 3:** Viết lại form và hook. Máy đang thêm: gán cấu hình form vào
-  `printer.printerConfig` của Printer lấy từ `getDefaultPrinter()` trước khi in thử, lưu. Máy đã lưu: dựng
-  `PrinterChanges` từ các trường đổi. Số hàng tem in thử: `Array.from({ length: rows }, () => renderer)`.
+- [ ] **Step 3:** Viết lại form và hook. Gốc là `draft` (máy đang thêm) hoặc `initialPrinter` (máy đã lưu); in thử và
+  lưu đều qua `base.withConfig(configUpdateOf(values))`, bắt `INPUT_INVALID` để `applyFieldErrors`. Số hàng tem in thử:
+  `Array.from({ length: rows }, () => renderer)`.
 - [ ] **Step 4:** Chạy → PASS; tsc, eslint sạch.
 - [ ] **Step 5:** Commit `feat: printer configuration, test print and save through the printer package`.
 
