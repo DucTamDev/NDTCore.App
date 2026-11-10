@@ -2,6 +2,9 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+    "paths": {
+      "@ndtcore/printer-native": ["./node_modules/@ndtcore/printer-native"]
+    },
     "lib": [
       "es2019",
       "es2020.bigint",

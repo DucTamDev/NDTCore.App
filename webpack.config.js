@@ -10,12 +10,20 @@ module.exports = {
   },
   resolve: {
     alias: {
-      'react-native$': 'react-native-web',
+      // Đường dẫn tuyệt đối để file của package máy in (ngoài App) cũng resolve được react-native-web của App.
+      'react-native$': path.resolve(__dirname, 'node_modules/react-native-web'),
+      // Package máy in (file:../NDTCore.Package) có node_modules riêng; singleton phải lấy từ App để chỉ có một bản.
+      'react': path.resolve(__dirname, 'node_modules/react'),
+      'react-native-mmkv': path.resolve(__dirname, 'node_modules/react-native-mmkv'),
+      'react-native-view-shot': path.resolve(__dirname, 'node_modules/react-native-view-shot'),
+      '@ndtcore/printer-native': path.resolve(__dirname, 'node_modules/@ndtcore/printer-native'),
       // Các module native-thuần cho máy in — createPrinterAdapter.web.ts
       // không import chúng, nhưng alias sang `false` để Webpack không bao giờ
       // cố resolve chúng nếu có đường import gián tiếp nào khác chạm tới.
       '@poriyaalar/react-native-thermal-receipt-printer': false,
       'react-native-nitro-modules': false,
+      // react-native-view-shot 6 trên web chụp bằng html2canvas-pro; web không in nên không cài.
+      'html2canvas-pro': false,
       // react-native-paper và @react-native-vector-icons/common thử require()
       // các thư viện icon thay thế (Expo/react-native-vector-icons) bên trong
       // try/catch — chỉ để tự phát hiện thư viện nào có sẵn lúc runtime, không
