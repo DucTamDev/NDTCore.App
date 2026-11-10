@@ -2,87 +2,89 @@ import React from 'react';
 import { Text } from 'react-native';
 import { PaperProvider, Snackbar } from 'react-native-paper';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
+import {
+  PrinterErrorCode,
+  PrinterKind,
+  PrintEventType,
+  PrintOutcome,
+  type PrintEventListener,
+  type PrintService,
+  type SubJobResult,
+} from '@ndtcore/printer';
 import { FAILURE_BATCH_WINDOW_MS, PrintFailureSnackbar, printFailureNoticeOf } from '../PrintFailureSnackbar';
-import type { PrintQueue } from '../../printing/PrintQueue';
-import { ConnectionType } from '../../models/connections/ConnectionType';
-import { PrintKind } from '../../models/printer/PrintKind';
-import type { PrintTaskResult } from '../../models/printing/PrintTaskResult';
-import { PrintTaskStatus } from '../../models/printing/PrintTaskStatus';
-import { DeviceErrorCode } from '../../errors';
-import { DeviceErrorException } from '../../exceptions';
-import { mockOf } from '../../testing/printerServiceTestKit';
+import { printerErrorMessageOf } from '../../errors/PrinterErrorMessages';
 
 const REPRINT_HINT = 'In lại trong Lịch sử đơn.';
 
+/** Job con kết thúc không in được trên một máy. */
 const failure = (
-  title: string,
-  printerId = 'p1',
   printerName = 'Tem quầy',
-  message = 'Không kết nối được',
-): PrintTaskResult => ({
-  task: {
-    id: title,
-    printerId,
-    printerName,
-    deviceId: `lan:${printerId}`,
-    connectionType: ConnectionType.Lan,
-    kind: PrintKind.Label,
-    data: 'png',
-    title,
-    createdAt: '2026-10-19T00:00:00.000Z',
-  },
-  status: PrintTaskStatus.Failed,
-  error: new DeviceErrorException({ code: DeviceErrorCode.CONNECTION_FAILED, message }),
-  startedAt: '2026-10-19T00:00:00.000Z',
-  completedAt: '2026-10-19T00:00:01.000Z',
+  printerId = 'p1',
+  kind: PrinterKind = PrinterKind.Label,
+  outcome: PrintOutcome = PrintOutcome.Failed,
+  errorCode: SubJobResult['errorCode'] = PrinterErrorCode.ConnectionFailed,
+): SubJobResult => ({
+  subJobId: `${printerId}-${Math.random()}`,
+  kind,
+  printerId,
+  printerName,
+  outcome,
+  errorCode,
+  printedTasks: 0,
+  totalTasks: 1,
+  tasks: [],
 });
 
+const connectionFailed = printerErrorMessageOf(PrinterErrorCode.ConnectionFailed);
+
 describe('printFailureNoticeOf', () => {
-  it('một lệnh lỗi: ghi tên lệnh, tên máy và lý do', () => {
-    expect(printFailureNoticeOf([failure('Hoá đơn #A1', 'p1', 'Máy quầy')])).toBe(
-      `Hoá đơn #A1 in không thành công trên Máy quầy: Không kết nối được.\n${REPRINT_HINT}`,
+  it('Job con FAILED hiện loại nội dung, tên máy và câu lỗi', () => {
+    const notice = printFailureNoticeOf([
+      failure('Quầy', 'p1', PrinterKind.Receipt, PrintOutcome.Failed, PrinterErrorCode.ConnectionTimeout),
+    ]);
+    expect(notice).toBe(
+      `Hoá đơn in không thành công trên Quầy: ${printerErrorMessageOf(PrinterErrorCode.ConnectionTimeout)}.\n` +
+        REPRINT_HINT,
     );
   });
 
-  it('nhiều lệnh cùng máy gộp một dòng theo máy', () => {
-    const results = [failure('Tem #A1 · ly 1/3'), failure('Tem #A1 · ly 2/3'), failure('Tem #A1 · ly 3/3')];
-    expect(printFailureNoticeOf(results)).toBe(
-      `Máy Tem quầy: 3 lệnh in không thành công (Không kết nối được).\n${REPRINT_HINT}`,
+  it('UNCERTAIN báo có thể chưa in', () => {
+    const notice = printFailureNoticeOf([failure('Quầy', 'p1', PrinterKind.Receipt, PrintOutcome.Uncertain)]);
+    expect(notice).toBe(`Hoá đơn có thể chưa in xong trên Quầy: ${connectionFailed}.\n${REPRINT_HINT}`);
+  });
+
+  it('nhiều Job con cùng máy gộp một dòng theo máy', () => {
+    expect(printFailureNoticeOf([failure(), failure(), failure()])).toBe(
+      `Máy Tem quầy: 3 lần in không thành công (${connectionFailed}).\n${REPRINT_HINT}`,
     );
   });
 
   it('hai máy thì mỗi máy một dòng, dòng cuối luôn nhắc in lại', () => {
-    const notice = printFailureNoticeOf([failure('Hoá đơn #A1', 'p1', 'Máy quầy'), failure('Tem #A1', 'p2')]);
+    const notice = printFailureNoticeOf([failure('Máy quầy', 'p1', PrinterKind.Receipt), failure('Tem quầy', 'p2')]);
     expect(notice.split('\n')).toEqual([
-      'Hoá đơn #A1 in không thành công trên Máy quầy: Không kết nối được.',
-      'Tem #A1 in không thành công trên Tem quầy: Không kết nối được.',
+      `Hoá đơn in không thành công trên Máy quầy: ${connectionFailed}.`,
+      `Tem in không thành công trên Tem quầy: ${connectionFailed}.`,
       REPRINT_HINT,
     ]);
-  });
-
-  it('lý do đã có dấu chấm thì không thêm dấu chấm nữa', () => {
-    expect(printFailureNoticeOf([failure('Hoá đơn #A1', 'p1', 'Máy quầy', 'Hết giấy.')])).toBe(
-      `Hoá đơn #A1 in không thành công trên Máy quầy: Hết giấy.\n${REPRINT_HINT}`,
-    );
   });
 });
 
 describe('PrintFailureSnackbar', () => {
-  let listener: ((result: PrintTaskResult) => void) | undefined;
+  let listener: PrintEventListener | undefined;
   const unsubscribe = jest.fn();
-  const queue = mockOf<PrintQueue>({
-    onTaskFinished: jest.fn((next: (result: PrintTaskResult) => void) => {
+  const service = {
+    subscribe: jest.fn((next: PrintEventListener) => {
       listener = next;
       return unsubscribe;
     }),
-  });
+  } as unknown as PrintService;
 
   const render = (): ReactTestRenderer => {
     let renderer: ReactTestRenderer | undefined;
     act(() => {
       renderer = TestRenderer.create(
         <PaperProvider>
-          <PrintFailureSnackbar queue={queue} />
+          <PrintFailureSnackbar service={service} />
         </PaperProvider>,
       );
     });
@@ -97,8 +99,8 @@ describe('PrintFailureSnackbar', () => {
       .filter((child: unknown) => typeof child === 'string')
       .join('|');
 
-  const emit = (result: PrintTaskResult): void => {
-    act(() => listener?.(result));
+  const emit = (result: SubJobResult): void => {
+    act(() => listener?.({ type: PrintEventType.SubJobFinished, jobId: 'j1', result }));
   };
 
   const advance = (ms: number): void => {
@@ -117,40 +119,49 @@ describe('PrintFailureSnackbar', () => {
     jest.useRealTimers();
   });
 
-  it('Success không hiện gì', () => {
+  it('PRINTED không hiện gì', () => {
     const renderer = render();
-    emit({ ...failure('Hoá đơn #A1'), status: PrintTaskStatus.Success, error: undefined });
+    emit({ ...failure(), outcome: PrintOutcome.Printed, errorCode: undefined });
     advance(FAILURE_BATCH_WINDOW_MS);
 
-    expect(shownText(renderer)).not.toContain('in không thành công');
+    expect(shownText(renderer)).not.toContain('không thành công');
+  });
+
+  it('PRINTER_NOT_ASSIGNED không hiện snackbar', () => {
+    const renderer = render();
+    const unassigned = { ...failure(), printerId: undefined, printerName: undefined };
+    emit({ ...unassigned, errorCode: PrinterErrorCode.PrinterNotAssigned });
+    advance(FAILURE_BATCH_WINDOW_MS);
+
+    expect(shownText(renderer)).toBe('');
   });
 
   it('hai lỗi trong 1 giây gộp thành một thông báo', () => {
     const renderer = render();
-    emit(failure('Tem #A1 · ly 1/2'));
+    emit(failure());
     advance(500);
-    emit(failure('Tem #A1 · ly 2/2'));
+    emit(failure());
 
-    expect(shownText(renderer)).not.toContain('lệnh in không thành công');
+    expect(shownText(renderer)).not.toContain('lần in không thành công');
     advance(FAILURE_BATCH_WINDOW_MS);
 
-    expect(shownText(renderer)).toContain('Máy Tem quầy: 2 lệnh in không thành công');
+    expect(shownText(renderer)).toContain('Máy Tem quầy: 2 lần in không thành công');
   });
 
   it('lỗi đến khi đang hiện thì chờ thông báo sau', () => {
     const renderer = render();
-    emit(failure('Hoá đơn #A1', 'p1', 'Máy quầy'));
+    emit(failure('Máy quầy', 'p1', PrinterKind.Receipt));
     advance(FAILURE_BATCH_WINDOW_MS);
-    expect(shownText(renderer)).toContain('Hoá đơn #A1 in không thành công');
+    expect(shownText(renderer)).toContain('Hoá đơn in không thành công trên Máy quầy');
 
-    emit(failure('Hoá đơn #A2', 'p1', 'Máy quầy'));
+    emit(failure('Tem quầy', 'p2'));
     advance(FAILURE_BATCH_WINDOW_MS);
-    expect(shownText(renderer)).not.toContain('Hoá đơn #A2');
+    expect(shownText(renderer)).not.toContain('Tem quầy');
 
     act(() => renderer.root.findByType(Snackbar).props.onDismiss());
     advance(FAILURE_BATCH_WINDOW_MS);
 
-    expect(shownText(renderer)).toContain('Hoá đơn #A2 in không thành công');
+    expect(shownText(renderer)).toContain('Tem in không thành công trên Tem quầy');
   });
 
   it('unmount thì huỷ đăng ký', () => {
