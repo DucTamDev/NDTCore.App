@@ -7,9 +7,8 @@ import { usePrinterList } from '../hooks/usePrinterList';
 import { PrinterList } from './PrinterList';
 import { AddPrinterModal } from './AddPrinterModal';
 import { AddPrinterForm } from './AddPrinterForm';
-import { PrintKind } from '../models/printer/PrintKind';
+import { PrinterKind, type Printer } from '@ndtcore/printer';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import type { Printer } from '@ndtcore/printer';
 
 export const PrinterManagementPanel: React.FC = () => {
   const { printers, ...actions } = usePrinterList();
@@ -18,7 +17,7 @@ export const PrinterManagementPanel: React.FC = () => {
     undefined,
   );
   const [addSessionId, setAddSessionId] = useState(0);
-  const [activeTab, setActiveTab] = useState<PrintKind>(PrintKind.Receipt);
+  const [activeTab, setActiveTab] = useState<PrinterKind>(PrinterKind.Receipt);
   const isPhone = useLayoutMode() === 'phone';
 
   const openAdd = (): void => {
@@ -73,10 +72,10 @@ export const PrinterManagementPanel: React.FC = () => {
 
       <SegmentedButtons
         value={activeTab}
-        onValueChange={value => setActiveTab(value as PrintKind)}
+        onValueChange={value => setActiveTab(value as PrinterKind)}
         buttons={[
-          { value: PrintKind.Receipt, label: PRINT_KIND_LABELS.Receipt },
-          { value: PrintKind.Label, label: PRINT_KIND_LABELS.Label },
+          { value: PrinterKind.Receipt, label: PRINT_KIND_LABELS[PrinterKind.Receipt] },
+          { value: PrinterKind.Label, label: PRINT_KIND_LABELS[PrinterKind.Label] },
         ]}
       />
 

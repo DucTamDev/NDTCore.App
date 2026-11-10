@@ -119,10 +119,6 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
-    testOptions {
-        // Lời gọi android.util.Log trong JUnit trả giá trị mặc định thay vì ném lỗi "not mocked".
-        unitTests.returnDefaultValues = true
-    }
 }
 
 dependencies {
@@ -134,8 +130,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    testImplementation("junit:junit:4.13.2")
 }
 
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"

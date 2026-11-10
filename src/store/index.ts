@@ -3,7 +3,6 @@ import authReducer from '../features/auth/store/authSlice';
 import cartReducer from '../features/cart/store/cartSlice';
 import catalogReducer from '../features/catalog/store/catalogSlice';
 import currentStoreReducer from '../features/store/store/storeSlice';
-import printerReducer from '../features/printer/store/printerSlice';
 import applicationReducer from '../features/application/store/applicationSlice';
 
 export const store = configureStore({
@@ -12,7 +11,6 @@ export const store = configureStore({
     cart: cartReducer,
     catalog: catalogReducer,
     currentStore: currentStoreReducer,
-    printer: printerReducer,
     application: applicationReducer,
   },
 });

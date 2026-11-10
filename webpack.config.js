@@ -17,10 +17,7 @@ module.exports = {
       'react-native-mmkv': path.resolve(__dirname, 'node_modules/react-native-mmkv'),
       'react-native-view-shot': path.resolve(__dirname, 'node_modules/react-native-view-shot'),
       '@ndtcore/printer-native': path.resolve(__dirname, 'node_modules/@ndtcore/printer-native'),
-      // Các module native-thuần cho máy in — createPrinterAdapter.web.ts
-      // không import chúng, nhưng alias sang `false` để Webpack không bao giờ
-      // cố resolve chúng nếu có đường import gián tiếp nào khác chạm tới.
-      '@poriyaalar/react-native-thermal-receipt-printer': false,
+      // Nitro chỉ chạy native; react-native-mmkv bản web không dùng tới.
       'react-native-nitro-modules': false,
       // react-native-view-shot 6 trên web chụp bằng html2canvas-pro; web không in nên không cài.
       'html2canvas-pro': false,

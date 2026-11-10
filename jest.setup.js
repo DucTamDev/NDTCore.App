@@ -38,50 +38,9 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 // react-native-view-shot ships untransformed ESM (src/index.tsx) and pulls a
-// native module; usePrintImageCapture.tsx imports `captureRef` at load time, so
-// any test transitively importing AddPrinterModal fails to parse without this.
+// native module; package máy in imports `captureRef` at load time, so any test
+// transitively importing it fails to parse without this.
 jest.mock('react-native-view-shot', () => ({
   __esModule: true,
   captureRef: jest.fn(() => Promise.resolve('file://mock-capture.png')),
 }));
-
-// Lớp JS của native module DeviceModule (adapters/native/DeviceModule) gọi thẳng NativeModules.DeviceModule, nên
-// bất kỳ test nào transitively import NativeAdapter — kể cả không chạy — đều fail nếu không mock ở đây. Test cần
-// kiểm soát chi tiết override bằng jest.mock() cục bộ, ưu tiên hơn.
-jest.mock('./src/features/printer/adapters/native/DeviceModule', () => ({
-  DeviceModule: {
-    discover: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue({
-      connectionId: 'mock-connection',
-      deviceId: 'lan:10.0.0.5:9100',
-      address: { type: 'lan', host: '10.0.0.5', port: 9100 },
-      name: null,
-      manufacturerName: null,
-      productName: null,
-    }),
-    write: jest.fn().mockResolvedValue(undefined),
-    read: jest.fn().mockResolvedValue(null),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-  },
-  subscribeDeviceDisconnected: jest.fn().mockReturnValue(() => undefined),
-}));
-
-// DeviceModule.test.ts dùng requireActual để test bản THẬT — cần NativeModules.DeviceModule tồn tại vì RN jest preset
-// không có.
-{
-  const { NativeModules } = require('react-native');
-  NativeModules.DeviceModule = {
-    discover: jest.fn().mockResolvedValue([]),
-    connect: jest.fn().mockResolvedValue({
-      connectionId: 'mock-connection',
-      deviceId: 'lan:10.0.0.5:9100',
-      address: { type: 'lan', host: '10.0.0.5', port: 9100 },
-      name: null,
-      manufacturerName: null,
-      productName: null,
-    }),
-    write: jest.fn().mockResolvedValue(undefined),
-    read: jest.fn().mockResolvedValue(null),
-    disconnect: jest.fn().mockResolvedValue(undefined),
-  };
-}

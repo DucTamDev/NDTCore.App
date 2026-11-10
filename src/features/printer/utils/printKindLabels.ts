@@ -1,7 +1,7 @@
-import type { PrintKind } from '../models/printer/PrintKind';
+import { PrinterKind } from '@ndtcore/printer';
 
 /** Tên hiển thị tiếng Việt của từng loại nội dung. */
-export const PRINT_KIND_LABELS: Record<PrintKind, string> = {
-  Receipt: 'Hoá đơn',
-  Label: 'Tem',
+export const PRINT_KIND_LABELS: Record<PrinterKind, string> = {
+  [PrinterKind.Receipt]: 'Hoá đơn',
+  [PrinterKind.Label]: 'Tem',
 };
