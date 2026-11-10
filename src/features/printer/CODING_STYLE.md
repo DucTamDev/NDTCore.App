@@ -1,296 +1,52 @@
 # Printer Feature — Coding Style
 
-Bổ sung cho [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md)
-(áp dụng toàn app) — các rule dưới đây chỉ áp dụng cho `src/features/printer/`,
-tập trung vào thiết kế class/interface/type/field/comment cho domain
-printer. Nếu 1 rule ở đây mâu thuẫn với convention đã có trong codebase,
-convention thật thắng — xem ghi chú "Điều chỉnh" ở mỗi rule có xung đột.
+Bổ sung cho [`docs/CODING_STANDARDS_TS.md`](../../../docs/CODING_STANDARDS_TS.md). Chỉ áp dụng cho
+`src/features/printer/` và chỗ khác của App gọi package máy in.
 
 ---
 
-## 1. Responsibility
+## 1. Chỉ đi qua package
 
-Mỗi class/interface/type chỉ có **một responsibility rõ ràng**.
-
-```text
-Printer
-PrinterLanguage
-DeviceAddress
-PaperOptions
-PrinterCapabilities
-```
-
-Không gom nhiều domain responsibility vào một abstraction (vd không có
-`PrinterManager` làm cả discovery + connection + printing + storage —
-xem `ARCHITECTURE.md` §2 cho cách tách hiện tại).
+- Import từ `@ndtcore/printer`, không import file con (`@ndtcore/printer/src/...`) và không gọi `NativeModules`.
+- Không dựng lại khái niệm package đã có (`Printer`, `PrinterConfig`, `PaperConfig`, mã lỗi, enum). Dùng thẳng kiểu và
+  enum của package: `PrinterKind.Receipt`, không so chuỗi `'Receipt'`.
+- Không chép trạng thái máy in vào Redux hay state riêng lâu dài; đọc `getPrinters()`/`status` và `subscribe`.
 
 ---
 
-## 2. Naming
+## 2. Hook nhận dịch vụ qua tham số
 
-Tên phải thể hiện **domain meaning**, không mô tả implementation.
+Hook dùng package nhận dịch vụ làm tham số có mặc định là instance dùng chung, để test truyền bản khác mà không mock
+module:
 
 ```ts
-// Tránh
-Data
-Manager
-Helper
-Utils
-ConfigData
-
-// Ưu tiên
-PaperOptions
-DeviceAddress
-PrinterCapabilities
-PrinterRepository
-PrinterConnectionLock
+export const usePrinterList = (manager: PrinterManager = printerManager) => { /* ... */ };
+export const useTestPrint = (service: PrintService = printService) => { /* ... */ };
 ```
 
 ---
 
-## 3. Interface
+## 3. Form và lỗi theo trường
 
-Interface định nghĩa **contract** — dùng khi có ranh giới cần implement
-nhiều cách (native/vendor, mock cho test), không dùng cho object
-shape đơn thuần không có behavior thay thế được.
-
-```ts
-export interface IPrinterAdapter {
-  connect(target: PrinterConnectTarget): Promise<void>;
-  write(bytes: Uint8Array): Promise<void>;
-}
-```
-
-Không tạo `IPrinterManager`/`IPrinterHelper` chỉ để "trông SOLID" nếu chỉ
-có đúng 1 implementation và không có kế hoạch thêm implementation thứ 2.
+- Kiểm tra giá trị là việc của package. Form không lặp lại luật (khoảng, số thập phân); chỉ đổi kiểu rồi gửi.
+- Đường dẫn lỗi của package (`paper.widthMm`) đổi sang ô form qua bảng trong `PrinterConfigForm.ts`; lỗi không có ô
+  hiện chung.
+- Câu lỗi người dùng đọc lấy từ `printerErrorMessageOf(code)` hoặc `fieldMessageOf(reason)`, không hiện `message`
+  tiếng Anh của package.
 
 ---
 
-## 4. Type vs Interface
+## 4. Mẫu in
 
-```text
-interface → object contract / entity / service contract có thể có nhiều implementation
-type      → union / composition / alias / function type
-```
-
-```ts
-export interface Printer {
-  id: string;
-}
-
-export type PrintLanguage = (typeof PrintLanguage)[keyof typeof PrintLanguage];
-```
+- Kích thước trong mẫu đi qua `toDp`, không viết số dp cứng.
+- Mẫu chỉ trình bày nội dung đơn hàng; không biết máy in, khổ giấy hay ngôn ngữ lệnh.
 
 ---
 
-## 5. Domain Constants — const-object pattern, KHÔNG dùng `enum`
+## 5. Đặt tên, đơn vị, comment
 
-**Điều chỉnh so với đề xuất ban đầu:** codebase dùng `enum` thật sẽ phá vỡ
-nhất quán 100% domain constant hiện có, và TS `enum` có vấn đề tree-shaking/
-erasure khác hẳn union-từ-const-object. Giữ đúng pattern đã dùng xuyên
-suốt:
-
-```ts
-// Không hard-code rải rác
-if (language === 'EscPos') { ... }
-
-// Centralize đúng pattern đã dùng
-export const PrintLanguage = {
-  EscPos: 'EscPos',
-  Tspl: 'Tspl',
-} as const;
-
-export type PrintLanguage = (typeof PrintLanguage)[keyof typeof PrintLanguage];
-```
-
-Sử dụng: `printer.language.type === PrintLanguage.EscPos` — không so sánh string
-literal trực tiếp ở nơi gọi. Tất cả enum trong feature dùng PascalCase, trừ các bộ mã lỗi
-(`DeviceErrorCode`, `PrinterErrorCode`, `PrintErrorCode`) giữ SCREAMING_SNAKE_CASE.
-
----
-
-## 6. `readonly` — chỉ khi không xung đột với Redux Toolkit/Immer
-
-**Điều chỉnh so với đề xuất ban đầu:** KHÔNG áp `readonly` lên field của
-`Printer`/`PrinterLanguage` — `store/printerSlice.ts` (Redux Toolkit
-`createSlice`) mutate trực tiếp field này theo đúng cú pháp Immer bắt buộc
-(`printer.enabled = ...`, `state.printers.push(...)`). Thêm `readonly` sẽ
-lỗi compile ngay, không phải lỗi cần sửa ở phía reducer.
-
-```ts
-// KHÔNG áp readonly cho model đi qua Redux slice
-export interface Printer {
-  id: string;      // không readonly
-  enabled: boolean; // không readonly — bị mutate trong printerSlice.ts
-}
-```
-
-`readonly` vẫn dùng được bình thường cho type/interface **không** đi qua
-Redux (vd config object truyền 1 lần cho constructor, DTO chỉ đọc).
-
----
-
-## 7. Service là class, kèm một instance dùng chung
-
-Service viết bằng **class** (không dùng factory function + closure). Phụ
-thuộc truyền qua constructor, có giá trị mặc định là instance dùng chung để
-test thay được. Class đặt PascalCase, instance dùng chung đặt camelCase:
-
-```ts
-export class PrinterManagementService {
-  constructor(private readonly repository: PrinterRepository = printerRepository) {}
-
-  setEnabled(printerId: string, enabled: boolean): void { /* ... */ }
-}
-
-export const printerManagementService = new PrinterManagementService();
-```
-
-Kiểu phụ thuộc là **nguyên class** (`PrinterRepository`), không dùng
-`Pick<Class, ...>` hay `ReturnType<typeof ...>`. Truyền **instance** làm phụ
-thuộc, không truyền method rời (`{ getPrinters: printerRepository.getPrinters }`)
-— method rời mất `this`. Test cần object giả thì dùng `mockOf<Class>({ ... })`
-(`testing/printerServiceTestKit.ts`), vì class có field private nên object viết
-tay không khớp kiểu class. Hàm thuần không có state (`createPrinterDraft`,
-`createPrinterAdapter`) vẫn là function.
-
----
-
-## 8. Validation ở domain boundary, không chỉ ở UI
-
-```text
-UI validation      → UX (required field, format lỗi hiển thị ngay)
-Schema validation  → correctness (chạy ở service boundary, không chỉ UI)
-```
-
-Ví dụ: `columns > 0`, `itemWidthMm > 0`, ràng buộc die-cut không vượt khổ
-giấy — nằm trong `forms/addPrinter/PrinterSchema.ts` (`paperOptionsSchema`),
-chạy lại ở `PrinterRepository.addPrinter()`/`updatePrinter()` qua
-`printerSchema.parse()`, không chỉ dựa vào form đã chặn trước đó.
-
----
-
-## 9. Units — physical value phải explicit đơn vị
-
-```ts
-// Ưu tiên
-itemWidthMm
-verticalGapMm
-timeoutMs
-imageWidthPx
-
-// Tránh nếu có khả năng gây nhầm
-width
-timeout
-```
-
-Đã áp dụng nhất quán trong `PaperOptions`/`paperSpec.ts` — giữ khi thêm field mới.
-
----
-
-## 10. Comment Rules
-
-### 10.1 Không comment mô tả lại code (WHAT)
-
-```ts
-// Tránh
-// Get printer name
-const name = printer.name;
-```
-
-### 10.2 Comment giải thích WHY / constraint / non-obvious behavior
-
-```ts
-// Hai lệnh in cùng một máy vật lý phải chạy lần lượt: native chỉ giữ
-// thứ tự từng lần gọi, không giữ trọn cả lệnh in.
-```
-
-### 10.3 Class/interface-level comment cho abstraction dùng chung
-
-```ts
-/**
- * Giấy vật lý đang nạp trong máy in — thuộc Printer, KHÔNG thuộc ngôn ngữ in.
- * Không mô tả behavior encode hay routing.
- */
-export type PaperOptions = ContinuousPaper | DieCutPaper;
-```
-
-### 10.4 Field chỉ comment khi tên+type chưa đủ rõ
-
-```ts
-// Không cần — tên đã đủ rõ
-name: string;
-
-// Cần — constraint không thấy được từ tên+type
-/** Bắt buộc khi type = PaperType.DieCut. Bỏ qua khi Continuous. */
-columns?: number;
-```
-
-### 10.5 Comment workaround / hardware quirk bắt buộc
-
-```ts
-// Firmware clone XP-420B đọc ngược ý nghĩa bit của lệnh BITMAP TSPL —
-// đảo bit ở đây, KHÔNG lan sang MonochromeBitmap dùng chung.
-```
-
-### 10.6 TODO phải có lý do, không để trống
-
-```ts
-// Tránh
-// TODO: fix
-
-// Ưu tiên
-// TODO: đổi SET CUTTER <copies> sang SET CUTTER BATCH sau khi verify
-// firmware TSPL clone hỗ trợ lệnh này trên máy thật.
-```
-
----
-
-## 11. Condition Rules
-
-Đặt tên cho business condition thay vì để boolean expression trần:
-
-```ts
-// Tránh
-if (order.isPaid && !order.isCancelled) { ... }
-
-// Ưu tiên
-const canCheckout = order.isPaid && !order.isCancelled;
-if (!canCheckout) return;
-```
-
-Kết hợp với guard clause đã có trong `docs/CODING_STANDARDS_TS.md` (nesting
-tối đa 2 cấp, early return).
-
----
-
-## 12. Abstraction Rules
-
-Không tạo function/class trung gian không tạo boundary rõ ràng:
-
-```ts
-// Tránh — 3 lớp gọi nhau không thêm ý nghĩa
-function execute() { return process(); }
-function process() { return handle(); }
-function handle() { return save(); }
-```
-
-Không tạo `Factory`/`Registry`/`Adapter` khi chỉ có `new X(...)` hoặc gọi
-thẳng 1 implementation — chỉ dựng khi creation logic thật sự có nhiều
-nhánh cấu hình (vd `getPrintLanguage` chọn ngôn ngữ theo cấu hình máy in;
-`createPrinterAdapter` có bản riêng cho web).
-
----
-
-## 13. Side Effect Rules
-
-Tên method phải phản ánh đúng có side effect hay không:
-
-```text
-Side effect rõ trong tên: save, delete, connect, disconnect, write, print
-Pure/tính toán:            calculate, resolve, derive, validate, format, encode
-```
-
-`resolveEffectiveCutterMode(media)` (pure) không được âm thầm ghi log/side
-effect; `PrinterManagementService.setEnabled()` (side effect) phải có tên
-động từ rõ ràng, không đặt tên như `getEnabled`.
+- Hàm trả `Promise` có hậu tố `Async` (`printOrderAsync`, `saveAsync`).
+- Field vật lý ghi đơn vị trong tên: `widthMm`, `columnGapMm`, `timeoutMs`.
+- Field của interface có JSDoc tiếng Việt, dòng trống giữa các field.
+- Comment chỉ giải thích WHY (ràng buộc, hành vi không thấy được), 1–3 dòng, không kể lịch sử thay đổi.
+- Domain constant của App dùng const-object (`as const`) + type cùng tên, không dùng `enum` của TypeScript.

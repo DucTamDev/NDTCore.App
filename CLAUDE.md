@@ -62,48 +62,27 @@ src/
 ├── services/             # StorageService (MMKV wrapper), LoggerService
 ├── store/                 # Redux store gốc — gộp reducer từ mỗi feature module
 ├── theme/                 # React Native Paper theme
-├── types/                 # ApiResponse dùng chung toàn app (PrinterError chuyển vào features/printer/errors/ — chỉ printer dùng)
+├── types/                 # ApiResponse dùng chung toàn app
 └── utils/
 ```
 
 Mỗi feature module tự đóng gói theo layer con khi cần: `components/`, `services/`, `store/`, `types/`, `schemas/`, `hooks/`. Không tạo layer rỗng — `application` chỉ có `components/`, `screens/`, `store/` vì chưa cần các layer khác.
 
 **2 kiểu feature module:**
-- **Feature sở hữu data** (`auth`, `cart`, `catalog`, `store`, `printer`) — có `store/` slice và/hoặc `services/` riêng, giữ state dùng ở nhiều màn hình.
+- **Feature sở hữu data** (`auth`, `cart`, `catalog`, `store`) — có `store/` slice và/hoặc `services/` riêng, giữ state dùng ở nhiều màn hình.
 - **Feature shell/ghép** (`sales`, `application`) — không có `store/`/`services/`/`types/` riêng, đúng chủ đích: ghép screen/hook của các feature sở hữu data lại thành 1 màn hình. Riêng `application` có 1 slice Redux nhỏ cho state UI của chính nó (`activeMenuKey` — mục sidebar đang chọn).
 
 ### Printer Module (`src/features/printer/`)
 
-Xem [`src/features/printer/ARCHITECTURE.md`](src/features/printer/ARCHITECTURE.md) để hiểu chi tiết toàn bộ layer,
-flow (tìm thiết bị, dò ngôn ngữ, in thật, in thử), `deviceId` và khoá in. Tóm tắt nhanh:
-
-Ngôn ngữ in chỉ encode; kết nối là một tầng chung. UI **không bao giờ** gọi thẳng native module — luôn qua service:
+Máy in do package `@ndtcore/printer` (repo `../NDTCore.Package`) làm hết: tìm thiết bị, kết nối, dò ngôn ngữ, lưu
+máy, hàng đợi in, chụp mẫu, encode, gửi byte. Feature `printer` của App chỉ giữ màn hình, form, mẫu in và câu lỗi
+tiếng Việt. Xem [`src/features/printer/ARCHITECTURE.md`](src/features/printer/ARCHITECTURE.md).
 
 ```text
-In:        PrintService (khoá theo máy) → PrinterService
-               → IPrintLanguage.encode + PrinterConnectionService.send → NativeAdapter → DeviceModule
-Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinterDraft → PrinterRepository
+In đơn:    cart/services/OrderPrintTrigger.printOrderAsync → printService (Job) → package
+Thêm máy:  useAddPrinterFlow → printerSetup (bản nháp) → printerSetup.saveAsync
+Sửa máy:   useAddPrinterFlow → printerManager.updateAsync
 ```
-
-- **`models/`** — `printer/` (`Printer`, `PrinterLanguage`, `PrinterCapabilities`),
-  `device/` (`DeviceInfo` — chỉ lúc tìm thiết bị, `ConnectedDevice` — kết quả connect, `DeviceAddress`),
-  `paper/` (`PaperOptions`, `paperSpec`, `cutter`),
-  `printing/`. Không so `Printer.deviceId` với `DeviceInfo.deviceId`.
-- **`languages/`** — `IPrintLanguage` (`encode`, `identifyProbe?`), `EscPosLanguage`, `TsplLanguage`,
-  `getPrintLanguage`. Byte encode ghim bằng fixture `testing/encodeCases.ts`.
-- **`adapters/`** — `IPrinterAdapter` (1 instance = 1 kết nối: `listDevices`, `connect`, `write`, `read`, `onLost`,
-  `disconnect`). `NativeAdapter` cho cả USB/Bluetooth/LAN qua `DeviceModule` (Java ở
-  `android/app/src/main/java/com/ndtcorepos/` — `bridge/`, `device/`; chỉ Android), kết nối dùng chung qua
-  `NativeConnectionPool`. `VendorAdapter` là khung cho SDK hãng.
-- **`connection/`** — `PrinterAdapterFactory(.web)`, `PrinterConnectionService` (phiên theo `printerId` cho cả máy đã
-  lưu lẫn bản nháp; không giới hạn số máy cùng loại kết nối), `PrinterConnectionLock` (khoá in theo `deviceId` native).
-- **`discovery/DeviceDiscoveryService`**, **`detection/LanguageDetectionService`** — tìm thiết bị; dò ngôn ngữ trên
-  một lần kết nối (TSPL bằng lệnh dò `~!T`, ESC/POS xác nhận yếu trừ USB — USB không bao giờ tự xác nhận ESC/POS).
-- **`management/PrinterDefaults`** — mặc định khi tạo máy mới (`createPrinterDraft`);
-  **`forms/addPrinter/printerRules`** — `canPrintKind` (ESC/POS chỉ in hoá đơn).
-- **`components/AddPrinterModal.tsx`** — modal cuộn 1 màn hình (không phải wizard nhiều bước). Xem chi tiết state machine ở `docs/superpowers/specs/2026-08-01-printer-modal-single-screen-design.md`.
-- **`hooks/useConnectionStatus.ts`** — đọc trạng thái kết nối thẳng từ `PrinterConnectionService`
-  (`useSyncExternalStore`), không chép vào Redux; dùng trong danh sách máy in và form thêm/sửa.
 
 ---
 
@@ -111,11 +90,11 @@ Thêm máy:  DeviceDiscoveryService → PrinterDetectionService → createPrinte
 
 - Toàn bộ text hiển thị cho người dùng: **tiếng Việt**
 - TypeScript strict, không dùng `any`
-- UI component không bao giờ gọi native module/SDK máy in trực tiếp — luôn qua service của feature printer
-- Trạng thái kết nối máy in là **event-driven** (`onStatusChange`/`DeviceDiscoveryEvent`/`LanguageDetectionEvent`) — không polling
+- Không gọi native module máy in trực tiếp — luôn qua `@ndtcore/printer`
+- Trạng thái máy in đọc từ package (`getPrinters()` + `subscribe`), không chép vào Redux, không polling
 - **Disable, không Hide** — component điều kiện theo trạng thái (chưa kết nối, đang xử lý...) dùng prop `disabled`, không unmount/remount (`{condition && <X/>}` là anti-pattern trong các form nhiều bước phụ thuộc trạng thái)
 - Component UI thuần trình bày (`src/components/*`, các subcomponent nhỏ trong `features/*/components/`) **không có test file riêng** — verify qua `type-check` + `lint` + test thủ công trên thiết bị. Chỉ file logic (services, languages, schemas, reducers) mới có `.test.ts`, đặt trong thư mục con `__tests__/` cùng cấp với file logic nó test (vd `services/__tests__/XService.test.ts`) — không nằm chung thư mục với file logic. Jest tự nhận diện `__tests__/` mặc định, không cần cấu hình thêm.
-- Không thêm feature/abstraction/error-handling vượt quá yêu cầu — ví dụ `useConnectionStatus.ts`: 1 hook, 1 trách nhiệm
+- Không thêm feature/abstraction/error-handling vượt quá yêu cầu — 1 hook, 1 trách nhiệm
 - **TypeScript/TSX** (`src/`): xem [`docs/CODING_STANDARDS_TS.md`](docs/CODING_STANDARDS_TS.md) — tóm tắt: guard clause/early return (tối đa 2 cấp nesting), 1 function/class = 1 trách nhiệm, tên biến/field thể hiện rõ ý định (không dùng `data`/`result`/`value`/`temp`), field chỉ comment khi tên+type chưa đủ rõ (comment mô tả mục đích/constraint/lifecycle, không mô tả lại kiểu dữ liệu), comment giải thích WHY chứ không lặp lại WHAT, không abstraction/function trung gian khi chưa có responsibility rõ ràng.
 - **Java native** (`android/app/src/main/java/com/ndtcorepos/`): xem [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) — tóm tắt: ưu tiên guard clause/early return hơn nesting (tối đa 2 cấp), không `else` sau `return`, tên biến/method thể hiện rõ ý định (không viết tắt tuỳ tiện), không nested method call làm giảm readability, blank line tách logical block, hằng số log dùng `LOG_SOURCE` (không dùng `TAG`), comment function dùng trực tiếp Android API ở cấp function (không rải theo từng dòng API call, và chỉ khi tên+code chưa đủ rõ).
 
