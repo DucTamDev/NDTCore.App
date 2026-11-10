@@ -14,13 +14,15 @@ import type { Printer } from '@ndtcore/printer';
 export const PrinterManagementPanel: React.FC = () => {
   const { printers, ...actions } = usePrinterList();
   const [mode, setMode] = useState<'list' | 'form'>('list');
-  const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
+  const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(
+    undefined,
+  );
   const [addSessionId, setAddSessionId] = useState(0);
   const [activeTab, setActiveTab] = useState<PrintKind>(PrintKind.Receipt);
   const isPhone = useLayoutMode() === 'phone';
 
   const openAdd = (): void => {
-    setAddSessionId((n) => n + 1);
+    setAddSessionId(n => n + 1);
     setEditingPrinter(undefined);
     setMode('form');
   };
@@ -53,7 +55,7 @@ export const PrinterManagementPanel: React.FC = () => {
       <View style={styles.phoneForm}>
         <AddPrinterForm
           key={formKey}
-          visible
+          initialPrinter={editingPrinter}
           onSaved={onSaved}
           onBack={backToList}
           showBackButton={false}
@@ -63,7 +65,7 @@ export const PrinterManagementPanel: React.FC = () => {
     );
   }
 
-  const printersForTab = printers.filter((p) => p.config.kind === activeTab);
+  const printersForTab = printers.filter(p => p.config.kind === activeTab);
 
   return (
     <View style={styles.container}>
@@ -71,21 +73,29 @@ export const PrinterManagementPanel: React.FC = () => {
 
       <SegmentedButtons
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as PrintKind)}
+        onValueChange={value => setActiveTab(value as PrintKind)}
         buttons={[
           { value: PrintKind.Receipt, label: PRINT_KIND_LABELS.Receipt },
           { value: PrintKind.Label, label: PRINT_KIND_LABELS.Label },
         ]}
       />
 
-      <AppButton label={`+ Thêm máy in ${PRINT_KIND_LABELS[activeTab]}`} onPress={openAdd} />
+      <AppButton
+        label={`+ Thêm máy in ${PRINT_KIND_LABELS[activeTab]}`}
+        onPress={openAdd}
+      />
 
-      <PrinterList printers={printersForTab} actions={actions} onEdit={openEdit} />
+      <PrinterList
+        printers={printersForTab}
+        actions={actions}
+        onEdit={openEdit}
+      />
 
       {!isPhone && (
         <AddPrinterModal
           key={formKey}
           visible={mode === 'form'}
+          initialPrinter={editingPrinter}
           onDismiss={backToList}
           onSaved={onSaved}
           kind={kind}

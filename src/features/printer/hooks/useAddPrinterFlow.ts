@@ -1,379 +1,345 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { printerManagementService } from '../management/PrinterManagementService';
-import { printerRepository } from '../storage/PrinterRepository';
-import type { ConnectedDevice } from '../models/device/ConnectedDevice';
-import { printerConnectionService } from '../connection/PrinterConnectionService';
-import { usePrintImageCapture } from './usePrintImageCapture';
-import { useConnectionStatus } from './useConnectionStatus';
-import { generateId } from '../../../utils/id';
-import { printerDisplaySchema, type PrinterDisplayValues } from '../forms/addPrinter/PrinterDisplaySchema';
-import type { ConnectionSectionProps } from '../components/ConnectionSection';
-import type { StatusPanelProps, ConnectionState, LanguageState } from '../components/StatusPanel';
-import type { PrinterInfoCardProps } from '../components/PrinterInfoCard';
-import { ConnectionType } from '../models/connections/ConnectionType';
-import { LanguageSelection, PrintLanguage } from '../models/printer/PrinterLanguage';
-import type { PrinterLanguage } from '../models/printer/PrinterLanguage';
-import { ConnectionStatus } from '../models/connections/ConnectionStatus';
-import type { PrintKind } from '../models/printer/PrintKind';
-import { createPrinterDraft, createPrinterLanguage, DEFAULT_PAPER } from '../management/PrinterDefaults';
+import { useEffect, useState } from 'react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import {
-  paperFormErrorOf,
-  paperFormSchema,
-  toPaperFormValues,
-  toPaperOptions,
-  type PaperFormValues,
-} from '../forms/addPrinter/PaperFormSchema';
-import type { PaperOptions } from '../models/paper/PaperOptions';
-import type { Printer } from '../models/printer/Printer';
-import type { DeviceAddress } from '../models/device/DeviceAddress';
-import { useConnectionSetup } from './addPrinter/useConnectionSetup';
-import { usePrinterDetection } from './addPrinter/usePrinterDetection';
-import type { PrinterDetection } from '../detection/PrinterDetection';
-import { useTestPrint } from './addPrinter/useTestPrint';
+  PrinterError,
+  PrinterErrorCode,
+  printerManager,
+  printerSetup,
+  TransportType,
+  type DeviceCandidate,
+  type FieldError,
+  type Printer,
+  type PrinterKind,
+  type PrinterManager,
+  type PrinterSetupService,
+} from '@ndtcore/printer';
+import { getCurrentWifiIp } from '../discovery/NetworkDiscoveryService';
+import {
+  applyFieldErrors,
+  configUpdateOf,
+  defaultFormValuesOf,
+  fieldMessageOf,
+  formValuesOf,
+  type PrinterConfigFormValues,
+} from '../forms/addPrinter/PrinterConfigForm';
+import { printerErrorMessageOf } from '../errors/PrinterErrorMessages';
+import {
+  usePrinterSetupSession,
+  type UsePrinterSetupSession,
+} from './addPrinter/usePrinterSetupSession';
+import { useTestPrint, type UseTestPrint } from './addPrinter/useTestPrint';
 
+/** Đầu vào của luồng thêm, sửa máy in. */
 export interface UseAddPrinterFlowInput {
-  visible: boolean;
-  initialValues?: Printer;
+  /** Loại nội dung cố định: tab đang mở lúc thêm, kind của máy lúc sửa. */
+  kind: PrinterKind;
+
+  /** Máy đã lưu khi sửa; không có là thêm mới. */
+  initialPrinter?: Printer;
+
+  /** Lưu xong. */
   onSaved: () => void;
-  /** Loại nội dung CỐ ĐỊNH của printer này — tab đang mở lúc Thêm mới, hoặc `initialValues.type` lúc Sửa. */
-  kind: PrintKind;
+
+  /** Phụ thuộc của package; test truyền bản giả. */
+  dependencies?: { setup?: PrinterSetupService; manager?: PrinterManager };
 }
 
+/** Ô IP, cổng LAN: kết nối máy mới hoặc đổi địa chỉ máy đã lưu. */
+export interface LanAddressState {
+  /** IP đang nhập. */
+  host: string;
+
+  /** Cổng đang nhập. */
+  port: string;
+
+  /** Lỗi của IP. */
+  hostError?: string;
+
+  /** Lỗi của cổng. */
+  portError?: string;
+
+  /** IP Wi-Fi của máy bán hàng, để gợi ý dải mạng. */
+  detectedIp: string | null;
+
+  /** Không lấy được IP Wi-Fi. */
+  fetchError?: string;
+
+  /** Đổi IP. */
+  setHost: (value: string) => void;
+
+  /** Đổi cổng. */
+  setPort: (value: string) => void;
+
+  /** Lấy IP Wi-Fi của máy bán hàng. */
+  fetchIpAsync: () => Promise<void>;
+
+  /** Điền IP Wi-Fi vừa lấy. */
+  fillDetectedIp: () => void;
+}
+
+/** Trạng thái và thao tác của form thêm, sửa máy in. */
 export interface UseAddPrinterFlow {
+  /** Tiêu đề form. */
   title: string;
-  connectionSection: ConnectionSectionProps;
-  identityErrorMessage?: string;
-  statusPanel: StatusPanelProps;
-  hasDieCutMediaError: boolean;
-  infoCard: PrinterInfoCardProps;
-  captureNode: ReactNode;
-  testPrintErrorMessage: string | null;
+
+  /** Đang sửa máy đã lưu. */
+  isEdit: boolean;
+
+  /** Phiên tìm, kết nối máy (chỉ dùng khi thêm). */
+  session: UsePrinterSetupSession;
+
+  /** Máy đang chọn trong danh sách tìm được. */
+  selectedCandidate?: DeviceCandidate;
+
+  /** Chọn máy trong danh sách. */
+  selectCandidate: (candidate: DeviceCandidate) => void;
+
+  /** Kết nối máy đang chọn hoặc địa chỉ LAN đang nhập. */
+  connectAsync: () => Promise<void>;
+
+  /** Ô IP, cổng LAN. */
+  lan: LanAddressState;
+
+  /** Máy làm gốc của form: bản nháp khi thêm, máy đã lưu khi sửa; chưa kết nối thì undefined. */
+  basePrinter?: Printer;
+
+  /** Form cấu hình in. */
+  form: UseFormReturn<PrinterConfigFormValues>;
+
+  /** In thử. */
+  testPrint: UseTestPrint;
+
+  /** In thử theo cấu hình đang nhập, không lưu. */
+  testPrintAsync: () => Promise<void>;
+
+  /** Lưu: thêm máy mới hoặc cập nhật máy đã lưu. */
+  saveAsync: () => Promise<void>;
+
+  /** Đang lưu. */
+  saving: boolean;
+
+  /** Lỗi lưu không gắn được vào ô nào. */
   saveErrorMessage: string | null;
-  clearTestPrintError: () => void;
+
+  /** Ẩn lỗi lưu. */
   clearSaveError: () => void;
 }
 
-/** Thông báo khi đã có máy in khác (khác `printerId`) cùng máy vật lý và cùng loại nội dung. */
-const duplicatePrinterMessage = (
-  deviceId: string | undefined,
-  printerId: string,
-  kind: PrintKind,
+/** Khoá phân biệt ứng viên: path USB, MAC Bluetooth. */
+export const candidateKeyOf = (candidate: DeviceCandidate): string =>
+  candidate.transportType === TransportType.Lan
+    ? `${candidate.host}:${candidate.port}`
+    : candidate.transportType === TransportType.Usb
+    ? candidate.device.path
+    : candidate.device.mac;
+
+/** Câu lỗi chung của lỗi package. */
+const messageOf = (error: unknown): string =>
+  printerErrorMessageOf(
+    error instanceof PrinterError ? error.code : PrinterErrorCode.InternalError,
+  );
+
+/** Lỗi theo trường của IP, cổng. */
+const lanErrorOf = (
+  errors: FieldError[],
+  field: 'host' | 'port',
 ): string | undefined => {
-  const collision = deviceId
-    ? printerRepository.getPrinters().find((p) => p.id !== printerId && p.deviceId === deviceId && p.kind === kind)
-    : undefined;
-  return collision ? `Máy in này đã được thêm cho loại nội dung này với tên "${collision.name}".` : undefined;
+  const found = errors.find(error => error.field === field);
+  return found ? fieldMessageOf(found.reason) : undefined;
 };
 
-/** Nhãn nút "Kết nối" theo `connectionState` hiện tại. */
-const resolveConnectLabel = (connectionState: ConnectionState): string => {
-  if (connectionState === 'connecting') {
-    return 'Đang kết nối...';
-  }
-
-  if (connectionState === 'connected') {
-    return 'Kết nối lại';
-  }
-
-  return 'Kết nối';
+/** Địa chỉ LAN đã lưu của máy, để biết người dùng có đổi IP, cổng không. */
+const savedLanOf = (printer?: Printer): { host: string; port: string } => {
+  const config = printer?.connectionConfig;
+  return config?.transportType === TransportType.Lan
+    ? { host: config.host, port: String(config.port) }
+    : { host: '', port: '9100' };
 };
-
-/** Giá trị tạm để bản nháp đủ kiểu `Printer` trước khi biết ngôn ngữ; kết nối và dò ngôn ngữ không đọc field này. */
-const PLACEHOLDER_LANGUAGE: PrinterLanguage = createPrinterLanguage(PrintLanguage.EscPos, LanguageSelection.Auto);
 
 /**
- * Toàn bộ orchestration của luồng Thêm/Sửa máy in — tìm thiết bị, dò ngôn ngữ, dựng draft,
- * in thử, lưu. Tách khỏi `AddPrinterModal` để component chỉ còn render + wiring.
- *
- * Coordinator sở hữu state chồng lấn (`language`, `paper`, `displayForm`,
- * `buildDraftPrinter`, vòng đời kết nối) và ghép 3 hook con dưới `addPrinter/`:
- * `useConnectionSetup`, `usePrinterDetection`, `useTestPrint`.
+ * Luồng thêm, sửa máy in. Thêm: tìm, kết nối qua printerSetup, form cấu hình bản nháp, lưu bằng saveAsync. Sửa: form
+ * cấu hình máy đã lưu, đổi IP máy LAN bằng updateLanAddressAsync, lưu bằng updateAsync. In thử dùng bản withConfig.
  */
-export const useAddPrinterFlow = ({ visible, initialValues, onSaved, kind }: UseAddPrinterFlowInput): UseAddPrinterFlow => {
-  const printerId = useMemo(() => initialValues?.id ?? generateId(), [initialValues?.id]);
-  const [language, setLanguage] = useState<PrinterLanguage | undefined>(initialValues?.language);
+export const useAddPrinterFlow = (
+  input: UseAddPrinterFlowInput,
+): UseAddPrinterFlow => {
+  const { kind, initialPrinter, onSaved, dependencies } = input;
+  const setup = dependencies?.setup ?? printerSetup;
+  const manager = dependencies?.manager ?? printerManager;
+  const isEdit = Boolean(initialPrinter);
+  const session = usePrinterSetupSession(kind, { enabled: !isEdit, setup });
+  const testPrint = useTestPrint();
+  const savedLan = savedLanOf(initialPrinter);
+  const [selectedCandidate, setSelectedCandidate] = useState<
+    DeviceCandidate | undefined
+  >(undefined);
+  const [lanHost, setLanHost] = useState(savedLan.host);
+  const [lanPort, setLanPort] = useState(savedLan.port);
+  const [lanErrors, setLanErrors] = useState<FieldError[]>([]);
+  const [detectedIp, setDetectedIp] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-  const { captureNode, captureImage } = usePrintImageCapture();
-
-  const displayForm = useForm<PrinterDisplayValues>({
-    resolver: zodResolver(printerDisplaySchema),
-    defaultValues: {
-      name: initialValues?.name ?? '',
-    },
+  const form = useForm<PrinterConfigFormValues>({
+    defaultValues: initialPrinter
+      ? formValuesOf(initialPrinter.config)
+      : defaultFormValuesOf(kind),
   });
+  const basePrinter = initialPrinter ?? session.draft;
+  const { draft } = session;
+  const { reset } = form;
 
-  const paperForm = useForm<PaperFormValues, unknown, PaperOptions>({
-    resolver: zodResolver(paperFormSchema),
-    mode: 'onChange',
-    defaultValues: toPaperFormValues(initialValues?.paper ?? DEFAULT_PAPER),
-  });
-  const paperError = paperFormErrorOf(paperForm.watch());
-
-  const cancelConnectRef = useRef<(() => void) | null>(null);
-  const [detection, setDetection] = useState<PrinterDetection | undefined>(undefined);
-  const savedRef = useRef(false);
-
-  /** Form đã tự mở kết nối (bấm Kết nối / chọn ngôn ngữ); chỉ khi đó đóng form mới phải trả máy in về như cũ. */
-  const connectionTouchedRef = useRef(false);
-
-  const isEdit = Boolean(initialValues);
-
-  /** Máy đang sửa có đang kết nối lúc mở form không; Huỷ thì kết nối lại bằng cấu hình đã lưu thay vì ngắt. */
-  const [restoreOnCancel] = useState(
-    () => Boolean(initialValues) && printerConnectionService.getStatus(printerId) === ConnectionStatus.Connected,
-  );
-  // Bridge để `useConnectionSetup` đọc state của `usePrinterDetection` tại thời
-  // điểm handler chạy — phá vòng phụ thuộc giữa 2 hook con.
-  const detectionRef = useRef<{
-    connectionState: ConnectionState;
-    languageState: LanguageState;
-    resetConnectionResult: () => void;
-  }>({
-    connectionState: initialValues ? 'connected' : 'idle',
-    languageState: initialValues ? 'identified' : 'idle',
-    resetConnectionResult: () => undefined,
-  });
-
-  const connectionSetup = useConnectionSetup({
-    initialValues,
-    hasLanguage: Boolean(language),
-    getConnectionState: () => detectionRef.current.connectionState,
-    getLanguageState: () => detectionRef.current.languageState,
-    resetConnectionResult: () => detectionRef.current.resetConnectionResult(),
-  });
-  const { connectionType, selectedDevice, lanForm, buildLan } = connectionSetup;
-
-  /** Thông tin native trả ở lần kết nối gần nhất trong form; máy đang sửa chưa kết nối lại trong form thì chưa có. */
-  const [connectedDevice, setConnectedDevice] = useState<ConnectedDevice | undefined>(undefined);
-
-  /** Trùng chỉ biết được sau khi kết nối, vì định danh máy do native trả. */
-  const identityErrorMessage = useMemo(
-    () => duplicatePrinterMessage(connectedDevice?.deviceId, printerId, kind),
-    [connectedDevice, printerId, kind],
-  );
-
-  const buildConnection = (): DeviceAddress => {
-    if (connectedDevice) {
-      return connectedDevice.address;
-    }
-
-    if (connectionType === ConnectionType.Lan) {
-      const { ip, port } = buildLan(lanForm.getValues());
-      return { type: ConnectionType.Lan, host: ip, port };
-    }
-
-    if (selectedDevice) {
-      return selectedDevice.address;
-    }
-
-    return connectionType === ConnectionType.Usb
-      ? { type: ConnectionType.Usb, vendorId: 0, productId: 0 }
-      : { type: ConnectionType.Bluetooth, mac: '' };
-  };
-
-  /**
-   * Bản nháp phải đủ field vì kết nối, dò ngôn ngữ và in thử đều nhận `Printer`. `PLACEHOLDER_LANGUAGE` không
-   * ảnh hưởng lúc dò; chỉ có nghĩa khi đã xác định ngôn ngữ, lúc in thử hoặc lưu.
-   */
-  const buildDraftPrinter = (): Printer => {
-    const draft = createPrinterDraft({
-      id: printerId,
-      kind,
-      connection: buildConnection(),
-      language: language ?? PLACEHOLDER_LANGUAGE,
-    });
-
-    return {
-      ...draft,
-      name: displayForm.getValues('name') || draft.name,
-      vendor:
-        initialValues?.vendor ?? detection?.vendor ?? connectedDevice?.manufacturer ?? selectedDevice?.manufacturer,
-      model: initialValues?.model ?? detection?.model ?? connectedDevice?.model ?? selectedDevice?.model,
-      deviceId: connectedDevice?.deviceId ?? initialValues?.deviceId ?? '',
-      capabilities: initialValues?.capabilities ?? detection?.capabilities ?? draft.capabilities,
-      // Kết nối và dò ngôn ngữ không phụ thuộc giấy; Lưu và In thử bị chặn khi giấy tem còn thiếu kích thước.
-      paper: toPaperOptions(paperForm.getValues()) ?? DEFAULT_PAPER,
-      enabled: initialValues?.enabled ?? true,
-      createdAt: initialValues?.createdAt ?? draft.createdAt,
-    };
-  };
-
-  /** Điền sẵn "Tên hiển thị" bằng tên thiết bị khi kết nối, chỉ khi ô còn trống. */
-  const prefillDisplayName = (deviceName: string | undefined): void => {
-    if (displayForm.getValues('name')) {
-      return;
-    }
-
-    const lanIp = connectionType === ConnectionType.Lan ? lanForm.getValues('lanIp') : undefined;
-    displayForm.setValue('name', deviceName || (lanIp ? `Máy in ${lanIp}` : 'Máy in mới'));
-  };
-
-  const onConnected = (device: ConnectedDevice): void => {
-    setConnectedDevice(device);
-    prefillDisplayName(device.name ?? selectedDevice?.name);
-  };
-
-  const testPrint = useTestPrint({
-    language,
-    paperError,
-    displayForm,
-    buildDraftPrinter,
-    captureImage,
-  });
-
-  const printerDetection = usePrinterDetection({
-    initialValues,
-    connectionType,
-    selectedDevice,
-    lanForm,
-    cancelConnectRef,
-    buildDraftPrinter,
-    setLanguage,
-    setDetection,
-    onConnectStart: () => {
-      connectionTouchedRef.current = true;
-    },
-    onConnected,
-  });
-  detectionRef.current = {
-    connectionState: printerDetection.connectionState,
-    languageState: printerDetection.languageState,
-    resetConnectionResult: printerDetection.resetConnectionResult,
-  };
-  const { connectionState, languageState, connectionDirty } = printerDetection;
-
-  const connectionStatus = useConnectionStatus(printerId);
-  const liveStatus = language ? connectionStatus : ConnectionStatus.Idle;
-
-  /**
-   * Đóng form mà chưa lưu: chỉ khi form đã tự kết nối mới trả máy in về như trước khi mở. Ngắt cũng huỷ lượt kết nối
-   * đang chạy dở; máy đang sửa vốn đang kết nối thì kết nối lại bằng cấu hình đã lưu.
-   */
-  const releaseConnection = useCallback((): void => {
-    if (savedRef.current || !connectionTouchedRef.current) {
-      return;
-    }
-
-    connectionTouchedRef.current = false;
-
-    if (restoreOnCancel) {
-      printerConnectionService.reconnect(printerId).catch(() => undefined);
-      return;
-    }
-
-    printerConnectionService
-      .disconnect(printerId)
-      .catch(() => undefined)
-      .then(() => {
-        if (!isEdit) {
-          printerConnectionService.forget(printerId);
-        }
-      });
-  }, [printerId, restoreOnCancel, isEdit]);
-
+  // Mỗi lần kết nối được máy, form lấy cấu hình mặc định và lang dò được của bản nháp.
   useEffect(() => {
-    if (!visible) {
-      cancelConnectRef.current?.();
-      cancelConnectRef.current = null;
-      releaseConnection();
+    if (draft) {
+      reset(formValuesOf(draft.config));
     }
-    return () => {
-      cancelConnectRef.current?.();
-    };
-  }, [visible, releaseConnection]);
+  }, [draft, reset]);
 
-  // Trên phone, `PrinterManagementPanel` unmount `AddPrinterForm` khi backToList
-  // với `visible` vẫn `true` → nhánh `!visible` ở trên không chạy.
-  useEffect(() => releaseConnection, [releaseConnection]);
-
-  /** Mở khoá phần kết nối để chọn máy hoặc địa chỉ khác; phải kết nối và xác định ngôn ngữ lại mới lưu được. */
-  const onChangeConnection = (): void => {
-    setLanguage(undefined);
-    setConnectedDevice(undefined);
-    setDetection(undefined);
-    printerDetection.resetConnectionResult();
+  const selectCandidate = (candidate: DeviceCandidate): void => {
+    setSelectedCandidate(candidate);
+    session.resetConnection();
   };
 
-  const onSave = displayForm.handleSubmit(() => {
-    if (!language) {
+  const connectAsync = async (): Promise<void> => {
+    if (session.transport === TransportType.Lan) {
+      await session.connectLanAsync(lanHost, Number(lanPort));
       return;
     }
 
-    const printer = buildDraftPrinter();
+    if (selectedCandidate) {
+      await session.connectAsync(selectedCandidate);
+    }
+  };
 
+  /** Bản withConfig theo form; sai thì gắn lỗi vào ô và trả undefined. */
+  const copyFromForm = (): Printer | undefined => {
+    if (!basePrinter) {
+      return undefined;
+    }
+
+    form.clearErrors();
     try {
-      printerManagementService.save(printer);
+      return basePrinter.withConfig(configUpdateOf(form.getValues(), kind));
     } catch (error) {
-      setSaveErrorMessage(error instanceof Error ? error.message : 'Lưu máy in thất bại');
+      showError(error);
+      return undefined;
+    }
+  };
+
+  /** Lỗi theo trường gắn vào ô; lỗi khác hiện ở thông báo lưu. */
+  const showError = (error: unknown): void => {
+    if (error instanceof PrinterError && error.fieldErrors) {
+      const rest = applyFieldErrors(error.fieldErrors, form.setError);
+
+      if (rest.length > 0) {
+        setSaveErrorMessage(messageOf(error));
+      }
+
       return;
     }
-    savedRef.current = true;
-    onSaved();
-  });
 
-  const connectLabel = resolveConnectLabel(connectionState);
-  const connectDisabled =
-    connectionState === 'connecting' ||
-    (connectionType !== ConnectionType.Lan && !selectedDevice);
-  const hasDieCutMediaError = paperError != null;
+    setSaveErrorMessage(messageOf(error));
+  };
+
+  const testPrintAsync = async (): Promise<void> => {
+    const copy = copyFromForm();
+
+    if (copy) {
+      await testPrint.testPrintAsync(copy);
+    }
+  };
+
+  /** Đổi địa chỉ máy LAN đã lưu nếu người dùng sửa IP, cổng; false khi địa chỉ mới sai. */
+  const updateLanAddressAsync = async (printer: Printer): Promise<boolean> => {
+    if (printer.connectionConfig.transportType !== TransportType.Lan) {
+      return true;
+    }
+
+    if (lanHost === savedLan.host && lanPort === savedLan.port) {
+      return true;
+    }
+
+    setLanErrors([]);
+    try {
+      await manager.updateLanAddressAsync(printer.id, lanHost, Number(lanPort));
+      return true;
+    } catch (error) {
+      if (error instanceof PrinterError && error.fieldErrors) {
+        setLanErrors(error.fieldErrors);
+        return false;
+      }
+
+      throw error;
+    }
+  };
+
+  const saveAsync = async (): Promise<void> => {
+    const copy = copyFromForm();
+
+    if (!copy) {
+      return;
+    }
+
+    setSaving(true);
+    setSaveErrorMessage(null);
+    try {
+      if (initialPrinter) {
+        if (!(await updateLanAddressAsync(initialPrinter))) {
+          return;
+        }
+
+        await manager.updateAsync(copy);
+      } else {
+        await setup.saveAsync(copy);
+      }
+
+      onSaved();
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fetchIpAsync = async (): Promise<void> => {
+    setFetchError(undefined);
+    const ip = await getCurrentWifiIp();
+    setDetectedIp(ip);
+
+    if (!ip) {
+      setFetchError('Không lấy được IP, kiểm tra máy đã kết nối Wi-Fi chưa');
+    }
+  };
+
+  const allLanErrors = [...lanErrors, ...session.lanFieldErrors];
 
   return {
-    title: initialValues ? 'Chỉnh sửa máy in' : 'Thêm máy in',
-    identityErrorMessage,
-    hasDieCutMediaError,
-    captureNode,
-    testPrintErrorMessage: testPrint.testPrintErrorMessage,
+    title: isEdit ? 'Chỉnh sửa máy in' : 'Thêm máy in',
+    isEdit,
+    session,
+    selectedCandidate,
+    selectCandidate,
+    connectAsync,
+    lan: {
+      host: lanHost,
+      port: lanPort,
+      hostError: lanErrorOf(allLanErrors, 'host'),
+      portError: lanErrorOf(allLanErrors, 'port'),
+      detectedIp,
+      fetchError,
+      setHost: setLanHost,
+      setPort: setLanPort,
+      fetchIpAsync,
+      fillDetectedIp: () => detectedIp && setLanHost(detectedIp),
+    },
+    basePrinter,
+    form,
+    testPrint,
+    testPrintAsync,
+    saveAsync,
+    saving,
     saveErrorMessage,
-    clearTestPrintError: testPrint.clearTestPrintError,
     clearSaveError: () => setSaveErrorMessage(null),
-    connectionSection: {
-      connectionType,
-      onConnectionTypeChange: connectionSetup.onConnectionTypeChange,
-      selectedScanId: selectedDevice?.deviceId,
-      onSelectDevice: connectionSetup.onSelectDevice,
-      lanIp: lanForm.watch('lanIp'),
-      lanPort: lanForm.watch('lanPort'),
-      onLanIpChange: connectionSetup.onLanIpChange,
-      onLanPortChange: connectionSetup.onLanPortChange,
-      detectedLanIp: connectionSetup.detectedLanIp,
-      lanIpFetchError: connectionSetup.lanIpFetchError,
-      onFetchLanIp: connectionSetup.onFetchLanIp,
-      onAutoFillLanIp: connectionSetup.onAutoFillLanIp,
-      lanIpError: lanForm.formState.errors.lanIp?.message,
-      lanPortError: lanForm.formState.errors.lanPort?.message,
-      connectLabel,
-      connectDisabled,
-      onConnectPress: printerDetection.onConnectPress,
-      onChangeConnection,
-      disabled: Boolean(language),
-    },
-    statusPanel: {
-      connectionState,
-      languageState,
-      languageType: printerDetection.languageType,
-      device: selectedDevice,
-      errorMessage: printerDetection.connectionErrorMessage,
-      kind,
-      onChooseLanguage: printerDetection.onChooseLanguage,
-    },
-    infoCard: {
-      control: displayForm.control,
-      errors: displayForm.formState.errors,
-      connectionType,
-      language,
-      paperForm,
-      device: selectedDevice,
-      status: liveStatus,
-      testPrintPending: testPrint.testPrintPending,
-      onTestPrint: testPrint.onTestPrint,
-      testPrintRowsText: testPrint.testPrintRowsText,
-      onTestPrintRowsChange: testPrint.setTestPrintRowsText,
-      kind,
-      onSave,
-      saveDisabled: !language || connectionDirty || hasDieCutMediaError || Boolean(identityErrorMessage),
-      locked: !language,
-    },
   };
 };

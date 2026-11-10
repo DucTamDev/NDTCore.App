@@ -1,55 +1,44 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { PrinterLang, type Printer } from '@ndtcore/printer';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import { AppButton } from '../../../components/AppButton';
-import { PrintLanguage } from '../models/printer/PrinterLanguage';
-import { canPrintKind } from '../forms/addPrinter/printerRules';
-import type { DeviceInfo } from '../models/device/DeviceInfo';
-import type { PrintKind } from '../models/printer/PrintKind';
+import type { SetupConnectionState } from '../hooks/addPrinter/usePrinterSetupSession';
 
-export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
-export type LanguageState = 'idle' | 'detecting' | 'identified' | 'unknown';
-
-export interface StatusPanelProps {
-  connectionState: ConnectionState;
-  languageState: LanguageState;
-  /** Ngôn ngữ đã xác nhận. */
-  languageType?: PrintLanguage;
-  /** Thiết bị đang chọn, để hiển thị hãng và model nếu đọc được. */
-  device?: DeviceInfo;
-  errorMessage?: string;
-  /** Lọc danh sách ngôn ngữ cho phép chọn tay — ESC/POS không in được tem. */
-  kind: PrintKind;
-  onChooseLanguage: (language: PrintLanguage) => void;
-}
-
-const languageLabel: Record<PrintLanguage, string> = {
-  EscPos: 'ESC/POS',
-  Tspl: 'TSPL',
+const languageLabel: Record<PrinterLang, string> = {
+  [PrinterLang.EscPos]: 'ESC/POS',
+  [PrinterLang.Tspl]: 'TSPL',
 };
 
-const ALL_LANGUAGES: PrintLanguage[] = [PrintLanguage.EscPos, PrintLanguage.Tspl];
+/** Thuộc tính khung trạng thái kết nối của máy đang thêm. */
+export interface StatusPanelProps {
+  /** Trạng thái kết nối. */
+  connectionState: SetupConnectionState;
 
+  /** Câu lỗi khi kết nối hỏng. */
+  errorMessage?: string;
+
+  /** Máy mất kết nối trong lúc cấu hình. */
+  connectionLost: boolean;
+
+  /** Bản nháp khi đã kết nối. */
+  draft?: Printer;
+}
+
+/** Đang kết nối, lỗi, hoặc đã kết nối kèm hãng, model và ngôn ngữ dò được. */
 export const StatusPanel: React.FC<StatusPanelProps> = ({
   connectionState,
-  languageState,
-  languageType,
-  device,
   errorMessage,
-  kind,
-  onChooseLanguage,
+  connectionLost,
+  draft,
 }) => {
-  if (languageState === 'unknown') {
-    const choices = ALL_LANGUAGES.filter((type) => canPrintKind(type, kind));
+  if (connectionState === 'connecting') {
     return (
       <View style={styles.container}>
-        <Text variant="bodyMedium">Không thể tự nhận diện giao thức. Vui lòng chọn thủ công:</Text>
-        <View style={styles.choiceRow}>
-          {choices.map((type) => (
-            <AppButton key={type} label={languageLabel[type]} mode="contained" onPress={() => onChooseLanguage(type)} />
-          ))}
-        </View>
+        <LoadingOverlay />
+        <Text variant="bodyMedium">
+          Đang kết nối và nhận diện ngôn ngữ lệnh in...
+        </Text>
       </View>
     );
   }
@@ -57,46 +46,46 @@ export const StatusPanel: React.FC<StatusPanelProps> = ({
   if (connectionState === 'error') {
     return (
       <View style={styles.container}>
-        <Text variant="bodyMedium" style={styles.errorText}>{errorMessage ?? 'Kết nối thất bại.'}</Text>
+        <Text variant="bodyMedium" style={styles.errorText}>
+          {errorMessage ?? 'Kết nối thất bại'}
+        </Text>
       </View>
     );
   }
 
-  if (connectionState === 'connecting' && languageState === 'detecting') {
-    return (
-      <View style={styles.container}>
-        <LoadingOverlay />
-        <Text variant="bodyMedium">Đang nhận diện giao thức...</Text>
-      </View>
-    );
+  if (connectionState !== 'connected' || !draft) {
+    return null;
   }
 
-  if (connectionState === 'connecting') {
-    return (
-      <View style={styles.container}>
-        <LoadingOverlay />
-        <Text variant="bodyMedium">Đang kết nối...</Text>
-      </View>
-    );
-  }
+  const { deviceInfo, config } = draft;
 
-  if (connectionState === 'connected' && languageState === 'identified') {
-    return (
-      <View style={styles.container}>
-        <Text variant="bodyMedium" style={styles.successText}>✓ Đã kết nối</Text>
-        {device?.manufacturer ? <Text variant="bodySmall">Hãng sản xuất: {device.manufacturer}</Text> : null}
-        {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
-        {languageType ? <Text variant="bodySmall">Giao thức: {languageLabel[languageType]}</Text> : null}
-      </View>
-    );
-  }
-
-  return null;
+  return (
+    <View style={styles.container}>
+      <Text
+        variant="bodyMedium"
+        style={connectionLost ? styles.errorText : styles.successText}
+      >
+        {connectionLost ? 'Mất kết nối máy in, vẫn lưu được' : '✓ Đã kết nối'}
+      </Text>
+      {deviceInfo.manufacturer ? (
+        <Text variant="bodySmall">
+          Hãng sản xuất: {deviceInfo.manufacturer}
+        </Text>
+      ) : null}
+      {deviceInfo.model ? (
+        <Text variant="bodySmall">Model: {deviceInfo.model}</Text>
+      ) : null}
+      <Text variant="bodySmall">
+        {config.lang
+          ? `Ngôn ngữ lệnh in: ${languageLabel[config.lang]} (tự nhận diện)`
+          : 'Không tự nhận diện được ngôn ngữ lệnh in, hãy chọn bên dưới'}
+      </Text>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
-  choiceRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   errorText: { color: '#B91C1C' },
   successText: { color: '#15803D' },
 });

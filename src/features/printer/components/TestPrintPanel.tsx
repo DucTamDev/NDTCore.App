@@ -1,25 +1,38 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import type { PrinterKind } from '@ndtcore/printer';
 import { AppButton } from '../../../components/AppButton';
-import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import { type PrintKind } from '../models/printer/PrintKind';
 
+/** Thuộc tính nút in thử. */
 export interface TestPrintPanelProps {
-  status: ConnectionStatus;
-  kind: PrintKind;
-  testPrintPending: boolean;
+  /** Có máy để in thử (đã kết nối khi thêm, hoặc máy đã lưu). */
+  enabled: boolean;
+
+  /** Loại nội dung, để ghi nhãn nút. */
+  kind: PrinterKind;
+
+  /** Đang gửi bản in thử. */
+  pending: boolean;
+
+  /** In thử theo cấu hình đang nhập. */
   onTestPrint: () => void;
 }
 
-export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({ status, kind, testPrintPending, onTestPrint }) => (
+/** Nút in thử mẫu thật của App. */
+export const TestPrintPanel: React.FC<TestPrintPanelProps> = ({
+  enabled,
+  kind,
+  pending,
+  onTestPrint,
+}) => (
   <View style={styles.testPrintRow}>
     <AppButton
       label={`In thử ${PRINT_KIND_LABELS[kind]}`}
       mode="outlined"
       style={styles.testPrintButton}
-      disabled={status !== ConnectionStatus.Connected || testPrintPending}
-      loading={testPrintPending}
+      disabled={!enabled || pending}
+      loading={pending}
       onPress={onTestPrint}
     />
   </View>

@@ -1,30 +1,60 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Modal, Portal } from 'react-native-paper';
+import type { Printer, PrinterKind } from '@ndtcore/printer';
 import { AddPrinterForm } from './AddPrinterForm';
-import type { PrintKind } from '../models/printer/PrintKind';
-import type { Printer } from '../models/printer/Printer';
 
-/**
- * Wrapper mỏng bọc `AddPrinterForm` trong `Modal` — chỉ dùng trên tablet.
- * Điện thoại render thẳng `AddPrinterForm` inline (xem `PrinterManagementPanel`).
- */
+/** Thuộc tính modal thêm, sửa máy in trên tablet. */
 export interface AddPrinterModalProps {
+  /** Hiện modal. */
   visible: boolean;
-  initialValues?: Printer;
+
+  /** Máy đã lưu khi sửa. */
+  initialPrinter?: Printer;
+
+  /** Đóng không lưu. */
   onDismiss: () => void;
+
+  /** Lưu xong. */
   onSaved: () => void;
-  kind: PrintKind;
+
+  /** Loại nội dung cố định. */
+  kind: PrinterKind;
 }
 
-export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ visible, initialValues, onDismiss, onSaved, kind }) => (
+/** Bọc `AddPrinterForm` trong `Modal`, chỉ dùng trên tablet; điện thoại render form thẳng trong màn danh sách. */
+export const AddPrinterModal: React.FC<AddPrinterModalProps> = ({
+  visible,
+  initialPrinter,
+  onDismiss,
+  onSaved,
+  kind,
+}) => (
   <Portal>
-    <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.container}>
-      <AddPrinterForm visible={visible} initialValues={initialValues} onSaved={onSaved} onBack={onDismiss} kind={kind} />
+    <Modal
+      visible={visible}
+      onDismiss={onDismiss}
+      contentContainerStyle={styles.container}
+    >
+      {/* Chỉ mount form khi hiện: đóng modal là unmount, luồng thêm máy của package được huỷ. */}
+      {visible ? (
+        <AddPrinterForm
+          initialPrinter={initialPrinter}
+          onSaved={onSaved}
+          onBack={onDismiss}
+          kind={kind}
+        />
+      ) : null}
     </Modal>
   </Portal>
 );
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: 'white', margin: 24, padding: 16, borderRadius: 16, maxHeight: '85%' },
+  container: {
+    backgroundColor: 'white',
+    margin: 24,
+    padding: 16,
+    borderRadius: 16,
+    maxHeight: '85%',
+  },
 });

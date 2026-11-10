@@ -12,7 +12,10 @@ import {
   type PrinterSetupService,
   type SetupEventListener,
 } from '@ndtcore/printer';
-import { usePrinterSetupSession, type UsePrinterSetupSession } from '../addPrinter/usePrinterSetupSession';
+import {
+  usePrinterSetupSession,
+  type UsePrinterSetupSession,
+} from '../addPrinter/usePrinterSetupSession';
 import { printerErrorMessageOf } from '../../errors/PrinterErrorMessages';
 
 const usb: DeviceCandidate = {
@@ -35,7 +38,8 @@ const lan: DeviceCandidate = {
 };
 
 /** Bản nháp giả với lang cho trước. */
-const draftWith = (lang: string): Printer => ({ id: '', config: { lang } }) as unknown as Printer;
+const draftWith = (lang: string): Printer =>
+  ({ id: '', config: { lang } } as unknown as Printer);
 
 /** printerSetup giả, ghi lại lời gọi. */
 const makeSetup = () => {
@@ -45,7 +49,9 @@ const makeSetup = () => {
     listUsbDevices: jest.fn(() => [usb]),
     listBluetoothDevicesAsync: jest.fn(() => Promise.resolve([bluetooth])),
     checkLanAddress: jest.fn((_host: string, _port: number) => lan),
-    connectAsync: jest.fn((_candidate: DeviceCandidate) => Promise.resolve(draftWith('EscPos'))),
+    connectAsync: jest.fn((_candidate: DeviceCandidate) =>
+      Promise.resolve(draftWith('EscPos')),
+    ),
     cancelAsync: jest.fn(() => Promise.resolve()),
     subscribe: jest.fn((next: SetupEventListener) => {
       listener = next;
@@ -63,7 +69,7 @@ const render = (setup: PrinterSetupService) => {
   let hook!: UsePrinterSetupSession;
   let renderer: ReactTestRenderer | undefined;
   const Harness: React.FC = () => {
-    hook = usePrinterSetupSession(PrinterKind.Receipt, setup);
+    hook = usePrinterSetupSession(PrinterKind.Receipt, { setup });
     return null;
   };
   act(() => {
@@ -100,19 +106,25 @@ describe('usePrinterSetupSession', () => {
 
     await act(async () => get().setTransport(TransportType.BluetoothClassic));
 
-    expect(get().listError).toBe(printerErrorMessageOf(PrinterErrorCode.BluetoothDisabled));
+    expect(get().listError).toBe(
+      printerErrorMessageOf(PrinterErrorCode.BluetoothDisabled),
+    );
   });
 
   it('ứng viên trùng: connectAsync báo PRINTER_ALREADY_EXISTS thành error', async () => {
     const { setup, mock } = makeSetup();
-    mock.connectAsync.mockRejectedValueOnce(new PrinterError(PrinterErrorCode.PrinterAlreadyExists, 'trùng'));
+    mock.connectAsync.mockRejectedValueOnce(
+      new PrinterError(PrinterErrorCode.PrinterAlreadyExists, 'trùng'),
+    );
     const { get } = render(setup);
 
     const duplicate = { id: 'p1', name: 'Quầy', kind: PrinterKind.Receipt };
     await act(async () => get().connectAsync({ ...usb, duplicate }));
 
     expect(get().connectionState).toBe('error');
-    expect(get().errorMessage).toBe(printerErrorMessageOf(PrinterErrorCode.PrinterAlreadyExists));
+    expect(get().errorMessage).toBe(
+      printerErrorMessageOf(PrinterErrorCode.PrinterAlreadyExists),
+    );
     expect(get().draft).toBeUndefined();
   });
 
@@ -133,14 +145,18 @@ describe('usePrinterSetupSession', () => {
     const { setup, mock } = makeSetup();
     mock.checkLanAddress.mockImplementationOnce(() => {
       throw new PrinterError(PrinterErrorCode.InputInvalid, 'sai', {
-        fieldErrors: [{ field: 'host', reason: FieldErrorReason.InvalidFormat }],
+        fieldErrors: [
+          { field: 'host', reason: FieldErrorReason.InvalidFormat },
+        ],
       });
     });
     const { get } = render(setup);
 
     await act(async () => get().connectLanAsync('10.0.0', 9100));
 
-    expect(get().lanFieldErrors).toEqual([{ field: 'host', reason: FieldErrorReason.InvalidFormat }]);
+    expect(get().lanFieldErrors).toEqual([
+      { field: 'host', reason: FieldErrorReason.InvalidFormat },
+    ]);
     expect(mock.connectAsync).not.toHaveBeenCalled();
   });
 

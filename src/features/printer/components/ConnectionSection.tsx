@@ -1,100 +1,124 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SegmentedButtons, HelperText } from 'react-native-paper';
+import { TransportType } from '@ndtcore/printer';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { DiscoveredDeviceList } from './DiscoveredDeviceList';
-import { ConnectionType } from '../models/connections/ConnectionType';
-import type { DeviceInfo } from '../models/device/DeviceInfo';
+import {
+  candidateKeyOf,
+  type UseAddPrinterFlow,
+} from '../hooks/useAddPrinterFlow';
 
+/** Nhãn nút kết nối theo trạng thái. */
+const CONNECT_LABELS: Record<
+  UseAddPrinterFlow['session']['connectionState'],
+  string
+> = {
+  idle: 'Kết nối',
+  connecting: 'Đang kết nối...',
+  connected: 'Kết nối lại',
+  error: 'Kết nối',
+};
+
+/** Thuộc tính phần kết nối của form thêm máy. */
 export interface ConnectionSectionProps {
-  connectionType: ConnectionType;
-  onConnectionTypeChange: (value: ConnectionType) => void;
-
-  /** Mã quét native của thiết bị đang chọn; còn đúng sau khi kết nối đổi serial. */
-  selectedScanId?: string;
-
-  onSelectDevice: (device: DeviceInfo) => void;
-  lanIp: string;
-  lanPort: string;
-  onLanIpChange: (value: string) => void;
-  onLanPortChange: (value: string) => void;
-  lanIpError?: string;
-  lanPortError?: string;
-  detectedLanIp?: string | null;
-  lanIpFetchError?: string;
-  onFetchLanIp: () => void;
-  onAutoFillLanIp: () => void;
-  connectLabel: string;
-  connectDisabled: boolean;
-  onConnectPress: () => void;
-
-  /** Bỏ ngôn ngữ đã xác định để mở khoá phần kết nối; nút chỉ hiện khi phần kết nối đang bị khoá. */
-  onChangeConnection: () => void;
-
-  /** Điểm kết nối vật lý cố định sau khi đã xác nhận ngôn ngữ. */
-  disabled: boolean;
+  /** Luồng thêm máy. */
+  flow: UseAddPrinterFlow;
 }
 
+/** Chọn cách kết nối, chọn máy hoặc nhập IP, rồi kết nối; đã kết nối thì khoá cho tới khi đổi kết nối. */
 export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
-  connectionType,
-  onConnectionTypeChange,
-  selectedScanId,
-  onSelectDevice,
-  lanIp,
-  lanPort,
-  onLanIpChange,
-  onLanPortChange,
-  lanIpError,
-  lanPortError,
-  detectedLanIp,
-  lanIpFetchError,
-  onFetchLanIp,
-  onAutoFillLanIp,
-  connectLabel,
-  connectDisabled,
-  onConnectPress,
-  onChangeConnection,
-  disabled,
-}) => (
-  <View style={styles.container}>
-    <SegmentedButtons
-      value={connectionType}
-      onValueChange={(value) => onConnectionTypeChange(value as ConnectionType)}
-      buttons={[
-        { value: ConnectionType.Usb, label: 'USB' },
-        { value: ConnectionType.Bluetooth, label: 'Bluetooth' },
-        { value: ConnectionType.Lan, label: 'LAN' },
-      ]}
-    />
-    {connectionType === ConnectionType.Lan ? (
-      <>
-        <AppInput label="Địa chỉ IP" value={lanIp} onChangeText={onLanIpChange} errorMessage={lanIpError} disabled={disabled} />
-        <View style={styles.lanIpActions}>
-          <AppButton label="Lấy IP mạng" mode="outlined" onPress={onFetchLanIp} disabled={disabled} />
-          {detectedLanIp ? <AppButton label="Điền IP" mode="outlined" onPress={onAutoFillLanIp} disabled={disabled} /> : null}
-        </View>
-        {lanIpFetchError ? <HelperText type="error">{lanIpFetchError}</HelperText> : null}
-        <AppInput
-          label="Cổng"
-          value={lanPort}
-          onChangeText={onLanPortChange}
-          keyboardType="numeric"
-          errorMessage={lanPortError}
-          disabled={disabled}
-        />
-      </>
-    ) : (
-      <DiscoveredDeviceList
-        connectionType={connectionType}
-        selectedScanId={selectedScanId}
-        onSelect={disabled ? () => undefined : onSelectDevice}
+  flow,
+}) => {
+  const { session, lan, selectedCandidate } = flow;
+  const locked = Boolean(session.draft);
+  const isLan = session.transport === TransportType.Lan;
+  const connectDisabled =
+    session.connectionState === 'connecting' ||
+    (!isLan && !selectedCandidate) ||
+    locked;
+
+  return (
+    <View style={styles.container}>
+      <SegmentedButtons
+        value={session.transport}
+        onValueChange={value => session.setTransport(value as TransportType)}
+        buttons={[
+          { value: TransportType.Usb, label: 'USB', disabled: locked },
+          {
+            value: TransportType.BluetoothClassic,
+            label: 'Bluetooth',
+            disabled: locked,
+          },
+          { value: TransportType.Lan, label: 'LAN', disabled: locked },
+        ]}
       />
-    )}
-    <AppButton label={connectLabel} onPress={onConnectPress} disabled={connectDisabled} />
-    {disabled ? <AppButton label="Đổi kết nối" mode="outlined" onPress={onChangeConnection} /> : null}
-  </View>
-);
+      {isLan ? (
+        <>
+          <AppInput
+            label="Địa chỉ IP"
+            value={lan.host}
+            onChangeText={lan.setHost}
+            errorMessage={lan.hostError}
+            disabled={locked}
+          />
+          <View style={styles.lanIpActions}>
+            <AppButton
+              label="Lấy IP mạng"
+              mode="outlined"
+              onPress={lan.fetchIpAsync}
+              disabled={locked}
+            />
+            {lan.detectedIp ? (
+              <AppButton
+                label="Điền IP"
+                mode="outlined"
+                onPress={lan.fillDetectedIp}
+                disabled={locked}
+              />
+            ) : null}
+          </View>
+          {lan.fetchError ? (
+            <HelperText type="error">{lan.fetchError}</HelperText>
+          ) : null}
+          <AppInput
+            label="Cổng"
+            value={lan.port}
+            onChangeText={lan.setPort}
+            keyboardType="numeric"
+            errorMessage={lan.portError}
+            disabled={locked}
+          />
+        </>
+      ) : (
+        <DiscoveredDeviceList
+          candidates={session.candidates}
+          loading={session.listing}
+          errorMessage={session.listError}
+          selectedKey={
+            selectedCandidate ? candidateKeyOf(selectedCandidate) : undefined
+          }
+          onSelect={flow.selectCandidate}
+          onRefresh={session.refreshAsync}
+          disabled={locked}
+        />
+      )}
+      <AppButton
+        label={CONNECT_LABELS[session.connectionState]}
+        onPress={flow.connectAsync}
+        disabled={connectDisabled}
+      />
+      {locked ? (
+        <AppButton
+          label="Đổi kết nối"
+          mode="outlined"
+          onPress={session.resetConnection}
+        />
+      ) : null}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: { gap: 12 },

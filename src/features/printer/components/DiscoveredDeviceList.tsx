@@ -1,96 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { List, IconButton, Text } from 'react-native-paper';
-import { deviceDiscoveryService } from '../discovery/DeviceDiscoveryService';
+import type { DeviceCandidate } from '@ndtcore/printer';
 import { EmptyState } from '../../../components/EmptyState';
 import { LoadingOverlay } from '../../../components/LoadingOverlay';
-import { DiscoveryStatus } from '../models/discovery/DiscoveryStatus';
-import type { DeviceInfo } from '../models/device/DeviceInfo';
-import type { ConnectionType } from '../models/connections/ConnectionType';
+import { candidateKeyOf } from '../hooks/useAddPrinterFlow';
 
+/** Thuộc tính danh sách máy tìm được. */
 export interface DiscoveredDeviceListProps {
-  connectionType: ConnectionType;
+  /** Máy USB, Bluetooth package liệt kê. */
+  candidates: DeviceCandidate[];
 
+  /** Đang liệt kê. */
+  loading: boolean;
 
-  /** Mã quét native của thiết bị đang chọn. */
-  selectedScanId?: string;
+  /** Không liệt kê được. */
+  errorMessage?: string;
 
-  onSelect: (device: DeviceInfo) => void;
+  /** Khoá của máy đang chọn. */
+  selectedKey?: string;
+
+  /** Chọn máy. */
+  onSelect: (candidate: DeviceCandidate) => void;
+
+  /** Liệt kê lại. */
+  onRefresh: () => void;
+
+  /** Khoá chọn sau khi đã kết nối. */
+  disabled: boolean;
 }
 
-/** Quét lâu hơn mức này thì dừng chờ và hiển thị những gì đã có. */
-const DISCOVERY_TIMEOUT_MS = 30000;
-
-/** Danh sách thiết bị tìm thấy cho một loại kết nối; tự quét khi mở và khi bấm làm mới. */
-export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
-  connectionType,
-  selectedScanId,
-  onSelect,
-}) => {
-  const [loading, setLoading] = useState(true);
-  const [devices, setDevices] = useState<DeviceInfo[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [discoveryTrigger, setDiscoveryTrigger] = useState(0);
-
-  useEffect(() => {
-    setLoading(true);
-    setErrorMessage(null);
-    setDevices([]);
-    let settled = false;
-
-    const settle = (): void => {
-      settled = true;
-      setLoading(false);
-    };
-
-    const unsubscribe = deviceDiscoveryService.discover(connectionType, (event) => {
-      if (settled || event.status === DiscoveryStatus.Loading) {
-        return;
-      }
-
-      settle();
-
-      if (event.status === DiscoveryStatus.Found) {
-        setDevices(event.devices);
-      }
-
-      if (event.status === DiscoveryStatus.Error) {
-        setErrorMessage(event.error.message);
-      }
-    });
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settle();
-        unsubscribe();
-      }
-    }, DISCOVERY_TIMEOUT_MS);
-
-    return () => {
-      clearTimeout(timer);
-      unsubscribe();
-    };
-  }, [connectionType, discoveryTrigger]);
+/** Danh sách máy tìm được; máy đã thêm cho loại nội dung này ghi tên máy in đang dùng nó. */
+export const DiscoveredDeviceList: React.FC<
+  DiscoveredDeviceListProps
+> = props => {
+  const {
+    candidates,
+    loading,
+    errorMessage,
+    selectedKey,
+    onSelect,
+    onRefresh,
+    disabled,
+  } = props;
 
   return (
     <View>
       <View style={styles.header}>
         <Text variant="labelMedium">Thiết bị tìm thấy</Text>
-        <IconButton icon="refresh" size={16} onPress={() => setDiscoveryTrigger((count) => count + 1)} />
+        <IconButton
+          icon="refresh"
+          size={16}
+          onPress={onRefresh}
+          disabled={disabled}
+        />
       </View>
-      {loading && <LoadingOverlay />}
-      {!loading && errorMessage && <EmptyState message={errorMessage} />}
-      {!loading && !errorMessage && devices.length === 0 && <EmptyState message="Không tìm thấy thiết bị nào" />}
+      {loading ? <LoadingOverlay /> : null}
+      {!loading && errorMessage ? <EmptyState message={errorMessage} /> : null}
+      {!loading && !errorMessage && candidates.length === 0 ? (
+        <EmptyState message="Không tìm thấy thiết bị nào" />
+      ) : null}
       {!loading &&
         !errorMessage &&
-        devices.map((discovered) => {
-          const isSelected = discovered.deviceId === selectedScanId;
+        candidates.map(candidate => {
+          const key = candidateKeyOf(candidate);
+          const isSelected = key === selectedKey;
 
           return (
             <List.Item
-              key={discovered.deviceId}
-              title={discovered.name}
-              onPress={() => onSelect(discovered)}
+              key={key}
+              title={candidate.displayName}
+              description={
+                candidate.duplicate
+                  ? `Đã thêm: ${candidate.duplicate.name}`
+                  : undefined
+              }
+              onPress={disabled ? undefined : () => onSelect(candidate)}
               // eslint-disable-next-line react/no-unstable-nested-components -- render-prop của List.Item
               right={() => (isSelected ? <List.Icon icon="check" /> : null)}
             />
@@ -101,5 +86,9 @@ export const DiscoveredDeviceList: React.FC<DiscoveredDeviceListProps> = ({
 };
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
 });

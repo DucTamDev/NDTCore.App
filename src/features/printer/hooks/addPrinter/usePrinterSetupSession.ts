@@ -14,7 +14,11 @@ import {
 import { printerErrorMessageOf } from '../../errors/PrinterErrorMessages';
 
 /** Trạng thái kết nối của máy đang thêm. */
-export type SetupConnectionState = 'idle' | 'connecting' | 'connected' | 'error';
+export type SetupConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'error';
 
 /** Phiên thêm máy in: tìm máy, kết nối, giữ bản nháp để form cấu hình rồi lưu. */
 export interface UsePrinterSetupSession {
@@ -63,20 +67,36 @@ export interface UsePrinterSetupSession {
 
 /** Câu tiếng Việt của lỗi package; lỗi lạ thì câu chung. */
 const messageOf = (error: unknown): string =>
-  printerErrorMessageOf(error instanceof PrinterError ? error.code : PrinterErrorCode.InternalError);
+  printerErrorMessageOf(
+    error instanceof PrinterError ? error.code : PrinterErrorCode.InternalError,
+  );
+
+/** Tuỳ chọn của phiên thêm máy. */
+export interface PrinterSetupSessionOptions {
+  /** false khi đang sửa máy đã lưu: không mở luồng thêm. Mặc định true. */
+  enabled?: boolean;
+
+  /** Luồng thêm của package; test truyền bản giả. */
+  setup?: PrinterSetupService;
+}
 
 /** Phiên thêm máy theo kind; đóng (unmount) thì huỷ luồng thêm để package trả lại kết nối. */
 export const usePrinterSetupSession = (
   kind: PrinterKind,
-  setup: PrinterSetupService = printerSetup,
+  { enabled = true, setup = printerSetup }: PrinterSetupSessionOptions = {},
 ): UsePrinterSetupSession => {
-  const [transport, setTransportState] = useState<TransportType>(TransportType.Usb);
+  const [transport, setTransportState] = useState<TransportType>(
+    TransportType.Usb,
+  );
   const [candidates, setCandidates] = useState<DeviceCandidate[]>([]);
   const [listing, setListing] = useState(false);
   const [listError, setListError] = useState<string | undefined>(undefined);
   const [lanFieldErrors, setLanFieldErrors] = useState<FieldError[]>([]);
-  const [connectionState, setConnectionState] = useState<SetupConnectionState>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  const [connectionState, setConnectionState] =
+    useState<SetupConnectionState>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(
+    undefined,
+  );
   const [draft, setDraft] = useState<Printer | undefined>(undefined);
   const [connectionLost, setConnectionLost] = useState(false);
 
@@ -102,7 +122,10 @@ export const usePrinterSetupSession = (
 
       setListing(true);
       try {
-        const found = next === TransportType.Usb ? setup.listUsbDevices() : await setup.listBluetoothDevicesAsync();
+        const found =
+          next === TransportType.Usb
+            ? setup.listUsbDevices()
+            : await setup.listBluetoothDevicesAsync();
         setCandidates(found);
       } catch (error) {
         setCandidates([]);
@@ -115,9 +138,13 @@ export const usePrinterSetupSession = (
   );
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
     setup.start(kind);
     listAsync(TransportType.Usb).catch(() => undefined);
-    const unsubscribe = setup.subscribe((event) => {
+    const unsubscribe = setup.subscribe(event => {
       if (event.type === SetupEventType.ConnectionLost) {
         setConnectionLost(true);
       }
@@ -127,7 +154,7 @@ export const usePrinterSetupSession = (
       unsubscribe();
       setup.cancelAsync().catch(() => undefined);
     };
-  }, [kind, setup, listAsync]);
+  }, [enabled, kind, setup, listAsync]);
 
   const setTransport = useCallback(
     async (next: TransportType) => {
@@ -139,7 +166,10 @@ export const usePrinterSetupSession = (
     [listAsync, resetConnection],
   );
 
-  const refreshAsync = useCallback(() => listAsync(transport), [listAsync, transport]);
+  const refreshAsync = useCallback(
+    () => listAsync(transport),
+    [listAsync, transport],
+  );
 
   const connectAsync = useCallback(
     async (candidate: DeviceCandidate) => {
