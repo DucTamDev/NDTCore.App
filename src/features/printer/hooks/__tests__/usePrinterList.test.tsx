@@ -1,114 +1,78 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
+import type { Printer, PrinterListListener, PrinterManager } from '@ndtcore/printer';
 import { usePrinterList, type UsePrinterList } from '../usePrinterList';
-import printerReducer from '../../store/printerSlice';
-import { printerRepository } from '../../storage/PrinterRepository';
-import { printerConnectionService } from '../../connection/PrinterConnectionService';
-import type { Printer } from '../../models/printer/Printer';
-import { ConnectionType } from '../../models/connections/ConnectionType';
-import { makePrinter } from '../../testing/printerFixtures';
 
-jest.mock('../../../../services/LoggerService', () => ({ LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() } }));
-
-jest.mock('../../storage/PrinterRepository', () => ({
-  printerRepository: {
-    getPrinters: jest.fn(() => []),
-    setEnabled: jest.fn(),
-    removePrinter: jest.fn(),
-  },
+jest.mock('../../../../services/LoggerService', () => ({
+  LoggerService: { debug: jest.fn(), info: jest.fn(), warning: jest.fn(), error: jest.fn() },
 }));
 
-jest.mock('../../connection/PrinterConnectionService', () => ({
-  printerConnectionService: {
-    connect: jest.fn(() => Promise.resolve()),
-    disconnect: jest.fn(() => Promise.resolve()),
-    reconnect: jest.fn(() => Promise.resolve()),
-    forget: jest.fn(),
-  },
-}));
+/** Printer giả, chỉ cần id để phân biệt. */
+const printer = (id: string): Printer => ({ id }) as unknown as Printer;
 
-const printer = (over: Partial<Printer> = {}): Printer =>
-  makePrinter({
-    name: 'M1',
-    connection: { type: ConnectionType.Lan, host: '1.2.3.4', port: 9100 },
-    deviceId: 'lan:1.2.3.4:9100',
-    createdAt: '',
-    updatedAt: '',
-    ...over,
-  });
-
-const makeStore = () => configureStore({ reducer: { printer: printerReducer } });
-
-const Harness: React.FC<{ onHook: (h: UsePrinterList) => void }> = ({ onHook }) => {
-  onHook(usePrinterList());
-  return null;
+/** printerManager giả: giữ listener để test phát danh sách mới. */
+const makeManager = (initial: Printer[]) => {
+  let listener: PrinterListListener | undefined;
+  const manager = {
+    getPrinters: jest.fn(() => initial),
+    subscribe: jest.fn((next: PrinterListListener) => {
+      listener = next;
+      return jest.fn();
+    }),
+    removeAsync: jest.fn(() => Promise.resolve()),
+    reconnectAsync: jest.fn(() => Promise.resolve()),
+    listUsbDevicesForRebind: jest.fn(() => []),
+    rebindUsbAsync: jest.fn(() => Promise.resolve()),
+  };
+  return { manager: manager as unknown as PrinterManager, mock: manager, emit: (list: Printer[]) => listener?.(list) };
 };
 
-const render = () => {
-  const store = makeStore();
+const render = (manager: PrinterManager) => {
   let hook!: UsePrinterList;
+  const Harness: React.FC = () => {
+    hook = usePrinterList(manager);
+    return null;
+  };
   act(() => {
-    TestRenderer.create(
-      <Provider store={store}>
-        <Harness onHook={(h) => { hook = h; }} />
-      </Provider>,
-    );
+    TestRenderer.create(<Harness />);
   });
-  return { store, get: () => hook };
+  return () => hook;
 };
 
 describe('usePrinterList', () => {
-  afterEach(() => jest.clearAllMocks());
-
-  it('loads printers from printerRepository into the store on mount', () => {
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([printer()]);
-    const { get } = render();
-    expect(printerRepository.getPrinters).toHaveBeenCalled();
-    expect(get().printers).toEqual([printer()]);
+  it('đọc danh sách ban đầu từ printerManager', () => {
+    const { manager } = makeManager([printer('a')]);
+    expect(render(manager)().printers.map((item) => item.id)).toEqual(['a']);
   });
 
-  it('reload() re-reads storage into the store', () => {
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([]);
-    const { get } = render();
-    expect(get().printers).toEqual([]);
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
-    act(() => get().reload());
-    expect(get().printers).toHaveLength(2);
+  it('nhận danh sách mới qua subscribe', () => {
+    const { manager, emit } = makeManager([printer('a')]);
+    const get = render(manager);
+
+    act(() => emit([printer('a'), printer('b')]));
+
+    expect(get().printers.map((item) => item.id)).toEqual(['a', 'b']);
   });
 
-  it('setEnabled() writes through printerRepository and updates the store', () => {
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([printer({ enabled: true })]);
-    const { get } = render();
-    act(() => get().setEnabled('p1', false));
-    expect(printerRepository.setEnabled).toHaveBeenCalledWith('p1', false);
-    expect(get().printers.find((p) => p.id === 'p1')?.enabled).toBe(false);
+  it('các thao tác gọi đúng hàm của printerManager', async () => {
+    const { manager, mock } = makeManager([printer('a')]);
+    const hook = render(manager)();
+
+    await hook.removeAsync('a');
+    await hook.reconnectAsync('a');
+    hook.listUsbDevicesForRebind('a');
+    await hook.rebindUsbAsync('a', '/dev/usb/1');
+
+    expect(mock.removeAsync).toHaveBeenCalledWith('a');
+    expect(mock.reconnectAsync).toHaveBeenCalledWith('a');
+    expect(mock.listUsbDevicesForRebind).toHaveBeenCalledWith('a');
+    expect(mock.rebindUsbAsync).toHaveBeenCalledWith('a', '/dev/usb/1');
   });
 
-  it('remove() ngắt kết nối, xoá khỏi storage rồi bỏ khỏi store', async () => {
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([printer(), printer({ id: 'p2' })]);
-    const { get } = render();
-    await act(async () => {
-      await get().remove('p1');
-    });
-    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
-    expect(printerRepository.removePrinter).toHaveBeenCalledWith('p1');
-    expect(get().printers.map((p) => p.id)).toEqual(['p2']);
-  });
+  it('kết nối lại lỗi thì ghi log, không reject', async () => {
+    const { manager, mock } = makeManager([printer('a')]);
+    mock.reconnectAsync.mockRejectedValueOnce(new Error('ACTION_UNAVAILABLE'));
 
-  it('connect/disconnect/reconnect delegate to printerConnectionService and swallow rejections', async () => {
-    const saved = printer({ id: 'p1' });
-    (printerRepository.getPrinters as jest.Mock).mockReturnValue([saved]);
-    (printerConnectionService.connect as jest.Mock).mockRejectedValueOnce(new Error('boom'));
-    const { get } = render();
-    await act(async () => {
-      get().connect('p1');
-      await get().disconnect('p1');
-      get().reconnect('p1');
-    });
-    expect(printerConnectionService.connect).toHaveBeenCalledWith(saved);
-    expect(printerConnectionService.disconnect).toHaveBeenCalledWith('p1');
-    expect(printerConnectionService.reconnect).toHaveBeenCalledWith('p1');
+    await expect(render(manager)().reconnectAsync('a')).resolves.toBeUndefined();
   });
 });

@@ -2,8 +2,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { EmptyState } from '../../../components/EmptyState';
 import { PrinterListItem } from './PrinterListItem';
+import type { Printer } from '@ndtcore/printer';
 import type { PrinterListActions } from '../hooks/usePrinterList';
-import type { Printer } from '../models/printer/Printer';
 
 export interface PrinterListProps {
   printers: Printer[];

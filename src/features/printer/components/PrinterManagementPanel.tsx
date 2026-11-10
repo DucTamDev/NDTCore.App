@@ -9,10 +9,10 @@ import { AddPrinterModal } from './AddPrinterModal';
 import { AddPrinterForm } from './AddPrinterForm';
 import { PrintKind } from '../models/printer/PrintKind';
 import { PRINT_KIND_LABELS } from '../utils/printKindLabels';
-import type { Printer } from '../models/printer/Printer';
+import type { Printer } from '@ndtcore/printer';
 
 export const PrinterManagementPanel: React.FC = () => {
-  const { printers, reload, ...actions } = usePrinterList();
+  const { printers, ...actions } = usePrinterList();
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingPrinter, setEditingPrinter] = useState<Printer | undefined>(undefined);
   const [addSessionId, setAddSessionId] = useState(0);
@@ -32,10 +32,8 @@ export const PrinterManagementPanel: React.FC = () => {
 
   const backToList = (): void => setMode('list');
 
-  const onSaved = (): void => {
-    setMode('list');
-    reload();
-  };
+  // Danh sách tự cập nhật qua subscribe của package, không cần nạp lại.
+  const onSaved = (): void => setMode('list');
 
   useEffect(() => {
     if (!(isPhone && mode === 'form')) return undefined;
@@ -48,7 +46,7 @@ export const PrinterManagementPanel: React.FC = () => {
 
   const formKey = editingPrinter?.id ?? `add-${addSessionId}`;
   /** Sửa: giữ nguyên `kind` đã lưu (không đổi được). Thêm mới: theo tab đang mở. */
-  const kind = editingPrinter ? editingPrinter.kind : activeTab;
+  const kind = editingPrinter ? editingPrinter.config.kind : activeTab;
 
   if (isPhone && mode === 'form') {
     return (
@@ -56,7 +54,6 @@ export const PrinterManagementPanel: React.FC = () => {
         <AddPrinterForm
           key={formKey}
           visible
-          initialValues={editingPrinter}
           onSaved={onSaved}
           onBack={backToList}
           showBackButton={false}
@@ -66,7 +63,7 @@ export const PrinterManagementPanel: React.FC = () => {
     );
   }
 
-  const printersForTab = printers.filter((p) => p.kind === activeTab);
+  const printersForTab = printers.filter((p) => p.config.kind === activeTab);
 
   return (
     <View style={styles.container}>
@@ -89,7 +86,6 @@ export const PrinterManagementPanel: React.FC = () => {
         <AddPrinterModal
           key={formKey}
           visible={mode === 'form'}
-          initialValues={editingPrinter}
           onDismiss={backToList}
           onSaved={onSaved}
           kind={kind}

@@ -1,86 +1,60 @@
-import { useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { AppDispatch, RootState } from '../../../store';
+import { useCallback, useEffect, useState } from 'react';
+import { printerManager, type Printer, type PrinterManager, type UsbRebindCandidate } from '@ndtcore/printer';
 import { LoggerService } from '../../../services/LoggerService';
-import { printerRepository } from '../storage/PrinterRepository';
-import { printerManagementService } from '../management/PrinterManagementService';
-import { printerConnectionService } from '../connection/PrinterConnectionService';
-import { printersLoaded, printerRemoved, printerEnabledChanged, selectPrinters } from '../store/printerSlice';
-import type { Printer } from '../models/printer/Printer';
 
-/** Thao tác trên 1 máy in đã lưu — bó vào 1 object để không phải khoan 5 callback qua từng lớp component. */
+/** Thao tác trên một máy in đã lưu; bó vào một object để không khoan từng callback qua các lớp component. */
 export interface PrinterListActions {
-  setEnabled: (printerId: string, enabled: boolean) => void;
-  /** Ngắt kết nối (kể cả đang kết nối dở) rồi xoá. */
-  remove: (printerId: string) => Promise<void>;
-  connect: (printerId: string) => void;
-  disconnect: (printerId: string) => Promise<void>;
-  reconnect: (printerId: string) => void;
+  /** Xoá máy in; package huỷ phần in chưa xong và đóng kết nối khi không còn ai dùng. */
+  removeAsync: (printerId: string) => Promise<void>;
+
+  /** Kết nối lại, xin quyền nếu thiếu; kết quả báo qua trạng thái của máy. */
+  reconnectAsync: (printerId: string) => Promise<void>;
+
+  /** Máy USB đang cắm để chọn lại, kèm máy in khác đang dùng từng máy. */
+  listUsbDevicesForRebind: (printerId: string) => UsbRebindCandidate[];
+
+  /** Chọn lại máy USB theo path. */
+  rebindUsbAsync: (printerId: string, path: string) => Promise<void>;
 }
 
+/** Danh sách máy in đã lưu kèm thao tác. */
 export interface UsePrinterList extends PrinterListActions {
+  /** Máy in đã lưu theo thứ tự thêm, kèm trạng thái kết nối. */
   printers: Printer[];
-  /** Nạp lại danh sách từ storage vào store — gọi sau khi modal Thêm/Sửa lưu xong. */
-  reload: () => void;
 }
 
-/**
- * Nguồn đọc + ghi danh sách máy in cho tầng UI. Storage (MMKV qua
- * `PrinterRepository`) là nguồn sự thật; store Redux chỉ là bản cache để component
- * subscribe reactive. Trạng thái kết nối không chép vào store mà đọc thẳng service qua
- * `useConnectionStatus`. Component KHÔNG tự gọi `PrinterRepository` để ghi: mọi mutation đi qua
- * hook này để storage và store luôn đồng bộ trong 1 bước.
- */
-export const usePrinterList = (): UsePrinterList => {
-  const dispatch = useDispatch<AppDispatch>();
-  const printers = useSelector((state: RootState) => selectPrinters(state));
-
-  const reload = useCallback(() => {
-    const list = printerRepository.getPrinters();
-    LoggerService.debug('usePrinterList.reload', {
-      count: list.length,
-      printers: list.map((p) => ({ id: p.id, name: p.name, connectionType: p.connection.type, language: p.language.type, enabled: p.enabled ?? true })),
-    });
-    dispatch(printersLoaded(list));
-  }, [dispatch]);
+/** Danh sách máy in từ package, cập nhật khi danh sách hoặc trạng thái đổi. */
+export const usePrinterList = (manager: PrinterManager = printerManager): UsePrinterList => {
+  const [printers, setPrinters] = useState<Printer[]>(() => manager.getPrinters());
 
   useEffect(() => {
-    reload();
-  }, [reload]);
+    setPrinters(manager.getPrinters());
+    // Package báo cùng mảng khi chỉ trạng thái đổi; chép ra mảng mới để React vẽ lại.
+    return manager.subscribe((list) => setPrinters([...list]));
+  }, [manager]);
 
-  const setEnabled = useCallback(
-    (printerId: string, enabled: boolean) => {
-      printerManagementService.setEnabled(printerId, enabled);
-      dispatch(printerEnabledChanged({ printerId, enabled }));
-    },
-    [dispatch],
-  );
+  const removeAsync = useCallback((printerId: string) => manager.removeAsync(printerId), [manager]);
 
-  const remove = useCallback(
+  const reconnectAsync = useCallback(
     async (printerId: string) => {
-      await printerManagementService.remove(printerId);
-      dispatch(printerRemoved(printerId));
-    },
-    [dispatch],
-  );
-
-  const connect = useCallback(
-    (printerId: string) => {
-      const printer = printers.find((candidate) => candidate.id === printerId);
-
-      if (printer) {
-        printerConnectionService.connect(printer).catch(() => undefined);
+      try {
+        await manager.reconnectAsync(printerId);
+      } catch (error) {
+        LoggerService.warning('Kết nối lại máy in thất bại', { printerId, error });
       }
     },
-    [printers],
+    [manager],
   );
 
-  // `disconnect` trả Promise để card "Xoá khi đang kết nối" chờ ngắt xong mới xoá.
-  const disconnect = useCallback((printerId: string) => printerConnectionService.disconnect(printerId).catch(() => undefined), []);
+  const listUsbDevicesForRebind = useCallback(
+    (printerId: string) => manager.listUsbDevicesForRebind(printerId),
+    [manager],
+  );
 
-  const reconnect = useCallback((printerId: string) => {
-    printerConnectionService.reconnect(printerId).catch(() => undefined);
-  }, []);
+  const rebindUsbAsync = useCallback(
+    (printerId: string, path: string) => manager.rebindUsbAsync(printerId, path),
+    [manager],
+  );
 
-  return { printers, reload, setEnabled, remove, connect, disconnect, reconnect };
+  return { printers, removeAsync, reconnectAsync, listUsbDevicesForRebind, rebindUsbAsync };
 };

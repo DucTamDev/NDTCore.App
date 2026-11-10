@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Chip, List } from 'react-native-paper';
 import { Controller, type Control, type FieldErrors } from 'react-hook-form';
+import { ConnectionState, type PrinterStatus } from '@ndtcore/printer';
 import { AppInput } from '../../../components/AppInput';
 import { AppButton } from '../../../components/AppButton';
 import { PrinterStatusBadge } from './PrinterStatusBadge';
@@ -15,6 +16,18 @@ import { ConnectionType } from '../models/connections/ConnectionType';
 import { ConnectionStatus } from '../models/connections/ConnectionStatus';
 import type { DeviceInfo } from '../models/device/DeviceInfo';
 import type { PaperForm } from '../forms/addPrinter/PaperFormSchema';
+
+/** Trạng thái của luồng thêm máy cũ theo dạng package, để dùng chung nhãn trạng thái của danh sách máy in. */
+const STATE_BY_STATUS: Record<ConnectionStatus, ConnectionState> = {
+  [ConnectionStatus.Idle]: ConnectionState.Disconnected,
+  [ConnectionStatus.Connecting]: ConnectionState.Connecting,
+  [ConnectionStatus.Connected]: ConnectionState.Connected,
+  [ConnectionStatus.Disconnecting]: ConnectionState.Connecting,
+  [ConnectionStatus.Disconnected]: ConnectionState.Disconnected,
+  [ConnectionStatus.Error]: ConnectionState.Error,
+};
+
+const packageStatusOf = (status: ConnectionStatus): PrinterStatus => ({ state: STATE_BY_STATUS[status], actions: [] });
 
 const connectionLabel: Record<ConnectionType, string> = {
   Usb: 'USB',
@@ -84,7 +97,7 @@ export const PrinterInfoCard: React.FC<PrinterInfoCardProps> = ({
       {device?.model ? <Text variant="bodySmall">Model: {device.model}</Text> : null}
       <View style={styles.row}>
         <Text variant="bodySmall">Loại kết nối: {connectionLabel[connectionType]}</Text>
-        <PrinterStatusBadge status={status} />
+        <PrinterStatusBadge status={packageStatusOf(status)} />
       </View>
 
       {language ? (

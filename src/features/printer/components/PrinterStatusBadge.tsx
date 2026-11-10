@@ -1,37 +1,35 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import type { ConnectionStatus } from '../models/connections/ConnectionStatus';
+import { ConnectionState, type PrinterStatus } from '@ndtcore/printer';
+import { printerErrorMessageOf } from '../errors/PrinterErrorMessages';
 
-const labelByStatus: Record<ConnectionStatus, string> = {
-  Idle: 'Chưa kết nối',
-  Connecting: 'Đang kết nối',
-  Connected: 'Đã kết nối',
-  Disconnecting: 'Đang ngắt kết nối',
-  Disconnected: 'Mất kết nối',
-  Error: 'Lỗi',
+const labelByState: Record<ConnectionState, string> = {
+  [ConnectionState.Connecting]: 'Đang kết nối',
+  [ConnectionState.Connected]: 'Đã kết nối',
+  [ConnectionState.Disconnected]: 'Mất kết nối',
+  [ConnectionState.Error]: 'Lỗi',
 };
 
-const colorByStatus: Record<ConnectionStatus, { bg: string; fg: string }> = {
-  Idle: { bg: '#F3F4F6', fg: '#6B7280' },
-  Connecting: { bg: '#FEF3C7', fg: '#B45309' },
-  Connected: { bg: '#DCFCE7', fg: '#15803D' },
-  Disconnecting: { bg: '#FEF3C7', fg: '#B45309' },
-  Disconnected: { bg: '#FEE2E2', fg: '#B91C1C' },
-  Error: { bg: '#FEE2E2', fg: '#B91C1C' },
+const colorByState: Record<ConnectionState, { bg: string; fg: string }> = {
+  [ConnectionState.Connecting]: { bg: '#FEF3C7', fg: '#B45309' },
+  [ConnectionState.Connected]: { bg: '#DCFCE7', fg: '#15803D' },
+  [ConnectionState.Disconnected]: { bg: '#FEE2E2', fg: '#B91C1C' },
+  [ConnectionState.Error]: { bg: '#FEE2E2', fg: '#B91C1C' },
 };
 
+/** Thuộc tính của nhãn trạng thái máy in. */
 export interface PrinterStatusBadgeProps {
-  status: ConnectionStatus;
+  /** Trạng thái kết nối của package. */
+  status: PrinterStatus;
 }
 
+/** Nhãn trạng thái; có mã lỗi thì hiện câu lỗi thay vì chữ "Lỗi" chung chung. */
 export const PrinterStatusBadge: React.FC<PrinterStatusBadgeProps> = ({ status }) => {
-  const colors = colorByStatus[status];
-  return (
-    <Text style={[styles.badge, { backgroundColor: colors.bg, color: colors.fg }]}>
-      {labelByStatus[status]}
-    </Text>
-  );
+  const colors = colorByState[status.state];
+  const label = status.errorCode ? printerErrorMessageOf(status.errorCode) : labelByState[status.state];
+
+  return <Text style={[styles.badge, { backgroundColor: colors.bg, color: colors.fg }]}>{label}</Text>;
 };
 
 const styles = StyleSheet.create({
