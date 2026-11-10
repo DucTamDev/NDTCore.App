@@ -11,7 +11,6 @@ module.exports = {
     '<rootDir>/node_modules/',
     '<rootDir>/.claude/',
     '<rootDir>/.superpowers/',
-    '<rootDir>/packages/printer-preview/',
   ],
   modulePathIgnorePatterns: ['<rootDir>/.claude/', '<rootDir>/.superpowers/'],
   // Package máy in nằm ngoài App (file:../NDTCore.Package) và có node_modules riêng; singleton phải lấy từ App, nếu không

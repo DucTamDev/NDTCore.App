@@ -70,8 +70,6 @@ yarn-error.log
 # Web build output (Webpack)
 /dist-web
 
-# Workspace package build output (Vite)
-packages/*/dist
 
 # Yarn
 .yarn/*
